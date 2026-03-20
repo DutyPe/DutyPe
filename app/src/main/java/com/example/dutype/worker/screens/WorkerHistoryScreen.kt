@@ -68,7 +68,7 @@ fun WorkerHistoryScreen(
         when (selectedTab) {
             0 -> uiState.applications.filter { 
                 it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.ACCEPTED 
-            }.sortedByDescending { it.updatedAt }
+            }.sortedByDescending { it.createdAt }
             1 -> uiState.applications.filter { it.status == ApplicationStatus.COMPLETED }
             2 -> uiState.applications.sortedByDescending { it.appliedAt }
             else -> uiState.applications
@@ -78,7 +78,7 @@ fun WorkerHistoryScreen(
     // Group applications by month for timeline view
     val groupedApplications = remember(filteredApplications) {
         filteredApplications.groupBy { app ->
-            val calendar = Calendar.getInstance().apply { timeInMillis = app.updatedAt }
+            val calendar = Calendar.getInstance().apply { timeInMillis = app.createdAt }
             SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
         }
     }
@@ -315,7 +315,7 @@ private fun TimelineJobCard(
                     ApplicationStatusBadge(status = application.status)
                     
                     Text(
-                        text = formatTimelineDate(application.updatedAt),
+                        text = formatTimelineDate(application.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF9CA3AF)
                         )

@@ -403,6 +403,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         Timber.d("📱 MainActivity.onResume()")
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                if (FirebaseAuth.getInstance().currentUser != null) {
+                    fcmTokenManager.registerToken()
+                }
+            }.onFailure { error ->
+                Timber.w(error, "FCM token refresh on app open failed")
+            }
+        }
         
         // Check for in-app updates (automatically skipped in debug builds)
         lifecycleScope.launch {

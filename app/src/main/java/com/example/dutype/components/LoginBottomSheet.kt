@@ -179,6 +179,41 @@ fun LoginBottomSheet(
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
+                    val loginResult = otpViewModel.completeLogin(role)
+                    loginResult.fold(
+                        onSuccess = { outcome ->
+                            profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                email = "",
+                                name = "",
+                                role = role
+                            )
+
+                            val shouldGoToProfileSetup =
+                                outcome.destination == OtpViewModel.PostOtpDestination.PROFILE_SETUP &&
+                                    onProfileSetupRequired != null
+
+                            otpViewModel.resetState()
+                            isCheckingProfile = false
+
+                            if (shouldGoToProfileSetup) {
+                                onProfileSetupRequired.invoke()
+                            } else {
+                                onLoginSuccess()
+                            }
+                        },
+                        onFailure = { error ->
+                            Timber.e(error, "LoginBottomSheet - Login resolution failed")
+                            Toast.makeText(
+                                context,
+                                error.message ?: "Could not load your account. Please try again.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            otpViewModel.resetState()
+                            isCheckingProfile = false
+                        }
+                    )
+                    return@LaunchedEffect
+
                     val userId = currentUser.uid
                     isCheckingProfile = true
                     

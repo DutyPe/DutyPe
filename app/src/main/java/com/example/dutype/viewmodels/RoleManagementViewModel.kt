@@ -88,8 +88,8 @@ class RoleManagementViewModel @Inject constructor(
                         roles = rolesArray,
                         activeRole = activeRole,
                         profileImageUrl = userData["profileImageUrl"] as? String,
-                        latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
-                        longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
+                        lat = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
+                        lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
                     )
                     
                     _currentUser.value = user

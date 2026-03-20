@@ -13,9 +13,11 @@ import androidx.annotation.Keep
 @Keep
 data class User(
     val id: String = "",
+    val email: String = "",
     val phone: String = "",
     val fullName: String = "",
     val profileImageUrl: String? = null,
+    val companyName: String = "",
 
     // Role management
     val roles: List<String> = listOf("WORKER"),

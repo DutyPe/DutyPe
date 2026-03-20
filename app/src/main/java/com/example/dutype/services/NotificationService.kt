@@ -33,7 +33,8 @@ class NotificationService @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     companion object {
-        private const val NOTIFICATION_RETENTION_MS = 45L * 24 * 60 * 60 * 1000
+        // Cloud cleanup should delete notification docs once this 30-day retention window passes.
+        private const val NOTIFICATION_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
     }
     
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -240,7 +241,7 @@ class NotificationService @Inject constructor(
                 id = UUID.randomUUID().toString(),
                 recipientId = employerId,
                 title = "Application Withdrawn",
-                message = "${application.workerName} has withdrawn their application for ${application.jobTitle}",
+                message = "A worker has withdrawn their application",
                 type = NotificationType.APPLICATION_STATUS,
                 data = mapOf(
                     "applicationId" to application.applicationId,
@@ -463,12 +464,12 @@ class NotificationService @Inject constructor(
         }
         
         val message = when (newStatus) {
-            ApplicationStatus.PENDING -> "Your application for ${application.jobTitle} has been submitted successfully"
-            ApplicationStatus.UNDER_REVIEW -> "Your application for ${application.jobTitle} is now under review"
-            ApplicationStatus.ACCEPTED -> "Congratulations! You've been accepted for ${application.jobTitle}"
-            ApplicationStatus.COMPLETED -> "Great job! Your work for ${application.jobTitle} has been marked as completed"
-            ApplicationStatus.REJECTED -> "Update on your application for ${application.jobTitle}"
-            ApplicationStatus.WITHDRAWN -> "You have withdrawn your application for ${application.jobTitle}"
+            ApplicationStatus.PENDING -> "Your application has been submitted successfully"
+            ApplicationStatus.UNDER_REVIEW -> "Your application is now under review"
+            ApplicationStatus.ACCEPTED -> "Congratulations! Your application has been accepted"
+            ApplicationStatus.COMPLETED -> "Your work has been marked as completed"
+            ApplicationStatus.REJECTED -> "Update on your application"
+            ApplicationStatus.WITHDRAWN -> "You have withdrawn your application"
         }
         
         return NotificationData(
@@ -496,7 +497,7 @@ class NotificationService @Inject constructor(
             id = UUID.randomUUID().toString(),
             recipientId = application.employerId,
             title = "New Application Received",
-            message = "${application.workerName} applied for ${application.jobTitle}",
+            message = "A worker submitted a new application",
             type = NotificationType.NEW_APPLICATION,
             targetRole = "EMPLOYER",
             data = mapOf(
@@ -795,3 +796,4 @@ class NotificationService @Inject constructor(
         }
     }
 }
+

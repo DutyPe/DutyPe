@@ -134,10 +134,10 @@ object NearestJobsEngine {
         
         return summaries
             .map { summary ->
-                if (hasValidCoordinates(summary.latitude, summary.longitude)) {
+                if (hasValidCoordinates(summary.lat, summary.lng)) {
                     summary.copy(distance = calculateHaversineDistance(
                         userLatitude, userLongitude,
-                        summary.latitude, summary.longitude
+                        summary.lat, summary.lng
                     ))
                 } else {
                     summary.copy(distance = null)

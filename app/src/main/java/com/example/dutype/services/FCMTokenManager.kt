@@ -1,8 +1,8 @@
 package com.example.dutype.services
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -120,10 +120,13 @@ class FCMTokenManager @Inject constructor(
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
         try {
-            val tokenData = mapOf("fcmToken" to token)
+            val tokenData = mapOf(
+                "fcmToken" to token,
+                "lastActiveAt" to Timestamp.now()
+            )
             firestore.collection("users")
                 .document(userId)
-                .set(tokenData, SetOptions.merge())
+                .update(tokenData)
                 .await()
             Timber.i("FCMTokenManager: Token saved for user: $userId")
         } catch (e: Exception) {
@@ -139,11 +142,11 @@ class FCMTokenManager @Inject constructor(
         try {
             val tokenData = mapOf(
                 "fcmToken" to token,
-                "activeRole" to role.uppercase()
+                "lastActiveAt" to Timestamp.now()
             )
             firestore.collection("users")
                 .document(userId)
-                .set(tokenData, SetOptions.merge())
+                .update(tokenData)
                 .await()
             Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
         } catch (e: Exception) {

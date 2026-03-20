@@ -1,6 +1,7 @@
 package com.example.dutype.services.firestore
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
@@ -29,6 +30,27 @@ class ApplicationFirestoreService @Inject constructor(
         const val JOBS_COLLECTION = "jobs"
         const val APPLICATIONS_COLLECTION = "applications"
         const val SAVED_JOBS_COLLECTION = "saved_jobs"
+    }
+
+    private fun toEpochMillis(value: Any?): Long {
+        return when (value) {
+            is Timestamp -> value.toDate().time
+            is Number -> value.toLong()
+            is java.util.Date -> value.time
+            else -> 0L
+        }
+    }
+
+    private fun normalizeReadStatus(data: Map<String, Any>): String {
+        val explicit = (data["status"] as? String)?.trim()?.lowercase()
+        if (explicit == "open" || explicit == "closed" || explicit == "expired") {
+            return explicit
+        }
+        val isActive = data["isActive"] as? Boolean
+        val isFilled = data["isFilled"] as? Boolean
+        if (isActive == true && isFilled != true) return "open"
+        if (isActive == true && isFilled == true) return "closed"
+        return "closed"
     }
     
     // ==================== SAVED JOBS METHODS (OPTIMIZED) ====================
@@ -123,8 +145,12 @@ class ApplicationFirestoreService @Inject constructor(
                 
                 snapshot.documents.forEach { doc ->
                     val data = doc.data
-                    if (data != null && (data["status"] as? String) == "open") {
-                        allJobs.add(data)
+                    if (data != null) {
+                        val expiresAt = toEpochMillis(data["expiresAt"])
+                        val isNotExpired = expiresAt == 0L || expiresAt > System.currentTimeMillis()
+                        if (normalizeReadStatus(data) == "open" && isNotExpired) {
+                            allJobs.add(data.toMutableMap().apply { put("jobId", doc.id) })
+                        }
                     }
                 }
             }
@@ -132,6 +158,10 @@ class ApplicationFirestoreService @Inject constructor(
             val sortedJobs = allJobs.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
             Result.success(sortedJobs)
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("saved_jobs read denied by rules for workerId=%s; returning empty saved list", workerId)
+                return Result.success(emptyList())
+            }
             Timber.e(e, "Error getting saved jobs")
             Result.failure(e)
         }
@@ -162,6 +192,10 @@ class ApplicationFirestoreService @Inject constructor(
             Timber.d("🔍 ApplicationFirestoreService: Found ${applications.size} applications for worker")
             Result.success(applications)
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("applications read denied by rules for workerId=%s; returning empty applications", workerId)
+                return Result.success(emptyList())
+            }
             Timber.e(e, "❌ ApplicationFirestoreService: Error getting applications for worker")
             Result.failure(e)
         }

@@ -9,15 +9,11 @@ import androidx.compose.ui.graphics.Color
  * Firestore applications collection:
  *   applicationId (doc ID = jobId_workerId), jobId, workerId,
  *   employerId, status, createdAt
- *
- * All other fields are RUNTIME ONLY — enriched by ViewModel from
- * jobs/users/worker_profiles collections. They are annotated with
- * @get:Exclude so Firestore never writes them.
  */
 @Keep
 @com.google.firebase.firestore.IgnoreExtraProperties
 data class JobApplication(
-    // --- FIRESTORE SCHEMA FIELDS ---
+    val applicationId: String = "",
     val id: String = "",
     val jobId: String = "",
     val workerId: String = "",
@@ -25,29 +21,41 @@ data class JobApplication(
     val status: ApplicationStatus = ApplicationStatus.PENDING,
     val createdAt: Long = System.currentTimeMillis(),
 
-    // --- RUNTIME ONLY (enriched from other collections, never written to Firestore) ---
-    @get:com.google.firebase.firestore.Exclude val jobTitle: String = "",
-    @get:com.google.firebase.firestore.Exclude val jobLocation: String = "",
-    @get:com.google.firebase.firestore.Exclude val companyName: String = "",
-    @get:com.google.firebase.firestore.Exclude val workerName: String = "",
-    @get:com.google.firebase.firestore.Exclude val workerPhone: String? = null,
-    @get:com.google.firebase.firestore.Exclude val workerEmail: String = "",
-    @get:com.google.firebase.firestore.Exclude val workerLocation: String? = null,
-    @get:com.google.firebase.firestore.Exclude val workerProfileImageUrl: String? = null,
-    @get:com.google.firebase.firestore.Exclude val workerLocalRating: Float? = null,
-    @get:com.google.firebase.firestore.Exclude val workerTotalReviews: Int? = null,
-    @get:com.google.firebase.firestore.Exclude val workerJobsInArea: Int? = null,
-    @get:com.google.firebase.firestore.Exclude val workerAadhaarVerified: Boolean? = null,
-    @get:com.google.firebase.firestore.Exclude val workerPhoneVerified: Boolean? = null,
-    @get:com.google.firebase.firestore.Exclude val workerIdentityVerified: Boolean? = null,
-    @get:com.google.firebase.firestore.Exclude val workerBackgroundCheckPassed: Boolean? = null,
-    @get:com.google.firebase.firestore.Exclude val skills: List<String> = emptyList(),
-    @get:com.google.firebase.firestore.Exclude val additionalDocuments: List<DocumentAttachment> = emptyList()
+    // Runtime fields used by UI/viewmodels. Firestore writes are still strict via toFirestoreMap().
+    val jobTitle: String = "",
+    val jobLocation: String = "",
+    val companyName: String = "",
+    val workerName: String = "",
+    val workerEmail: String? = null,
+    val workerPhone: String? = null,
+    val workerLocation: String? = null,
+    val workerProfileImageUrl: String? = null,
+    val workerLocalRating: Float? = null,
+    val workerTotalReviews: Int? = null,
+    val workerJobsInArea: Int? = null,
+    val workerAadhaarVerified: Boolean? = null,
+    val workerPhoneVerified: Boolean? = null,
+    val workerIdentityVerified: Boolean? = null,
+    val workerBackgroundCheckPassed: Boolean? = null,
+    val workerDateOfBirth: String? = null,
+    val workerGender: String? = null,
+    val skills: List<String> = emptyList(),
+    val skillsText: String? = null,
+    val workExperience: List<WorkExperience> = emptyList(),
+    val workExperienceText: String? = null,
+    val education: List<Education> = emptyList(),
+    val certifications: List<String> = emptyList(),
+    val languages: List<String> = emptyList(),
+    val availability: String? = null,
+    val expectedSalary: String? = null,
+    val resumeUrl: String? = null,
+    val coverLetter: String = "",
+    val statusHistory: List<StatusHistoryEntry> = emptyList(),
+    val additionalDocuments: List<DocumentAttachment> = emptyList()
 ) {
-    // Stable aliases used throughout the codebase
-    @get:com.google.firebase.firestore.Exclude val applicationId: String get() = id
-    @get:com.google.firebase.firestore.Exclude val appliedAt: Long get() = createdAt
-    @get:com.google.firebase.firestore.Exclude val active: Boolean
+    val canonicalId: String get() = if (applicationId.isNotBlank()) applicationId else id
+    val appliedAt: Long get() = createdAt
+    val active: Boolean
         get() = status != ApplicationStatus.WITHDRAWN && status != ApplicationStatus.REJECTED
 
     /**
@@ -73,7 +81,26 @@ data class DocumentAttachment(
     val url: String = "",
     val type: String = "",
     val uploadedAt: Long = System.currentTimeMillis()
-)
+) {
+    // Aliases used in UI
+    val fileName: String get() = name
+    val fileUrl: String get() = url
+    val fileType: DocumentFileType get() = DocumentFileType.fromString(type)
+    val fileSize: Long get() = 0L  // not stored — display placeholder
+}
+
+enum class DocumentFileType {
+    PDF, IMAGE, DOC, OTHER;
+
+    companion object {
+        fun fromString(type: String): DocumentFileType = when (type.uppercase()) {
+            "PDF" -> PDF
+            "IMAGE", "JPG", "JPEG", "PNG" -> IMAGE
+            "DOC", "DOCX" -> DOC
+            else -> OTHER
+        }
+    }
+}
 
 enum class ApplicationStatus {
     PENDING,        // "applied" in Firestore

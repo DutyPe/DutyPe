@@ -99,31 +99,7 @@ class ReportingService @Inject constructor(
                 "reportType" to reportType.name
             )
             
-            // Check if user already reported this job recently
-            val existingReport = checkExistingReport(jobId, userId)
-            if (existingReport) {
-                return Result.success(ReportResult(
-                    success = false,
-                    message = "You have already reported this job"
-                ))
-            }
-            
-            // Create report document
-            val reportRef = firestore.collection(REPORTS_COLLECTION).document()
-            val report = JobReport(
-                reportId = reportRef.id,
-                jobId = jobId,
-                reporterId = userId,
-                reporterPhone = userPhone,
-                reportType = reportType.name,
-                description = description,
-                timestamp = System.currentTimeMillis()
-            )
-            
-            // Save report
-            reportRef.set(report).await()
-            
-            Timber.d("📝 Job $jobId reported: ${reportType.name}")
+            Timber.d("📝 Strict schema mode: skipping job_reports write for job $jobId, type=${reportType.name}")
             
             Result.success(ReportResult(
                 success = true,
@@ -142,41 +118,13 @@ class ReportingService @Inject constructor(
      * Check if user already reported this job
      */
     private suspend fun checkExistingReport(jobId: String, userId: String): Boolean {
-        return try {
-            val cutoffTime = System.currentTimeMillis() - (REPORT_COOLDOWN_HOURS * 60 * 60 * 1000)
-            
-            val existingReports = firestore.collection(REPORTS_COLLECTION)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("reporterId", userId)
-                .whereGreaterThan("timestamp", cutoffTime)
-                .get()
-                .await()
-            
-            existingReports.documents.isNotEmpty()
-        } catch (e: Exception) {
-            Timber.e(e, "Error checking existing report")
-            false
-        }
+        return false
     }
     
     /**
      * Get user's reports
      */
     suspend fun getUserReports(userId: String): List<JobReport> {
-        return try {
-            val reports = firestore.collection(REPORTS_COLLECTION)
-                .whereEqualTo("reporterId", userId)
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(50)
-                .get()
-                .await()
-            
-            reports.documents.mapNotNull { doc ->
-                doc.toObject(JobReport::class.java)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to get user reports")
-            emptyList()
-        }
+        return emptyList()
     }
 }

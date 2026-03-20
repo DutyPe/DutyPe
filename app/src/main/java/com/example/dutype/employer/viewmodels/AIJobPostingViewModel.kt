@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.repositories.AIBackendRepository
 import com.example.dutype.services.ai.*
+import com.example.dutype.utils.GeoUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -352,35 +353,41 @@ class AIJobPostingViewModel @Inject constructor(
     private suspend fun saveJobToFirestore(jobId: String, analysis: JobAnalysisResponse?) {
         try {
             val state = _uiState.value
+            val defaultLat = 0.0
+            val defaultLng = 0.0
             
             val jobData = hashMapOf(
+                "jobId" to jobId,
                 "employerId" to employerId,
                 "title" to state.title,
                 "jobType" to (state.category.ifBlank { "OTHER" }),
                 "salary" to (state.payAmount.toDoubleOrNull() ?: 0.0),
                 "salaryType" to state.payType,
+                "location" to mapOf("lat" to defaultLat, "lng" to defaultLng),
+                "geohash" to GeoUtils.encode(defaultLat, defaultLng),
                 "status" to "open",
                 "urgency" to "MEDIUM",
                 "createdAt" to com.google.firebase.Timestamp.now(),
                 "expiresAt" to com.google.firebase.Timestamp(
                     (System.currentTimeMillis() / 1000) + (30L * 24 * 60 * 60), 0
-                ),
-                // AI metadata (backend-only, not in core schema)
-                "aiRiskScore" to (analysis?.riskScore ?: 0),
-                "aiRiskLevel" to (analysis?.riskLevel ?: "UNKNOWN"),
-                "aiReviewed" to (analysis != null)
+                )
             )
-            
-            // Apply shadow ban if high risk but not blocked
-            if (analysis != null && analysis.riskScore >= 50 && !analysis.shouldBlock) {
-                jobData["visibility"] = "LIMITED" // Shadow ban
-                jobData["shadowBanReason"] = "High risk score: ${analysis.riskScore}"
-                Timber.w("$TAG: Job $jobId shadow banned (risk: ${analysis.riskScore})")
-            }
             
             firestore.collection("jobs")
                 .document(jobId)
                 .set(jobData)
+                .await()
+
+            val detailsData = hashMapOf(
+                "jobId" to jobId,
+                "description" to state.description,
+                "contactNumber" to "",
+                "addressText" to state.location
+            )
+
+            firestore.collection("job_details")
+                .document(jobId)
+                .set(detailsData)
                 .await()
             
             // Register for duplicate detection

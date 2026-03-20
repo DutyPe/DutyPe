@@ -1,10 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-
-import { getFirebaseServices } from "@/lib/firebase/client";
+import { FormEvent, useState } from "react";
 
 const JOB_CATEGORIES = [
   "Delivery",
@@ -32,7 +29,6 @@ const PAY_TYPES = ["Monthly", "Weekly", "Daily", "Hourly", "Fixed"];
 const SHIFTS = ["Day Shift", "Night Shift", "Flexible", "Rotational", "Morning", "Evening"];
 
 export function AdminPostJobClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +55,6 @@ export function AdminPostJobClient() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!services) {
-      setError("Firebase is not configured.");
-      return;
-    }
 
     if (!form.title.trim() || !form.companyName.trim() || !form.location.trim()) {
       setError("Title, company, and location are required.");
@@ -73,25 +65,32 @@ export function AdminPostJobClient() {
       setSubmitting(true);
       setError(null);
 
-      await addDoc(collection(services.db, "jobs"), {
-        title: form.title.trim(),
-        companyName: form.companyName.trim(),
-        location: form.location.trim(),
-        description: form.description.trim(),
-        category: form.category || "Other",
-        payAmount: form.payAmount.trim(),
-        payType: form.payType,
-        shift: form.shift,
-        vacancies: Number(form.vacancies) || 1,
-        requirements: form.requirements.trim(),
-        contactPhone: form.contactPhone.trim(),
-        contactEmail: form.contactEmail.trim(),
-        isActive: true,
-        applicationCount: 0,
-        createdAt: serverTimestamp(),
-        postedBy: "admin",
-        source: "admin-console"
+      const response = await fetch("/api/admin/jobs", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          companyName: form.companyName.trim(),
+          location: form.location.trim(),
+          description: form.description.trim(),
+          category: form.category || "Other",
+          payAmount: form.payAmount.trim(),
+          payType: form.payType,
+          shift: form.shift,
+          vacancies: Number(form.vacancies) || 1,
+          requirements: form.requirements.trim(),
+          contactPhone: form.contactPhone.trim(),
+          contactEmail: form.contactEmail.trim()
+        })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to post job.");
+      }
 
       setSuccess(true);
       setForm({

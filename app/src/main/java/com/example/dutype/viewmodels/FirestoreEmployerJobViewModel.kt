@@ -205,17 +205,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 // Add employer ID to job data
                 val jobDataWithEmployer = jobData.toMutableMap()
                 jobDataWithEmployer["employerId"] = employerId
-                // Note: employerName is set in PostJobScreen from profile data
-                // Only set it if not already present in jobData
-                if (!jobDataWithEmployer.containsKey("employerName")) {
-                    val displayName = currentUser?.displayName
-                    jobDataWithEmployer["employerName"] = displayName ?: "Unknown Employer"
-                }
-                
-                // DEBUG: Log latitude and longitude specifically
-                val lat = jobDataWithEmployer["latitude"]
-                val lon = jobDataWithEmployer["longitude"]
-                Timber.d("📝 VIEWMODEL DEBUG: Coordinates being saved - lat: $lat, lon: $lon")
                 
                 firestoreJobRepository.createJob(jobDataWithEmployer).collect { result ->
                     result.fold(
@@ -292,10 +281,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 val jobDataWithEmployer = jobData.toMutableMap()
                 jobDataWithEmployer["employerId"] = employerId
                 jobDataWithEmployer["idempotencyKey"] = idempotencyKey
-                if (!jobDataWithEmployer.containsKey("employerName")) {
-                    val displayName = currentUser?.displayName
-                    jobDataWithEmployer["employerName"] = displayName ?: "Unknown Employer"
-                }
                 
                 // Try to submit directly first
                 var submitted = false
@@ -314,7 +299,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 // REMOVED: Notification sending moved to FirestoreJobRepository.createJob()
                                 // to prevent duplicate notifications from multiple code paths
                                 
-                                loadMyJobs()
                             },
                             onFailure = { exception ->
                                 submitError = exception.message
@@ -372,8 +356,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             _uiState.value = _uiState.value.copy(
                                 isUpdatingJob = false
                             )
-                            // Refresh jobs to show the updated one
-                            loadMyJobs()
                             callback(true, null)
                         },
                         onFailure = { exception ->
@@ -498,8 +480,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 Timber.e("employerId is null, cannot send notification")
                             }
                             
-                            // Refresh jobs to show the updated status
-                            loadMyJobs()
                         },
                         onFailure = { exception ->
                             Timber.e(exception, "Failed to toggle job status")

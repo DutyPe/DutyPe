@@ -45,8 +45,8 @@ class WorkLocationManager @Inject constructor(
                     id = doc.id,
                     label = data["label"] as? String ?: "",
                     address = data["address"] as? String ?: "",
-                    latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
-                    longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
+                    latitude = (data["lat"] as? Number)?.toDouble() ?: 0.0,
+                    longitude = (data["lng"] as? Number)?.toDouble() ?: 0.0,
                     addedAt = (data["addedAt"] as? Number)?.toLong() ?: 0L,
                     usageCount = (data["usageCount"] as? Number)?.toInt() ?: 0
                 )
@@ -65,81 +65,20 @@ class WorkLocationManager @Inject constructor(
         latitude: Double,
         longitude: Double
     ): Result<WorkLocation> {
-        return try {
-            val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not authenticated"))
-            val existing = getCached(userId).find { it.address == address }
-
-            if (existing != null) {
-                val newCount = existing.usageCount + 1
-                firestore.collection(COLLECTION).document(userId)
-                    .collection("locations").document(existing.id)
-                    .update("usageCount", newCount).await()
-                invalidate()
-                return Result.success(existing.copy(usageCount = newCount))
-            }
-
-            val all = getCached(userId)
-            if (all.size >= MAX_WORK_LOCATIONS) {
-                val leastUsed = all.minByOrNull { it.usageCount }
-                leastUsed?.let { removeWorkLocation(it.id) }
-            }
-
-            val newLocation = WorkLocation(
-                id = UUID.randomUUID().toString(),
-                label = label,
-                address = address,
-                latitude = latitude,
-                longitude = longitude,
-                addedAt = System.currentTimeMillis(),
-                usageCount = 1
-            )
-            firestore.collection(COLLECTION).document(userId)
-                .collection("locations").document(newLocation.id)
-                .set(mapOf(
-                    "label" to newLocation.label,
-                    "address" to newLocation.address,
-                    "latitude" to newLocation.latitude,
-                    "longitude" to newLocation.longitude,
-                    "addedAt" to newLocation.addedAt,
-                    "usageCount" to newLocation.usageCount
-                )).await()
-            invalidate()
-            Timber.d("📍 WorkLocation: Saved $label")
-            Result.success(newLocation)
-        } catch (e: Exception) {
-            Timber.e(e, "❌ WorkLocation: Failed to save")
-            Result.failure(e)
-        }
+        Timber.d("📍 WorkLocation strict mode: save skipped")
+        return Result.failure(Exception("Work locations are disabled in strict schema mode"))
     }
 
     suspend fun getWorkLocations(): Result<List<WorkLocation>> {
-        return try {
-            val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not authenticated"))
-            val locations = getCached(userId).sortedByDescending { it.usageCount }
-            Result.success(locations)
-        } catch (e: Exception) {
-            Timber.e(e, "❌ WorkLocation: Failed to get")
-            Result.failure(e)
-        }
+        return Result.success(emptyList())
     }
 
     suspend fun removeWorkLocation(locationId: String): Result<Unit> {
-        return try {
-            val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not authenticated"))
-            firestore.collection(COLLECTION).document(userId)
-                .collection("locations").document(locationId).delete().await()
-            invalidate()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "❌ WorkLocation: Failed to remove")
-            Result.failure(e)
-        }
+        Timber.d("📍 WorkLocation strict mode: remove skipped")
+        return Result.success(Unit)
     }
 
     suspend fun isLocationSaved(address: String): Boolean {
-        return try {
-            val userId = auth.currentUser?.uid ?: return false
-            getCached(userId).any { it.address == address }
-        } catch (e: Exception) { false }
+        return false
     }
 }

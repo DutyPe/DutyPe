@@ -61,9 +61,7 @@ fun WorkerProfileDetailsScreen(
     
     // Form state
     var fullName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("") }
     var skills by remember { mutableStateOf("") }
@@ -144,17 +142,11 @@ fun WorkerProfileDetailsScreen(
     // Load existing profile data
     LaunchedEffect(Unit) {
         val personalInfo = dataStore.getPersonalInfo()
-        val experienceList = dataStore.getExperience()
-        val skillsList = dataStore.getSkills()
         
         fullName = personalInfo.fullName
-        email = personalInfo.email
         phoneNumber = personalInfo.phone
-        address = personalInfo.address
         dateOfBirth = personalInfo.dateOfBirth
         gender = personalInfo.gender
-        skills = skillsList.joinToString(", ")
-        experience = experienceList.joinToString("\n") { exp: com.example.dutype.models.WorkExperience -> "${exp.position} at ${exp.company}" }
         
         // Load profile data from Firebase (including profile image)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -165,15 +157,14 @@ fun WorkerProfileDetailsScreen(
                 workerProfileData.fold(
                     onSuccess = { data ->
                         fullName = data["fullName"] as? String ?: fullName
-                        email = data["email"] as? String ?: email
                         phoneNumber = data["phone"] as? String ?: phoneNumber
                         profileImageUrl = data["profileImageUrl"] as? String
 
                         // jobTypes from worker_profiles — displayed as comma-separated skills
-                        val jobTypes = data["jobTypes"]
-                        skills = when (jobTypes) {
-                            is List<*> -> jobTypes.filterIsInstance<String>().joinToString(", ")
-                            is String -> jobTypes
+                        val rawSkills = data["skills"] ?: data["jobTypes"]
+                        skills = when (rawSkills) {
+                            is List<*> -> rawSkills.filterIsInstance<String>().joinToString(", ")
+                            is String -> rawSkills
                             else -> skills
                         }
 
@@ -357,12 +348,8 @@ fun WorkerProfileDetailsScreen(
                             EditablePersonalInfoCard(
                                 fullName = fullName,
                                 onFullNameChange = { fullName = it },
-                                email = email,
-                                onEmailChange = { email = it },
                                 phoneNumber = phoneNumber,
                                 onPhoneNumberChange = { phoneNumber = it },
-                                address = address,
-                                onAddressChange = { address = it },
                                 dateOfBirth = dateOfBirth,
                                 onDateOfBirthChange = { dateOfBirth = it },
                                 gender = gender,
@@ -373,9 +360,7 @@ fun WorkerProfileDetailsScreen(
                                 title = "Personal Information",
                                 items = listOf(
                                     "Full Name" to fullName,
-                                    "Email" to email,
                                     "Phone Number" to phoneNumber,
-                                    "Address" to address,
                                     "Date of Birth" to dateOfBirth,
                                     "Gender" to gender
                                 )
@@ -422,31 +407,17 @@ fun WorkerProfileDetailsScreen(
                             try {
                                 val personalInfo = com.example.dutype.worker.models.PersonalInfo(
                                     fullName = fullName,
-                                    email = email,
                                     phone = phoneNumber,
-                                    address = address,
                                     dateOfBirth = dateOfBirth,
                                     gender = gender
                                 )
                                 dataStore.savePersonalInfo(personalInfo)
-                                dataStore.saveSkills(skills.split(",").map { it.trim() }.filter { it.isNotEmpty() })
-                                
-                                val experienceList = experience.split("\n").filter { it.isNotEmpty() }.map { exp: String ->
-                                    com.example.dutype.models.WorkExperience(
-                                        company = exp.trim(),
-                                        position = exp.trim(),
-                                        startDate = "",
-                                        description = exp.trim()
-                                    )
-                                }
-                                dataStore.saveExperience(experienceList)
                                 
                                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                 if (currentUser != null) {
                                     val workerProfileData = mapOf(
                                         "fullName" to fullName,
-                                        "phone" to phoneNumber,
-                                        "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
+                                        "phone" to phoneNumber
                                     )
                                     profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                     Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
@@ -672,12 +643,8 @@ private fun ProfileFieldDisplay(
 private fun EditablePersonalInfoCard(
     fullName: String,
     onFullNameChange: (String) -> Unit,
-    email: String,
-    onEmailChange: (String) -> Unit,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
-    address: String,
-    onAddressChange: (String) -> Unit,
     dateOfBirth: String,
     onDateOfBirthChange: (String) -> Unit,
     gender: String,
@@ -709,27 +676,12 @@ private fun EditablePersonalInfoCard(
             )
             
             ProfileTextField(
-                label = "Email",
-                value = email,
-                onValueChange = onEmailChange,
-                placeholder = "Enter your email",
-                keyboardType = KeyboardType.Email
-            )
-            
-            ProfileTextField(
                 label = "Phone Number",
                 value = phoneNumber,
                 onValueChange = onPhoneNumberChange,
                 placeholder = "Enter your phone number",
                 keyboardType = KeyboardType.Phone,
-                enabled = false // Phone number is from login, shouldn't be editable
-            )
-            
-            ProfileTextField(
-                label = "Address",
-                value = address,
-                onValueChange = onAddressChange,
-                placeholder = "Enter your address"
+                enabled = false
             )
             
             ProfileTextField(

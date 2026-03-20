@@ -48,7 +48,6 @@ class EmployerProfileCache @Inject constructor() {
         val employerName: String,
         val contactPhone: String,
         val trustTier: String,
-        val email: String,
         val profileImageUrl: String,
         val timestamp: Long
     ) {
@@ -94,7 +93,6 @@ class EmployerProfileCache @Inject constructor() {
                         employerName = userDoc.getString("fullName") ?: "",
                         contactPhone = userDoc.getString("phone") ?: "",
                         trustTier = "VERIFIED",
-                        email = userDoc.getString("email") ?: "",
                         profileImageUrl = userDoc.getString("profileImageUrl") ?: "",
                         timestamp = System.currentTimeMillis()
                     )

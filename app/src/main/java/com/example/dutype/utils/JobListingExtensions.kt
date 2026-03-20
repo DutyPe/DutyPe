@@ -2,6 +2,8 @@ package com.example.dutype.utils
 
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
+import com.google.firebase.Timestamp
+import java.util.Date
 
 /**
  * Extension functions for JobListing — strict schema only.
@@ -14,6 +16,15 @@ import com.example.dutype.models.JobListingSummary
  */
 @Suppress("UNCHECKED_CAST")
 fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
+    fun toEpochMillis(value: Any?): Long {
+        return when (value) {
+            is Timestamp -> value.toDate().time
+            is Number -> value.toLong()
+            is Date -> value.time
+            else -> 0L
+        }
+    }
+
     val locationMap = this["location"] as? Map<*, *>
     val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
     val lng = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
@@ -28,20 +39,36 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         title = (this["title"] as? String) ?: "",
         salary = salary,
         salaryType = (this["salaryType"] as? String) ?: "",
-        jobType = (this["jobType"] as? String) ?: "",
+        jobType = (this["jobType"] as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: com.example.dutype.utils.CategoryDetector.detectCategory(
+                (this["title"] as? String) ?: "",
+                (this["description"] as? String) ?: ""
+            ),
         geohash = (this["geohash"] as? String) ?: "",
         urgency = (this["urgency"] as? String) ?: "MEDIUM",
+        gender = (this["gender"] as? String) ?: "Any",
+        experienceRequired = (this["experienceRequired"] as? String) ?: "No Experience Required",
+        shiftTiming = (this["shiftTiming"] as? String) ?: "Flexible",
+        isVerified = (this["isVerified"] as? Boolean) ?: false,
+        applicationCount = (this["applicationCount"] as? Number)?.toInt() ?: 0,
         status = status,
-        createdAt = (this["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-        expiresAt = (this["expiresAt"] as? Number)?.toLong()
+        createdAt = toEpochMillis(this["createdAt"]).takeIf { it > 0L } ?: System.currentTimeMillis(),
+        expiresAt = toEpochMillis(this["expiresAt"]).takeIf { it > 0L }
             ?: (System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)),
         lat = lat,
         lng = lng,
+        companyName = (this["companyName"] as? String) ?: "",
         // job_details fields (runtime only, loaded on click)
         description = (this["description"] as? String) ?: "",
         contactNumber = (this["contactNumber"] as? String) ?: "",
+        whatsappNumber = (this["whatsappNumber"] as? String) ?: "",
         location = (this["addressText"] as? String) ?: "",
         addressText = (this["addressText"] as? String) ?: "",
+        vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
+        workingHours = (this["workingHours"] as? String) ?: "",
+        educationRequired = (this["educationRequired"] as? String) ?: "",
+        benefits = (this["benefits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
         distance = (this["distance"] as? Number)?.toDouble(),
         isSaved = isSaved
     )
@@ -76,3 +103,26 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         isSaved = isSaved
     )
 }
+
+/**
+ * Convert JobListingSummary to full JobListing.
+ * job_details fields (description, contactNumber, addressText) are empty
+ * until loaded on demand.
+ */
+fun JobListingSummary.toJobListing(): JobListing = JobListing(
+    id = id,
+    employerId = employerId,
+    title = title,
+    salary = salary,
+    salaryType = salaryType,
+    jobType = jobType,
+    geohash = geohash,
+    urgency = urgency,
+    status = status,
+    createdAt = createdAt,
+    expiresAt = expiresAt,
+    lat = lat,
+    lng = lng,
+    distance = distance,
+    isSaved = isSaved
+)

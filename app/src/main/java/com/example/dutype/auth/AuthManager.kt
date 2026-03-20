@@ -2,6 +2,7 @@ package com.example.dutype.auth
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.dutype.cache.JobCacheManager
 import com.example.dutype.models.User
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.state.AppStateManager
@@ -33,6 +34,7 @@ class AuthManager @Inject constructor(
     private val fcmTokenManager: FCMTokenManager,
     private val profileSetupStateManager: ProfileSetupStateManager,
     private val appStateManager: AppStateManager,
+    private val jobCacheManager: JobCacheManager,
     private val firebaseAuth: FirebaseAuth,
     private val sessionManager: SessionManager
 ) {
@@ -132,6 +134,13 @@ class AuthManager @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "AuthManager - Error clearing AppStateManager session")
             }
+
+            try {
+                jobCacheManager.clearAllCaches()
+                Timber.d("AuthManager - Job caches cleared")
+            } catch (e: Exception) {
+                Timber.e(e, "AuthManager - Error clearing job caches")
+            }
             
             try {
                 fcmTokenManager.removeToken()
@@ -216,8 +225,8 @@ class AuthManager @Inject constructor(
                 roles = rolesArray,
                 activeRole = activeRole,
                 profileImageUrl = userData["profileImageUrl"] as? String,
-                latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
-                longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
+                lat = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
+                lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
             )
             
             // Update cached user

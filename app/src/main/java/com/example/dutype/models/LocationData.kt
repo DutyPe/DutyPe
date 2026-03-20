@@ -82,7 +82,8 @@ data class LocationData(
     /**
      * Check if location has valid coordinates
      */
-    fun hasValidCoordinates(): Boolean = latitude != 0.0 || longitude != 0.0
+    fun hasValidCoordinates(): Boolean =
+        com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)
     
     /**
      * Check if location is accurate (within 100 meters)

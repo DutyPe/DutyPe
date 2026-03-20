@@ -124,6 +124,7 @@ fun RegisterScreen(
 
     LaunchedEffect(initialRole, selectedRole) {
         Timber.d("RegisterScreen - Role: $initialRole -> $selectedRole")
+        otpViewModel.setRoleContext(selectedRole)
     }
 
     RegisterContent(
@@ -159,6 +160,35 @@ private fun RegisterContent(
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
+                    val pendingReferralCode = profileCompletionViewModel.getReferralCode()
+                    val registrationResult = otpViewModel.completeRegistration(
+                        role = role,
+                        fullName = fullName.trim(),
+                        referralCode = pendingReferralCode
+                    )
+
+                    registrationResult.fold(
+                        onSuccess = {
+                            profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                email = "",
+                                name = fullName.trim(),
+                                role = role
+                            )
+                            otpViewModel.resetState()
+                            navigateToProfileSetup(role, navController)
+                        },
+                        onFailure = { error ->
+                            Timber.e(error, "REGISTER - Registration finalization failed")
+                            Toast.makeText(
+                                context,
+                                error.message ?: "Could not finish registration. Please try again.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            otpViewModel.resetState()
+                        }
+                    )
+                    return@LaunchedEffect
+
                     val userId = currentUser.uid
                     val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
 

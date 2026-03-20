@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.toJobListing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview

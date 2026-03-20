@@ -366,10 +366,7 @@ fun FeedbackBottomSheet(
                                             "androidVersion" to android.os.Build.VERSION.RELEASE
                                         )
                                         
-                                        FirebaseFirestore.getInstance()
-                                            .collection("app_feedback")
-                                            .add(feedbackData)
-                                            .await()
+                                        Timber.d("Feedback strict mode: skipping Firestore write for app_feedback")
                                         
                                         Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")
                                         

@@ -492,16 +492,6 @@ private fun YourProfileSection(
             HorizontalDivider(color = Color(0xFFF3F4F6))
             
             Spacer(modifier = Modifier.height(12.dp))
-            
-            // Location (from geohash area — not stored as address in schema)
-            val location = profileUiState.user?.address?.takeIf { it.isNotBlank() }
-            if (location != null) {
-                ProfileInfoRow(
-                    icon = Icons.Default.LocationOn,
-                    label = "Location",
-                    value = location
-                )
-            }
         }
     }
 }

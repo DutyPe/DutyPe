@@ -37,6 +37,22 @@ class UserMetadata @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
+    private val allowedUserFields = setOf(
+        "userId",
+        "phone",
+        "fullName",
+        "profileImageUrl",
+        "roles",
+        "activeRole",
+        "location",
+        "geohash",
+        "isVerified",
+        "isActive",
+        "fcmToken",
+        "createdAt",
+        "lastActiveAt"
+    )
+
     
     // ==========================================
     // USER STATS
@@ -223,6 +239,8 @@ class UserMetadata @Inject constructor(
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
             
             if (doc.exists()) {
+                enforceStrictUsersSchemaIfNeeded(userId, doc, authPhoneNumber)
+
                 val firestorePhone = doc.getString("phone") ?: ""
                 val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
                 
@@ -231,12 +249,9 @@ class UserMetadata @Inject constructor(
                     fullName = doc.getString("fullName") ?: "",
                     phone = phoneToUse,
                     profileImageUrl = doc.getString("profileImageUrl") ?: "",
-                    companyName = doc.getString("companyName") ?: "",
                     createdAt = getEpochMillis(doc, "createdAt", System.currentTimeMillis()),
                     lastActiveAt = getEpochMillis(doc, "lastActiveAt", System.currentTimeMillis()),
-                    profileCompletionPercentage = (doc.getLong("profileCompletionPercentage") ?: 0L).toInt(),
-                    isVerified = doc.getBoolean("isVerified") ?: false,
-                    trustScore = (doc.getLong("trustScore") ?: 0L).toInt()
+                    isVerified = doc.getBoolean("isVerified") ?: false
                 )
                 Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
             } else {
@@ -246,12 +261,9 @@ class UserMetadata @Inject constructor(
                     fullName = "",
                     phone = authPhoneNumber,
                     profileImageUrl = "",
-                    companyName = "",
                     createdAt = System.currentTimeMillis(),
                     lastActiveAt = System.currentTimeMillis(),
-                    profileCompletionPercentage = 0,
-                    isVerified = false,
-                    trustScore = 0
+                    isVerified = false
                 )
                 Timber.d("📊 New user - using Auth phone: $authPhoneNumber")
             }
@@ -267,6 +279,55 @@ class UserMetadata @Inject constructor(
                 Timber.d("📊 Error fallback - using Auth phone: $authPhoneNumber")
             }
         }
+    }
+
+    private suspend fun enforceStrictUsersSchemaIfNeeded(
+        userId: String,
+        doc: DocumentSnapshot,
+        authPhoneNumber: String
+    ) {
+        val data = doc.data ?: return
+        val hasLegacyOrExtraFields = data.keys.any { it !in allowedUserFields }
+        if (!hasLegacyOrExtraFields) return
+
+        val roles = (data["roles"] as? List<*>)
+            ?.mapNotNull { it?.toString()?.uppercase() }
+            ?.filter { it == "WORKER" || it == "EMPLOYER" }
+            ?.distinct()
+            .orEmpty()
+            .ifEmpty { listOf("WORKER") }
+
+        val activeRole = (data["activeRole"] as? String)?.uppercase()
+            ?.takeIf { it == "WORKER" || it == "EMPLOYER" }
+            ?: roles.first()
+
+        @Suppress("UNCHECKED_CAST")
+        val location = data["location"] as? Map<String, Any>
+        val lat = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
+        val lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
+
+        val strictDoc = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "phone" to ((data["phone"] as? String).orEmpty().ifBlank { authPhoneNumber }),
+            "fullName" to ((data["fullName"] as? String).orEmpty()),
+            "roles" to roles,
+            "activeRole" to activeRole,
+            "location" to mapOf("lat" to lat, "lng" to lng),
+            "geohash" to ((data["geohash"] as? String).orEmpty()),
+            "isVerified" to ((data["isVerified"] as? Boolean) ?: false),
+            "isActive" to ((data["isActive"] as? Boolean) ?: true),
+            "createdAt" to (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp.now()),
+            "lastActiveAt" to (doc.getTimestamp("lastActiveAt") ?: com.google.firebase.Timestamp.now())
+        )
+
+        val profileImageUrl = (data["profileImageUrl"] as? String).orEmpty()
+        if (profileImageUrl.isNotBlank()) strictDoc["profileImageUrl"] = profileImageUrl
+
+        val fcmToken = (data["fcmToken"] as? String).orEmpty()
+        if (fcmToken.isNotBlank()) strictDoc["fcmToken"] = fcmToken
+
+        firestore.collection("users").document(userId).set(strictDoc).await()
+        Timber.w("📊 UserMetadata: Pruned legacy users fields for $userId")
     }
     
     private suspend fun loadWorkerStats(userId: String) {
@@ -418,12 +479,9 @@ data class UserStats(
     val fullName: String = "",
     val phone: String = "",
     val profileImageUrl: String = "",
-    val companyName: String = "", // For employers
     val createdAt: Long = 0L,
     val lastActiveAt: Long = 0L,
-    val profileCompletionPercentage: Int = 0,
-    val isVerified: Boolean = false,
-    val trustScore: Int = 0
+    val isVerified: Boolean = false
 ) {
     val accountAgeDays: Int
         get() = ((System.currentTimeMillis() - createdAt) / (24 * 60 * 60 * 1000)).toInt()
@@ -432,7 +490,7 @@ data class UserStats(
         get() = accountAgeDays < 7
     
     val displayName: String
-        get() = fullName.ifEmpty { companyName.ifEmpty { "User" } }
+        get() = fullName.ifEmpty { "User" }
 }
 
 /**

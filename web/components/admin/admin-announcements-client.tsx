@@ -1,20 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc
-} from "firebase/firestore";
-
-import { getFirebaseServices } from "@/lib/firebase/client";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
 
 type AnnouncementRow = {
@@ -35,7 +21,6 @@ const initialForm = {
 };
 
 export function AdminAnnouncementsClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -43,24 +28,23 @@ export function AdminAnnouncementsClient() {
   const [form, setForm] = useState(initialForm);
 
   async function loadAnnouncements() {
-    if (!services) {
-      setError("Firebase is not configured.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const snapshot = await getDocs(
-        query(collection(services.db, "announcements"), orderBy("createdAt", "desc"), limit(50))
-      );
+      const response = await fetch("/api/admin/announcements", {
+        credentials: "include",
+        cache: "no-store"
+      });
 
-      setAnnouncements(
-        snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<AnnouncementRow, "id">)
-        }))
-      );
+      const payload = (await response.json()) as {
+        announcements?: AnnouncementRow[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load announcements.");
+      }
+
+      setAnnouncements(payload.announcements ?? []);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load announcements.");
@@ -69,55 +53,87 @@ export function AdminAnnouncementsClient() {
     }
   }
 
-  useEffect(() => {
-    void loadAnnouncements();
-  }, []);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+        const response = await fetch("/api/admin/announcements", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title: form.title.trim(),
+            message: form.message.trim(),
+            type: form.type,
+            targetRole: form.targetRole
+          })
+        });
 
-    if (!services) {
-      return;
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to create announcement.");
+        }
+
+        setForm(initialForm);
+        await loadAnnouncements();
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : "Failed to create announcement.");
+      } finally {
+        setSubmitting(false);
+      }
     }
 
-    try {
-      setSubmitting(true);
-      await addDoc(collection(services.db, "announcements"), {
-        title: form.title.trim(),
-        message: form.message.trim(),
-        type: form.type,
-        targetRole: form.targetRole,
-        isActive: true,
-        priority: 1,
-        createdAt: serverTimestamp()
-      });
+    async function handleToggle(row: AnnouncementRow) {
+      try {
+        const response = await fetch("/api/admin/announcements", {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            announcementId: row.id,
+            isActive: !row.isActive
+          })
+        });
 
-      setForm(initialForm);
-      await loadAnnouncements();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to create announcement.");
-    } finally {
-      setSubmitting(false);
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to update announcement.");
+        }
+
+        await loadAnnouncements();
+      } catch (toggleError) {
+        setError(toggleError instanceof Error ? toggleError.message : "Failed to update announcement.");
+      }
     }
-  }
 
-  async function handleToggle(row: AnnouncementRow) {
-    if (!services) {
-      return;
+    async function handleDelete(id: string) {
+      const shouldDelete = window.confirm("Delete this announcement?");
+      if (!shouldDelete) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/admin/announcements", {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ announcementId: id })
+        });
+
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to delete announcement.");
+        }
+
+        await loadAnnouncements();
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
+      }
     }
-
-    try {
-      await updateDoc(doc(services.db, "announcements", row.id), {
-        isActive: !row.isActive
-      });
-      await loadAnnouncements();
-    } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : "Failed to update announcement.");
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!services) {
       return;
     }
 

@@ -107,7 +107,7 @@ fun EmployerProfileScreen(
                 // Use metadata for profile image URL
                 profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
                 
-                Timber.i("Employer profile (lightweight) - Company: ${userStats.companyName}, Phone: ${userStats.phone}")
+                Timber.i("Employer profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}")
             } catch (e: Exception) {
                 Timber.e("Error loading lightweight profile: ${e.message}")
             }
@@ -118,7 +118,7 @@ fun EmployerProfileScreen(
     // Update company name and phone from metadata (lightweight)
     // Also get phone from Firebase Auth as fallback for new users
     LaunchedEffect(userStats) {
-        companyName = userStats.companyName.ifEmpty { userStats.fullName }
+        companyName = userStats.fullName
         // Get phone from metadata, fallback to Firebase Auth
         val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
         companyPhone = userStats.phone.ifBlank { authPhone }

@@ -1,18 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  updateDoc
-} from "firebase/firestore";
-
-import { getFirebaseServices } from "@/lib/firebase/client";
+import { useEffect, useState } from "react";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
 
 type JobRow = {
@@ -45,7 +33,6 @@ type EditingJob = {
 };
 
 export function AdminJobsClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,21 +42,27 @@ export function AdminJobsClient() {
   const [searchTerm, setSearchTerm] = useState("");
 
   async function loadJobs() {
-    if (!services) {
-      setError("Firebase is not configured.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const snapshot = await getDocs(
-        query(collection(services.db, "jobs"), orderBy("createdAt", "desc"), limit(200))
-      );
+      const response = await fetch("/api/admin/jobs", {
+        credentials: "include",
+        cache: "no-store"
+      });
+
+      const payload = (await response.json()) as {
+        jobs?: Array<{ id: string } & Omit<JobRow, "id">>;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load jobs.");
+      }
+
+      const rows = payload.jobs ?? [];
 
       setJobs(
-        snapshot.docs.map((item) => {
-          const data = item.data() as Omit<JobRow, "id">;
+        rows.map((item) => {
+          const data = item as Omit<JobRow, "id"> & { id: string };
           const normalizedStatus = typeof data.status === "string" ? data.status : (data.isActive ? "open" : "closed");
           return {
             id: item.id,
@@ -92,12 +85,24 @@ export function AdminJobsClient() {
   }, []);
 
   async function handleDelete(jobId: string) {
-    if (!services) return;
     if (!window.confirm("Are you sure you want to delete this job? This cannot be undone.")) return;
 
     try {
       setPendingDeleteId(jobId);
-      await deleteDoc(doc(services.db, "jobs", jobId));
+      const response = await fetch("/api/admin/jobs", {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ jobId })
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete job.");
+      }
+
       await loadJobs();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete job.");
@@ -107,16 +112,27 @@ export function AdminJobsClient() {
   }
 
   async function handleToggleActive(jobId: string, currentActive: boolean) {
-    if (!services) return;
-
     try {
-      // Toggle between "open" and "closed" using canonical status field
-      await updateDoc(doc(services.db, "jobs", jobId), { 
-        status: currentActive ? "closed" : "open",
-        updatedAt: Date.now()
+      const nextStatus = currentActive ? "closed" : "open";
+      const response = await fetch("/api/admin/jobs", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          jobId,
+          status: nextStatus
+        })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to toggle job.");
+      }
+
       setJobs((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, status: currentActive ? "closed" : "open", updatedAt: Date.now() } : j))
+        prev.map((j) => (j.id === jobId ? { ...j, status: nextStatus, isActive: nextStatus === "open" } : j))
       );
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : "Failed to toggle job.");
@@ -139,21 +155,35 @@ export function AdminJobsClient() {
   }
 
   async function handleSaveEdit() {
-    if (!services || !editing) return;
+    if (!editing) return;
 
     try {
       setSaving(true);
-      await updateDoc(doc(services.db, "jobs", editing.id), {
-        title: editing.title,
-        companyName: editing.companyName,
-        location: editing.location,
-        payAmount: editing.payAmount,
-        vacancies: Number(editing.vacancies) || 0,
-        description: editing.description,
-        category: editing.category,
-        shift: editing.shift,
-        status: editing.isActive ? "open" : "closed"
+      const response = await fetch("/api/admin/jobs", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          jobId: editing.id,
+          title: editing.title,
+          companyName: editing.companyName,
+          location: editing.location,
+          payAmount: editing.payAmount,
+          vacancies: Number(editing.vacancies) || 0,
+          description: editing.description,
+          category: editing.category,
+          shift: editing.shift,
+          status: editing.isActive ? "open" : "closed"
+        })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to save changes.");
+      }
+
       setEditing(null);
       await loadJobs();
     } catch (saveError) {

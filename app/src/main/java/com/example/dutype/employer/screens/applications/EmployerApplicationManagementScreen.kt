@@ -291,10 +291,11 @@ private fun ApplicationCard(
     onUnlockContact: () -> Unit = {},
     onStatusUpdate: (ApplicationStatus, String?) -> Unit
 ) {
+    val workerEmail = application.workerEmail.orEmpty()
     // Determine display name - fallback to email or "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
-        application.workerEmail.isNotBlank() -> application.workerEmail.substringBefore("@")
+        workerEmail.isNotBlank() -> workerEmail.substringBefore("@")
         else -> "Unknown Worker"
     }
     
@@ -381,9 +382,9 @@ private fun ApplicationCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        if (application.workerEmail.isNotBlank()) {
+                        if (workerEmail.isNotBlank()) {
                             Text(
-                                text = application.workerEmail,
+                                text = workerEmail,
                                 style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis

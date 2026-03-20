@@ -272,7 +272,9 @@ fun MandatoryEmployerProfileSetupScreen(
             selfieError = null
             try {
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                if (currentUser != null) {
+                if (currentUser == null) {
+                    throw IllegalStateException("User not authenticated")
+                } else {
                     // First upload selfie if available
                     var uploadedSelfieUrl: String? = null
                     if (selfieUri != null) {
@@ -305,7 +307,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     val employerProfileData = mutableMapOf(
                         "companyName" to companyName,
-                        "fullName" to companyName,
                         "phone" to contactPhone
                     )
                     
@@ -314,57 +315,13 @@ fun MandatoryEmployerProfileSetupScreen(
                         employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
                     }
                     
-                    profileCompletionViewModel.saveEmployerProfileData(employerProfileData)
-                    
-                    // CRITICAL FIX: Ensure role is added to user's roles array in Firestore
-                    // This is essential for dual-role functionality
-                    try {
-                        val currentUserId = currentUser.uid
-                        val userRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(currentUserId)
-                        
-                        // Get current user data
-                        val userDoc = userRef.get().await()
-                        val currentRoles = userDoc.get("roles") as? List<String> ?: listOf()
-                        
-                        // Add EMPLOYER role if not already present
-                        if (!currentRoles.contains("EMPLOYER")) {
-                            val updatedRoles = currentRoles.toMutableList().apply {
-                                add("EMPLOYER")
-                            }
-                            
-                            userRef.update(mapOf(
-                                "roles" to updatedRoles,
-                                "activeRole" to "EMPLOYER"
-                            )).await()
-                            
-                            Timber.d("✅ DUAL_ROLE: Added EMPLOYER role to user's roles array")
-                        } else {
-                            // Just update active role
-                            userRef.update("activeRole", "EMPLOYER").await()
-                            Timber.d("✅ DUAL_ROLE: Updated activeRole to EMPLOYER")
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "❌ DUAL_ROLE: Failed to update roles array")
-                    }
-                    
-                    // REMOVED: Referral code application now happens immediately after OTP verification
-                    // User already got ₹25 when they signed up with the code
-                    // Now we just generate THEIR OWN referral code so they can refer others
-                    
-                    // Create user's own referral stats (generates their unique referral code)
-                    // This allows them to refer others and earn ₹25 per referral
-                    try {
-                        profileCompletionViewModel.createReferralStats(currentUser.uid, "EMPLOYER", companyName)
-                        Timber.d("🎁 Referral stats created for new employer - they can now refer others")
-                    } catch (e: Exception) {
-                        Timber.e(e, "🎁 Failed to create referral stats")
-                    }
+                    profileCompletionViewModel
+                        .saveEmployerProfileData(employerProfileData)
+                        .getOrThrow()
                 }
-                
+
                 // Save role to local DataStore so app knows which home to navigate to on reopen
-                profileCompletionViewModel.updateUserRole(UserRole.EMPLOYER)
+                profileCompletionViewModel.saveUserInfoToLocalStorage(companyName, UserRole.EMPLOYER)
                 
                 // Check if this is the FIRST time completing profile (not an update)
                 val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
@@ -1517,3 +1474,4 @@ private fun ContactDetailsStep(
         }
     }
 }
+

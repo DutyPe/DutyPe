@@ -462,9 +462,10 @@ private fun EnhancedWorkerProfileCard(
     workerTotalRatings: Int,
     onRatingClick: () -> Unit
 ) {
+    val workerEmail = application.workerEmail.orEmpty()
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
-        application.workerEmail.isNotBlank() -> application.workerEmail.substringBefore("@")
+        workerEmail.isNotBlank() -> workerEmail.substringBefore("@")
         else -> "Unknown Worker"
     }
     
@@ -664,6 +665,7 @@ private fun WorkerContactCard(
     onCall: (String) -> Unit,
     onEmail: (String) -> Unit
 ) {
+    val workerEmail = application.workerEmail.orEmpty()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -705,7 +707,7 @@ private fun WorkerContactCard(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Email
-            if (application.workerEmail.isNotBlank()) {
+            if (workerEmail.isNotBlank()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     color = Color(0xFFF9FAFB),
@@ -742,7 +744,7 @@ private fun WorkerContactCard(
                                 )
                             )
                             Text(
-                                text = application.workerEmail,
+                                text = workerEmail,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = Color(0xFF1F2937),
                                     fontSize = 14.sp
@@ -751,7 +753,7 @@ private fun WorkerContactCard(
                         }
                         
                         Surface(
-                            onClick = { onEmail(application.workerEmail) },
+                            onClick = { onEmail(workerEmail) },
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFF3B82F6).copy(alpha = 0.1f)
                         ) {

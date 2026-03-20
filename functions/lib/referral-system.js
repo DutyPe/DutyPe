@@ -212,6 +212,11 @@ function isProfileComplete(user = {}) {
         : computeWorkerProfileCompletion(user);
     return completion >= 80;
 }
+function isReferralCodeReady(user = {}) {
+    const hasName = !!getStringValue(user.fullName || user.companyName);
+    const hasPhone = !!getStringValue(user.phone);
+    return hasName && hasPhone;
+}
 function getCombinedReferralStats(userData = {}, legacyStats = {}) {
     return Object.assign(Object.assign({}, legacyStats), ((userData === null || userData === void 0 ? void 0 : userData.referralStats) || {}));
 }
@@ -248,7 +253,7 @@ async function getReferralCodeLookup(rawCode) {
         normalizedCode.toLowerCase()
     ])).filter(Boolean);
     for (const candidate of candidates) {
-        const doc = await db.collection("referrals").doc(candidate).get();
+        const doc = await db.collection("referral_codes").doc(candidate).get();
         if (doc.exists) {
             return {
                 doc,
@@ -306,7 +311,7 @@ async function evaluateReferralFraud(params) {
     }
     const [referrerUserDoc, referrerStatsDoc] = await Promise.all([
         db.collection("users").doc(referrerUserId).get(),
-        db.collection("users").doc(referrerUserId).get()
+        db.collection("referral_stats").doc(referrerUserId).get()
     ]);
     const referrerStats = getCombinedReferralStats(referrerUserDoc.data() || {}, referrerStatsDoc.data() || {});
     const totalReferrals = getNumberValue(referrerStats.totalReferrals);
@@ -351,16 +356,13 @@ async function evaluateReferralFraud(params) {
 exports.onUserProfileComplete = functions.firestore
     .document("users/{userId}")
     .onUpdate(async (change, context) => {
+    const userId = context.params.userId;
     const before = change.before.data();
     const after = change.after.data();
-    const userId = context.params.userId;
-    // Check if profile is now complete (was previously incomplete)
-    const afterIsComplete = isProfileComplete(after);
-    const beforeIsComplete = isProfileComplete(before);
-    if (!afterIsComplete || beforeIsComplete) {
-        return null;
-    }
-    if (before.referralCode || after.referralCode) {
+    // Create code when user becomes referral-ready (name + phone)
+    const afterReady = isReferralCodeReady(after);
+    const beforeReady = isReferralCodeReady(before);
+    if (!afterReady || beforeReady) {
         return null;
     }
     const userRole = after.activeRole || "WORKER";
@@ -370,28 +372,32 @@ exports.onUserProfileComplete = functions.firestore
         return null;
     }
     try {
-        const userRef = db.collection("users").doc(userId);
+        const statsRef = db.collection("referral_stats").doc(userId);
+        const existingStatsDoc = await statsRef.get();
+        if (existingStatsDoc.exists && getStringValue(existingStatsDoc.get("referralCode"))) {
+            return null;
+        }
         for (let attempt = 0; attempt < 10; attempt++) {
-            const referralCode = await generateUniqueReferralCode();
+            const referralCode = await generateUniqueReferralCode(userName);
             try {
                 const resolvedCode = await db.runTransaction(async (transaction) => {
-                    const latestUserDoc = await transaction.get(userRef);
-                    if (!latestUserDoc.exists) {
-                        return null;
+                    const latestStatsDoc = await transaction.get(statsRef);
+                    const existingCode = latestStatsDoc.exists ? getStringValue(latestStatsDoc.get("referralCode")) : "";
+                    if (existingCode) {
+                        return existingCode;
                     }
-                    const latestUser = latestUserDoc.data() || {};
-                    if (latestUser.referralCode) {
-                        return latestUser.referralCode;
-                    }
-                    const codeRef = db.collection("referrals").doc(referralCode);
+                    const codeRef = db.collection("referral_codes").doc(referralCode);
                     const codeDoc = await transaction.get(codeRef);
                     if (codeDoc.exists) {
                         throw new Error("REFERRAL_CODE_COLLISION");
                     }
-                    const existingStats = latestUser.referralStats || {};
-                    transaction.update(userRef, Object.assign({ referralCode, referralCodeCreatedAt: admin.firestore.FieldValue.serverTimestamp(), "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp() }, buildMissingReferralStatsUpdates(existingStats)));
-                    transaction.set(db.collection("users").doc(userId), Object.assign(Object.assign(Object.assign({ userId,
-                        userRole }, DEFAULT_REFERRAL_STATS), existingStats), { lastUpdated: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
+                    transaction.set(statsRef, {
+                        userId,
+                        userRole,
+                        userName,
+                        referralCode,
+                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
                     transaction.set(codeRef, {
                         code: referralCode,
                         userId,
@@ -445,18 +451,21 @@ exports.onUserProfileComplete = functions.firestore
  * @param userName User's full name for personalization
  * @returns Unique personalized referral code (7-10 characters, lowercase)
  */
-async function generateUniqueReferralCode() {
+async function generateUniqueReferralCode(userName) {
     const maxRetries = 10;
+    const baseName = (userName || "DUTY")
+        .split(/\s+/)
+        .filter(Boolean)[0]
+        .replace(/[^A-Za-z0-9]/g, "")
+        .toUpperCase()
+        .slice(0, 6)
+        .padEnd(3, "D");
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-        let suffix = "";
-        while (suffix.length < CANONICAL_REFERRAL_LENGTH - CANONICAL_REFERRAL_PREFIX.length) {
-            const index = Math.floor(Math.random() * REFERRAL_CODE_ALPHABET.length);
-            suffix += REFERRAL_CODE_ALPHABET.charAt(index);
-        }
-        const code = `${CANONICAL_REFERRAL_PREFIX}${suffix}`;
+        const randomNum = Math.floor(1000 + Math.random() * 9000).toString();
+        const code = `${baseName}${randomNum}`.slice(0, 10);
         const [exactMatch, legacyCaseMatch] = await Promise.all([
-            db.collection("referrals").doc(code).get(),
-            db.collection("referrals").doc(code.toLowerCase()).get()
+            db.collection("referral_codes").doc(code).get(),
+            db.collection("referral_codes").doc(code.toLowerCase()).get()
         ]);
         if (!exactMatch.exists && !legacyCaseMatch.exists) {
             return code;
@@ -530,8 +539,8 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
         const codeRef = codeLookup.doc.ref;
         const referrerUserRef = db.collection("users").doc(referrerUserId);
         const newUserRef = db.collection("users").doc(newUserId);
-        const referrerStatsRef = db.collection("users").doc(referrerUserId);
-        const newUserStatsRef = db.collection("users").doc(newUserId);
+        const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
+        const newUserStatsRef = db.collection("referral_stats").doc(newUserId);
         const result = await db.runTransaction(async (transaction) => {
             const existingReferralQuery = db.collection("referrals")
                 .where("referredUserId", "==", newUserId)
@@ -561,8 +570,8 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
             const referralCode = getStringValue(latestCodeData.code, latestCodeDoc.id);
             const referrerUserData = referrerUserDoc.data() || {};
             const newUserData = newUserDoc.data() || {};
-            const referrerStats = getCombinedReferralStats(referrerUserData, referrerLegacyStatsDoc.data() || {});
-            const newUserStats = getCombinedReferralStats(newUserData, newUserLegacyStatsDoc.data() || {});
+            const referrerStats = referrerLegacyStatsDoc.data() || {};
+            const newUserStats = newUserLegacyStatsDoc.data() || {};
             const existingReferredByCode = getStringValue(newUserStats.referredByCode);
             if (existingReferredByCode) {
                 if (normalizeReferralCodeInput(existingReferredByCode) === requestedCode) {
@@ -611,17 +620,10 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 reward: totalReferrerReward,
                 createdAt: admin.firestore.FieldValue.serverTimestamp()
             });
-            const referrerUserUpdate = Object.assign(Object.assign({}, buildMissingReferralStatsUpdates(referrerUserData.referralStats || {})), { "referralStats.totalReferrals": admin.firestore.FieldValue.increment(1), "referralStats.successfulReferrals": newSuccessfulCount, "referralStats.totalEarnings": admin.firestore.FieldValue.increment(totalReferrerReward), "referralStats.availableBalance": admin.firestore.FieldValue.increment(totalReferrerReward), "referralStats.canWithdraw": newCanWithdraw, "referralStats.currentTier": newTier, "referralStats.nextMilestone": newNextMilestone, "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp() });
-            if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-                referrerUserUpdate["referralStats.freeJobPostings"] = freePostings;
-                referrerUserUpdate["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry;
-            }
-            transaction.update(referrerUserRef, referrerUserUpdate);
             transaction.set(referrerStatsRef, Object.assign({ userId: latestReferrerUserId, userRole: referrerRole, totalReferrals: admin.firestore.FieldValue.increment(1), successfulReferrals: newSuccessfulCount, totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward), availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward), canWithdraw: newCanWithdraw, currentTier: newTier, nextMilestone: newNextMilestone, lastUpdated: admin.firestore.FieldValue.serverTimestamp() }, (referrerRole === "EMPLOYER" && freePostingsExpiry ? {
                 freeJobPostings: freePostings,
                 freeJobPostingsExpiry: freePostingsExpiry
             } : {})), { merge: true });
-            transaction.update(newUserRef, Object.assign(Object.assign({}, buildMissingReferralStatsUpdates(newUserData.referralStats || {})), { "referralStats.totalEarnings": admin.firestore.FieldValue.increment(referredUserReward), "referralStats.availableBalance": admin.firestore.FieldValue.increment(referredUserReward), "referralStats.signupBonusReceived": true, "referralStats.signupBonusAmount": referredUserReward, "referralStats.referredByCode": referralCode, "referralStats.referredByUserId": latestReferrerUserId, "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp() }));
             transaction.set(newUserStatsRef, {
                 userId: newUserId,
                 userRole: newUserRole,
@@ -755,7 +757,7 @@ exports.onReferredUserProfileComplete = functions.firestore
         // Get referrer's current stats for milestone calculation
         const [referrerUserDoc, referrerStatsDoc] = await Promise.all([
             db.collection("users").doc(referrerUserId).get(),
-            db.collection("users").doc(referrerUserId).get()
+            db.collection("referral_stats").doc(referrerUserId).get()
         ]);
         const referrerUserData = referrerUserDoc.data() || {};
         const referrerStats = getCombinedReferralStats(referrerUserData, referrerStatsDoc.data() || {});

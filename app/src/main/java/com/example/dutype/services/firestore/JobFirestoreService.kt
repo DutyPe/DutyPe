@@ -33,6 +33,7 @@ class JobFirestoreService @Inject constructor(
     companion object {
         const val JOBS_COLLECTION = "jobs"
         const val JOB_DETAILS_COLLECTION = "job_details"
+        private const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         private const val MAX_JOB_QUERY_LIMIT = 100L
     }
 
@@ -50,6 +51,14 @@ class JobFirestoreService @Inject constructor(
         if (explicit == "open" || explicit == "closed" || explicit == "expired") {
             return explicit
         }
+        val isActive = data["isActive"] as? Boolean
+        val isFilled = data["isFilled"] as? Boolean
+        if (isActive == true && isFilled != true) {
+            return "open"
+        }
+        if (isActive == true && isFilled == true) {
+            return "closed"
+        }
         return "closed"
     }
 
@@ -61,6 +70,127 @@ class JobFirestoreService @Inject constructor(
         }
     }
     
+    private fun normalizeString(value: Any?): String = value?.toString()?.trim().orEmpty()
+
+    private fun parseBenefits(value: Any?): List<String> {
+        return when (value) {
+            is List<*> -> value.mapNotNull { it?.toString()?.trim() }
+            is String -> value.split(",").map { it.trim() }
+            else -> emptyList()
+        }.filter { it.isNotBlank() }
+            .distinct()
+    }
+
+    private fun deriveJobType(title: String, description: String = ""): String {
+        return com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
+    }
+
+    private fun summaryJobType(data: Map<String, Any>): String {
+        val explicit = normalizeString(data["jobType"])
+        if (explicit.isNotBlank()) return explicit
+        return deriveJobType(
+            title = normalizeString(data["title"]),
+            description = normalizeString(data["description"])
+        )
+    }
+
+    private fun buildJobSummary(
+        docId: String,
+        data: Map<String, Any>,
+        currentTime: Long = System.currentTimeMillis()
+    ): Map<String, Any> {
+        val locationMap = data["location"] as? Map<*, *>
+        val latitude = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
+        val longitude = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
+        val salary = toSalaryDouble(data["salary"])
+        val salaryType = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
+        val createdAtMillis = toEpochMillis(data["createdAt"]).takeIf { it > 0L } ?: currentTime
+
+        return mapOf(
+            "jobId" to docId,
+            "employerId" to normalizeString(data["employerId"]),
+            "title" to normalizeString(data["title"]),
+            "location" to mapOf("lat" to latitude, "lng" to longitude),
+            "geohash" to normalizeString(data["geohash"]),
+            "salary" to salary,
+            "salaryType" to salaryType,
+            "jobType" to summaryJobType(data),
+            "createdAt" to createdAtMillis,
+            "expiresAt" to toEpochMillis(data["expiresAt"]),
+            "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
+            "status" to normalizeReadStatus(data)
+        )
+    }
+
+    private fun mergeJobWithDetails(
+        jobId: String,
+        coreData: Map<String, Any>,
+        detailsData: Map<String, Any>?
+    ): Map<String, Any> {
+        val locationValue = (coreData["location"] as? Map<*, *>)?.let { loc ->
+            mapOf(
+                "lat" to ((loc["lat"] as? Number)?.toDouble() ?: 0.0),
+                "lng" to ((loc["lng"] as? Number)?.toDouble() ?: 0.0)
+            )
+        } ?: mapOf("lat" to 0.0, "lng" to 0.0)
+
+        val merged = linkedMapOf<String, Any>(
+            "jobId" to jobId,
+            "employerId" to normalizeString(coreData["employerId"]),
+            "companyName" to normalizeString(coreData["companyName"]),
+            "isVerified" to (coreData["isVerified"] as? Boolean ?: false),
+            "title" to normalizeString(coreData["title"]),
+            "salary" to toSalaryDouble(coreData["salary"]),
+            "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
+            "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
+            "gender" to normalizeString(coreData["gender"]).ifBlank { "Any" },
+            "experienceRequired" to normalizeString(coreData["experienceRequired"]).ifBlank { "No Experience Required" },
+            "shiftTiming" to normalizeString(coreData["shiftTiming"]).ifBlank { "Flexible" },
+            "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
+            "location" to locationValue,
+            "geohash" to normalizeString(coreData["geohash"]),
+            "status" to normalizeReadStatus(coreData),
+            "createdAt" to toEpochMillis(coreData["createdAt"]),
+            "expiresAt" to toEpochMillis(coreData["expiresAt"])
+        )
+
+        detailsData?.let { details ->
+            val description = normalizeString(details["description"])
+            val contactNumber = normalizeString(details["contactNumber"])
+            val whatsappNumber = normalizeString(details["whatsappNumber"])
+            val addressText = normalizeString(details["addressText"])
+            val jobType = normalizeString(details["jobType"]).ifBlank {
+                deriveJobType(merged["title"].toString(), description)
+            }
+            val vacancies = (details["vacancies"] as? Number)?.toInt()
+                ?: normalizeString(details["vacancies"]).toIntOrNull()
+                ?: 1
+            val workingHours = normalizeString(details["workingHours"])
+            val educationRequired = normalizeString(details["educationRequired"])
+
+            merged["description"] = description
+            merged["contactNumber"] = contactNumber
+            if (whatsappNumber.isNotBlank()) merged["whatsappNumber"] = whatsappNumber
+            merged["addressText"] = addressText
+            merged["location"] = addressText
+            merged["jobType"] = jobType
+            merged["vacancies"] = vacancies
+            if (workingHours.isNotBlank()) merged["workingHours"] = workingHours
+            if (educationRequired.isNotBlank()) merged["educationRequired"] = educationRequired
+            merged["benefits"] = parseBenefits(details["benefits"])
+        }
+
+        if (!merged.containsKey("jobType")) {
+            merged["jobType"] = deriveJobType(merged["title"].toString())
+        }
+        if (!merged.containsKey("description")) merged["description"] = ""
+        if (!merged.containsKey("contactNumber")) merged["contactNumber"] = ""
+        if (!merged.containsKey("addressText")) merged["addressText"] = ""
+        if (!merged.containsKey("benefits")) merged["benefits"] = emptyList<String>()
+
+        return merged
+    }
+
     /**
      * Create a new job posting in Firestore
      */
@@ -69,63 +199,101 @@ class JobFirestoreService @Inject constructor(
             Timber.d("📝 FIRESTORE DEBUG: createJob() called")
             
             val jobRef = firestore.collection(JOBS_COLLECTION).document()
-            val data = jobData.toMutableMap()
             val currentTime = System.currentTimeMillis()
-            val employerId = data["employerId"] as? String ?: ""
-            val title = data["title"] as? String ?: ""
-            val jobType = (data["jobType"] as? String) ?: ""
-            val salary = when (val value = data["salary"]) {
-                is Number -> value.toDouble()
-                is String -> value.toDoubleOrNull() ?: 0.0
-                else -> 0.0
-            }
-            val salaryType = ((data["salaryType"] as? String) ?: "FIXED").uppercase()
+            val employerId = normalizeString(jobData["employerId"])
+            val title = normalizeString(jobData["title"])
+            val jobType = normalizeString(jobData["jobType"])
+            val description = normalizeString(jobData["description"])
+            val contactNumber = normalizeString(jobData["contactNumber"])
+            val addressText = normalizeString(jobData["addressText"])
+            val salary = toSalaryDouble(jobData["salary"])
+            val salaryType = normalizeString(jobData["salaryType"]).uppercase().ifBlank { "DAILY" }
+            val urgency = normalizeString(jobData["urgency"]).uppercase().ifBlank { "MEDIUM" }
+                .let { if (it in listOf("LOW", "MEDIUM", "HIGH")) it else "MEDIUM" }
+            val gender = normalizeString(jobData["gender"]).ifBlank { "Any" }
+            val experienceRequired = normalizeString(jobData["experienceRequired"]).ifBlank { "No Experience Required" }
+            val shiftTiming = normalizeString(jobData["shiftTiming"]).ifBlank { "Flexible" }
+            val vacancies = (jobData["vacancies"] as? Number)?.toInt()
+                ?: normalizeString(jobData["vacancies"]).toIntOrNull()
+                ?: 1
+            val benefits = parseBenefits(jobData["benefits"])
+            val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
+            val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
+            val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { null }
 
-            val providedLocation = data["location"] as? Map<*, *>
+            val providedLocation = jobData["location"] as? Map<*, *>
             val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
             val longitude = (providedLocation?.get("lng") as? Number)?.toDouble()
 
-            if (employerId.isBlank() || title.isBlank() || jobType.isBlank() || latitude == null || longitude == null || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
+            if (
+                employerId.isBlank() ||
+                title.isBlank() ||
+                jobType.isBlank() ||
+                description.isBlank() ||
+                contactNumber.isBlank() ||
+                addressText.isBlank() ||
+                salary <= 0.0 ||
+                latitude == null ||
+                longitude == null ||
+                !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)
+            ) {
                 return Result.failure(IllegalArgumentException("Invalid job payload for strict schema"))
             }
 
+            val employerProfile = firestore.collection(EMPLOYER_PROFILES_COLLECTION)
+                .document(employerId)
+                .get()
+                .await()
+            val companyName = employerProfile.getString("companyName").orEmpty().trim()
+            if (companyName.isBlank()) {
+                return Result.failure(IllegalArgumentException("Employer company name is required"))
+            }
+            val isVerified = employerProfile.getBoolean("isVerified") ?: false
+
             val location = mapOf("lat" to latitude, "lng" to longitude)
             val geohash = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
-            val urgency = ((data["urgency"] as? String) ?: "MEDIUM").uppercase().let {
-                if (it in listOf("LOW", "MEDIUM", "HIGH")) it else "MEDIUM"
-            }
-            
-            // Job Expiry System - Default 15 days
-            val expiryDays = (data["expiryDays"] as? Number)?.toInt() ?: 15
             val createdAt = Timestamp(Date(currentTime))
-            val expiresAt = Timestamp(Date(currentTime + (expiryDays * 24 * 60 * 60 * 1000L)))
+            val expiresAt = Timestamp(Date(currentTime + (15L * 24 * 60 * 60 * 1000L)))
 
-            val coreData = mapOf(
+            val coreData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
+                "companyName" to companyName,
+                "isVerified" to isVerified,
                 "title" to title,
-                "jobType" to jobType,
                 "salary" to salary,
                 "salaryType" to salaryType,
+                "urgency" to urgency,
+                "gender" to gender,
+                "experienceRequired" to experienceRequired,
+                "shiftTiming" to shiftTiming,
+                "applicationCount" to 0,
                 "location" to location,
                 "geohash" to geohash,
-                "urgency" to urgency,
                 "status" to "open",
                 "createdAt" to createdAt,
                 "expiresAt" to expiresAt
             )
 
-            val detailsData = mapOf(
-                "description" to ((data["description"] as? String) ?: ""),
-                "contactNumber" to ((data["contactNumber"] as? String) ?: ""),
-                "addressText" to ((data["addressText"] as? String) ?: "")
+            val detailsData = linkedMapOf<String, Any>(
+                "description" to description,
+                "contactNumber" to contactNumber,
+                "addressText" to addressText,
+                "jobType" to jobType,
+                "vacancies" to vacancies,
+                "benefits" to benefits
             )
+            whatsappNumber?.let { detailsData["whatsappNumber"] = it }
+            workingHours?.let { detailsData["workingHours"] = it }
+            educationRequired?.let { detailsData["educationRequired"] = it }
 
             Timber.d("📝 FIRESTORE DEBUG: Saving job with coordinates - lat: $latitude, lon: $longitude")
             Timber.d("📝 FIRESTORE DEBUG: Job ID: ${jobRef.id}")
-            Timber.d("📝 FIRESTORE DEBUG: Job expires in $expiryDays days")
+            Timber.d("📝 FIRESTORE DEBUG: Job expires in 15 days")
             
-            jobRef.set(coreData).await()
-            firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id).set(detailsData).await()
+            val batch = firestore.batch()
+            batch.set(jobRef, coreData)
+            batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData)
+            batch.commit().await()
             
             Timber.i("📝 FIRESTORE DEBUG: ✅ Job saved successfully to Firestore")
             
@@ -141,7 +309,8 @@ class JobFirestoreService @Inject constructor(
                     salaryType = salaryType,
                     jobType = jobType,
                     geohash = geohash,
-                    status = "open"
+                    status = "open",
+                    companyName = companyName
                 )
                 smartNotificationManager.notifyNearbyWorkersAboutNewJob(job)
             } catch (e: Exception) {
@@ -251,7 +420,7 @@ class JobFirestoreService @Inject constructor(
             // Category input maps to strict jobType field.
             if (!category.isNullOrBlank() && category.uppercase() != "ALL" && category != "All Jobs") {
                 val categoryUpper = category.uppercase()
-                query = query.whereEqualTo("jobType", categoryUpper)
+                Timber.d("Category filter deferred to client-side summary job type: $categoryUpper")
                 Timber.d("📂 ✅ Category filter APPLIED: jobType == '$categoryUpper'")
                 Timber.d("📂 Required index: (jobType ASC, createdAt DESC)")
             } else {
@@ -332,31 +501,12 @@ class JobFirestoreService @Inject constructor(
                     return@mapNotNull null
                 }
 
-                val locationMap = data["location"] as? Map<*, *>
-                val latitude = (locationMap?.get("lat") as? Number)?.toDouble()
-                    ?: 0.0
-                val longitude = (locationMap?.get("lng") as? Number)?.toDouble()
-                    ?: 0.0
-                val jobType = (data["jobType"] as? String) ?: ""
-
-                val salary = toSalaryDouble(data["salary"])
-                val salaryType = ((data["salaryType"] as? String) ?: "FIXED").uppercase()
-                val createdAtMillis = toEpochMillis(data["createdAt"])
-                // Strict summary payload: no duplicate legacy aliases.
-                mapOf(
-                    "jobId" to doc.id,
-                    "employerId" to (data["employerId"] ?: ""),
-                    "title" to (data["title"] ?: ""),
-                    "location" to mapOf("lat" to latitude, "lng" to longitude),
-                    "geohash" to (data["geohash"] ?: ""),
-                    "salary" to salary,
-                    "salaryType" to salaryType,
-                    "jobType" to jobType,
-                    "createdAt" to if (createdAtMillis > 0L) createdAtMillis else System.currentTimeMillis(),
-                    "expiresAt" to toEpochMillis(data["expiresAt"]),
-                    "urgency" to (data["urgency"] ?: "MEDIUM"),
-                    "status" to "open"
-                )
+                val summary = buildJobSummary(doc.id, data, currentTime)
+                val categoryUpper = category?.uppercase()?.takeIf { it != "ALL" && it != "ALL JOBS" }
+                if (categoryUpper != null && summary["jobType"].toString().uppercase() != categoryUpper) {
+                    return@mapNotNull null
+                }
+                summary
             }
             
             Timber.d("📦 ========== CLIENT-SIDE FILTERING ==========")
@@ -425,8 +575,6 @@ class JobFirestoreService @Inject constructor(
                 if (snapshot != null) {
                     val jobs = snapshot.documents.mapNotNull { doc ->
                         doc.data?.toMutableMap()?.apply {
-                            // CRITICAL FIX: Add both 'id' and 'jobId' for compatibility
-                            put("id", doc.id)
                             put("jobId", doc.id)
                         }
                     }.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
@@ -452,7 +600,10 @@ class JobFirestoreService @Inject constructor(
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (document.exists()) {
                 Timber.d("🔍 JobFirestoreService.getJobById - Document found by ID")
-                Result.success(document.data)
+                val detailsDocument = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await()
+                Result.success(
+                    mergeJobWithDetails(jobId, document.data.orEmpty(), detailsDocument.data)
+                )
             } else {
                 Timber.d("🔍 JobFirestoreService.getJobById - Document not found")
                 Result.success(null)
@@ -470,31 +621,35 @@ class JobFirestoreService @Inject constructor(
         return try {
             val data = updates.toMutableMap()
             val jobRef = firestore.collection(JOBS_COLLECTION).document(jobId)
-            val existing = jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
+            jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
+            val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
 
             val coreUpdates = mutableMapOf<String, Any>()
+            val detailsUpdates = mutableMapOf<String, Any>()
 
-            (data["title"] as? String)?.let { coreUpdates["title"] = it }
-            (data["jobType"] as? String)?.let { coreUpdates["jobType"] = it }
+            if (data.containsKey("title")) {
+                val title = normalizeString(data["title"])
+                if (title.isBlank()) return Result.failure(IllegalArgumentException("Job title is required"))
+                coreUpdates["title"] = title
+            }
 
             if (data.containsKey("salary")) {
-                val salary = when (val value = data["salary"]) {
-                    is Number -> value.toDouble()
-                    is String -> value.toDoubleOrNull() ?: 0.0
-                    else -> 0.0
-                }
+                val salary = toSalaryDouble(data["salary"])
+                if (salary <= 0.0) return Result.failure(IllegalArgumentException("Salary must be greater than zero"))
                 coreUpdates["salary"] = salary
             }
 
             if (data.containsKey("salaryType")) {
-                val salaryType = ((data["salaryType"] as? String) ?: "FIXED").uppercase()
-                coreUpdates["salaryType"] = salaryType
+                coreUpdates["salaryType"] = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
             }
 
             val providedLocation = data["location"] as? Map<*, *>
             val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
             val longitude = (providedLocation?.get("lng") as? Number)?.toDouble()
-            if (latitude != null && longitude != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
+            if (providedLocation != null) {
+                if (latitude == null || longitude == null || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
+                    return Result.failure(IllegalArgumentException("Valid job coordinates are required"))
+                }
                 coreUpdates["location"] = mapOf("lat" to latitude, "lng" to longitude)
                 coreUpdates["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             }
@@ -502,6 +657,15 @@ class JobFirestoreService @Inject constructor(
             (data["urgency"] as? String)?.let {
                 val normalized = it.uppercase()
                 coreUpdates["urgency"] = if (normalized in listOf("LOW", "MEDIUM", "HIGH")) normalized else "MEDIUM"
+            }
+            if (data.containsKey("gender")) {
+                coreUpdates["gender"] = normalizeString(data["gender"]).ifBlank { "Any" }
+            }
+            if (data.containsKey("experienceRequired")) {
+                coreUpdates["experienceRequired"] = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
+            }
+            if (data.containsKey("shiftTiming")) {
+                coreUpdates["shiftTiming"] = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
             }
             (data["status"] as? String)?.let {
                 val normalized = it.lowercase()
@@ -511,24 +675,54 @@ class JobFirestoreService @Inject constructor(
             }
             (data["expiresAt"] as? Timestamp)?.let { coreUpdates["expiresAt"] = it }
 
-            // Keep immutable strict fields unchanged during merge-update.
-            coreUpdates["employerId"] = existing["employerId"] as? String ?: ""
-            coreUpdates["createdAt"] = existing["createdAt"] ?: Timestamp.now()
-
-            if (coreUpdates.isNotEmpty()) {
-                jobRef.update(coreUpdates).await()
+            if (data.containsKey("description")) {
+                val description = normalizeString(data["description"])
+                if (description.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))
+                detailsUpdates["description"] = description
+            }
+            if (data.containsKey("contactNumber")) {
+                val contactNumber = normalizeString(data["contactNumber"])
+                if (contactNumber.isBlank()) return Result.failure(IllegalArgumentException("Contact number is required"))
+                detailsUpdates["contactNumber"] = contactNumber
+            }
+            if (data.containsKey("addressText")) {
+                val addressText = normalizeString(data["addressText"])
+                if (addressText.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
+                detailsUpdates["addressText"] = addressText
+            }
+            if (data.containsKey("jobType")) {
+                val jobType = normalizeString(data["jobType"])
+                if (jobType.isBlank()) return Result.failure(IllegalArgumentException("Job type is required"))
+                detailsUpdates["jobType"] = jobType
+            }
+            if (data.containsKey("vacancies")) {
+                val vacancies = (data["vacancies"] as? Number)?.toInt()
+                    ?: normalizeString(data["vacancies"]).toIntOrNull()
+                    ?: return Result.failure(IllegalArgumentException("Vacancies must be a number"))
+                detailsUpdates["vacancies"] = vacancies
+            }
+            if (data.containsKey("whatsappNumber")) {
+                normalizeString(data["whatsappNumber"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["whatsappNumber"] = it }
+            }
+            if (data.containsKey("workingHours")) {
+                normalizeString(data["workingHours"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["workingHours"] = it }
+            }
+            if (data.containsKey("educationRequired")) {
+                normalizeString(data["educationRequired"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["educationRequired"] = it }
+            }
+            if (data.containsKey("benefits")) {
+                detailsUpdates["benefits"] = parseBenefits(data["benefits"])
             }
 
-            if (data.containsKey("description") || data.containsKey("contactNumber") || data.containsKey("addressText")) {
-                val detailsUpdates = mutableMapOf<String, Any>()
-                (data["description"] as? String)?.let { detailsUpdates["description"] = it }
-                (data["contactNumber"] as? String)?.let { detailsUpdates["contactNumber"] = it }
-                (data["addressText"] as? String)?.let { detailsUpdates["addressText"] = it }
-                if (detailsUpdates.isNotEmpty()) {
-                    firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
-                        .set(detailsUpdates, com.google.firebase.firestore.SetOptions.merge())
-                        .await()
+            if (coreUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
+                val batch = firestore.batch()
+                if (coreUpdates.isNotEmpty()) {
+                    batch.set(jobRef, coreUpdates, com.google.firebase.firestore.SetOptions.merge())
                 }
+                if (detailsUpdates.isNotEmpty()) {
+                    batch.set(detailsRef, detailsUpdates, com.google.firebase.firestore.SetOptions.merge())
+                }
+                batch.commit().await()
             }
 
             Result.success(Unit)
@@ -591,14 +785,11 @@ class JobFirestoreService @Inject constructor(
                 val expiresAt = toEpochMillis(data["expiresAt"])
                 if (expiresAt > 0L && expiresAt < currentTime) return@mapNotNull null
                 
-                // Match query in title/jobType/location text.
+                // Match query in title and derived job type text.
                 val title = (data["title"] as? String)?.lowercase() ?: ""
-                val jobType = ((data["jobType"] as? String) ?: "").lowercase()
-                val locationMap = data["location"] as? Map<*, *>
-                val location = ((locationMap?.get("addressText") as? String) ?: "").lowercase()
+                val jobType = summaryJobType(data).lowercase()
                 
                 if (title.contains(lowercaseQuery) || 
-                    location.contains(lowercaseQuery) ||
                     jobType.contains(lowercaseQuery)) {
                     
                     // Relevance: title match = highest priority
@@ -636,13 +827,18 @@ class JobFirestoreService @Inject constructor(
     suspend fun getJobsByCategory(category: String, limit: Long = 20L): Result<List<Map<String, Any>>> {
         return try {
             val query = firestore.collection(JOBS_COLLECTION)
-                .whereEqualTo("jobType", category.uppercase())
                 .whereEqualTo("status", "open")
                 .limit(limit * 2)
                 .get()
                 .await()
             
-            val jobs = query.documents.mapNotNull { it.data }
+            val categoryUpper = category.uppercase()
+            val jobs = query.documents.mapNotNull { doc ->
+                val data = doc.data ?: return@mapNotNull null
+                val summary = buildJobSummary(doc.id, data)
+                if (summary["jobType"].toString().uppercase() != categoryUpper) return@mapNotNull null
+                summary
+            }
                 .filter {
                     val expiresAt = toEpochMillis(it["expiresAt"])
                     expiresAt == 0L || expiresAt > System.currentTimeMillis()
@@ -727,7 +923,7 @@ class JobFirestoreService @Inject constructor(
             
             // Apply category filter (most selective first)
             if (!category.isNullOrBlank() && category.uppercase() != "ALL") {
-                query = query.whereEqualTo("jobType", category.uppercase())
+                Timber.d("Client-side category filter will use derived job type: $category")
                 Timber.d("📂 ✅ Category filter: $category")
             }
             
@@ -739,7 +935,7 @@ class JobFirestoreService @Inject constructor(
             
             // Apply job type filter
             if (!jobType.isNullOrBlank()) {
-                query = query.whereEqualTo("jobType", jobType)
+                Timber.d("Client-side job type filter will use derived job type: $jobType")
                 Timber.d("📂 ✅ JobType filter: $jobType")
             }
             
@@ -784,29 +980,19 @@ class JobFirestoreService @Inject constructor(
                     if (maxSalary != null && jobSalary > maxSalary) return@mapNotNull null
                 }
 
-                val locationMap = data["location"] as? Map<*, *>
-                val latitude = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
-                val longitude = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
-                val jobTypeValue = (data["jobType"] as? String) ?: ""
-                val salary = toSalaryDouble(data["salary"])
-                val salaryType = ((data["salaryType"] as? String) ?: "FIXED").uppercase()
-                
-                // Return lightweight summary
-                mapOf(
-                    "jobId" to doc.id,
-                    "documentId" to doc.id,
-                    "employerId" to (data["employerId"] ?: ""),
-                    "title" to (data["title"] ?: ""),
-                    "location" to mapOf("lat" to latitude, "lng" to longitude),
-                    "geohash" to (data["geohash"] ?: ""),
-                    "salary" to salary,
-                    "salaryType" to salaryType,
-                    "jobType" to jobTypeValue,
-                    "createdAt" to (toEpochMillis(data["createdAt"]).takeIf { it > 0L } ?: System.currentTimeMillis()),
-                    "expiresAt" to toEpochMillis(data["expiresAt"]),
-                    "urgency" to (data["urgency"] ?: "MEDIUM"),
-                    "status" to "open"
-                )
+                val summary = buildJobSummary(doc.id, data, currentTime)
+                val summaryJobType = summary["jobType"].toString()
+                if (!category.isNullOrBlank() && category.uppercase() != "ALL" &&
+                    summaryJobType.uppercase() != category.uppercase()
+                ) {
+                    return@mapNotNull null
+                }
+                if (!jobType.isNullOrBlank() &&
+                    summaryJobType.uppercase() != jobType.uppercase()
+                ) {
+                    return@mapNotNull null
+                }
+                summary
             }
             
             Timber.d("📦 After filtering: ${jobs.size} jobs (filtered out ${snapshot.documents.size - jobs.size})")
@@ -927,31 +1113,12 @@ class JobFirestoreService @Inject constructor(
                 }
 
                 // Category filter - applied client-side (no server-side filter on geohash range query)
-                val jobType = (data["jobType"] as? String) ?: ""
+                val jobType = summaryJobType(data)
                 if (categoryUpper != null && jobType.uppercase() != categoryUpper) {
                     filteredCategory++
                     return@mapNotNull null
                 }
-
-                val salary = toSalaryDouble(data["salary"])
-                val salaryType = ((data["salaryType"] as? String) ?: "FIXED").uppercase()
-                val createdAtMillis = toEpochMillis(data["createdAt"])
-
-                mapOf(
-                    "jobId" to docId,
-                    "documentId" to docId,
-                    "employerId" to (data["employerId"] ?: ""),
-                    "title" to (data["title"] ?: ""),
-                    "location" to mapOf("lat" to jobLat, "lng" to jobLng),
-                    "geohash" to (data["geohash"] ?: ""),
-                    "salary" to salary,
-                    "salaryType" to salaryType,
-                    "jobType" to jobType,
-                    "createdAt" to if (createdAtMillis > 0L) createdAtMillis else currentTime,
-                    "expiresAt" to toEpochMillis(data["expiresAt"]),
-                    "urgency" to (data["urgency"] ?: "MEDIUM"),
-                    "status" to "open"
-                )
+                buildJobSummary(docId, data, currentTime)
             }
 
             Timber.d("📍 Nearby result: ${nearby.size} jobs (filtered: status=$filteredStatus, expired=$filteredExpiry, radius=$filteredRadius, category=$filteredCategory)")
@@ -993,3 +1160,5 @@ class JobFirestoreService @Inject constructor(
         }
     }
 }
+
+

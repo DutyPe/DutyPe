@@ -82,7 +82,6 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     val jobId = doc.getString("jobId") ?: continue
                     val applicationId = doc.id
                     val jobTitle = doc.getString("jobTitle") ?: "this job"
-                    val companyName = doc.getString("companyName") ?: "the employer"
                     val cooldownKey = "pending_$applicationId"
                     val lastNotificationSent = prefs.getLong(cooldownKey, 0L)
                     
@@ -97,7 +96,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                         id = "pending_app_$applicationId",
                         recipientId = workerId,
                         title = "Application Still Pending",
-                        message = "Your application for $jobTitle at $companyName is still pending. For faster update, please call the employer.",
+                        message = "Your application for $jobTitle is still pending. For faster update, please call the employer.",
                         type = NotificationType.APPLICATION_STATUS_UPDATE,
                         data = mapOf(
                             "jobId" to jobId,

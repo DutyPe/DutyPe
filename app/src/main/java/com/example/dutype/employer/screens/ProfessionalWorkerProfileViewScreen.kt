@@ -162,7 +162,7 @@ fun ProfessionalWorkerProfileViewScreen(
                         workerProfile = WorkerProfileData(
                             workerId = app.workerId,
                             fullName = app.workerName.ifBlank { "Unknown Worker" },
-                            email = app.workerEmail,
+                            email = app.workerEmail.orEmpty(),
                             phone = app.workerPhone ?: "",
                             location = app.workerLocation ?: "",
                             dateOfBirth = app.workerDateOfBirth ?: "",

@@ -30,6 +30,19 @@ export function AdminUsersClient() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
+  const [editDrafts, setEditDrafts] = useState<Record<string, { fullName: string; phone: string; role: string }>>({});
+
+  function createDraftMap(rows: UserRow[]) {
+    return rows.reduce<Record<string, { fullName: string; phone: string; role: string }>>((acc, row) => {
+      acc[row.id] = {
+        fullName: displayUserName(row),
+        phone: row.phone ?? "",
+        role: row.activeRole ?? row.role ?? "WORKER"
+      };
+      return acc;
+    }, {});
+  }
 
   async function loadUsers() {
     try {
@@ -48,7 +61,9 @@ export function AdminUsersClient() {
         throw new Error(payload.error || "Failed to load users.");
       }
 
-      setUsers(payload.users ?? []);
+      const nextUsers = payload.users ?? [];
+      setUsers(nextUsers);
+      setEditDrafts(createDraftMap(nextUsers));
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load users.");
@@ -88,20 +103,43 @@ export function AdminUsersClient() {
     }
   }
 
-  async function handleRoleChange(userId: string, newRole: string) {
+  function setDraftValue(userId: string, key: "fullName" | "phone" | "role", value: string) {
+    setEditDrafts((prev) => ({
+      ...prev,
+      [userId]: {
+        fullName: prev[userId]?.fullName ?? "",
+        phone: prev[userId]?.phone ?? "",
+        role: prev[userId]?.role ?? "WORKER",
+        [key]: value
+      }
+    }));
+  }
+
+  async function handleSave(userId: string) {
+    const draft = editDrafts[userId];
+    if (!draft) {
+      return;
+    }
+
     try {
+      setPendingSaveId(userId);
       const response = await fetch("/api/admin/users", {
         method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ userId, newRole })
+        body: JSON.stringify({
+          userId,
+          newRole: draft.role,
+          fullName: draft.fullName,
+          phone: draft.phone
+        })
       });
 
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(payload.error || "Failed to update role.");
+        throw new Error(payload.error || "Failed to update user.");
       }
 
       setUsers((prev) =>
@@ -109,15 +147,21 @@ export function AdminUsersClient() {
           u.id === userId
             ? {
                 ...u,
-                role: newRole,
-                activeRole: newRole,
-                roles: [...new Set([...(u.roles ?? []), newRole])]
+                fullName: draft.fullName,
+                name: draft.fullName,
+                phone: draft.phone,
+                role: draft.role,
+                activeRole: draft.role,
+                roles: [...new Set([...(u.roles ?? []), draft.role])]
               }
             : u
         )
       );
+      setError(null);
     } catch (roleError) {
-      setError(roleError instanceof Error ? roleError.message : "Failed to update role.");
+      setError(roleError instanceof Error ? roleError.message : "Failed to update user.");
+    } finally {
+      setPendingSaveId(null);
     }
   }
 
@@ -223,16 +267,30 @@ export function AdminUsersClient() {
               {filteredUsers.map((user) => (
                 <tr key={user.id}>
                   <td>
-                    <strong>{displayUserName(user) || shortId(user.id)}</strong>
+                    <input
+                      type="text"
+                      className="admin-search"
+                      value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
+                      onChange={(e) => setDraftValue(user.id, "fullName", e.target.value)}
+                      placeholder="Full name"
+                    />
                     <div className="admin-cell-sub">{shortId(user.id)}</div>
                   </td>
-                  <td>{user.phone || shortId(user.id)}</td>
+                  <td>
+                    <input
+                      type="text"
+                      className="admin-search"
+                      value={editDrafts[user.id]?.phone ?? user.phone ?? ""}
+                      onChange={(e) => setDraftValue(user.id, "phone", e.target.value)}
+                      placeholder="Phone"
+                    />
+                  </td>
                   <td>{user.email || "Not provided"}</td>
                   <td>
                     <select
                       className="admin-inline-select"
-                      value={user.activeRole ?? user.role ?? ""}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                      value={editDrafts[user.id]?.role ?? user.activeRole ?? user.role ?? "WORKER"}
+                      onChange={(e) => setDraftValue(user.id, "role", e.target.value)}
                     >
                       <option value="WORKER">Worker</option>
                       <option value="EMPLOYER">Employer</option>
@@ -245,9 +303,17 @@ export function AdminUsersClient() {
                   <td>
                     <button
                       type="button"
+                      className="table-action"
+                      onClick={() => void handleSave(user.id)}
+                      disabled={pendingSaveId === user.id}
+                    >
+                      {pendingSaveId === user.id ? "..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
                       className="table-action danger"
                       onClick={() => void handleDelete(user.id)}
-                      disabled={pendingDeleteId === user.id}
+                      disabled={pendingDeleteId === user.id || pendingSaveId === user.id}
                     >
                       {pendingDeleteId === user.id ? "..." : "Delete"}
                     </button>

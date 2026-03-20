@@ -99,14 +99,7 @@ class WorkVerificationService @Inject constructor(
             // OPTIMIZED: Store verification as nested field in application document
             firestore.collection(COLLECTION_APPLICATIONS)
                 .document(applicationId)
-                .update(
-                    mapOf(
-                        "verification" to verification.toMap(),
-                        "verificationId" to verificationId,
-                        "verificationCode" to verificationCode,
-                        "verificationStatus" to VerificationStatus.PENDING.name
-                    )
-                )
+                .update("status", "under_review")
                 .await()
             
             Timber.i("🔐 WORK VERIFICATION: ✅ Generated unique code $verificationCode for verification $verificationId")
@@ -234,12 +227,7 @@ class WorkVerificationService @Inject constructor(
                 // Update status to expired
                 firestore.collection(COLLECTION_APPLICATIONS)
                     .document(verification.applicationId)
-                    .update(
-                        mapOf(
-                            "verification.status" to VerificationStatus.EXPIRED.name,
-                            "verificationStatus" to VerificationStatus.EXPIRED.name
-                        )
-                    )
+                    .update("status", "rejected")
                     .await()
                 return Result.failure(Exception("Verification code has expired. Ask the worker to regenerate."))
             }
@@ -315,28 +303,7 @@ class WorkVerificationService @Inject constructor(
         // Update application with verified status and nested verification data
         firestore.collection(COLLECTION_APPLICATIONS)
             .document(verification.applicationId)
-            .update(
-                mapOf(
-                    "verification.status" to VerificationStatus.VERIFIED.name,
-                    "verification.verifiedAt" to now,
-                    "verification.verifiedByEmployerId" to verifiedByEmployerId,
-                    "verification.verifiedLocation" to location,
-                    "verificationStatus" to VerificationStatus.VERIFIED.name,
-                    "workStartedAt" to now,
-                    "status" to "IN_PROGRESS"
-                )
-            )
-            .await()
-        
-        // Update job status
-        firestore.collection(COLLECTION_JOBS)
-            .document(verification.jobId)
-            .update(
-                mapOf(
-                    "hasActiveWorker" to true,
-                    "lastWorkerStartedAt" to now
-                )
-            )
+            .update("status", "in_progress")
             .await()
         
         Timber.i("🔐 WORK VERIFICATION: ✅ Work started! Verification ${verification.verificationId} completed")
@@ -411,7 +378,7 @@ class WorkVerificationService @Inject constructor(
             val employerId = eligibleDoc.getString("employerId") ?: return Result.failure(Exception("Employer not found for application"))
             val workerName = eligibleDoc.getString("workerName") ?: "Worker"
             val jobTitle = eligibleDoc.getString("jobTitle") ?: "Job"
-            val employerName = eligibleDoc.getString("companyName") ?: "Employer"
+            val employerName = "Employer"
 
             generateVerification(
                 jobId = jobId,
@@ -512,13 +479,7 @@ class WorkVerificationService @Inject constructor(
             // Update application with new verification data
             firestore.collection(COLLECTION_APPLICATIONS)
                 .document(doc.id)
-                .update(
-                    mapOf(
-                        "verification" to newVerification.toMap(),
-                        "verificationCode" to newCode,
-                        "verificationStatus" to VerificationStatus.PENDING.name
-                    )
-                )
+                .update("status", "under_review")
                 .await()
             
             Timber.i("🔐 WORK VERIFICATION: ✅ Regenerated code $newCode for verification $verificationId")

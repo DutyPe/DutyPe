@@ -114,10 +114,9 @@ class ProfileSetupStateManager @Inject constructor(
      * Save user information from Google Sign-In
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) {
-        Timber.i("saveUserInfo - email: $email, name: $name, role: $role")
+        Timber.i("saveUserInfo - name: $name, role: $role")
         
         context.dataStore.edit { preferences ->
-            preferences[USER_EMAIL] = email
             preferences[USER_NAME] = name
             preferences[USER_ROLE] = role.name
         }

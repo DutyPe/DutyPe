@@ -1,9 +1,7 @@
 package com.example.dutype.services
 
-import com.example.dutype.models.ApplicationStatus
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FieldValue
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -72,9 +70,9 @@ class RatingService @Inject constructor(
 
             // Check if already rated this application for this target role
             val existing = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("applicationId", applicationId)
-                .whereEqualTo("raterId", currentUser.uid)
-                .whereEqualTo("targetRole", targetRole)
+                .whereEqualTo("jobId", jobId)
+                .whereEqualTo("fromUserId", currentUser.uid)
+                .whereEqualTo("toUserId", targetUserId)
                 .limit(1)
                 .get()
                 .await()
@@ -84,20 +82,14 @@ class RatingService @Inject constructor(
             }
 
             val ratingRef = firestore.collection(RATINGS_COLLECTION).document()
-            val ratingData = Rating(
-                id = ratingRef.id,
-                applicationId = applicationId,
-                jobId = jobId,
-                raterId = currentUser.uid,
-                raterName = currentUser.displayName ?: "",
-                raterRole = raterRole,
-                targetUserId = targetUserId,
-                targetUserName = targetUserName,
-                targetRole = targetRole,
-                rating = rating,
-                review = review,
-                tags = tags,
-                createdAt = System.currentTimeMillis()
+            val ratingData = mapOf(
+                "ratingId" to ratingRef.id,
+                "jobId" to jobId,
+                "fromUserId" to currentUser.uid,
+                "toUserId" to targetUserId,
+                "rating" to rating,
+                "review" to review,
+                "createdAt" to System.currentTimeMillis()
             )
 
             // Save rating
@@ -153,9 +145,8 @@ class RatingService @Inject constructor(
         return try {
             val currentUser = auth.currentUser ?: return false
             val snapshot = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("applicationId", applicationId)
-                .whereEqualTo("raterId", currentUser.uid)
-                .whereEqualTo("targetRole", targetRole)
+                .whereEqualTo("jobId", applicationId)
+                .whereEqualTo("fromUserId", currentUser.uid)
                 .limit(1)
                 .get()
                 .await()
@@ -174,16 +165,24 @@ class RatingService @Inject constructor(
     suspend fun getUserRatings(userId: String, role: String): List<Rating> {
         return try {
             val snapshot = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("targetUserId", userId)
+                .whereEqualTo("toUserId", userId)
                 .limit(100)
                 .get()
                 .await()
 
             snapshot.documents
                 .mapNotNull { doc ->
-                    doc.toObject(Rating::class.java)?.copy(id = doc.id)
+                    val data = doc.data ?: return@mapNotNull null
+                    Rating(
+                        id = data["ratingId"] as? String ?: doc.id,
+                        jobId = data["jobId"] as? String ?: "",
+                        raterId = data["fromUserId"] as? String ?: "",
+                        targetUserId = data["toUserId"] as? String ?: "",
+                        rating = (data["rating"] as? Number)?.toInt() ?: 0,
+                        review = data["review"] as? String ?: "",
+                        createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L
+                    )
                 }
-                .filter { it.targetRole == role }
                 .sortedByDescending { it.createdAt }
         } catch (e: Exception) {
             Timber.e(e, "Failed to get user ratings for $userId/$role")

@@ -344,10 +344,19 @@ object AppModule {
         fcmTokenManager: FCMTokenManager,
         profileSetupStateManager: ProfileSetupStateManager,
         appStateManager: AppStateManager,
+        jobCacheManager: JobCacheManager,
         firebaseAuth: FirebaseAuth,
         sessionManager: com.example.dutype.auth.SessionManager
     ): AuthManager {
-        return AuthManager(context, fcmTokenManager, profileSetupStateManager, appStateManager, firebaseAuth, sessionManager)
+        return AuthManager(
+            context,
+            fcmTokenManager,
+            profileSetupStateManager,
+            appStateManager,
+            jobCacheManager,
+            firebaseAuth,
+            sessionManager
+        )
     }
 
     // P0 FIX: Removed AuthRepository - it was just a wrapper around AuthManager

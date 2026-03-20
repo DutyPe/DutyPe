@@ -6,8 +6,12 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 
 /**
- * Room Entity for cached job applications (OPTIMIZED - 14 fields)
- * Matches optimized Firestore schema
+ * Room Entity for cached job applications (OPTIMIZED)
+ *
+ * Firestore schema fields: applicationId, jobId, workerId, employerId, status, createdAt
+ * Runtime-enriched display fields: jobTitle, jobLocation, companyName, workerName
+ * User-provided content: coverLetter
+ * Cache metadata: cachedAt, isSynced, isPendingSubmission
  */
 @Entity(tableName = "applications")
 data class ApplicationEntity(
@@ -19,40 +23,34 @@ data class ApplicationEntity(
     val status: String,
     val appliedAt: Long,
     val updatedAt: Long,
+    // Enriched display fields (fetched from jobs/users, cached locally)
     val jobTitle: String,
     val jobLocation: String,
     val companyName: String,
     val workerName: String,
-    val workerPhone: String,
     val coverLetter: String?,
-    
     // Cache metadata
     val cachedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = true,
-    val isPendingSubmission: Boolean = false // True if queued offline
+    val isPendingSubmission: Boolean = false
 ) {
     
-    /**
-     * Convert to JobApplication model (optimized schema - 14 fields)
-     */
     fun toJobApplication(): JobApplication {
         return JobApplication(
             id = applicationId,
             jobId = jobId,
             workerId = workerId,
             employerId = employerId,
-            status = try { 
-                ApplicationStatus.valueOf(status) 
-            } catch (e: Exception) { 
-                ApplicationStatus.PENDING 
+            status = try {
+                ApplicationStatus.valueOf(status)
+            } catch (e: Exception) {
+                ApplicationStatus.PENDING
             },
             createdAt = appliedAt,
-            updatedAt = updatedAt,
             jobTitle = jobTitle,
             jobLocation = jobLocation,
             companyName = companyName,
-            workerName = workerName,
-            coverLetter = coverLetter ?: ""
+            workerName = workerName
         )
     }
     
@@ -68,9 +66,6 @@ data class ApplicationEntity(
     }
     
     companion object {
-        /**
-         * Create from JobApplication model
-         */
         fun fromJobApplication(app: JobApplication): ApplicationEntity {
             return ApplicationEntity(
                 applicationId = app.id,
@@ -79,30 +74,24 @@ data class ApplicationEntity(
                 employerId = app.employerId,
                 status = app.status.name,
                 appliedAt = app.appliedAt,
-                updatedAt = app.updatedAt,
+                updatedAt = System.currentTimeMillis(),
                 jobTitle = app.jobTitle,
                 jobLocation = app.jobLocation,
                 companyName = app.companyName,
                 workerName = app.workerName,
-                workerPhone = "", // Not in optimized model, will be fetched from user profile if needed
-                coverLetter = app.coverLetter
+                coverLetter = null
             )
         }
         
-        /**
-         * Create a new application for offline submission
-         */
         fun createPendingApplication(
             applicationId: String,
             jobId: String,
             workerId: String,
             employerId: String,
             workerName: String,
-            workerPhone: String,
             jobTitle: String,
             companyName: String,
-            jobLocation: String,
-            coverLetter: String?
+            jobLocation: String
         ): ApplicationEntity {
             val now = System.currentTimeMillis()
             return ApplicationEntity(
@@ -117,8 +106,7 @@ data class ApplicationEntity(
                 jobLocation = jobLocation,
                 companyName = companyName,
                 workerName = workerName,
-                workerPhone = workerPhone,
-                coverLetter = coverLetter,
+                coverLetter = null,
                 cachedAt = now,
                 isSynced = false,
                 isPendingSubmission = true

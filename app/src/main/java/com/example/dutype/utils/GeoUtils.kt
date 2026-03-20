@@ -55,12 +55,12 @@ object GeoUtils {
         userLat: Double,
         userLon: Double
     ): JobListingSummary {
-        if (!hasValidCoordinates(userLat, userLon) || !hasValidCoordinates(summary.latitude, summary.longitude)) {
+        if (!hasValidCoordinates(userLat, userLon) || !hasValidCoordinates(summary.lat, summary.lng)) {
             return summary.copy(distance = null)
         }
 
         return summary.copy(
-            distance = calculateHaversineDistance(userLat, userLon, summary.latitude, summary.longitude)
+            distance = calculateHaversineDistance(userLat, userLon, summary.lat, summary.lng)
         )
     }
 

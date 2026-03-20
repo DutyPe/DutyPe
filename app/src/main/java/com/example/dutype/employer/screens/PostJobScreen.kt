@@ -106,7 +106,6 @@ import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.employer.viewmodels.AIJobPostingViewModel
 import com.example.dutype.location.LocationSuggestion
-import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.JobValidationUtils
 import com.example.dutype.utils.PayRateValidationResult
@@ -123,7 +122,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
-import java.util.UUID
 
 /**
  * PERFORMANCE FIX: Compress image before upload to reduce bandwidth and storage costs
@@ -298,10 +296,6 @@ fun PostJobScreen(
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
     
-    // PERFORMANCE FIX: Idempotency key to prevent duplicate job submissions
-    // Generated once per form session, included in job data to detect duplicates
-    val idempotencyKey = remember { UUID.randomUUID().toString() }
-    
     // ANTI-FRAUD: Validation state for No-Data-Entry Firewall and Pay Rate Guardrails
     var scamValidationResult by remember { mutableStateOf<ValidationResult?>(null) }
     var payRateValidationResult by remember { mutableStateOf<PayRateValidationResult?>(null) }
@@ -397,7 +391,7 @@ fun PostJobScreen(
                     Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location (GPS-level precision)...")
                     // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                     val locationInfo = locationService.getHighAccuracyLocation(
-                        timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                        timeoutMs = 5000L,  // Fall back to manual selection quickly
                         minAccuracyMeters = 10f  // Target 10m GPS precision
                     )
                     if (locationInfo != null) {
@@ -462,12 +456,9 @@ fun PostJobScreen(
                         Timber.d("📦 Cache miss, fetching from Firestore...")
                         val db = FirebaseFirestore.getInstance()
                         val userDoc = db.collection("users").document(currentUser.uid).get().await()
+                        val employerDoc = db.collection("employer_profiles").document(currentUser.uid).get().await()
 
                         if (userDoc.exists()) {
-                            val savedCompanyName = userDoc.getString("companyName")
-                            if (!savedCompanyName.isNullOrBlank()) {
-                                companyName = savedCompanyName
-                            }
                             val savedFullName = userDoc.getString("fullName")
                             if (!savedFullName.isNullOrBlank()) {
                                 employerName = savedFullName
@@ -476,9 +467,11 @@ fun PostJobScreen(
                             if (!savedContactPhone.isNullOrBlank()) {
                                 contactNumber = savedContactPhone
                             }
-                            val savedTrustTier = userDoc.getString("trustTier")
-                            if (!savedTrustTier.isNullOrBlank()) {
-                                employerTrustTier = savedTrustTier
+                        }
+                        if (employerDoc.exists()) {
+                            val savedCompanyName = employerDoc.getString("companyName")
+                            if (!savedCompanyName.isNullOrBlank()) {
+                                companyName = savedCompanyName
                             }
                         }
                     }
@@ -563,6 +556,11 @@ fun PostJobScreen(
         return JobValidationUtils.formatSuggestedRange(category, payType)
     }
 
+    val hasValidJobCoordinates = com.example.dutype.utils.GeoUtils.hasValidCoordinates(
+        locationLatitude,
+        locationLongitude
+    )
+
     // Create job posting function
     fun createJobPosting(): JobPostingModel {
         return JobPostingModel(
@@ -592,69 +590,53 @@ fun PostJobScreen(
         
         Timber.d("📝 JOB POSTING DEBUG: Creating job posting...")
         val jobPosting = createJobPosting()
+        val normalizedJobType = if (category == JobCategory.OTHER && customCategory.isNotBlank()) {
+            customCategory.trim()
+        } else {
+            category.displayName
+        }
+        val normalizedUrgency = when (urgency) {
+            JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
+            JobUrgency.NORMAL -> "MEDIUM"
+            JobUrgency.FLEXIBLE -> "LOW"
+        }
+        val normalizedBenefits = (
+            selectedPerks.map { it.displayName } +
+                benefits.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            ).distinct()
         
-        // Convert JobPostingModel to JobListing (optimized for job posting)
-        val jobListing = JobListing(
-            id = "",
-            employerId = employerId ?: "emp_${System.currentTimeMillis()}",
-            title = jobPosting.title,
-            companyName = companyName, // Company name is mandatory and loaded from profile
-            location = jobPosting.location,
-            payAmount = jobPosting.payAmount,
-            payType = jobPosting.payType.name,
-            shiftTiming = jobPosting.shiftTiming.name,
-            description = jobPosting.description,
-            vacancies = jobPosting.vacancies,
-            isActive = true,
-            postedAt = System.currentTimeMillis(),
-            contactNumber = jobPosting.contactNumber,
-            jobType = "Part-time",
-            gender = gender
-        )
-        
-        // Extract area and city from location string for display
-        val locationParts = location.split(",").map { it.trim() }
-        val area = locationParts.getOrNull(0) ?: location
-        val city = locationParts.getOrNull(1) ?: locationParts.getOrNull(0) ?: location
-        
-        // DEBUG: Log location coordinates
-        Timber.d("📝 JOB POSTING DEBUG: Location Details:")
-        Timber.d("📝   - Raw location: $location")
-        Timber.d("📝   - Area: $area")
-        Timber.d("📝   - City: $city")
-        Timber.d("📝   - Latitude: $finalLatitude")
-        Timber.d("📝   - Longitude: $finalLongitude")
-        Timber.d("📝   - Has valid coordinates: ${finalLatitude != 0.0 || finalLongitude != 0.0}")
-        
-        // Convert JobListing to Map for Firestore (only essential fields)
+        // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
             // Core job information
-            "title" to jobListing.title,
-            "jobType" to (if (category == JobCategory.OTHER && customCategory.isNotBlank()) customCategory else category.name),
+            "title" to jobPosting.title,
+            "jobType" to normalizedJobType,
             
             // Location information
             "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
-            "addressText" to jobListing.location,
+            "addressText" to jobPosting.location,
             
             // Pay information
-            "salary" to (jobListing.payAmount.toDoubleOrNull() ?: 0.0),
-            "salaryType" to jobListing.payType,
+            "salary" to (jobPosting.payAmount.toDoubleOrNull() ?: 0.0),
+            "salaryType" to jobPosting.payType.name,
             
             // Job details
-            "description" to jobListing.description,
+            "description" to jobPosting.description,
+            "gender" to gender,
+            "experienceRequired" to experienceLevel,
+            "shiftTiming" to shiftTiming.displayName,
+            "vacancies" to (vacancies.toIntOrNull() ?: 1),
+            "benefits" to normalizedBenefits,
             
             // Contact information
-            "contactNumber" to jobListing.contactNumber,
+            "contactNumber" to jobPosting.contactNumber,
+            "workingHours" to workType,
+            "educationRequired" to requirements.trim(),
             
-            // Job metadata
-            "createdAt" to jobListing.postedAt,
-            "expiresAt" to (jobListing.postedAt + (JobListing.EXPIRY_DAYS * 24 * 60 * 60 * 1000L)),
-            "status" to "open",
-            "urgency" to "MEDIUM",
+            // Job metadata — createdAt/expiresAt set by JobFirestoreService.createJob()
+            "urgency" to normalizedUrgency,
             
             // System fields
-            "employerId" to (employerId ?: ""),
-            "idempotencyKey" to idempotencyKey
+            "employerId" to (employerId ?: "")
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -801,8 +783,15 @@ fun PostJobScreen(
                         finalLongitude = geocodedLocation.longitude
                         Timber.d("📝 JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
                     } else {
-                        Timber.w("📝 JOB POSTING DEBUG: Geocoding failed, using 0,0 coordinates")
+                        Timber.w("📝 JOB POSTING DEBUG: Geocoding failed")
                     }
+                }
+
+                if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
+                    locationError = context.getString(R.string.valid_job_location_required)
+                    isSubmittingJob = false
+                    Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
+                    return@launch
                 }
                 
                 // ANTI-FRAUD: Location Consistency Check (NON-BLOCKING)
@@ -1245,7 +1234,13 @@ fun PostJobScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(52.dp),
-                                enabled = !employerJobUiState.isCreatingJob && !isSubmittingJob && validateStep(1) && validateStep(2) && validateStep(3),
+                                enabled = !employerJobUiState.isCreatingJob &&
+                                    !isSubmittingJob &&
+                                    !isLoadingLocation &&
+                                    hasValidJobCoordinates &&
+                                    validateStep(1) &&
+                                    validateStep(2) &&
+                                    validateStep(3),
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = successGreen,
@@ -1428,7 +1423,7 @@ fun PostJobScreen(
                                             try {
                                                 // Use getHighAccuracyLocation with GPS-level precision (5-10m)
                                                 val locationInfo = locationService.getHighAccuracyLocation(
-                                                    timeoutMs = 15000L,  // Wait up to 15 seconds for GPS fix
+                                                    timeoutMs = 5000L,  // Fall back to manual selection quickly
                                                     minAccuracyMeters = 10f  // Target 10m GPS precision
                                                 )
                                                 if (locationInfo != null) {

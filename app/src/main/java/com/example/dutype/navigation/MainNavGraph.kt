@@ -113,6 +113,19 @@ fun MainNavGraph(
                     // User is authenticated, check their role and profile completion
                     Timber.d("🚀 MainNavGraph - User authenticated, checking role from DataStore...")
                     
+                    val userDoc = try {
+                        kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(currentUser.uid)
+                                .get()
+                                .await()
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "ðŸš€ MainNavGraph - Error reading users doc")
+                        null
+                    }
+
                     // CRITICAL FIX: Try DataStore first, fallback to Firestore if needed
                     var userRole = profileCompletionViewModel.getUserRole()
                     Timber.d("🚀 MainNavGraph - DataStore userRole: $userRole")
@@ -122,15 +135,6 @@ fun MainNavGraph(
                     if (userRole == null) {
                         Timber.w("🚀 MainNavGraph - DataStore returned null, checking Firestore with timeout...")
                         try {
-                            // P0 FIX: Add 2s timeout to prevent blocking navigation on slow networks
-                            val userDoc = kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                                com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                    .collection("users")
-                                    .document(currentUser.uid)
-                                    .get()
-                                    .await()
-                            }
-                            
                             val activeRoleStr = userDoc?.getString("activeRole")
                             Timber.d("🚀 MainNavGraph - Firestore activeRole: $activeRoleStr")
                             
@@ -154,7 +158,8 @@ fun MainNavGraph(
                     }
                     
                     if (userRole != null) {
-                        val isProfileComplete = profileCompletionViewModel.isProfileComplete(userRole)
+                        val isProfileComplete = userDoc?.exists() == true &&
+                            profileCompletionViewModel.isProfileComplete(userRole)
                         Timber.d("🚀 MainNavGraph - Profile complete for $userRole: $isProfileComplete")
                         
                         when {
@@ -819,3 +824,6 @@ fun RoleSelectionWithNavigation(
         }
     )
 }
+
+
+

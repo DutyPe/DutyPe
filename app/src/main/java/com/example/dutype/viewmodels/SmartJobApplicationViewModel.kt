@@ -337,7 +337,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                         lastApplication = submittedApplication,
                         applicationSuccess = true
                     )
-                    applicationStateManager.addAppliedJob(application.id)
+                    applicationStateManager.addAppliedJob(submittedApplication.jobId)
                     loadApplicationStats()
                 }
                 .onFailure { exception ->

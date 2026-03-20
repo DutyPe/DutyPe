@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
@@ -64,6 +65,44 @@ class ProfileCompletionService @Inject constructor(
     private fun invalidateUserCache(userId: String) {
         userDocCache.remove(userId)
     }
+
+    private fun buildBasicUserFallback(userId: String): MutableMap<String, Any?> {
+        val currentUser = auth.currentUser
+        val fallback = mutableMapOf<String, Any?>(
+            "userId" to userId,
+            "fullName" to (currentUser?.displayName ?: ""),
+            "phone" to (currentUser?.phoneNumber ?: "")
+        )
+        fallback.remove("fullName", "")
+        fallback.remove("phone", "")
+        return fallback
+    }
+
+    private fun extractSkills(rawSkills: Any?): List<String> {
+        return when (rawSkills) {
+            is List<*> -> rawSkills.mapNotNull { it?.toString()?.trim()?.lowercase() }
+            is String -> rawSkills.split(",").map { it.trim().lowercase() }
+            else -> emptyList()
+        }.filter { it.isNotBlank() }
+            .distinct()
+    }
+
+    private fun readWorkerSkills(workerData: Map<String, Any>): List<String> {
+        return extractSkills(workerData["skills"]).ifEmpty {
+            extractSkills(workerData["jobTypes"])
+        }
+    }
+
+    private fun extractValidLocation(profileData: Map<String, Any>, existingUser: Map<String, Any>): Map<String, Any>? {
+        val candidate = (profileData["location"] as? Map<*, *>) ?: (existingUser["location"] as? Map<*, *>)
+        val lat = (candidate?.get("lat") as? Number)?.toDouble()
+        val lng = (candidate?.get("lng") as? Number)?.toDouble()
+        return if (lat != null && lng != null && GeoUtils.hasValidCoordinates(lat, lng)) {
+            mapOf("lat" to lat, "lng" to lng)
+        } else {
+            null
+        }
+    }
     
     /**
      * Calculate profile completion from individual fields (used during setup flow).
@@ -102,7 +141,16 @@ class ProfileCompletionService @Inject constructor(
     suspend fun calculateWorkerProfileCompletion(userId: String): Int {
         return try {
             val userData = getCachedUserDoc(userId) ?: return 0
-            val workerData = firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
+            val workerData = try {
+                firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
+            } catch (e: Exception) {
+                if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    Timber.w("worker_profiles read denied for userId=%s; using users-only completion fallback", userId)
+                    emptyMap<String, Any>()
+                } else {
+                    throw e
+                }
+            }
             
             Timber.d("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
             Timber.d("🔍 Firebase userData keys: ${userData.keys}")
@@ -118,18 +166,35 @@ class ProfileCompletionService @Inject constructor(
             if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 30
 
             // Strict worker profile fields
-            val jobTypes = workerData["jobTypes"] as? List<*>
-            if (!jobTypes.isNullOrEmpty()) completion += 35
+            val skills = readWorkerSkills(workerData)
+            if (skills.isNotEmpty()) completion += 35
             
             // Optional display field
             if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
             
+            // If worker profile is temporarily inaccessible but identity fields are present,
+            // avoid false-negative blocking of job application flow.
+            if (workerData.isEmpty() && completion >= 60) {
+                completion = maxOf(completion, 80)
+            }
+
             val finalCompletion = completion.coerceAtMost(100)
             Timber.d("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
             finalCompletion
             } catch (e: Exception) {
-            Timber.e(e, "❌ ProfileCompletionService - Error calculating completion: ${e.message}")
-            0
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("Profile completion read denied for userId=%s; falling back to auth data", userId)
+                val fallback = buildBasicUserFallback(userId)
+                calculateWorkerProfileCompletion(
+                    fullName = fallback["fullName"] as? String ?: "",
+                    phone = fallback["phone"] as? String ?: "",
+                    skills = "",
+                    profileImageUrl = null
+                )
+            } else {
+                Timber.e(e, "❌ ProfileCompletionService - Error calculating completion: ${e.message}")
+                0
+            }
         }
     }
 
@@ -261,8 +326,8 @@ class ProfileCompletionService @Inject constructor(
                         "profileImageUrl" to downloadUrl,
                         "lastActiveAt" to Timestamp.now()
                     )
-                    firestore.collection("users").document(userId)
-                        .set(imageData, com.google.firebase.firestore.SetOptions.merge())
+                    firestore.collection(COLLECTION_USERS).document(userId)
+                        .update(imageData)
                         .await()
                     Timber.d("📸 PROFILE IMAGE: User document updated")
                     
@@ -561,62 +626,73 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val now = Timestamp.now()
+            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
+            val existingUserSnapshot = userRef.get().await()
+            if (!existingUserSnapshot.exists()) {
+                return Result.failure(IllegalStateException("Complete registration before profile setup"))
+            }
+
+            val existingUser = existingUserSnapshot.data.orEmpty()
+            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString()?.uppercase() }.orEmpty()
+            if (!existingRoles.contains("WORKER")) {
+                return Result.failure(IllegalStateException("Worker role is not enabled for this account"))
+            }
 
             val fullName = (profileData["fullName"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingUser["fullName"] as? String)?.trim().orEmpty()
             val phone = (profileData["phone"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingUser["phone"] as? String)?.trim()
+                ?: currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val profileImageUrl = (profileData["profileImageUrl"] as? String)?.trim()
-            val userRef = firestore.collection("users").document(currentUser.uid)
-            val existingUser = userRef.get().await().data.orEmpty()
-            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
-            val mergedRoles = (existingRoles + "WORKER").distinct()
+            val skills = extractSkills(profileData["skills"])
 
-            FirestoreUtils.ensureMinimalUserDocument(
-                userId = currentUser.uid,
-                role = "WORKER",
-                phoneNumber = phone,
-                fullName = fullName
-            )
+            if (fullName.isBlank()) {
+                return Result.failure(IllegalArgumentException("Full name is required"))
+            }
+            if (phone.isBlank()) {
+                return Result.failure(IllegalArgumentException("Phone number is required"))
+            }
+            if (skills.isEmpty()) {
+                return Result.failure(IllegalArgumentException("Select at least one skill"))
+            }
 
-            val locationMap = profileData["location"] as? Map<*, *>
-            val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
-            val lng = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
+            val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
+            val existingWorker = workerRef.get().await().data.orEmpty()
+            val validLocation = extractValidLocation(profileData, existingUser)
 
             val userUpdates = mutableMapOf<String, Any>(
-                "roles" to mergedRoles,
+                "fullName" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "roles" to existingRoles,
                 "activeRole" to "WORKER",
                 "lastActiveAt" to now
             )
+            if (!profileImageUrl.isNullOrBlank()) {
+                userUpdates["profileImageUrl"] = profileImageUrl
+            }
+            if (validLocation != null) {
+                userUpdates["location"] = validLocation
+                userUpdates["geohash"] = GeoUtils.encodeGeohash(
+                    (validLocation["lat"] as Number).toDouble(),
+                    (validLocation["lng"] as Number).toDouble()
+                )
+            }
 
-            if (!fullName.isNullOrBlank()) userUpdates["fullName"] = fullName
-            if (!phone.isNullOrBlank()) userUpdates["phone"] = PhoneNumberUtils.normalize(phone)
-            if (!profileImageUrl.isNullOrBlank()) userUpdates["profileImageUrl"] = profileImageUrl
-            userUpdates["location"] = mapOf("lat" to lat, "lng" to lng)
-            userUpdates["geohash"] = GeoUtils.encodeGeohash(lat, lng)
-
-            firestore.collection("users").document(currentUser.uid)
-                .set(userUpdates, com.google.firebase.firestore.SetOptions.merge())
-                .await()
-
-            val skills = (profileData["skills"] as? String)
-                ?.split(",")
-                ?.map { it.trim().lowercase() }
-                ?.filter { it.isNotBlank() }
-                ?.distinct()
-                ?: emptyList()
-
-            val workerProfile = mapOf(
-                "userId" to currentUser.uid,
-                "jobTypes" to skills,
-                "isAvailable" to true,
-                "rating" to 0.0,
-                "totalRatings" to 0,
-                "totalJobs" to 0,
-                "lastActiveAt" to now
+            val workerProfile = mutableMapOf<String, Any>(
+                "skills" to skills,
+                "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true),
+                "lastActiveAt" to now,
+                "rating" to ((existingWorker["rating"] as? Number)?.toDouble() ?: 0.0),
+                "totalRatings" to ((existingWorker["totalRatings"] as? Number)?.toInt() ?: 0),
+                "totalJobs" to ((existingWorker["totalJobs"] as? Number)?.toInt() ?: 0)
             )
 
-            firestore.collection("worker_profiles").document(currentUser.uid)
-                .set(workerProfile, com.google.firebase.firestore.SetOptions.merge())
-                .await()
+            val batch = firestore.batch()
+            batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())
+            batch.set(workerRef, workerProfile, com.google.firebase.firestore.SetOptions.merge())
+            batch.commit().await()
 
             invalidateUserCache(currentUser.uid)
             
@@ -639,47 +715,65 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val now = Timestamp.now()
+            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
+            val existingUserSnapshot = userRef.get().await()
+            if (!existingUserSnapshot.exists()) {
+                return Result.failure(IllegalStateException("Complete registration before profile setup"))
+            }
+
+            val existingUser = existingUserSnapshot.data.orEmpty()
+            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString()?.uppercase() }.orEmpty()
+            if (!existingRoles.contains("EMPLOYER")) {
+                return Result.failure(IllegalStateException("Employer role is not enabled for this account"))
+            }
+
             val fullName = (profileData["fullName"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingUser["fullName"] as? String)?.trim().orEmpty()
             val phone = (profileData["phone"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingUser["phone"] as? String)?.trim()
+                ?: currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val profileImageUrl = (profileData["profileImageUrl"] as? String)?.trim()
             val companyName = (profileData["companyName"] as? String)?.trim().orEmpty()
-            val userRef = firestore.collection("users").document(currentUser.uid)
-            val existingUser = userRef.get().await().data.orEmpty()
-            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
-            val mergedRoles = (existingRoles + "EMPLOYER").distinct()
 
-            FirestoreUtils.ensureMinimalUserDocument(
-                userId = currentUser.uid,
-                role = "EMPLOYER",
-                phoneNumber = phone,
-                fullName = fullName
-            )
+            if (fullName.isBlank()) {
+                return Result.failure(IllegalArgumentException("Full name is required"))
+            }
+            if (phone.isBlank()) {
+                return Result.failure(IllegalArgumentException("Phone number is required"))
+            }
+            if (companyName.isBlank()) {
+                return Result.failure(IllegalArgumentException("Company name is required"))
+            }
+
+            val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
+            val existingEmployer = employerRef.get().await().data.orEmpty()
 
             val userUpdates = mutableMapOf<String, Any>(
-                "roles" to mergedRoles,
+                "fullName" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "roles" to existingRoles,
                 "activeRole" to "EMPLOYER",
                 "lastActiveAt" to now
             )
+            if (!profileImageUrl.isNullOrBlank()) {
+                userUpdates["profileImageUrl"] = profileImageUrl
+            }
 
-            if (!fullName.isNullOrBlank()) userUpdates["fullName"] = fullName
-            if (!phone.isNullOrBlank()) userUpdates["phone"] = PhoneNumberUtils.normalize(phone)
-            if (!profileImageUrl.isNullOrBlank()) userUpdates["profileImageUrl"] = profileImageUrl
-
-            firestore.collection("users").document(currentUser.uid)
-                .set(userUpdates, com.google.firebase.firestore.SetOptions.merge())
-                .await()
-
-            val employerProfile = mapOf(
-                "userId" to currentUser.uid,
+            val employerProfile = mutableMapOf<String, Any>(
                 "companyName" to companyName,
-                "rating" to 0.0,
-                "totalRatings" to 0,
-                "totalHires" to 0
+                "isVerified" to false,
+                "rating" to ((existingEmployer["rating"] as? Number)?.toDouble() ?: 0.0),
+                "totalRatings" to ((existingEmployer["totalRatings"] as? Number)?.toInt() ?: 0),
+                "totalHires" to ((existingEmployer["totalHires"] as? Number)?.toInt() ?: 0),
+                "lastActiveAt" to now
             )
 
-            firestore.collection("employer_profiles").document(currentUser.uid)
-                .set(employerProfile, com.google.firebase.firestore.SetOptions.merge())
-                .await()
+            val batch = firestore.batch()
+            batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())
+            batch.set(employerRef, employerProfile, com.google.firebase.firestore.SetOptions.merge())
+            batch.commit().await()
             invalidateUserCache(currentUser.uid)
             
             Timber.d("🔍 ProfileCompletionService.saveEmployerProfileData - Saved profile data: ${profileData.keys}")
@@ -695,7 +789,7 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun getEmployerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
-            val userData = getCachedUserDoc(userId) ?: return Result.failure(Exception("User not found"))
+            val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
             val employerData = firestore.collection("employer_profiles").document(userId).get().await().data.orEmpty()
             val merged = userData.toMutableMap()
             merged.putAll(employerData)
@@ -715,10 +809,14 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun getWorkerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
-            val userData = getCachedUserDoc(userId) ?: return Result.failure(Exception("User not found"))
+            val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
             val workerData = firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
             val merged = userData.toMutableMap()
             merged.putAll(workerData)
+            val skills = readWorkerSkills(workerData)
+            if (skills.isNotEmpty()) {
+                merged["skills"] = skills
+            }
             
             SecureLogger.logCollectionSize("ProfileCompletionService", "Worker profile keys", userData.keys.size)
             Result.success(merged)
@@ -876,9 +974,8 @@ class ProfileCompletionService @Inject constructor(
                 if (phoneValue == null || phoneValue.toString().isBlank()) 
                     missingFields.add("Phone Number")
                 val workerData = firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
-                val jobTypes = workerData["jobTypes"] as? List<*>
-                if (jobTypes.isNullOrEmpty())
-                    missingFields.add("Job Types")
+                if (readWorkerSkills(workerData).isEmpty())
+                    missingFields.add("Skills")
                 if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
                     missingFields.add("Profile Picture")
             } else {
@@ -984,9 +1081,11 @@ class ProfileCompletionService @Inject constructor(
     // ============================================
     
     companion object {
-        private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
+        private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
         private const val COLLECTION_REFERRALS = "referrals"
+        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
     }
     
     /**
@@ -1061,16 +1160,14 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun hasUserUsedReferralCode(userId: String): Boolean {
         return try {
-            // Check users.referralStats for referredByCode
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            // Check canonical referral_stats/{userId} document
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
             
-            if (userDoc.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                val referralStats = userDoc.get("referralStats") as? Map<String, Any?>
-                val referredByCode = referralStats?.get("referredByCode") as? String
+            if (statsDoc.exists()) {
+                val referredByCode = statsDoc.getString("referredByCode")
                 if (!referredByCode.isNullOrBlank()) {
                     Timber.d("🎁 REFERRAL: User $userId already used code: $referredByCode")
                     return true
@@ -1091,7 +1188,7 @@ class ProfileCompletionService @Inject constructor(
             
             false
         } catch (e: Exception) {
-            Timber.e(e, "Error checking if user used referral code")
+            Timber.w("🎁 REFERRAL: Unable to check referral usage, defaulting to false: ${e.message}")
             false // Default to false to not block user
         }
     }
@@ -1114,39 +1211,7 @@ class ProfileCompletionService @Inject constructor(
      * Update referred user's stats (signup bonus for using a referral code)
      */
     private suspend fun updateReferredUserStats(referredUserId: String, rewardAmount: Double) {
-        try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(referredUserId)
-                .get()
-                .await()
-            
-            if (!userDoc.exists()) {
-                Timber.w("No user document found for referred user $referredUserId")
-                return
-            }
-            
-            @Suppress("UNCHECKED_CAST")
-            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val currentEarnings = (referralStats["totalEarnings"] as? Number)?.toDouble() ?: 0.0
-            val currentBalance = (referralStats["availableBalance"] as? Number)?.toDouble() ?: 0.0
-            
-            val updates = mapOf(
-                "referralStats.totalEarnings" to (currentEarnings + rewardAmount),
-                "referralStats.availableBalance" to (currentBalance + rewardAmount),
-                "referralStats.signupBonusReceived" to true,
-                "referralStats.signupBonusAmount" to rewardAmount,
-                "referralStats.lastUpdated" to System.currentTimeMillis()
-            )
-            
-            firestore.collection(COLLECTION_USERS)
-                .document(referredUserId)
-                .update(updates)
-                .await()
-            
-            Timber.d("🎁 Updated referred user $referredUserId stats: +₹$rewardAmount signup bonus")
-        } catch (e: Exception) {
-            Timber.e(e, "Error updating referred user stats")
-        }
+        Timber.d("REFERRAL: Strict schema mode - updateReferredUserStats skipped for $referredUserId")
     }
     
     /**
@@ -1154,15 +1219,14 @@ class ProfileCompletionService @Inject constructor(
      */
     private suspend fun getOrCreateReferralStats(userId: String, userRole: String): Map<String, Any>? {
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
             
-            if (userDoc.exists()) {
+            if (statsDoc.exists()) {
                 @Suppress("UNCHECKED_CAST")
-                val referralStats = userDoc.get("referralStats") as? Map<String, Any>
-                return referralStats
+                return statsDoc.data as? Map<String, Any>
             }
 
             null
@@ -1176,147 +1240,21 @@ class ProfileCompletionService @Inject constructor(
      * Update referrer's pending count
      */
     private suspend fun updateReferrerPendingCount(referrerUserId: String, delta: Int) {
-        try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(referrerUserId)
-                .get()
-                .await()
-            
-            if (!userDoc.exists()) return
-            
-            @Suppress("UNCHECKED_CAST")
-            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val currentTotal = (referralStats["totalReferrals"] as? Number)?.toInt() ?: 0
-            val currentPending = (referralStats["pendingReferrals"] as? Number)?.toInt() ?: 0
-            
-            firestore.collection(COLLECTION_USERS)
-                .document(referrerUserId)
-                .update(
-                    mapOf(
-                        "referralStats.totalReferrals" to (currentTotal + delta),
-                        "referralStats.pendingReferrals" to (currentPending + delta),
-                        "referralStats.lastUpdated" to System.currentTimeMillis()
-                    )
-                )
-                .await()
-        } catch (e: Exception) {
-            Timber.e(e, "Error updating pending count")
-        }
+        Timber.d("REFERRAL: Strict schema mode - updateReferrerPendingCount skipped for $referrerUserId")
     }
     
     /**
      * Update referrer's stats after successful referral
      */
     private suspend fun updateReferrerStats(referrerUserId: String, rewardAmount: Double) {
-        try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(referrerUserId)
-                .get()
-                .await()
-            
-            if (!userDoc.exists()) return
-            
-            @Suppress("UNCHECKED_CAST")
-            val referralStats = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val currentSuccessful = (referralStats["successfulReferrals"] as? Number)?.toInt() ?: 0
-            val currentPending = (referralStats["pendingReferrals"] as? Number)?.toInt() ?: 0
-            val currentEarnings = (referralStats["totalEarnings"] as? Number)?.toDouble() ?: 0.0
-            val currentBalance = (referralStats["availableBalance"] as? Number)?.toDouble() ?: 0.0
-            val userRole = userDoc.getString("activeRole") ?: ""
-            
-            val newSuccessfulCount = currentSuccessful + 1
-            val newPendingCount = maxOf(0, currentPending - 1)
-            
-            // Check for milestone bonus
-            var bonusAmount = 0.0
-            val milestones = mapOf(5 to 50.0, 10 to 100.0, 15 to 150.0)
-            if (milestones.containsKey(newSuccessfulCount)) {
-                bonusAmount = milestones[newSuccessfulCount] ?: 0.0
-            }
-            
-            val newTotalEarnings = currentEarnings + rewardAmount + bonusAmount
-            val newAvailableBalance = currentBalance + rewardAmount + bonusAmount
-            
-            // Can withdraw at 5, 10, 15 referrals, and anytime after 15
-            val canWithdraw = newSuccessfulCount >= 15 || listOf(5, 10, 15).contains(newSuccessfulCount)
-            
-            val nextMilestone = when {
-                newSuccessfulCount < 5 -> 5
-                newSuccessfulCount < 10 -> 10
-                newSuccessfulCount < 15 -> 15
-                else -> newSuccessfulCount + 1
-            }
-            
-            // Calculate employer free postings
-            var freePostings = (referralStats["freeJobPostings"] as? Number)?.toInt() ?: 0
-            var freePostingsExpiry = (referralStats["freeJobPostingsExpiry"] as? Number)?.toLong()
-            
-            if (userRole == "EMPLOYER") {
-                when (newSuccessfulCount) {
-                    5 -> {
-                        freePostings = 5
-                        freePostingsExpiry = System.currentTimeMillis() + (15 * 24 * 60 * 60 * 1000L)
-                    }
-                    10 -> {
-                        freePostings = 10
-                        freePostingsExpiry = System.currentTimeMillis() + (30 * 24 * 60 * 60 * 1000L)
-                    }
-                }
-            }
-            
-            val updates = mutableMapOf<String, Any>(
-                "referralStats.successfulReferrals" to newSuccessfulCount,
-                "referralStats.pendingReferrals" to newPendingCount,
-                "referralStats.totalEarnings" to newTotalEarnings,
-                "referralStats.availableBalance" to newAvailableBalance,
-                "referralStats.canWithdraw" to canWithdraw,
-                "referralStats.nextMilestone" to nextMilestone,
-                "referralStats.freeJobPostings" to freePostings,
-                "referralStats.lastUpdated" to System.currentTimeMillis()
-            )
-            
-            if (freePostingsExpiry != null) {
-                updates["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry
-            }
-            
-            firestore.collection(COLLECTION_USERS)
-                .document(referrerUserId)
-                .update(updates)
-                .await()
-            
-            if (bonusAmount > 0) {
-                Timber.d("Milestone bonus earned: ₹$bonusAmount for $newSuccessfulCount referrals")
-            }
-            
-            Timber.d("Updated referrer stats: successful=$newSuccessfulCount, balance=₹$newAvailableBalance")
-        } catch (e: Exception) {
-            Timber.e(e, "Error updating referrer stats")
-        }
+        Timber.d("REFERRAL: Strict schema mode - updateReferrerStats skipped for $referrerUserId")
     }
     
     /**
      * Get referral stats for current user
      */
     suspend fun getReferralStats(): Result<Map<String, Any>?> {
-        val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
-        
-        return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(userId)
-                .get()
-                .await()
-            
-            if (userDoc.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                val referralStats = userDoc.get("referralStats") as? Map<String, Any>
-                Result.success(referralStats)
-            } else {
-                Result.success(null)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error getting referral stats")
-            Result.failure(e)
-        }
+        return Result.success(null)
     }
     
     /**
@@ -1344,63 +1282,10 @@ class ProfileCompletionService @Inject constructor(
     /**
      * Create referral stats for a new user
      * This generates their unique referral code that they can share
-     * 
-     * NOTE: The Cloud Function 'onUserProfileComplete' also creates this automatically
-     * when profileCompleted changes to true. This method serves as a fallback
-     * and for backward compatibility.
      */
     suspend fun createReferralStats(userId: String, userRole: String, userName: String = ""): Result<Unit> {
-        return try {
-            val existingDoc = firestore.collection(COLLECTION_USERS)
-                .document(userId)
-                .get()
-                .await()
-
-            if (!existingDoc.exists()) {
-                return Result.failure(Exception("User not found"))
-            }
-
-            val updates = mutableMapOf<String, Any>()
-            @Suppress("UNCHECKED_CAST")
-            val existingStats = existingDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val defaults = mapOf(
-                "totalReferrals" to 0,
-                "successfulReferrals" to 0,
-                "pendingReferrals" to 0,
-                "expiredReferrals" to 0,
-                "rejectedReferrals" to 0,
-                "totalEarnings" to 0.0,
-                "pendingEarnings" to 0.0,
-                "withdrawnAmount" to 0.0,
-                "availableBalance" to 0.0,
-                "canWithdraw" to false,
-                "nextMilestone" to 5,
-                "currentTier" to "BRONZE",
-                "freeJobPostings" to 0,
-                "signupBonusReceived" to false,
-                "signupBonusAmount" to 0.0
-            )
-
-            defaults.forEach { (key, value) ->
-                if (!existingStats.containsKey(key)) {
-                    updates["referralStats.$key"] = value
-                }
-            }
-            updates["referralStats.lastUpdated"] = System.currentTimeMillis()
-
-            if (updates.isNotEmpty()) {
-                firestore.collection(COLLECTION_USERS)
-                    .document(userId)
-                    .update(updates)
-                    .await()
-            }
-
-            Timber.d("REFERRAL: Referral stats initialized for $userId; backend will ensure canonical referral code")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "Error creating referral stats")
-            Result.failure(e)
-        }
+        Timber.d("REFERRAL: Strict schema mode - createReferralStats skipped for $userId")
+        return Result.success(Unit)
     }
 }
 

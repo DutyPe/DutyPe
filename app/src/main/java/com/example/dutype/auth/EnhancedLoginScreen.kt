@@ -125,6 +125,7 @@ fun EnhancedLoginScreen(
 
     LaunchedEffect(initialRole, selectedRole) {
         Timber.d("EnhancedLoginScreen - Role: $initialRole -> $selectedRole")
+        otpViewModel.setRoleContext(selectedRole)
     }
 
     OtpLoginScreen(
@@ -164,6 +165,34 @@ private fun OtpLoginScreen(
                 val currentUser = FirebaseAuth.getInstance().currentUser
 
                 if (currentUser != null) {
+                    val loginResult = otpViewModel.completeLogin(role)
+                    loginResult.fold(
+                        onSuccess = { outcome ->
+                            profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                email = "",
+                                name = "",
+                                role = role
+                            )
+                            if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
+                                profileCompletionViewModel.markProfileComplete(role)
+                                profileCompletionViewModel.markProfileSetupAsShown(role)
+                                navigateToHome(role, navController)
+                            } else {
+                                navigateToProfileSetup(role, navController)
+                            }
+                        },
+                        onFailure = { error ->
+                            Timber.e(error, "OTP VERIFICATION SUCCESS - Login resolution failed")
+                            Toast.makeText(
+                                context,
+                                error.message ?: "Could not load your account. Please try again.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    )
+                    otpViewModel.resetState()
+                    return@LaunchedEffect
+
                     val userId = currentUser.uid
 
                     // Fetch user data from Firestore

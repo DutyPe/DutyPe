@@ -1,19 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  getDocs,
-  limit,
-  query
-} from "firebase/firestore";
+import { useEffect, useState } from "react";
 
 import {
   normalizeApplicationRecord,
   normalizeUserRecord
 } from "@/lib/firebase/admin-normalizers";
-import { getFirebaseServices } from "@/lib/firebase/client";
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
 type DashboardSnapshot = {
@@ -48,6 +41,39 @@ type DashboardSnapshot = {
   }[];
 };
 
+type DashboardApiResult<T> = {
+  data: T;
+  error: string | null;
+};
+
+async function fetchAdminJson<T>(url: string, fallback: T): Promise<DashboardApiResult<T>> {
+  try {
+    const response = await fetch(url, {
+      credentials: "include",
+      cache: "no-store"
+    });
+
+    const payload = (await response.json()) as { error?: string } & Partial<Record<string, unknown>>;
+
+    if (!response.ok) {
+      return {
+        data: fallback,
+        error: payload.error || `Failed to load ${url}`
+      };
+    }
+
+    return {
+      data: (payload as unknown as T) ?? fallback,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: fallback,
+      error: error instanceof Error ? error.message : `Failed to load ${url}`
+    };
+  }
+}
+
 const quickActions = [
   { href: "/admin/post-job", label: "Post a Job", icon: "➕", color: "#1a7f37" },
   { href: "/admin/users", label: "Manage Users", icon: "👥", color: "#0969da" },
@@ -59,7 +85,6 @@ const quickActions = [
 ];
 
 export function AdminDashboardClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [state, setState] = useState<{
     loading: boolean;
     error: string | null;
@@ -72,28 +97,36 @@ export function AdminDashboardClient() {
 
   useEffect(() => {
     async function load() {
-      if (!services) {
-        setState({ loading: false, error: "Firebase is not configured.", snapshot: null });
-        return;
-      }
-
       try {
-        const [jobsSnap, applicationsSnap, referralsSnap, usersSnap] = await Promise.all([
-          getDocs(query(collection(services.db, "jobs"), limit(1000))),
-          getDocs(query(collection(services.db, "applications"), limit(1000))),
-          getDocs(query(collection(services.db, "referrals"), limit(1000))),
-          getDocs(query(collection(services.db, "users"), limit(1000)))
+        const [usersRes, jobsRes, applicationsRes, referralsRes] = await Promise.all([
+          fetchAdminJson<{ users?: Array<{ id: string } & Record<string, unknown>> }>(
+            "/api/admin/users",
+            { users: [] }
+          ),
+          fetchAdminJson<{ jobs?: Array<{ id: string } & Record<string, unknown>> }>(
+            "/api/admin/jobs",
+            { jobs: [] }
+          ),
+          fetchAdminJson<{ applications?: Array<{ id: string } & Record<string, unknown>> }>(
+            "/api/admin/applications",
+            { applications: [] }
+          ),
+          fetchAdminJson<{ referrals?: Array<Record<string, unknown>> }>(
+            "/api/admin/referrals",
+            { referrals: [] }
+          )
         ]);
 
-        const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Record<string, unknown>) }));
-        const jobs = jobsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        const applications = applicationsSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        const referrals = referralsSnap.docs.map((doc) => doc.data());
+        const users = usersRes.data.users ?? [];
+        const jobs = jobsRes.data.jobs ?? [];
+        const applications = applicationsRes.data.applications ?? [];
+        const referrals = referralsRes.data.referrals ?? [];
         const normalizedUsers = users.map((user) => normalizeUserRecord(String(user.id), user));
         const userById = new Map(normalizedUsers.map((user) => [user.id, user]));
+
+        const nonFatalErrors = [usersRes.error, jobsRes.error, applicationsRes.error, referralsRes.error].filter(
+          Boolean
+        ) as string[];
 
         // Sort jobs by createdAt desc, take 5
         const sortedJobs = [...jobs]
@@ -115,7 +148,7 @@ export function AdminDashboardClient() {
 
         setState({
           loading: false,
-          error: null,
+          error: nonFatalErrors.length > 0 ? `Some data is limited: ${nonFatalErrors[0]}` : null,
           snapshot: {
             totalUsers: normalizedUsers.length,
             workers: normalizedUsers.filter((u) => u.roles.includes("WORKER") || u.activeRole === "WORKER").length,
@@ -177,7 +210,7 @@ export function AdminDashboardClient() {
     }
 
     void load();
-  }, [services]);
+  }, []);
 
   if (state.loading) {
     return (

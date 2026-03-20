@@ -29,6 +29,11 @@ data class JobListing(
     val jobType: String = "",
     val geohash: String = "",
     val urgency: String = "MEDIUM",     // "LOW" | "MEDIUM" | "HIGH"
+    val gender: String = "Any",
+    val experienceRequired: String = "No Experience Required",
+    val shiftTiming: String = "Flexible",
+    val isVerified: Boolean = false,
+    val applicationCount: Int = 0,
     val status: String = "open",        // "open" | "closed" | "expired"
     val createdAt: Long = System.currentTimeMillis(),
     val expiresAt: Long = createdAt + (30L * 24 * 60 * 60 * 1000),
@@ -41,6 +46,11 @@ data class JobListing(
     val location: String = "",          // human-readable addressText
     val addressText: String = "",
     val contactNumber: String = "",
+    val whatsappNumber: String = "",
+    val vacancies: Int = 1,
+    val workingHours: String = "",
+    val educationRequired: String = "",
+    val benefits: List<String> = emptyList(),
 
     // --- RUNTIME ONLY (computed, never stored) ---
     var distance: Double? = null,

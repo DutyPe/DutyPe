@@ -306,23 +306,20 @@ class EmployerApplicationViewModel @Inject constructor(
     ): JobApplication {
         val workerName = profile["fullName"] as? String ?: application.workerName
         val workerPhone = profile["phone"] as? String ?: application.workerPhone
-        val workerEmail = profile["email"] as? String ?: application.workerEmail
         val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
 
-        // jobTypes from worker_profiles (merged into profile map by getWorkerProfileData)
-        val jobTypes = when (val jt = profile["jobTypes"]) {
-            is List<*> -> jt.filterIsInstance<String>()
-            is String -> jt.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        val workerSkills = when (val rawSkills = profile["skills"] ?: profile["jobTypes"]) {
+            is List<*> -> rawSkills.filterIsInstance<String>()
+            is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
             else -> application.skills
         }
-        val skillsText = jobTypes.joinToString(", ").ifBlank { application.skillsText }
+        val skillsText = workerSkills.joinToString(", ").ifBlank { application.skillsText }
 
         return application.copy(
             workerName = workerName,
             workerPhone = workerPhone,
-            workerEmail = workerEmail,
             workerProfileImageUrl = workerProfileImageUrl,
-            skills = jobTypes,
+            skills = workerSkills,
             skillsText = skillsText
         )
     }

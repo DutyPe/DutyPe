@@ -1,11 +1,9 @@
 package com.example.dutype.worker.models
 
-import com.example.dutype.models.DocumentType as MainDocumentType
-
 /**
  * Worker-specific data models for job applications.
  * 
- * Canonical models (ApplicationStatus, WorkExperience, DocumentType) live in
+ * Canonical models (ApplicationStatus, WorkExperience, DocumentFileType) live in
  * com.example.dutype.models to maintain single source of truth.
  */
 
@@ -29,7 +27,7 @@ data class PersonalInfo(
 data class Document(
     val id: String = "",
     val name: String = "",
-    val type: MainDocumentType,
+    val type: String = "",
     val url: String = "",
     val uploadedAt: Long = System.currentTimeMillis(),
     val size: Long = 0L,

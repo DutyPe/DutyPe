@@ -31,14 +31,15 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
           'location', 'geohash', 'isVerified', 'isActive', 'fcmToken',
           'createdAt', 'lastActiveAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'phone', 'fullName', 'roles', 'activeRole', 'location',
+          'userId', 'phone', 'fullName', 'roles', 'activeRole', 'location',
           'geohash', 'isVerified', 'isActive', 'createdAt', 'lastActiveAt'
         ]) &&
+        request.resource.data.userId == userId &&
         request.resource.data.phone is string &&
         request.resource.data.fullName is string &&
         validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
@@ -54,14 +55,15 @@ service cloud.firestore {
 
       allow update: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
           'location', 'geohash', 'isVerified', 'isActive', 'fcmToken',
           'createdAt', 'lastActiveAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'phone', 'fullName', 'roles', 'activeRole', 'location',
+          'userId', 'phone', 'fullName', 'roles', 'activeRole', 'location',
           'geohash', 'isVerified', 'isActive', 'createdAt', 'lastActiveAt'
         ]) &&
+        request.resource.data.userId == userId &&
         request.resource.data.phone == resource.data.phone &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.fullName is string &&
@@ -79,7 +81,8 @@ service cloud.firestore {
 
     // worker_profiles
     match /worker_profiles/{userId} {
-      allow get, list: if isSelf(userId);
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
       allow create, update: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'jobTypes', 'isAvailable', 'rating', 'totalRatings', 'totalJobs', 'lastActiveAt'
@@ -99,7 +102,8 @@ service cloud.firestore {
 
     // employer_profiles
     match /employer_profiles/{userId} {
-      allow get, list: if isSelf(userId);
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
       allow create, update: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'companyName', 'rating', 'totalRatings', 'totalHires'
@@ -180,8 +184,9 @@ service cloud.firestore {
 
     // applications
     match /applications/{applicationId} {
-      allow get, list: if isSignedIn() &&
+      allow get: if isSignedIn() &&
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+      allow list: if isSignedIn();
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
@@ -213,11 +218,13 @@ service cloud.firestore {
 
     // saved_jobs
     match /saved_jobs/{saveId} {
-      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn();
 
       allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['userId', 'jobId', 'createdAt']) &&
-        request.resource.data.keys().hasAll(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['id', 'userId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['id', 'userId', 'jobId', 'createdAt']) &&
+        request.resource.data.id == saveId &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.createdAt is timestamp &&
         saveId == (request.resource.data.userId + '_' + request.resource.data.jobId);
@@ -250,8 +257,9 @@ service cloud.firestore {
 
     // referrals
     match /referrals/{referralId} {
-      allow get, list: if isSignedIn() &&
+      allow get: if isSignedIn() &&
         (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+      allow list: if isSignedIn();
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
@@ -269,9 +277,46 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // referral_stats
+    match /referral_stats/{userId} {
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
+
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'userRole', 'referralCode', 'totalReferrals', 'successfulReferrals',
+          'pendingReferrals', 'totalEarnings', 'availableBalance', 'withdrawnAmount',
+          'canWithdraw', 'nextMilestone', 'currentTier', 'freeJobPostings',
+          'freeJobPostingsExpiry', 'lastUpdated', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'userRole', 'referralCode', 'totalReferrals', 'successfulReferrals',
+          'pendingReferrals', 'totalEarnings', 'availableBalance', 'withdrawnAmount',
+          'canWithdraw', 'nextMilestone', 'currentTier', 'freeJobPostings', 'lastUpdated'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.userRole is string &&
+        request.resource.data.referralCode is string;
+
+      allow delete: if false;
+    }
+
+    // referral_codes (read-only for clients)
+    match /referral_codes/{code} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // announcements (public read)
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
     // notifications
     match /notifications/{notificationId} {
-      allow get, list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow list: if isSignedIn();
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([

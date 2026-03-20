@@ -469,6 +469,7 @@
     <string name="amount_placeholder">10000 or 11000-15000</string>
     <string name="search_work_location">Search work location</string>
     <string name="location_search_placeholder">Type to search (e.g., Koramangala, Bangalore)</string>
+    <string name="valid_job_location_required">Select a valid job location before posting</string>
     <string name="nearby_landmark_optional">Nearby Landmark (Optional)</string>
     <string name="landmark_placeholder">e.g., Near Big Temple, Opposite Metro Station</string>
     <string name="post_a_job">Post a Job</string>

@@ -41,13 +41,14 @@ class UserFirestoreService @Inject constructor(
                 Timber.d("Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
                 
                 val coreUserData = mapOf(
+                    "userId" to user.id,
                     "phone" to user.phone,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
                     "roles" to user.roles,
                     "activeRole" to user.activeRole.name,
-                    "location" to mapOf("lat" to user.latitude, "lng" to user.longitude),
-                    "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.latitude, user.longitude),
+                    "location" to mapOf("lat" to user.lat, "lng" to user.lng),
+                    "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng),
                     "isVerified" to false,
                     "isActive" to user.isActive,
                     "fcmToken" to user.fcmToken,
@@ -55,8 +56,7 @@ class UserFirestoreService @Inject constructor(
                     "lastActiveAt" to Timestamp.now()
                 )
                 
-                // Merge prevents accidental field loss when this method runs with partial user data.
-                userRef.set(coreUserData, SetOptions.merge()).await()
+                userRef.set(coreUserData).await()
                 Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
                 Result.success(Unit)
             }

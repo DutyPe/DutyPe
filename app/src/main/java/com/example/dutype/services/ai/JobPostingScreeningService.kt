@@ -41,7 +41,6 @@ class JobPostingScreeningService @Inject constructor(
     companion object {
         private const val TAG = "JobScreening"
         const val MAX_BLOCKED_ATTEMPTS = 3
-        private const val BLOCKED_ATTEMPTS_COLLECTION = "employer_blocked_attempts"
     }
     
     // Current validation state
@@ -60,20 +59,6 @@ class JobPostingScreeningService @Inject constructor(
      */
     suspend fun canEmployerPost(employerId: String): Pair<Boolean, String?> {
         return try {
-            // Check blocked attempts
-            val blockedAttempts = getBlockedAttempts(employerId)
-            
-            if (blockedAttempts.isSuspended) {
-                Timber.w("$TAG: Employer $employerId is SUSPENDED")
-                return Pair(false, "Your account is suspended due to multiple policy violations. Contact support.")
-            }
-            
-            if (blockedAttempts.blockedCount >= MAX_BLOCKED_ATTEMPTS) {
-                // Auto-suspend
-                suspendEmployer(employerId, "Exceeded maximum blocked attempts")
-                return Pair(false, "Your account has been suspended. Contact support.")
-            }
-            
             // Check employer privileges from AI backend
             val privilegesResult = aiRepository.getEmployerPrivileges(employerId)
             privilegesResult.fold(
@@ -308,28 +293,7 @@ class JobPostingScreeningService @Inject constructor(
      * Get employer's blocked attempts count
      */
     suspend fun getBlockedAttempts(employerId: String): EmployerBlockedAttempts {
-        return try {
-            val doc = firestore.collection(BLOCKED_ATTEMPTS_COLLECTION)
-                .document(employerId)
-                .get()
-                .await()
-            
-            if (doc.exists()) {
-                EmployerBlockedAttempts(
-                    employerId = employerId,
-                    blockedCount = doc.getLong("blocked_count")?.toInt() ?: 0,
-                    lastBlockedAt = doc.getLong("last_blocked_at"),
-                    blockReasons = (doc.get("block_reasons") as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                    isSuspended = doc.getBoolean("is_suspended") ?: false,
-                    suspendedAt = doc.getLong("suspended_at")
-                )
-            } else {
-                EmployerBlockedAttempts(employerId = employerId)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Error getting blocked attempts")
-            EmployerBlockedAttempts(employerId = employerId)
-        }
+        return EmployerBlockedAttempts(employerId = employerId)
     }
     
     /**
@@ -337,67 +301,14 @@ class JobPostingScreeningService @Inject constructor(
      * After 3 attempts, employer is auto-suspended
      */
     suspend fun recordBlockedAttempt(employerId: String, reason: String) {
-        try {
-            val current = getBlockedAttempts(employerId)
-            val newCount = current.blockedCount + 1
-            val newReasons = current.blockReasons + reason
-            
-            val data = hashMapOf(
-                "employer_id" to employerId,
-                "blocked_count" to newCount,
-                "last_blocked_at" to System.currentTimeMillis(),
-                "block_reasons" to newReasons.takeLast(10), // Keep last 10 reasons
-                "is_suspended" to (newCount >= MAX_BLOCKED_ATTEMPTS),
-                "suspended_at" to if (newCount >= MAX_BLOCKED_ATTEMPTS) System.currentTimeMillis() else null
-            )
-            
-            firestore.collection(BLOCKED_ATTEMPTS_COLLECTION)
-                .document(employerId)
-                .set(data)
-                .await()
-            
-            Timber.w("$TAG: Recorded blocked attempt for $employerId (count: $newCount)")
-            
-            if (newCount >= MAX_BLOCKED_ATTEMPTS) {
-                Timber.e("$TAG: ⛔ EMPLOYER $employerId AUTO-SUSPENDED after $newCount blocked attempts")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Error recording blocked attempt")
-        }
+        Timber.w("$TAG: Strict schema mode - blocked attempt tracking disabled for $employerId: $reason")
     }
     
     /**
      * Suspend employer account
      */
     private suspend fun suspendEmployer(employerId: String, reason: String) {
-        try {
-            firestore.collection(BLOCKED_ATTEMPTS_COLLECTION)
-                .document(employerId)
-                .update(
-                    mapOf(
-                        "is_suspended" to true,
-                        "suspended_at" to System.currentTimeMillis(),
-                        "suspension_reason" to reason
-                    )
-                )
-                .await()
-            
-            // Also update user's suspension status
-            firestore.collection("users")
-                .document(employerId)
-                .update(
-                    mapOf(
-                        "is_suspended" to true,
-                        "suspended_at" to System.currentTimeMillis(),
-                        "suspension_reason" to reason
-                    )
-                )
-                .await()
-            
-            Timber.e("$TAG: ⛔ Employer $employerId SUSPENDED: $reason")
-        } catch (e: Exception) {
-            Timber.e(e, "$TAG: Error suspending employer")
-        }
+        Timber.w("$TAG: Strict schema mode - suspendEmployer disabled for $employerId: $reason")
     }
     
     // ============================================================

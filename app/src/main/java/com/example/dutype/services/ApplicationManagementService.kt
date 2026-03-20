@@ -8,6 +8,7 @@ import com.example.dutype.models.ApplicationStats
 import com.example.dutype.models.ApplicationAnalytics
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.utils.RetryUtils
+import com.example.dutype.utils.toJobApplicationOrNull
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
@@ -55,7 +56,7 @@ class ApplicationManagementService @Inject constructor(
                     return@retryWithBackoffResult Result.failure(Exception("Application not found"))
                 }
                 
-                val currentApplication = doc.toObject(JobApplication::class.java)
+                val currentApplication = doc.toJobApplicationOrNull()
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
                 val updatedApplication = currentApplication.copy(
@@ -104,7 +105,7 @@ class ApplicationManagementService @Inject constructor(
                 return Result.failure(Exception("Application not found"))
             }
             
-            val currentApplication = doc.toObject(JobApplication::class.java)
+            val currentApplication = doc.toJobApplicationOrNull()
                 ?: return Result.failure(Exception("Invalid application data"))
             
             // Only update if status is PENDING
@@ -144,7 +145,7 @@ class ApplicationManagementService @Inject constructor(
 
                 if (!doc.exists()) throw Exception("Application not found")
 
-                val currentApplication = doc.toObject(JobApplication::class.java)
+                val currentApplication = doc.toJobApplicationOrNull()
                     ?: throw Exception("Invalid application data")
 
                 // Schema-compliant: check job status field only (no vacancies/acceptedCount)
@@ -211,7 +212,7 @@ class ApplicationManagementService @Inject constructor(
                 return Result.failure(Exception("Application not found"))
             }
             
-            val currentApplication = doc.toObject(JobApplication::class.java)
+            val currentApplication = doc.toJobApplicationOrNull()
                 ?: return Result.failure(Exception("Invalid application data"))
             
             val updatedApplication = currentApplication.copy(
@@ -261,7 +262,7 @@ class ApplicationManagementService @Inject constructor(
                     return@retryWithBackoffResult Result.failure(Exception("Application not found"))
                 }
                 
-                val currentApplication = doc.toObject(JobApplication::class.java)
+                val currentApplication = doc.toJobApplicationOrNull()
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
                 val updatedApplication = currentApplication.copy()
@@ -358,7 +359,7 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
+                    doc.toJobApplicationOrNull()
                 } catch (e: Exception) {
                     null
                 }
@@ -393,7 +394,7 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
+                    doc.toJobApplicationOrNull()
                 } catch (e: Exception) {
                     null
                 }
@@ -428,7 +429,7 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
+                    doc.toJobApplicationOrNull()
                 } catch (e: Exception) {
                     null
                 }
@@ -466,7 +467,7 @@ class ApplicationManagementService @Inject constructor(
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toObject(JobApplication::class.java)?.copy(id = doc.id)
+                    doc.toJobApplicationOrNull()
                 } catch (e: Exception) {
                     null
                 }
@@ -534,4 +535,5 @@ typealias ApplicationStatusService = ApplicationManagementService
 
 @Deprecated("Use ApplicationManagementService instead", ReplaceWith("ApplicationManagementService"))
 typealias ApplicationStatsService = ApplicationManagementService
+
 

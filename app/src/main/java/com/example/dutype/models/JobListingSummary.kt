@@ -1,6 +1,8 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import com.google.firebase.Timestamp
+import java.util.Date
 
 /**
  * JobListingSummary — strict target schema model for job card list views.
@@ -42,6 +44,15 @@ data class JobListingSummary(
          * Create from Firestore document map — reads only canonical schema fields.
          */
         fun fromMap(data: Map<String, Any>, docId: String = ""): JobListingSummary {
+            fun toEpochMillis(value: Any?): Long {
+                return when (value) {
+                    is Timestamp -> value.toDate().time
+                    is Number -> value.toLong()
+                    is Date -> value.time
+                    else -> 0L
+                }
+            }
+
             val locationMap = data["location"] as? Map<*, *>
             val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
             val lng = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
@@ -58,8 +69,8 @@ data class JobListingSummary(
                 geohash = data["geohash"] as? String ?: "",
                 urgency = data["urgency"] as? String ?: "MEDIUM",
                 status = data["status"] as? String ?: "open",
-                createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L,
-                expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L,
+                createdAt = toEpochMillis(data["createdAt"]),
+                expiresAt = toEpochMillis(data["expiresAt"]),
                 lat = lat,
                 lng = lng
             )

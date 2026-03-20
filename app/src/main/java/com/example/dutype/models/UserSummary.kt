@@ -11,7 +11,7 @@ data class UserSummary(
     val fullName: String = "",
     val profileImageUrl: String? = null,
     val phone: String = "",
-    val companyName: String? = null
+    val companyName: String? = null  // fetched from employer_profiles at runtime
 ) {
     companion object {
         fun fromUser(user: User): UserSummary = UserSummary(
@@ -19,7 +19,7 @@ data class UserSummary(
             fullName = user.fullName,
             profileImageUrl = user.profileImageUrl,
             phone = user.phone,
-            companyName = user.companyName
+            companyName = null  // not stored on users doc — fetch from employer_profiles if needed
         )
 
         fun fromMap(data: Map<String, Any>): UserSummary = UserSummary(

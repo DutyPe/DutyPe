@@ -128,7 +128,15 @@ abstract class BaseNotificationViewModel(
     fun markAsRead(notificationId: String) {
         viewModelScope.launch {
             notificationService.markNotificationAsRead(notificationId)
-            loadNotifications()
+                .onSuccess {
+                    loadNotifications()
+                }
+                .onFailure { error ->
+                    Timber.e(error, "$roleLabel NotificationVM - Failed to mark notification as read")
+                    _uiState.value = _uiState.value.copy(
+                        error = "Failed to update notification state"
+                    )
+                }
         }
     }
 

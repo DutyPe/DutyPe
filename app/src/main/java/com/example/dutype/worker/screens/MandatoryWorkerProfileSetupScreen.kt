@@ -146,10 +146,13 @@ fun MandatoryWorkerProfileSetupScreen(
                     
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
-                    val savedEmail = existingData["email"] as? String
                     val savedPhone = existingData["phone"] as? String
                     // jobTypes from worker_profiles (List<String>) — joined for display in skills field
-                    val savedJobTypes = (existingData["jobTypes"] as? List<*>)?.filterIsInstance<String>()
+                    val savedSkills = when (val rawSkills = existingData["skills"] ?: existingData["jobTypes"]) {
+                        is List<*> -> rawSkills.filterIsInstance<String>()
+                        is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                        else -> emptyList()
+                    }
                     val savedProfileImageUrl = existingData["profileImageUrl"] as? String
                     
                     // Apply prefilled values (only if current field is empty)
@@ -157,18 +160,13 @@ fun MandatoryWorkerProfileSetupScreen(
                         fullName = savedFullName
                         Timber.d("📦 PREFILL: fullName = $fullName")
                     }
-                    if (email.isBlank() && !savedEmail.isNullOrBlank()) {
-                        email = savedEmail
-                        isEmailLoaded = true
-                        Timber.d("📦 PREFILL: email = $email")
-                    }
                     if (phoneNumber.isBlank() && !savedPhone.isNullOrBlank()) {
                         // Clean phone number (remove country code if present)
                         phoneNumber = savedPhone.replace("+91", "").trim()
                         Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
                     }
-                    if (skills.isBlank() && !savedJobTypes.isNullOrEmpty()) {
-                        skills = savedJobTypes.joinToString(", ")
+                    if (skills.isBlank() && savedSkills.isNotEmpty()) {
+                        skills = savedSkills.joinToString(", ")
                         Timber.d("📦 PREFILL: skills from jobTypes = $skills")
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
@@ -657,7 +655,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                         try {
                                             // Save profile data to Firestore
                                             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                                            if (currentUser != null) {
+                                            if (currentUser == null) {
+                                                throw IllegalStateException("User not authenticated")
+                                            } else {
                                                 // First upload selfie if available
                                                 var uploadedSelfieUrl: String? = null
                                                 if (selfieUri != null) {
@@ -690,11 +690,21 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 
                                                 // skills → jobTypes mapping is handled in ProfileCompletionService.saveWorkerProfileData
                                                 // experience/address/dateOfBirth/gender are NOT stored in Firestore (not in target schema)
-                                                val workerProfileData = mutableMapOf(
+                                                val workerProfileData = mutableMapOf<String, Any>(
                                                     "fullName" to fullName,
                                                     "phone" to phoneNumber,
-                                                    "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
+                                                    "skills" to skills
                                                 )
+
+                                                profileCompletionViewModel.locationPreferences
+                                                    .getSavedLocationIfFresh()
+                                                    ?.takeIf { it.hasValidCoordinates() }
+                                                    ?.let { savedLocation ->
+                                                        workerProfileData["location"] = mapOf(
+                                                            "lat" to savedLocation.latitude,
+                                                            "lng" to savedLocation.longitude
+                                                        )
+                                                    }
                                                 
                                                 // Add selfie URL if uploaded
                                                 if (uploadedSelfieUrl != null) {
@@ -702,57 +712,13 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 }
                                                 
                                                 // Save to Firestore using ProfileCompletionViewModel
-                                                profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                                                
-                                                // CRITICAL FIX: Ensure role is added to user's roles array in Firestore
-                                                // This is essential for dual-role functionality
-                                                try {
-                                                    val currentUserId = currentUser.uid
-                                                    val userRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                                        .collection("users")
-                                                        .document(currentUserId)
-                                                    
-                                                    // Get current user data
-                                                    val userDoc = userRef.get().await()
-                                                    val currentRoles = userDoc.get("roles") as? List<String> ?: listOf()
-                                                    
-                                                    // Add WORKER role if not already present
-                                                    if (!currentRoles.contains("WORKER")) {
-                                                        val updatedRoles = currentRoles.toMutableList().apply {
-                                                            add("WORKER")
-                                                        }
-                                                        
-                                                        userRef.update(mapOf(
-                                                            "roles" to updatedRoles,
-                                                            "activeRole" to "WORKER"
-                                                        )).await()
-                                                        
-                                                        Timber.d("✅ DUAL_ROLE: Added WORKER role to user's roles array")
-                                                    } else {
-                                                        // Just update active role
-                                                        userRef.update("activeRole", "WORKER").await()
-                                                        Timber.d("✅ DUAL_ROLE: Updated activeRole to WORKER")
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Timber.e(e, "❌ DUAL_ROLE: Failed to update roles array")
-                                                }
-                                                
-                                                // REMOVED: Referral code application now happens immediately after OTP verification
-                                                // User already got ₹25 when they signed up with the code
-                                                // Now we just generate THEIR OWN referral code so they can refer others
-                                                
-                                                // Create user's own referral stats (generates their unique referral code)
-                                                // This allows them to refer others and earn ₹25 per referral
-                                                try {
-                                                    profileCompletionViewModel.createReferralStats(currentUser.uid, "WORKER", fullName)
-                                                    Timber.d("🎁 Referral stats created for new worker - they can now refer others")
-                                                } catch (e: Exception) {
-                                                    Timber.e(e, "🎁 Failed to create referral stats")
-                                                }
+                                                profileCompletionViewModel
+                                                    .saveWorkerProfileData(workerProfileData)
+                                                    .getOrThrow()
                                             }
 
                                             // Save role to local DataStore so app knows which home to navigate to on reopen
-                                            profileCompletionViewModel.updateUserRole(UserRole.WORKER)
+                                            profileCompletionViewModel.saveUserInfoToLocalStorage(fullName, UserRole.WORKER)
                                             
                                             // Check if this is the FIRST time completing profile (not an update)
                                             val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
@@ -2055,3 +2021,4 @@ fun animateIntAsState(
     )
     return derivedStateOf { floatValue.toInt() }
 }
+

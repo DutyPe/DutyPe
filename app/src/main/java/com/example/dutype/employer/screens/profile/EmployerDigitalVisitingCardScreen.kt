@@ -59,9 +59,7 @@ fun EmployerDigitalVisitingCardScreen(
     var companyPhone by remember { mutableStateOf("") }
     var industry by remember { mutableStateOf("") }
     var companySize by remember { mutableStateOf("") }
-    var trustTier by remember { mutableStateOf("NEW") }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
-    var postedJobsCount by remember { mutableStateOf(0) }
     var companyRating by remember { mutableStateOf(0f) }
     var totalRatings by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
@@ -69,16 +67,13 @@ fun EmployerDigitalVisitingCardScreen(
     var showReviewsSheet by remember { mutableStateOf(false) }
     var isReviewsLoading by remember { mutableStateOf(false) }
     var employerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var isProfileComplete by remember { mutableStateOf(false) }
     val ratingService = remember {
         com.example.dutype.services.RatingService(
             com.google.firebase.firestore.FirebaseFirestore.getInstance(),
             FirebaseAuth.getInstance()
         )
     }
-    
-    // Profile completion check
-    var isProfileComplete by remember { mutableStateOf(false) }
-    var profileCompletionPercentage by remember { mutableStateOf(0) }
     
     // Load employer profile data
     LaunchedEffect(Unit) {
@@ -88,51 +83,40 @@ fun EmployerDigitalVisitingCardScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
+                // Load phone/profileImageUrl from users (schema fields)
                 val userDoc = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(currentUser.uid)
                     .get()
                     .await()
-                
                 if (userDoc.exists()) {
-                    companyName = userDoc.getString("companyName") 
-                        ?: userDoc.getString("fullName") 
-                        ?: ""
                     companyPhone = userDoc.getString("phone") ?: ""
-                    industry = userDoc.getString("industry") ?: ""
-                    companySize = userDoc.getString("companySize") ?: ""
-                    trustTier = userDoc.getString("trustTier") ?: "NEW"
                     profileImageUrl = userDoc.getString("profileImageUrl")
-                    postedJobsCount = (userDoc.getLong("postedJobsCount") ?: 0).toInt()
-                    companyRating = (
-                        userDoc.getDouble("averageRating")
-                            ?: userDoc.getDouble("companyRating")
-                            ?: 0.0
-                    ).toFloat()
-                    totalRatings = (userDoc.getLong("totalRatings") ?: 0L).toInt()
-                    
-                    // Check profile completion - LIGHTWEIGHT approach
-                    profileCompletionPercentage = (userDoc.getLong("profileCompletionPercentage") ?: 0L).toInt()
-                    
-                    if (profileCompletionPercentage == 0) {
-                        // Quick check: profile is complete if essential fields are filled
-                        val hasName = companyName.isNotBlank()
-                        val hasPhone = companyPhone.isNotBlank()
-                        isProfileComplete = hasName && hasPhone
-                    } else {
-                        // Use stored percentage - 80% is the threshold
-                        isProfileComplete = profileCompletionPercentage >= 80
-                    }
-                    
-                    Timber.d("📱 Employer Card - Data loaded: company=$companyName, phone=$companyPhone, industry=$industry, size=$companySize, profileComplete=$isProfileComplete ($profileCompletionPercentage%)")
                 }
+
+                // Load employer-specific fields from employer_profiles (target schema)
+                val employerDoc = FirebaseFirestore.getInstance()
+                    .collection("employer_profiles")
+                    .document(currentUser.uid)
+                    .get()
+                    .await()
+                if (employerDoc.exists()) {
+                    companyName = employerDoc.getString("companyName") ?: ""
+                    industry = employerDoc.getString("industry") ?: ""
+                    companySize = employerDoc.getString("companySize") ?: ""
+                    companyRating = (employerDoc.getDouble("rating") ?: 0.0).toFloat()
+                    totalRatings = (employerDoc.getLong("totalRatings") ?: 0L).toInt()
+                }
+
+                // Profile is complete if essential fields are filled
+                isProfileComplete = companyName.isNotBlank() && companyPhone.isNotBlank()
+
+                Timber.d("📱 Employer Card - Data loaded: company=$companyName, phone=$companyPhone, industry=$industry, size=$companySize, profileComplete=$isProfileComplete")
             } catch (e: Exception) {
                 Timber.e(e, "Error loading employer profile for visiting card")
-                // On error, mark as incomplete to show the setup screen
                 isProfileComplete = false
             }
         } else {
-            // No user logged in - mark as incomplete
             isProfileComplete = false
         }
         isLoading = false
@@ -204,25 +188,6 @@ fun EmployerDigitalVisitingCardScreen(
                             )
                         )
                         
-                        if (profileCompletionPercentage > 0) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Profile: $profileCompletionPercentage% complete",
-                                    style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                LinearProgressIndicator(
-                                    progress = { profileCompletionPercentage / 100f },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(8.dp)
-                                        .clip(RoundedCornerShape(4.dp)),
-                                    color = AccentBlue,
-                                    trackColor = Color(0xFFE5E7EB)
-                                )
-                            }
-                        }
-                        
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Button(
@@ -273,7 +238,6 @@ fun EmployerDigitalVisitingCardScreen(
                     industry = industry,
                     companySize = companySize,
                     profileImageUrl = profileImageUrl,
-                    postedJobsCount = postedJobsCount,
                     companyRating = companyRating,
                     totalRatings = totalRatings,
                     onRatingClick = {
@@ -309,7 +273,6 @@ fun EmployerDigitalVisitingCardScreen(
                                 shareEmployerCard(
                                     context = context,
                                     companyName = companyName,
-                                    trustTier = trustTier,
                                     platform = "whatsapp"
                                 )
                                 isSharing = false
@@ -350,7 +313,6 @@ fun EmployerDigitalVisitingCardScreen(
                             shareEmployerCard(
                                 context = context,
                                 companyName = companyName,
-                                trustTier = trustTier,
                                 platform = "general"
                             )
                         },
@@ -429,7 +391,6 @@ fun EmployerVisitingCard(
     industry: String,
     companySize: String,
     profileImageUrl: String?,
-    postedJobsCount: Int,
     companyRating: Float,
     totalRatings: Int,
     onRatingClick: () -> Unit,
@@ -624,22 +585,6 @@ fun EmployerVisitingCard(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (postedJobsCount > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Work,
-                                contentDescription = null,
-                                tint = SecondaryTextColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "$postedJobsCount jobs",
-                                style = AppTypography.labelMedium.copy(color = SecondaryTextColor)
-                            )
-                        }
-                    }
-                    
                     if (companyRating > 0 && totalRatings > 0) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -668,32 +613,19 @@ fun EmployerVisitingCard(
 private fun shareEmployerCard(
     context: Context,
     companyName: String,
-    trustTier: String,
     platform: String
 ) {
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
-    
-    // Safe company name with fallback
     val safeCompanyName = companyName.ifBlank { "Our Company" }
-    
-    // Get current user ID for employer profile deep link
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val employerProfileLink = if (currentUserId != null) {
         "https://dutype.in/employer/$currentUserId"
     } else {
         playStoreUrl
     }
-    
-    val trustBadgeText = when (trustTier) {
-        "GOLD" -> "🏆 Gold Verified"
-        "SILVER" -> "🥈 Silver Verified"
-        "BRONZE" -> "🥉 Bronze Verified"
-        else -> "✅ Verified"
-    }
-    
     val shareText = """
 🏢 *$safeCompanyName*
-$trustBadgeText Employer
+✅ Verified Employer
 
 Looking for skilled workers? We're hiring!
 

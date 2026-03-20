@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
+import com.example.dutype.services.AuthFlowService
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.utils.FirestoreUtils
@@ -45,6 +46,7 @@ class OtpViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val appStateManager: AppStateManager,
     private val metadataManager: MetadataManager,
+    private val authFlowService: AuthFlowService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
     private val pnvManager: com.example.dutype.auth.FirebasePNVManager,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler
@@ -67,6 +69,17 @@ class OtpViewModel @Inject constructor(
     
     // Role context for FCM registration - set by LoginBottomSheet before OTP flow
     private var pendingRole: UserRole = UserRole.WORKER
+
+    enum class PostOtpDestination {
+        HOME,
+        PROFILE_SETUP
+    }
+
+    data class PostOtpNavigation(
+        val destination: PostOtpDestination,
+        val role: UserRole,
+        val message: String? = null
+    )
     
     init {
         // Check Firebase PNV support on initialization
@@ -383,8 +396,8 @@ class OtpViewModel @Inject constructor(
                     // Create user object from Firebase data, using existing profile if available
                     val user = User(
                         id = userId,
-                        email = existingProfileData?.get("email") as? String ?: "",
                         fullName = existingProfileData?.get("fullName") as? String ?: "",
+                        phone = existingProfileData?.get("phone") as? String ?: phoneNumber,
                         activeRole = if (existingProfileData?.get("activeRole") != null) {
                             try {
                                 UserRole.valueOf((existingProfileData["activeRole"] as? String)?.uppercase() ?: "WORKER")
@@ -394,7 +407,6 @@ class OtpViewModel @Inject constructor(
                         } else {
                             UserRole.WORKER
                         },
-                        profileCompleted = true,
                         profileImageUrl = existingProfileData?.get("profileImageUrl") as? String
                     )
                     
@@ -514,6 +526,82 @@ class OtpViewModel @Inject constructor(
             // The actual update will happen in the UI layer via LaunchedEffect
         } catch (e: Exception) {
             Timber.e(e, "updateProfileComplete - Error")
+        }
+    }
+
+    private fun cacheResolvedUser(userData: Map<String, Any>, fallbackRole: UserRole) {
+        try {
+            val roles = (userData["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+            val activeRole = try {
+                UserRole.valueOf(((userData["activeRole"] as? String) ?: fallbackRole.name).uppercase())
+            } catch (_: Exception) {
+                fallbackRole
+            }
+
+            val cachedUser = User(
+                id = userData["userId"] as? String ?: auth.currentUser?.uid.orEmpty(),
+                fullName = userData["fullName"] as? String ?: "",
+                phone = userData["phone"] as? String ?: auth.currentUser?.phoneNumber.orEmpty(),
+                roles = if (roles.isNotEmpty()) roles else listOf(activeRole.name),
+                activeRole = activeRole,
+                profileImageUrl = userData["profileImageUrl"] as? String
+            )
+
+            authManager.saveUser(cachedUser)
+            authManager.setLoggedIn(true)
+            appStateManager.initializeSession(cachedUser.id, activeRole)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to cache resolved user")
+        }
+    }
+
+    suspend fun completeRegistration(
+        role: UserRole,
+        fullName: String,
+        referralCode: String?
+    ): Result<PostOtpNavigation> {
+        return try {
+            authFlowService.completeRegistration(
+                requestedRole = role.name,
+                fullName = fullName,
+                referralCode = referralCode
+            ).fold(
+                onSuccess = { resolution ->
+                    cacheResolvedUser(resolution.userData, role)
+                    runCatching { fcmTokenManager.registerTokenWithRole(role.name) }
+                    Result.success(PostOtpNavigation(PostOtpDestination.PROFILE_SETUP, role))
+                },
+                onFailure = { Result.failure(it) }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun completeLogin(role: UserRole): Result<PostOtpNavigation> {
+        return try {
+            authFlowService.resolveLogin(role.name).fold(
+                onSuccess = { resolution ->
+                    resolution.userData?.let { userData ->
+                        cacheResolvedUser(userData, role)
+                        runCatching { fcmTokenManager.registerTokenWithRole(resolution.roleForFcm) }
+                    }
+
+                    Result.success(
+                        PostOtpNavigation(
+                            destination = if (resolution.shouldRouteToProfileSetup) {
+                                PostOtpDestination.PROFILE_SETUP
+                            } else {
+                                PostOtpDestination.HOME
+                            },
+                            role = role
+                        )
+                    )
+                },
+                onFailure = { Result.failure(it) }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

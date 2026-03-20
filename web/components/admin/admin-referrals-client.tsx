@@ -1,18 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc
-} from "firebase/firestore";
-
-import { getFirebaseServices } from "@/lib/firebase/client";
+import { useEffect, useState } from "react";
 import { formatCurrency, formatDate } from "@/lib/firebase/firestore-helpers";
 
 type ReferralRow = {
@@ -36,7 +24,6 @@ type WithdrawalRow = {
 };
 
 export function AdminReferralsClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,39 +31,25 @@ export function AdminReferralsClient() {
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
   async function loadData() {
-    if (!services) {
-      setError("Firebase is not configured.");
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      const [referralsSnapshot, withdrawalsSnapshot] = await Promise.all([
-        getDocs(
-          query(collection(services.db, "referrals"), orderBy("createdAt", "desc"), limit(100))
-        ),
-        getDocs(
-          query(
-            collection(services.db, "withdrawal_requests"),
-            orderBy("createdAt", "desc"),
-            limit(50)
-          )
-        )
-      ]);
+      const response = await fetch("/api/admin/referrals", {
+        credentials: "include",
+        cache: "no-store"
+      });
 
-      setReferrals(
-        referralsSnapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ReferralRow, "id">)
-        }))
-      );
-      setWithdrawals(
-        withdrawalsSnapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<WithdrawalRow, "id">)
-        }))
-      );
+      const payload = (await response.json()) as {
+        referrals?: ReferralRow[];
+        withdrawals?: WithdrawalRow[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load referrals.");
+      }
+
+      setReferrals(payload.referrals ?? []);
+      setWithdrawals(payload.withdrawals ?? []);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load referrals.");
@@ -87,13 +60,9 @@ export function AdminReferralsClient() {
 
   useEffect(() => {
     void loadData();
-  }, [services]);
+  }, []);
 
   async function handleWithdrawalUpdate(id: string, status: "COMPLETED" | "FAILED") {
-    if (!services) {
-      return;
-    }
-
     const confirmationMessage =
       status === "COMPLETED"
         ? "Approve this withdrawal request?"
@@ -105,10 +74,23 @@ export function AdminReferralsClient() {
 
     try {
       setPendingActionId(id);
-      await updateDoc(doc(services.db, "withdrawal_requests", id), {
-        status,
-        processedAt: serverTimestamp()
+      const response = await fetch("/api/admin/referrals", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          withdrawalId: id,
+          status
+        })
       });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update withdrawal.");
+      }
+
       await loadData();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Failed to update withdrawal.");

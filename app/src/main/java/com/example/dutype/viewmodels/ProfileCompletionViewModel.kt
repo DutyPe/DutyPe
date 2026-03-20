@@ -54,12 +54,18 @@ class ProfileCompletionViewModel @Inject constructor(
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) =
         profileCompletionService.saveUserInfo(email, name, role.name)
+
+    suspend fun saveUserInfo(name: String, role: UserRole) =
+        profileCompletionService.saveUserInfo("", name, role.name)
     
     /**
      * Save user info to local storage for profile setup screen
      */
     suspend fun saveUserInfoToLocalStorage(email: String, name: String, role: UserRole) =
         profileSetupStateManager.saveUserInfo(email, name, role)
+
+    suspend fun saveUserInfoToLocalStorage(name: String, role: UserRole) =
+        profileSetupStateManager.saveUserInfo("", name, role)
     
     suspend fun updateUserRole(newRole: UserRole) {
         // Update role in Firebase

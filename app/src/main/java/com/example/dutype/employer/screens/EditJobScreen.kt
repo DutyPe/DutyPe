@@ -206,16 +206,21 @@ fun EditJobScreen(
             locationLongitude = job.lng
             Timber.d("📍 EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
             // Convert string to enum for category - using auto-detected category
-            category = try {
-                JobCategory.valueOf(job.getCategory().uppercase())
-            } catch (e: Exception) {
-                JobCategory.COOK // Default fallback
-            }
+            category = JobCategory.values().firstOrNull {
+                it.displayName.equals(job.jobType, ignoreCase = true) ||
+                    it.name.equals(job.jobType, ignoreCase = true)
+            } ?: JobCategory.values().firstOrNull {
+                it.displayName.equals(job.getCategory(), ignoreCase = true) ||
+                    it.name.equals(job.getCategory(), ignoreCase = true)
+            } ?: JobCategory.OTHER
             // shiftTiming removed from schema — default to FLEXIBLE
-            shiftTiming = ShiftTiming.FLEXIBLE
+            shiftTiming = ShiftTiming.values().firstOrNull {
+                it.displayName.equals(job.shiftTiming, ignoreCase = true) ||
+                    it.name.equals(job.shiftTiming, ignoreCase = true)
+            } ?: ShiftTiming.FLEXIBLE
             // urgency removed from optimized schema
             // selectedPerks removed as per user request
-            vacancies = "1"
+            vacancies = job.vacancies.toString()
             employerName = job.companyName
         }
     }
@@ -272,6 +277,7 @@ fun EditJobScreen(
                     // If coordinates are 0,0 (user typed location manually), try to geocode
                     var finalLatitude = locationLatitude
                     var finalLongitude = locationLongitude
+                    val locationChanged = location != originalJob.addressText.ifBlank { originalJob.location }
                     
                     if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
                         Timber.d("📝 EDIT JOB: Geocoding manual location: $location")
@@ -280,25 +286,40 @@ fun EditJobScreen(
                             finalLatitude = geocodedLocation.latitude
                             finalLongitude = geocodedLocation.longitude
                             Timber.d("📝 EDIT JOB: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
-                        } else {
+                        } else if (!locationChanged) {
                             Timber.w("📝 EDIT JOB: Geocoding failed, using original coordinates")
-                            // Use original job coordinates if geocoding fails
                             finalLatitude = originalJob.lat
                             finalLongitude = originalJob.lng
+                        } else {
+                            locationError = context.getString(R.string.valid_job_location_required)
+                            return@launch
                         }
                     }
                     
+                    if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
+                        locationError = context.getString(R.string.valid_job_location_required)
+                        return@launch
+                    }
+
+                    val normalizedUrgency = when (urgency) {
+                        JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
+                        JobUrgency.NORMAL -> "MEDIUM"
+                        JobUrgency.FLEXIBLE -> "LOW"
+                    }
+
                     val updates = mapOf(
                         "title" to title,
                         "salary" to (payAmount.toDoubleOrNull() ?: 0.0),
                         "salaryType" to payType.name,
                         "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
                         "addressText" to location,
-                        "geohash" to com.example.dutype.utils.GeoUtils.encode(finalLatitude, finalLongitude),
                         "description" to description,
                         "contactNumber" to contactNumber,
-                        "jobType" to category,
-                        "urgency" to urgency
+                        "jobType" to category.displayName,
+                        "urgency" to normalizedUrgency,
+                        "shiftTiming" to shiftTiming.displayName,
+                        "vacancies" to (vacancies.toIntOrNull() ?: 1),
+                        "benefits" to selectedPerks.map { it.displayName }
                     )
                     
                     Timber.d("📝 EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")

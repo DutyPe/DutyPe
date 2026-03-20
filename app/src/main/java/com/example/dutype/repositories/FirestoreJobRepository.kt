@@ -7,6 +7,7 @@ import com.example.dutype.services.FirestoreService
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.toJobListing
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -73,12 +74,20 @@ class FirestoreJobRepository @Inject constructor(
                     }.toSet()
                 },
                 onFailure = {
-                    Timber.e(it, "Failed to get saved job IDs")
+                    if (it is FirebaseFirestoreException && it.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("saved_jobs read denied by rules; treating as no saved jobs")
+                    } else {
+                        Timber.e(it, "Failed to get saved job IDs")
+                    }
                     emptySet()
                 }
             )
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get saved job IDs")
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("saved_jobs read denied by rules; treating as no saved jobs")
+            } else {
+                Timber.e(e, "Failed to get saved job IDs")
+            }
             emptySet()
         }
     }
@@ -403,7 +412,7 @@ class FirestoreJobRepository @Inject constructor(
                         .map { JobListingSummary.fromMap(it) }
                         .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
                         .sortedBy { s ->
-                            GeoUtils.calculateDistance(userLatitude, userLongitude, s.latitude, s.longitude)
+                            GeoUtils.calculateDistance(userLatitude, userLongitude, s.lat, s.lng)
                         }
 
                     val summaries = if (lastDocumentId.isNullOrBlank()) {
@@ -419,53 +428,10 @@ class FirestoreJobRepository @Inject constructor(
                     }
 
                     Timber.d("📍 Primary ${radiusKm}km: totalCandidates=${nearbySorted.size}, pageSize=${summaries.size}, cursor=$lastDocumentId")
-
-                    if (summaries.isNotEmpty() || radiusKm > 10.0) {
-                        if (isUnfilteredFirstPage) jobCacheManager.cacheJobSummaries(summaries)
-                        emit(Result.success(summaries))
-                        return@fold
+                    if (isUnfilteredFirstPage && summaries.isNotEmpty()) {
+                        jobCacheManager.cacheJobSummaries(summaries)
                     }
-
-                    // No jobs within 10 km -> auto-expand to 15 km once.
-                    Timber.w("📍 0 jobs within ${radiusKm}km - retrying at 15km")
-                    val fallbackResult = firestoreService.getNearbyJobsSummary(
-                        userLatitude = userLatitude,
-                        userLongitude = userLongitude,
-                        radiusKm = 15.0,
-                        category = category,
-                        limitPerCell = 50L
-                    )
-                    fallbackResult.fold(
-                        onSuccess = { fallbackData ->
-                            val fallbackSorted = fallbackData
-                                .map { JobListingSummary.fromMap(it) }
-                                .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
-                                .sortedBy { s ->
-                                    GeoUtils.calculateDistance(userLatitude, userLongitude, s.latitude, s.longitude)
-                                }
-
-                            val fallbackSummaries = if (lastDocumentId.isNullOrBlank()) {
-                                fallbackSorted.take(limit.toInt())
-                            } else {
-                                val cursorIndex = fallbackSorted.indexOfFirst { it.id == lastDocumentId }
-                                if (cursorIndex >= 0) {
-                                    fallbackSorted.drop(cursorIndex + 1).take(limit.toInt())
-                                } else {
-                                    Timber.w("📍 Cursor '$lastDocumentId' not found in fallback nearby set; returning empty page")
-                                    emptyList()
-                                }
-                            }
-                            Timber.d("📍 Fallback 15km: totalCandidates=${fallbackSorted.size}, pageSize=${fallbackSummaries.size}, cursor=$lastDocumentId")
-                            if (isUnfilteredFirstPage && fallbackSummaries.isNotEmpty()) {
-                                jobCacheManager.cacheJobSummaries(fallbackSummaries)
-                            }
-                            emit(Result.success(fallbackSummaries))
-                        },
-                        onFailure = {
-                            Timber.e(it, "📍 Fallback query failed")
-                            emit(Result.success(emptyList()))
-                        }
-                    )
+                    emit(Result.success(summaries))
                 },
                 onFailure = { emit(Result.failure(it)) }
             )
@@ -492,12 +458,12 @@ class FirestoreJobRepository @Inject constructor(
 
                     val filtered = if (hasValidUserLocation && radiusKm > 0.0) {
                         summaries.filter { s ->
-                            GeoUtils.hasValidCoordinates(s.latitude, s.longitude) &&
+                            GeoUtils.hasValidCoordinates(s.lat, s.lng) &&
                                 GeoUtils.calculateDistance(
                                     userLatitude!!,
                                     userLongitude!!,
-                                    s.latitude,
-                                    s.longitude
+                                    s.lat,
+                                    s.lng
                                 ) <= radiusKm
                         }
                     } else {

@@ -85,13 +85,13 @@ class ReferralService @Inject constructor(
     
     /**
      * Get real-time updates for user's referral stats
-     * SIMPLIFIED: Reads from users collection with nested referralStats
+     * Reads referralCode from referral_codes/{userId} and stats from referral_stats/{userId}
      * 🔔 SMART NOTIFICATION: Checks for milestone achievements
      */
     fun getReferralStatsFlow(userId: String): Flow<ReferralStats?> = callbackFlow {
         var lastNotifiedCount = -1
         
-        val listenerRegistration = firestore.collection(COLLECTION_USERS)
+        val listenerRegistration = firestore.collection("referral_stats")
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -102,10 +102,10 @@ class ReferralService @Inject constructor(
                 
                 if (snapshot != null && snapshot.exists()) {
                     val referralCode = snapshot.getString("referralCode") ?: ""
-                    val userRole = snapshot.getString("activeRole") ?: "WORKER"
+                    val userRole = snapshot.getString("userRole") ?: "WORKER"
                     
                     @Suppress("UNCHECKED_CAST")
-                    val statsMap = snapshot.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+                    val statsMap = snapshot.data as? Map<String, Any?> ?: emptyMap()
                     
                     val stats = ReferralStats(
                         userId = userId,
@@ -327,33 +327,32 @@ class ReferralService @Inject constructor(
 
     /**
      * Get referral stats for current user (one-time fetch)
-     * SIMPLIFIED: Reads from users collection with nested referralStats
+     * Reads from referral_stats/{userId} collection.
      * Returns empty stats if not found (instead of null)
      */
     suspend fun getReferralStats(): ReferralStats? {
         val userId = auth.currentUser?.uid ?: return null
         
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            val statsDoc = firestore.collection("referral_stats")
                 .document(userId)
                 .get()
                 .await()
 
-            if (userDoc.exists()) {
-                val referralCode = userDoc.getString("referralCode") ?: ""
-                val userRole = userDoc.getString("activeRole") ?: "WORKER"
+            if (statsDoc.exists()) {
+                val referralCode = statsDoc.getString("referralCode") ?: ""
+                val userRole = statsDoc.getString("userRole") ?: "WORKER"
                 
                 @Suppress("UNCHECKED_CAST")
-                val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+                val statsMap = statsDoc.data as? Map<String, Any?> ?: emptyMap()
                 
-                // If no referralStats yet, return default empty stats
-                // This happens for new users before Cloud Function creates the code
+                // If no stats yet, return default empty stats
                 if (statsMap.isEmpty() && referralCode.isEmpty()) {
-                    Timber.d("🎁 REFERRAL: User has no referralStats yet, returning empty stats")
+                    Timber.d("🎁 REFERRAL: User has no referral_stats yet, returning empty stats")
                     return ReferralStats(
                         userId = userId,
                         userRole = userRole,
-                        referralCode = "", // Will be set by Cloud Function
+                        referralCode = "",
                         totalReferrals = 0,
                         successfulReferrals = 0,
                         pendingReferrals = 0,
@@ -391,7 +390,7 @@ class ReferralService @Inject constructor(
                     lastUpdated = statsMap["lastUpdated"].toEpochMillis() ?: System.currentTimeMillis()
                 )
                 
-                Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
+                Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}")
                 stats
             } else {
                 null
@@ -441,20 +440,18 @@ class ReferralService @Inject constructor(
 
     /**
      * Check free job postings for employer
-     * SIMPLIFIED: Reads from users collection
+     * Reads from referral_stats/{userId} collection
      */
     suspend fun checkFreeJobPostings(userId: String): Result<Pair<Int, Long?>> {
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            val statsDoc = firestore.collection("referral_stats")
                 .document(userId)
                 .get()
                 .await()
 
-            if (userDoc.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-                val freePostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0
-                val expiry = statsMap["freeJobPostingsExpiry"].toEpochMillis()
+            if (statsDoc.exists()) {
+                val freePostings = (statsDoc.getLong("freeJobPostings") ?: 0L).toInt()
+                val expiry = statsDoc.get("freeJobPostingsExpiry").toEpochMillis()
                 Result.success(Pair(freePostings, expiry))
             } else {
                 Result.success(Pair(0, null))
@@ -467,48 +464,11 @@ class ReferralService @Inject constructor(
 
     /**
      * Use a free job posting (decrement count)
-     * SIMPLIFIED: Updates users collection
+     * Updates referral_stats/{userId} collection
      */
     suspend fun useFreeJobPosting(userId: String): Result<Boolean> {
-        return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(userId)
-                .get()
-                .await()
-
-            if (!userDoc.exists()) {
-                return Result.success(false)
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val freePostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0
-            val expiry = statsMap["freeJobPostingsExpiry"].toEpochMillis()
-            
-            // Check if expired
-            if (expiry != null && System.currentTimeMillis() > expiry) {
-                return Result.success(false)
-            }
-
-            if (freePostings <= 0) {
-                return Result.success(false)
-            }
-
-            // Decrement free postings
-            firestore.collection(COLLECTION_USERS)
-                .document(userId)
-                .update(
-                    "referralStats.freeJobPostings", com.google.firebase.firestore.FieldValue.increment(-1),
-                    "referralStats.lastUpdated", System.currentTimeMillis()
-                )
-                .await()
-
-            Timber.d("🎁 REFERRAL: Used free job posting for $userId, remaining: ${freePostings - 1}")
-            Result.success(true)
-        } catch (e: Exception) {
-            Timber.e(e, "🎁 REFERRAL: Error using free job posting")
-            Result.failure(e)
-        }
+        Timber.d("🎁 REFERRAL: Strict schema mode - useFreeJobPosting is disabled for $userId")
+        return Result.success(false)
     }
 
     /**
@@ -831,14 +791,13 @@ https://play.google.com/store/apps/details?id=com.example.dutype
         return try {
             Timber.d("🎁 REFERRAL: Fetching analytics for user $userId")
 
-            // Compute analytics locally from existing user data
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            // Compute analytics from canonical referral_stats collection only.
+            val statsDoc = firestore.collection("referral_stats")
                 .document(userId)
                 .get()
                 .await()
 
-            @Suppress("UNCHECKED_CAST")
-            val statsMap = userDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
+            val statsMap = statsDoc.data ?: emptyMap<String, Any?>()
             val totalReferrals = (statsMap["totalReferrals"] as? Number)?.toInt() ?: 0
             val successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0
             val totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0
@@ -915,28 +874,20 @@ https://play.google.com/store/apps/details?id=com.example.dutype
 
     /**
      * Ensure the current user has a referral code.
-     * If they completed profile but Cloud Function didn't fire, this creates it client-side.
-     * Returns the referral code if created/found, null on failure.
+     * Checks referral_stats/{userId} and referral_codes collections.
+     * Returns the referral code if found, null otherwise (backend generates it).
      */
     suspend fun ensureReferralCodeExists(): String? {
         val userId = auth.currentUser?.uid ?: return null
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            // Check referral_stats first
+            val statsDoc = firestore.collection("referral_stats")
                 .document(userId)
                 .get()
                 .await()
 
-            if (!userDoc.exists()) return null
-
-            val existingCode = userDoc.getString("referralCode")
+            val existingCode = statsDoc.getString("referralCode")
             if (!existingCode.isNullOrBlank()) return existingCode
-
-            if (userDoc.getBoolean("isVerified") == true) {
-                firestore.collection(COLLECTION_USERS)
-                    .document(userId)
-                    .update("referralStats.lastUpdated", System.currentTimeMillis())
-                    .await()
-            }
 
             Timber.d("REFERRAL: Referral code missing for $userId, waiting for backend generation")
             null

@@ -122,13 +122,9 @@ class AppMetadata @Inject constructor(
         _isLoading.value = true
         
         try {
-            // Parallelize independent Firestore reads
-            coroutineScope {
-                val statsDeferred = async { loadPlatformStats() }
-                val flagsDeferred = async { loadFeatureFlags() }
-                statsDeferred.await()
-                flagsDeferred.await()
-            }
+            // Registration/login path should stay lightweight.
+            // Platform stats are loaded later via explicit refresh flows.
+            loadFeatureFlags()
             
             _lastUpdated.value = System.currentTimeMillis()
             Timber.d("📊 AppMetadata loaded from Firestore")

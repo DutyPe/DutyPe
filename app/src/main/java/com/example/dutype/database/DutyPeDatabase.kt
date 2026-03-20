@@ -24,6 +24,7 @@ import com.example.dutype.database.entity.SavedJobEntity
  * - v3: JobListing refactoring - Removed employerTrustTier, expiresAt columns
  * - v5: Removed source column from ApplicationEntity
  * - v6: JobEntity aligned to target Firestore schema (removed isActive/isFilled/postedAt/applicationCount/payAmount/payType/latitude/longitude/companyName/location/shiftTiming/gender/vacancies; added salary/salaryType/lat/lng/geohash/urgency/status/createdAt/expiresAt/addressText)
+ * - v7: Removed isActive from SavedJobEntity; removed workerPhone from ApplicationEntity
  * 
  * @author DutyPe Engineering Team
  * @since 2.1.0
@@ -34,7 +35,7 @@ import com.example.dutype.database.entity.SavedJobEntity
         ApplicationEntity::class,
         SavedJobEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false // Disabled schema export to avoid KSP warning
 )
 @TypeConverters(Converters::class)

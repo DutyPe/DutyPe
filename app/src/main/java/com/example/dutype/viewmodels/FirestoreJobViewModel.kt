@@ -9,6 +9,7 @@ import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.utils.toJobListing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -166,7 +167,6 @@ class FirestoreJobViewModel @Inject constructor(
     
     companion object {
         private const val STRICT_NEARBY_RADIUS_KM = 10.0
-        private const val STRICT_FALLBACK_RADIUS_KM = 15.0
         private const val LOCATION_EPSILON = 0.00001
         // Maximum vacancy statuses to track (prevents unbounded memory growth)
         private const val MAX_VACANCY_STATUS_CACHE_SIZE = 200
@@ -360,16 +360,7 @@ class FirestoreJobViewModel @Inject constructor(
             return inPrimaryRadius
         }
 
-        val inFallbackRadius = sortedJobs.filter { job ->
-            val distance = job.distance
-            distance != null && distance <= STRICT_FALLBACK_RADIUS_KM
-        }
-        if (inFallbackRadius.isNotEmpty()) {
-            Timber.w("📍 Strict nearby filter: 0 jobs in ${STRICT_NEARBY_RADIUS_KM}km, using ${STRICT_FALLBACK_RADIUS_KM}km fallback (${inFallbackRadius.size} jobs)")
-            return inFallbackRadius
-        }
-
-        Timber.w("📍 Strict nearby filter: 0 jobs within ${STRICT_FALLBACK_RADIUS_KM}km - returning empty list")
+        Timber.w("📍 Strict nearby filter: 0 jobs within ${STRICT_NEARBY_RADIUS_KM}km - returning empty list")
         return emptyList()
     }
     

@@ -1,15 +1,14 @@
 package com.example.dutype.services
 
 import com.example.dutype.models.Announcement
+import com.example.dutype.models.AnnouncementType
 import com.example.dutype.models.AnnouncementPriority
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,6 +24,38 @@ class AnnouncementService @Inject constructor(
     
     companion object {
         private const val COLLECTION_ANNOUNCEMENTS = "announcements"
+    }
+
+    private fun mapAnnouncement(doc: com.google.firebase.firestore.DocumentSnapshot): Announcement? {
+        val data = doc.data ?: return null
+        val type = try {
+            AnnouncementType.valueOf((data["type"] as? String ?: "INFO").uppercase())
+        } catch (_: Exception) {
+            AnnouncementType.INFO
+        }
+        val priority = try {
+            AnnouncementPriority.valueOf((data["priority"] as? String ?: "NORMAL").uppercase())
+        } catch (_: Exception) {
+            AnnouncementPriority.NORMAL
+        }
+
+        return Announcement(
+            id = doc.id,
+            title = data["title"] as? String ?: "",
+            message = data["message"] as? String ?: "",
+            type = type,
+            priority = priority,
+            targetRole = data["targetRole"] as? String,
+            actionText = data["actionText"] as? String,
+            actionRoute = data["actionRoute"] as? String,
+            imageUrl = data["imageUrl"] as? String,
+            startDate = data["startDate"] as? Timestamp ?: Timestamp.now(),
+            endDate = data["endDate"] as? Timestamp,
+            isDismissible = data["isDismissible"] as? Boolean ?: true,
+            isActive = data["isActive"] as? Boolean ?: true,
+            createdBy = data["createdBy"] as? String,
+            createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now()
+        )
     }
     
     // In-memory tracking of dismissed announcements (resets on app restart)
@@ -47,7 +78,7 @@ class AnnouncementService @Inject constructor(
                 
                 val announcements = snapshot?.documents?.mapNotNull { doc ->
                     try {
-                        doc.toObject(Announcement::class.java)?.copy(id = doc.id)
+                        mapAnnouncement(doc)
                     } catch (e: Exception) {
                         Timber.e(e, "Error parsing announcement")
                         null

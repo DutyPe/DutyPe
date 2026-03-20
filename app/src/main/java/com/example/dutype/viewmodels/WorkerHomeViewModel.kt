@@ -12,6 +12,7 @@ import com.example.dutype.performance.assertMainThread
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.utils.LocationService
+import com.example.dutype.utils.toJobListing
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

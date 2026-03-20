@@ -98,7 +98,7 @@ fun GoogleMapView(
             val position = LatLng(job.lat, job.lng)
             
             val markerColor = when {
-                isUrgent -> BitmapDescriptorFactory.HUE_RED
+                job.urgency.equals("HIGH", ignoreCase = true) -> BitmapDescriptorFactory.HUE_RED
                 job.distance != null && job.distance!! < 1.0 -> BitmapDescriptorFactory.HUE_GREEN
                 else -> BitmapDescriptorFactory.HUE_AZURE
             }

@@ -177,7 +177,6 @@ fun EmployerCompanyDetailsScreen(
                 if (currentUser != null) {
                     val profileData = mapOf<String, Any>(
                         "companyName" to companyName,
-                        "fullName" to companyName,
                         "phone" to contactPhone,
                         "profileImageUrl" to (profileImageUrl ?: "")
                     )
