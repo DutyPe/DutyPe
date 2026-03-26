@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
@@ -38,6 +39,7 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.ComponentHeights
 import com.example.dutype.components.JobCardShimmer
+import com.example.dutype.location.TopCityChips
 import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
@@ -77,12 +79,13 @@ fun AllJobsScreen(
     val viewModel: AllJobsViewModel = hiltViewModel()
     
     // Collect state from ViewModel using lifecycle-aware collection
-    val uiState by viewModel.uiState.collectAsState()
-    val filteredJobs by viewModel.filteredJobs.collectAsState()
-    val selectedChip by viewModel.selectedChip.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
-    val filters by viewModel.filters.collectAsState()
-    val activeFilterCount by viewModel.activeFilterCount.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val filteredJobs by viewModel.filteredJobs.collectAsStateWithLifecycle()
+    val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
+    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
     
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -321,12 +324,23 @@ fun AllJobsScreen(
             }
             
             filteredJobs.isEmpty() && !uiState.isLoading -> {
+                val suggestedCities = remember(currentLocation) {
+                    TopCityChips.buildTopLocationChips(currentLocation)
+                }
                 EmptyState(
                     searchQuery = searchQuery,
                     selectedChip = selectedChip,
                     onViewAllJobs = { viewModel.setSelectedChip("All Jobs") },
                     navController = navController,
-                    rootNavController = rootNavController
+                    rootNavController = rootNavController,
+                    suggestedCities = suggestedCities,
+                    onLocationChipClick = { cityChip ->
+                        val selectedLocation = TopCityChips.toLocationData(cityChip)
+                        viewModel.locationPreferences.savePreferredLocation(selectedLocation)
+                        viewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude)
+                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
+                        viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
+                    }
                 )
             }
             
@@ -559,7 +573,9 @@ private fun EmptyState(
     selectedChip: String,
     onViewAllJobs: () -> Unit,
     navController: NavController? = null,
-    rootNavController: NavController? = null
+    rootNavController: NavController? = null,
+    suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
+    onLocationChipClick: (TopCityChips.CityLocationChip) -> Unit = {}
 ) {
     val isLocationEmpty = searchQuery.isBlank()
 
@@ -614,6 +630,36 @@ private fun EmptyState(
             )
 
             Spacer(modifier = Modifier.height(4.dp))
+
+            if (isLocationEmpty && suggestedCities.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(suggestedCities) { chip ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { onLocationChipClick(chip) },
+                            label = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(chip.city)
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // Location CTA — only when it's not a search-query miss
             if (isLocationEmpty && navController != null) {

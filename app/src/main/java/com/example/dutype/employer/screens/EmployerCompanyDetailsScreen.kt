@@ -207,7 +207,7 @@ fun EmployerCompanyDetailsScreen(
         if (currentUserId.isNotEmpty()) {
             try {
                 val employerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("employer_profiles")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(currentUserId)
                     .get()
                     .await()

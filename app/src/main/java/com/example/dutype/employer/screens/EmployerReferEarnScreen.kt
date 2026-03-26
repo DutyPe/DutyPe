@@ -2,6 +2,8 @@
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -26,19 +28,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
+import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import com.example.dutype.viewmodels.ReferralViewModel
 import kotlinx.coroutines.delay
@@ -53,16 +55,15 @@ fun EmployerReferEarnScreen(
     val viewModel: ReferralViewModel = hiltViewModel()
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
-    val uiState by viewModel.uiState.collectAsState()
-    val analytics by viewModel.analytics.collectAsState()
-    val successStories by viewModel.successStories.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val analytics by viewModel.analytics.collectAsStateWithLifecycle()
+    val successStories by viewModel.successStories.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
     // Removed: showQRCode state
     
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
 
@@ -182,7 +183,7 @@ fun EmployerReferEarnScreen(
                             
                             // Complete Profile Button
                             Button(
-                                onClick = { navController.navigate("employer_profile") },
+                                onClick = { navController.navigate(Routes.EMPLOYER_PROFILE) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(50.dp),
@@ -232,7 +233,11 @@ fun EmployerReferEarnScreen(
                             EmployerReferralCodeCard(
                                 referralCode = uiState.stats?.referralCode ?: "",
                                 onCopyClick = {
-                                    clipboardManager.setText(AnnotatedString(uiState.stats?.referralCode ?: ""))
+                                    copyTextToClipboard(
+                                        context = context,
+                                        label = "Referral Code",
+                                        text = uiState.stats?.referralCode.orEmpty()
+                                    )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
@@ -440,7 +445,6 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
 @Composable
 private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit) {
     var showLinkCopied by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
     
     LaunchedEffect(showLinkCopied) {
         if (showLinkCopied) {
@@ -475,6 +479,11 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
             // Removed: QR Code and Copy Referral Link buttons
         }
     }
+}
+
+private fun copyTextToClipboard(context: android.content.Context, label: String, text: String) {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
 @SuppressLint("DefaultLocale")
@@ -905,7 +914,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
                         Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                         Text("Rs.${analytics.projectedMonthlyEarnings}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
                     }
-                    Icon(Icons.Default.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
+                    Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
                 }
             }
             

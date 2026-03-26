@@ -208,7 +208,7 @@ class JobMetadata @Inject constructor(
      */
     suspend fun getRecentJobIdsFromMetadata(): List<String> {
         return try {
-            val snapshot = firestore.collection("jobs")
+            val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(20)
                 .get()
@@ -268,7 +268,7 @@ class JobMetadata @Inject constructor(
     // ==========================================
 
     private suspend fun loadStatsFromJobsCollection() {
-        val snapshot = firestore.collection("jobs")
+        val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(400)
             .get()

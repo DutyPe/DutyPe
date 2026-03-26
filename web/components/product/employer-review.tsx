@@ -235,8 +235,14 @@ function ReviewAvatar({
 }
 
 function TimelineList({ application }: { application: EmployerReviewApplication }) {
-  const history = application.statusHistory.length > 0
-    ? [...application.statusHistory].sort((left, right) => {
+  const statusHistory = Array.isArray(application.statusHistory)
+    ? application.statusHistory.filter(
+        (entry) => entry !== null && typeof entry === "object"
+      )
+    : [];
+
+  const history = statusHistory.length > 0
+    ? [...statusHistory].sort((left, right) => {
         const leftTime = readTimestamp(left.timestamp)?.getTime() ?? 0;
         const rightTime = readTimestamp(right.timestamp)?.getTime() ?? 0;
         return rightTime - leftTime;
@@ -252,12 +258,18 @@ function TimelineList({ application }: { application: EmployerReviewApplication 
       ) : (
         <div className="timeline-stack">
           {history.map((entry, index) => (
-            <div key={`${entry.status}-${index}`} className="timeline-item">
-              <span className={`status-pill ${productStatusTone(entry.status)}`}>
-                {productStatusLabel(entry.status)}
+            <div key={`${String(entry.status ?? "UNKNOWN")}-${index}`} className="timeline-item">
+              <span
+                className={`status-pill ${productStatusTone(
+                  (typeof entry.status === "string" ? entry.status : "APPLIED") as ProductApplicationStatus
+                )}`}
+              >
+                {productStatusLabel(
+                  (typeof entry.status === "string" ? entry.status : "APPLIED") as ProductApplicationStatus
+                )}
               </span>
-              <strong>{formatDateTime(entry.timestamp)}</strong>
-              <p>{entry.notes || "No notes added for this update."}</p>
+              <strong>{formatDateTime(entry.timestamp ?? null)}</strong>
+              <p>{typeof entry.notes === "string" ? entry.notes : "No notes added for this update."}</p>
             </div>
           ))}
         </div>
@@ -649,19 +661,22 @@ export function EmployerApplicationDetailClient({
       db: services.db,
       employerId: application.employerId,
       employerName:
-        application.companyName ||
         job?.companyName ||
         session.profile?.companyName ||
         "DutyPe employer",
       jobId: application.jobId,
-      jobTitle: application.jobTitle,
+      jobTitle: application.jobTitle || "Job",
       workerId: application.workerId,
-      workerName: application.workerName
+      workerName: application.workerName || "Worker"
     });
+
+    const baseHistory = Array.isArray(application.statusHistory)
+      ? application.statusHistory
+      : [];
 
     const nextHistory = note
       ? [
-          ...application.statusHistory,
+          ...baseHistory,
           {
             notes: note,
             status: application.status,
@@ -671,7 +686,7 @@ export function EmployerApplicationDetailClient({
             updatedBy: session.user?.uid ?? ""
           }
         ]
-      : application.statusHistory;
+      : baseHistory;
 
     await updateDoc(doc(services.db, "applications", application.id), {
       statusHistory: nextHistory,
@@ -745,8 +760,13 @@ export function EmployerApplicationDetailClient({
       setError(null);
 
       const currentTime = Date.now();
+      const previousHistory = Array.isArray(application.statusHistory)
+        ? application.statusHistory.filter(
+            (entry) => entry !== null && typeof entry === "object"
+          )
+        : [];
       const nextHistory = [
-        ...application.statusHistory,
+        ...previousHistory,
         {
           notes: nextStatusNote(nextStatus),
           status: nextStatus,
@@ -756,10 +776,17 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
-      const storedHistory = nextHistory.map((entry) => ({
-        ...entry,
-        status: toStorageApplicationStatus(entry.status)
-      }));
+      const storedHistory = nextHistory.map((entry) => {
+        const rawStatus =
+          typeof entry.status === "string" && entry.status.trim().length > 0
+            ? entry.status.toUpperCase()
+            : nextStatus;
+
+        return {
+          ...entry,
+          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
+        };
+      });
       const updatePayload: Record<string, unknown> = {
         status: toStorageApplicationStatus(nextStatus),
         statusHistory: storedHistory,
@@ -774,14 +801,13 @@ export function EmployerApplicationDetailClient({
           db: services.db,
           employerId: application.employerId,
           employerName:
-            application.companyName ||
             job?.companyName ||
             session.profile?.companyName ||
             "DutyPe employer",
           jobId: application.jobId,
-          jobTitle: application.jobTitle,
+          jobTitle: application.jobTitle || "Job",
           workerId: application.workerId,
-          workerName: application.workerName
+          workerName: application.workerName || "Worker"
         });
 
         updatePayload.verification = nextVerification;
@@ -875,8 +901,13 @@ export function EmployerApplicationDetailClient({
 
       const currentTime = Date.now();
       const verifiedLocation = await readBrowserVerificationLocation();
+      const previousHistory = Array.isArray(application.statusHistory)
+        ? application.statusHistory.filter(
+            (entry) => entry !== null && typeof entry === "object"
+          )
+        : [];
       const nextHistory = [
-        ...application.statusHistory,
+        ...previousHistory,
         {
           notes: nextStatusNote("IN_PROGRESS"),
           status: "IN_PROGRESS" as const,
@@ -886,10 +917,17 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user.uid
         }
       ];
-      const storedHistory = nextHistory.map((entry) => ({
-        ...entry,
-        status: toStorageApplicationStatus(entry.status)
-      }));
+      const storedHistory = nextHistory.map((entry) => {
+        const rawStatus =
+          typeof entry.status === "string" && entry.status.trim().length > 0
+            ? entry.status.toUpperCase()
+            : "IN_PROGRESS";
+
+        return {
+          ...entry,
+          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
+        };
+      });
       const nextVerification = {
         ...application.verification,
         status: "VERIFIED" as const,
@@ -950,8 +988,13 @@ export function EmployerApplicationDetailClient({
       setError(null);
 
       const currentTime = Date.now();
+      const previousHistory = Array.isArray(application.statusHistory)
+        ? application.statusHistory.filter(
+            (entry) => entry !== null && typeof entry === "object"
+          )
+        : [];
       const nextHistory = [
-        ...application.statusHistory,
+        ...previousHistory,
         {
           notes: nextStatusNote("COMPLETED"),
           status: "COMPLETED" as const,
@@ -961,10 +1004,17 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
-      const storedHistory = nextHistory.map((entry) => ({
-        ...entry,
-        status: toStorageApplicationStatus(entry.status)
-      }));
+      const storedHistory = nextHistory.map((entry) => {
+        const rawStatus =
+          typeof entry.status === "string" && entry.status.trim().length > 0
+            ? entry.status.toUpperCase()
+            : "COMPLETED";
+
+        return {
+          ...entry,
+          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
+        };
+      });
 
       await updateDoc(doc(services.db, "applications", application.id), {
         completedAt: currentTime,
@@ -1031,7 +1081,7 @@ export function EmployerApplicationDetailClient({
       const payload = {
         applicationId: application.id,
         communicationRating: ratingForm.communicationRating,
-        companyName: application.companyName || job?.companyName || "DutyPe employer",
+        companyName: job?.companyName || session.profile?.companyName || "DutyPe employer",
         createdAt: Date.now(),
         feedback: ratingForm.feedback.trim(),
         isActive: true,
@@ -1179,15 +1229,18 @@ export function EmployerApplicationDetailClient({
           <ul className="detail-list">
             <li>
               <strong>Company</strong>
-              <span>{application.companyName || "DutyPe employer"}</span>
+              <span>{job?.companyName || session.profile?.companyName || "DutyPe employer"}</span>
             </li>
             <li>
               <strong>Location</strong>
-              <span>{application.jobLocation || job?.location || "Not available"}</span>
+              <span>
+                {job?.addressText ||
+                  (job?.location ? `${job.location.lat}, ${job.location.lng}` : "Not available")}
+              </span>
             </li>
             <li>
               <strong>Pay</strong>
-              <span>{job ? formatCurrencyRange(job.payAmount, job.payType) : "Not available"}</span>
+              <span>{job ? formatCurrencyRange(job.payAmount ?? "", job.payType ?? "") : "Not available"}</span>
             </li>
             <li>
               <strong>Source</strong>
@@ -1672,7 +1725,7 @@ export function EmployerWorkerProfileClient({
                 {productStatusLabel(application.status)}
               </span>
               <span className="pill">{formatDate(application.appliedAt)}</span>
-              <span className="pill">{application.companyName || "DutyPe employer"}</span>
+              <span className="pill">{session.profile?.companyName || "DutyPe employer"}</span>
             </div>
           </article>
           <TimelineList application={application} />

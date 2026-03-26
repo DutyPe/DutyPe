@@ -7,6 +7,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.Timestamp
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,8 +54,13 @@ class ReferralService @Inject constructor(
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val COLLECTION_REFERRALS = "referrals"
+        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
         private const val SUBCOLLECTION_WITHDRAWALS = "withdrawals"
         private const val COLLECTION_USERS = "users"
+        private const val FIELD_REFERRER_ID = "referrerId"
+        private const val FIELD_CREATED_AT = "createdAt"
+        private const val FIELD_STATUS = "status"
+        private const val STATUS_COMPLETED = "COMPLETED"
     }
 
     private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
@@ -79,6 +85,53 @@ class ReferralService @Inject constructor(
         return null
     }
 
+    private suspend fun ensureReferralCodeForUser(
+        userId: String,
+        userRole: String,
+        userName: String,
+        existingUserCode: String
+    ): String {
+        if (existingUserCode.isNotBlank()) {
+            return existingUserCode
+        }
+
+        val existingCode = firestore.collection(COLLECTION_REFERRAL_CODES)
+            .whereEqualTo("userId", userId)
+            .limit(1)
+            .get()
+            .await()
+            .documents
+            .firstOrNull()
+
+        if (existingCode != null) {
+            return existingCode.getString("code") ?: existingCode.id
+        }
+
+        repeat(10) {
+            val candidate = generateReferralCode()
+            val candidateRef = firestore.collection(COLLECTION_REFERRAL_CODES).document(candidate)
+            val candidateSnapshot = candidateRef.get().await()
+            if (candidateSnapshot.exists()) {
+                return@repeat
+            }
+
+            val referralCodeDoc = linkedMapOf<String, Any>(
+                "code" to candidate,
+                "userId" to userId,
+                "userRole" to userRole,
+                "userName" to if (userName.isBlank()) "DutyPe User" else userName,
+                "isActive" to true,
+                "createdAt" to Timestamp.now()
+            )
+
+            candidateRef.set(referralCodeDoc).await()
+            Timber.d("🎁 REFERRAL: Created missing referral code $candidate for user $userId")
+            return candidate
+        }
+
+        return ""
+    }
+
     // ============================================
     // REAL-TIME STATS LISTENER
     // ============================================
@@ -91,7 +144,7 @@ class ReferralService @Inject constructor(
     fun getReferralStatsFlow(userId: String): Flow<ReferralStats?> = callbackFlow {
         var lastNotifiedCount = -1
         
-        val listenerRegistration = firestore.collection("referral_stats")
+        val listenerRegistration = firestore.collection(COLLECTION_REFERRAL_STATS)
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -334,7 +387,7 @@ class ReferralService @Inject constructor(
         val userId = auth.currentUser?.uid ?: return null
         
         return try {
-            val statsDoc = firestore.collection("referral_stats")
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
@@ -393,7 +446,33 @@ class ReferralService @Inject constructor(
                 Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}")
                 stats
             } else {
-                null
+                val userDoc = firestore.collection(COLLECTION_USERS).document(userId).get().await()
+                val userRole = (userDoc.getString("activeRole") ?: "WORKER").uppercase()
+                val fallbackCode = ensureReferralCodeForUser(
+                    userId = userId,
+                    userRole = userRole,
+                    userName = userDoc.getString("fullName") ?: "",
+                    existingUserCode = userDoc.getString("referralCode") ?: ""
+                )
+
+                Timber.d("🎁 REFERRAL: No referral_stats doc for user $userId, returning empty stats fallback")
+                ReferralStats(
+                    userId = userId,
+                    userRole = userRole,
+                    referralCode = fallbackCode,
+                    totalReferrals = 0,
+                    successfulReferrals = 0,
+                    pendingReferrals = 0,
+                    totalEarnings = 0.0,
+                    availableBalance = 0.0,
+                    withdrawnAmount = 0.0,
+                    canWithdraw = false,
+                    nextMilestone = 5,
+                    currentTier = ReferralTier.BRONZE,
+                    freeJobPostings = 0,
+                    freeJobPostingsExpiry = null,
+                    lastUpdated = System.currentTimeMillis()
+                )
             }
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error getting stats")
@@ -410,7 +489,7 @@ class ReferralService @Inject constructor(
             if (stats != null) {
                 Result.success(stats)
             } else {
-                Result.failure(Exception("No referral stats found"))
+                Result.failure(Exception("Unable to load referral stats"))
             }
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error getting current user stats")
@@ -444,7 +523,7 @@ class ReferralService @Inject constructor(
      */
     suspend fun checkFreeJobPostings(userId: String): Result<Pair<Int, Long?>> {
         return try {
-            val statsDoc = firestore.collection("referral_stats")
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
@@ -541,8 +620,8 @@ class ReferralService @Inject constructor(
         
         return try {
             val referrals = firestore.collection(COLLECTION_REFERRALS)
-                .whereEqualTo("referrerUserId", userId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .whereEqualTo(FIELD_REFERRER_ID, userId)
+                .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
                 .limit(limit.toLong())
                 .get()
                 .await()
@@ -573,8 +652,8 @@ class ReferralService @Inject constructor(
         }
 
         val listenerRegistration = firestore.collection(COLLECTION_REFERRALS)
-            .whereEqualTo("referrerUserId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .whereEqualTo(FIELD_REFERRER_ID, userId)
+            .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
             .limit(limit.toLong())
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -792,7 +871,7 @@ https://play.google.com/store/apps/details?id=com.example.dutype
             Timber.d("🎁 REFERRAL: Fetching analytics for user $userId")
 
             // Compute analytics from canonical referral_stats collection only.
-            val statsDoc = firestore.collection("referral_stats")
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
@@ -834,7 +913,7 @@ https://play.google.com/store/apps/details?id=com.example.dutype
 
             // Query top referrers from referrals collection
             val topReferrers = firestore.collection(COLLECTION_REFERRALS)
-                .whereEqualTo("status", ReferralStatus.COMPLETED.name)
+                .whereEqualTo(FIELD_STATUS, STATUS_COMPLETED)
                 .orderBy("completedAt", Query.Direction.DESCENDING)
                 .limit(limit.toLong())
                 .get()
@@ -844,7 +923,9 @@ https://play.google.com/store/apps/details?id=com.example.dutype
             val referrerMap = mutableMapOf<String, MutableList<Double>>()
             val referrerNames = mutableMapOf<String, String>()
             for (doc in topReferrers.documents) {
-                val referrerId = doc.getString("referrerUserId") ?: continue
+                val referrerId = doc.getString(FIELD_REFERRER_ID)
+                    ?: doc.getString("referrerUserId")
+                    ?: continue
                 val referral = Referral.fromMap(doc.data ?: emptyMap())
                 referrerMap.getOrPut(referrerId) { mutableListOf() }.add(referral.getTotalReferrerReward())
                 if (referrerId !in referrerNames) {
@@ -881,7 +962,7 @@ https://play.google.com/store/apps/details?id=com.example.dutype
         val userId = auth.currentUser?.uid ?: return null
         return try {
             // Check referral_stats first
-            val statsDoc = firestore.collection("referral_stats")
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()

@@ -60,13 +60,21 @@ data class Referral(
     
     companion object {
         fun fromMap(data: Map<String, Any>): Referral {
+            val normalizedStatus = (data["status"] as? String)
+                ?.trim()
+                ?.uppercase()
+                ?: "PENDING"
+
             return Referral(
                 id = data["id"] as? String ?: "",
-                referrerUserId = data["referrerUserId"] as? String ?: "",
+                referrerUserId =
+                    data["referrerId"] as? String
+                        ?: data["referrerUserId"] as? String
+                        ?: "",
                 referredUserId = data["referredUserId"] as? String ?: "",
                 referralCode = data["referralCode"] as? String ?: "",
                 status = try {
-                    ReferralStatus.valueOf(data["status"] as? String ?: "PENDING")
+                    ReferralStatus.valueOf(normalizedStatus)
                 } catch (e: Exception) {
                     ReferralStatus.PENDING
                 },

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { type NormalizedApplication } from "@/lib/firebase/admin-normalizers";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 
@@ -26,8 +27,7 @@ export function AdminApplicationsClient() {
   useEffect(() => {
     async function loadApplications() {
       try {
-        const response = await fetch("/api/admin/applications", {
-          credentials: "include",
+        const response = await adminApiFetch("/api/admin/applications", {
           cache: "no-store"
         });
 
@@ -72,9 +72,8 @@ export function AdminApplicationsClient() {
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/applications", {
+      const response = await adminApiFetch("/api/admin/applications", {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

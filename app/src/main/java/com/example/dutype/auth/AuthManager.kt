@@ -184,7 +184,7 @@ class AuthManager @Inject constructor(
             val userId = firebaseUser.uid
             val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
             
-            val userDoc = firestore.collection("users")
+            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .get()
                 .await()

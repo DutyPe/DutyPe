@@ -104,7 +104,7 @@ fun DigitalVisitingCardScreen(
         if (currentUser != null) {
             try {
                 val userDoc = FirebaseFirestore.getInstance()
-                    .collection("users")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get()
                     .await()
@@ -118,7 +118,7 @@ fun DigitalVisitingCardScreen(
 
                     // Load worker-specific data from worker_profiles (target schema)
                     val workerDoc = FirebaseFirestore.getInstance()
-                        .collection("worker_profiles")
+                        .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
                         .document(currentUser.uid)
                         .get()
                         .await()

@@ -233,7 +233,7 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadUserStats(userId: String) {
         try {
-            val doc = firestore.collection("users").document(userId).get().await()
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
             
             // Get phone number from Firebase Auth as fallback (for new users who just logged in)
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
@@ -326,14 +326,14 @@ class UserMetadata @Inject constructor(
         val fcmToken = (data["fcmToken"] as? String).orEmpty()
         if (fcmToken.isNotBlank()) strictDoc["fcmToken"] = fcmToken
 
-        firestore.collection("users").document(userId).set(strictDoc).await()
+        firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).set(strictDoc).await()
         Timber.w("📊 UserMetadata: Pruned legacy users fields for $userId")
     }
     
     private suspend fun loadWorkerStats(userId: String) {
         try {
             // Final schema: use canonical applications collection
-            val applicationsQuery = firestore.collection("applications")
+            val applicationsQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
                 .whereEqualTo("workerId", userId)
                 .limit(500)
                 .get()
@@ -352,7 +352,7 @@ class UserMetadata @Inject constructor(
                 (it.getTimestamp("createdAt")?.toDate()?.time ?: 0L) >= startOfMonth
             }
             
-            val savedJobsQuery = firestore.collection("saved_jobs")
+            val savedJobsQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.SAVED_JOBS)
                 .whereEqualTo("userId", userId)
                 .limit(200)
                 .get()
@@ -377,7 +377,7 @@ class UserMetadata @Inject constructor(
     private suspend fun loadEmployerStats(userId: String) {
         try {
             // Get jobs posted
-            val jobsQuery = firestore.collection("jobs")
+            val jobsQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                 .whereEqualTo("employerId", userId)
                 .limit(200)
                 .get()
@@ -395,7 +395,7 @@ class UserMetadata @Inject constructor(
             var totalApplicationsReceived = 0
             var totalHires = 0
             
-            val applicationsQuery = firestore.collection("applications")
+            val applicationsQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
                 .whereEqualTo("employerId", userId)
                 .limit(500)
                 .get()

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 
 type UserRow = {
@@ -47,8 +48,7 @@ export function AdminUsersClient() {
   async function loadUsers() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/users", {
-        credentials: "include",
+      const response = await adminApiFetch("/api/admin/users", {
         cache: "no-store"
       });
 
@@ -81,9 +81,8 @@ export function AdminUsersClient() {
 
     try {
       setPendingDeleteId(userId);
-      const response = await fetch("/api/admin/users", {
+      const response = await adminApiFetch("/api/admin/users", {
         method: "DELETE",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },
@@ -123,9 +122,8 @@ export function AdminUsersClient() {
 
     try {
       setPendingSaveId(userId);
-      const response = await fetch("/api/admin/users", {
+      const response = await adminApiFetch("/api/admin/users", {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

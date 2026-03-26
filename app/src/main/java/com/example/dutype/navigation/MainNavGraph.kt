@@ -116,7 +116,7 @@ fun MainNavGraph(
                     val userDoc = try {
                         kotlinx.coroutines.withTimeoutOrNull(2000L) {
                             com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                .collection("users")
+                                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                                 .document(currentUser.uid)
                                 .get()
                                 .await()
@@ -568,7 +568,7 @@ fun MainNavGraph(
                         if (application != null) {
                             employerViewModel.hireApplicant(
                                 applicationId = applicationId,
-                                jobId = application.id,
+                                jobId = application.jobId,
                                 onSuccess = {
                                     android.widget.Toast.makeText(context, "Applicant hired successfully!", android.widget.Toast.LENGTH_SHORT).show()
                                     navController.popBackStack()

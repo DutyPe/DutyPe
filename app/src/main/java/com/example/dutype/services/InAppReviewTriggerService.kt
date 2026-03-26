@@ -239,7 +239,7 @@ class InAppReviewTriggerService @Inject constructor(
 
     private suspend fun isFirstWorkerApplication(): Boolean {
         val userId = auth.currentUser?.uid ?: return false
-        val snapshot = firestore.collection("applications")
+        val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
             .whereEqualTo("workerId", userId)
             .limit(2)
             .get()
@@ -249,7 +249,7 @@ class InAppReviewTriggerService @Inject constructor(
 
     private suspend fun isFirstEmployerPostedJob(): Boolean {
         val userId = auth.currentUser?.uid ?: return false
-        val snapshot = firestore.collection("jobs")
+        val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
             .whereEqualTo("employerId", userId)
             .limit(2)
             .get()

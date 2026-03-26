@@ -148,25 +148,8 @@ class AuthFlowService @Inject constructor(
                     )
                 )
 
-                if (normalizedReferralCode != null && referrerUserId.isNotBlank()) {
-                    val referralRef = firestore.collection(COLLECTION_REFERRALS)
-                        .document("${referrerUserId}_${currentUser.uid}")
-
-                    if (transaction.get(referralRef).exists()) {
-                        throw IllegalStateException("Referral already applied for this account")
-                    }
-
-                    transaction.set(
-                        referralRef,
-                        linkedMapOf<String, Any>(
-                            "referrerId" to referrerUserId,
-                            "referredUserId" to currentUser.uid,
-                            "referralCode" to normalizedReferralCode,
-                            "status" to "pending",
-                            "createdAt" to now
-                        )
-                    )
-                }
+                // Referral reward attachment is finalized via Cloud Function applyReferralCode
+                // immediately after successful registration from the UI flow.
 
                 RegistrationResolution(userData, ownReferralCode)
             }.await()

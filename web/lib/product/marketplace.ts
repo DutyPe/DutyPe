@@ -12,12 +12,19 @@ import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
 export type ProductApplicationStatus =
   | "applied"
+  | "PENDING"
   | "under_review"
+  | "UNDER_REVIEW"
   | "accepted"
+  | "ACCEPTED"
   | "in_progress"
+  | "IN_PROGRESS"
   | "rejected"
+  | "REJECTED"
   | "completed"
-  | "withdrawn";
+  | "COMPLETED"
+  | "withdrawn"
+  | "WITHDRAWN";
 
 export type ProductJob = {
   id: string;
@@ -66,11 +73,23 @@ export type ProductApplication = {
   createdAt: unknown;
   // Optional UI fields
   workerName?: string;
+  companyName?: string;
   jobTitle?: string;
+  jobLocation?: string;
   coverLetter?: string;
   appliedAt?: unknown;
   source?: string;
-  statusHistory?: unknown[];
+  statusHistory?: ProductApplicationStatusHistoryEntry[];
+};
+
+export type ProductApplicationStatusHistoryEntry = {
+  notes?: string;
+  status: ProductApplicationStatus | string;
+  systemUpdate?: boolean;
+  timestamp?: unknown;
+  updatedAt?: unknown;
+  updatedBy?: string;
+  [key: string]: unknown;
 };
 
 // ============================================================
@@ -121,6 +140,16 @@ export function normalizeProductApplication(
   id: string,
   data: Record<string, unknown>
 ): ProductApplication {
+  const statusHistory = Array.isArray(data.statusHistory)
+    ? data.statusHistory
+        .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === "object")
+        .map((entry) => ({
+          ...entry,
+          notes: typeof entry.notes === "string" ? entry.notes : "",
+          status: String(entry.status ?? "PENDING"),
+        }))
+    : [];
+
   return {
     id,
     applicationId: String(data.applicationId ?? id),
@@ -130,11 +159,13 @@ export function normalizeProductApplication(
     status: (String(data.status ?? "applied") as ProductApplicationStatus),
     createdAt: data.createdAt,
     workerName: String(data.workerName ?? ""),
+    companyName: String(data.companyName ?? ""),
     jobTitle: String(data.jobTitle ?? ""),
+    jobLocation: String(data.jobLocation ?? ""),
     coverLetter: String(data.coverLetter ?? ""),
     appliedAt: data.appliedAt ?? data.createdAt,
     source: String(data.source ?? "WEB_PORTAL"),
-    statusHistory: data.statusHistory as unknown[] | undefined,
+    statusHistory,
   };
 }
 
@@ -149,17 +180,21 @@ export function isJobAvailable(job: ProductJob): boolean {
 }
 
 export function isApplicationActive(app: ProductApplication): boolean {
+  const normalized = String(app.status).toLowerCase();
   return (
-    app.status !== "rejected" &&
-    app.status !== "withdrawn" &&
-    app.status !== "completed"
+    normalized !== "rejected" &&
+    normalized !== "withdrawn" &&
+    normalized !== "completed"
   );
 }
 
-export function sortByTimestampDesc<T extends { createdAt?: unknown }>(items: T[]): T[] {
+export function sortByTimestampDesc<T extends Record<string, unknown>>(
+  items: T[],
+  timestampKey: keyof T = "createdAt" as keyof T
+): T[] {
   return [...items].sort((a, b) => {
-    const aTime = readTimestamp(a.createdAt)?.getTime() ?? 0;
-    const bTime = readTimestamp(b.createdAt)?.getTime() ?? 0;
+    const aTime = readTimestamp(a[timestampKey])?.getTime() ?? 0;
+    const bTime = readTimestamp(b[timestampKey])?.getTime() ?? 0;
     return bTime - aTime;
   });
 }
@@ -237,12 +272,40 @@ export function productStatusTone(status: string): string {
   return tones[status] ?? "default";
 }
 
-export function canEmployerAcceptOrReject(app: ProductApplication): boolean {
-  return app.status === "under_review";
+export function canEmployerAcceptOrReject(appOrStatus: ProductApplication | string): boolean {
+  const status = typeof appOrStatus === "string" ? appOrStatus : appOrStatus.status;
+  return String(status).toLowerCase() === "under_review";
 }
 
-export function canEmployerMoveToUnderReview(app: ProductApplication): boolean {
-  return app.status === "applied";
+export function canEmployerMoveToUnderReview(appOrStatus: ProductApplication | string): boolean {
+  const status = typeof appOrStatus === "string" ? appOrStatus : appOrStatus.status;
+  return String(status).toLowerCase() === "applied";
+}
+
+export function canEmployerVerifyWork(status: string): boolean {
+  return status === "accepted" || status === "in_progress";
+}
+
+export function canEmployerMarkWorkComplete(status: string): boolean {
+  return status === "in_progress" || status === "accepted";
+}
+
+export function canEmployerRateWorker(status: string): boolean {
+  return status === "completed";
+}
+
+export function defaultWorkerName(profile: { fullName?: string; name?: string; phone?: string } | null | undefined): string {
+  const name = profile?.fullName?.trim() || profile?.name?.trim();
+  if (name) {
+    return name;
+  }
+
+  const phone = profile?.phone?.trim();
+  if (phone) {
+    return phone;
+  }
+
+  return "Worker";
 }
 
 // ============================================================

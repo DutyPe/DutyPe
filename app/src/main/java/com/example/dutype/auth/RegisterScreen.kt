@@ -1,6 +1,7 @@
 package com.example.dutype.auth
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -153,6 +154,14 @@ private fun RegisterContent(
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
 
+    BackHandler {
+        if (otpState.otpSent) {
+            otpViewModel.resetState()
+        } else {
+            safeAuthBackNavigation(navController)
+        }
+    }
+
     // Handle OTP verification success — new user registration flow
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
@@ -167,87 +176,46 @@ private fun RegisterContent(
                         referralCode = pendingReferralCode
                     )
 
-                    registrationResult.fold(
-                        onSuccess = {
-                            profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                email = "",
-                                name = fullName.trim(),
-                                role = role
-                            )
-                            otpViewModel.resetState()
-                            navigateToProfileSetup(role, navController)
-                        },
-                        onFailure = { error ->
-                            Timber.e(error, "REGISTER - Registration finalization failed")
-                            Toast.makeText(
-                                context,
-                                error.message ?: "Could not finish registration. Please try again.",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            otpViewModel.resetState()
-                        }
-                    )
-                    return@LaunchedEffect
+                    if (registrationResult.isSuccess) {
+                        profileCompletionViewModel.saveUserInfoToLocalStorage(
+                            email = "",
+                            name = fullName.trim(),
+                            role = role
+                        )
 
-                    val userId = currentUser.uid
-                    val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+                        val userId = currentUser.uid
+                        val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
+                        val trimmedName = fullName.trim()
 
-                    // Ensure users/{uid} exists with minimal dual-role schema before role/referral operations.
-                    FirestoreUtils.ensureMinimalUserDocument(
-                        userId = userId,
-                        role = role.name,
-                        phoneNumber = phoneToSave,
-                        fullName = fullName.trim().takeIf { it.isNotBlank() }
-                    )
-
-                    profileCompletionViewModel.updateUserRole(role)
-
-                    // Save the full name captured during registration
-                    val trimmedName = fullName.trim()
-                    if (trimmedName.isNotBlank()) {
-                        try {
-                            FirestoreUtils.saveUserFullName(userId, trimmedName, role.name)
-                            Timber.d("📱 REGISTER - Saved full name: $trimmedName")
-                        } catch (e: Exception) {
-                            Timber.w(e, "📱 REGISTER - Failed to save full name")
-                        }
-                    }
-
-                    // Save phone number to Firebase
-                    if (!phoneToSave.isNullOrBlank()) {
-                        try {
-                            FirestoreUtils.saveUserPhoneNumber(userId, phoneToSave, role.name)
-                            Timber.d("📱 REGISTER - Saved phone: $phoneToSave")
-                        } catch (e: Exception) {
-                            Timber.w(e, "📱 REGISTER - Failed to save phone")
-                        }
-                    }
-
-                    // Apply referral code if saved
-                    val savedReferralCode = profileCompletionViewModel.getReferralCode()
-                    if (!savedReferralCode.isNullOrBlank()) {
-                        try {
-                            Timber.d("🎁 REFERRAL: Applying code after registration: $savedReferralCode")
-                            val result = profileCompletionViewModel.applyReferralCode(
-                                referralCode = savedReferralCode,
+                        if (!pendingReferralCode.isNullOrBlank()) {
+                            val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                                referralCode = pendingReferralCode,
                                 newUserId = userId,
                                 newUserRole = role.name,
                                 newUserName = trimmedName.ifBlank { currentUser.displayName ?: phoneToSave ?: "User" },
                                 newUserPhone = phoneToSave ?: ""
                             )
-                            if (result.isSuccess) {
-                                Timber.d("🎁 REFERRAL: ✅ Applied successfully!")
-                                Toast.makeText(context, "✓ Referral code applied! You earned ₹25 bonus", Toast.LENGTH_LONG).show()
-                            } else {
-                                Timber.w("🎁 REFERRAL: ❌ Failed: ${result.exceptionOrNull()?.message}")
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "🎁 REFERRAL: Error applying code")
-                        }
-                    }
 
-                    // Navigate to profile setup (new user always needs profile setup)
-                    navigateToProfileSetup(role, navController)
+                            if (referralApplyResult.isSuccess) {
+                                Toast.makeText(context, "Referral bonus credited successfully", Toast.LENGTH_LONG).show()
+                            } else {
+                                Timber.w("REGISTER - Referral apply failed after registration: ${referralApplyResult.exceptionOrNull()?.message}")
+                            }
+                        }
+
+                        otpViewModel.resetState()
+                        navigateToProfileSetup(role, navController)
+                    } else {
+                        val error = registrationResult.exceptionOrNull()
+                        Timber.e(error, "REGISTER - Registration finalization failed")
+                        Toast.makeText(
+                            context,
+                            error?.message ?: "Could not finish registration. Please try again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        otpViewModel.resetState()
+                    }
+                    return@LaunchedEffect
                 } else {
                     navController.navigate(Routes.SELECT_ROLE) {
                         popUpTo(0) { inclusive = true }
@@ -344,7 +312,7 @@ private fun RegisterContent(
                                 }
                             }
                         },
-                        onBackClick = { navController.popBackStack() },
+                        onBackClick = { safeAuthBackNavigation(navController) },
                         onLoginClick = {
                             // Navigate to login screen
                             navController.navigate("${Routes.ENHANCED_LOGIN}?role=${role.name}") {
@@ -373,6 +341,16 @@ private fun RegisterContent(
                     )
                 }
             }
+        }
+    }
+}
+
+private fun safeAuthBackNavigation(navController: NavController) {
+    val popped = navController.popBackStack()
+    if (!popped) {
+        navController.navigate(Routes.SELECT_ROLE) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
         }
     }
 }

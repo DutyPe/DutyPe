@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
@@ -43,7 +44,7 @@ fun EmployerHistoryScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-    val uiState by employerJobViewModel.uiState.collectAsState()
+    val uiState by employerJobViewModel.uiState.collectAsStateWithLifecycle()
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Timeline", "Active", "Expired", "All Jobs")
@@ -56,11 +57,11 @@ fun EmployerHistoryScreen(
             timber.log.Timber.e(e, "Error loading jobs in EmployerHistoryScreen")
         }
     }
-    
+
     val currentTime = System.currentTimeMillis()
     
     // Filter jobs based on selected tab - with null safety
-    val filteredJobs = remember(uiState.myJobs, selectedTab, currentTime) {
+    val filteredJobs = remember(uiState.myJobs, selectedTab) {
         try {
             when (selectedTab) {
                 0 -> uiState.myJobs.sortedByDescending { it.createdAt } // Timeline - all sorted by date

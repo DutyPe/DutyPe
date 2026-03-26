@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OfflineBanner
@@ -35,6 +37,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
+import com.example.dutype.location.TopCityChips
 import com.example.dutype.worker.components.JobCard
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -54,7 +57,8 @@ fun CategoriesScreen(
 ) {
     val viewModel: CategoriesViewModel = hiltViewModel()
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
     
     // Selected category state - use initial category if provided
     var selectedCategory by remember { mutableStateOf(initialCategory ?: "All") }
@@ -84,11 +88,16 @@ fun CategoriesScreen(
         if (!viewModel.locationPreferences.isManualLocationLocked()) {
             launch {
                 try {
-                    viewModel.locationService.getLocationFast(viewModel.locationPreferences) { freshLocation ->
-                        if (freshLocation != null) {
-                            Timber.d("📍 CategoriesScreen: Fresh location received - re-sorting jobs by distance")
-                            viewModel.setUserLocation(freshLocation.latitude, freshLocation.longitude)
+                    // Avoid repeated GPS work when cached location is still fresh.
+                    if (!viewModel.locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
+                        viewModel.locationService.getLocationFast(viewModel.locationPreferences) { freshLocation ->
+                            if (freshLocation != null) {
+                                Timber.d("📍 CategoriesScreen: Fresh location received - re-sorting jobs by distance")
+                                viewModel.setUserLocation(freshLocation.latitude, freshLocation.longitude)
+                            }
                         }
+                    } else {
+                        Timber.d("📍 CategoriesScreen: Skipping GPS refresh - using fresh cached location")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📍 CategoriesScreen: Failed to refresh location")
@@ -156,6 +165,15 @@ fun CategoriesScreen(
                     hasMore = uiState.hasMore,
                     isLoading = uiState.isLoading,
                     isLoadingMore = uiState.isLoadingMore,
+                    suggestedCities = remember(currentLocation) {
+                        TopCityChips.buildTopLocationChips(currentLocation)
+                    },
+                    onLocationChipClick = { cityChip ->
+                        val selectedLocation = TopCityChips.toLocationData(cityChip)
+                        viewModel.locationPreferences.savePreferredLocation(selectedLocation)
+                        viewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude)
+                        viewModel.loadJobsForCategory(selectedCategory)
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -265,6 +283,8 @@ private fun JobsListSection(
     hasMore: Boolean,
     isLoading: Boolean,
     isLoadingMore: Boolean,
+    suggestedCities: List<TopCityChips.CityLocationChip>,
+    onLocationChipClick: (TopCityChips.CityLocationChip) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -355,6 +375,30 @@ private fun JobsListSection(
                             textAlign = TextAlign.Center
                         )
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (suggestedCities.isNotEmpty()) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(suggestedCities) { chip ->
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { onLocationChipClick(chip) },
+                                    label = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.LocationOn,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(chip.city)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = {

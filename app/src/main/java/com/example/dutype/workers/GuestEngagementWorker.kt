@@ -152,7 +152,7 @@ class GuestEngagementWorker @AssistedInject constructor(
         val slot = getSlot(now)
 
         val role = try {
-            val userDoc = firestore.collection("users").document(userId).get().await()
+            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
             (userDoc.getString("activeRole") ?: "WORKER").uppercase()
         } catch (e: Exception) {
             Timber.w(e, "🔔 EngagementWorker: failed to load role, default WORKER")
@@ -171,7 +171,7 @@ class GuestEngagementWorker @AssistedInject constructor(
         }.timeInMillis
 
         val todayNotifications = try {
-            firestore.collection("notifications")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.NOTIFICATIONS)
                 .whereEqualTo("recipientId", userId)
                 .whereGreaterThan("createdAt", dayStart)
                 .get()

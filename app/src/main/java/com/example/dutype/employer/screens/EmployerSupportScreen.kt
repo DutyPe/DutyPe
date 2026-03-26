@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ContactSupport
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +42,9 @@ fun EmployerSupportScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val context = LocalContext.current
-    onStatusBarColorChange(Color.White)
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(Color.White)
+    }
     
     // Clean white background for professional look
     val backgroundColor = Color.White
@@ -299,7 +303,7 @@ fun EmployerSupportScreen(
             ) {
                 Column {
                     QuickLinkItem(
-                        icon = Icons.Default.ContactSupport,
+                        icon = Icons.AutoMirrored.Filled.ContactSupport,
                         title = "Contact Us",
                         onClick = { navController.navigate(com.example.dutype.navigation.Routes.CONTACT_US) }
                     )
@@ -394,7 +398,7 @@ private fun GuideItemCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(
-                    imageVector = Icons.Default.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
                     tint = EmployerSecondaryBlue,
                     modifier = Modifier.size(20.dp)

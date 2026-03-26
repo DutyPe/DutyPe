@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { serverTimestamp } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import {
@@ -109,7 +110,7 @@ export function useProductSession(): ProductSession {
 
     await updateDoc(doc(services.db, "users", user.uid), {
       activeRole: role,
-      role
+      lastActiveAt: serverTimestamp()
     });
 
     setProfile((current) =>

@@ -191,7 +191,7 @@ fun WorkerProfileDetailsScreen(
         if (currentUserId.isNotEmpty()) {
             try {
                 val workerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("worker_profiles").document(currentUserId).get().await()
+                    .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUserId).get().await()
                 workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
                 workerTotalRatings = (workerDoc.getLong("totalRatings") ?: 0L).toInt()
             } catch (e: Exception) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
 
 type JobRow = {
@@ -44,8 +45,7 @@ export function AdminJobsClient() {
   async function loadJobs() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/jobs", {
-        credentials: "include",
+      const response = await adminApiFetch("/api/admin/jobs", {
         cache: "no-store"
       });
 
@@ -63,10 +63,11 @@ export function AdminJobsClient() {
       setJobs(
         rows.map((item) => {
           const data = item as Omit<JobRow, "id"> & { id: string };
+          const { id, ...rest } = data;
           const normalizedStatus = typeof data.status === "string" ? data.status : (data.isActive ? "open" : "closed");
           return {
-            id: item.id,
-            ...data,
+            id,
+            ...rest,
             status: normalizedStatus,
             isActive: normalizedStatus === "open"
           };
@@ -89,9 +90,8 @@ export function AdminJobsClient() {
 
     try {
       setPendingDeleteId(jobId);
-      const response = await fetch("/api/admin/jobs", {
+      const response = await adminApiFetch("/api/admin/jobs", {
         method: "DELETE",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },
@@ -114,9 +114,8 @@ export function AdminJobsClient() {
   async function handleToggleActive(jobId: string, currentActive: boolean) {
     try {
       const nextStatus = currentActive ? "closed" : "open";
-      const response = await fetch("/api/admin/jobs", {
+      const response = await adminApiFetch("/api/admin/jobs", {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },
@@ -159,9 +158,8 @@ export function AdminJobsClient() {
 
     try {
       setSaving(true);
-      const response = await fetch("/api/admin/jobs", {
+      const response = await adminApiFetch("/api/admin/jobs", {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OptimizedProfileImage
@@ -73,9 +75,9 @@ fun JobApplicationScreen(
     val reviewTriggerService = reviewTriggerServiceHolder.service
     
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val jobUiState by jobViewModel.uiState.collectAsState()
-    val profileUiState by profileViewModel.uiState.collectAsState()
-    val applicationUiState by applicationViewModel.uiState.collectAsState()
+    val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
+    val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val applicationUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
     
     // Cover letter state
     var coverLetter by remember { mutableStateOf("") }
@@ -843,7 +845,7 @@ private fun SubmitApplicationButton(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.Send,
+                    imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)

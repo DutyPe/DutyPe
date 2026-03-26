@@ -22,7 +22,7 @@ object FirestoreUtils {
         fullName: String? = null
     ) {
         val firestore = FirebaseFirestore.getInstance()
-        val userRef = firestore.collection("users").document(userId)
+        val userRef = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
         val roleUpper = role.uppercase()
         val existingDoc = userRef.get().await()
         val existingData = existingDoc.data.orEmpty()
@@ -91,7 +91,7 @@ object FirestoreUtils {
 
             Timber.d("Phone check: normalized=$normalized")
 
-            val primaryResult = firestore.collection("users")
+            val primaryResult = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .whereEqualTo("phone", normalized)
                 .limit(1)
                 .get()
@@ -115,7 +115,7 @@ object FirestoreUtils {
     suspend fun updateUserRole(userId: String, role: String) {
         try {
             val firestore = FirebaseFirestore.getInstance()
-            val userDoc = firestore.collection("users").document(userId).get().await()
+            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
             val userData = userDoc.data.orEmpty()
 
             @Suppress("UNCHECKED_CAST")
@@ -126,7 +126,7 @@ object FirestoreUtils {
                 existingRoles.add(roleUpper)
             }
 
-            firestore.collection("users")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update(
                     mapOf(
@@ -146,7 +146,7 @@ object FirestoreUtils {
         return try {
             val firestore = FirebaseFirestore.getInstance()
             val documentSnapshot = withTimeout(5_000L) {
-                firestore.collection("users")
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(uid)
                     .get()
                     .await()
@@ -168,7 +168,7 @@ object FirestoreUtils {
         try {
             val normalizedPhone = PhoneNumberUtils.normalize(phoneNumber)
             FirebaseFirestore.getInstance()
-                .collection("users")
+                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update(
                     mapOf(
@@ -190,7 +190,7 @@ object FirestoreUtils {
                 throw IllegalArgumentException("Full name cannot be blank")
             }
             FirebaseFirestore.getInstance()
-                .collection("users")
+                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update(
                     mapOf(

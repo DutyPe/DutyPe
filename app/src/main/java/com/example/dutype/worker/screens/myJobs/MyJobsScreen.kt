@@ -81,6 +81,7 @@ import com.example.dutype.worker.components.JobApplicationCard
 import com.example.dutype.components.JobCardShimmer
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.google.firebase.auth.FirebaseAuth
@@ -119,9 +120,9 @@ fun MyJobsScreen(
     val currentUser = FirebaseAuth.getInstance().currentUser
     
     // Get real data for both applied and saved jobs
-    val jobApplicationUiState by jobApplicationViewModel.legacyUiState.collectAsState()
+    val jobApplicationUiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
-    val savedJobUiState by savedJobViewModel.uiState.collectAsState()
+    val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
     val savedJobs = savedJobUiState.savedJobs
     
     
@@ -500,7 +501,7 @@ fun MyJobsScreen(
             val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
             val rated = mutableSetOf<String>()
             completedApps.forEach { app ->
-                if (ratingService.hasRated(app.id, "EMPLOYER")) {
+                if (ratingService.hasRated(app.jobId, app.employerId)) {
                     rated.add(app.id)
                 }
             }

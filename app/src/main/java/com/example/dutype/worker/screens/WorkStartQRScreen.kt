@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,9 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.dutype.utils.DateTimeUtils
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -70,7 +70,6 @@ fun WorkStartQRScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val clipboardManager = LocalClipboardManager.current
     
     var verification by remember { mutableStateOf<WorkVerification?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -197,7 +196,11 @@ fun WorkStartQRScreen(
                         verification = verification!!,
                         timeRemaining = timeRemaining,
                         onCopyCode = {
-                            clipboardManager.setText(AnnotatedString(verification!!.verificationCode))
+                            copyTextToClipboard(
+                                context = context,
+                                label = "Verification Code",
+                                text = verification!!.verificationCode
+                            )
                             android.widget.Toast.makeText(context, "Code copied!", android.widget.Toast.LENGTH_SHORT).show()
                         },
                         onRefresh = {
@@ -244,6 +247,11 @@ fun WorkStartQRScreen(
             }
         }
     }
+}
+
+private fun copyTextToClipboard(context: android.content.Context, label: String, text: String) {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
 @Composable

@@ -9,6 +9,7 @@ import com.example.dutype.models.NotificationType
 import com.example.dutype.models.NotificationData
 import com.example.dutype.services.NotificationService
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,8 @@ data class NotificationUiState(
     val notifications: List<Notification> = emptyList(),
     val filteredNotifications: List<Notification> = emptyList(),
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val hasMore: Boolean = false,
     val error: String? = null,
     val unreadCount: Int = 0,
     val selectedFilter: NotificationFilter = NotificationFilter.ALL,
@@ -37,8 +40,15 @@ abstract class BaseNotificationViewModel(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
+    companion object {
+        private const val PAGE_SIZE = 30
+    }
+
     private val _uiState = MutableStateFlow(NotificationUiState())
     val uiState: StateFlow<NotificationUiState> = _uiState.asStateFlow()
+
+    private var lastVisible: DocumentSnapshot? = null
+    private var isRequestInFlight = false
 
     /** Role label used in log messages (e.g. "WORKER", "EMPLOYER"). */
     protected abstract val roleLabel: String
@@ -50,71 +60,118 @@ abstract class BaseNotificationViewModel(
     protected abstract val testNotificationType: NotificationType
 
     fun loadNotifications() {
+        if (isRequestInFlight) return
+
+        lastVisible = null
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                isLoadingMore = false,
+                hasMore = false,
+                error = null
+            )
 
-            try {
-                val userId = auth.currentUser?.uid
+            fetchNotificationsPage(append = false)
+        }
+    }
 
-                if (userId.isNullOrBlank()) {
-                    Timber.d("$roleLabel NotificationVM - User not authenticated, skipping")
-                    _uiState.value = _uiState.value.copy(
-                        notifications = emptyList(),
-                        filteredNotifications = emptyList(),
-                        isLoading = false,
-                        unreadCount = 0,
-                        stats = NotificationStats()
-                    )
-                    return@launch
-                }
+    fun loadMoreNotifications() {
+        if (isRequestInFlight) return
+        if (!_uiState.value.hasMore) return
 
-                Timber.d("$roleLabel NotificationVM - Loading notifications for user: $userId")
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true, error = null)
+            fetchNotificationsPage(append = true)
+        }
+    }
 
-                notificationService.getUserNotifications(userId, activeRole = roleLabel).collect { result ->
-                    result.fold(
-                        onSuccess = { notifications ->
-                            val roleNotifications = filterRoleNotifications(notifications)
-                            Timber.d("$roleLabel NotificationVM - ${roleNotifications.size}/${notifications.size} after role filter")
+    private suspend fun fetchNotificationsPage(append: Boolean) {
+        isRequestInFlight = true
 
-                            val unreadCount = roleNotifications.count { !it.isRead }
+        try {
+            val userId = auth.currentUser?.uid
 
-                            val converted = roleNotifications.map { data ->
-                                Notification(
-                                    id = data.id,
-                                    userId = data.recipientId,
-                                    title = data.title,
-                                    message = data.message,
-                                    type = convertNotificationType(data.type),
-                                    isRead = data.isRead,
-                                    createdAt = data.createdAt,
-                                    actionData = data.data
-                                )
-                            }
+            if (userId.isNullOrBlank()) {
+                Timber.d("$roleLabel NotificationVM - User not authenticated, skipping")
+                _uiState.value = _uiState.value.copy(
+                    notifications = emptyList(),
+                    filteredNotifications = emptyList(),
+                    isLoading = false,
+                    isLoadingMore = false,
+                    hasMore = false,
+                    unreadCount = 0,
+                    stats = NotificationStats()
+                )
+                return
+            }
 
-                            _uiState.value = _uiState.value.copy(
-                                notifications = converted,
-                                filteredNotifications = converted,
-                                isLoading = false,
-                                unreadCount = unreadCount,
-                                stats = NotificationStats()
-                            )
-                        },
-                        onFailure = { error ->
-                            Timber.e(error, "$roleLabel NotificationVM - Error loading notifications")
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = "Failed to load notifications: ${error.message}"
+            Timber.d("$roleLabel NotificationVM - Loading notifications page for user: $userId, append=$append")
+
+            notificationService.getUserNotificationsPage(
+                userId = userId,
+                activeRole = roleLabel,
+                pageSize = PAGE_SIZE,
+                lastVisible = if (append) lastVisible else null
+            ).collect { result ->
+                result.fold(
+                    onSuccess = { page ->
+                        val roleNotifications = filterRoleNotifications(page.notifications)
+                        Timber.d("$roleLabel NotificationVM - ${roleNotifications.size}/${page.notifications.size} after role filter")
+
+                        val converted = roleNotifications.map { data ->
+                            Notification(
+                                id = data.id,
+                                userId = data.recipientId,
+                                title = data.title,
+                                message = data.message,
+                                type = convertNotificationType(data.type),
+                                isRead = data.isRead,
+                                createdAt = data.createdAt,
+                                actionData = data.data
                             )
                         }
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "$roleLabel NotificationVM - Exception loading notifications")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Failed to load notifications: ${e.message}"
+
+                        val merged = if (append) {
+                            (_uiState.value.notifications + converted).distinctBy { it.id }
+                        } else {
+                            converted
+                        }
+
+                        val unreadCount = merged.count { !it.isRead }
+                        lastVisible = page.lastVisible
+
+                        _uiState.value = _uiState.value.copy(
+                            notifications = merged,
+                            filteredNotifications = merged,
+                            isLoading = false,
+                            isLoadingMore = false,
+                            hasMore = page.hasMore,
+                            unreadCount = unreadCount,
+                            stats = NotificationStats(
+                                totalNotifications = merged.size,
+                                unreadCount = unreadCount
+                            )
+                        )
+                    },
+                    onFailure = { error ->
+                        Timber.e(error, "$roleLabel NotificationVM - Error loading notifications")
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isLoadingMore = false,
+                            error = "Failed to load notifications: ${error.message}"
+                        )
+                    }
                 )
             }
+        } catch (e: Exception) {
+            Timber.e(e, "$roleLabel NotificationVM - Exception loading notifications")
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                isLoadingMore = false,
+                error = "Failed to load notifications: ${e.message}"
+            )
+        } finally {
+            isRequestInFlight = false
         }
     }
 

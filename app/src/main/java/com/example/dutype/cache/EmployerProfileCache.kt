@@ -77,11 +77,11 @@ class EmployerProfileCache @Inject constructor() {
         // Fetch from Firestore
         return@withLock try {
             withContext(Dispatchers.IO) {
-                val userDoc = firestore.collection("users")
+                val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(employerId)
                     .get()
                     .await()
-                val employerProfileDoc = firestore.collection("employer_profiles")
+                val employerProfileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(employerId)
                     .get()
                     .await()

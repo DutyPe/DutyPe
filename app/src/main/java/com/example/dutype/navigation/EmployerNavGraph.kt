@@ -164,7 +164,7 @@ fun NavGraphBuilder.employerNavGraph(
                     if (application != null) {
                         employerViewModel.hireApplicant(
                             applicationId = applicationId,
-                            jobId = application.id,
+                            jobId = application.jobId,
                             onSuccess = {
                                 Toast.makeText(context, "Applicant hired successfully!", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()

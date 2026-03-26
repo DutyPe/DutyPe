@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
+
 const JOB_CATEGORIES = [
   "Delivery",
   "Driver",
@@ -65,9 +67,8 @@ export function AdminPostJobClient() {
       setSubmitting(true);
       setError(null);
 
-      const response = await fetch("/api/admin/jobs", {
+      const response = await adminApiFetch("/api/admin/jobs", {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

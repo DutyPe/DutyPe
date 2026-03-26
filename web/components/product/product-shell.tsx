@@ -82,7 +82,14 @@ export function ProductRoleBoundary({
       .setActiveRole(requiredRole)
       .catch(() => undefined)
       .finally(() => setSyncingRole(false));
-  }, [requiredRole, session]);
+  }, [
+    requiredRole,
+    session.user,
+    session.loading,
+    session.currentRole,
+    session.availableRoles,
+    session.setActiveRole
+  ]);
 
   if (session.loading || syncingRole) {
     return (

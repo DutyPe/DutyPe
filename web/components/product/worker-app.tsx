@@ -221,7 +221,7 @@ function WorkerJobCard({
       <div className="market-card-meta">
         <div className="market-meta-item">
           <span>Location</span>
-          <strong>{job.location || "Location pending"}</strong>
+          <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
         </div>
         <div className="market-meta-item">
           <span>Pay</span>
@@ -234,7 +234,7 @@ function WorkerJobCard({
       </div>
 
       <div className="pill-row">
-        <span className="pill">{job.vacancies} vacancies</span>
+        <span className="pill">{job.vacancies ?? 1} vacancies</span>
         <span className="pill">{job.employerTrustTier || "NEW"} trust tier</span>
         {distanceLabel ? <span className="pill">{distanceLabel}</span> : null}
       </div>
@@ -268,8 +268,12 @@ function WorkerApplicationCard({
 }: {
   application: ProductApplication;
 }) {
+  const statusHistory = Array.isArray(application.statusHistory)
+    ? application.statusHistory
+    : [];
+
   const latestUpdate =
-    application.statusHistory[application.statusHistory.length - 1]?.notes ||
+    (statusHistory[statusHistory.length - 1] as { notes?: string } | undefined)?.notes ||
     "Application is active in the DutyPe workflow.";
 
   return (
@@ -284,7 +288,7 @@ function WorkerApplicationCard({
         </span>
       </div>
 
-      <p className="market-card-subtitle">{application.companyName || "DutyPe employer"}</p>
+      <p className="market-card-subtitle">DutyPe employer</p>
       <p className="market-card-copy">{latestUpdate}</p>
 
       <div className="market-card-meta">
@@ -298,7 +302,7 @@ function WorkerApplicationCard({
         </div>
         <div className="market-meta-item">
           <span>Job route</span>
-          <strong>{application.jobLocation || "Location in listing"}</strong>
+          <strong>{application.jobId || "Location in listing"}</strong>
         </div>
       </div>
     </article>
@@ -584,12 +588,20 @@ export function WorkerJobsClient({ session }: SharedProps) {
     () => workerLocationFromProfile(session.profile),
     [session.profile]
   );
-  const categories = ["ALL", ...new Set(jobs.map((job) => job.category).filter(Boolean))];
+  const categories = [
+    "ALL",
+    ...new Set(
+      jobs
+        .map((job) => job.category)
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    )
+  ];
   const radiusKm =
     distanceFilter === "ALL" || !workerLocation ? null : Number(distanceFilter);
   const filteredJobs = useMemo(() => {
     const searchedJobs = jobs.filter((job) => {
-      const queryText = `${job.title} ${job.companyName} ${job.location}`.toLowerCase();
+      const locationText = job.addressText || `${job.location.lat}, ${job.location.lng}`;
+      const queryText = `${job.title} ${job.companyName || ""} ${locationText}`.toLowerCase();
       const matchesSearch = !search.trim() || queryText.includes(search.trim().toLowerCase());
       const matchesCategory = category === "ALL" || job.category === category;
       return matchesSearch && matchesCategory;
@@ -919,7 +931,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         <div className="product-summary-grid">
           <div className="product-summary-card">
             <span>Location</span>
-            <strong>{job.location || "Location pending"}</strong>
+            <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
           </div>
           <div className="product-summary-card">
             <span>Pay</span>
@@ -977,7 +989,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           <h3>Quick decision signals</h3>
           <ul className="detail-list">
             <li>
-              <strong>{job.vacancies} open slot{job.vacancies > 1 ? "s" : ""}</strong>
+              <strong>{job.vacancies ?? 1} open slot{(job.vacancies ?? 1) > 1 ? "s" : ""}</strong>
               <span>Openings are still available right now.</span>
             </li>
             <li>

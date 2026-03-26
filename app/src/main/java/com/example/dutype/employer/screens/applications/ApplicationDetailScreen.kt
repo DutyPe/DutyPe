@@ -145,20 +145,26 @@ fun ApplicationDetailScreen(
     var hasRatedWorker by remember { mutableStateOf(false) }
     val ratingService = remember { com.example.dutype.services.RatingService(com.google.firebase.firestore.FirebaseFirestore.getInstance(), FirebaseAuth.getInstance()) }
 
-    // Check if already rated
-    LaunchedEffect(applicationId) {
-        hasRatedWorker = ratingService.hasRated(applicationId, "WORKER")
-    }
-
     // Find the specific application (could be null while loading)
     val application = uiState.applications.find { it.applicationId == applicationId }
+
+    // Check if already rated
+    LaunchedEffect(application?.jobId, application?.workerId) {
+        val workerId = application?.workerId
+        val jobId = application?.jobId
+        hasRatedWorker = if (!workerId.isNullOrBlank() && !jobId.isNullOrBlank()) {
+            ratingService.hasRated(jobId, workerId)
+        } else {
+            false
+        }
+    }
 
     LaunchedEffect(application?.workerId) {
         val workerId = application?.workerId
         if (!workerId.isNullOrBlank()) {
             try {
                 val workerProfileDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("worker_profiles")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
                     .document(workerId)
                     .get()
                     .await()

@@ -149,7 +149,7 @@ class ApplicationManagementService @Inject constructor(
                     ?: throw Exception("Invalid application data")
 
                 // Schema-compliant: check job status field only (no vacancies/acceptedCount)
-                val jobRef = firestore.collection("jobs").document(currentApplication.jobId)
+                val jobRef = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(currentApplication.jobId)
                 val jobDoc = transaction.get(jobRef)
 
                 if (!jobDoc.exists()) throw Exception("Job not found")
@@ -284,7 +284,7 @@ class ApplicationManagementService @Inject constructor(
      */
     suspend fun canAcceptMoreApplications(jobId: String): Result<Boolean> {
         return try {
-            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
             Result.success(jobStatus == "open")
@@ -300,7 +300,7 @@ class ApplicationManagementService @Inject constructor(
      */
     suspend fun getRemainingVacancies(jobId: String): Result<Int> {
         return try {
-            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
             Result.success(if (jobStatus == "open") 1 else 0)
@@ -314,7 +314,7 @@ class ApplicationManagementService @Inject constructor(
      */
     suspend fun getJobVacancyStatus(jobId: String): Result<JobVacancyStatus> {
         return try {
-            val doc = firestore.collection("jobs").document(jobId).get().await()
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (doc.exists()) {
                 val status = when (doc.getString("status") ?: "open") {
                     "closed" -> JobVacancyStatus.FILLED
@@ -335,7 +335,7 @@ class ApplicationManagementService @Inject constructor(
      */
     private suspend fun updateJobVacancyStatusIfNeeded(jobId: String) {
         try {
-            firestore.collection("jobs").document(jobId)
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId)
                 .update("status", "closed")
                 .await()
         } catch (e: Exception) {

@@ -3,6 +3,7 @@ package com.example.dutype.repositories
 import com.example.dutype.services.ai.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import retrofit2.Response
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +32,15 @@ class AIBackendRepository @Inject constructor(
         private const val TAG = "AIBackendRepo"
         const val MAX_BLOCKED_ATTEMPTS = 3 // 3 strikes = suspension
     }
+
+    private fun <T> bodyOrFailure(response: Response<T>, operation: String): Result<T> {
+        val body = response.body()
+        return if (response.isSuccessful && body != null) {
+            Result.success(body)
+        } else {
+            Result.failure(Exception("$operation failed: ${response.code()}"))
+        }
+    }
     
     // ============================================================
     // HEALTH CHECK
@@ -39,11 +49,7 @@ class AIBackendRepository @Inject constructor(
     suspend fun checkHealth(): Result<HealthResponse> = withContext(Dispatchers.IO) {
         try {
             val response = aiBackendService.healthCheck()
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Health check failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Health check")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Health check error")
             Result.failure(e)
@@ -65,9 +71,9 @@ class AIBackendRepository @Inject constructor(
             try {
                 Timber.d("$TAG: Analyzing job ${request.jobId}")
                 val response = aiBackendService.analyzeJob(request)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    val result = response.body()!!
+
+                val result = response.body()
+                if (response.isSuccessful && result != null) {
                     Timber.d("$TAG: Job analysis complete - Risk: ${result.riskScore}, Block: ${result.shouldBlock}")
                     Result.success(result)
                 } else {
@@ -91,12 +97,7 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.quickCheckJob(title, description)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Quick check failed: ${response.code()}"))
-                }
+                bodyOrFailure(response, "Quick check")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Quick check error")
                 Result.failure(e)
@@ -111,12 +112,7 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.checkKeywords(text)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Keyword check failed: ${response.code()}"))
-                }
+                bodyOrFailure(response, "Keyword check")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Keyword check error")
                 Result.failure(e)
@@ -135,12 +131,7 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.detectFraud(request)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Fraud detection failed: ${response.code()}"))
-                }
+                bodyOrFailure(response, "Fraud detection")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Fraud detection error")
                 Result.failure(e)
@@ -159,12 +150,7 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.scoreEmployer(request)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Employer scoring failed: ${response.code()}"))
-                }
+                bodyOrFailure(response, "Employer scoring")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Employer scoring error")
                 Result.failure(e)
@@ -178,12 +164,7 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.getEmployerPrivileges(employerId)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Get privileges failed: ${response.code()}"))
-                }
+                bodyOrFailure(response, "Get privileges")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Get privileges error")
                 Result.failure(e)
@@ -204,12 +185,7 @@ class AIBackendRepository @Inject constructor(
     ): Result<RuleValidationResponse> = withContext(Dispatchers.IO) {
         try {
             val response = aiBackendService.validateJobRules(jobData, employerTier)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Rule validation failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Rule validation")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Rule validation error")
             Result.failure(e)
@@ -226,12 +202,7 @@ class AIBackendRepository @Inject constructor(
     ): Result<PayValidationResponse> = withContext(Dispatchers.IO) {
         try {
             val response = aiBackendService.validatePayRate(category, payAmount, payType)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Pay validation failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Pay validation")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Pay validation error")
             Result.failure(e)
@@ -253,12 +224,7 @@ class AIBackendRepository @Inject constructor(
         try {
             val request = ApplicationViewRequest(applicationId, employerId, workerId)
             val response = aiBackendService.trackApplicationView(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Track view failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Track view")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Track view error")
             Result.failure(e)
@@ -277,12 +243,7 @@ class AIBackendRepository @Inject constructor(
         try {
             val request = DuplicateCheckRequest(jobId, title, description, employerId)
             val response = aiBackendService.checkDuplicate(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Duplicate check failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Duplicate check")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Duplicate check error")
             Result.failure(e)
@@ -301,12 +262,7 @@ class AIBackendRepository @Inject constructor(
         try {
             val request = WorkerRiskRequest(workerId, job, employer, worker)
             val response = aiBackendService.assessWorkerRisk(request)
-            
-            if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
-            } else {
-                Result.failure(Exception("Risk assessment failed: ${response.code()}"))
-            }
+            bodyOrFailure(response, "Risk assessment")
         } catch (e: Exception) {
             Timber.e(e, "$TAG: Risk assessment error")
             Result.failure(e)
@@ -320,12 +276,8 @@ class AIBackendRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val response = aiBackendService.submitReport(request)
-                
-                if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Submit report failed: ${response.code()}"))
-                }
+
+                bodyOrFailure(response, "Submit report")
             } catch (e: Exception) {
                 Timber.e(e, "$TAG: Submit report error")
                 Result.failure(e)

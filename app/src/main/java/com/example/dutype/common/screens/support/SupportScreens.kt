@@ -109,7 +109,9 @@ fun HelpMainScreen(
     navController: NavController,
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
-    onStatusBarColorChange(androidx.compose.ui.graphics.Color.White)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        onStatusBarColorChange(androidx.compose.ui.graphics.Color.White)
+    }
     var expandedGuideIndex by remember { mutableStateOf(-1) }
     var expandedFaqIndex by remember { mutableStateOf(-1) }
 

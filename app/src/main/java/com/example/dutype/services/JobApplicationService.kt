@@ -323,7 +323,7 @@ class JobApplicationService @Inject constructor(
     private suspend fun getJobDetails(jobId: String): Result<Map<String, Any>> {
         return try {
             RetryUtils.retryWithBackoffResult {
-                val doc = firestore.collection("jobs").document(jobId).get().await()
+                val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
                 if (doc.exists()) {
                     Result.success(doc.data ?: emptyMap())
                 } else {
@@ -796,7 +796,7 @@ class JobApplicationService @Inject constructor(
 
     private suspend fun getJobTitle(jobId: String): String {
         return try {
-            val doc = firestore.collection("jobs").document(jobId).get().await()
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             doc.getString("title") ?: "Job"
         } catch (_: Exception) {
             "Job"
@@ -1067,7 +1067,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun canAcceptMoreApplications(jobId: String): Result<Boolean> {
         return try {
-            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
             Result.success(jobStatus == "open")
@@ -1083,7 +1083,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getRemainingVacancies(jobId: String): Result<Int> {
         return try {
-            val jobDoc = firestore.collection("jobs").document(jobId).get().await()
+            val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
             Result.success(if (jobStatus == "open") 1 else 0)
@@ -1135,7 +1135,7 @@ class JobApplicationService @Inject constructor(
      */
     private suspend fun updateJobVacancyStatusIfNeeded(jobId: String) {
         try {
-            firestore.collection("jobs")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                 .document(jobId)
                 .update("status", "closed")
                 .await()
@@ -1149,7 +1149,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getJobVacancyStatus(jobId: String): Result<JobVacancyStatus> {
         return try {
-            val doc = firestore.collection("jobs").document(jobId).get().await()
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (doc.exists()) {
                 // Read from canonical "status" field (open/closed/expired)
                 val status = when (doc.getString("status") ?: "open") {
@@ -1175,7 +1175,7 @@ class JobApplicationService @Inject constructor(
                 chunks.map { chunk ->
                     async(Dispatchers.IO) {
                         try {
-                            val snapshot = firestore.collection("jobs")
+                            val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                                 .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
                                 .get().await()
                             snapshot.documents.associate { doc ->

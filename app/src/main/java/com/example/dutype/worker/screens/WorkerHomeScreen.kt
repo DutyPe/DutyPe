@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +66,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -90,6 +95,7 @@ import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.navigation.Routes
+import com.example.dutype.location.TopCityChips
 import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
 import com.example.dutype.ui.theme.IconSizes
@@ -135,16 +141,16 @@ fun WorkerHomeScreen(
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
     val locationPreferences = jobViewModel.locationPreferences
-    val currentLocation by locationPreferences.currentLocation.collectAsState()
+    val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
-    val announcements by announcementViewModel.announcements.collectAsState()
+    val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
-    val jobUiState by jobViewModel.uiState.collectAsState()
+    val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
     
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
@@ -153,10 +159,10 @@ fun WorkerHomeScreen(
     var showBirthdayBanner by remember { mutableStateOf(false) }
     
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
-    val filteredJobs by jobViewModel.filteredJobs.collectAsState()
+    val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
     
     // PERFORMANCE FIX P2: Use ViewModel's vacancy statuses (cleared on refresh)
-    val jobVacancyStatuses by jobViewModel.jobVacancyStatuses.collectAsState()
+    val jobVacancyStatuses by jobViewModel.jobVacancyStatuses.collectAsStateWithLifecycle()
 
     // View tracking state
     var clickedJobId by remember { mutableStateOf<String?>(null) }
@@ -182,7 +188,7 @@ fun WorkerHomeScreen(
     var isLocationLoading by remember { mutableStateOf(false) }
     
     // Observe location loading state from preferences
-    val locationLoadingState by locationPreferences.isLocationLoading.collectAsState()
+    val locationLoadingState by locationPreferences.isLocationLoading.collectAsStateWithLifecycle()
 
     // Track if permissions have been requested to avoid repeated requests
     var permissionsRequested by remember { mutableStateOf(false) }
@@ -265,7 +271,7 @@ fun WorkerHomeScreen(
                             launch(Dispatchers.IO) {
                                 try {
                                     val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                    firestore.collection("users").document(userId).update(
+                                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).update(
                                         mapOf(
                                             "location" to mapOf(
                                                 "lat" to data.latitude,
@@ -506,6 +512,17 @@ fun WorkerHomeScreen(
         }
     }
 
+    val topLocationChips = remember(currentLocation) {
+        TopCityChips.buildTopLocationChips(currentLocation)
+    }
+
+    val onLocationChipSelected: (TopCityChips.CityLocationChip) -> Unit = { chip ->
+        val selectedLocation = TopCityChips.toLocationData(chip)
+        locationPreferences.savePreferredLocation(selectedLocation)
+        jobViewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude, immediate = true)
+        jobViewModel.loadJobsSummaryForHome()
+    }
+
     // Use a subtle off-white background for Worker home screen
     Box(modifier = Modifier
         .fillMaxSize()
@@ -570,7 +587,9 @@ fun WorkerHomeScreen(
                                     jobUiState.jobs.isEmpty() -> {
                                         EmptyJobsState(
                                             navController = rootNavController,
-                                            currentLocationName = currentLocation?.getShortAddress()
+                                            currentLocationName = currentLocation?.getShortAddress(),
+                                            suggestedCities = topLocationChips,
+                                            onCitySelected = onLocationChipSelected
                                         )
                                     }
                                     
@@ -579,7 +598,9 @@ fun WorkerHomeScreen(
                                         EmptyJobsState(
                                             navController = rootNavController,
                                             currentLocationName = currentLocation?.getShortAddress(),
-                                            isAppliedAllVariant = true
+                                            isAppliedAllVariant = true,
+                                            suggestedCities = topLocationChips,
+                                            onCitySelected = onLocationChipSelected
                                         )
                                     }
                                     
@@ -600,6 +621,8 @@ fun WorkerHomeScreen(
                                             onNavigateToJob = { jobId ->
                                                 navController.navigate(Routes.jobDetailRoute(jobId))
                                             },
+                                            currentLocation = currentLocation,
+                                            onLocationChipSelected = onLocationChipSelected,
                                             userName = currentUser?.displayName ?: "",
                                             userEmail = currentUser?.email ?: "",
                                             userSkills = emptyList(),
@@ -740,7 +763,9 @@ private fun LoadingContent() {
 fun EmptyJobsState(
     navController: NavController? = null,
     currentLocationName: String? = null,
-    isAppliedAllVariant: Boolean = false
+    isAppliedAllVariant: Boolean = false,
+    suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
+    onCitySelected: (TopCityChips.CityLocationChip) -> Unit = {}
 ) {
     // Rotate through humorous messages so repeat visits feel fresh
     val humorMessages = remember {
@@ -834,6 +859,39 @@ fun EmptyJobsState(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (suggestedCities.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(suggestedCities) { chip ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { onCitySelected(chip) },
+                            label = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(chip.label())
+                                }
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = Color(0xFF1F2937)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             // Secondary hint
             Text(
                 text = "Jobs are available in 500+ cities across India",
@@ -920,6 +978,8 @@ fun HomeSectionsContent(
     navController: NavController,
     rootNavController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
+    currentLocation: com.example.dutype.models.LocationData? = null,
+    onLocationChipSelected: (TopCityChips.CityLocationChip) -> Unit = {},
     hasLocationPermission: Boolean = false,
     context: android.content.Context,
     jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
@@ -1149,6 +1209,14 @@ fun HomeSectionsContent(
         
         // Section 1: Browse Categories (at the top) - transparent to show gradient
         item {
+            TopLocationChipsSection(
+                currentLocation = currentLocation,
+                onLocationChipSelected = onLocationChipSelected
+            )
+        }
+
+        // Section 2: Browse Categories (at the top) - transparent to show gradient
+        item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1168,7 +1236,7 @@ fun HomeSectionsContent(
             }
         }
         
-        // Section 2: Jobs For You (skill-matched) - transparent to show gradient
+        // Section 3: Jobs For You (skill-matched) - transparent to show gradient
         item {
             Column(
                 modifier = Modifier
@@ -1190,12 +1258,67 @@ fun HomeSectionsContent(
             }
         }
         
-        // Section 3: DutyPe Promise Carousel (at the bottom after jobs)
+        // Section 4: DutyPe Promise Carousel (at the bottom after jobs)
         item {
             DutyPePromiseCarousel()
         }
         
     }
+    }
+}
+
+@Composable
+private fun TopLocationChipsSection(
+    currentLocation: com.example.dutype.models.LocationData?,
+    onLocationChipSelected: (TopCityChips.CityLocationChip) -> Unit
+) {
+    val chips = remember(currentLocation) {
+        TopCityChips.buildTopLocationChips(currentLocation)
+    }
+
+    if (chips.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+    ) {
+        Text(
+            text = "Top locations",
+            style = MaterialTheme.typography.titleSmall.copy(
+                color = Color.Black,
+                fontWeight = FontWeight.SemiBold
+            ),
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(chips) { chip ->
+                FilterChip(
+                    selected = false,
+                    onClick = { onLocationChipSelected(chip) },
+                    label = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(chip.label())
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Color.White,
+                        labelColor = Color(0xFF1F2937)
+                    )
+                )
+            }
+        }
     }
 }
 

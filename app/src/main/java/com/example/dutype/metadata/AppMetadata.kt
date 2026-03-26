@@ -173,10 +173,10 @@ class AppMetadata @Inject constructor(
 
             coroutineScope {
                 val totalJobsDeferred = async {
-                    firestore.collection("jobs").count().get(AggregateSource.SERVER).await().count.toInt()
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).count().get(AggregateSource.SERVER).await().count.toInt()
                 }
                 val activeJobsDeferred = async {
-                    firestore.collection("jobs")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                         .whereEqualTo("status", "open")
                         .count()
                         .get(AggregateSource.SERVER)
@@ -185,7 +185,7 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val workersDeferred = async {
-                    firestore.collection("users")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                         .whereArrayContains("roles", "WORKER")
                         .count()
                         .get(AggregateSource.SERVER)
@@ -194,7 +194,7 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val employersDeferred = async {
-                    firestore.collection("users")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                         .whereArrayContains("roles", "EMPLOYER")
                         .count()
                         .get(AggregateSource.SERVER)
@@ -203,10 +203,10 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val totalApplicationsDeferred = async {
-                    firestore.collection("applications").count().get(AggregateSource.SERVER).await().count.toInt()
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS).count().get(AggregateSource.SERVER).await().count.toInt()
                 }
                 val jobsTodayDeferred = async {
-                    firestore.collection("jobs")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                         .whereGreaterThanOrEqualTo("createdAt", dayStartTs)
                         .count()
                         .get(AggregateSource.SERVER)
@@ -215,7 +215,7 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val applicationsTodayDeferred = async {
-                    firestore.collection("applications")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
                         .whereGreaterThanOrEqualTo("createdAt", dayStartTs)
                         .count()
                         .get(AggregateSource.SERVER)

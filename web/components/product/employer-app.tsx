@@ -186,7 +186,7 @@ function EmployerJobCard({
       <div className="market-card-meta">
         <div className="market-meta-item">
           <span>Location</span>
-          <strong>{job.location || "Location pending"}</strong>
+          <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
         </div>
         <div className="market-meta-item">
           <span>Pay</span>
@@ -253,8 +253,10 @@ function EmployerApplicationCard({
   showActions?: boolean;
 }) {
   const [startingChat, setStartingChat] = useState(false);
+  const statusHistory = Array.isArray(application.statusHistory) ? application.statusHistory : [];
+  const lastHistoryEntry = statusHistory.length > 0 ? statusHistory[statusHistory.length - 1] as { notes?: string } : null;
   const latestUpdate =
-    application.statusHistory[application.statusHistory.length - 1]?.notes ||
+    lastHistoryEntry?.notes ||
     "Application is active in the employer review flow.";
 
   async function handleMessageWorker() {
@@ -595,7 +597,7 @@ export function EmployerPostJobClient({ session }: SharedProps) {
   useEffect(() => {
     setForm((current) => ({
       ...current,
-      companyName: current.companyName || session.profile?.companyName || defaultCompanyName(session.profile),
+      companyName: current.companyName || session.profile?.companyName || defaultCompanyName,
       contactNumber: current.contactNumber || session.profile?.contactPhone || session.profile?.phone || "",
       latitude: current.latitude || toCoordinateText(session.profile?.businessLatitude),
       location: current.location || session.profile?.businessAddress || "",
@@ -1036,26 +1038,26 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
 
         setJob(nextJob);
         setForm({
-          category: nextJob.category,
+          category: nextJob.category || "General",
           companyName:
             nextJob.companyName ||
             session.profile?.companyName ||
-            defaultCompanyName(session.profile),
+            defaultCompanyName,
           contactNumber:
             nextJob.contactNumber ||
             session.profile?.contactPhone ||
             session.profile?.phone ||
             "",
-          description: nextJob.description,
+          description: nextJob.description || "",
           gender: nextJob.gender || "ANY",
           jobType: nextJob.jobType || "FULL_TIME",
           latitude: toCoordinateText(nextJob.latitude),
-          location: nextJob.location,
+          location: nextJob.addressText || `${nextJob.location.lat}, ${nextJob.location.lng}`,
           longitude: toCoordinateText(nextJob.longitude),
-          payAmount: nextJob.payAmount,
+          payAmount: String(nextJob.payAmount ?? ""),
           payType: nextJob.payType || "MONTHLY",
-          shiftTiming: nextJob.shiftTiming,
-          title: nextJob.title,
+          shiftTiming: nextJob.shiftTiming || "",
+          title: nextJob.title || "",
           vacancies: String(nextJob.vacancies || 1)
         });
       } catch (loadError) {
@@ -1367,7 +1369,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
           <article className="detail-panel">
             <span className="card-kicker">Original post</span>
             <h3>{job.companyName || "DutyPe employer"}</h3>
-            <p>{job.location || "Location not available."}</p>
+            <p>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</p>
             <div className="pill-row">
               <span className="pill">{job.category || "Category pending"}</span>
               <span className="pill">{job.shiftTiming || "Shift pending"}</span>
@@ -1671,7 +1673,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
           </div>
           <div className="product-summary-card">
             <span>Total applications</span>
-            <strong>{jobs.reduce((sum, job) => sum + job.applicationCount, 0)}</strong>
+            <strong>{jobs.reduce((sum, job) => sum + (job.applicationCount ?? 0), 0)}</strong>
           </div>
         </div>
       </section>
@@ -1827,10 +1829,9 @@ export function EmployerApplicationsClient({
       }
 
       const matchesSearch =
-        application.workerName.toLowerCase().includes(searchValue) ||
-        application.jobTitle.toLowerCase().includes(searchValue) ||
-        application.companyName.toLowerCase().includes(searchValue) ||
-        application.coverLetter.toLowerCase().includes(searchValue);
+        (application.workerName ?? "").toLowerCase().includes(searchValue) ||
+        (application.jobTitle ?? "").toLowerCase().includes(searchValue) ||
+        (application.coverLetter ?? "").toLowerCase().includes(searchValue);
 
       return matchesStatus && matchesSearch;
     }
@@ -1867,8 +1868,13 @@ export function EmployerApplicationsClient({
       setBusyApplicationId(application.id);
 
       const currentTime = Date.now();
+      const previousHistory = Array.isArray(application.statusHistory)
+        ? application.statusHistory.filter(
+            (entry) => entry !== null && typeof entry === "object"
+          )
+        : [];
       const nextHistory = [
-        ...application.statusHistory,
+        ...previousHistory,
         {
           notes: nextStatusNote(nextStatus),
           status: nextStatus,
@@ -1878,10 +1884,17 @@ export function EmployerApplicationsClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
-      const storedHistory = nextHistory.map((entry) => ({
-        ...entry,
-        status: toStorageApplicationStatus(entry.status)
-      }));
+      const storedHistory = nextHistory.map((entry) => {
+        const rawStatus =
+          typeof entry.status === "string" && entry.status.trim().length > 0
+            ? entry.status.toUpperCase()
+            : nextStatus;
+
+        return {
+          ...entry,
+          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
+        };
+      });
       const updatePayload: Record<string, unknown> = {
         status: toStorageApplicationStatus(nextStatus),
         statusHistory: storedHistory,
@@ -1894,13 +1907,12 @@ export function EmployerApplicationsClient({
           db: services.db,
           employerId: application.employerId,
           employerName:
-            application.companyName ||
             session.profile?.companyName ||
             "DutyPe employer",
           jobId: application.jobId,
-          jobTitle: application.jobTitle,
+          jobTitle: application.jobTitle || "Job",
           workerId: application.workerId,
-          workerName: application.workerName
+          workerName: application.workerName || "Worker"
         });
 
         updatePayload.verification = verification;
@@ -1914,8 +1926,8 @@ export function EmployerApplicationsClient({
             jobSnapshot.id,
             jobSnapshot.data() as Record<string, unknown>
           );
-          const acceptedCount = job.acceptedCount + 1;
-          const isFilled = acceptedCount >= job.vacancies;
+          const acceptedCount = (job.acceptedCount ?? 0) + 1;
+          const isFilled = acceptedCount >= (job.vacancies ?? 1);
 
           await updateDoc(doc(services.db, "jobs", application.jobId), {
             acceptedCount,

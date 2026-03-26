@@ -383,6 +383,8 @@ class FirestoreJobRepository @Inject constructor(
 
         if (useGeohashQuery) {
             Timber.d("📍 GEOHASH PATH: radius=${radiusKm}km, category=$category")
+            val safeUserLatitude = userLatitude ?: return@flow
+            val safeUserLongitude = userLongitude ?: return@flow
 
             val isUnfilteredFirstPage = category.isNullOrBlank()
 
@@ -398,43 +400,68 @@ class FirestoreJobRepository @Inject constructor(
             val savedJobIds = getSavedJobIds()
 
             // Primary radius (10 km by default).
-            val primaryResult = firestoreService.getNearbyJobsSummary(
-                userLatitude = userLatitude!!,
-                userLongitude = userLongitude!!,
-                radiusKm = radiusKm,
-                category = category,
-                limitPerCell = 50L
-            )
+            val searchRadii = listOf(radiusKm, 25.0, 50.0).distinct().sorted()
+            val mergedNearby = mutableListOf<JobListingSummary>()
+            var resolvedPage: List<JobListingSummary> = emptyList()
 
-            primaryResult.fold(
-                onSuccess = { jobsData ->
-                    val nearbySorted = jobsData
-                        .map { JobListingSummary.fromMap(it) }
-                        .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
-                        .sortedBy { s ->
-                            GeoUtils.calculateDistance(userLatitude, userLongitude, s.lat, s.lng)
+            for (currentRadius in searchRadii) {
+                val nearbyResult = firestoreService.getNearbyJobsSummary(
+                    userLatitude = safeUserLatitude,
+                    userLongitude = safeUserLongitude,
+                    radiusKm = currentRadius,
+                    category = category,
+                    limitPerCell = 100L
+                )
+
+                val jobsData = nearbyResult.getOrElse {
+                    emit(Result.failure(it))
+                    return@flow
+                }
+
+                jobsData
+                    .map { JobListingSummary.fromMap(it) }
+                    .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
+                    .forEach { summary ->
+                        if (mergedNearby.none { it.id == summary.id }) {
+                            mergedNearby.add(summary)
                         }
+                    }
 
-                    val summaries = if (lastDocumentId.isNullOrBlank()) {
-                        nearbySorted.take(limit.toInt())
+                val nearbySorted = mergedNearby
+                    .sortedBy { s ->
+                        GeoUtils.calculateDistance(safeUserLatitude, safeUserLongitude, s.lat, s.lng)
+                    }
+
+                resolvedPage = if (lastDocumentId.isNullOrBlank()) {
+                    nearbySorted.take(limit.toInt())
+                } else {
+                    val cursorIndex = nearbySorted.indexOfFirst { it.id == lastDocumentId }
+                    if (cursorIndex >= 0) {
+                        nearbySorted.drop(cursorIndex + 1).take(limit.toInt())
                     } else {
-                        val cursorIndex = nearbySorted.indexOfFirst { it.id == lastDocumentId }
-                        if (cursorIndex >= 0) {
-                            nearbySorted.drop(cursorIndex + 1).take(limit.toInt())
-                        } else {
-                            Timber.w("📍 Cursor '$lastDocumentId' not found in nearby set; returning empty page to avoid duplicates")
-                            emptyList()
-                        }
+                        emptyList()
                     }
+                }
 
-                    Timber.d("📍 Primary ${radiusKm}km: totalCandidates=${nearbySorted.size}, pageSize=${summaries.size}, cursor=$lastDocumentId")
-                    if (isUnfilteredFirstPage && summaries.isNotEmpty()) {
-                        jobCacheManager.cacheJobSummaries(summaries)
-                    }
-                    emit(Result.success(summaries))
-                },
-                onFailure = { emit(Result.failure(it)) }
-            )
+                Timber.d(
+                    "📍 Nearby radius ${currentRadius}km: candidates=${nearbySorted.size}, pageSize=${resolvedPage.size}, cursor=$lastDocumentId"
+                )
+
+                val enoughForFirstPage = lastDocumentId.isNullOrBlank() && resolvedPage.size >= limit.toInt()
+                val hasNextPageData = lastDocumentId != null && resolvedPage.isNotEmpty()
+                if (enoughForFirstPage || hasNextPageData) {
+                    break
+                }
+            }
+
+            if (!lastDocumentId.isNullOrBlank() && resolvedPage.isEmpty()) {
+                Timber.w("📍 Cursor '$lastDocumentId' not found in expanded nearby set or no more jobs available")
+            }
+
+            if (isUnfilteredFirstPage && resolvedPage.isNotEmpty()) {
+                jobCacheManager.cacheJobSummaries(resolvedPage)
+            }
+            emit(Result.success(resolvedPage))
             return@flow
         }
 
@@ -457,11 +484,13 @@ class FirestoreJobRepository @Inject constructor(
                     val summaries = jobsData.map { JobListingSummary.fromMap(it) }
 
                     val filtered = if (hasValidUserLocation && radiusKm > 0.0) {
+                        val safeUserLatitude = requireNotNull(userLatitude)
+                        val safeUserLongitude = requireNotNull(userLongitude)
                         summaries.filter { s ->
                             GeoUtils.hasValidCoordinates(s.lat, s.lng) &&
                                 GeoUtils.calculateDistance(
-                                    userLatitude!!,
-                                    userLongitude!!,
+                                    safeUserLatitude,
+                                    safeUserLongitude,
                                     s.lat,
                                     s.lng
                                 ) <= radiusKm

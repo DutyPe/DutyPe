@@ -50,7 +50,7 @@ fun TrustBadgesScreen(
             try {
                 // P1 FIX: Use cached Firestore data first to avoid blocking on network
                 val userDoc = FirebaseFirestore.getInstance()
-                    .collection("users")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get(com.google.firebase.firestore.Source.CACHE)
                     .await()
@@ -65,7 +65,7 @@ fun TrustBadgesScreen(
                 // Cache miss — fallback to server
                 try {
                     val userDoc = FirebaseFirestore.getInstance()
-                        .collection("users")
+                        .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                         .document(currentUser.uid)
                         .get()
                         .await()

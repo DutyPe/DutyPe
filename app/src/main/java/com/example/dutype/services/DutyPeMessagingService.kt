@@ -93,7 +93,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         
         // Save to users.fcmToken field only (schema: fcmToken)
         FirebaseFirestore.getInstance()
-            .collection("users")
+            .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
             .document(userId)
             .update("fcmToken", token)
             .addOnSuccessListener {

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
 
 type AnnouncementRow = {
@@ -30,8 +31,7 @@ export function AdminAnnouncementsClient() {
   async function loadAnnouncements() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/announcements", {
-        credentials: "include",
+      const response = await adminApiFetch("/api/admin/announcements", {
         cache: "no-store"
       });
 
@@ -55,9 +55,12 @@ export function AdminAnnouncementsClient() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-        const response = await fetch("/api/admin/announcements", {
+    setSubmitting(true);
+    setError(null);
+
+    try {
+        const response = await adminApiFetch("/api/admin/announcements", {
           method: "POST",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json"
           },
@@ -76,18 +79,17 @@ export function AdminAnnouncementsClient() {
 
         setForm(initialForm);
         await loadAnnouncements();
-      } catch (submitError) {
-        setError(submitError instanceof Error ? submitError.message : "Failed to create announcement.");
-      } finally {
-        setSubmitting(false);
-      }
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to create announcement.");
+    } finally {
+      setSubmitting(false);
     }
+  }
 
     async function handleToggle(row: AnnouncementRow) {
       try {
-        const response = await fetch("/api/admin/announcements", {
+        const response = await adminApiFetch("/api/admin/announcements", {
           method: "PATCH",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json"
           },
@@ -115,9 +117,8 @@ export function AdminAnnouncementsClient() {
       }
 
       try {
-        const response = await fetch("/api/admin/announcements", {
+        const response = await adminApiFetch("/api/admin/announcements", {
           method: "DELETE",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json"
           },
@@ -134,21 +135,10 @@ export function AdminAnnouncementsClient() {
         setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
       }
     }
-      return;
-    }
 
-    const shouldDelete = window.confirm("Delete this announcement?");
-    if (!shouldDelete) {
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(services.db, "announcements", id));
-      await loadAnnouncements();
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
-    }
-  }
+  useEffect(() => {
+    void loadAnnouncements();
+  }, []);
 
   return (
     <div className="admin-section-stack">

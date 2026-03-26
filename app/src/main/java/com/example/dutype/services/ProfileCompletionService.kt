@@ -55,7 +55,7 @@ class ProfileCompletionService @Inject constructor(
         if (cached != null && (System.currentTimeMillis() - cached.first) < USER_DOC_CACHE_TTL_MS) {
             return cached.second
         }
-        val userDoc = firestore.collection("users").document(userId).get().await()
+        val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
         val data = userDoc.data ?: return null
         userDocCache[userId] = System.currentTimeMillis() to data
         return data
@@ -142,7 +142,7 @@ class ProfileCompletionService @Inject constructor(
         return try {
             val userData = getCachedUserDoc(userId) ?: return 0
             val workerData = try {
-                firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
             } catch (e: Exception) {
                 if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                     Timber.w("worker_profiles read denied for userId=%s; using users-only completion fallback", userId)
@@ -262,7 +262,7 @@ class ProfileCompletionService @Inject constructor(
     suspend fun calculateEmployerProfileCompletion(userId: String): Int {
         return try {
             val userData = getCachedUserDoc(userId) ?: return 0
-            val employerData = firestore.collection("employer_profiles").document(userId).get().await().data.orEmpty()
+            val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
             
             SecureLogger.d("ProfileCompletionService", "Calculating employer profile completion for user",
                 "userId" to userId)
@@ -580,7 +580,7 @@ class ProfileCompletionService @Inject constructor(
                 "activeRole" to roleUpper
             )
             
-            firestore.collection("users").document(currentUser.uid)
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid)
                 .update(updates)
                 .await()
             invalidateUserCache(currentUser.uid)
@@ -681,7 +681,9 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val workerProfile = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
                 "skills" to skills,
+                "jobTypes" to skills,
                 "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true),
                 "lastActiveAt" to now,
                 "rating" to ((existingWorker["rating"] as? Number)?.toDouble() ?: 0.0),
@@ -762,6 +764,7 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val employerProfile = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
                 "companyName" to companyName,
                 "isVerified" to false,
                 "rating" to ((existingEmployer["rating"] as? Number)?.toDouble() ?: 0.0),
@@ -790,7 +793,7 @@ class ProfileCompletionService @Inject constructor(
     suspend fun getEmployerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
             val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
-            val employerData = firestore.collection("employer_profiles").document(userId).get().await().data.orEmpty()
+            val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
             val merged = userData.toMutableMap()
             merged.putAll(employerData)
             
@@ -810,7 +813,7 @@ class ProfileCompletionService @Inject constructor(
     suspend fun getWorkerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
             val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
-            val workerData = firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
+            val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
             val merged = userData.toMutableMap()
             merged.putAll(workerData)
             val skills = readWorkerSkills(workerData)
@@ -870,8 +873,8 @@ class ProfileCompletionService @Inject constructor(
             val hasRequiredCore = !((userData["phone"] as? String).isNullOrBlank()) &&
                 !((userData["fullName"] as? String).isNullOrBlank())
             val hasRoleData = when {
-                roles.contains("WORKER") -> firestore.collection("worker_profiles").document(currentUser.uid).get().await().exists()
-                roles.contains("EMPLOYER") -> firestore.collection("employer_profiles").document(currentUser.uid).get().await().exists()
+                roles.contains("WORKER") -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUser.uid).get().await().exists()
+                roles.contains("EMPLOYER") -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await().exists()
                 else -> false
             }
 
@@ -973,14 +976,14 @@ class ProfileCompletionService @Inject constructor(
                 val phoneValue = userData["phone"]
                 if (phoneValue == null || phoneValue.toString().isBlank()) 
                     missingFields.add("Phone Number")
-                val workerData = firestore.collection("worker_profiles").document(userId).get().await().data.orEmpty()
+                val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
                 if (readWorkerSkills(workerData).isEmpty())
                     missingFields.add("Skills")
                 if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
                     missingFields.add("Profile Picture")
             } else {
                 // Check for missing employer fields (target schema only)
-                val employerData = firestore.collection("employer_profiles").document(userId).get().await().data.orEmpty()
+                val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
                 if (employerData["companyName"] == null || employerData["companyName"].toString().isBlank()) 
                     missingFields.add("Company Name")
                 if (userData["phone"] == null || userData["phone"].toString().isBlank()) 
@@ -1015,7 +1018,7 @@ class ProfileCompletionService @Inject constructor(
             Timber.d("📱 DUAL-ROLE: Checking phone for: $cleanPhone, requestedRole: $currentRole")
             
             // Check if user exists in users collection
-            val usersQuery = firestore.collection("users")
+            val usersQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .whereEqualTo("phone", cleanPhone)
                 .limit(1)
                 .get()
@@ -1175,7 +1178,7 @@ class ProfileCompletionService @Inject constructor(
             }
             
             // Double-check referrals collection
-            val referrals = firestore.collection("referrals")
+            val referrals = firestore.collection(com.example.dutype.firestore.FirestoreCollections.REFERRALS)
                 .whereEqualTo("referredUserId", userId)
                 .limit(1)
                 .get()
@@ -1259,13 +1262,15 @@ class ProfileCompletionService @Inject constructor(
     
     /**
      * Get referral history for current user
+     * SENIOR FIX: Use canonical field name 'referrerId' (not legacy 'referrerUserId')
+     * Aligns with Firestore schema and Cloud Function referral data model
      */
     suspend fun getReferralHistory(limit: Int = 20): Result<List<Map<String, Any>>> {
         val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
         
         return try {
             val querySnapshot = firestore.collection(COLLECTION_REFERRALS)
-                .whereEqualTo("referrerUserId", userId)
+                .whereEqualTo("referrerId", userId)  // FIXED: Use canonical field name
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(limit.toLong())
                 .get()

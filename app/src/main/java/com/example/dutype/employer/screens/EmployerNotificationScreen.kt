@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
@@ -43,6 +46,7 @@ import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 import timber.log.Timber
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,10 +55,11 @@ fun EmployerNotificationScreen(
     navController: NavController,
     viewModel: EmployerNotificationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
     val isGuestUser = FirebaseAuth.getInstance().currentUser == null
     val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
-    val currentUser by roleViewModel.currentUser.collectAsState()
+    val currentUser by roleViewModel.currentUser.collectAsStateWithLifecycle()
 
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
@@ -64,19 +69,28 @@ fun EmployerNotificationScreen(
         Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
     }
 
-    // CRITICAL FIX: Reload notifications when screen becomes visible OR when role changes
-    // Use a unique key that changes on every role switch to force reload
-    // BUT: Don't reload when dialog is showing to prevent background reload
-    val reloadKey = remember(currentUser?.activeRole) { 
-        "${currentUser?.activeRole}_${System.currentTimeMillis()}" 
-    }
-    
-    LaunchedEffect(reloadKey) {
+    // Reload when role changes or dialog closes; avoid synthetic time-based keys.
+    LaunchedEffect(currentUser?.activeRole, dialogData == null) {
         // Only load if dialog is not showing
         if (dialogData == null) {
-            Timber.d("🔔 EmployerNotificationScreen - Reloading notifications (key: $reloadKey)")
+            Timber.d("🔔 EmployerNotificationScreen - Reloading notifications for role: ${currentUser?.activeRole}")
             viewModel.loadNotifications()
         }
+    }
+
+    LaunchedEffect(listState, uiState.notifications.size, uiState.hasMore, uiState.isLoadingMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collect { lastVisibleIndex ->
+                if (
+                    uiState.hasMore &&
+                    !uiState.isLoadingMore &&
+                    uiState.notifications.isNotEmpty() &&
+                    lastVisibleIndex >= uiState.notifications.lastIndex - 3
+                ) {
+                    viewModel.loadMoreNotifications()
+                }
+            }
     }
     
     // Show notification dialog if data is present
@@ -191,6 +205,7 @@ fun EmployerNotificationScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(
@@ -217,6 +232,23 @@ fun EmployerNotificationScreen(
                                 viewModel.deleteNotification(notification.id)
                             }
                         )
+                    }
+
+                    if (uiState.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF3B82F6),
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

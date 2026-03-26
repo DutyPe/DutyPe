@@ -59,7 +59,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
             val notificationCooldown = now - TimeUnit.HOURS.toMillis(NOTIFICATION_COOLDOWN_HOURS)
             
             // Query by workerId only to avoid composite index dependency, then filter locally.
-            val workerApplications = firestore.collection("applications")
+            val workerApplications = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
                 .whereEqualTo("workerId", currentUserId)
                 .limit(400)
                 .get()

@@ -117,9 +117,7 @@ fun WorkerProfileScreen(
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
     var currentUserId by remember { mutableStateOf("") }
     
-    // Auth validation - Check if user is still authenticated
-    // COMMENTED OUT: Allow users to view profile with dummy data without login
-    /*
+    // Auth validation - ensure unauthenticated users cannot access profile actions
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
@@ -132,7 +130,6 @@ fun WorkerProfileScreen(
             Timber.i("Worker Profile - User authenticated: ${currentUser.uid}")
         }
     }
-    */
     
     // Profile completion state
     var profileCompletionPercentage by remember { mutableStateOf(0) }

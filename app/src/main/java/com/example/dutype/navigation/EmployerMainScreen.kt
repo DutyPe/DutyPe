@@ -376,18 +376,6 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                    // Edit Job Route
-                    composable(
-                        route = Routes.EDIT_JOB,
-                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        EditJobScreen(
-                            navController = navController,
-                            jobId = jobId
-                        )
-                    }
-                    
                     // Analytics Route
                     composable(Routes.ANALYTICS) {
                         AnalyticsScreen(

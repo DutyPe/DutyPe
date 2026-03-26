@@ -61,6 +61,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -148,12 +149,12 @@ fun EmployerHomeScreen(
             com.google.firebase.firestore.FirebaseFirestore.getInstance()
         )
     }
-    val employerJobUiState by viewModel.uiState.collectAsState()
-    val appStats by applicationViewModel.stats.collectAsState()
+    val employerJobUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     
     // Announcement ViewModel for in-app announcements
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
-    val announcements by announcementViewModel.announcements.collectAsState()
+    val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
@@ -292,8 +293,10 @@ fun EmployerHomeScreen(
     val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // Set status bar color to match gradient for seamless professional look
-    onStatusBarColorChange(EmployerColors.StatusBarColor)
+    // Set status bar color once on entering this screen.
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(EmployerColors.StatusBarColor)
+    }
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
     val jobStats = JobStats(

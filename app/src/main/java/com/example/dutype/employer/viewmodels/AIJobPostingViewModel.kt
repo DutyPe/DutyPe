@@ -79,6 +79,10 @@ class AIJobPostingViewModel @Inject constructor(
     companion object {
         private const val TAG = "AIJobPosting"
         private const val DEBOUNCE_MS = 500L
+        private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
+        private const val COLLECTION_JOBS = "jobs"
+        private const val COLLECTION_JOB_DETAILS = "job_details"
     }
     
     private val _uiState = MutableStateFlow(AIJobPostingUiState())
@@ -353,42 +357,98 @@ class AIJobPostingViewModel @Inject constructor(
     private suspend fun saveJobToFirestore(jobId: String, analysis: JobAnalysisResponse?) {
         try {
             val state = _uiState.value
-            val defaultLat = 0.0
-            val defaultLng = 0.0
-            
-            val jobData = hashMapOf(
-                "jobId" to jobId,
-                "employerId" to employerId,
-                "title" to state.title,
-                "jobType" to (state.category.ifBlank { "OTHER" }),
-                "salary" to (state.payAmount.toDoubleOrNull() ?: 0.0),
-                "salaryType" to state.payType,
-                "location" to mapOf("lat" to defaultLat, "lng" to defaultLng),
-                "geohash" to GeoUtils.encode(defaultLat, defaultLng),
-                "status" to "open",
-                "urgency" to "MEDIUM",
-                "createdAt" to com.google.firebase.Timestamp.now(),
-                "expiresAt" to com.google.firebase.Timestamp(
-                    (System.currentTimeMillis() / 1000) + (30L * 24 * 60 * 60), 0
+            val salary = state.payAmount.toDoubleOrNull()
+            if (salary == null || salary <= 0.0) {
+                _uiState.value = state.copy(
+                    isSubmitting = false,
+                    submitError = "Please enter a valid salary before posting"
                 )
-            )
-            
-            firestore.collection("jobs")
-                .document(jobId)
-                .set(jobData)
-                .await()
+                return
+            }
 
-            val detailsData = hashMapOf(
-                "jobId" to jobId,
-                "description" to state.description,
-                "contactNumber" to "",
-                "addressText" to state.location
+            if (state.title.isBlank() || state.description.isBlank() || state.location.isBlank()) {
+                _uiState.value = state.copy(
+                    isSubmitting = false,
+                    submitError = "Title, description, and address are required"
+                )
+                return
+            }
+
+            val userDoc = firestore.collection(COLLECTION_USERS).document(employerId).get().await()
+            val employerDoc = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(employerId).get().await()
+            val companyName = employerDoc.getString("companyName")?.trim().orEmpty()
+            val isVerified = employerDoc.getBoolean("isVerified") ?: false
+            val contactNumber = userDoc.getString("phone")?.trim().orEmpty()
+            val coordinates = parseCoordinates(state.location)
+                ?: parseLocationMap(userDoc.get("location") as? Map<*, *>)
+
+            if (coordinates == null || !GeoUtils.hasValidCoordinates(coordinates.first, coordinates.second)) {
+                _uiState.value = state.copy(
+                    isSubmitting = false,
+                    submitError = "Valid GPS location is required before posting"
+                )
+                return
+            }
+
+            if (companyName.isBlank()) {
+                _uiState.value = state.copy(
+                    isSubmitting = false,
+                    submitError = "Employer company name is required"
+                )
+                return
+            }
+            if (contactNumber.isBlank()) {
+                _uiState.value = state.copy(
+                    isSubmitting = false,
+                    submitError = "Employer phone number is required"
+                )
+                return
+            }
+
+            val createdAtMillis = System.currentTimeMillis()
+            val createdAt = com.google.firebase.Timestamp.now()
+            val expiresAt = com.google.firebase.Timestamp(
+                java.util.Date(createdAtMillis + (15L * 24 * 60 * 60 * 1000L))
+            )
+            val geohash = GeoUtils.encodeGeohash(coordinates.first, coordinates.second)
+
+            val jobData = hashMapOf<String, Any>(
+                "employerId" to employerId,
+                "companyName" to companyName,
+                "isVerified" to isVerified,
+                "title" to state.title.trim(),
+                "salary" to salary,
+                "salaryType" to state.payType.trim().uppercase().ifBlank { "DAILY" },
+                "urgency" to "MEDIUM",
+                "gender" to "Any",
+                "experienceRequired" to "No Experience Required",
+                "shiftTiming" to "Flexible",
+                "applicationCount" to 0,
+                "location" to mapOf("lat" to coordinates.first, "lng" to coordinates.second),
+                "geohash" to geohash,
+                "status" to "open",
+                "createdAt" to createdAt,
+                "expiresAt" to expiresAt
             )
 
-            firestore.collection("job_details")
-                .document(jobId)
-                .set(detailsData)
-                .await()
+            val detailsData = hashMapOf<String, Any>(
+                "description" to state.description.trim(),
+                "contactNumber" to contactNumber,
+                "whatsappNumber" to "",
+                "addressText" to state.location.trim(),
+                "jobType" to state.category.ifBlank { "OTHER" },
+                "vacancies" to (state.vacancies.toIntOrNull() ?: 1),
+                "workingHours" to "",
+                "educationRequired" to "",
+                "benefits" to emptyList<String>()
+            )
+
+            val batch = firestore.batch()
+            val jobRef = firestore.collection(COLLECTION_JOBS).document(jobId)
+            val detailsRef = firestore.collection(COLLECTION_JOB_DETAILS).document(jobId)
+            batch.set(jobRef, jobData)
+            batch.set(detailsRef, detailsData)
+            batch.commit().await()
             
             // Register for duplicate detection
             aiRepository.checkDuplicate(jobId, state.title, state.description, employerId)
@@ -436,5 +496,19 @@ class AIJobPostingViewModel @Inject constructor(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(submitError = null)
+    }
+
+    private fun parseCoordinates(locationText: String): Pair<Double, Double>? {
+        val parts = locationText.split(',').map { it.trim() }
+        if (parts.size != 2) return null
+        val lat = parts[0].toDoubleOrNull() ?: return null
+        val lng = parts[1].toDoubleOrNull() ?: return null
+        return lat to lng
+    }
+
+    private fun parseLocationMap(locationMap: Map<*, *>?): Pair<Double, Double>? {
+        val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: return null
+        val lng = (locationMap["lng"] as? Number)?.toDouble() ?: return null
+        return lat to lng
     }
 }

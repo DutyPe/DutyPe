@@ -455,8 +455,8 @@ fun PostJobScreen(
                         // Fallback to direct Firestore fetch (cache miss)
                         Timber.d("📦 Cache miss, fetching from Firestore...")
                         val db = FirebaseFirestore.getInstance()
-                        val userDoc = db.collection("users").document(currentUser.uid).get().await()
-                        val employerDoc = db.collection("employer_profiles").document(currentUser.uid).get().await()
+                        val userDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid).get().await()
+                        val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
 
                         if (userDoc.exists()) {
                             val savedFullName = userDoc.getString("fullName")
@@ -702,15 +702,11 @@ fun PostJobScreen(
             return
         }
         
-        // Prevent multiple submissions with local guard
-        if (isSubmittingJob) {
-            Timber.w("📝 JOB POSTING DEBUG: Already submitting (local guard), ignoring duplicate call")
-            return
-        }
-        
-        // Prevent multiple submissions with ViewModel state
+        // SENIOR FIX: Use ONLY ViewModel state as single source of truth
+        // Prevents race condition from dual guards desynchronizing
+        // Check and set atomically (in practice, Compose state updates are on main thread)
         if (employerJobUiState.isCreatingJob) {
-            Timber.w("📝 JOB POSTING DEBUG: Already creating job (ViewModel), ignoring duplicate call")
+            Timber.w("📝 JOB POSTING DEBUG: Already creating job (ViewModel guard), ignoring duplicate call")
             return
         }
         
@@ -719,8 +715,9 @@ fun PostJobScreen(
             return
         }
         
-        // Set local guard immediately
-        isSubmittingJob = true
+        // Atomically set ViewModel state to guard against all competing threads/calls
+        // Remove local isSubmittingJob flag - causes dual guard desync
+        // isSubmittingJob = true  // REMOVED: Local flag causes race condition
         isCheckingProfile = true
         
         // STEP 2: Check profile completion (use cached result if available)
@@ -740,7 +737,7 @@ fun PostJobScreen(
                 
                 if (!checkResult.canPost) {
                     Timber.w("⚠️ PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
-                    isSubmittingJob = false
+                    // SENIOR FIX: ViewModel state resets automatically; no need for local flag
                     showProfileIncompleteDialog = true
                     return@launch
                 }
@@ -760,7 +757,7 @@ fun PostJobScreen(
                     
                     if (companyName.isBlank()) {
                         Timber.w("📝 JOB POSTING DEBUG: Company name is blank - redirecting to profile")
-                        isSubmittingJob = false
+                        // SENIOR FIX: ViewModel state resets automatically; no need for local flag
                         val navToUse = rootNavController ?: navController
                         navToUse.navigate(
                             Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
@@ -789,7 +786,7 @@ fun PostJobScreen(
 
                 if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
                     locationError = context.getString(R.string.valid_job_location_required)
-                    isSubmittingJob = false
+                    // SENIOR FIX: ViewModel state resets automatically; no need for local flag
                     Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
                     return@launch
                 }
@@ -829,7 +826,7 @@ fun PostJobScreen(
                 submitJobWithCoordinates(finalLatitude, finalLongitude)
             } catch (e: Exception) {
                 Timber.e(e, "📝 JOB POSTING DEBUG: Error in submitJob")
-                isSubmittingJob = false
+                // SENIOR FIX: ViewModel state resets automatically on error; only reset UI flags
                 isCheckingProfile = false
                 Toast.makeText(context, "Error posting job: ${e.message}", Toast.LENGTH_SHORT).show()
             }

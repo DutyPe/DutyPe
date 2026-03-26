@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
 import {
   normalizeApplicationRecord,
   normalizeUserRecord
 } from "@/lib/firebase/admin-normalizers";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
+import { getFirebaseServices } from "@/lib/firebase/client";
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
 type DashboardSnapshot = {
@@ -46,19 +49,105 @@ type DashboardApiResult<T> = {
   error: string | null;
 };
 
+let sessionRefreshInFlight: Promise<void> | null = null;
+
+async function ensureAdminServerSession() {
+  const services = getFirebaseServices();
+
+  if (!services) {
+    throw new Error("Firebase is not configured for the web app.");
+  }
+
+  const currentUser = await (async (): Promise<User | null> => {
+    if (services.auth.currentUser) {
+      return services.auth.currentUser;
+    }
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        unsubscribe();
+        resolve(services.auth.currentUser);
+      }, 5000);
+
+      const unsubscribe = onAuthStateChanged(
+        services.auth,
+        (user) => {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(user);
+        },
+        () => {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve(null);
+        }
+      );
+    });
+  })();
+
+  if (!currentUser) {
+    throw new Error("Unauthorized");
+  }
+
+  const idToken = await currentUser.getIdToken(true);
+  const response = await fetch("/api/admin/session", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ idToken })
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Unable to refresh admin session.");
+  }
+}
+
+async function refreshAdminServerSessionOnce() {
+  if (!sessionRefreshInFlight) {
+    sessionRefreshInFlight = ensureAdminServerSession().finally(() => {
+      sessionRefreshInFlight = null;
+    });
+  }
+
+  await sessionRefreshInFlight;
+}
+
 async function fetchAdminJson<T>(url: string, fallback: T): Promise<DashboardApiResult<T>> {
-  try {
-    const response = await fetch(url, {
-      credentials: "include",
+  async function request() {
+    const response = await adminApiFetch(url, {
       cache: "no-store"
     });
 
-    const payload = (await response.json()) as { error?: string } & Partial<Record<string, unknown>>;
+    const payload = (await response.json().catch(() => null)) as
+      | ({ error?: string } & Partial<Record<string, unknown>>)
+      | null;
+
+    return { response, payload };
+  }
+
+  try {
+    let { response, payload } = await request();
+
+    if (response.status === 401) {
+      try {
+        await refreshAdminServerSessionOnce();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        ({ response, payload } = await request());
+      } catch (sessionError) {
+        return {
+          data: fallback,
+          error: `${url}: ${sessionError instanceof Error ? sessionError.message : "Unauthorized"}`
+        };
+      }
+    }
 
     if (!response.ok) {
       return {
         data: fallback,
-        error: payload.error || `Failed to load ${url}`
+        error: `${url}: ${payload?.error || `Failed to load ${url}`}`
       };
     }
 
@@ -69,7 +158,7 @@ async function fetchAdminJson<T>(url: string, fallback: T): Promise<DashboardApi
   } catch (error) {
     return {
       data: fallback,
-      error: error instanceof Error ? error.message : `Failed to load ${url}`
+      error: `${url}: ${error instanceof Error ? error.message : `Failed to load ${url}`}`
     };
   }
 }

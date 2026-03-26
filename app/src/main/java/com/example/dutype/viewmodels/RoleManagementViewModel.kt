@@ -53,7 +53,7 @@ class RoleManagementViewModel @Inject constructor(
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
                 
-                val userDoc = firestore.collection("users")
+                val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(userId)
                     .get()
                     .await()
@@ -129,7 +129,7 @@ class RoleManagementViewModel @Inject constructor(
                         Timber.d("✅ ROLE: Enabling role $role")
                         
                         // Update user document
-                        firestore.collection("users").document(userId)
+                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
                             .update(
                                 mapOf(
                                     "roles" to currentRoles,
@@ -158,7 +158,7 @@ class RoleManagementViewModel @Inject constructor(
                             user.activeRole
                         }
                         
-                        firestore.collection("users").document(userId)
+                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
                             .update(
                                 mapOf(
                                     "roles" to currentRoles,
@@ -201,7 +201,7 @@ class RoleManagementViewModel @Inject constructor(
             val cachedUser = _currentUser.value
 
             // Always re-read user roles from Firestore to avoid stale in-memory state.
-            val latestDoc = firestore.collection("users").document(userId).get().await()
+            val latestDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
             val latestData = latestDoc.data ?: emptyMap<String, Any>()
             @Suppress("UNCHECKED_CAST")
             val latestRoles = (latestData["roles"] as? List<String>)?.toMutableList() ?: mutableListOf()
@@ -214,14 +214,14 @@ class RoleManagementViewModel @Inject constructor(
             // If target role is missing, enable it so users can switch without re-registering.
             if (!resolvedRoles.contains(newRole.name)) {
                 resolvedRoles.add(newRole.name)
-                firestore.collection("users").document(userId)
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
                     .update("roles", resolvedRoles)
                     .await()
                 Timber.d("✅ ROLE: Auto-enabled missing role $newRole for user")
             }
             
             // Update Firestore
-            firestore.collection("users").document(userId)
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
                 .update("activeRole", newRole.name)
                 .await()
             

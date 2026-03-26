@@ -1,6 +1,7 @@
 package com.example.dutype.auth
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -155,6 +156,14 @@ private fun OtpLoginScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
+
+    BackHandler {
+        if (otpState.otpSent) {
+            otpViewModel.resetState()
+        } else {
+            safeAuthBackNavigation(navController)
+        }
+    }
 
     // Handle OTP verification success
     LaunchedEffect(otpState.otpVerified) {
@@ -386,7 +395,7 @@ private fun OtpLoginScreen(
                             }
                         },
                         onBackClick = {
-                            navController.popBackStack()
+                            safeAuthBackNavigation(navController)
                         },
                         onRegisterClick = {
                             // Navigate to separate register screen
@@ -420,6 +429,16 @@ private fun OtpLoginScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+private fun safeAuthBackNavigation(navController: NavController) {
+    val popped = navController.popBackStack()
+    if (!popped) {
+        navController.navigate(Routes.SELECT_ROLE) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
         }
     }
 }

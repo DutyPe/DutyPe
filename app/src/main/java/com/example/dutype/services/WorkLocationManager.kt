@@ -3,9 +3,7 @@ package com.example.dutype.services
 import com.example.dutype.models.WorkLocation
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,39 +23,7 @@ class WorkLocationManager @Inject constructor(
     companion object {
         private const val MAX_WORK_LOCATIONS = 10
         private const val COLLECTION = "work_locations"
-        private const val CACHE_TTL_MS = 30_000L
     }
-
-    private var cache: Pair<Long, List<WorkLocation>>? = null
-    private var cacheUserId: String? = null
-
-    private suspend fun getCached(userId: String): List<WorkLocation> {
-        val c = cache
-        if (c != null && cacheUserId == userId && (System.currentTimeMillis() - c.first) < CACHE_TTL_MS) {
-            return c.second
-        }
-        val snapshot = firestore.collection(COLLECTION).document(userId)
-            .collection("locations").get().await()
-        val locations = snapshot.documents.mapNotNull { doc ->
-            try {
-                val data = doc.data ?: return@mapNotNull null
-                WorkLocation(
-                    id = doc.id,
-                    label = data["label"] as? String ?: "",
-                    address = data["address"] as? String ?: "",
-                    latitude = (data["lat"] as? Number)?.toDouble() ?: 0.0,
-                    longitude = (data["lng"] as? Number)?.toDouble() ?: 0.0,
-                    addedAt = (data["addedAt"] as? Number)?.toLong() ?: 0L,
-                    usageCount = (data["usageCount"] as? Number)?.toInt() ?: 0
-                )
-            } catch (e: Exception) { null }
-        }
-        cache = System.currentTimeMillis() to locations
-        cacheUserId = userId
-        return locations
-    }
-
-    private fun invalidate() { cache = null; cacheUserId = null }
 
     suspend fun saveWorkLocation(
         label: String,

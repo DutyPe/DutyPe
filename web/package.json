@@ -2,6 +2,9 @@
   "name": "dutype-web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "clean": "node -e \"const fs=require('fs'); ['.next', '.next-dev'].forEach((path)=>fs.rmSync(path,{ recursive: true, force: true }))\"",
     "dev": "next dev",
@@ -24,8 +27,10 @@
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "esbuild": "^0.27.4",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.0",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "which": "^6.0.1"
   }
 }

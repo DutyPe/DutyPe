@@ -1006,7 +1006,7 @@ private fun PhoneInputContent(
                     if (userId != null) {
                         // Check if user already has a referral record
                         val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                        val referralSnapshot = db.collection("referrals")
+                        val referralSnapshot = db.collection(com.example.dutype.firestore.FirestoreCollections.REFERRALS)
                             .whereEqualTo("referredUserId", userId)
                             .limit(1)
                             .get()

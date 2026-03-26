@@ -12,7 +12,10 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
@@ -32,6 +35,12 @@ class NotificationService @Inject constructor(
     private val context: Context,
     private val firestore: FirebaseFirestore
 ) {
+    data class NotificationPage(
+        val notifications: List<NotificationData>,
+        val lastVisible: DocumentSnapshot?,
+        val hasMore: Boolean
+    )
+
     companion object {
         // Cloud cleanup should delete notification docs once this 30-day retention window passes.
         private const val NOTIFICATION_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
@@ -39,6 +48,26 @@ class NotificationService @Inject constructor(
     
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val notificationsCollection = "notifications"
+
+    // Worker-specific notification types
+    private val workerTypes = setOf(
+        NotificationType.APPLICATION_STATUS,
+        NotificationType.APPLICATION_STATUS_UPDATE,
+        NotificationType.SHORTLISTED,
+        NotificationType.REJECTED,
+        NotificationType.WORKER_HIRED,
+        NotificationType.NEW_JOB_ALERT,
+        NotificationType.JOB_RECOMMENDATION,
+        NotificationType.APPLICATION_REMINDER
+    )
+
+    // Employer-specific notification types
+    private val employerTypes = setOf(
+        NotificationType.NEW_APPLICATION,
+        NotificationType.JOB_POSTED,
+        NotificationType.JOB_PAUSED,
+        NotificationType.JOB_EXPIRY_REMINDER
+    )
     
     init {
         createNotificationChannels()
@@ -259,6 +288,48 @@ class NotificationService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Cursor-based paginated notification fetch for high-volume users.
+     * Uses server-side ordering and a document cursor to avoid large client reads.
+     */
+    fun getUserNotificationsPage(
+        userId: String,
+        activeRole: String? = null,
+        pageSize: Int = 50,
+        lastVisible: DocumentSnapshot? = null
+    ): Flow<Result<NotificationPage>> = flow {
+        try {
+            val boundedPageSize = pageSize.coerceIn(10, 100)
+            val now = System.currentTimeMillis()
+
+            var query: Query = firestore.collection(notificationsCollection)
+                .whereEqualTo("recipientId", userId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(boundedPageSize.toLong())
+
+            if (lastVisible != null) {
+                query = query.startAfter(lastVisible)
+            }
+
+            val snapshot = query.get().await()
+            val notifications = snapshot.documents.mapNotNull { doc ->
+                parseNotificationDocument(doc, activeRole, now)
+            }
+
+            emit(
+                Result.success(
+                    NotificationPage(
+                        notifications = notifications,
+                        lastVisible = snapshot.documents.lastOrNull(),
+                        hasMore = snapshot.documents.size >= boundedPageSize
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }
     
     
     /**
@@ -269,118 +340,18 @@ class NotificationService @Inject constructor(
             Timber.i("NotificationService.getUserNotifications - Loading notifications for userId: $userId, role: $activeRole")
             val snapshot = firestore.collection(notificationsCollection)
                 .whereEqualTo("recipientId", userId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(50)
                 .get()
                 .await()
             
             Timber.d("NotificationService.getUserNotifications - Found ${snapshot.documents.size} documents")
-            
-            // Worker-specific notification types
-            val workerTypes = setOf(
-                NotificationType.APPLICATION_STATUS,
-                NotificationType.APPLICATION_STATUS_UPDATE,
-                NotificationType.SHORTLISTED,
-                NotificationType.REJECTED,
-                NotificationType.WORKER_HIRED,
-                NotificationType.NEW_JOB_ALERT,
-                NotificationType.JOB_RECOMMENDATION,
-                NotificationType.APPLICATION_REMINDER
-            )
-            
-            // Employer-specific notification types
-            val employerTypes = setOf(
-                NotificationType.NEW_APPLICATION,
-                NotificationType.JOB_POSTED,
-                NotificationType.JOB_PAUSED,
-                NotificationType.JOB_EXPIRY_REMINDER
-            )
-
-            fun inferRoleFromData(type: NotificationType, data: Map<String, Any>): String {
-                val action = data["action"]?.toString()?.uppercase() ?: ""
-                val userRole = data["userRole"]?.toString()?.uppercase() ?: ""
-
-                return when {
-                    type == NotificationType.WORKER_HIRED && action == "VIEW_APPLICATIONS" -> "EMPLOYER"
-                    type == NotificationType.WORKER_HIRED -> "WORKER"
-                    type == NotificationType.PROFILE_COMPLETE && userRole.isNotBlank() -> userRole
-                    userRole in setOf("WORKER", "EMPLOYER") -> userRole
-                    else -> ""
-                }
-            }
+            val now = System.currentTimeMillis()
             
             val notifications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    val data = doc.data ?: return@mapNotNull null
-                    
-                    // Handle createdAt - can be Long or Timestamp
-                    val createdAt = when (val createdAtValue = data["createdAt"]) {
-                        is Long -> createdAtValue
-                        is com.google.firebase.Timestamp -> createdAtValue.toDate().time
-                        else -> System.currentTimeMillis()
-                    }
-
-                    // Handle expiresAt - fallback to createdAt + retention for old docs
-                    val expiresAt = when (val expiresAtValue = data["expiresAt"]) {
-                        is Long -> expiresAtValue
-                        is com.google.firebase.Timestamp -> expiresAtValue.toDate().time
-                        else -> createdAt + NOTIFICATION_RETENTION_MS
-                    }
-
-                    // Skip expired notifications from inbox
-                    if (expiresAt <= System.currentTimeMillis()) {
-                        return@mapNotNull null
-                    }
-                    
-                    // Parse type safely
-                    val typeString = data["type"]?.toString() ?: "GENERAL"
-                    val type = try {
-                        NotificationType.valueOf(typeString.uppercase())
-                    } catch (e: Exception) {
-                        NotificationType.GENERAL
-                    }
-                    
-                    // Role-based filtering: skip notifications not relevant to active role
-                    if (activeRole != null) {
-                        val storedRole = data["targetRole"]?.toString() ?: ""
-                        val inferredRole = inferRoleFromData(type, data)
-                        val effectiveRole = if (storedRole.isNotEmpty()) storedRole else inferredRole
-
-                        if (effectiveRole.isNotEmpty() && !effectiveRole.equals(activeRole, ignoreCase = true)) {
-                            return@mapNotNull null
-                        }
-
-                        // For notifications without a role marker, fallback to type-based split
-                        if (effectiveRole.isEmpty()) {
-                            when {
-                                activeRole.equals("WORKER", ignoreCase = true) && type in employerTypes -> return@mapNotNull null
-                                activeRole.equals("EMPLOYER", ignoreCase = true) && type in workerTypes -> return@mapNotNull null
-                            }
-                        }
-                    }
-                    
-                    // Parse data map safely
-                    @Suppress("UNCHECKED_CAST")
-                    val notificationDataMap = (data["data"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
-                    
-                    NotificationData(
-                        id = doc.id,
-                        recipientId = data["recipientId"]?.toString() ?: "",
-                        title = data["title"]?.toString() ?: "",
-                        message = data["message"]?.toString() ?: "",
-                        type = type,
-                        targetRole = data["targetRole"]?.toString() ?: "",
-                        data = notificationDataMap,
-                        createdAt = createdAt,
-                        expiresAt = expiresAt,
-                        isRead = data["isRead"] as? Boolean ?: false
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e, "NotificationService.getUserNotifications - Error parsing document ${doc.id}")
-                    null
-                }
+                parseNotificationDocument(doc, activeRole, now)
             }
-            // Sort locally by createdAt in descending order
-            .sortedByDescending { it.createdAt }
+            // Query already ordered by createdAt DESC; keep order stable.
             
             Timber.i("NotificationService.getUserNotifications - Successfully parsed ${notifications.size} notifications")
             emit(Result.success(notifications))
@@ -410,18 +381,23 @@ class NotificationService @Inject constructor(
      */
     suspend fun markAllNotificationsAsRead(userId: String): Result<Unit> {
         return try {
-            val snapshot = firestore.collection(notificationsCollection)
-                .whereEqualTo("recipientId", userId)
-                .whereEqualTo("isRead", false)
-                .limit(500)
-                .get()
-                .await()
-            
-            val batch = firestore.batch()
-            snapshot.documents.forEach { doc ->
-                batch.update(doc.reference, "isRead", true)
+            // Firestore write batch hard limit is 500 docs; drain unread notifications in chunks.
+            while (true) {
+                val snapshot = firestore.collection(notificationsCollection)
+                    .whereEqualTo("recipientId", userId)
+                    .whereEqualTo("isRead", false)
+                    .limit(500)
+                    .get()
+                    .await()
+
+                if (snapshot.isEmpty) break
+
+                val batch = firestore.batch()
+                snapshot.documents.forEach { doc ->
+                    batch.update(doc.reference, "isRead", true)
+                }
+                batch.commit().await()
             }
-            batch.commit().await()
             
             Result.success(Unit)
         } catch (e: Exception) {
@@ -793,6 +769,88 @@ class NotificationService @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "NotificationService - Error deleting notification")
             Result.failure(e)
+        }
+    }
+
+    private fun inferRoleFromData(type: NotificationType, data: Map<String, Any>): String {
+        val action = data["action"]?.toString()?.uppercase() ?: ""
+        val userRole = data["userRole"]?.toString()?.uppercase() ?: ""
+
+        return when {
+            type == NotificationType.WORKER_HIRED && action == "VIEW_APPLICATIONS" -> "EMPLOYER"
+            type == NotificationType.WORKER_HIRED -> "WORKER"
+            type == NotificationType.PROFILE_COMPLETE && userRole.isNotBlank() -> userRole
+            userRole in setOf("WORKER", "EMPLOYER") -> userRole
+            else -> ""
+        }
+    }
+
+    private fun parseNotificationDocument(
+        doc: DocumentSnapshot,
+        activeRole: String?,
+        now: Long
+    ): NotificationData? {
+        return try {
+            val data = doc.data ?: return null
+
+            val createdAt = when (val createdAtValue = data["createdAt"]) {
+                is Long -> createdAtValue
+                is Timestamp -> createdAtValue.toDate().time
+                else -> now
+            }
+
+            val expiresAt = when (val expiresAtValue = data["expiresAt"]) {
+                is Long -> expiresAtValue
+                is Timestamp -> expiresAtValue.toDate().time
+                else -> createdAt + NOTIFICATION_RETENTION_MS
+            }
+
+            if (expiresAt <= now) {
+                return null
+            }
+
+            val typeString = data["type"]?.toString() ?: "GENERAL"
+            val type = try {
+                NotificationType.valueOf(typeString.uppercase())
+            } catch (e: Exception) {
+                NotificationType.GENERAL
+            }
+
+            if (activeRole != null) {
+                val storedRole = data["targetRole"]?.toString() ?: ""
+                val inferredRole = inferRoleFromData(type, data)
+                val effectiveRole = if (storedRole.isNotEmpty()) storedRole else inferredRole
+
+                if (effectiveRole.isNotEmpty() && !effectiveRole.equals(activeRole, ignoreCase = true)) {
+                    return null
+                }
+
+                if (effectiveRole.isEmpty()) {
+                    when {
+                        activeRole.equals("WORKER", ignoreCase = true) && type in employerTypes -> return null
+                        activeRole.equals("EMPLOYER", ignoreCase = true) && type in workerTypes -> return null
+                    }
+                }
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val notificationDataMap = (data["data"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
+
+            NotificationData(
+                id = doc.id,
+                recipientId = data["recipientId"]?.toString() ?: "",
+                title = data["title"]?.toString() ?: "",
+                message = data["message"]?.toString() ?: "",
+                type = type,
+                targetRole = data["targetRole"]?.toString() ?: "",
+                data = notificationDataMap,
+                createdAt = createdAt,
+                expiresAt = expiresAt,
+                isRead = data["isRead"] as? Boolean ?: false
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "NotificationService - Error parsing document ${doc.id}")
+            null
         }
     }
 }

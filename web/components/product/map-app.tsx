@@ -56,15 +56,21 @@ function markerPosition(
   userLongitude: number,
   radiusKm: number
 ) {
-  if (!hasValidCoordinates(locatedJob.job.latitude, locatedJob.job.longitude)) {
+  const latitude = locatedJob.job.latitude;
+  const longitude = locatedJob.job.longitude;
+
+  if (!hasValidCoordinates(latitude, longitude)) {
     return { left: 50, top: 50 };
   }
+
+  const safeLatitude = Number(latitude);
+  const safeLongitude = Number(longitude);
 
   const offset = offsetFromUserKm(
     userLatitude,
     userLongitude,
-    locatedJob.job.latitude,
-    locatedJob.job.longitude
+    safeLatitude,
+    safeLongitude
   );
   const usableRadius = 38;
 
@@ -78,7 +84,7 @@ function markerPosition(
 }
 
 function markerSize(job: ProductJob) {
-  return 14 + Math.min(job.vacancies, 6) * 2;
+  return 14 + Math.min(job.vacancies ?? 1, 6) * 2;
 }
 
 export function WorkerMapClient({ session }: SharedProps) {
@@ -143,7 +149,14 @@ export function WorkerMapClient({ session }: SharedProps) {
   }, [services]);
 
   const categories = useMemo(
-    () => ["ALL", ...new Set(jobs.map((job) => job.category).filter(Boolean))],
+    () => [
+      "ALL",
+      ...new Set(
+        jobs
+          .map((job) => job.category)
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      )
+    ],
     [jobs]
   );
 
@@ -359,7 +372,8 @@ export function WorkerMapClient({ session }: SharedProps) {
                   </div>
 
                   <p className="market-card-copy">
-                    {selectedJob.job.location || "Location pending"}
+                    {selectedJob.job.addressText ||
+                      `${selectedJob.job.location.lat}, ${selectedJob.job.location.lng}`}
                   </p>
 
                   <div className="button-row compact">
@@ -396,7 +410,9 @@ export function WorkerMapClient({ session }: SharedProps) {
                       <span>{formatDistanceLabel(item.distanceKm) || "Nearby"}</span>
                     </div>
                     <p>{item.job.companyName || "DutyPe employer"}</p>
-                    <small>{item.job.location || "Location pending"}</small>
+                          <small>
+                            {item.job.addressText || `${item.job.location.lat}, ${item.job.location.lng}`}
+                          </small>
                   </button>
                 ))}
               </div>

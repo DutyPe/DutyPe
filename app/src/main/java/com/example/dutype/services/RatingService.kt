@@ -2,6 +2,7 @@ package com.example.dutype.services
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -83,20 +84,16 @@ class RatingService @Inject constructor(
 
             val ratingRef = firestore.collection(RATINGS_COLLECTION).document()
             val ratingData = mapOf(
-                "ratingId" to ratingRef.id,
                 "jobId" to jobId,
                 "fromUserId" to currentUser.uid,
                 "toUserId" to targetUserId,
                 "rating" to rating,
                 "review" to review,
-                "createdAt" to System.currentTimeMillis()
+                "createdAt" to Timestamp.now()
             )
 
             // Save rating
             ratingRef.set(ratingData).await()
-
-            // Update target user's rating summary (role-specific field)
-            updateUserRatingSummary(targetUserId, targetRole, rating)
 
             Timber.d("⭐ Rating submitted: $rating stars for $targetRole $targetUserId")
 
@@ -111,42 +108,16 @@ class RatingService @Inject constructor(
      * Update the target user's average rating and total ratings in the correct profile collection.
      * Workers → worker_profiles, Employers → employer_profiles (target schema)
      */
-    private suspend fun updateUserRatingSummary(
-        userId: String,
-        targetRole: String,
-        newRating: Int
-    ) {
-        try {
-            val profileCollection = if (targetRole == "WORKER") "worker_profiles" else "employer_profiles"
-            val profileRef = firestore.collection(profileCollection).document(userId)
-            val profileDoc = profileRef.get().await()
-
-            val currentAvg = (profileDoc.getDouble("rating") ?: 0.0)
-            val currentCount = (profileDoc.getLong("totalRatings") ?: 0L).toInt()
-
-            val newCount = currentCount + 1
-            val newAvg = ((currentAvg * currentCount) + newRating) / newCount
-
-            profileRef.set(
-                mapOf("rating" to newAvg, "totalRatings" to newCount),
-                com.google.firebase.firestore.SetOptions.merge()
-            ).await()
-
-            Timber.d("⭐ Updated $targetRole rating for $userId: $newAvg ($newCount ratings)")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to update user rating summary")
-        }
-    }
-
     /**
-     * Check if user has already rated a specific application for a target role
+     * Check if the current user has already rated a target user for a specific job.
      */
-    suspend fun hasRated(applicationId: String, targetRole: String): Boolean {
+    suspend fun hasRated(jobId: String, targetUserId: String): Boolean {
         return try {
             val currentUser = auth.currentUser ?: return false
             val snapshot = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("jobId", applicationId)
+                .whereEqualTo("jobId", jobId)
                 .whereEqualTo("fromUserId", currentUser.uid)
+                .whereEqualTo("toUserId", targetUserId)
                 .limit(1)
                 .get()
                 .await()
@@ -180,7 +151,11 @@ class RatingService @Inject constructor(
                         targetUserId = data["toUserId"] as? String ?: "",
                         rating = (data["rating"] as? Number)?.toInt() ?: 0,
                         review = data["review"] as? String ?: "",
-                        createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L
+                        createdAt = when (val created = data["createdAt"]) {
+                            is Number -> created.toLong()
+                            is Timestamp -> created.toDate().time
+                            else -> 0L
+                        }
                     )
                 }
                 .sortedByDescending { it.createdAt }

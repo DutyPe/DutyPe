@@ -59,7 +59,7 @@ class EarningsViewModel @Inject constructor(
                 
                 // Strict schema: applications contain only relationship/status fields.
                 // Earnings fields are derived from jobs collection using jobId.
-                val applications = firestore.collection("applications")
+                val applications = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
                     .whereEqualTo("workerId", userId)
                     .orderBy("createdAt", Query.Direction.DESCENDING)
                     .limit(100) // P0 FIX: Cap at 100 for performance at scale
@@ -164,7 +164,7 @@ class EarningsViewModel @Inject constructor(
 
         val result = mutableMapOf<String, JobEarningInfo>()
         jobIds.chunked(10).forEach { chunk ->
-            val snapshot = firestore.collection("jobs")
+            val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                 .whereIn(FieldPath.documentId(), chunk)
                 .get()
                 .await()

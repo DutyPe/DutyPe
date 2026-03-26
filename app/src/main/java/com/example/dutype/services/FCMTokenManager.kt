@@ -124,7 +124,7 @@ class FCMTokenManager @Inject constructor(
                 "fcmToken" to token,
                 "lastActiveAt" to Timestamp.now()
             )
-            firestore.collection("users")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update(tokenData)
                 .await()
@@ -144,7 +144,7 @@ class FCMTokenManager @Inject constructor(
                 "fcmToken" to token,
                 "lastActiveAt" to Timestamp.now()
             )
-            firestore.collection("users")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update(tokenData)
                 .await()
@@ -163,7 +163,7 @@ class FCMTokenManager @Inject constructor(
         try {
             val userId = auth.currentUser?.uid ?: return
             
-            firestore.collection("users")
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .update("fcmToken", null)
                 .await()
@@ -197,7 +197,7 @@ class FCMTokenManager @Inject constructor(
     suspend fun getTokenForUser(userId: String): String? {
         return try {
             // OPTIMIZED: Read from users.fcmToken field (no separate fcm_tokens collection)
-            val doc = firestore.collection("users")
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
                 .get()
                 .await()

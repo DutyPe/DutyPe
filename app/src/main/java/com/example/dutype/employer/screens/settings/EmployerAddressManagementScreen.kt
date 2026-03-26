@@ -45,6 +45,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,8 +72,10 @@ fun EmployerAddressManagementScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    // Set white status bar
-    onStatusBarColorChange(Color.White)
+    // Set white status bar once on screen enter
+    LaunchedEffect(Unit) {
+        onStatusBarColorChange(Color.White)
+    }
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

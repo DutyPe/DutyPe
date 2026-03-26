@@ -100,6 +100,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.models.JobListing
@@ -146,7 +147,7 @@ fun JobDescriptionScreen(
     var isSaved by remember { mutableStateOf(false) }
     
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
-    val currentLocation by locationPreferences.currentLocation.collectAsState()
+    val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // DISABLED: Ads temporarily disabled
@@ -186,7 +187,7 @@ fun JobDescriptionScreen(
     // Application state
     var hasApplied by remember { mutableStateOf(false) }
     var applicationStatus by remember { mutableStateOf<String?>(null) }
-    val applicationUiState by smartApplicationViewModel.uiState.collectAsState()
+    val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
     
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser

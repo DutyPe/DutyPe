@@ -2,6 +2,8 @@
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
@@ -26,19 +28,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
+import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
@@ -53,15 +55,14 @@ fun WorkerReferEarnScreen(
     val viewModel: ReferralViewModel = hiltViewModel()
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
-    val uiState by viewModel.uiState.collectAsState()
-    val analytics by viewModel.analytics.collectAsState()
-    val successStories by viewModel.successStories.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val analytics by viewModel.analytics.collectAsStateWithLifecycle()
+    val successStories by viewModel.successStories.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
     
-    val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
 
@@ -196,7 +197,7 @@ fun WorkerReferEarnScreen(
                             
                             // Complete Profile Button
                             Button(
-                                onClick = { navController.navigate("worker_profile") },
+                                onClick = { navController.navigate(Routes.WORKER_PROFILE_DETAILS) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(50.dp),
@@ -250,7 +251,11 @@ fun WorkerReferEarnScreen(
                             QRCodeSection(
                                 referralCode = uiState.stats?.referralCode ?: "",
                                 onCopyClick = {
-                                    clipboardManager.setText(AnnotatedString(uiState.stats?.referralCode ?: ""))
+                                    copyTextToClipboard(
+                                        context = context,
+                                        label = "Referral Code",
+                                        text = uiState.stats?.referralCode.orEmpty()
+                                    )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
@@ -444,6 +449,11 @@ Find local jobs near you and earn Rs.25 bonus!
             }
         )
     }
+}
+
+private fun copyTextToClipboard(context: android.content.Context, label: String, text: String) {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
 
@@ -1163,7 +1173,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                         )
                     }
                     Icon(
-                        Icons.Default.TrendingUp,
+                        Icons.AutoMirrored.Filled.TrendingUp,
                         contentDescription = null,
                         tint = Color(0xFF10B981),
                         modifier = Modifier.size(32.dp)

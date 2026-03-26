@@ -35,6 +35,7 @@ object DeepLinkHandler {
     private const val HOST_NOTIFICATIONS = "notifications"
     private const val HOST_HOME = "home"
     private const val HOST_JOBS = "jobs"
+    private const val HOST_APPLICATIONS = "applications"
     
     // Web URLs - Android App Links (opens Android app directly)
     private const val WEB_DOMAIN = "dutype.in"  // Custom domain
@@ -105,6 +106,16 @@ object DeepLinkHandler {
                         navigateToWorkerApplication(navController, applicationId)
                         true
                     }
+                    // dutype://worker/applications
+                    pathSegments.firstOrNull() == "applications" -> {
+                        navigateToWorkerApplications(navController)
+                        true
+                    }
+                    // dutype://worker/jobs
+                    pathSegments.firstOrNull() == "jobs" -> {
+                        navigateToWorkerJobs(navController)
+                        true
+                    }
                     // dutype://worker/profile
                     pathSegments.firstOrNull() == "profile" -> {
                         navigateToWorkerProfile(navController)
@@ -140,10 +151,25 @@ object DeepLinkHandler {
                         navigateToEmployerApplication(navController, applicationId)
                         true
                     }
+                    // dutype://employer/applications
+                    pathSegments.firstOrNull() == "applications" -> {
+                        navigateToEmployerApplications(navController)
+                        true
+                    }
                     // dutype://employer/jobs/123
                     pathSegments.size >= 2 && pathSegments[0] == "jobs" -> {
                         val jobId = pathSegments[1]
                         navigateToEmployerJob(navController, jobId)
+                        true
+                    }
+                    // dutype://employer/jobs
+                    pathSegments.firstOrNull() == "jobs" -> {
+                        navigateToEmployerJobs(navController)
+                        true
+                    }
+                    // dutype://employer/dashboard
+                    pathSegments.firstOrNull() == "dashboard" -> {
+                        navigateToEmployerHome(navController)
                         true
                     }
                     // dutype://employer/post-job
@@ -186,6 +212,18 @@ object DeepLinkHandler {
                     navigateToApplication(navController, applicationId)
                     true
                 } else false
+            }
+
+            // App scheme: dutype://applications
+            data.scheme == SCHEME && data.host == HOST_APPLICATIONS -> {
+                navigateToWorkerApplications(navController)
+                true
+            }
+
+            // App scheme: dutype://jobs
+            data.scheme == SCHEME && data.host == HOST_JOBS -> {
+                navigateToWorkerJobs(navController)
+                true
             }
             
             // App scheme: dutype://profile
@@ -289,19 +327,36 @@ object DeepLinkHandler {
     }
     
     private fun navigateToApplication(navController: NavController, applicationId: String) {
-        safeNavigate(navController, "application_detail/$applicationId", "application:$applicationId")
+        // Fallback to worker applications list since there is no standalone application_detail route.
+        safeNavigate(navController, Routes.WORKER_MY_JOBS, "application:$applicationId")
     }
     
     private fun navigateToWorkerApplication(navController: NavController, applicationId: String) {
         safeNavigate(navController, "${Routes.WORKER_MY_JOBS}?applicationId=$applicationId", "worker-application:$applicationId")
     }
+
+    private fun navigateToWorkerApplications(navController: NavController) {
+        safeNavigate(navController, Routes.WORKER_MY_JOBS, "worker-applications")
+    }
+
+    private fun navigateToWorkerJobs(navController: NavController) {
+        safeNavigate(navController, Routes.WORKER_ALL_JOBS, "worker-jobs")
+    }
     
     private fun navigateToEmployerApplication(navController: NavController, applicationId: String) {
-        safeNavigate(navController, "${Routes.EMPLOYER_APPLICATION_DETAIL}/$applicationId", "employer-application:$applicationId")
+        safeNavigate(navController, "employer_application_detail/$applicationId", "employer-application:$applicationId")
+    }
+
+    private fun navigateToEmployerApplications(navController: NavController) {
+        safeNavigate(navController, Routes.EMPLOYER_APPLICATIONS, "employer-applications")
     }
     
     private fun navigateToEmployerJob(navController: NavController, jobId: String) {
         safeNavigate(navController, "${Routes.EMPLOYER_MY_JOBS}?jobId=$jobId", "employer-job:$jobId")
+    }
+
+    private fun navigateToEmployerJobs(navController: NavController) {
+        safeNavigate(navController, Routes.EMPLOYER_MY_JOBS, "employer-jobs")
     }
     
     private fun navigateToProfile(navController: NavController) {

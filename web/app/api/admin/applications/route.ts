@@ -6,8 +6,8 @@ import {
   toCanonicalApplicationStatus,
   type NormalizedUser
 } from "@/lib/firebase/admin-normalizers";
-import { getAdminSession } from "@/lib/firebase/admin-session";
-import { getFirebaseAdminDb, isFirebaseAdminConfigured } from "@/lib/firebase/admin-server";
+import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 
 export const runtime = "nodejs";
 
@@ -21,25 +21,8 @@ function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
 }
 
-async function requireAuthorizedAdmin() {
-  const session = await getAdminSession();
-
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!isFirebaseAdminConfigured()) {
-    return NextResponse.json(
-      { error: "Firebase Admin SDK is not configured for this environment." },
-      { status: 500 }
-    );
-  }
-
-  return null;
-}
-
-export async function GET() {
-  const unauthorized = await requireAuthorizedAdmin();
+export async function GET(request: NextRequest) {
+  const unauthorized = await requireAuthorizedAdminRequest(request);
   if (unauthorized) {
     return unauthorized;
   }
@@ -101,7 +84,7 @@ type UpdateStatusBody = {
 };
 
 export async function PATCH(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdmin();
+  const unauthorized = await requireAuthorizedAdminRequest(request);
   if (unauthorized) {
     return unauthorized;
   }

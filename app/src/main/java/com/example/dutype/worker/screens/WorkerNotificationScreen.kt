@@ -16,13 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -47,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.components.NotificationItemShimmer
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
@@ -68,6 +71,7 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,27 +80,39 @@ fun WorkerNotificationScreen(
     navController: NavController,
     viewModel: WorkerNotificationViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
     val isGuestUser = FirebaseAuth.getInstance().currentUser == null
     val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
-    val currentUser by roleViewModel.currentUser.collectAsState()
+    val currentUser by roleViewModel.currentUser.collectAsStateWithLifecycle()
 
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
-    // CRITICAL FIX: Reload notifications when screen becomes visible OR when role changes
-    // Use a unique key that changes on every role switch to force reload
-    // BUT: Don't reload when dialog is showing to prevent background reload
-    val reloadKey = remember(currentUser?.activeRole) { 
-        "${currentUser?.activeRole}_${System.currentTimeMillis()}" 
-    }
-    
-    LaunchedEffect(reloadKey) {
-        // Only load if dialog is not showing
+    // CRITICAL FIX: Reload notifications when role changes
+    // Dependencies: currentUser.activeRole (role switch), dialogData (prevent BG reload during dialog)
+    // Dependencies changed: Only recompute on actual role change, not tickng timestamp
+    LaunchedEffect(currentUser?.activeRole, dialogData == null) {
+        // Only load if dialog is not showing (prevents background reload while user viewing notification)
         if (dialogData == null) {
-            Timber.d("🔔 WorkerNotificationScreen - Reloading notifications (key: $reloadKey)")
+            Timber.d("🔔 WorkerNotificationScreen - Reloading notifications for role: ${currentUser?.activeRole}")
             viewModel.loadNotifications()
         }
+    }
+
+    LaunchedEffect(listState, uiState.notifications.size, uiState.hasMore, uiState.isLoadingMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .distinctUntilChanged()
+            .collect { lastVisibleIndex ->
+                if (
+                    uiState.hasMore &&
+                    !uiState.isLoadingMore &&
+                    uiState.notifications.isNotEmpty() &&
+                    lastVisibleIndex >= uiState.notifications.lastIndex - 3
+                ) {
+                    viewModel.loadMoreNotifications()
+                }
+            }
     }
     
     // Show notification dialog if data is present
@@ -231,6 +247,7 @@ fun WorkerNotificationScreen(
                 // Notifications list with swipe to delete
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(
@@ -257,6 +274,23 @@ fun WorkerNotificationScreen(
                                 viewModel.deleteNotification(notification.id)
                             }
                         )
+                    }
+
+                    if (uiState.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                androidx.compose.material3.CircularProgressIndicator(
+                                    color = Color(0xFF374151),
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -508,7 +542,7 @@ private fun getNotificationIcon(type: NotificationType): ImageVector {
         NotificationType.SHORTLISTED -> Icons.Default.CheckCircle
         NotificationType.REJECTED -> Icons.Default.Notifications
         NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.Schedule
-        NotificationType.EMPLOYER_MESSAGE -> Icons.Default.Message
+        NotificationType.EMPLOYER_MESSAGE -> Icons.AutoMirrored.Filled.Message
         NotificationType.NEW_JOB_ALERT -> Icons.Default.Work
         NotificationType.JOB_RECOMMENDATION -> Icons.Default.Work
         NotificationType.BIRTHDAY -> Icons.Default.Cake

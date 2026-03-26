@@ -59,12 +59,12 @@ import java.util.Calendar
 @Composable
 fun AnalyticsScreen(navController: NavController) {
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
     // Get application statistics
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
-    val appStats by applicationViewModel.stats.collectAsState()
-    val appUiState by applicationViewModel.uiState.collectAsState()
+    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
+    val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
     
     // Calculate stats directly from JobListing
     val activeJobs = uiState.myJobs.count { it.status == "open" }

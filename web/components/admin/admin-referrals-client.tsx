@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrency, formatDate } from "@/lib/firebase/firestore-helpers";
 
 type ReferralRow = {
@@ -33,8 +34,7 @@ export function AdminReferralsClient() {
   async function loadData() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/referrals", {
-        credentials: "include",
+      const response = await adminApiFetch("/api/admin/referrals", {
         cache: "no-store"
       });
 
@@ -74,9 +74,8 @@ export function AdminReferralsClient() {
 
     try {
       setPendingActionId(id);
-      const response = await fetch("/api/admin/referrals", {
+      const response = await adminApiFetch("/api/admin/referrals", {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },

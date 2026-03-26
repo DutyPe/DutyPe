@@ -85,7 +85,7 @@ fun EmployerDigitalVisitingCardScreen(
             try {
                 // Load phone/profileImageUrl from users (schema fields)
                 val userDoc = FirebaseFirestore.getInstance()
-                    .collection("users")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get()
                     .await()
@@ -96,7 +96,7 @@ fun EmployerDigitalVisitingCardScreen(
 
                 // Load employer-specific fields from employer_profiles (target schema)
                 val employerDoc = FirebaseFirestore.getInstance()
-                    .collection("employer_profiles")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(currentUser.uid)
                     .get()
                     .await()
