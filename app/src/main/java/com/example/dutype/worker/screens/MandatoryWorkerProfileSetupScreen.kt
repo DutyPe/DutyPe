@@ -738,8 +738,11 @@ fun MandatoryWorkerProfileSetupScreen(
                                                             userName = fullName,
                                                             userId = notificationUser.uid,
                                                             userRole = "WORKER"
-                                                        )
-                                                        Timber.d("📬 Profile completion notification sent for worker (first time)")
+                                                        ).onSuccess {
+                                                            Timber.d("📬 Profile completion notification sent for worker (first time)")
+                                                        }.onFailure { error ->
+                                                            Timber.e(error, "📬 Worker profile completion notification failed")
+                                                        }
                                                         
                                                         // Register FCM token with role for push notifications
                                                         fcmTokenManager.registerTokenWithRole("WORKER")

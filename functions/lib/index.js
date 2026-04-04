@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
@@ -539,6 +539,57 @@ exports.detectDuplicateJob = functions.firestore
 exports.logUserActivity = functions.https.onCall(async (data, context) => {
     // Activity logging removed - Firebase Analytics handles this
     return { success: true };
+});
+/**
+ * Check whether a user exists for a phone number.
+ * Used by app login/register pre-checks because users-by-phone reads are blocked by client rules.
+ */
+exports.checkPhoneExists = functions.https.onCall(async (data) => {
+    var _a;
+    const rawPhone = String((_a = data === null || data === void 0 ? void 0 : data.phone) !== null && _a !== void 0 ? _a : "").trim();
+    const providedVariants = Array.isArray(data === null || data === void 0 ? void 0 : data.variants)
+        ? data.variants.map(v => String(v)).filter(v => v.trim().length > 0)
+        : [];
+    if (!rawPhone && providedVariants.length === 0) {
+        return { exists: false };
+    }
+    const digits = rawPhone.replace(/\D/g, "");
+    const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+    const generatedVariants = new Set([
+        rawPhone.replace(/[\s-]/g, ""),
+        digits,
+        digits.startsWith("91") ? `+${digits}` : "",
+        digits.startsWith("91") ? digits : "",
+        last10 ? `+91${last10}` : "",
+        last10 ? `91${last10}` : "",
+        last10,
+    ].filter(Boolean));
+    for (const variant of providedVariants) {
+        generatedVariants.add(variant.trim());
+    }
+    const variants = Array.from(generatedVariants).slice(0, 10);
+    let usersSnapshot = await db
+        .collection("users")
+        .where("phone", "in", variants)
+        .limit(1)
+        .get();
+    if (usersSnapshot.empty) {
+        usersSnapshot = await db
+            .collection("users")
+            .where("phoneNumber", "in", variants)
+            .limit(1)
+            .get();
+    }
+    if (usersSnapshot.empty) {
+        return { exists: false };
+    }
+    const doc = usersSnapshot.docs[0];
+    const userData = doc.data() || {};
+    return {
+        exists: true,
+        userId: doc.id,
+        roles: Array.isArray(userData.roles) ? userData.roles : [],
+    };
 });
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM

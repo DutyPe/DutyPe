@@ -370,6 +370,8 @@ object AppModule {
     @Singleton
     fun provideJobApplicationService(
         firestore: FirebaseFirestore,
+        jobDao: JobDao,
+        applicationDao: ApplicationDao,
         notificationService: NotificationService,
         profileCompletionService: ProfileCompletionService,
         applicationStateManager: ApplicationStateManager,
@@ -380,6 +382,8 @@ object AppModule {
     ): JobApplicationService {
         return JobApplicationService(
             firestore,
+            jobDao,
+            applicationDao,
             notificationService,
             profileCompletionService,
             applicationStateManager,

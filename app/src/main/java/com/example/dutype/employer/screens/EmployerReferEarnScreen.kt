@@ -56,8 +56,6 @@ fun EmployerReferEarnScreen(
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val analytics by viewModel.analytics.collectAsStateWithLifecycle()
-    val successStories by viewModel.successStories.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -70,8 +68,6 @@ fun EmployerReferEarnScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         viewModel.loadReferralData()
-        viewModel.loadAnalytics()
-        viewModel.loadSuccessStories()
         delay(100)
         isVisible = true
     }
@@ -279,24 +275,6 @@ Find reliable workers for your business and earn Rs.25 bonus!
                         }
                     }
                     
-                    // Analytics Dashboard (V2.0 Professional Feature)
-                    if (analytics != null && (analytics?.totalClicks ?: 0) > 0) {
-                        item {
-                            AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(525, 125)) + slideInVertically(tween(525, 125))) {
-                                EmployerAnalyticsDashboardCard(analytics = analytics!!)
-                            }
-                        }
-                    }
-                    
-                    // Success Stories (V2.0 Social Proof)
-                    if (successStories.isNotEmpty()) {
-                        item {
-                            AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(540, 140)) + slideInVertically(tween(540, 140))) {
-                                EmployerSuccessStoriesCard(stories = successStories)
-                            }
-                        }
-                    }
-                    
                     // Free Job Postings Card (if available)
                     val freePostings = uiState.stats?.freeJobPostings ?: 0
                     val freePostingsExpiry = uiState.stats?.freeJobPostingsExpiry
@@ -320,44 +298,13 @@ Find reliable workers for your business and earn Rs.25 bonus!
                         }
                     }
                     
-                    // Milestone Progress
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(650, 250)) + slideInVertically(tween(650, 250))) {
-                            EmployerMilestoneProgressCard(
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
-                                nextMilestone = uiState.stats?.nextMilestone ?: 5
-                            )
-                        }
-                    }
                     // Referral History
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))) {
                             EmployerReferralHistoryCard(referralHistory = uiState.referralHistory)
                         }
                     }
-                    // How It Works
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))) {
-                            EmployerHowItWorksCard()
-                        }
-                    }
 
-                    // Rewards
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(800, 400)) + slideInVertically(tween(800, 400))) {
-                            EmployerRewardsCard()
-                        }
-                    }
-                    
-                    // Redemption Instructions
-                    item {
-                        AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(850, 450)) + slideInVertically(tween(850, 450))) {
-                            EmployerRedemptionInstructionsCard()
-                        }
-                    }
-
-                    
-                    
                     item { Spacer(Modifier.height(24.dp)) }
                 }
             }

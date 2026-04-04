@@ -617,6 +617,65 @@ export const logUserActivity = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+/**
+ * Check whether a user exists for a phone number.
+ * Used by app login/register pre-checks because users-by-phone reads are blocked by client rules.
+ */
+export const checkPhoneExists = functions.https.onCall(async (data) => {
+  const rawPhone = String(data?.phone ?? "").trim();
+  const providedVariants = Array.isArray(data?.variants)
+    ? (data.variants as unknown[]).map(v => String(v)).filter(v => v.trim().length > 0)
+    : [];
+
+  if (!rawPhone && providedVariants.length === 0) {
+    return { exists: false };
+  }
+
+  const digits = rawPhone.replace(/\D/g, "");
+  const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+  const generatedVariants = new Set<string>([
+    rawPhone.replace(/[\s-]/g, ""),
+    digits,
+    digits.startsWith("91") ? `+${digits}` : "",
+    digits.startsWith("91") ? digits : "",
+    last10 ? `+91${last10}` : "",
+    last10 ? `91${last10}` : "",
+    last10,
+  ].filter(Boolean));
+
+  for (const variant of providedVariants) {
+    generatedVariants.add(variant.trim());
+  }
+
+  const variants = Array.from(generatedVariants).slice(0, 10);
+
+  let usersSnapshot = await db
+    .collection("users")
+    .where("phone", "in", variants)
+    .limit(1)
+    .get();
+
+  if (usersSnapshot.empty) {
+    usersSnapshot = await db
+      .collection("users")
+      .where("phoneNumber", "in", variants)
+      .limit(1)
+      .get();
+  }
+
+  if (usersSnapshot.empty) {
+    return { exists: false };
+  }
+
+  const doc = usersSnapshot.docs[0];
+  const userData = doc.data() || {};
+  return {
+    exists: true,
+    userId: doc.id,
+    roles: Array.isArray(userData.roles) ? userData.roles : [],
+  };
+});
+
 
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM

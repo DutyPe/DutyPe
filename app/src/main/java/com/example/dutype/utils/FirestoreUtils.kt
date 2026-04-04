@@ -1,8 +1,10 @@
 package com.example.dutype.utils
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import timber.log.Timber
@@ -11,6 +13,12 @@ import timber.log.Timber
  * Utility functions for Firestore database operations.
  */
 object FirestoreUtils {
+
+    enum class PhoneExistenceResult {
+        EXISTS,
+        NOT_EXISTS,
+        UNKNOWN
+    }
 
     /**
      * Ensures a canonical users document exists without ever writing placeholder values.
@@ -85,31 +93,85 @@ object FirestoreUtils {
      * Check if a user exists by normalized phone number in strict users schema.
      */
     suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
-        return try {
-            val firestore = FirebaseFirestore.getInstance()
-            val normalized = PhoneNumberUtils.normalize(phoneNumber)
+        val firestore = FirebaseFirestore.getInstance()
+        val variants = PhoneNumberUtils.getVariants(phoneNumber)
 
-            Timber.d("Phone check: normalized=$normalized")
+        Timber.d("Phone check: variants=$variants")
 
-            val primaryResult = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .whereEqualTo("phone", normalized)
+        for (variant in variants) {
+            val result = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
+                .whereEqualTo("phone", variant)
                 .limit(1)
                 .get()
                 .await()
 
-            if (primaryResult.documents.isNotEmpty()) {
-                primaryResult.documents[0].data
-            } else {
-                null
+            if (result.documents.isNotEmpty()) {
+                return result.documents[0].data
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Phone check error for: $phoneNumber")
-            null
         }
+
+        return null
     }
 
     suspend fun doesUserExist(phoneNumber: String): Boolean {
         return checkUserExistsByPhoneNumber(phoneNumber) != null
+    }
+
+    suspend fun checkPhoneExistence(phoneNumber: String): PhoneExistenceResult {
+        val callableResult = checkPhoneExistenceViaCallable(phoneNumber)
+        if (callableResult != PhoneExistenceResult.UNKNOWN) {
+            return callableResult
+        }
+
+        return try {
+            val result = checkUserExistsByPhoneNumber(phoneNumber)
+            if (result != null) PhoneExistenceResult.EXISTS else PhoneExistenceResult.NOT_EXISTS
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("Phone existence check blocked by rules. Continuing with UNKNOWN.")
+                PhoneExistenceResult.UNKNOWN
+            } else {
+                Timber.e(e, "Phone existence check failed")
+                PhoneExistenceResult.UNKNOWN
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Phone existence check failed")
+            PhoneExistenceResult.UNKNOWN
+        }
+    }
+
+    private suspend fun checkPhoneExistenceViaCallable(phoneNumber: String): PhoneExistenceResult {
+        val normalized = PhoneNumberUtils.normalize(phoneNumber)
+        val variants = PhoneNumberUtils.getVariants(phoneNumber)
+        val callableNames = listOf("checkPhoneExists")
+
+        for (callableName in callableNames) {
+            try {
+                val response = FirebaseFunctions.getInstance()
+                    .getHttpsCallable(callableName)
+                    .call(
+                        mapOf(
+                            "phone" to normalized,
+                            "variants" to variants
+                        )
+                    )
+                    .await()
+
+                @Suppress("UNCHECKED_CAST")
+                val payload = response.data as? Map<String, Any>
+                val exists = payload?.get("exists") as? Boolean
+
+                when (exists) {
+                    true -> return PhoneExistenceResult.EXISTS
+                    false -> return PhoneExistenceResult.NOT_EXISTS
+                    null -> Timber.w("Callable $callableName returned invalid payload: $payload")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Callable $callableName unavailable")
+            }
+        }
+
+        return PhoneExistenceResult.UNKNOWN
     }
 
     suspend fun updateUserRole(userId: String, role: String) {

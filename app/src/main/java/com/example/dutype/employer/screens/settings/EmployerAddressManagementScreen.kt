@@ -65,6 +65,8 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import com.example.dutype.components.EmptyListState
+import com.example.dutype.components.EmptyStateAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -519,42 +521,17 @@ fun EmployerAddressManagementScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             } else {
-                // Empty state
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOff,
-                            contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "No Saved Addresses",
-                            style = AppTypography.emptyStateTitle.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Add your office locations above",
-                            style = AppTypography.emptyStateSubtitle.copy(
-                                color = Color(0xFF9CA3AF)
-                            ),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                // Empty state - no saved addresses
+                EmptyListState(
+                    icon = Icons.Default.LocationOff,
+                    title = "No Saved Addresses",
+                    subtitle = "Add your office locations to manage work locations",
+                    actionButton = EmptyStateAction(
+                        label = "Add Address",
+                        icon = Icons.Default.Add,
+                        onClick = { /* Form is above, user can scroll up or fill it */ }
+                    )
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))

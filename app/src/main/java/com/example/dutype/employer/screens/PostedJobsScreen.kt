@@ -49,6 +49,7 @@ import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobStats
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.components.EmptyActionState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -324,54 +325,11 @@ private fun PostedJobsErrorCard(
 
 @Composable
 private fun PostedJobsEmptyState(onPostJob: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            Icon(
-                Icons.Default.Work,
-                contentDescription = "No jobs",
-                modifier = Modifier.size(80.dp),
-                tint = Color.Gray.copy(alpha = 0.6f)
-            )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "No Jobs Posted Yet",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Start building your team by posting your first job opportunity",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-            }
-            Button(
-                onClick = onPostJob,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Post Job")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.post_your_first_job), fontWeight = FontWeight.Bold)
-            }
-        }
-    }
+    EmptyActionState(
+        icon = Icons.Default.Work,
+        title = "No Jobs Posted Yet",
+        subtitle = "Start building your team by posting your first job opportunity",
+        actionLabel = stringResource(R.string.post_your_first_job),
+        onAction = onPostJob
+    )
 }

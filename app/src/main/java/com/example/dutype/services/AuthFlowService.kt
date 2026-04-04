@@ -6,6 +6,7 @@ import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Transaction
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -102,29 +103,44 @@ class AuthFlowService @Inject constructor(
                 val existingUser = transaction.get(userRef)
                 val existingData = existingUser.data.orEmpty()
 
-                val existingRoles = (existingData["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+                val existingRoles = (existingData["roles"] as? List<*>)
+                    ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
+                    .orEmpty()
+                val mergedRoles = (existingRoles + role).distinct()
+                val existingReferralCode = (existingData["referralCode"] as? String)?.trim().orEmpty()
+                val alreadyHasRequestedRole = role in existingRoles
                 val isExistingCompleteUser =
                     !(existingData["phone"] as? String).isNullOrBlank() &&
                     !(existingData["fullName"] as? String).isNullOrBlank() &&
                     existingRoles.isNotEmpty() &&
-                    !(existingData["referralCode"] as? String).isNullOrBlank()
+                    existingReferralCode.isNotBlank()
 
-                if (existingUser.exists() && isExistingCompleteUser) {
+                if (existingUser.exists() && isExistingCompleteUser && alreadyHasRequestedRole) {
                     throw IllegalStateException("Account already exists")
                 }
 
-                val ownReferralCode = reserveUniqueReferralCode(transaction)
+                if (existingUser.exists() && isExistingCompleteUser && !alreadyHasRequestedRole && normalizedReferralCode != null) {
+                    throw IllegalStateException("Referral code can only be used on your first registration")
+                }
+
+                val ownReferralCode = existingReferralCode.ifBlank { reserveUniqueReferralCode(transaction) }
                 val now = Timestamp.now()
                 val referrerUserId = referrerSnapshot?.getString("userId").orEmpty()
+                val resolvedFullName = (existingData["fullName"] as? String)?.trim()
+                    .takeUnless { it.isNullOrBlank() }
+                    ?: trimmedName
+                val resolvedPhone = (existingData["phone"] as? String)?.trim()
+                    .takeUnless { it.isNullOrBlank() }
+                    ?: normalizedPhone
 
                 val userData = linkedMapOf<String, Any>(
                     "userId" to currentUser.uid,
-                    "phone" to normalizedPhone,
-                    "fullName" to trimmedName,
-                    "roles" to listOf(role),
+                    "phone" to resolvedPhone,
+                    "fullName" to resolvedFullName,
+                    "roles" to mergedRoles,
                     "activeRole" to role,
-                    "isVerified" to false,
-                    "isActive" to true,
+                    "isVerified" to ((existingData["isVerified"] as? Boolean) ?: false),
+                    "isActive" to ((existingData["isActive"] as? Boolean) ?: true),
                     "referralCode" to ownReferralCode,
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
                     "lastActiveAt" to now
@@ -133,19 +149,28 @@ class AuthFlowService @Inject constructor(
                 if (normalizedReferralCode != null && referrerUserId.isNotBlank()) {
                     userData["referredByCode"] = normalizedReferralCode
                     userData["referredByUserId"] = referrerUserId
+                } else {
+                    (existingData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                        userData["referredByCode"] = it
+                    }
+                    (existingData["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                        userData["referredByUserId"] = it
+                    }
                 }
 
-                transaction.set(userRef, userData)
+                transaction.set(userRef, userData, SetOptions.merge())
                 transaction.set(
                     firestore.collection(COLLECTION_REFERRAL_CODES).document(ownReferralCode),
                     linkedMapOf<String, Any>(
                         "code" to ownReferralCode,
                         "userId" to currentUser.uid,
                         "userRole" to role,
-                        "userName" to trimmedName,
+                        "userRoles" to mergedRoles,
+                        "userName" to resolvedFullName,
                         "isActive" to true,
                         "createdAt" to now
-                    )
+                    ),
+                    SetOptions.merge()
                 )
 
                 // Referral reward attachment is finalized via Cloud Function applyReferralCode

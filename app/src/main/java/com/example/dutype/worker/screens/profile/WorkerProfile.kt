@@ -121,11 +121,7 @@ fun WorkerProfileScreen(
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            Timber.w("Worker Profile - User not authenticated, redirecting to login")
-            // CRITICAL FIX: Pass role=WORKER to maintain role context after login
-            rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER") {
-                popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME) { inclusive = false }
-            }
+            Timber.w("Worker Profile - User not authenticated, staying in guest profile mode")
         } else {
             Timber.i("Worker Profile - User authenticated: ${currentUser.uid}")
         }

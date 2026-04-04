@@ -68,6 +68,43 @@ function asBool(value, fallback) {
   return fallback;
 }
 
+function toSalaryDouble(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return 0;
+
+  const cleaned = value.replace(/₹/g, '').replace(/,/g, '').trim();
+  if (!cleaned) return 0;
+
+  const matches = cleaned.match(/\d+(?:\.\d+)?/g) || [];
+  const numbers = matches.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+  if (numbers.length === 0) return 0;
+  if (cleaned.includes('-') && numbers.length >= 2) {
+    return (numbers[0] + numbers[1]) / 2;
+  }
+  return numbers[0];
+}
+
+function normalizeSalaryType(primary, fallback) {
+  const raw = String(primary || fallback || '').trim().toUpperCase();
+  if (!raw) return 'DAILY';
+  if (raw === 'PER_DAY') return 'DAILY';
+  if (raw === 'PER_MONTH') return 'MONTHLY';
+  if (raw === 'PER_HOUR') return 'HOURLY';
+  return raw;
+}
+
+function extractCityFromAddress(address) {
+  const parts = String(address || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 3) return parts[parts.length - 2];
+  if (parts.length === 2) return parts[1];
+  if (parts.length === 1) return parts[0];
+  return '';
+}
+
 function computeUpdates(data) {
   const updates = {};
 
@@ -103,6 +140,30 @@ function computeUpdates(data) {
     const isActive = asBool(data.isActive, true);
     const isFilled = asBool(data.isFilled, false);
     updates.status = isActive && !isFilled ? 'open' : 'closed';
+  }
+
+  const existingSalary = Number.isFinite(data.salary) ? data.salary : toSalaryDouble(data.salary);
+  if (!(existingSalary > 0)) {
+    const fallbackSalary = toSalaryDouble(data.payAmount);
+    if (fallbackSalary > 0) {
+      updates.salary = fallbackSalary;
+    }
+  }
+
+  const existingSalaryType = typeof data.salaryType === 'string' ? data.salaryType.trim() : '';
+  if (!existingSalaryType) {
+    updates.salaryType = normalizeSalaryType(data.salaryType, data.payType);
+  }
+
+  const existingCompanyCity = typeof data.companyCity === 'string' ? data.companyCity.trim() : '';
+  if (!existingCompanyCity) {
+    const addressCandidate =
+      (typeof data.addressText === 'string' && data.addressText.trim()) ||
+      (typeof data.location === 'string' && data.location.trim()) ||
+      (typeof data.address === 'string' && data.address.trim()) ||
+      '';
+
+    updates.companyCity = extractCityFromAddress(addressCandidate) || 'Local Area';
   }
 
   const currentJobType = typeof data.jobType === 'string' ? data.jobType.toUpperCase() : '';

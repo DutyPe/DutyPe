@@ -83,6 +83,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.components.EmptyListState
+import com.example.dutype.components.EmptySearchState
+import com.example.dutype.components.EmptySavedItemsState
+import com.example.dutype.components.EmptyStateAction
+import androidx.compose.material.icons.filled.Search
 
 @Composable
 fun SavedJobsList(
@@ -95,6 +100,10 @@ fun SavedJobsList(
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
     val uiState by savedJobViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        savedJobViewModel.loadSavedJobs()
+    }
 
     // Debug logging for UI state
     LaunchedEffect(uiState) {
@@ -115,11 +124,29 @@ fun SavedJobsList(
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isEmpty() -> {
                     Timber.d("SavedJobsList: Showing empty state")
-                    EmptySavedJobsState(navController = navController)
+                    EmptySavedItemsState(
+                        itemType = "jobs",
+                        onBrowse = {
+                            // Navigate to home tab to browse jobs
+                            runCatching {
+                                navController?.navigate(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) {
+                                    popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }.onFailure { error ->
+                                Timber.e(error, "Failed to navigate to home tab from saved jobs")
+                            }
+                        }
+                    )
                 }
                 uiState.savedJobs.isEmpty() && searchQuery.isNotEmpty() -> {
                     Timber.d("SavedJobsList: Empty search results for: $searchQuery")
-                    EmptySearchResultsForSavedJobs(searchQuery = searchQuery)
+                    EmptySearchState(
+                        searchQuery = searchQuery,
+                        onClearSearch = { 
+                            // Clear search - handled by parent
+                        }
+                    )
                 }
                 else -> {
                     Timber.d("SavedJobsList: Showing ${uiState.savedJobs.size} jobs")
@@ -305,147 +332,6 @@ private fun SavedJobsHeader(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun EmptySearchResultsForSavedJobs(searchQuery: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SearchOff,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = Color(0xFF9CA3AF)
-                )
-                Text(
-                    text = stringResource(R.string.no_results_found),
-                    style = AppTypography.emptyStateTitle.copy(
-                        color = Color(0xFF111827)
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.no_saved_jobs_match, searchQuery),
-                    style = AppTypography.emptyStateSubtitle.copy(
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptySavedJobsState(navController: androidx.navigation.NavHostController? = null) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Bookmark,
-                contentDescription = null,
-                tint = Color(0xFF9CA3AF), // Same gray color as applied jobs icon
-                modifier = Modifier.size(56.dp)
-            )
-            
-            Text(
-                text = stringResource(R.string.no_saved_jobs),
-                style = AppTypography.emptyStateTitle.copy(
-                    color = Color(0xFF1E293B)
-                )
-            )
-            Text(
-                text = stringResource(R.string.tap_bookmark_to_save),
-                style = AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280),
-                    textAlign = TextAlign.Center
-                )
-            )
-            
-            Button(
-                onClick = {
-                    // Use WORKER_HOME_TAB ("home") for navigation within worker bottom nav
-                    navController?.navigate(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) {
-                        popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) { inclusive = false }
-                        launchSingleTop = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(0.6f)
-            ) {
-                Text(
-                    text = stringResource(R.string.browse_jobs),
-                    style = AppTypography.buttonMedium.copy(
-                        color = Color.White
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeatureHighlight(
-    icon: ImageVector,
-    title: String,
-    description: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFEFF6FF)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color(0xFF1F2937),
-                modifier = Modifier.size(16.dp)
-            )
-        }
-        
-        Column {
-            Text(
-                text = title,
-                style = AppTypography.labelLarge.copy(
-                    color = Color(0xFF1E293B)
-                )
-            )
-            Text(
-                text = description,
-                style = AppTypography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
         }
     }
 }

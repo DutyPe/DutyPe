@@ -394,7 +394,10 @@ fun WorkerHomeScreen(
         currentUser?.uid?.let { userId ->
             delay(3000)
             try {
-                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
+                    userId = userId,
+                    activeRole = "WORKER"
+                )
             } catch (e: Exception) {
                 Timber.w(e, "Failed to fetch unread notification count")
             }
@@ -582,63 +585,45 @@ fun WorkerHomeScreen(
                             }
 
                             else -> {
-                                when {
-                                    // No jobs at all in the system
-                                    jobUiState.jobs.isEmpty() -> {
-                                        EmptyJobsState(
-                                            navController = rootNavController,
-                                            currentLocationName = currentLocation?.getShortAddress(),
-                                            suggestedCities = topLocationChips,
-                                            onCitySelected = onLocationChipSelected
-                                        )
-                                    }
-                                    
-                                    // All jobs filtered out
-                                    filteredJobs.isEmpty() && !jobUiState.isLoading -> {
-                                        EmptyJobsState(
-                                            navController = rootNavController,
-                                            currentLocationName = currentLocation?.getShortAddress(),
-                                            isAppliedAllVariant = true,
-                                            suggestedCities = topLocationChips,
-                                            onCitySelected = onLocationChipSelected
-                                        )
-                                    }
-                                    
-                                    // Show jobs
-                                    else -> {
-                                        HomeSectionsContent(
-                                            jobListings = filteredJobs,
-                                            navController = navController,
-                                            rootNavController = rootNavController,
-                                            savedJobsViewModel = savedJobsViewModel,
-                                            hasLocationPermission = hasLocationPermission,
-                                            context = context,
-                                            jobVacancyStatuses = jobVacancyStatuses,
-                                            scrollStateManager = scrollStateManager,
-                                            onJobClick = { jobId ->
-                                                clickedJobId = jobId
-                                            },
-                                            onNavigateToJob = { jobId ->
-                                                navController.navigate(Routes.jobDetailRoute(jobId))
-                                            },
-                                            currentLocation = currentLocation,
-                                            onLocationChipSelected = onLocationChipSelected,
-                                            userName = currentUser?.displayName ?: "",
-                                            userEmail = currentUser?.email ?: "",
-                                            userSkills = emptyList(),
-                                            onScrollOffsetChange = { offset ->
-                                                // Keep status bar matching gradient
-                                                onStatusBarColorChange(WorkerColors.StatusBarColor)
-                                            },
-                                            onLocationBarVisibilityChange = { visible ->
-                                                showLocationBarState = visible
-                                            },
-                                            onLocationBarAlphaChange = { alpha ->
-                                                locationBarAlpha = alpha
-                                            }
-                                        )
-                                    }
-                                }
+                                val showEmptyJobsState = !jobUiState.isLoading && (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
+                                val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
+
+                                HomeSectionsContent(
+                                    jobListings = filteredJobs,
+                                    navController = navController,
+                                    rootNavController = rootNavController,
+                                    savedJobsViewModel = savedJobsViewModel,
+                                    hasLocationPermission = hasLocationPermission,
+                                    context = context,
+                                    jobVacancyStatuses = jobVacancyStatuses,
+                                    scrollStateManager = scrollStateManager,
+                                    onJobClick = { jobId ->
+                                        clickedJobId = jobId
+                                    },
+                                    onNavigateToJob = { jobId ->
+                                        navController.navigate(Routes.jobDetailRoute(jobId))
+                                    },
+                                    currentLocation = currentLocation,
+                                    onLocationChipSelected = onLocationChipSelected,
+                                    userName = currentUser?.displayName ?: "",
+                                    userEmail = currentUser?.email ?: "",
+                                    userSkills = emptyList(),
+                                    onScrollOffsetChange = { offset ->
+                                        // Keep status bar matching gradient
+                                        onStatusBarColorChange(WorkerColors.StatusBarColor)
+                                    },
+                                    onLocationBarVisibilityChange = { visible ->
+                                        showLocationBarState = visible
+                                    },
+                                    onLocationBarAlphaChange = { alpha ->
+                                        locationBarAlpha = alpha
+                                    },
+                                    showEmptyJobsState = showEmptyJobsState,
+                                    emptyJobsIsAppliedAllVariant = isAppliedAllVariant,
+                                    emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
+                                    emptyJobsSuggestedCities = topLocationChips,
+                                    onEmptyJobsCitySelected = onLocationChipSelected
+                                )
                             }
                         }
                     }
@@ -691,9 +676,12 @@ fun WorkerHomeScreen(
                     onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                     onNotificationClick = {
                         currentUser?.uid?.let { userId ->
-                            scope.launch(Dispatchers.IO) {
+                            scope.launch {
                                 try {
-                                    unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(userId)
+                                    unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
+                                        userId = userId,
+                                        activeRole = "WORKER"
+                                    )
                                 } catch (e: Exception) {
                                     Timber.w(e, "Failed to fetch unread notification count")
                                 }
@@ -991,7 +979,12 @@ fun HomeSectionsContent(
     userSkills: List<String> = emptyList(),
     onScrollOffsetChange: (Float) -> Unit = {},
     onLocationBarVisibilityChange: (Boolean) -> Unit = {},
-    onLocationBarAlphaChange: (Float) -> Unit = {}
+    onLocationBarAlphaChange: (Float) -> Unit = {},
+    showEmptyJobsState: Boolean = false,
+    emptyJobsIsAppliedAllVariant: Boolean = false,
+    emptyJobsCurrentLocationName: String? = null,
+    emptyJobsSuggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
+    onEmptyJobsCitySelected: (TopCityChips.CityLocationChip) -> Unit = {}
 ) {
     // Get announcements and recently hired from ViewModels
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
@@ -1215,46 +1208,60 @@ fun HomeSectionsContent(
             )
         }
 
-        // Section 2: Browse Categories (at the top) - transparent to show gradient
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Transparent)  // Transparent to show gradient background
-                    .padding(vertical = 16.dp)
-            ) {
-                BrowseCategoriesSection(
-                    onCategoryClick = { category ->
-                        // Navigate to CategoriesScreen with the selected category
-                        navController.navigate(Routes.categoriesRoute(category))
-                    },
-                    onViewAllClick = { navController.navigate(Routes.WORKER_CATEGORIES) },
-                    getCategoryBadge = { category ->
-                        null
-                    }
+        if (showEmptyJobsState) {
+            item {
+                EmptyJobsState(
+                    navController = rootNavController,
+                    currentLocationName = emptyJobsCurrentLocationName,
+                    isAppliedAllVariant = emptyJobsIsAppliedAllVariant,
+                    suggestedCities = emptyJobsSuggestedCities,
+                    onCitySelected = onEmptyJobsCitySelected
                 )
             }
         }
-        
-        // Section 3: Jobs For You (skill-matched) - transparent to show gradient
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Transparent)  // Transparent to show gradient background
-                    .padding(vertical = 16.dp)
-            ) {
-                RecommendedJobsSection(
-                    jobs = skillMatchedJobs,
-                    onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
-                    savedJobsViewModel = savedJobsViewModel,
-                    onNavigateToJob = onNavigateToJob,
-                    sectionTitle = when {
-                        userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
-                        skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
-                        else -> null
-                    }
-                )
+
+        if (!showEmptyJobsState) {
+            // Section 2: Browse Categories (at the top) - transparent to show gradient
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Transparent)  // Transparent to show gradient background
+                        .padding(vertical = 16.dp)
+                ) {
+                    BrowseCategoriesSection(
+                        onCategoryClick = { category ->
+                            // Navigate to CategoriesScreen with the selected category
+                            navController.navigate(Routes.categoriesRoute(category))
+                        },
+                        onViewAllClick = { navController.navigate(Routes.WORKER_CATEGORIES) },
+                        getCategoryBadge = { category ->
+                            null
+                        }
+                    )
+                }
+            }
+
+            // Section 3: Jobs For You (skill-matched) - transparent to show gradient
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Transparent)  // Transparent to show gradient background
+                        .padding(vertical = 16.dp)
+                ) {
+                    RecommendedJobsSection(
+                        jobs = skillMatchedJobs,
+                        onViewAllClick = { navController.navigate(Routes.allJobsRoute("All Jobs")) },
+                        savedJobsViewModel = savedJobsViewModel,
+                        onNavigateToJob = onNavigateToJob,
+                        sectionTitle = when {
+                            userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
+                            skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
+                            else -> null
+                        }
+                    )
+                }
             }
         }
         

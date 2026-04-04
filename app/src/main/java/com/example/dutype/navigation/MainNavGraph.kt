@@ -31,6 +31,7 @@ import com.example.dutype.employer.screens.applications.EmployerApplicationManag
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
+import com.example.dutype.employer.screens.EmployerPublicProfileScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.location.ManualLocationScreen
 import com.example.dutype.models.UserRole
@@ -38,6 +39,7 @@ import com.example.dutype.navigation.EmployerMainScreen
 import com.example.dutype.navigation.WorkerMainScreen
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
+import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -158,9 +160,36 @@ fun MainNavGraph(
                     }
                     
                     if (userRole != null) {
-                        val isProfileComplete = userDoc?.exists() == true &&
+                        val localProfileComplete = userDoc?.exists() == true &&
                             profileCompletionViewModel.isProfileComplete(userRole)
-                        Timber.d("🚀 MainNavGraph - Profile complete for $userRole: $isProfileComplete")
+
+                        val firestoreProfileComplete = if (!localProfileComplete) {
+                            runCatching {
+                                profileCompletionViewModel.checkExistingProfileHighLevel(
+                                    email = currentUser.email ?: "",
+                                    role = userRole
+                                )
+                            }.getOrElse {
+                                Timber.e(it, "🚀 MainNavGraph - Firestore profile completion fallback failed")
+                                false
+                            }
+                        } else {
+                            true
+                        }
+
+                        val isProfileComplete = localProfileComplete || firestoreProfileComplete
+
+                        if (isProfileComplete && !localProfileComplete) {
+                            runCatching {
+                                profileCompletionViewModel.markProfileComplete(userRole)
+                                profileCompletionViewModel.markProfileSetupAsShown(userRole)
+                                Timber.d("🚀 MainNavGraph - Synced local profile completion from Firestore for $userRole")
+                            }.onFailure {
+                                Timber.e(it, "🚀 MainNavGraph - Failed syncing local profile completion state")
+                            }
+                        }
+
+                        Timber.d("🚀 MainNavGraph - Profile complete for $userRole: $isProfileComplete (local=$localProfileComplete, firestore=$firestoreProfileComplete)")
                         
                         when {
                             isProfileComplete && userRole == com.example.dutype.models.UserRole.WORKER -> {
@@ -510,6 +539,27 @@ fun MainNavGraph(
             com.example.dutype.worker.screens.profile.WorkerProfileDetailsScreen(
                 navController = navController,
                 dataStore = dataStore
+            )
+        }
+        composable(
+            route = Routes.WORKER_PROFILE_VIEW,
+            arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+            ProfessionalWorkerProfileViewScreen(
+                navController = navController,
+                workerId = workerId
+            )
+        }
+        composable(
+            route = Routes.EMPLOYER_PROFILE_VIEW,
+            arguments = listOf(navArgument("employerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val employerId = backStackEntry.arguments?.getString("employerId") ?: ""
+            EmployerPublicProfileScreen(
+                navController = navController,
+                employerId = employerId,
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         composable(

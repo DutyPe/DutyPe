@@ -43,7 +43,8 @@ class AppStateManager @Inject constructor(
     /**
      * Saved job IDs - handled by SavedJobsViewModel
      */
-    val savedJobIds: StateFlow<Set<String>> = MutableStateFlow<Set<String>>(emptySet()).asStateFlow()
+    private val _savedJobIds = MutableStateFlow<Set<String>>(emptySet())
+    val savedJobIds: StateFlow<Set<String>> = _savedJobIds.asStateFlow()
     
     /**
      * Applied job IDs - delegated to ApplicationStateManager
@@ -87,6 +88,7 @@ class AppStateManager @Inject constructor(
         _currentUserId.value = null
         _currentUserRole.value = null
         _isLoggedIn.value = false
+        _savedJobIds.value = emptySet()
         
         // Clear all state managers
         applicationStateManager.clearAll()
@@ -99,28 +101,35 @@ class AppStateManager @Inject constructor(
      * Add a job to saved jobs - handled by SavedJobsViewModel
      */
     fun saveJob(jobId: String) {
-        // Placeholder - use SavedJobsViewModel.saveJob() instead
+        _savedJobIds.value = _savedJobIds.value + jobId
     }
     
     /**
      * Remove a job from saved jobs - handled by SavedJobsViewModel
      */
     fun unsaveJob(jobId: String) {
-        // Placeholder - use SavedJobsViewModel.unsaveJob() instead
+        _savedJobIds.value = _savedJobIds.value - jobId
     }
     
     /**
      * Check if a job is saved - use SavedJobsViewModel instead
      */
     fun isJobSaved(jobId: String): Boolean {
-        return false // Placeholder
+        return _savedJobIds.value.contains(jobId)
     }
     
     /**
      * Set all saved job IDs - use SavedJobsViewModel instead
      */
     fun setSavedJobIds(jobIds: Set<String>) {
-        // Placeholder
+        _savedJobIds.value = jobIds
+    }
+
+    /**
+     * Prime applied-job state from lightweight jobId lookups.
+     */
+    fun setAppliedJobIds(jobIds: Set<String>) {
+        applicationStateManager.setAppliedJobs(jobIds)
     }
     
     // ==================== APPLICATION METHODS (Delegated) ====================

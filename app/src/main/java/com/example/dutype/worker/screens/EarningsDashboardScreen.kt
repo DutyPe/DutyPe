@@ -34,6 +34,8 @@ import com.example.dutype.viewmodels.EarningsViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.dutype.components.EmptyListState
+import com.example.dutype.components.EmptyStateAction
 
 /**
  * Earnings Dashboard Screen
@@ -563,43 +565,16 @@ private fun TransactionCard(
 
 @Composable
 private fun EmptyTransactionsCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.Receipt,
-                contentDescription = null,
-                tint = WorkerColors.IconSecondary,
-                modifier = Modifier.size(48.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = "No transactions yet",
-                style = AppTypography.emptyStateTitle.copy(
-                    color = WorkerColors.TextSecondary
-                )
-            )
-            
-            Text(
-                text = "Complete jobs to see your earnings here",
-                style = AppTypography.emptyStateSubtitle.copy(
-                    color = WorkerColors.TextTertiary
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
+    EmptyListState(
+        icon = Icons.Default.Receipt,
+        title = "No Transactions Yet",
+        subtitle = "Complete jobs to see your earnings here",
+        actionButton = EmptyStateAction(
+            label = "Browse Jobs",
+            icon = Icons.Default.Search,
+            onClick = { /* Navigation handled by parent */ }
+        )
+    )
 }
 
 // Helper functions

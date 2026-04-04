@@ -572,7 +572,13 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
             const newUserData = newUserDoc.data() || {};
             const referrerStats = referrerLegacyStatsDoc.data() || {};
             const newUserStats = newUserLegacyStatsDoc.data() || {};
+            const newUserRoles = Array.isArray(newUserData.roles)
+                ? newUserData.roles.map((roleValue) => getStringValue(roleValue).toUpperCase()).filter(Boolean)
+                : [];
             const existingReferredByCode = getStringValue(newUserStats.referredByCode);
+            if (newUserRoles.length > 1 || isProfileComplete(newUserData)) {
+                return { success: false, error: "Referral code can only be used on your first registration" };
+            }
             if (existingReferredByCode) {
                 if (normalizeReferralCodeInput(existingReferredByCode) === requestedCode) {
                     return { success: true, message: "Referral already applied" };
@@ -819,10 +825,11 @@ exports.onReferredUserProfileComplete = functions.firestore
         }
         batch.update(referrerUserRef, userStatsUpdate);
         // 3. Update referral code stats
-        const codeRef = db.collection("referrals").doc(referral.referralCode);
-        batch.update(codeRef, {
+        const codeRef = db.collection("referral_codes").doc(referral.referralCode);
+        batch.set(codeRef, {
+            totalUsed: admin.firestore.FieldValue.increment(1),
             successfulReferrals: admin.firestore.FieldValue.increment(1)
-        });
+        }, { merge: true });
         // 4. Credit referred user's signup bonus in BOTH locations
         const referredStatsRef = db.collection("users").doc(referredUserId);
         batch.set(referredStatsRef, {
@@ -1166,16 +1173,17 @@ exports.getReferralStats = functions.https.onCall(async (data, context) => {
     }
     const userId = data.userId || context.auth.uid;
     try {
-        const [userDoc, legacyStatsDoc] = await Promise.all([
+        const [userDoc, referralStatsDoc] = await Promise.all([
             db.collection("users").doc(userId).get(),
-            db.collection("users").doc(userId).get()
+            db.collection("referral_stats").doc(userId).get()
         ]);
-        if (!userDoc.exists && !legacyStatsDoc.exists) {
+        if (!userDoc.exists && !referralStatsDoc.exists) {
             return { exists: false };
         }
         const userData = userDoc.data() || {};
-        const legacyStats = legacyStatsDoc.data() || {};
-        const stats = Object.assign(Object.assign(Object.assign({ userId, userRole: getStringValue(userData.activeRole, "WORKER"), referralCode: getStringValue(userData.referralCode) }, DEFAULT_REFERRAL_STATS), legacyStats), (userData.referralStats || {}));
+        const referralStats = referralStatsDoc.data() || {};
+        const combinedStats = getCombinedReferralStats(userData, referralStats);
+        const stats = Object.assign(Object.assign(Object.assign({ userId, userRole: getStringValue(userData.activeRole, "WORKER"), referralCode: getStringValue(userData.referralCode || combinedStats.referralCode) }, DEFAULT_REFERRAL_STATS), referralStats), combinedStats);
         return { exists: true, stats };
     }
     catch (error) {
@@ -1211,23 +1219,44 @@ exports.getReferralHistory = functions.https.onCall(async (data, context) => {
  * Get leaderboard
  */
 exports.getReferralLeaderboard = functions.https.onCall(async (data, context) => {
-    const role = data.role; // Optional filter by role
-    const limit = data.limit || 10;
+    const role = getStringValue(data.role).toUpperCase(); // Optional filter by role
+    const limit = Math.max(1, Math.min(getNumberValue(data.limit, 10), 50));
     try {
-        let query = db.collection("users")
-            .where("isBlocked", "==", false)
+        const snapshot = await db.collection("referral_stats")
             .orderBy("successfulReferrals", "desc")
-            .limit(limit);
-        if (role) {
-            query = db.collection("users")
-                .where("userRole", "==", role)
-                .where("isBlocked", "==", false)
-                .orderBy("successfulReferrals", "desc")
-                .limit(limit);
-        }
-        const leaderboard = await query.get();
+            .limit(Math.max(limit * 5, 25))
+            .get();
+        const userIds = snapshot.docs.map(doc => doc.id);
+        const userEntries = await Promise.all(userIds.map(async (userId) => {
+            const userDoc = await db.collection("users").doc(userId).get();
+            return [userId, userDoc.data() || {}];
+        }));
+        const userDataById = new Map(userEntries);
+        const leaderboard = snapshot.docs
+            .map(doc => {
+            const userData = userDataById.get(doc.id) || {};
+            const statsData = doc.data() || {};
+            const combinedStats = getCombinedReferralStats(userData, statsData);
+            return {
+                userId: doc.id,
+                userRole: getStringValue(userData.activeRole || combinedStats.userRole, "WORKER").toUpperCase(),
+                userName: getStringValue(userData.fullName ||
+                    userData.companyName ||
+                    combinedStats.userName, "DutyPe User"),
+                profileImageUrl: getStringValue(userData.profileImageUrl),
+                referralCode: getStringValue(userData.referralCode || combinedStats.referralCode),
+                successfulReferrals: getNumberValue(combinedStats.successfulReferrals),
+                totalEarnings: getNumberValue(combinedStats.totalEarnings),
+                availableBalance: getNumberValue(combinedStats.availableBalance),
+                currentTier: getStringValue(combinedStats.currentTier, "BRONZE"),
+                isBlocked: getBooleanValue(combinedStats.isBlocked)
+            };
+        })
+            .filter(entry => !entry.isBlocked)
+            .filter(entry => !role || entry.userRole === role)
+            .slice(0, limit);
         return {
-            leaderboard: leaderboard.docs.map((doc, index) => (Object.assign({ rank: index + 1, userId: doc.id }, doc.data())))
+            leaderboard: leaderboard.map((entry, index) => (Object.assign({ rank: index + 1 }, entry)))
         };
     }
     catch (error) {

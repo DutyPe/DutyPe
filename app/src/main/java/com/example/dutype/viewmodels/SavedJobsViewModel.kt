@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreSavedJobRepository
+import com.example.dutype.state.AppStateManager
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -35,28 +35,27 @@ data class SavedJobsUiState(
 class SavedJobsViewModel @Inject constructor(
     private val savedJobRepository: FirestoreSavedJobRepository,
     private val auth: FirebaseAuth,
+    private val appStateManager: AppStateManager,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SavedJobsUiState())
     val uiState: StateFlow<SavedJobsUiState> = _uiState.asStateFlow()
+    val savedJobIds: StateFlow<Set<String>> = appStateManager.savedJobIds
     private var hasLoadedAtLeastOnce = false
-    
-    /**
-     * Check if user is authenticated
-     */
+
     private fun isAuthenticated(): Boolean = auth.currentUser != null
 
-    init {
-        // Load saved jobs on initialization
-        loadSavedJobs()
-    }
-
     fun loadSavedJobs(forceRefresh: Boolean = false) {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Skipping load - user not authenticated (Guest Mode)")
-            _uiState.value = _uiState.value.copy(isLoading = false, savedJobs = emptyList(), savedJobCount = 0)
+            appStateManager.setSavedJobIds(emptySet())
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                savedJobs = emptyList(),
+                savedJobSummaries = emptyList(),
+                savedJobCount = 0
+            )
             return
         }
 
@@ -64,25 +63,26 @@ class SavedJobsViewModel @Inject constructor(
             Timber.d("SavedJobsViewModel: Skipping reload - using in-memory saved jobs cache")
             return
         }
-        
+
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             com.example.dutype.performance.MainThreadChecker.assertMainThread("SavedJobsViewModel.loadSavedJobs")
-            
+
             Timber.d("SavedJobsViewModel: Loading saved jobs...")
             _uiState.value = _uiState.value.copy(
                 isLoading = _uiState.value.savedJobs.isEmpty(),
                 hasError = false,
                 error = null
             )
-            
+
             savedJobRepository.getSavedJobs().collect { result ->
                 result.onSuccess { jobs ->
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("load_saved_jobs", duration, success = true)
-                    
+
                     Timber.d("SavedJobsViewModel: Loaded ${jobs.size} saved jobs in ${duration}ms")
                     hasLoadedAtLeastOnce = true
+                    appStateManager.setSavedJobIds(jobs.map { it.id }.toSet())
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         savedJobs = jobs,
@@ -91,7 +91,7 @@ class SavedJobsViewModel @Inject constructor(
                 }.onFailure { e ->
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("load_saved_jobs", duration, success = false)
-                    
+
                     Timber.e(e, "SavedJobsViewModel: Failed to load saved jobs")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -104,18 +104,19 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun refreshSavedJobs() {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Skipping refresh - user not authenticated (Guest Mode)")
+            appStateManager.setSavedJobIds(emptySet())
             _uiState.value = _uiState.value.copy(isRefreshing = false)
             return
         }
-        
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
-            
+
             savedJobRepository.getSavedJobs().collect { result ->
                 result.onSuccess { jobs ->
+                    appStateManager.setSavedJobIds(jobs.map { it.id }.toSet())
                     _uiState.value = _uiState.value.copy(
                         isRefreshing = false,
                         savedJobs = jobs,
@@ -133,28 +134,34 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun saveJob(jobId: String, notes: String? = null) {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Cannot save job - user not authenticated (Guest Mode)")
             _uiState.value = _uiState.value.copy(showMessage = "Please sign in to save jobs")
             return
         }
-        
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true)
-            
+
+            val wasAlreadySaved = appStateManager.isJobSaved(jobId)
+            if (!wasAlreadySaved) {
+                appStateManager.saveJob(jobId)
+            }
+
             try {
-                // SIMPLE: Direct Firestore update (like Naukri/Lokal Jobs)
                 withContext(Dispatchers.IO) {
                     savedJobRepository.saveJob(jobId)
                 }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    showMessage = "Job saved successfully"
+                    savedJobCount = appStateManager.savedJobIds.value.size,
+                    showMessage = if (wasAlreadySaved) "Job already saved" else "Job saved successfully"
                 )
-                // P1 FIX: Only refresh in background — UI already updated optimistically by caller
                 viewModelScope.launch { loadSavedJobs(forceRefresh = true) }
             } catch (e: Exception) {
+                if (!wasAlreadySaved) {
+                    appStateManager.unsaveJob(jobId)
+                }
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     showMessage = "Failed to save job: ${e.message}"
@@ -164,29 +171,31 @@ class SavedJobsViewModel @Inject constructor(
     }
 
     fun unsaveJob(jobId: String) {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Cannot unsave job - user not authenticated (Guest Mode)")
             return
         }
-        
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isUnsaving = true)
-            
+            appStateManager.unsaveJob(jobId)
+
             try {
-                // SIMPLE: Direct Firestore update (like Naukri/Lokal Jobs)
                 withContext(Dispatchers.IO) {
                     savedJobRepository.unsaveJob(jobId)
                 }
-                // P1 FIX: Optimistic local removal — remove from current list immediately
+
                 val updatedJobs = _uiState.value.savedJobs.filter { it.id != jobId }
+                val updatedSummaries = _uiState.value.savedJobSummaries.filter { it.id != jobId }
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     savedJobs = updatedJobs,
-                    savedJobCount = updatedJobs.size,
+                    savedJobSummaries = updatedSummaries,
+                    savedJobCount = appStateManager.savedJobIds.value.size,
                     showMessage = "Job removed from saved list"
                 )
             } catch (e: Exception) {
+                appStateManager.saveJob(jobId)
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     showMessage = "Failed to remove job: ${e.message}"
@@ -207,36 +216,43 @@ class SavedJobsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(hasError = false, error = null)
     }
 
-    // Check if a specific job is saved and deliver result to caller
     fun isJobSaved(jobId: String, onResult: (Boolean) -> Unit) {
+        val cachedSaved = appStateManager.isJobSaved(jobId)
+        if (cachedSaved) {
+            onResult(true)
+            return
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             val result = savedJobRepository.isJobSaved(jobId)
             val saved = result.getOrElse { false }
+            if (saved) {
+                appStateManager.saveJob(jobId)
+            } else {
+                appStateManager.unsaveJob(jobId)
+            }
             withContext(Dispatchers.Main) {
                 onResult(saved)
             }
         }
     }
-    
-    /**
-     * PERFORMANCE OPTIMIZATION: Load saved jobs as summaries
-     * Use this for list views to reduce memory and network usage
-     */
+
     fun loadSavedJobSummaries() {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Skipping load summaries - user not authenticated (Guest Mode)")
+            appStateManager.setSavedJobIds(emptySet())
             _uiState.value = _uiState.value.copy(isLoading = false, savedJobSummaries = emptyList(), savedJobCount = 0)
             return
         }
-        
+
         viewModelScope.launch {
             Timber.d("SavedJobsViewModel: Loading saved job summaries...")
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false, error = null)
-            
+
             savedJobRepository.getSavedJobSummaries().collect { result ->
                 result.onSuccess { summaries ->
                     Timber.d("SavedJobsViewModel: Loaded ${summaries.size} saved job summaries")
+                    appStateManager.setSavedJobIds(summaries.map { it.id }.toSet())
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         savedJobSummaries = summaries,
@@ -253,23 +269,21 @@ class SavedJobsViewModel @Inject constructor(
             }
         }
     }
-    
-    /**
-     * Refresh saved job summaries
-     */
+
     fun refreshSavedJobSummaries() {
-        // Skip if not authenticated (Guest Mode)
         if (!isAuthenticated()) {
             Timber.d("SavedJobsViewModel: Skipping refresh summaries - user not authenticated (Guest Mode)")
+            appStateManager.setSavedJobIds(emptySet())
             _uiState.value = _uiState.value.copy(isRefreshing = false)
             return
         }
-        
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, hasError = false, error = null)
-            
+
             savedJobRepository.getSavedJobSummaries().collect { result ->
                 result.onSuccess { summaries ->
+                    appStateManager.setSavedJobIds(summaries.map { it.id }.toSet())
                     _uiState.value = _uiState.value.copy(
                         isRefreshing = false,
                         savedJobSummaries = summaries,

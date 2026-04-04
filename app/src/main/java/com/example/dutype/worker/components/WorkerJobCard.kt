@@ -53,8 +53,8 @@ fun JobCard(
     val payDisplay = remember(job.salary, job.salaryType) {
         formatPayDisplay(job.salary, job.salaryType)
     }
-    val locationDisplay = remember(job.addressText, job.distance) {
-        formatLocationWithDistance(job.addressText, job.distance)
+    val locationDisplay = remember(job.addressText, job.location, job.distance) {
+        formatLocationWithDistance(job.addressText.ifBlank { job.location }, job.distance)
     }
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
@@ -113,8 +113,8 @@ fun JobCard(
     val payDisplay = remember(job.salary, job.salaryType) {
         formatPayDisplay(job.salary, job.salaryType)
     }
-    val locationDisplay = remember(job.distance) {
-        formatLocationWithDistance("", job.distance)
+    val locationDisplay = remember(job.companyCity, job.distance) {
+        formatLocationWithDistance(job.companyCity, job.distance)
     }
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
@@ -233,23 +233,34 @@ private fun JobCardInternal(
 
             // Row 2: Pay
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "₹${payDisplay.substringBefore("/")}",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF111827),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                )
-                if (payDisplay.contains("/")) {
+                if (payDisplay == "Negotiable") {
                     Text(
-                        text = "/${payDisplay.substringAfter("/")}",
+                        text = payDisplay,
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = Color(0xFF6B7280),
-                            fontWeight = FontWeight.Normal,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp
                         )
                     )
+                } else {
+                    Text(
+                        text = "₹${payDisplay.substringBefore("/")}",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    )
+                    if (payDisplay.contains("/")) {
+                        Text(
+                            text = "/${payDisplay.substringAfter("/")}",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color(0xFF6B7280),
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
                 }
             }
 
@@ -382,6 +393,8 @@ private enum class ChipType {
  * Returns "amount/period" e.g. "500/day"
  */
 private fun formatPayDisplay(salary: Double, salaryType: String): String {
+    if (salary <= 0.0) return "Negotiable"
+
     val amount = if (salary == salary.toLong().toDouble()) salary.toLong().toString() else salary.toString()
     val period = when (salaryType.uppercase()) {
         "HOURLY" -> "hour"

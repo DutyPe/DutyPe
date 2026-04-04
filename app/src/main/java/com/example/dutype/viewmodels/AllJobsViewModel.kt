@@ -5,8 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
 import com.example.dutype.repositories.FirestoreJobRepository
+import com.example.dutype.services.JobApplicationService
+import com.example.dutype.state.AppStateManager
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.toJobListing
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -64,6 +67,15 @@ data class AllJobsUiState(
     val totalJobs: Int = 0
 )
 
+private data class FilterPipelineInputs(
+    val chip: String = "All Jobs",
+    val query: String = "",
+    val filters: JobFilters = JobFilters(),
+    val initialCategory: String? = null,
+    val savedJobIds: Set<String> = emptySet(),
+    val appliedJobIds: Set<String> = emptySet()
+)
+
 /**
  * P0 PERFORMANCE FIX: AllJobsViewModel
  * 
@@ -81,13 +93,44 @@ data class AllJobsUiState(
 @HiltViewModel
 class AllJobsViewModel @Inject constructor(
     private val firestoreJobRepository: FirestoreJobRepository,
+    private val appStateManager: AppStateManager,
+    private val jobApplicationService: JobApplicationService,
     private val savedStateHandle: SavedStateHandle,
+    private val auth: FirebaseAuth,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
     val locationService: com.example.dutype.utils.LocationService,
     val locationPreferences: com.example.dutype.location.LocationPreferences
 ) : ViewModel() {
 
     private fun parseSalaryForSort(salary: Double): Int = salary.toInt()
+
+    private fun normalizeCategoryToken(value: String?): String {
+        val raw = value?.trim().orEmpty()
+        if (raw.isBlank()) return ""
+
+        return when (raw.uppercase()) {
+            "SHOP HELPER", "CONSTRUCTION", "HELPER" -> "HELPER"
+            "HOUSEKEEPING", "MAID" -> "MAID"
+            "KITCHEN", "COOK" -> "COOK"
+            "EVENTS", "WAITER" -> "WAITER"
+            else -> raw.uppercase().replace(' ', '_')
+        }
+    }
+
+    private fun matchesCategoryByKeywords(job: JobListing, categoryToken: String): Boolean {
+        val text = (job.title + " " + job.description).lowercase()
+        val keywords = when (categoryToken) {
+            "DELIVERY" -> listOf("delivery", "courier", "logistics", "rider")
+            "HELPER" -> listOf("helper", "assistant", "support")
+            "MAID" -> listOf("maid", "housekeeping", "cleaning")
+            "COOK" -> listOf("cook", "chef", "kitchen")
+            "WAITER" -> listOf("waiter", "steward", "server")
+            "DRIVER" -> listOf("driver", "driving", "cab", "taxi")
+            "SECURITY" -> listOf("security", "guard", "watchman")
+            else -> emptyList()
+        }
+        return keywords.any { text.contains(it) }
+    }
     
     private val _uiState = MutableStateFlow(AllJobsUiState())
     val uiState: StateFlow<AllJobsUiState> = _uiState.asStateFlow()
@@ -146,6 +189,58 @@ class AllJobsViewModel @Inject constructor(
     //          Reduces filter pipeline recomputation from 1+N to 1 per user pause
     private val debouncedSearchQuery: StateFlow<String> = _debouncedSearchQuery
 
+    private fun normalizedJobId(job: JobListing): String = job.id.ifBlank { job.jobId }
+
+    private fun hasValidUserLocation(): Boolean = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+
+    private fun applyRuntimeFlags(jobs: List<JobListing>): List<JobListing> {
+        val savedJobIds = appStateManager.savedJobIds.value
+        val appliedJobIds = appStateManager.appliedJobIds.value
+        return jobs
+            .map { job ->
+                val normalizedId = normalizedJobId(job)
+                job.copy(isSaved = job.isSaved || normalizedId in savedJobIds)
+            }
+            .filterNot { job -> normalizedJobId(job) in appliedJobIds }
+    }
+
+    private fun syncAppliedJobsFromBackend() {
+        val currentUserId = auth.currentUser?.uid ?: return
+
+        viewModelScope.launch {
+            jobApplicationService.getAppliedJobIds(currentUserId)
+                .onSuccess { appliedJobIds ->
+                    appStateManager.setAppliedJobIds(appliedJobIds)
+                }
+                .onFailure { exception ->
+                    Timber.w(exception, "AllJobsVM: Failed to prime applied jobs state")
+                }
+        }
+    }
+
+    private val filterPipelineInputs: StateFlow<FilterPipelineInputs> = combine(
+        _selectedChip,
+        debouncedSearchQuery,
+        _filters,
+        _initialCategory,
+        combine(appStateManager.savedJobIds, appStateManager.appliedJobIds) { savedJobIds, appliedJobIds ->
+            savedJobIds to appliedJobIds
+        }
+    ) { chip, query, filters, initialCategory, runtimeState ->
+        FilterPipelineInputs(
+            chip = chip,
+            query = query,
+            filters = filters,
+            initialCategory = initialCategory,
+            savedJobIds = runtimeState.first,
+            appliedJobIds = runtimeState.second
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = FilterPipelineInputs()
+    )
+
     /**
      * P0 PERFORMANCE FIX: Filtered jobs computed as StateFlow
      * 
@@ -163,11 +258,15 @@ class AllJobsViewModel @Inject constructor(
      */
     val filteredJobs: StateFlow<List<JobListing>> = combine(
         _uiState,
-        _selectedChip,
-        debouncedSearchQuery,  // SENIOR FIX: Use debounced search to avoid pipeline recomputation during typing
-        _filters,
-        _initialCategory
-    ) { state, chip, query, filters, initialCategory ->
+        filterPipelineInputs
+    ) { state, inputs ->
+        val chip = inputs.chip
+        val query = inputs.query
+        val filters = inputs.filters
+        val initialCategory = inputs.initialCategory
+        val savedJobIds = inputs.savedJobIds
+        val appliedJobIds = inputs.appliedJobIds
+
         // CRITICAL FIX: Don't return empty during loading - let UI handle loading state
         // Only return empty if there's an error
         if (state.hasError) {
@@ -194,9 +293,23 @@ class AllJobsViewModel @Inject constructor(
         val isCategory = initialCategory != null && categoryMapping.containsKey(initialCategory)
         
         // Step 1: Filter out closed/expired jobs
-        val availableJobs = state.jobs.filter {
-            it.status == "open"
+        val availableJobs = state.jobs
+            .map { job ->
+                val normalizedId = normalizedJobId(job)
+                job.copy(isSaved = job.isSaved || normalizedId in savedJobIds)
+            }
+            .filter { it.status == "open" }
+            .filterNot { job -> normalizedJobId(job) in appliedJobIds }
+        
+        // ADD DEBUG: Log jobs filtered out by status
+        val filteredByStatus = state.jobs.filter { it.status != "open" }
+        if (filteredByStatus.isNotEmpty()) {
+            Timber.w("🔍 STATUS FILTER REMOVED: ${filteredByStatus.size} jobs")
+            filteredByStatus.take(3).forEach {
+                Timber.w("🔍   - ${it.title} (status='${it.status}')")
+            }
         }
+        
         Timber.d("🔍 filteredJobs: After status filter: ${availableJobs.size} jobs")
 
         // Step 2: Keep expiry filtering server-side.
@@ -213,11 +326,33 @@ class AllJobsViewModel @Inject constructor(
         val categoryFiltered = if (isCategory) {
             val initialCategoryValue = initialCategory ?: "All Jobs"
             val firestoreCategory = categoryMapping[initialCategoryValue] ?: initialCategoryValue.uppercase()
+            val selectedTokens = setOf(
+                normalizeCategoryToken(initialCategoryValue),
+                normalizeCategoryToken(firestoreCategory)
+            ).filter { it.isNotBlank() }.toSet()
+            
+            Timber.d("🔍 CATEGORY FILTER: Looking for '$firestoreCategory' with tokens=$selectedTokens")
+            
             val filtered = activeJobs.filter { job ->
-                job.getCategory().equals(firestoreCategory, ignoreCase = true) ||
-                job.getCategory().equals(initialCategory, ignoreCase = true) ||
-                job.title.contains(initialCategory, ignoreCase = true)
+                val jobTypeToken = normalizeCategoryToken(job.jobType)
+                val detectedToken = normalizeCategoryToken(job.getCategory())
+                val keywordMatch = selectedTokens.any { token -> matchesCategoryByKeywords(job, token) }
+
+                jobTypeToken in selectedTokens ||
+                detectedToken in selectedTokens ||
+                keywordMatch ||
+                job.title.contains(initialCategoryValue, ignoreCase = true)
             }
+            
+            // ADD DEBUG: Log category mismatches
+            val mismatch = activeJobs.filterNot { it in filtered }
+            if (mismatch.isNotEmpty()) {
+                Timber.w("🔍 CATEGORY MISMATCH: ${mismatch.size} jobs don't match '$firestoreCategory'")
+                mismatch.take(3).forEach {
+                    Timber.w("🔍   - ${it.title} (detected='${it.getCategory()}')")
+                }
+            }
+            
             Timber.d("🔍 filteredJobs: After category filter ($initialCategory): ${filtered.size} jobs")
             filtered
         } else {
@@ -249,12 +384,13 @@ class AllJobsViewModel @Inject constructor(
             else -> categoryFiltered
         }
         
-        Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs")
+        Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs (was ${categoryFiltered.size})")
         
-        if (chipFiltered.isNotEmpty()) {
-            Timber.d("🔍 filteredJobs: Sample jobs after chip filter:")
-            chipFiltered.take(3).forEach { job ->
-                Timber.d("🔍   - ${job.title}, salaryType='${job.salaryType}', jobType='${job.jobType}'")
+        val chipRemoved = categoryFiltered - chipFiltered.toSet()
+        if (chipRemoved.isNotEmpty() && chip != "All Jobs") {
+            Timber.w("🔍 CHIP FILTER REMOVED: ${chipRemoved.size} jobs for chip='$chip'")
+            chipRemoved.take(3).forEach { job ->
+                Timber.w("🔍   - ${job.title} (salaryType='${job.salaryType}', jobType='${job.jobType}', distance=${job.distance})")
             }
         }
         
@@ -262,7 +398,11 @@ class AllJobsViewModel @Inject constructor(
         val advancedFiltered = chipFiltered.filter { job ->
             // Salary filter — use schema field salary (Double)
             val jobSalary = job.salary.toInt()
-            val salaryMatch = jobSalary == 0 || (jobSalary >= filters.salaryMin && jobSalary <= filters.salaryMax)
+            val hasSalaryUpperBound = filters.salaryMax < 100000
+            val salaryMatch = jobSalary == 0 || (
+                jobSalary >= filters.salaryMin &&
+                    (!hasSalaryUpperBound || jobSalary <= filters.salaryMax)
+                )
             
             // Distance filter
             val dist = job.distance
@@ -271,13 +411,23 @@ class AllJobsViewModel @Inject constructor(
             salaryMatch && distanceMatch
         }
         
-        Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs")
+        Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs (was ${chipFiltered.size})")
+        
+        val advancedRemoved = chipFiltered - advancedFiltered.toSet()
+        if (advancedRemoved.isNotEmpty()) {
+            Timber.w("🔍 ADVANCED FILTER REMOVED: ${advancedRemoved.size} jobs (salary range: ${filters.salaryMin}-${filters.salaryMax}, max distance: ${filters.maxDistance})")
+            advancedRemoved.take(3).forEach { job ->
+                val salary = job.salary.toInt()
+                val dist = job.distance
+                Timber.w("🔍   - ${job.title} (salary=$salary, distance=$dist)")
+            }
+        }
         
         // INDUSTRY STANDARD: When search is active (2+ chars), use database search results
         // No client-side filtering - trust the database query
         val searchFiltered = if (query.length >= 2) {
             // Database search active - results already filtered and sorted by relevance
-            Timber.d("🔍 filteredJobs: Using database search results (${advancedFiltered.size} jobs)")
+            Timber.d("🔍 filteredJobs: Using database search results for query='$query' (${advancedFiltered.size} jobs)")
             advancedFiltered
         } else {
             // No search - show all filtered jobs
@@ -305,7 +455,11 @@ class AllJobsViewModel @Inject constructor(
             }
         }
         
-        Timber.d("🔍 filteredJobs: ✅ FINAL COUNT: ${sorted.size} jobs")
+        Timber.d("🔍 filteredJobs: ✅ FINAL STAGE - Sorting by '${filters.sortBy}', location available: $hasUsableLocation")
+        Timber.d("🔍 filteredJobs: ✅ FINAL COUNT: ${sorted.size} jobs displayed to user")
+        if (sorted.isEmpty()) {
+            Timber.w("🔍 ⚠️  NO JOBS TO DISPLAY - Check filters above for culprit")
+        }
         sorted
     }.flowOn(Dispatchers.Default)  // SENIOR OPTIMIZATION: Compute filter pipeline off main thread
         .stateIn(
@@ -331,7 +485,7 @@ class AllJobsViewModel @Inject constructor(
     )
     
     init {
-        // No StateManager observers - jobs load with isSaved from Firestore
+        syncAppliedJobsFromBackend()
         
         // P0 FIX: Observe location changes and re-sort jobs immediately
         viewModelScope.launch {
@@ -422,7 +576,7 @@ class AllJobsViewModel @Inject constructor(
                 _uiState.value.jobs, userLatitude, userLongitude
             )
             withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(jobs = jobsWithDistance)
+                _uiState.value = _uiState.value.copy(jobs = applyRuntimeFlags(jobsWithDistance))
             }
         }
     }
@@ -528,6 +682,7 @@ class AllJobsViewModel @Inject constructor(
                                     Timber.w("📍 AllJobsVM: No user location set - distances will not be calculated")
                                 }
 
+                                processedJobs = applyRuntimeFlags(processedJobs)
                                 val lastSummaryId = summaries.lastOrNull()?.id
 
                                 _uiState.value = _uiState.value.copy(
@@ -600,6 +755,7 @@ class AllJobsViewModel @Inject constructor(
                         )
                     }
                     
+                    processedJobs = applyRuntimeFlags(processedJobs)
                     val lastSummaryId = summaries.lastOrNull()?.id
                     
                     _uiState.value = _uiState.value.copy(
@@ -671,8 +827,8 @@ class AllJobsViewModel @Inject constructor(
                         limit = limit, 
                         lastDocumentId = lastDocumentId,
                         category = firestoreCategory,
-                        userLatitude = userLatitude,
-                        userLongitude = userLongitude,
+                        userLatitude = if (hasValidUserLocation()) userLatitude else null,
+                        userLongitude = if (hasValidUserLocation()) userLongitude else null,
                         radiusKm = 10.0
                     ).collect { result ->
                         handleLoadMoreResult(result, limit)
@@ -697,9 +853,9 @@ class AllJobsViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = PAGE_SIZE, 
                     lastDocumentId = null,
-                    category = null,
-                    userLatitude = userLatitude,
-                    userLongitude = userLongitude,
+                    category = _initialCategory.value?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
+                    userLatitude = if (hasValidUserLocation()) userLatitude else null,
+                    userLongitude = if (hasValidUserLocation()) userLongitude else null,
                     radiusKm = 10.0
                 ).collect { result ->
                     result.fold(
@@ -711,6 +867,7 @@ class AllJobsViewModel @Inject constructor(
                                     processedJobs, userLatitude, userLongitude
                                 )
                             }
+                            processedJobs = applyRuntimeFlags(processedJobs)
                             
                             val lastSummaryId = summaries.lastOrNull()?.id
 
@@ -777,6 +934,7 @@ class AllJobsViewModel @Inject constructor(
                                     processedJobs, userLatitude, userLongitude
                                 )
                             }
+                            processedJobs = applyRuntimeFlags(processedJobs)
                             
                             _uiState.value = _uiState.value.copy(
                                 jobs = processedJobs,
@@ -835,6 +993,8 @@ class AllJobsViewModel @Inject constructor(
                     } else {
                         newJobs = _uiState.value.jobs + newJobs
                     }
+
+                    newJobs = applyRuntimeFlags(newJobs)
                     
                     val updatedList = PaginationHelper.appendJobs(
                         emptyList(), newJobs.distinctBy { it.jobId }, MAX_JOBS_IN_MEMORY

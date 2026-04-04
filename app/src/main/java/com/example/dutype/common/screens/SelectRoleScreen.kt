@@ -258,6 +258,40 @@ fun SelectRoleScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(tween(320, delayMillis = 60))
+            ) {
+                Text(
+                    text = "Choose your path. You can switch roles anytime.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = MeeshoFontFamily,
+                        color = Color(0xFF64748B),
+                        fontSize = 14.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(tween(350, delayMillis = 100))
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MiniInfoPill(text = "No spam")
+                    MiniInfoPill(text = "Private by default")
+                    MiniInfoPill(text = "Fast setup")
+                }
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             // Animated Cards at bottom
@@ -361,7 +395,7 @@ fun RoleCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(110.dp)
+                .height(118.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -372,17 +406,17 @@ fun RoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = containerColor.copy(alpha = 0.26f)),
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 2.dp,
-                pressedElevation = 4.dp
+                defaultElevation = 1.dp,
+                pressedElevation = 3.dp
             )
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Icon Container - Minimal and clean
@@ -390,13 +424,16 @@ fun RoleCard(
                     modifier = Modifier
                         .size(70.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(containerColor.copy(alpha = 0.1f))
-                        .border(1.dp, primaryColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
+                        .background(
+                            color = Color.White.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .border(1.dp, primaryColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = icon,
-                        fontSize = 40.sp
+                        fontSize = 38.sp
                     )
                 }
 
@@ -426,15 +463,42 @@ fun RoleCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Simple arrow icon
-                Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    tint = arrowColor,
-                    modifier = Modifier.size(28.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(primaryColor.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronRight,
+                        contentDescription = null,
+                        tint = arrowColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun MiniInfoPill(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFF8FAFC))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontFamily = MeeshoFontFamily,
+                color = Color(0xFF475569),
+                fontWeight = FontWeight.SemiBold
+            )
+        )
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.navigation.navDeepLink
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
+import com.example.dutype.employer.screens.EmployerPublicProfileScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
@@ -226,9 +227,11 @@ fun NavGraphBuilder.employerNavGraph(
         )
     ) { backStackEntry ->
         val employerId = backStackEntry.arguments?.getString("employerId") ?: ""
-        // For now, navigate to employer profile screen
-        // TODO: Create dedicated employer profile view screen for workers
-        EmployerProfileScreen(navController)
+        EmployerPublicProfileScreen(
+            navController = navController,
+            employerId = employerId,
+            onStatusBarColorChange = onStatusBarColorChange
+        )
     }
     
     // Analytics

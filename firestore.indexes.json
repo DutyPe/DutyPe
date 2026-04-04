@@ -44,6 +44,14 @@
       ]
     },
     {
+      "collectionGroup": "saved_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "workerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
@@ -83,6 +91,7 @@
         { "fieldPath": "referrerId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
     {
       "collectionGroup": "applications",
       "queryScope": "COLLECTION",
@@ -90,7 +99,6 @@
         { "fieldPath": "employerId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
-    },
     },
     {
       "collectionGroup": "referrals",

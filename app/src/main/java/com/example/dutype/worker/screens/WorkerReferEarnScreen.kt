@@ -56,8 +56,6 @@ fun WorkerReferEarnScreen(
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val analytics by viewModel.analytics.collectAsStateWithLifecycle()
-    val successStories by viewModel.successStories.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -70,8 +68,6 @@ fun WorkerReferEarnScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         viewModel.loadReferralData()
-        viewModel.loadAnalytics()
-        viewModel.loadSuccessStories()
         delay(100)
         isVisible = true
     }
@@ -248,7 +244,7 @@ fun WorkerReferEarnScreen(
                             visible = isVisible,
                             enter = fadeIn(tween(400)) + slideInVertically(tween(400))
                         ) {
-                            QRCodeSection(
+                            ReferralCodeSection(
                                 referralCode = uiState.stats?.referralCode ?: "",
                                 onCopyClick = {
                                     copyTextToClipboard(
@@ -300,30 +296,6 @@ Find local jobs near you and earn Rs.25 bonus!
                         }
                     }
                     
-                    // Analytics Dashboard (V2.0 Professional Feature)
-                    if (analytics != null && (analytics?.totalClicks ?: 0) > 0) {
-                        item {
-                            AnimatedVisibility(
-                                visible = isVisible,
-                                enter = fadeIn(tween(525, 125)) + slideInVertically(tween(525, 125))
-                            ) {
-                                AnalyticsDashboardCard(analytics = analytics!!)
-                            }
-                        }
-                    }
-                    
-                    // Success Stories (V2.0 Social Proof)
-                    if (successStories.isNotEmpty()) {
-                        item {
-                            AnimatedVisibility(
-                                visible = isVisible,
-                                enter = fadeIn(tween(540, 140)) + slideInVertically(tween(540, 140))
-                            ) {
-                                SuccessStoriesCard(stories = successStories)
-                            }
-                        }
-                    }
-                    
                     // Withdraw Button
                     if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= 50.0) {
                         item {
@@ -338,19 +310,7 @@ Find local jobs near you and earn Rs.25 bonus!
                             }
                         }
                     }
-                    
-                    // Progress to Next Milestone
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))
-                        ) {
-                            MilestoneProgressCard(
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
-                                nextMilestone = uiState.stats?.nextMilestone ?: 5
-                            )
-                        }
-                    }
+
  // Referral History
                     item {
                         AnimatedVisibility(
@@ -358,35 +318,6 @@ Find local jobs near you and earn Rs.25 bonus!
                             enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))
                         ) {
                             ReferralHistorySection(referralHistory = uiState.referralHistory)
-                        }
-                    }
-                    // How It Works
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))
-                        ) {
-                            HowItWorksSection()
-                        }
-                    }
-
-                    // Rewards
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(800, 400)) + slideInVertically(tween(800, 400))
-                        ) {
-                            RewardsSection()
-                        }
-                    }
-                    
-                    // Redemption Instructions
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(850, 450)) + slideInVertically(tween(850, 450))
-                        ) {
-                            RedemptionInstructionsSection()
                         }
                     }
 
@@ -498,7 +429,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
 }
 
 @Composable
-private fun QRCodeSection(
+private fun ReferralCodeSection(
     referralCode: String,
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit
@@ -522,20 +453,6 @@ private fun QRCodeSection(
                     color = Color(0xFF1F2937)
                 )
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Box(
-                modifier = Modifier.size(160.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = null,
-                    tint = Color(0xFF1F2937),
-                    modifier = Modifier.size(48.dp)
-                )
-            }
             
             Spacer(modifier = Modifier.height(16.dp))
             

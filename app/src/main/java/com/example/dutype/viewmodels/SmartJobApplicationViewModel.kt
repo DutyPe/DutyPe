@@ -57,6 +57,8 @@ class SmartJobApplicationViewModel @Inject constructor(
     
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
+    val appliedJobIds: StateFlow<Set<String>> = applicationStateManager.appliedJobIds
+    val applicationStatuses: StateFlow<Map<String, ApplicationStatus>> = applicationStateManager.applicationStatuses
 
     // =============================================================================
     // PROFILE COMPLETION STATE
@@ -145,6 +147,7 @@ class SmartJobApplicationViewModel @Inject constructor(
             jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
                 result.fold(
                     onSuccess = { applications: List<JobApplication> ->
+                        applicationStateManager.updateApplications(applications)
                         _legacyUiState.value = _legacyUiState.value.copy(
                             isLoading = false,
                             applications = applications
@@ -180,6 +183,7 @@ class SmartJobApplicationViewModel @Inject constructor(
                             isLoading = false,
                             applications = applications
                         )
+                        _uiState.value = _uiState.value.copy(applications = applications)
                     },
                     onFailure = { exception: Throwable ->
                         _legacyUiState.value = _legacyUiState.value.copy(
@@ -283,21 +287,24 @@ class SmartJobApplicationViewModel @Inject constructor(
             Timber.d("🚀 SmartJobApplicationViewModel: Calling applyForJob for user: ${currentUser.uid}")
             val result = jobApplicationService.applyForJob(jobId, currentUser.uid, coverLetter)
             result.onSuccess { application ->
+                val canonicalId = application.canonicalId
                 Timber.d("✅ SmartJobApplicationViewModel: Application successful! applicationId: ${application.id}")
+                val updatedApplications = listOf(application) + _legacyUiState.value.applications
+                    .filterNot { it.canonicalId == canonicalId || it.jobId == application.jobId }
                 _uiState.value = _uiState.value.copy(
                     isApplying = false,
                     isSubmitting = false,
                     lastApplication = application,
+                    applications = updatedApplications,
                     applicationSuccess = true,
                     submissionSuccess = true
                 )
                 _legacyUiState.value = _legacyUiState.value.copy(
                     isSubmitting = false,
                     submissionSuccess = true,
-                    applications = listOf(application) + _legacyUiState.value.applications
+                    applications = updatedApplications
                 )
-                // Update application state
-                applicationStateManager.addAppliedJob(jobId)
+                applicationStateManager.updateApplications(updatedApplications)
                 loadApplicationStats()
             }.onFailure { exception ->
                 Timber.e("❌ SmartJobApplicationViewModel: Application failed - ${exception.message}")
@@ -326,18 +333,22 @@ class SmartJobApplicationViewModel @Inject constructor(
             
             jobApplicationService.submitApplication(application)
                 .onSuccess { submittedApplication ->
+                    val canonicalId = submittedApplication.canonicalId
+                    val updatedApplications = listOf(submittedApplication) + _legacyUiState.value.applications
+                        .filterNot { it.canonicalId == canonicalId || it.jobId == submittedApplication.jobId }
                     _legacyUiState.value = _legacyUiState.value.copy(
                         isSubmitting = false,
                         submissionSuccess = true,
-                        applications = listOf(submittedApplication) + _legacyUiState.value.applications
+                        applications = updatedApplications
                     )
                     _uiState.value = _uiState.value.copy(
                         isSubmitting = false,
                         submissionSuccess = true,
+                        applications = updatedApplications,
                         lastApplication = submittedApplication,
                         applicationSuccess = true
                     )
-                    applicationStateManager.addAppliedJob(submittedApplication.jobId)
+                    applicationStateManager.updateApplications(updatedApplications)
                     loadApplicationStats()
                 }
                 .onFailure { exception ->
@@ -355,6 +366,11 @@ class SmartJobApplicationViewModel @Inject constructor(
      * Check if user has applied for a job
      */
     fun hasUserApplied(jobId: String, onResult: (Boolean) -> Unit) {
+        if (applicationStateManager.isJobApplied(jobId)) {
+            onResult(true)
+            return
+        }
+
         viewModelScope.launch {
             val currentUser = auth.currentUser
             if (currentUser == null) {
@@ -364,6 +380,9 @@ class SmartJobApplicationViewModel @Inject constructor(
             
             val result = jobApplicationService.hasUserApplied(jobId, currentUser.uid)
             result.onSuccess { hasApplied ->
+                if (hasApplied) {
+                    applicationStateManager.addAppliedJob(jobId)
+                }
                 onResult(hasApplied)
             }.onFailure { exception ->
                 Timber.e(exception, "Error checking application status")
@@ -408,7 +427,7 @@ class SmartJobApplicationViewModel @Inject constructor(
             result.onSuccess { withdrawnApplication ->
                 // Remove from local state
                 val updatedApplications = _legacyUiState.value.applications.filter { 
-                    it.id != applicationId 
+                    it.canonicalId != applicationId 
                 }
                 _uiState.value = _uiState.value.copy(
                     isWithdrawing = false,
@@ -419,8 +438,8 @@ class SmartJobApplicationViewModel @Inject constructor(
                     isSubmitting = false,
                     applications = updatedApplications
                 )
-                // Update application state - use jobId from the withdrawn application
-                applicationStateManager.removeAppliedJob(withdrawnApplication.jobId)
+                _uiState.value = _uiState.value.copy(applications = updatedApplications)
+                applicationStateManager.updateApplications(updatedApplications)
                 loadApplicationStats()
                 onResult(true, null)
             }.onFailure { exception: Throwable ->

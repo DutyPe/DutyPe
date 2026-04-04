@@ -37,6 +37,7 @@ data class ApplicationEntity(
     
     fun toJobApplication(): JobApplication {
         return JobApplication(
+            applicationId = applicationId,
             id = applicationId,
             jobId = jobId,
             workerId = workerId,
@@ -50,7 +51,8 @@ data class ApplicationEntity(
             jobTitle = jobTitle,
             jobLocation = jobLocation,
             companyName = companyName,
-            workerName = workerName
+            workerName = workerName,
+            coverLetter = coverLetter.orEmpty()
         )
     }
     
@@ -67,8 +69,9 @@ data class ApplicationEntity(
     
     companion object {
         fun fromJobApplication(app: JobApplication): ApplicationEntity {
+            val canonicalId = app.canonicalId.ifBlank { "${app.jobId}_${app.workerId}" }
             return ApplicationEntity(
-                applicationId = app.id,
+                applicationId = canonicalId,
                 jobId = app.jobId,
                 workerId = app.workerId,
                 employerId = app.employerId,
@@ -79,7 +82,7 @@ data class ApplicationEntity(
                 jobLocation = app.jobLocation,
                 companyName = app.companyName,
                 workerName = app.workerName,
-                coverLetter = null
+                coverLetter = app.coverLetter.takeIf { it.isNotBlank() }
             )
         }
         
@@ -91,7 +94,8 @@ data class ApplicationEntity(
             workerName: String,
             jobTitle: String,
             companyName: String,
-            jobLocation: String
+            jobLocation: String,
+            coverLetter: String? = null
         ): ApplicationEntity {
             val now = System.currentTimeMillis()
             return ApplicationEntity(
@@ -106,7 +110,7 @@ data class ApplicationEntity(
                 jobLocation = jobLocation,
                 companyName = companyName,
                 workerName = workerName,
-                coverLetter = null,
+                coverLetter = coverLetter,
                 cachedAt = now,
                 isSynced = false,
                 isPendingSubmission = true

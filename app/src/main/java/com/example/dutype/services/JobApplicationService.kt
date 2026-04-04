@@ -1,5 +1,8 @@
 package com.example.dutype.services
 
+import com.example.dutype.database.dao.ApplicationDao
+import com.example.dutype.database.dao.JobDao
+import com.example.dutype.database.entity.ApplicationEntity
 import timber.log.Timber
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
@@ -7,7 +10,9 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.ApplicationStats
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.utils.NetworkUtils
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.utils.RetryUtils
@@ -19,7 +24,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import java.util.UUID
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,6 +45,8 @@ import javax.inject.Singleton
 @Singleton
 class JobApplicationService @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val jobDao: JobDao,
+    private val applicationDao: ApplicationDao,
     private val notificationService: NotificationService,
     private val profileCompletionService: ProfileCompletionService,
     private val applicationStateManager: ApplicationStateManager,
@@ -47,6 +57,117 @@ class JobApplicationService @Inject constructor(
 ) {
     
     private val applicationsCollection = "applications"
+
+    private fun JobApplication.withCanonicalId(
+        fallbackId: String = if (jobId.isNotBlank() && workerId.isNotBlank()) "${jobId}_${workerId}" else ""
+    ): JobApplication {
+        val resolvedId = canonicalId.ifBlank { fallbackId }
+        return if (resolvedId.isBlank()) this else copy(applicationId = resolvedId, id = resolvedId)
+    }
+
+    private fun Map<String, Any>.stringValue(vararg keys: String): String {
+        for (key in keys) {
+            val value = this[key]?.toString()?.trim()
+            if (!value.isNullOrBlank()) {
+                return value
+            }
+        }
+        return ""
+    }
+
+    private fun isOfflineRecoverableError(error: Throwable?): Boolean {
+        if (error == null) return false
+        return when (error) {
+            is UnknownHostException,
+            is ConnectException,
+            is SocketTimeoutException,
+            is IOException -> true
+            is FirebaseFirestoreException -> error.code in setOf(
+                FirebaseFirestoreException.Code.UNAVAILABLE,
+                FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+                FirebaseFirestoreException.Code.ABORTED
+            )
+            else -> NetworkUtils.isRetryableError(error)
+        }
+    }
+
+    private fun isAlreadyAppliedError(error: Throwable?): Boolean {
+        return error?.message?.contains("already applied", ignoreCase = true) == true
+    }
+
+    private suspend fun getLocalJobDetails(jobId: String): Map<String, Any>? {
+        val localJob = jobDao.getJobById(jobId) ?: return null
+        return mapOf(
+            "employerId" to localJob.employerId,
+            "status" to localJob.status,
+            "expiresAt" to localJob.expiresAt,
+            "title" to localJob.title,
+            "companyName" to "",
+            "addressText" to localJob.addressText
+        )
+    }
+
+    private suspend fun getJobDetailsWithLocalFallback(jobId: String): Result<Map<String, Any>> {
+        val remoteResult = getJobDetails(jobId)
+        if (remoteResult.isSuccess) {
+            return remoteResult
+        }
+
+        val localData = getLocalJobDetails(jobId)
+        return if (localData != null) {
+            Result.success(localData)
+        } else {
+            remoteResult
+        }
+    }
+
+    private suspend fun getLocalApplications(workerId: String, limit: Int = 200): List<JobApplication> {
+        return applicationDao.getApplicationsByWorkerWithLimit(workerId, limit)
+            .map { it.toJobApplication().withCanonicalId(it.applicationId) }
+    }
+
+    private fun mergeWorkerApplications(
+        remoteApplications: List<JobApplication>,
+        localApplications: List<JobApplication>
+    ): List<JobApplication> {
+        val merged = linkedMapOf<String, JobApplication>()
+
+        localApplications.forEach { application ->
+            val normalized = application.withCanonicalId()
+            merged[normalized.canonicalId] = normalized
+        }
+
+        remoteApplications.forEach { application ->
+            val normalized = application.withCanonicalId()
+            merged[normalized.canonicalId] = normalized
+        }
+
+        return merged.values.sortedByDescending { it.appliedAt }
+    }
+
+    private suspend fun cacheApplicationsLocally(applications: List<JobApplication>) {
+        if (applications.isEmpty()) return
+        applicationDao.insertApplications(
+            applications.map { ApplicationEntity.fromJobApplication(it.withCanonicalId()) }
+        )
+    }
+
+    private suspend fun queueApplicationLocally(application: JobApplication) {
+        val normalized = application.withCanonicalId()
+        applicationDao.queueApplication(
+            ApplicationEntity.createPendingApplication(
+                applicationId = normalized.canonicalId,
+                jobId = normalized.jobId,
+                workerId = normalized.workerId,
+                employerId = normalized.employerId,
+                workerName = normalized.workerName,
+                jobTitle = normalized.jobTitle,
+                companyName = normalized.companyName,
+                jobLocation = normalized.jobLocation,
+                coverLetter = normalized.coverLetter.takeIf { it.isNotBlank() }
+            )
+        )
+    }
 
     private fun toEpochMillis(value: Any?): Long {
         return when (value) {
@@ -72,8 +193,8 @@ class JobApplicationService @Inject constructor(
     /**
      * Get unread notification count for a user (lightweight query for badge)
      */
-    suspend fun getUnreadNotificationCount(userId: String): Int {
-        return notificationService.getUnreadNotificationCount(userId).getOrDefault(0)
+    suspend fun getUnreadNotificationCount(userId: String, activeRole: String? = null): Int {
+        return notificationService.getUnreadNotificationCount(userId, activeRole).getOrDefault(0)
     }
     
     /**
@@ -85,7 +206,8 @@ class JobApplicationService @Inject constructor(
         val hasAlreadyApplied: Boolean,
         val isProfileComplete: Boolean,
         val hasReachedLimit: Boolean,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        val allowOfflineFallback: Boolean = false
     )
     
     /**
@@ -135,7 +257,8 @@ class JobApplicationService @Inject constructor(
                 hasAlreadyApplied = false,
                 isProfileComplete = false,
                 hasReachedLimit = false,
-                errorMessage = e.message ?: "Failed to check application eligibility"
+                errorMessage = e.message ?: "Failed to check application eligibility",
+                allowOfflineFallback = isOfflineRecoverableError(e)
             )
         }
     }
@@ -173,9 +296,12 @@ class JobApplicationService @Inject constructor(
             // PERFORMANCE FIX: Use batch pre-check instead of sequential calls
             val preCheck = preApplicationCheck(jobId, userId)
             
-            if (!preCheck.canApply) {
+            if (!preCheck.canApply && !preCheck.allowOfflineFallback) {
                 Timber.w("G��n+� JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
                 return Result.failure(Exception(preCheck.errorMessage ?: "Cannot apply for this job"))
+            }
+            if (preCheck.allowOfflineFallback) {
+                Timber.w("JobApplicationService.applyForJob - Pre-check unavailable, continuing with offline-safe apply")
             }
             
             Timber.d("=��� JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
@@ -206,10 +332,10 @@ class JobApplicationService @Inject constructor(
     private suspend fun applyDirectly(
         jobId: String,
         userId: String,
-        @Suppress("UNUSED_PARAMETER") coverLetter: String?
+        coverLetter: String?
     ): Result<JobApplication> {
         return try {
-            val jobResult = getJobDetails(jobId)
+            val jobResult = getJobDetailsWithLocalFallback(jobId)
             if (jobResult.isFailure) {
                 return Result.failure(jobResult.exceptionOrNull() ?: Exception("Job not found"))
             }
@@ -218,6 +344,9 @@ class JobApplicationService @Inject constructor(
             val employerId = jobData["employerId"] as? String ?: ""
             val jobStatus = normalizeJobStatus(jobData)
             val expiresAt = toEpochMillis(jobData["expiresAt"])
+            val jobTitle = jobData.stringValue("title", "jobTitle")
+            val companyName = jobData.stringValue("companyName", "company", "employerName")
+            val jobLocation = jobData.stringValue("addressText", "jobLocation", "location")
 
             if (employerId.isBlank()) {
                 return Result.failure(Exception("Job is missing employer information"))
@@ -233,21 +362,26 @@ class JobApplicationService @Inject constructor(
 
             val application = JobApplication(
                 applicationId = "${jobId}_${userId}",  // deterministic ID = prevents double-apply
+                id = "${jobId}_${userId}",
                 jobId = jobId,
                 workerId = userId,
                 employerId = employerId,
                 status = ApplicationStatus.PENDING,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                jobTitle = jobTitle,
+                jobLocation = jobLocation,
+                companyName = companyName,
+                coverLetter = coverLetter.orEmpty()
             )
 
             // Save application
-            val saveResult = submitApplication(application)
+            val saveResult = submitApplication(application, allowOfflineQueue = true)
             if (saveResult.isSuccess) {
                 // Update state manager
                 applicationStateManager.addAppliedJob(jobId)
 
                 Timber.d("=📋 OPTIMIZED APPLY: Success! Application saved with clean schema")
-                Result.success(application)
+                Result.success(saveResult.getOrNull()?.withCanonicalId(application.canonicalId) ?: application)
             } else {
                 Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
             }
@@ -264,6 +398,9 @@ class JobApplicationService @Inject constructor(
     suspend fun hasUserApplied(jobId: String, userId: String): Result<Boolean> {
         return try {
             Timber.d("=��� JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
+            if (applicationDao.hasWorkerApplied(userId, jobId)) {
+                return Result.success(true)
+            }
             RetryUtils.retryWithBackoffResult {
                 val snapshot = firestore.collection(applicationsCollection)
                     .document("${jobId}_${userId}")
@@ -339,16 +476,18 @@ class JobApplicationService @Inject constructor(
      * Update job application count - REMOVED (applicationCount not in target schema)
      * Count is derived by querying applications collection where jobId == X
      */
-    suspend fun submitApplication(application: JobApplication): Result<JobApplication> {
+    suspend fun submitApplication(
+        application: JobApplication,
+        allowOfflineQueue: Boolean = true
+    ): Result<JobApplication> {
+        val docId = application.canonicalId.ifBlank { "${application.jobId}_${application.workerId}" }
+        val appWithId = application.withCanonicalId(docId)
+
+        if (appWithId.jobId.isBlank() || appWithId.workerId.isBlank() || appWithId.employerId.isBlank()) {
+            return Result.failure(IllegalArgumentException("Invalid application payload"))
+        }
+
         return try {
-            // Use jobId_workerId as document ID to enforce uniqueness (prevents double-apply)
-            val docId = "${application.jobId}_${application.workerId}"
-            val appWithId = application.copy(applicationId = docId)
-
-            if (appWithId.jobId.isBlank() || appWithId.workerId.isBlank() || appWithId.employerId.isBlank()) {
-                return Result.failure(IllegalArgumentException("Invalid application payload"))
-            }
-
             RetryUtils.retryWithBackoffResult {
                 val docRef = firestore.collection(applicationsCollection).document(docId)
                 firestore.runTransaction { transaction ->
@@ -360,12 +499,20 @@ class JobApplicationService @Inject constructor(
                 Result.success(Unit)
             }.getOrThrow()
 
+            cacheApplicationsLocally(listOf(appWithId))
+
             // Notify employer only
             notificationService.sendNewApplicationNotification(appWithId, appWithId.employerId)
 
             Result.success(appWithId)
         } catch (e: Exception) {
-            Result.failure(e)
+            if (allowOfflineQueue && !isAlreadyAppliedError(e) && isOfflineRecoverableError(e)) {
+                queueApplicationLocally(appWithId)
+                Timber.w(e, "JobApplicationService.submitApplication - queued offline application ${appWithId.canonicalId}")
+                Result.success(appWithId)
+            } else {
+                Result.failure(e)
+            }
         }
     }
     
@@ -376,6 +523,7 @@ class JobApplicationService @Inject constructor(
     fun getWorkerApplications(workerId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
             Timber.d("[Applications] Getting applications for workerId: $workerId")
+            val localApplications = getLocalApplications(workerId)
             
             // Try simple query first (without ordering to avoid index issues)
             val simpleSnapshot = try {
@@ -392,15 +540,15 @@ class JobApplicationService @Inject constructor(
             if (simpleSnapshot != null && !simpleSnapshot.isEmpty) {
                 val applications = simpleSnapshot.documents.mapNotNull { doc ->
                     try {
-                        doc.toJobApplicationOrNull()
+                        doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
                     } catch (e: Exception) {
                         Timber.e(e, "[Applications] Failed to parse document ${doc.id}")
                         null
                     }
                 }
 
-                val sortedApplications = applications.sortedByDescending { it.appliedAt }
-                emit(Result.success(sortedApplications))
+                cacheApplicationsLocally(applications)
+                emit(Result.success(mergeWorkerApplications(applications, localApplications)))
                 return@flow
             }
             
@@ -424,18 +572,22 @@ class JobApplicationService @Inject constructor(
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toJobApplicationOrNull()
+                    doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
                 } catch (e: Exception) {
                     null
                 }
             }
             
-            // Sort in memory if needed
-            val sortedApplications = applications.sortedByDescending { it.appliedAt }
-            emit(Result.success(sortedApplications))
+            cacheApplicationsLocally(applications)
+            emit(Result.success(mergeWorkerApplications(applications, localApplications)))
         } catch (e: Exception) {
             Timber.e(e, "[Applications] Error getting applications for workerId: $workerId")
-            emit(Result.failure(e))
+            val localApplications = getLocalApplications(workerId)
+            if (localApplications.isNotEmpty()) {
+                emit(Result.success(localApplications.sortedByDescending { it.appliedAt }))
+            } else {
+                emit(Result.failure(e))
+            }
         }
     }.flowOn(Dispatchers.IO)
     
@@ -581,6 +733,7 @@ class JobApplicationService @Inject constructor(
      */
     fun getApplicationsByStatus(workerId: String, status: ApplicationStatus): Flow<Result<List<JobApplication>>> = flow {
         try {
+            val localApplications = getLocalApplications(workerId).filter { it.status == status }
             val snapshot = firestore.collection(applicationsCollection)
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("status", status.toFirestoreValue())
@@ -588,15 +741,21 @@ class JobApplicationService @Inject constructor(
 
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {
-                    doc.toJobApplicationOrNull()
+                    doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
                 } catch (e: Exception) {
                     null
                 }
             }
             
-            emit(Result.success(applications))
+            cacheApplicationsLocally(applications)
+            emit(Result.success(mergeWorkerApplications(applications, localApplications).filter { it.status == status }))
         } catch (e: Exception) {
-            emit(Result.failure(e))
+            val localApplications = getLocalApplications(workerId).filter { it.status == status }
+            if (localApplications.isNotEmpty()) {
+                emit(Result.success(localApplications.sortedByDescending { it.appliedAt }))
+            } else {
+                emit(Result.failure(e))
+            }
         }
     }.flowOn(Dispatchers.IO)
     
@@ -605,6 +764,9 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun hasWorkerAppliedToJob(workerId: String, jobId: String): Result<Boolean> {
         return try {
+            if (applicationDao.hasWorkerApplied(workerId, jobId)) {
+                return Result.success(true)
+            }
             // Doc ID is jobId_workerId - direct lookup is O(1), no index needed
             RetryUtils.retryWithBackoffResult {
                 val docId = "${jobId}_${workerId}"
@@ -621,6 +783,17 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun withdrawApplication(applicationId: String, workerId: String): Result<JobApplication> {
         return try {
+            val localApplication = applicationDao.getApplicationById(applicationId)
+            if (localApplication != null && localApplication.workerId == workerId && localApplication.isPendingSubmission) {
+                applicationDao.deleteApplicationById(applicationId)
+                applicationStateManager.removeAppliedJob(localApplication.jobId)
+                return Result.success(
+                    localApplication.toJobApplication()
+                        .withCanonicalId(localApplication.applicationId)
+                        .copy(status = ApplicationStatus.WITHDRAWN)
+                )
+            }
+
             RetryUtils.retryWithBackoffResult {
                 val docRef = firestore.collection(applicationsCollection).document(applicationId)
                 val doc = docRef.get().await()
@@ -651,6 +824,10 @@ class JobApplicationService @Inject constructor(
                 docRef.update(
                     "status", ApplicationStatus.WITHDRAWN.toFirestoreValue()
                 ).await()
+
+                applicationDao.insertApplication(
+                    ApplicationEntity.fromJobApplication(updatedApplication.withCanonicalId(currentApplication.canonicalId))
+                )
                 
                 // Update state manager
                 applicationStateManager.removeAppliedJob(currentApplication.jobId)
@@ -680,56 +857,37 @@ class JobApplicationService @Inject constructor(
                     .await()
                 
                 if (doc.exists()) {
-                    val application = doc.toJobApplicationOrNull()
-                    Result.success(application?.copy(applicationId = doc.id))
+                    val application = doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
+                    if (application != null) {
+                        cacheApplicationsLocally(listOf(application))
+                    }
+                    Result.success(application)
                 } else {
-                    Result.success(null)
+                    val localApplication = applicationDao.getApplicationById(applicationId)
+                    Result.success(localApplication?.toJobApplication()?.withCanonicalId(localApplication.applicationId))
                 }
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            val localApplication = applicationDao.getApplicationById(applicationId)
+            if (localApplication != null) {
+                Result.success(localApplication.toJobApplication().withCanonicalId(localApplication.applicationId))
+            } else {
+                Result.failure(e)
+            }
         }
     }
 
     /**
      * Fetches all job applications for a specific worker.
      */
-    fun getApplicationsForWorker(workerId: String): Flow<Result<List<JobApplication>>> = flow {
-        try {
-            val querySnapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("workerId", workerId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(200)
-                .get()
-                .await()
-
-            val applications = querySnapshot.documents.mapNotNull { document ->
-                document.toJobApplicationOrNull()
-            }
-            emit(Result.success(applications))
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }
+    fun getApplicationsForWorker(workerId: String): Flow<Result<List<JobApplication>>> = getWorkerApplications(workerId)
     
     /**
      * Get application statistics for a worker
      */
     suspend fun getWorkerApplicationStats(workerId: String): Result<ApplicationStats> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("workerId", workerId)
-                .limit(200)
-                .get()
-                .await()
-            
-            val applications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toJobApplicationOrNull()
-                } catch (e: Exception) {
-                    null
-                }
-            }
+            val applications = getWorkerApplications(workerId).first().getOrNull() ?: emptyList()
             
             val stats = ApplicationStats(
                 totalApplications = applications.size,
@@ -1204,6 +1362,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getAppliedJobIds(workerId: String): Result<Set<String>> {
         return try {
+            val localAppliedJobIds = applicationDao.getAppliedJobIds(workerId).toSet()
             RetryUtils.retryWithBackoffResult {
                 val snapshot = firestore.collection(applicationsCollection)
                     .whereEqualTo("workerId", workerId)
@@ -1213,12 +1372,17 @@ class JobApplicationService @Inject constructor(
                 
                 val appliedJobIds = snapshot.documents.mapNotNull { doc ->
                     doc.getString("jobId")
-                }.toSet()
+                }.toSet() + localAppliedJobIds
                 
                 Result.success(appliedJobIds)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            val localAppliedJobIds = applicationDao.getAppliedJobIds(workerId).toSet()
+            if (localAppliedJobIds.isNotEmpty()) {
+                Result.success(localAppliedJobIds)
+            } else {
+                Result.failure(e)
+            }
         }
     }
 

@@ -291,7 +291,7 @@ class ReferralViewModel @Inject constructor(
  * UI State for Referral screens
  */
 data class ReferralUiState(
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val error: String? = null,
     val stats: ReferralStats? = null,
     val referralHistory: List<Referral> = emptyList(),

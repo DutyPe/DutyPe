@@ -10,41 +10,95 @@ import java.util.Date
  * No legacy field aliases, no backward-compat fallbacks.
  */
 
+private fun mapToEpochMillis(value: Any?): Long {
+    return when (value) {
+        is Timestamp -> value.toDate().time
+        is Number -> value.toLong()
+        is Date -> value.time
+        else -> 0L
+    }
+}
+
+private fun mapToSalaryDouble(value: Any?): Double {
+    return when (value) {
+        is Number -> value.toDouble()
+        is String -> {
+            val cleaned = value.replace("₹", "").replace(",", "").trim()
+            val numbers = Regex("\\d+(?:\\.\\d+)?")
+                .findAll(cleaned)
+                .mapNotNull { it.value.toDoubleOrNull() }
+                .toList()
+
+            when {
+                numbers.isEmpty() -> 0.0
+                cleaned.contains("-") && numbers.size >= 2 -> (numbers[0] + numbers[1]) / 2.0
+                else -> numbers.first()
+            }
+        }
+        else -> 0.0
+    }
+}
+
+private fun normalizeJobStatus(status: Any?, isActive: Any?, isFilled: Any?): String {
+    val explicit = status?.toString()?.trim()?.lowercase()
+    if (explicit in listOf("open", "closed", "expired")) return explicit!!
+
+    val active = isActive as? Boolean
+    val filled = isFilled as? Boolean
+    return if (active == true && filled != true) "open" else "closed"
+}
+
+private fun normalizeSalaryType(primary: Any?, fallback: Any?): String {
+    val value = primary?.toString()?.trim().orEmpty()
+        .ifBlank { fallback?.toString()?.trim().orEmpty() }
+        .uppercase()
+    return if (value.isBlank()) "DAILY" else value
+}
+
 /**
  * Convert Map<String, Any?> to JobListing.
  * Reads only canonical schema field names.
  */
 @Suppress("UNCHECKED_CAST")
 fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
-    fun toEpochMillis(value: Any?): Long {
-        return when (value) {
-            is Timestamp -> value.toDate().time
-            is Number -> value.toLong()
-            is Date -> value.time
-            else -> 0L
+    val locationMap = this["location"] as? Map<*, *>
+    val lat = (locationMap?.get("lat") as? Number)?.toDouble()
+        ?: (this["latitude"] as? Number)?.toDouble()
+        ?: 0.0
+    val lng = (locationMap?.get("lng") as? Number)?.toDouble()
+        ?: (this["longitude"] as? Number)?.toDouble()
+        ?: 0.0
+
+    val salary = mapToSalaryDouble(this["salary"]).takeIf { it > 0.0 }
+        ?: mapToSalaryDouble(this["payAmount"])
+
+    val normalizedStatus = normalizeJobStatus(
+        status = this["status"],
+        isActive = this["isActive"],
+        isFilled = this["isFilled"]
+    )
+
+    val addressText = (this["addressText"] as? String).orEmpty().ifBlank {
+        (this["companyCity"] as? String).orEmpty().ifBlank {
+            (this["location"] as? String).orEmpty()
         }
     }
 
-    val locationMap = this["location"] as? Map<*, *>
-    val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
-    val lng = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
-    val salary = (this["salary"] as? Number)?.toDouble() ?: 0.0
-    val status = (this["status"] as? String)?.lowercase()?.let {
-        if (it in listOf("open", "closed", "expired")) it else "open"
-    } ?: "open"
+    val description = (this["description"] as? String).orEmpty()
+    val normalizedJobType = (this["jobType"] as? String)
+        ?.takeIf { it.isNotBlank() }
+        ?: com.example.dutype.utils.CategoryDetector.detectCategory(
+            (this["title"] as? String) ?: "",
+            description
+        )
 
     return JobListing(
         id = (this["jobId"] as? String) ?: (this["id"] as? String) ?: "",
         employerId = (this["employerId"] as? String) ?: "",
         title = (this["title"] as? String) ?: "",
         salary = salary,
-        salaryType = (this["salaryType"] as? String) ?: "",
-        jobType = (this["jobType"] as? String)
-            ?.takeIf { it.isNotBlank() }
-            ?: com.example.dutype.utils.CategoryDetector.detectCategory(
-                (this["title"] as? String) ?: "",
-                (this["description"] as? String) ?: ""
-            ),
+        salaryType = normalizeSalaryType(this["salaryType"], this["payType"]),
+        jobType = normalizedJobType,
         geohash = (this["geohash"] as? String) ?: "",
         urgency = (this["urgency"] as? String) ?: "MEDIUM",
         gender = (this["gender"] as? String) ?: "Any",
@@ -52,19 +106,21 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         shiftTiming = (this["shiftTiming"] as? String) ?: "Flexible",
         isVerified = (this["isVerified"] as? Boolean) ?: false,
         applicationCount = (this["applicationCount"] as? Number)?.toInt() ?: 0,
-        status = status,
-        createdAt = toEpochMillis(this["createdAt"]).takeIf { it > 0L } ?: System.currentTimeMillis(),
-        expiresAt = toEpochMillis(this["expiresAt"]).takeIf { it > 0L }
+        status = normalizedStatus,
+        createdAt = mapToEpochMillis(this["createdAt"]).takeIf { it > 0L } ?: System.currentTimeMillis(),
+        expiresAt = mapToEpochMillis(this["expiresAt"]).takeIf { it > 0L }
             ?: (System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)),
         lat = lat,
         lng = lng,
-        companyName = (this["companyName"] as? String) ?: "",
+        companyName = (this["companyName"] as? String)
+            ?: (this["employerName"] as? String)
+            ?: "",
         // job_details fields (runtime only, loaded on click)
-        description = (this["description"] as? String) ?: "",
+        description = description,
         contactNumber = (this["contactNumber"] as? String) ?: "",
         whatsappNumber = (this["whatsappNumber"] as? String) ?: "",
-        location = (this["addressText"] as? String) ?: "",
-        addressText = (this["addressText"] as? String) ?: "",
+        location = addressText,
+        addressText = addressText,
         vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,
         workingHours = (this["workingHours"] as? String) ?: "",
         educationRequired = (this["educationRequired"] as? String) ?: "",
@@ -80,25 +136,51 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
  */
 fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingSummary {
     val locationMap = this["location"] as? Map<*, *>
-    val lat = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
-    val lng = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
-    val salary = (this["salary"] as? Number)?.toDouble() ?: 0.0
+    val lat = (locationMap?.get("lat") as? Number)?.toDouble()
+        ?: (this["latitude"] as? Number)?.toDouble()
+        ?: 0.0
+    val lng = (locationMap?.get("lng") as? Number)?.toDouble()
+        ?: (this["longitude"] as? Number)?.toDouble()
+        ?: 0.0
+
+    val salary = mapToSalaryDouble(this["salary"]).takeIf { it > 0.0 }
+        ?: mapToSalaryDouble(this["payAmount"])
+
+    val normalizedStatus = normalizeJobStatus(
+        status = this["status"],
+        isActive = this["isActive"],
+        isFilled = this["isFilled"]
+    )
+
+    val title = (this["title"] as? String) ?: ""
+    val description = (this["description"] as? String) ?: ""
+    val normalizedJobType = (this["jobType"] as? String)
+        ?.takeIf { it.isNotBlank() }
+        ?: com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
+
+    val companyCity = (this["companyCity"] as? String).orEmpty().ifBlank {
+        (this["addressText"] as? String).orEmpty().ifBlank {
+            (this["location"] as? String).orEmpty()
+        }
+    }
+
     val docId = (this["jobId"] as? String) ?: (this["documentId"] as? String) ?: (this["id"] as? String) ?: ""
 
     return JobListingSummary(
         id = docId,
         employerId = (this["employerId"] as? String) ?: "",
-        title = (this["title"] as? String) ?: "",
-        jobType = (this["jobType"] as? String) ?: "",
+        title = title,
+        jobType = normalizedJobType,
         salary = salary,
-        salaryType = (this["salaryType"] as? String) ?: "",
+        salaryType = normalizeSalaryType(this["salaryType"], this["payType"]),
         geohash = (this["geohash"] as? String) ?: "",
         urgency = (this["urgency"] as? String) ?: "MEDIUM",
-        status = (this["status"] as? String) ?: "open",
-        createdAt = (this["createdAt"] as? Number)?.toLong() ?: 0L,
-        expiresAt = (this["expiresAt"] as? Number)?.toLong() ?: 0L,
+        status = normalizedStatus,
+        createdAt = mapToEpochMillis(this["createdAt"]),
+        expiresAt = mapToEpochMillis(this["expiresAt"]),
         lat = lat,
         lng = lng,
+        companyCity = companyCity,
         distance = (this["distance"] as? Number)?.toDouble(),
         isSaved = isSaved
     )
@@ -114,7 +196,7 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     employerId = employerId,
     title = title,
     salary = salary,
-    salaryType = salaryType,
+    salaryType = salaryType.uppercase().ifBlank { "DAILY" },
     jobType = jobType,
     geohash = geohash,
     urgency = urgency,
@@ -123,6 +205,8 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     expiresAt = expiresAt,
     lat = lat,
     lng = lng,
+    location = companyCity,
+    addressText = companyCity,
     distance = distance,
     isSaved = isSaved
 )

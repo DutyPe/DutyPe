@@ -235,18 +235,30 @@ service cloud.firestore {
 
     // saved_jobs
     match /saved_jobs/{saveId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Support legacy docs that used workerId and avoid false PERMISSION_DENIED on missing docs.
+      function savedJobOwnerFromData(data) {
+        return ('userId' in data && data.userId == request.auth.uid) ||
+          ('workerId' in data && data.workerId == request.auth.uid);
+      }
+
+      function saveIdOwnedByCaller() {
+        return saveId.matches('^' + request.auth.uid + '_.*$');
+      }
+
+      allow get: if isSignedIn() &&
+        (savedJobOwnerFromData(resource.data) || saveIdOwnedByCaller());
       allow list: if isSignedIn();
 
       allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['id', 'userId', 'jobId', 'createdAt']) &&
-        request.resource.data.keys().hasAll(['id', 'userId', 'jobId', 'createdAt']) &&
-        request.resource.data.id == saveId &&
-        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['id', 'userId', 'workerId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['jobId', 'createdAt']) &&
+        (!('id' in request.resource.data) || request.resource.data.id == saveId) &&
+        savedJobOwnerFromData(request.resource.data) &&
         request.resource.data.createdAt is timestamp &&
-        saveId == (request.resource.data.userId + '_' + request.resource.data.jobId);
+        saveIdOwnedByCaller();
 
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() &&
+        (savedJobOwnerFromData(resource.data) || saveIdOwnedByCaller());
       allow update: if false;
     }
 

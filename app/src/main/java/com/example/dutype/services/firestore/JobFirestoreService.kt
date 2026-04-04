@@ -65,8 +65,30 @@ class JobFirestoreService @Inject constructor(
     private fun toSalaryDouble(value: Any?): Double {
         return when (value) {
             is Number -> value.toDouble()
-            is String -> value.replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
+            is String -> {
+                val cleaned = value.replace(",", "").replace("₹", "").trim()
+                val numbers = Regex("\\d+(?:\\.\\d+)?")
+                    .findAll(cleaned)
+                    .mapNotNull { it.value.toDoubleOrNull() }
+                    .toList()
+
+                when {
+                    numbers.isEmpty() -> 0.0
+                    cleaned.contains("-") && numbers.size >= 2 -> (numbers[0] + numbers[1]) / 2.0
+                    else -> numbers.first()
+                }
+            }
             else -> 0.0
+        }
+    }
+
+    private fun extractCityFromAddress(rawAddress: String): String {
+        val parts = rawAddress.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        return when {
+            parts.isEmpty() -> ""
+            parts.size >= 3 -> parts[parts.size - 2]
+            parts.size == 2 -> parts[1]
+            else -> parts[0]
         }
     }
     
@@ -100,11 +122,29 @@ class JobFirestoreService @Inject constructor(
         currentTime: Long = System.currentTimeMillis()
     ): Map<String, Any> {
         val locationMap = data["location"] as? Map<*, *>
-        val latitude = (locationMap?.get("lat") as? Number)?.toDouble() ?: 0.0
-        val longitude = (locationMap?.get("lng") as? Number)?.toDouble() ?: 0.0
-        val salary = toSalaryDouble(data["salary"])
-        val salaryType = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
+        val latitude = (locationMap?.get("lat") as? Number)?.toDouble()
+            ?: (data["latitude"] as? Number)?.toDouble()
+            ?: 0.0
+        val longitude = (locationMap?.get("lng") as? Number)?.toDouble()
+            ?: (data["longitude"] as? Number)?.toDouble()
+            ?: 0.0
+        val salary = toSalaryDouble(data["salary"]).takeIf { it > 0.0 }
+            ?: toSalaryDouble(data["payAmount"])
+        val salaryType = normalizeString(data["salaryType"])
+            .ifBlank { normalizeString(data["payType"]) }
+            .uppercase()
+            .ifBlank { "DAILY" }
         val createdAtMillis = toEpochMillis(data["createdAt"]).takeIf { it > 0L } ?: currentTime
+
+        // Extract city with fallback across canonical and legacy location fields.
+        val companyCity = normalizeString(data["companyCity"]).ifBlank {
+            val inlineAddress = normalizeString(data["addressText"]).ifBlank {
+                normalizeString(data["address"]).ifBlank {
+                    normalizeString(data["location"])
+                }
+            }
+            extractCityFromAddress(inlineAddress)
+        }
 
         return mapOf(
             "jobId" to docId,
@@ -118,7 +158,8 @@ class JobFirestoreService @Inject constructor(
             "createdAt" to createdAtMillis,
             "expiresAt" to toEpochMillis(data["expiresAt"]),
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
-            "status" to normalizeReadStatus(data)
+            "status" to normalizeReadStatus(data),
+            "companyCity" to companyCity  // NEW: Include city for display
         )
     }
 
@@ -220,6 +261,7 @@ class JobFirestoreService @Inject constructor(
             val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
             val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { null }
+            val companyCity = extractCityFromAddress(addressText)
 
             val providedLocation = jobData["location"] as? Map<*, *>
             val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
@@ -269,6 +311,7 @@ class JobFirestoreService @Inject constructor(
                 "applicationCount" to 0,
                 "location" to location,
                 "geohash" to geohash,
+                "companyCity" to companyCity,
                 "status" to "open",
                 "createdAt" to createdAt,
                 "expiresAt" to expiresAt
@@ -689,6 +732,7 @@ class JobFirestoreService @Inject constructor(
                 val addressText = normalizeString(data["addressText"])
                 if (addressText.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
                 detailsUpdates["addressText"] = addressText
+                coreUpdates["companyCity"] = extractCityFromAddress(addressText)
             }
             if (data.containsKey("jobType")) {
                 val jobType = normalizeString(data["jobType"])

@@ -591,6 +591,7 @@ class ReferralService @Inject constructor(
                             "SILVER" -> ReferralTier.SILVER
                             "GOLD" -> ReferralTier.GOLD
                             "PLATINUM" -> ReferralTier.PLATINUM
+                            "DIAMOND", "ELITE" -> ReferralTier.DIAMOND
                             else -> ReferralTier.BRONZE
                         }
                     )

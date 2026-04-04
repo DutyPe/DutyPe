@@ -1252,12 +1252,66 @@ class ProfileCompletionService @Inject constructor(
     private suspend fun updateReferrerStats(referrerUserId: String, rewardAmount: Double) {
         Timber.d("REFERRAL: Strict schema mode - updateReferrerStats skipped for $referrerUserId")
     }
+
+    private fun com.example.dutype.models.ReferralStats.toMap(): Map<String, Any?> = mapOf(
+        "userId" to userId,
+        "userRole" to userRole,
+        "referralCode" to referralCode,
+        "totalReferrals" to totalReferrals,
+        "successfulReferrals" to successfulReferrals,
+        "pendingReferrals" to pendingReferrals,
+        "expiredReferrals" to expiredReferrals,
+        "rejectedReferrals" to rejectedReferrals,
+        "totalEarnings" to totalEarnings,
+        "pendingEarnings" to pendingEarnings,
+        "withdrawnAmount" to withdrawnAmount,
+        "availableBalance" to availableBalance,
+        "canWithdraw" to canWithdraw,
+        "nextMilestone" to nextMilestone,
+        "currentTier" to currentTier.name,
+        "freeJobPostings" to freeJobPostings,
+        "freeJobPostingsExpiry" to freeJobPostingsExpiry,
+        "lastUpdated" to lastUpdated,
+        "referredByCode" to referredByCode,
+        "referredByUserId" to referredByUserId,
+        "lastWithdrawalAt" to lastWithdrawalAt,
+        "totalWithdrawals" to totalWithdrawals,
+        "isBlocked" to isBlocked,
+        "blockReason" to blockReason
+    )
+
+    private fun com.example.dutype.models.Referral.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "referrerId" to referrerUserId,
+        "referredUserId" to referredUserId,
+        "referralCode" to referralCode,
+        "status" to status.name,
+        "rewardAmount" to rewardAmount,
+        "bonusAmount" to bonusAmount,
+        "referredUserReward" to referredUserReward,
+        "createdAt" to createdAt,
+        "completedAt" to completedAt,
+        "deviceFingerprint" to deviceFingerprint,
+        "referredUserName" to referredUserName,
+        "referredUserRole" to referredUserRole
+    )
     
     /**
      * Get referral stats for current user
      */
     suspend fun getReferralStats(): Result<Map<String, Any>?> {
-        return Result.success(null)
+        return try {
+            referralService.getCurrentUserReferralStats().fold(
+                onSuccess = { stats ->
+                    @Suppress("UNCHECKED_CAST")
+                    Result.success(stats.toMap() as Map<String, Any>)
+                },
+                onFailure = { Result.failure(it) }
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting referral stats")
+            Result.failure(e)
+        }
     }
     
     /**
@@ -1266,18 +1320,10 @@ class ProfileCompletionService @Inject constructor(
      * Aligns with Firestore schema and Cloud Function referral data model
      */
     suspend fun getReferralHistory(limit: Int = 20): Result<List<Map<String, Any>>> {
-        val userId = auth.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
-        
         return try {
-            val querySnapshot = firestore.collection(COLLECTION_REFERRALS)
-                .whereEqualTo("referrerId", userId)  // FIXED: Use canonical field name
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(limit.toLong())
-                .get()
-                .await()
-            
-            val referrals = querySnapshot.documents.mapNotNull { it.data }
-            Result.success(referrals)
+            val history = referralService.getReferralHistory(limit)
+            @Suppress("UNCHECKED_CAST")
+            Result.success(history.map { it.toMap() as Map<String, Any> })
         } catch (e: Exception) {
             Timber.e(e, "Error getting referral history")
             Result.failure(e)

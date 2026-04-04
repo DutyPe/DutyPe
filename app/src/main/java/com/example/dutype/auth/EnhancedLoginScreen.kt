@@ -201,6 +201,7 @@ private fun OtpLoginScreen(
                     )
                     otpViewModel.resetState()
                     return@LaunchedEffect
+                    /*
 
                     val userId = currentUser.uid
 
@@ -311,6 +312,7 @@ private fun OtpLoginScreen(
                         
                         navigateToProfileSetup(role, navController)
                     }
+                    */
                 } else {
                     // No Firebase user - go back to role selection
                     navController.navigate(Routes.SELECT_ROLE) {
@@ -371,8 +373,8 @@ private fun OtpLoginScreen(
                                     isCheckingPhone = true
 
                                     // Login-only: check if user exists
-                                    val userExists = FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    if (!userExists) {
+                                    when (FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                        FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
                                         isCheckingPhone = false
                                         Toast.makeText(
                                             context,
@@ -381,6 +383,11 @@ private fun OtpLoginScreen(
                                         ).show()
                                         Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
                                         return@launch
+                                        }
+                                        FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                            Timber.w("📱 Login pre-check unavailable, continuing with OTP flow")
+                                        }
+                                        FirestoreUtils.PhoneExistenceResult.EXISTS -> Unit
                                     }
 
                                     isCheckingPhone = false

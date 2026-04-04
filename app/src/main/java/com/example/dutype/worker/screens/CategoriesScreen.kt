@@ -165,8 +165,8 @@ fun CategoriesScreen(
                     hasMore = uiState.hasMore,
                     isLoading = uiState.isLoading,
                     isLoadingMore = uiState.isLoadingMore,
-                    suggestedCities = remember(currentLocation) {
-                        TopCityChips.buildTopLocationChips(currentLocation)
+                    suggestedCities = remember(currentLocation, uiState.jobs) {
+                        TopCityChips.buildTopLocationChips(currentLocation, uiState.jobs)
                     },
                     onLocationChipClick = { cityChip ->
                         val selectedLocation = TopCityChips.toLocationData(cityChip)

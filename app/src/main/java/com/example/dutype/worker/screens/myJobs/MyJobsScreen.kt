@@ -76,6 +76,9 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.models.JobApplication
+import com.example.dutype.components.EmptyListState
+import com.example.dutype.components.EmptySearchState
+import com.example.dutype.components.EmptyStateAction
 import timber.log.Timber
 import com.example.dutype.worker.components.JobApplicationCard
 import com.example.dutype.components.JobCardShimmer
@@ -166,13 +169,9 @@ fun MyJobsScreen(
         // Refresh applications when switching to Applied Jobs tab
         if (selectedTabIndex == 0) {
             jobApplicationViewModel.loadMyApplications()
+        } else if (selectedTabIndex == 1) {
+            savedJobViewModel.loadSavedJobs()
         }
-    }
-    
-    // Load saved jobs and applications once when component mounts
-    LaunchedEffect(Unit) {
-        savedJobViewModel.loadSavedJobs()
-        // Applied jobs loaded via tab switch LaunchedEffect above (selectedTabIndex starts at 0)
     }
 
     Column(
@@ -327,14 +326,26 @@ fun MyJobsScreen(
                             }
                         }
                         filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(WorkerColors.ScreenBackground),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                EmptyAppliedJobsState(navController = navController)
-                            }
+                            EmptyListState(
+                                icon = Icons.Default.Work,
+                                title = stringResource(R.string.no_applications_yet),
+                                subtitle = stringResource(R.string.apply_to_jobs_to_track),
+                                actionButton = EmptyStateAction(
+                                    label = stringResource(R.string.find_jobs),
+                                    icon = Icons.Default.Search,
+                                    onClick = {
+                                        // Navigate to home tab to browse jobs
+                                        runCatching {
+                                            navController.navigate(Routes.WORKER_HOME_TAB) {
+                                                popUpTo(Routes.WORKER_HOME_TAB) { inclusive = false }
+                                                launchSingleTop = true
+                                            }
+                                        }.onFailure { error ->
+                                            Timber.e(error, "Failed to navigate to home tab from my jobs")
+                                        }
+                                    }
+                                )
+                            )
                         }
                         else -> {
                             ScrollAwareLazyColumn(
@@ -352,12 +363,17 @@ fun MyJobsScreen(
                             ) {
                                 if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
                                     item {
-                                        EmptySearchResults(searchQuery = searchQuery)
+                                        EmptySearchState(
+                                            searchQuery = searchQuery,
+                                            onClearSearch = { 
+                                                searchQuery = ""
+                                            }
+                                        )
                                     }
                                 } else {
                                     items(
                                         items = filteredApplications,
-                                        key = { application -> "myjobs_${application.id}" }
+                                        key = { application -> "myjobs_${application.canonicalId}" }
                                     ) { application ->
                                         JobApplicationCard(
                                             application = application,
@@ -379,7 +395,7 @@ fun MyJobsScreen(
                                             onStartWorkClick = { app ->
                                                 navController.navigate(Routes.workerWorkStartQRRoute(app.jobId))
                                             },
-                                            hasAlreadyRated = application.id in ratedApplicationIds
+                                            hasAlreadyRated = application.canonicalId in ratedApplicationIds
                                         )
                                     }
                                 }
@@ -425,7 +441,7 @@ fun MyJobsScreen(
                 TextButton(
                     onClick = {
                         applicationToWithdraw?.let { app ->
-                            jobApplicationViewModel.withdrawApplication(app.id) { success, error ->
+                            jobApplicationViewModel.withdrawApplication(app.canonicalId) { success, error ->
                                 if (success) {
                                     Timber.d("Application withdrawn successfully")
                                 } else {
@@ -473,7 +489,7 @@ fun MyJobsScreen(
             applicationToRate?.let { app ->
                 ratingScope.launch {
                     val result = ratingService.submitRating(
-                        applicationId = app.id,
+                        applicationId = app.canonicalId,
                         jobId = app.jobId,
                         targetUserId = app.employerId,
                         targetUserName = app.companyName,
@@ -485,7 +501,7 @@ fun MyJobsScreen(
                     )
                     result.onSuccess { ratingResult ->
                         if (ratingResult.success) {
-                            ratedApplicationIds = ratedApplicationIds + app.id
+                            ratedApplicationIds = ratedApplicationIds + app.canonicalId
                         }
                     }
                     showRatingSheet = false
@@ -502,103 +518,10 @@ fun MyJobsScreen(
             val rated = mutableSetOf<String>()
             completedApps.forEach { app ->
                 if (ratingService.hasRated(app.jobId, app.employerId)) {
-                    rated.add(app.id)
+                    rated.add(app.canonicalId)
                 }
             }
             ratedApplicationIds = rated
-        }
-    }
-}
-
-@Composable
-fun EmptySearchResults(searchQuery: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.SearchOff,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color(0xFF9CA3AF)
-            )
-            Text(
-                text = stringResource(R.string.no_results_found),
-                style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
-                    color = Color(0xFF374151)
-                )
-            )
-            Text(
-                text = stringResource(R.string.no_jobs_match, searchQuery),
-                style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280)
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-fun EmptyAppliedJobsState(navController: NavHostController? = null) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Work,
-                contentDescription = null,
-                modifier = Modifier.size(56.dp),
-                tint = Color(0xFF9CA3AF)
-            )
-            Text(
-                text = stringResource(R.string.no_applications_yet),
-                style = com.example.dutype.ui.theme.AppTypography.emptyStateTitle.copy(
-                    color = Color(0xFF374151)
-                )
-            )
-            Text(
-                text = stringResource(R.string.apply_to_jobs_to_track),
-                style = com.example.dutype.ui.theme.AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280)
-                ),
-                textAlign = TextAlign.Center
-            )
-            Button(
-                onClick = {
-                    // Use WORKER_HOME_TAB ("home") for navigation within worker bottom nav
-                    navController?.navigate(Routes.WORKER_HOME_TAB) {
-                        popUpTo(Routes.WORKER_HOME_TAB) { inclusive = false }
-                        launchSingleTop = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(0.6f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.find_jobs),
-                    style = com.example.dutype.ui.theme.AppTypography.buttonMedium
-                )
-            }
         }
     }
 }

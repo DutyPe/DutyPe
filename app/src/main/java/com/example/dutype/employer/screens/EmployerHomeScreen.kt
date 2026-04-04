@@ -87,7 +87,6 @@ import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -170,9 +169,6 @@ fun EmployerHomeScreen(
     var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }
     var showBirthdayBanner by remember { mutableStateOf(false) }
     
-    // Job vacancy status tracking
-    var jobVacancyStatuses by remember { mutableStateOf<Map<String, JobVacancyStatus>>(emptyMap()) }
-    
     // State for sharing and job actions
     var jobToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
     var jobToToggle by remember { mutableStateOf<String?>(null) }
@@ -213,7 +209,10 @@ fun EmployerHomeScreen(
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         currentUser?.uid?.let { userId ->
             try {
-                val result = notificationService.getUnreadNotificationCount(userId)
+                val result = notificationService.getUnreadNotificationCount(
+                    userId = userId,
+                    activeRole = "EMPLOYER"
+                )
                 result.onSuccess { count ->
                     unreadNotificationCount = count
                 }
@@ -236,21 +235,6 @@ fun EmployerHomeScreen(
             }
         }
     }
-    
-    // PERFORMANCE FIX: Load job vacancy statuses in BATCH instead of N+1 pattern
-    // TODO: Re-enable when JobApplicationService can be properly injected
-    // LaunchedEffect(employerJobUiState.myJobs) {
-    //     val jobIds = employerJobUiState.myJobs.map { it.id }
-    //     if (jobIds.isNotEmpty()) {
-    //         Timber.d("EmployerHomeScreen - Loading vacancy status for ${jobIds.size} jobs in BATCH")
-    //         jobApplicationService.getJobVacancyStatusBatch(jobIds).onSuccess { statusMap ->
-    //             Timber.d("EmployerHomeScreen - Batch loaded ${statusMap.size} vacancy statuses")
-    //             jobVacancyStatuses = jobVacancyStatuses + statusMap
-    //         }.onFailure { e ->
-    //             Timber.w("EmployerHomeScreen - Batch vacancy status failed: ${e.message}")
-    //         }
-    //     }
-    // }
     
     // Note: We don't track views for employers viewing their own jobs
     
@@ -415,8 +399,7 @@ fun EmployerHomeScreen(
                 scrollStateManager = scrollStateManager,
                 onToggleJob = handleJobToggle,
                 onShareJob = handleJobShare,
-                context = context,
-                jobVacancyStatuses = jobVacancyStatuses
+                context = context
             )
         }
 
@@ -497,7 +480,6 @@ fun DashboardContent(
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -543,8 +525,7 @@ fun DashboardContent(
                     onTabSwitch = { /* No longer needed */ },
                     onToggleJob = onToggleJob,
                     onShareJob = onShareJob,
-                    context = context,
-                    jobVacancyStatuses = jobVacancyStatuses
+                    context = context
                 )
             }
             
@@ -856,8 +837,7 @@ fun RecentJobsSection(
     onTabSwitch: (Int) -> Unit,
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
-    context: android.content.Context,
-    jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap()
+    context: android.content.Context
 ) {
     Column {
         Row(

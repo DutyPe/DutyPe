@@ -48,6 +48,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.dutype.app.R
+import com.example.dutype.components.EmptyLocationState
+import com.example.dutype.components.EmptySearchState
 
 /**
  * AllJobsScreen - Displays all available jobs with infinite scroll
@@ -324,8 +326,8 @@ fun AllJobsScreen(
             }
             
             filteredJobs.isEmpty() && !uiState.isLoading -> {
-                val suggestedCities = remember(currentLocation) {
-                    TopCityChips.buildTopLocationChips(currentLocation)
+                val suggestedCities = remember(currentLocation, uiState.jobs) {
+                    TopCityChips.buildTopLocationChips(currentLocation, uiState.jobs)
                 }
                 EmptyState(
                     searchQuery = searchQuery,
@@ -579,128 +581,31 @@ private fun EmptyState(
 ) {
     val isLocationEmpty = searchQuery.isBlank()
 
-    val humorMessages = remember {
-        listOf(
-            "We checked 10km and 15km around you. Jobs are on a chai break ☕\nTry a different area!",
-            "Crickets... 🦗 No jobs match this spot.\nChange location and try again!",
-            "Jobs are playing hide & seek 🙈\nThey're definitely somewhere else!",
-            "Your area is on a job vacation 🏖️\nPick another city and get back to work!"
+    if (searchQuery.isNotBlank()) {
+        // Show search empty state for search queries
+        EmptySearchState(
+            searchQuery = searchQuery,
+            onClearSearch = { /* Parent handles clearing */ }
         )
-    }
-    val humorMessage = remember { humorMessages.random() }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isLocationEmpty) "📍" else "🔍",
-                    fontSize = 40.sp
-                )
-            }
-
-            Text(
-                text = if (searchQuery.isNotBlank()) "No results for \"$searchQuery\""
-                else "No $selectedChip nearby",
-                style = AppTypography.emptyStateTitle.copy(color = Color(0xFF374151)),
-                textAlign = TextAlign.Center
-            )
-
-            Text(
-                text = if (searchQuery.isNotBlank())
-                    "Try different keywords or clear the search."
-                else
-                    humorMessage,
-                style = AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280),
-                    textAlign = TextAlign.Center
-                )
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            if (isLocationEmpty && suggestedCities.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(suggestedCities) { chip ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { onLocationChipClick(chip) },
-                            label = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(chip.city)
-                                }
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
-                                labelColor = Color(0xFF1F2937)
-                            )
-                        )
-                    }
+    } else {
+        // Show location empty state for location misses
+        EmptyLocationState(
+            categoryFilter = selectedChip,
+            suggestedCities = suggestedCities.map { it.city },
+            onChangeLocation = {
+                val locationNavController = rootNavController ?: navController
+                kotlin.runCatching {
+                    locationNavController?.navigate(Routes.MANUAL_LOCATION_ROUTE)
+                }.onFailure {
+                    Timber.e(it, "AllJobsScreen: Failed to navigate to manual location route")
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Location CTA — only when it's not a search-query miss
-            if (isLocationEmpty && navController != null) {
-                Button(
-                    onClick = {
-                        val locationNavController = rootNavController ?: navController
-                        kotlin.runCatching {
-                            locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                        }.onFailure {
-                            Timber.e(it, "AllJobsScreen: Failed to navigate to manual location route")
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Change Location",
-                        fontWeight = FontWeight.SemiBold
-                    )
+            },
+            onCitySuggestionClick = { city ->
+                suggestedCities.find { it.city == city }?.let { chip ->
+                    onLocationChipClick(chip)
                 }
             }
-
-            if (selectedChip != "All Jobs") {
-                TextButton(onClick = onViewAllJobs) {
-                    Text(
-                        text = "View All Jobs",
-                        color = Color(0xFF1F2937),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
+        )
     }
 }
 

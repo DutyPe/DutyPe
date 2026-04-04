@@ -2,6 +2,7 @@ package com.example.dutype.services.firestore
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.Query
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
@@ -63,7 +64,9 @@ class ApplicationFirestoreService @Inject constructor(
         return try {
             val saveId = "${workerId}_${jobId}"
             val payload = mapOf(
+                "id" to saveId,
                 "userId" to workerId,
+                "workerId" to workerId,
                 "jobId" to jobId,
                 "createdAt" to Timestamp.now()
             )
@@ -109,6 +112,10 @@ class ApplicationFirestoreService @Inject constructor(
                 .await()
             Result.success(savedDoc.exists())
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.w("saved_jobs read denied by rules for workerId=%s, jobId=%s; treating as not saved", workerId, jobId)
+                return Result.success(false)
+            }
             Timber.e(e, "Error checking if job is saved")
             Result.failure(e)
         }
@@ -120,15 +127,29 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
-            val savedJobsSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
+            val userIdSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
                 .whereEqualTo("userId", workerId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(200)
                 .get()
                 .await()
 
-            val savedJobIds = savedJobsSnapshot.documents
+            // Backward compatibility for older docs that stored owner as workerId.
+            val legacyWorkerSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
+                .whereEqualTo("workerId", workerId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(200)
+                .get()
+                .await()
+
+            val mergedSavedDocs = (userIdSnapshot.documents + legacyWorkerSnapshot.documents)
+                .associateBy { it.id }
+                .values
+                .toList()
+
+            val savedJobIds = mergedSavedDocs
                 .mapNotNull { it.getString("jobId") }
+                .distinct()
             
             if (savedJobIds.isEmpty()) {
                 return Result.success(emptyList())
@@ -139,7 +160,7 @@ class ApplicationFirestoreService @Inject constructor(
             
             for (chunk in savedJobIds.chunked(10)) {
                 val snapshot = firestore.collection(JOBS_COLLECTION)
-                    .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                    .whereIn(FieldPath.documentId(), chunk)
                     .get()
                     .await()
                 
@@ -147,15 +168,25 @@ class ApplicationFirestoreService @Inject constructor(
                     val data = doc.data
                     if (data != null) {
                         val expiresAt = toEpochMillis(data["expiresAt"])
-                        val isNotExpired = expiresAt == 0L || expiresAt > System.currentTimeMillis()
-                        if (normalizeReadStatus(data) == "open" && isNotExpired) {
-                            allJobs.add(data.toMutableMap().apply { put("jobId", doc.id) })
+                        val currentTime = System.currentTimeMillis()
+                        val normalizedStatus = normalizeReadStatus(data)
+                        val resolvedStatus = if (expiresAt > 0L && expiresAt <= currentTime) {
+                            "expired"
+                        } else {
+                            normalizedStatus
                         }
+
+                        // Saved jobs screen should show what the user saved, even if closed/expired.
+                        allJobs.add(data.toMutableMap().apply {
+                            put("jobId", doc.id)
+                            put("status", resolvedStatus)
+                            put("expiresAt", expiresAt)
+                        })
                     }
                 }
             }
             
-            val sortedJobs = allJobs.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
+            val sortedJobs = allJobs.sortedByDescending { toEpochMillis(it["createdAt"]) }
             Result.success(sortedJobs)
         } catch (e: Exception) {
             if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {

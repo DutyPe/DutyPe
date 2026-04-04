@@ -338,8 +338,11 @@ fun MandatoryEmployerProfileSetupScreen(
                                 userName = companyName,
                                 userId = notificationUser.uid,
                                 userRole = "EMPLOYER"
-                            )
-                            Timber.d("📬 Profile completion notification sent for employer (first time)")
+                            ).onSuccess {
+                                Timber.d("📬 Profile completion notification sent for employer (first time)")
+                            }.onFailure { error ->
+                                Timber.e(error, "📬 Employer profile completion notification failed")
+                            }
                             
                             // Register FCM token with role for push notifications
                             fcmTokenManager.registerTokenWithRole("EMPLOYER")

@@ -103,6 +103,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
@@ -143,11 +144,11 @@ fun JobDescriptionScreen(
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
     
-    // SIMPLE: Check saved status on-demand (like Naukri/Lokal Jobs)
-    var isSaved by remember { mutableStateOf(false) }
-    
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
+    val savedJobIds by savedJobsViewModel.savedJobIds.collectAsStateWithLifecycle()
+    val appliedJobIds by smartApplicationViewModel.appliedJobIds.collectAsStateWithLifecycle()
+    val applicationStatuses by smartApplicationViewModel.applicationStatuses.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     // DISABLED: Ads temporarily disabled
@@ -184,24 +185,34 @@ fun JobDescriptionScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<String?>(null) } // "apply", "call", "message", "whatsapp"
     
-    // Application state
-    var hasApplied by remember { mutableStateOf(false) }
-    var applicationStatus by remember { mutableStateOf<String?>(null) }
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
     
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    val resolvedJobId = remember(jobId, job?.id, job?.jobId) {
+        when {
+            !job?.id.isNullOrBlank() -> job?.id.orEmpty()
+            !job?.jobId.isNullOrBlank() -> job?.jobId.orEmpty()
+            else -> jobId
+        }
+    }
+    val isSaved = remember(savedJobIds, resolvedJobId, job?.isSaved) {
+        (job?.isSaved == true) || resolvedJobId in savedJobIds
+    }
+    val currentApplicationStatus = remember(applicationStatuses, appliedJobIds, resolvedJobId) {
+        applicationStatuses[resolvedJobId]
+            ?: if (resolvedJobId in appliedJobIds) ApplicationStatus.PENDING else null
+    }
+    val hasApplied = currentApplicationStatus != null
+    val applicationStatus = currentApplicationStatus?.name
     
-    // Consolidated: Check saved status + hasApplied on screen load
-    LaunchedEffect(jobId, currentUser) {
+    // Prime shared saved/apply state for direct-entry detail screens
+    LaunchedEffect(jobId, currentUser?.uid) {
         if (jobId.isNotEmpty()) {
-            savedJobsViewModel.isJobSaved(jobId) { saved -> isSaved = saved }
+            savedJobsViewModel.isJobSaved(jobId) { }
         }
         if (currentUser != null && jobId.isNotEmpty()) {
-            smartApplicationViewModel.hasUserApplied(jobId) { applied ->
-                hasApplied = applied
-                if (applied) applicationStatus = "APPLIED"
-            }
+            smartApplicationViewModel.hasUserApplied(jobId) { }
         }
     }
     
@@ -211,8 +222,6 @@ fun JobDescriptionScreen(
     // Consolidated: Handle application success and error
     LaunchedEffect(applicationUiState.applicationSuccess, applicationUiState.error) {
         if (applicationUiState.applicationSuccess) {
-            hasApplied = true
-            applicationStatus = "PENDING"
             snackbarMessage = "Application submitted successfully!"
             showSnackbar = true
             smartApplicationViewModel.clearSuccessStates()
@@ -319,14 +328,12 @@ fun JobDescriptionScreen(
                                     pendingAction = "save"
                                     showLoginBottomSheet = true
                                 } else {
-                                    // SIMPLE: Toggle local state + update Firestore (like Naukri/Lokal Jobs)
-                                    isSaved = !isSaved
                                     if (isSaved) {
-                                        savedJobsViewModel.saveJob(currentJob.id)
-                                        snackbarMessage = "Job saved!"
-                                    } else {
-                                        savedJobsViewModel.unsaveJob(currentJob.id)
+                                        savedJobsViewModel.unsaveJob(resolvedJobId)
                                         snackbarMessage = "Job removed from saved!"
+                                    } else {
+                                        savedJobsViewModel.saveJob(resolvedJobId)
+                                        snackbarMessage = "Job saved!"
                                     }
                                     showSnackbar = true
                                 }
@@ -461,9 +468,7 @@ fun JobDescriptionScreen(
                     job?.let { currentJob ->
                         scope.launch {
                             try {
-                                // SIMPLE: Update local state + Firestore
-                                isSaved = true
-                                savedJobsViewModel.saveJob(currentJob.id)
+                                savedJobsViewModel.saveJob(currentJob.id.ifBlank { currentJob.jobId })
                                 snackbarMessage = "Job saved!"
                                 showSnackbar = true
                             } catch (e: Exception) {

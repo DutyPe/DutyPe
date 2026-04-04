@@ -2,6 +2,7 @@ package com.example.dutype.services.firestore
 
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -357,13 +358,13 @@ class UserFirestoreService @Inject constructor(
             
             for (chunk in chunks) {
                 val query = firestore.collection(USERS_COLLECTION)
-                    .whereIn("id", chunk)
+                    .whereIn(FieldPath.documentId(), chunk)
                     .get()
                     .await()
                 
-                val summaries = query.documents.mapNotNull { doc ->
+                val summariesById = query.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
-                    mapOf<String, Any?>(
+                    doc.id to mapOf<String, Any?>(
                         "id" to doc.id,
                         "fullName" to data["fullName"],
                         "phone" to data["phone"],
@@ -371,8 +372,8 @@ class UserFirestoreService @Inject constructor(
                         "roles" to data["roles"],
                         "activeRole" to data["activeRole"]
                     )
-                }
-                allSummaries.addAll(summaries)
+                }.toMap()
+                allSummaries.addAll(chunk.mapNotNull { summariesById[it] })
             }
             
             Result.success(allSummaries)

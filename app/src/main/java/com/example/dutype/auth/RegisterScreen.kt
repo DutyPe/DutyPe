@@ -279,8 +279,8 @@ private fun RegisterContent(
                                     isCheckingPhone = true
 
                                     // Check if user already exists
-                                    val userExists = FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    if (userExists) {
+                                    when (FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                        FirestoreUtils.PhoneExistenceResult.EXISTS -> {
                                         isCheckingPhone = false
                                         Toast.makeText(
                                             context,
@@ -289,6 +289,11 @@ private fun RegisterContent(
                                         ).show()
                                         Timber.w("📱 REGISTER blocked - User already exists: $fullPhoneNumber")
                                         return@launch
+                                        }
+                                        FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                            Timber.w("📱 Register pre-check unavailable, continuing with OTP flow")
+                                        }
+                                        FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> Unit
                                     }
 
                                     isCheckingPhone = false
@@ -1043,14 +1048,14 @@ private fun RegisterOtpInputBoxes(
                     modifier = Modifier
                         .size(48.dp)
                         .background(
-                            color = if (isFilledIndex) WorkerColors.SuccessLight else WorkerColors.CardBackground,
+                            color = WorkerColors.CardBackground,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .border(
                             width = 2.dp,
                             color = when {
                                 isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.Success
+                                isFilledIndex -> WorkerColors.TextPrimary
                                 else -> WorkerColors.Border
                             },
                             shape = RoundedCornerShape(8.dp)

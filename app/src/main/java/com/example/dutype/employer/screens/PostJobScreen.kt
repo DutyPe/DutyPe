@@ -834,10 +834,17 @@ fun PostJobScreen(
     }
 
     // Professional color palette
-    val primaryBlue = Color(0xFF2563EB)
-    val successGreen = Color(0xFF10B981)
+    val primaryBlue = Color(0xFF0F766E)
+    val successGreen = Color(0xFF059669)
     val lightGray = Color(0xFFF8FAFC)
     val darkText = Color(0xFF1E293B)
+    val pageBackground = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFFFFFDF7),
+            Color(0xFFF4F9FF),
+            Color(0xFFF6FFF9)
+        )
+    )
     
     // ANTI-FRAUD: Location Consistency Warning Dialog
     if (showLocationWarningDialog) {
@@ -1116,7 +1123,7 @@ fun PostJobScreen(
     }
 
     Scaffold(
-        containerColor = lightGray,
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Surface(
@@ -1275,7 +1282,7 @@ fun PostJobScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(lightGray)
+                .background(pageBackground)
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(paddingValues)
         ) {
@@ -1838,9 +1845,9 @@ fun EnhancedJobTitleSection(
         "Other" to "\u2795"
     )
     
-    // Update isOtherSelected when title changes
+    // Only show the custom text field when the user explicitly selects "Other"
     LaunchedEffect(title) {
-        isOtherSelected = title == "Other" || !predefinedJobTitles.any { it.first == title }
+        isOtherSelected = title == "Other"
     }
     
     PolishedCard {

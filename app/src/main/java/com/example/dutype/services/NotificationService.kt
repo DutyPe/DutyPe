@@ -380,7 +380,13 @@ class NotificationService @Inject constructor(
      * Mark all notifications as read for a user
      */
     suspend fun markAllNotificationsAsRead(userId: String): Result<Unit> {
+        return markAllNotificationsAsRead(userId, activeRole = null)
+    }
+
+    suspend fun markAllNotificationsAsRead(userId: String, activeRole: String?): Result<Unit> {
         return try {
+            val normalizedRole = activeRole?.uppercase()?.takeIf { it.isNotBlank() }
+
             // Firestore write batch hard limit is 500 docs; drain unread notifications in chunks.
             while (true) {
                 val snapshot = firestore.collection(notificationsCollection)
@@ -392,8 +398,17 @@ class NotificationService @Inject constructor(
 
                 if (snapshot.isEmpty) break
 
+                val now = System.currentTimeMillis()
+                val docsToUpdate = snapshot.documents.filter { doc ->
+                    normalizedRole == null || parseNotificationDocument(doc, normalizedRole, now) != null
+                }
+
+                if (docsToUpdate.isEmpty()) {
+                    break
+                }
+
                 val batch = firestore.batch()
-                snapshot.documents.forEach { doc ->
+                docsToUpdate.forEach { doc ->
                     batch.update(doc.reference, "isRead", true)
                 }
                 batch.commit().await()
@@ -409,15 +424,35 @@ class NotificationService @Inject constructor(
      * Get unread notification count
      */
     suspend fun getUnreadNotificationCount(userId: String): Result<Int> {
+        return getUnreadNotificationCount(userId, activeRole = null)
+    }
+
+    suspend fun getUnreadNotificationCount(userId: String, activeRole: String?): Result<Int> {
         return try {
-            // Use count() aggregation to avoid downloading documents
-            val countQuery = firestore.collection(notificationsCollection)
-                .whereEqualTo("recipientId", userId)
-                .whereEqualTo("isRead", false)
-                .count()
-            
-            val snapshot = countQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
-            Result.success(snapshot.count.toInt())
+            val normalizedRole = activeRole?.uppercase()?.takeIf { it.isNotBlank() }
+
+            if (normalizedRole == null) {
+                // Use count() aggregation to avoid downloading documents
+                val countQuery = firestore.collection(notificationsCollection)
+                    .whereEqualTo("recipientId", userId)
+                    .whereEqualTo("isRead", false)
+                    .count()
+
+                val snapshot = countQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
+                Result.success(snapshot.count.toInt())
+            } else {
+                val snapshot = firestore.collection(notificationsCollection)
+                    .whereEqualTo("recipientId", userId)
+                    .whereEqualTo("isRead", false)
+                    .get()
+                    .await()
+
+                val now = System.currentTimeMillis()
+                val count = snapshot.documents.count { doc ->
+                    parseNotificationDocument(doc, normalizedRole, now) != null
+                }
+                Result.success(count)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -631,6 +666,9 @@ class NotificationService @Inject constructor(
         val dataWithDeepLink = notification.data.toMutableMap().apply {
             put("deepLink", deepLink)
             put("notificationId", notification.id)
+            if (notification.targetRole.isNotBlank()) {
+                put("targetRole", notification.targetRole.uppercase())
+            }
         }
         
         // Save to Firestore - Cloud Function will handle FCM push notification
@@ -641,10 +679,22 @@ class NotificationService @Inject constructor(
         )
         Timber.d("Saving notification to Firestore...")
         Timber.d("Notification to save: $notificationWithRecipient")
+
+        // Match firestore.rules for /notifications create:
+        // allowed keys: recipientId, title, message, type, data, isRead, createdAt (timestamp)
+        val firestorePayload = hashMapOf<String, Any>(
+            "recipientId" to notificationWithRecipient.recipientId,
+            "title" to notificationWithRecipient.title,
+            "message" to notificationWithRecipient.message,
+            "type" to notificationWithRecipient.type.name,
+            "data" to notificationWithRecipient.data,
+            "isRead" to notificationWithRecipient.isRead,
+            "createdAt" to com.google.firebase.Timestamp(java.util.Date(notificationWithRecipient.createdAt))
+        )
         
         firestore.collection(notificationsCollection)
             .document(notificationWithRecipient.id)
-            .set(notificationWithRecipient)
+            .set(firestorePayload)
             .await()
         
         Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
@@ -773,10 +823,15 @@ class NotificationService @Inject constructor(
     }
 
     private fun inferRoleFromData(type: NotificationType, data: Map<String, Any>): String {
-        val action = data["action"]?.toString()?.uppercase() ?: ""
-        val userRole = data["userRole"]?.toString()?.uppercase() ?: ""
+        @Suppress("UNCHECKED_CAST")
+        val nestedData = data["data"] as? Map<String, Any>
+
+        val action = (nestedData?.get("action") ?: data["action"])?.toString()?.uppercase() ?: ""
+        val targetRole = (nestedData?.get("targetRole") ?: data["targetRole"])?.toString()?.uppercase() ?: ""
+        val userRole = (nestedData?.get("userRole") ?: data["userRole"])?.toString()?.uppercase() ?: ""
 
         return when {
+            targetRole in setOf("WORKER", "EMPLOYER") -> targetRole
             type == NotificationType.WORKER_HIRED && action == "VIEW_APPLICATIONS" -> "EMPLOYER"
             type == NotificationType.WORKER_HIRED -> "WORKER"
             type == NotificationType.PROFILE_COMPLETE && userRole.isNotBlank() -> userRole
@@ -835,6 +890,9 @@ class NotificationService @Inject constructor(
 
             @Suppress("UNCHECKED_CAST")
             val notificationDataMap = (data["data"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
+            val effectiveRole = (data["targetRole"]?.toString())
+                ?.takeIf { it.isNotBlank() }
+                ?: inferRoleFromData(type, data)
 
             NotificationData(
                 id = doc.id,
@@ -842,7 +900,7 @@ class NotificationService @Inject constructor(
                 title = data["title"]?.toString() ?: "",
                 message = data["message"]?.toString() ?: "",
                 type = type,
-                targetRole = data["targetRole"]?.toString() ?: "",
+                targetRole = effectiveRole,
                 data = notificationDataMap,
                 createdAt = createdAt,
                 expiresAt = expiresAt,

@@ -10,9 +10,11 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.dutype.database.dao.ApplicationDao
-import com.example.dutype.database.dao.JobDao
 import com.example.dutype.performance.PerformanceTracker
 import com.example.dutype.repositories.OfflineFirstJobRepository
+import com.example.dutype.services.JobApplicationService
+import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.utils.NetworkUtils
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import timber.log.Timber
@@ -40,8 +42,9 @@ class JobSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val offlineFirstJobRepository: OfflineFirstJobRepository,
-    private val jobDao: JobDao,
     private val applicationDao: ApplicationDao,
+    private val jobApplicationService: JobApplicationService,
+    private val applicationStateManager: ApplicationStateManager,
     private val performanceTracker: PerformanceTracker
 ) : CoroutineWorker(context, params) {
     
@@ -174,24 +177,47 @@ class JobSyncWorker @AssistedInject constructor(
             
             Timber.d("🔄 SYNC: Found ${pendingApplications.size} pending applications")
             
-            // TODO: Re-enable when applicationManagementService is injected
-            // var successCount = 0
-            // for (application in pendingApplications) {
-            //     try {
-            //         val result = applicationManagementService.submitApplication(...)
-            //         if (result.isSuccess) {
-            //             applicationDao.markAsSynced(application.applicationId)
-            //         }
-            //     } catch (e: Exception) {
-            //         Timber.w(e, "🔄 SYNC: Failed to submit application")
-            //     }
-            // }
-            
-            Timber.d("🔄 SYNC: Application sync temporarily disabled")
-            return kotlin.Result.success(0)
+            var successCount = 0
+            for (application in pendingApplications) {
+                val result = jobApplicationService.submitApplication(
+                    application = application.toJobApplication(),
+                    allowOfflineQueue = false
+                )
+
+                when {
+                    result.isSuccess -> {
+                        applicationDao.markAsSynced(application.applicationId)
+                        successCount++
+                    }
+
+                    result.exceptionOrNull()?.message?.contains("already applied", ignoreCase = true) == true -> {
+                        applicationDao.markAsSynced(application.applicationId)
+                        successCount++
+                    }
+
+                    result.exceptionOrNull()?.let(NetworkUtils::isRetryableError) == true -> {
+                        Timber.w(
+                            result.exceptionOrNull(),
+                            "🔄 SYNC: Keeping pending application ${application.applicationId} for retry"
+                        )
+                    }
+
+                    else -> {
+                        Timber.w(
+                            result.exceptionOrNull(),
+                            "🔄 SYNC: Dropping terminally invalid application ${application.applicationId}"
+                        )
+                        applicationDao.deleteApplicationById(application.applicationId)
+                        applicationStateManager.removeAppliedJob(application.jobId)
+                    }
+                }
+            }
+
+            Timber.d("🔄 SYNC: Submitted $successCount pending applications")
+            kotlin.Result.success(successCount)
             
         } catch (e: Exception) {
-            return kotlin.Result.failure(e)
+            kotlin.Result.failure(e)
         }
     }
     

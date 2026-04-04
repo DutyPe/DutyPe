@@ -137,5 +137,20 @@ fun NavGraphBuilder.commonNavGraph(
             workerId = workerId
         )
     }
+
+    // Employer Profile View (Public) - For viewing any employer's profile via deep link
+    composable(
+        route = Routes.EMPLOYER_PROFILE_VIEW,
+        arguments = listOf(navArgument("employerId") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val employerId = backStackEntry.arguments?.getString("employerId") ?: ""
+        Timber.d("CommonNavGraph: Opening employer profile view for employerId: $employerId")
+
+        com.example.dutype.employer.screens.EmployerPublicProfileScreen(
+            navController = navController,
+            employerId = employerId,
+            onStatusBarColorChange = onStatusBarColorChange
+        )
+    }
 }
 

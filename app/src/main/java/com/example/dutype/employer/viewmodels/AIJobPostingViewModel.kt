@@ -412,6 +412,18 @@ class AIJobPostingViewModel @Inject constructor(
             )
             val geohash = GeoUtils.encodeGeohash(coordinates.first, coordinates.second)
 
+            val cityFromAddress = state.location.trim().split(',')
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .let { parts ->
+                    when {
+                        parts.isEmpty() -> ""
+                        parts.size >= 3 -> parts[parts.size - 2]
+                        parts.size == 2 -> parts[1]
+                        else -> parts[0]
+                    }
+                }
+
             val jobData = hashMapOf<String, Any>(
                 "employerId" to employerId,
                 "companyName" to companyName,
@@ -426,6 +438,7 @@ class AIJobPostingViewModel @Inject constructor(
                 "applicationCount" to 0,
                 "location" to mapOf("lat" to coordinates.first, "lng" to coordinates.second),
                 "geohash" to geohash,
+                "companyCity" to cityFromAddress,
                 "status" to "open",
                 "createdAt" to createdAt,
                 "expiresAt" to expiresAt

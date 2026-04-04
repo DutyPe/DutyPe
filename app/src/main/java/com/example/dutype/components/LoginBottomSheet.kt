@@ -213,6 +213,7 @@ fun LoginBottomSheet(
                         }
                     )
                     return@LaunchedEffect
+                    /*
 
                     val userId = currentUser.uid
                     isCheckingProfile = true
@@ -343,6 +344,7 @@ fun LoginBottomSheet(
                         isCheckingProfile = false
                         onLoginSuccess()
                     }
+                    */
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📱 Error in login flow")
@@ -449,28 +451,34 @@ fun LoginBottomSheet(
                                     isCheckingPhone = true
                                     
                                     // PRE-OTP USER CHECK: Verify user existence before sending OTP
-                                    val userExists = com.example.dutype.utils.FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    
-                                    if (isRegistrationMode && userExists) {
-                                        // Registration mode but user exists - block registration
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "This number is already registered. Please use Login instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
-                                        return@launch
-                                    } else if (!isRegistrationMode && !userExists) {
-                                        // Login mode but user doesn't exist - block login
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "No account found with this number. Please Register first.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
-                                        return@launch
+                                    when (com.example.dutype.utils.FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS -> {
+                                            if (isRegistrationMode) {
+                                                isCheckingPhone = false
+                                                Toast.makeText(
+                                                    context,
+                                                    "This number is already registered. Please use Login instead.",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                                Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
+                                                return@launch
+                                            }
+                                        }
+                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
+                                            if (!isRegistrationMode) {
+                                                isCheckingPhone = false
+                                                Toast.makeText(
+                                                    context,
+                                                    "No account found with this number. Please Register first.",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                                Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
+                                                return@launch
+                                            }
+                                        }
+                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                            Timber.w("📱 Phone pre-check unavailable, continuing with OTP flow")
+                                        }
                                     }
                                     
                                     isCheckingPhone = false
@@ -1339,14 +1347,14 @@ fun OtpInputBoxes(
                         .weight(1f)
                         .height(56.dp)
                         .background(
-                            color = if (isFilledIndex) WorkerColors.SuccessLight else WorkerColors.CardBackground,
+                            color = WorkerColors.CardBackground,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .border(
                             width = 2.dp,
                             color = when {
                                 isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.Success
+                                isFilledIndex -> WorkerColors.TextPrimary
                                 else -> WorkerColors.Border
                             },
                             shape = RoundedCornerShape(8.dp)
