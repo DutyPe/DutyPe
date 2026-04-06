@@ -21,6 +21,15 @@ private fun Any?.toStringList(): List<String> {
 
 fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
     val data = data ?: return null
+    val resolvedCompanyName = listOf("companyName", "company", "employerName")
+        .firstNotNullOfOrNull { key -> data[key]?.toString()?.trim()?.takeIf { it.isNotBlank() } }
+        .orEmpty()
+    val resolvedTitle = listOf("jobTitle", "title")
+        .firstNotNullOfOrNull { key -> data[key]?.toString()?.trim()?.takeIf { it.isNotBlank() } }
+        .orEmpty()
+    val resolvedLocation = listOf("jobLocation", "addressText", "location")
+        .firstNotNullOfOrNull { key -> data[key]?.toString()?.trim()?.takeIf { it.isNotBlank() } }
+        .orEmpty()
 
     return JobApplication(
         applicationId = id,
@@ -32,9 +41,9 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
             data["status"]?.toString() ?: ApplicationStatus.PENDING.toFirestoreValue()
         ),
         createdAt = data["createdAt"].toEpochMillis().takeIf { it > 0L } ?: System.currentTimeMillis(),
-        jobTitle = data["jobTitle"]?.toString().orEmpty(),
-        jobLocation = data["jobLocation"]?.toString().orEmpty(),
-        companyName = data["companyName"]?.toString().orEmpty(),
+        jobTitle = resolvedTitle,
+        jobLocation = resolvedLocation,
+        companyName = resolvedCompanyName,
         workerName = data["workerName"]?.toString().orEmpty(),
         workerEmail = data["workerEmail"]?.toString(),
         workerPhone = data["workerPhone"]?.toString(),

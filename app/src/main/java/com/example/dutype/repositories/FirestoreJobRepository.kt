@@ -27,6 +27,20 @@ class FirestoreJobRepository @Inject constructor(
     private val jobCacheManager: com.example.dutype.cache.JobCacheManager
 ) {
 
+    private fun buildProgressiveRadii(baseRadiusKm: Double): List<Double> {
+        val normalizedBase = baseRadiusKm.coerceAtLeast(5.0)
+        val gradual = mutableListOf<Double>()
+        var current = normalizedBase
+        while (current <= 50.0) {
+            gradual.add(current)
+            current += 5.0
+        }
+
+        // Keep expanding to progressively farther jobs until dataset is exhausted.
+        val extended = listOf(75.0, 100.0, 150.0, 200.0, 300.0, 500.0, 1000.0)
+        return (gradual + extended).distinct().sorted()
+    }
+
     /**
      * Create a new job posting
      * SIMPLE: No cache invalidation needed
@@ -386,7 +400,7 @@ class FirestoreJobRepository @Inject constructor(
             val safeUserLatitude = userLatitude ?: return@flow
             val safeUserLongitude = userLongitude ?: return@flow
 
-            val isUnfilteredFirstPage = category.isNullOrBlank()
+            val isUnfilteredFirstPage = lastDocumentId.isNullOrBlank() && category.isNullOrBlank()
 
             // Show cached data instantly while the geohash query runs.
             if (isUnfilteredFirstPage) {
@@ -399,8 +413,8 @@ class FirestoreJobRepository @Inject constructor(
 
             val savedJobIds = getSavedJobIds()
 
-            // Primary radius (10 km by default).
-            val searchRadii = listOf(radiusKm, 25.0, 50.0).distinct().sorted()
+            // Progressive radius expansion for infinite scroll: 10, 15, 20, 25... then farther.
+            val searchRadii = buildProgressiveRadii(radiusKm)
             val mergedNearby = mutableListOf<JobListingSummary>()
             var resolvedPage: List<JobListingSummary> = emptyList()
 
@@ -456,6 +470,35 @@ class FirestoreJobRepository @Inject constructor(
 
             if (!lastDocumentId.isNullOrBlank() && resolvedPage.isEmpty()) {
                 Timber.w("📍 Cursor '$lastDocumentId' not found in expanded nearby set or no more jobs available")
+            }
+
+            if (resolvedPage.isEmpty() && lastDocumentId.isNullOrBlank()) {
+                Timber.w("📍 Nearby query returned no jobs. Falling back to non-geo query for first page.")
+                val fallbackResult = firestoreService.getAllJobsSummary(
+                    limit = limit,
+                    lastDocumentId = null,
+                    category = category,
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
+                )
+
+                fallbackResult.fold(
+                    onSuccess = { jobsData ->
+                        val fallbackSummaries = jobsData.map { JobListingSummary.fromMap(it) }
+                        val fallbackUpdated = fallbackSummaries.map {
+                            it.copy(isSaved = savedJobIds.contains(it.id))
+                        }
+
+                        if (isUnfilteredFirstPage && fallbackUpdated.isNotEmpty()) {
+                            jobCacheManager.cacheJobSummaries(fallbackUpdated)
+                        }
+
+                        emit(Result.success(fallbackUpdated))
+                    },
+                    onFailure = { emit(Result.failure(it)) }
+                )
+                return@flow
             }
 
             if (isUnfilteredFirstPage && resolvedPage.isNotEmpty()) {

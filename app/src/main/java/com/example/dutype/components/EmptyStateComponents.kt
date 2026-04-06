@@ -89,13 +89,14 @@ fun EmptyListState(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    containerColor: Color = WorkerColors.ScreenBackground,
     actionButton: EmptyStateAction? = null,
     secondaryAction: EmptyStateAction? = null
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(containerColor)
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -208,10 +209,12 @@ fun EmptyListState(
 fun EmptySearchState(
     searchQuery: String,
     modifier: Modifier = Modifier,
+    containerColor: Color = WorkerColors.ScreenBackground,
     onClearSearch: () -> Unit = {}
 ) {
     EmptyListState(
         modifier = modifier,
+        containerColor = containerColor,
         icon = Icons.Default.SearchOff,
         title = "No results found",
         subtitle = "No jobs match \"$searchQuery\"\nTry different keywords or clear the search.",
@@ -468,10 +471,12 @@ fun EmptyActionState(
 fun EmptySavedItemsState(
     itemType: String = "jobs",
     modifier: Modifier = Modifier,
+    containerColor: Color = WorkerColors.ScreenBackground,
     onBrowse: () -> Unit = {}
 ) {
     EmptyListState(
         modifier = modifier,
+        containerColor = containerColor,
         icon = Icons.Default.Bookmark,
         title = "No saved $itemType",
         subtitle = "Tap the bookmark icon to save $itemType for later.",

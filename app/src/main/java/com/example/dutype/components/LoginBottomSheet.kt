@@ -81,6 +81,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.FirestoreUtils
+import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.OtpViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -144,6 +145,7 @@ fun LoginBottomSheet(
     
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
     val isPNVSupported by otpViewModel.isPNVSupported.collectAsState()  
@@ -162,6 +164,17 @@ fun LoginBottomSheet(
     var codeValidationError by remember { mutableStateOf<String?>(null) }
     var validatedReferrerName by remember { mutableStateOf<String?>(null) }
     var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
+
+    val effectiveTitle = if (title == "Login Required") {
+        if (isTelugu) "లాగిన్ అవసరం" else title
+    } else {
+        title
+    }
+    val effectiveSubtitle = if (subtitle == "Please login to continue with this action") {
+        if (isTelugu) "ఈ చర్య కొనసాగించడానికి దయచేసి లాగిన్ చేయండి" else subtitle
+    } else {
+        subtitle
+    }
     
     // Set role context for FCM registration when bottom sheet is shown
     LaunchedEffect(isVisible, role) {
@@ -205,7 +218,7 @@ fun LoginBottomSheet(
                             Timber.e(error, "LoginBottomSheet - Login resolution failed")
                             Toast.makeText(
                                 context,
-                                error.message ?: "Could not load your account. Please try again.",
+                                error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again.",
                                 Toast.LENGTH_LONG
                             ).show()
                             otpViewModel.resetState()
@@ -387,7 +400,7 @@ fun LoginBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = if (isTelugu) "మూసివేయండి" else "Close",
                         tint = WorkerColors.TextSecondary
                     )
                 }
@@ -410,8 +423,16 @@ fun LoginBottomSheet(
                 if (isPhoneScreen) {
                     // Phone Input Screen
                     PhoneInputContent(
-                        title = if (isRegistrationMode) "Create your account" else title,
-                        subtitle = if (isRegistrationMode) "Enter your mobile number to register" else subtitle,
+                        title = if (isRegistrationMode) {
+                            if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account"
+                        } else {
+                            effectiveTitle
+                        },
+                        subtitle = if (isRegistrationMode) {
+                            if (isTelugu) "నమోదు కోసం మీ మొబైల్ నంబర్ నమోదు చేయండి" else "Enter your mobile number to register"
+                        } else {
+                            effectiveSubtitle
+                        },
                         phoneNumber = phoneNumber,
                         onPhoneNumberChange = { phoneNumber = it },
                         selectedCountryCode = selectedCountryCode,
@@ -439,7 +460,7 @@ fun LoginBottomSheet(
                                 // PNV not supported, show message
                                 Toast.makeText(
                                     context,
-                                    "Instant verification not available. Please use phone number + OTP.",
+                                    if (isTelugu) "తక్షణ ధృవీకరణ అందుబాటులో లేదు. దయచేసి ఫోన్ నంబర్ + OTP ఉపయోగించండి." else "Instant verification not available. Please use phone number + OTP.",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -457,7 +478,7 @@ fun LoginBottomSheet(
                                                 isCheckingPhone = false
                                                 Toast.makeText(
                                                     context,
-                                                    "This number is already registered. Please use Login instead.",
+                                                    if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ ఉపయోగించండి." else "This number is already registered. Please use Login instead.",
                                                     Toast.LENGTH_LONG
                                                 ).show()
                                                 Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
@@ -469,7 +490,7 @@ fun LoginBottomSheet(
                                                 isCheckingPhone = false
                                                 Toast.makeText(
                                                     context,
-                                                    "No account found with this number. Please Register first.",
+                                                    if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first.",
                                                     Toast.LENGTH_LONG
                                                 ).show()
                                                 Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
@@ -558,6 +579,8 @@ private fun PhoneInputContent(
     onContinueClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+    val policyLinkColor = Color(0xFF1F2937)
     val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
     
@@ -687,7 +710,7 @@ private fun PhoneInputContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Have a referral code?",
+                    text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
                     style = AppTypography.bodyMedium.copy(
                         color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -698,7 +721,11 @@ private fun PhoneInputContent(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = if (showReferralInput) "Hide" else "Enter Code",
+                        text = if (showReferralInput) {
+                            if (isTelugu) "దాచు" else "Hide"
+                        } else {
+                            if (isTelugu) "కోడ్ నమోదు చేయండి" else "Enter Code"
+                        },
                         style = AppTypography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = WorkerColors.Info
@@ -764,7 +791,7 @@ private fun PhoneInputContent(
                                 validatedReferrerName != null -> {
                                     Icon(
                                         painter = painterResource(id = android.R.drawable.ic_menu_info_details),
-                                        contentDescription = "Valid",
+                                        contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
                                         tint = WorkerColors.Success,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -772,7 +799,7 @@ private fun PhoneInputContent(
                                 codeValidationError != null && referralCode.length >= 7 -> {
                                     Icon(
                                         painter = painterResource(id = android.R.drawable.ic_delete),
-                                        contentDescription = "Invalid",
+                                        contentDescription = if (isTelugu) "చెల్లదు" else "Invalid",
                                         tint = WorkerColors.Error,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -787,7 +814,7 @@ private fun PhoneInputContent(
                                     ) {
                                         Icon(
                                             painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                            contentDescription = "Clear",
+                                            contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
                                             tint = WorkerColors.IconSecondary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -849,18 +876,30 @@ private fun PhoneInputContent(
                                             onValidatedReferrerNameChange(validation.referrerName)
                                             onCodeValidationErrorChange(null)
                                             Timber.d("🎁 REFERRAL: Valid code - ${validation.referrerName}")
-                                            Toast.makeText(context, "✓ Valid code from ${validation.referrerName}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
                                             onCodeValidationErrorChange(validation.errorMessage)
                                             onValidatedReferrerNameChange(null)
                                             Timber.w("🎁 REFERRAL: Invalid code - ${validation.errorMessage}")
-                                            Toast.makeText(context, validation.errorMessage ?: "Invalid code", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     } catch (e: Exception) {
                                         onIsValidatingCodeChange(false)
-                                        onCodeValidationErrorChange("Failed to validate code")
+                                        onCodeValidationErrorChange(if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code")
                                         Timber.e(e, "🎁 REFERRAL: Validation error")
-                                        Toast.makeText(context, "Failed to validate code. Please try again.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Failed to validate code. Please try again.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                 }
                             }
@@ -884,7 +923,7 @@ private fun PhoneInputContent(
                             )
                         } else {
                             Text(
-                                text = if (validatedReferrerName != null) "✓" else "Verify",
+                                text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
                                 style = AppTypography.buttonMedium
                             )
                         }
@@ -897,19 +936,19 @@ private fun PhoneInputContent(
                 when {
                     validatedReferrerName != null -> {
                         Text(
-                            text = "✓ Valid code from ${validatedReferrerName}",
+                            text = if (isTelugu) "✓ ${validatedReferrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validatedReferrerName}",
                             style = AppTypography.caption.copy(color = WorkerColors.Success)
                         )
                     }
                     codeValidationError != null && referralCode.length >= 7 -> {
                         Text(
-                            text = codeValidationError ?: "Invalid code",
+                            text = codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
                             style = AppTypography.caption.copy(color = WorkerColors.Error)
                         )
                     }
                     else -> {
                         Text(
-                            text = "Enter referral code to earn ₹25 bonus",
+                            text = if (isTelugu) "₹25 బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹25 bonus",
                             style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                         )
                     }
@@ -956,13 +995,13 @@ private fun PhoneInputContent(
                     ) {
                         Icon(
                             painter = painterResource(id = android.R.drawable.ic_secure),
-                            contentDescription = "Instant Verification",
+                            contentDescription = if (isTelugu) "తక్షణ ధృవీకరణ" else "Instant Verification",
                             modifier = Modifier.size(20.dp),
                             tint = Color.White
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Instant Verification",
+                            if (isTelugu) "తక్షణ ధృవీకరణ" else "Instant Verification",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -986,7 +1025,7 @@ private fun PhoneInputContent(
                         .background(WorkerColors.Border)
                 )
                 Text(
-                    text = "OR",
+                    text = if (isTelugu) "లేదా" else "OR",
                     style = AppTypography.bodySmall.copy(
                         color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -1036,7 +1075,11 @@ private fun PhoneInputContent(
             onClick = {
                 // Validate referral code before continuing
                 if (referralCode.isNotBlank() && codeValidationError != null) {
-                    Toast.makeText(context, "Please enter a valid referral code or clear it", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        if (isTelugu) "దయచేసి చెల్లుబాటు అయ్యే రిఫరల్ కోడ్ నమోదు చేయండి లేదా దాన్ని క్లియర్ చేయండి" else "Please enter a valid referral code or clear it",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     return@Button
                 }
                 
@@ -1066,7 +1109,7 @@ private fun PhoneInputContent(
                     modifier = Modifier.size(20.dp)
                 )
             } else {
-                Text("Continue", style = AppTypography.buttonLarge)
+                Text(if (isTelugu) "కొనసాగించండి" else "Continue", style = AppTypography.buttonLarge)
             }
         }
         
@@ -1081,7 +1124,11 @@ private fun PhoneInputContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isRegistrationMode) "Already have an account? " else "New to DutyPe? ",
+                text = if (isRegistrationMode) {
+                    if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? "
+                } else {
+                    if (isTelugu) "డ్యూటీపీకి కొత్తవారా? " else "New to DutyPe? "
+                },
                 style = AppTypography.bodyMedium.copy(
                     color = WorkerColors.TextSecondary
                 )
@@ -1091,7 +1138,11 @@ private fun PhoneInputContent(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (isRegistrationMode) "Login" else "Register Now",
+                    text = if (isRegistrationMode) {
+                        if (isTelugu) "లాగిన్" else "Login"
+                    } else {
+                        if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now"
+                    },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = WorkerColors.Info
@@ -1111,7 +1162,7 @@ private fun PhoneInputContent(
             horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "By continuing, you agree to our ",
+                text = if (isTelugu) "కొనసాగించడం ద్వారా, మీరు మా " else "By continuing, you agree to our ",
                 style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
             )
         }
@@ -1120,11 +1171,10 @@ private fun PhoneInputContent(
             horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Terms",
+                text = if (isTelugu) "సేవా నిబంధనలు" else "Terms",
                 style = AppTypography.caption.copy(
                     fontWeight = FontWeight.Bold,
-                    color = WorkerColors.Info,
-                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                    color = policyLinkColor
                 ),
                 modifier = Modifier.clickable {
                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(termsUrl))
@@ -1132,15 +1182,14 @@ private fun PhoneInputContent(
                 }
             )
             Text(
-                text = " and ",
+                text = if (isTelugu) " మరియు " else " and ",
                 style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
             )
             Text(
-                text = "Privacy Policy",
+                text = if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy",
                 style = AppTypography.caption.copy(
                     fontWeight = FontWeight.Bold,
-                    color = WorkerColors.Info,
-                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                    color = policyLinkColor
                 ),
                 modifier = Modifier.clickable {
                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(privacyUrl))
@@ -1170,12 +1219,15 @@ private fun OtpInputContent(
     onBackClick: () -> Unit,
     resendCooldownSeconds: Int = 0  // Add parameter for ViewModel cooldown
 ) {
+    val context = LocalContext.current
+    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = "Verify OTP",
+            text = if (isTelugu) "OTP ధృవీకరించండి" else "Verify OTP",
             style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
             color = WorkerColors.TextPrimary
         )
@@ -1184,7 +1236,7 @@ private fun OtpInputContent(
         
         Text(
             text = buildAnnotatedString {
-                append("Enter the 6-digit code sent to ")
+                append(if (isTelugu) "పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి: " else "Enter the 6-digit code sent to ")
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)) {
                     append("+91 $phoneNumber")
                 }
@@ -1194,7 +1246,7 @@ private fun OtpInputContent(
         
         TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 2.dp)) {
             Text(
-                "Change number?",
+                if (isTelugu) "నంబర్ మార్చాలా?" else "Change number?",
                 style = AppTypography.bodyMedium.copy(
                     textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
                 ),
@@ -1243,7 +1295,7 @@ private fun OtpInputContent(
                     ) {
                         Icon(
                             painter = painterResource(id = android.R.drawable.ic_menu_revert),
-                            contentDescription = "Resend OTP",
+                            contentDescription = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
                             tint = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextPrimary
                         )
                     }
@@ -1265,7 +1317,7 @@ private fun OtpInputContent(
 
                 // Resend hint text
                 Text(
-                    text = "Resend OTP",
+                    text = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
                     style = AppTypography.labelSmall.copy(
                         color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextSecondary
                     )
@@ -1294,7 +1346,7 @@ private fun OtpInputContent(
                         modifier = Modifier.size(22.dp)
                     )
                 } else {
-                    Text("Verify", style = AppTypography.buttonLarge)
+                    Text(if (isTelugu) "ధృవీకరించండి" else "Verify", style = AppTypography.buttonLarge)
                 }
             }
         }

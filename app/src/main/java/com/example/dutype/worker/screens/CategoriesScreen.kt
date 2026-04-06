@@ -39,7 +39,6 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
 import com.example.dutype.location.TopCityChips
 import com.example.dutype.worker.components.JobCard
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -59,9 +58,12 @@ fun CategoriesScreen(
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
+    val normalizedInitialCategory = remember(initialCategory) {
+        if (initialCategory.equals("All Jobs", ignoreCase = true)) "All" else initialCategory
+    }
     
     // Selected category state - use initial category if provided
-    var selectedCategory by remember { mutableStateOf(initialCategory ?: "All") }
+    var selectedCategory by remember { mutableStateOf(normalizedInitialCategory ?: "All") }
     
     // Track if initial load has been done
     var initialLoadDone by remember { mutableStateOf(false) }
@@ -80,7 +82,7 @@ fun CategoriesScreen(
         }
         
         // Load jobs immediately (don't wait for location)
-        val categoryToLoad = initialCategory ?: "All"
+        val categoryToLoad = normalizedInitialCategory ?: "All"
         Timber.d("📦 CategoriesScreen: Loading category: $categoryToLoad")
         viewModel.loadJobsForCategory(categoryToLoad)
         initialLoadDone = true
@@ -288,37 +290,7 @@ private fun JobsListSection(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    
-    // Infinite scroll - load more when near end
-    // INDUSTRY STANDARD: Trigger 5 items before end (LinkedIn/Instagram pattern)
-    LaunchedEffect(listState, hasMore, isLoadingMore, isLoading, selectedCategory) {
-        snapshotFlow { 
-            val layoutInfo = listState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            
-            // Trigger when user is 5 items away from end
-            totalItems > 0 && lastVisibleItem >= totalItems - 5
-        }.distinctUntilChanged().collect { shouldLoadMore ->
-            // CRITICAL FIX: Only load more if:
-            // 1. User scrolled near end (shouldLoadMore)
-            // 2. Has more jobs to load (hasMore)
-            // 3. Not currently loading more (isLoadingMore)
-            // 4. Not currently loading initial batch (isLoading)
-            // 5. Has at least some jobs loaded (jobs.isNotEmpty())
-            if (shouldLoadMore && hasMore && !isLoadingMore && !isLoading && jobs.isNotEmpty()) {
-                Timber.d("📦 ========== LOAD MORE TRIGGERED ==========")
-                Timber.d("📦 Categories: Category: $selectedCategory")
-                Timber.d("📦 Categories: Current jobs: ${jobs.size}")
-                Timber.d("📦 Categories: hasMore: $hasMore")
-                Timber.d("📦 Categories: isLoadingMore: $isLoadingMore")
-                Timber.d("📦 Categories: isLoading: $isLoading")
-                Timber.d("📦 Categories: Triggering load more...")
-                Timber.d("📦 ==========================================")
-                viewModel.loadMoreJobs()
-            }
-        }
-    }
+    var lastLoadTriggerToken by remember { mutableStateOf<String?>(null) }
     
     // Reset scroll position when category changes
     LaunchedEffect(selectedCategory) {
@@ -451,21 +423,36 @@ private fun JobsListSection(
                         }
                     )
                 }
-                
-                // Loading indicator when loading more
-                if (isLoadingMore) {
-                    item {
+
+                if (hasMore && jobs.isNotEmpty()) {
+                    item(key = "categories_load_more_sentinel_$selectedCategory") {
+                        val nextLoadToken = "$selectedCategory:${jobs.size}"
+                        LaunchedEffect(nextLoadToken, hasMore, isLoadingMore, isLoading, selectedCategory) {
+                            if (hasMore && !isLoadingMore && !isLoading && nextLoadToken != lastLoadTriggerToken) {
+                                lastLoadTriggerToken = nextLoadToken
+                                Timber.d("📦 Categories: sentinel reached for '$selectedCategory', requesting next page (token=$nextLoadToken)")
+                                viewModel.loadMoreJobs()
+                            }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color(0xFF1F2937),
-                                strokeWidth = 2.dp
-                            )
+                            if (isLoadingMore) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = Color(0xFF1F2937),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Loading more jobs...",
+                                    style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                                )
+                            }
                         }
                     }
                 }

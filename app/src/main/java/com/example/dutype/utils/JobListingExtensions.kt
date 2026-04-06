@@ -11,10 +11,19 @@ import java.util.Date
  */
 
 private fun mapToEpochMillis(value: Any?): Long {
+    fun normalizeEpoch(raw: Long): Long {
+        if (raw <= 0L) return 0L
+        return when {
+            raw < 100_000_000_000L -> raw * 1000L
+            raw > 9_999_999_999_999L -> raw / 1000L
+            else -> raw
+        }
+    }
+
     return when (value) {
-        is Timestamp -> value.toDate().time
-        is Number -> value.toLong()
-        is Date -> value.time
+        is Timestamp -> normalizeEpoch(value.toDate().time)
+        is Number -> normalizeEpoch(value.toLong())
+        is Date -> normalizeEpoch(value.time)
         else -> 0L
     }
 }
@@ -114,6 +123,9 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         lng = lng,
         companyName = (this["companyName"] as? String)
             ?: (this["employerName"] as? String)
+            ?: (this["company"] as? String)
+            ?: (this["businessName"] as? String)
+            ?: (this["company_name"] as? String)
             ?: "",
         // job_details fields (runtime only, loaded on click)
         description = description,
@@ -158,10 +170,12 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         ?.takeIf { it.isNotBlank() }
         ?: com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
 
+    val locationText = (this["addressText"] as? String).orEmpty().ifBlank {
+        (this["location"] as? String).orEmpty()
+    }
+
     val companyCity = (this["companyCity"] as? String).orEmpty().ifBlank {
-        (this["addressText"] as? String).orEmpty().ifBlank {
-            (this["location"] as? String).orEmpty()
-        }
+        locationText
     }
 
     val docId = (this["jobId"] as? String) ?: (this["documentId"] as? String) ?: (this["id"] as? String) ?: ""
@@ -169,6 +183,12 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
     return JobListingSummary(
         id = docId,
         employerId = (this["employerId"] as? String) ?: "",
+        companyName = (this["companyName"] as? String)
+            ?: (this["employerName"] as? String)
+            ?: (this["company"] as? String)
+            ?: (this["businessName"] as? String)
+            ?: (this["company_name"] as? String)
+            ?: "",
         title = title,
         jobType = normalizedJobType,
         salary = salary,
@@ -181,6 +201,7 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         lat = lat,
         lng = lng,
         companyCity = companyCity,
+        locationText = locationText,
         distance = (this["distance"] as? Number)?.toDouble(),
         isSaved = isSaved
     )
@@ -194,6 +215,7 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
 fun JobListingSummary.toJobListing(): JobListing = JobListing(
     id = id,
     employerId = employerId,
+    companyName = companyName,
     title = title,
     salary = salary,
     salaryType = salaryType.uppercase().ifBlank { "DAILY" },
@@ -205,8 +227,8 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     expiresAt = expiresAt,
     lat = lat,
     lng = lng,
-    location = companyCity,
-    addressText = companyCity,
+    location = locationText.ifBlank { companyCity },
+    addressText = locationText.ifBlank { companyCity },
     distance = distance,
     isSaved = isSaved
 )

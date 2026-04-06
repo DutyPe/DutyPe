@@ -12,6 +12,15 @@ object PaginationHelper {
 
     private const val DEFAULT_MAX_IN_MEMORY = 500
 
+    private fun stableJobKey(job: JobListing): String {
+        val primaryId = job.jobId.ifBlank { job.id }
+        return if (primaryId.isNotBlank()) {
+            primaryId
+        } else {
+            "${job.employerId}:${job.title.trim().lowercase()}:${job.createdAt}"
+        }
+    }
+
     /**
      * Append new jobs to existing list with deduplication and optional sliding window.
      *
@@ -25,8 +34,8 @@ object PaginationHelper {
         newJobs: List<JobListing>,
         maxInMemory: Int = DEFAULT_MAX_IN_MEMORY
     ): List<JobListing> {
-        val existingIds = currentJobs.mapTo(HashSet(currentJobs.size)) { it.jobId }
-        val unique = newJobs.filter { it.jobId !in existingIds }
+        val existingIds = currentJobs.mapTo(HashSet(currentJobs.size)) { stableJobKey(it) }
+        val unique = newJobs.filter { stableJobKey(it) !in existingIds }
 
         Timber.d("📦 PaginationHelper: ${newJobs.size} loaded, ${unique.size} unique, ${currentJobs.size} existing")
 

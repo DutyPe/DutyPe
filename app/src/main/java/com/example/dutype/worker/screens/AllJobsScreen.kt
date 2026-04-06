@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,7 +43,6 @@ import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.dutype.app.R
@@ -54,9 +52,9 @@ import com.example.dutype.components.EmptySearchState
 /**
  * AllJobsScreen - Displays all available jobs with infinite scroll
  * 
- * PAGINATION: 15 jobs per page (industry standard)
- * - Initial load: 15 jobs
- * - On scroll near end: Load 15 more from server
+ * PAGINATION: 10 jobs per page
+ * - Initial load: 10 jobs
+ * - On scroll near end: Load 10 more from server
  * - Continues until all jobs are loaded
  * 
  * @author DutyPe Engineering Team
@@ -64,7 +62,7 @@ import com.example.dutype.components.EmptySearchState
  */
 
 // Industry standard pagination
-private const val PAGE_SIZE = 15L
+private const val PAGE_SIZE = 10L
 
 @Composable
 fun AllJobsScreen(
@@ -92,7 +90,7 @@ fun AllJobsScreen(
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
     
-    // Pagination: 15 jobs per page (industry standard)
+    // Pagination: 10 jobs per page
     val pageSize = PAGE_SIZE
     
     // Set status bar color and initialize ViewModel
@@ -385,7 +383,7 @@ fun AllJobsScreen(
  * Reduces recomposition scope - only this component recomposes when jobs change
  * Uses regular JobCard - ad shows on back from JobDescriptionScreen
  * 
- * SMOOTH INFINITE SCROLL: Loads 15 jobs at a time when user scrolls near end
+ * SMOOTH INFINITE SCROLL: Loads 10 jobs at a time when user scrolls near end
  */
 @Composable
 private fun JobsList(
@@ -398,36 +396,12 @@ private fun JobsList(
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    var lastLoadTriggerToken by remember { mutableStateOf<String?>(null) }
     
     // Show "Jump to Top" button after loading 300+ jobs (LinkedIn approach)
     // LinkedIn shows it earlier for better UX
     val showJumpToTop by remember {
         derivedStateOf { jobs.size >= 300 }
-    }
-    
-    // INDUSTRY STANDARD: Load more when user is 5 items away from end
-    // LinkedIn/Instagram trigger at 5-8 items, we use 5 for smooth experience
-    LaunchedEffect(listState, uiState.hasMore, uiState.isLoadingMore) {
-        snapshotFlow {
-            val layoutInfo = listState.layoutInfo
-            val totalItems = layoutInfo.totalItemsCount
-            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            
-            // Trigger when user is 5 items away from end (industry standard)
-            totalItems > 0 && lastVisibleItem >= totalItems - 5
-        }
-        .distinctUntilChanged()
-        .collect { shouldLoadMore ->
-            if (shouldLoadMore && uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading) {
-                Timber.d("📦 ========== LOAD MORE TRIGGERED ==========")
-                Timber.d("📦 AllJobs: Current jobs: ${jobs.size}")
-                Timber.d("📦 AllJobs: hasMore: ${uiState.hasMore}")
-                Timber.d("📦 AllJobs: isLoadingMore: ${uiState.isLoadingMore}")
-                Timber.d("📦 AllJobs: Triggering load more...")
-                Timber.d("📦 ==========================================")
-                onLoadMore()
-            }
-        }
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
@@ -451,20 +425,35 @@ private fun JobsList(
                 )
             }
             
-            // Loading indicator at bottom
-            if (uiState.isLoadingMore || (uiState.hasMore && jobs.isNotEmpty())) {
-                item {
+            if (uiState.hasMore && jobs.isNotEmpty()) {
+                item(key = "alljobs_load_more_sentinel") {
+                    val nextLoadToken = "${uiState.lastDocumentId ?: "null"}:${jobs.size}"
+                    LaunchedEffect(nextLoadToken, uiState.hasMore, uiState.isLoadingMore, uiState.isLoading) {
+                        if (uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading && nextLoadToken != lastLoadTriggerToken) {
+                            lastLoadTriggerToken = nextLoadToken
+                            Timber.d("📦 AllJobs: sentinel reached, requesting next page (token=$nextLoadToken)")
+                            onLoadMore()
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(IconSizes.Standard), // Material Design 3: 24dp
-                            color = Color(0xFF1F2937),
-                            strokeWidth = 2.dp
-                        )
+                        if (uiState.isLoadingMore) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(IconSizes.Standard), // Material Design 3: 24dp
+                                color = Color(0xFF1F2937),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = "Loading more jobs...",
+                                style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                            )
+                        }
                     }
                 }
             }

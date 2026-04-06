@@ -35,9 +35,9 @@ import javax.inject.Inject
  * - Apna: 10-15 jobs per page
  * - WorkIndia: 15 jobs per page
  * 
- * We use 15 jobs per page for smooth infinite scroll
+ * Product requirement: use 10 jobs per page for smoother incremental loading.
  */
-private const val PAGE_SIZE = 15L // Jobs per page (industry standard)
+private const val PAGE_SIZE = 10L // Jobs per page
 private const val MAX_JOBS_IN_MEMORY = 500 // LinkedIn's sliding window
 
 /**
@@ -150,6 +150,10 @@ class AllJobsViewModel @Inject constructor(
     // User location for distance calculation
     private var userLatitude: Double = savedStateHandle.get<Double>("userLatitude") ?: 0.0
     private var userLongitude: Double = savedStateHandle.get<Double>("userLongitude") ?: 0.0
+
+    // Freeze query mode for a pagination session so cursor semantics stay consistent.
+    // If first page loads without location, load-more continues non-geo until refresh/reload.
+    private var paginationUsesLocation: Boolean = false
     
     // Guard to prevent duplicate loads
     private var hasInitiallyLoaded = false
@@ -525,7 +529,7 @@ class AllJobsViewModel @Inject constructor(
         } else if (query.isBlank()) {
             // Reset to show all jobs when search is cleared
             val categoryForQuery = _initialCategory.value?.takeIf { it != "All Jobs" }
-            loadJobs(limit = 50L, category = categoryForQuery)
+            loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
         }
     }
     
@@ -639,22 +643,22 @@ class AllJobsViewModel @Inject constructor(
                 val useServerSideFiltering = currentFilters.salaryMin > 0 || 
                                             currentFilters.salaryMax < 100000 ||
                                             currentFilters.experienceLevel != "Any"
-                val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+                paginationUsesLocation = false
                 
                 if (useServerSideFiltering) {
                     Timber.d("🔍 P0 FIX: Using SERVER-SIDE filtering")
-                    val queryLimit = if (hasLocation) maxOf(limit, 100L) else limit
+                    val queryLimit = limit
                     loadJobsWithServerFiltering(queryLimit, firestoreCategory, currentFilters, startTime)
                 } else {
-                    Timber.d("🔍 AllJobsVM: Loading jobs with adaptive nearby fetch (category: $firestoreCategory, hasLocation: $hasLocation)")
+                    Timber.d("🔍 AllJobsVM: Loading full job dataset (category: $firestoreCategory, location filter disabled)")
                     
                     val summaryFlow = firestoreJobRepository.getAllJobsSummary(
                         limit = limit,
                         lastDocumentId = null,
                         category = firestoreCategory,
-                        userLatitude = if (hasLocation) userLatitude else null,
-                        userLongitude = if (hasLocation) userLongitude else null,
-                        radiusKm = 10.0
+                        userLatitude = null,
+                        userLongitude = null,
+                        radiusKm = 0.0
                     )
                     summaryFlow.collect { result ->
                         result.fold(
@@ -817,21 +821,21 @@ class AllJobsViewModel @Inject constructor(
                         limit = limit,
                         lastDocumentId = lastDocumentId
                     ).collect { result ->
-                        handleLoadMoreResult(result, limit)
+                        handleLoadMoreResult(result, previousCursor = lastDocumentId)
                     }
                 } else {
                     Timber.d("📦 AllJobsVM: Loading more jobs (after: $lastDocumentId, category: $firestoreCategory)")
                     
-                    // CRITICAL FIX Phase 2: Pass location parameters for geohash-radius filtering
+                    // Load full dataset for pagination; location is used only for client-side distance sorting.
                     firestoreJobRepository.getAllJobsSummary(
                         limit = limit, 
                         lastDocumentId = lastDocumentId,
                         category = firestoreCategory,
-                        userLatitude = if (hasValidUserLocation()) userLatitude else null,
-                        userLongitude = if (hasValidUserLocation()) userLongitude else null,
-                        radiusKm = 10.0
+                        userLatitude = null,
+                        userLongitude = null,
+                        radiusKm = 0.0
                     ).collect { result ->
-                        handleLoadMoreResult(result, limit)
+                        handleLoadMoreResult(result, previousCursor = lastDocumentId)
                     }
                 }
             } catch (e: Exception) {
@@ -848,15 +852,16 @@ class AllJobsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
             
             try {
+                paginationUsesLocation = false
                 // SMOOTH INFINITE SCROLL: Load first batch on refresh
-                // CRITICAL FIX Phase 2: Pass location parameters for geohash-radius filtering
+                // Refresh from full dataset irrespective of location availability.
                 firestoreJobRepository.getAllJobsSummary(
                     limit = PAGE_SIZE, 
                     lastDocumentId = null,
                     category = _initialCategory.value?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
-                    userLatitude = if (hasValidUserLocation()) userLatitude else null,
-                    userLongitude = if (hasValidUserLocation()) userLongitude else null,
-                    radiusKm = 10.0
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -972,7 +977,10 @@ class AllJobsViewModel @Inject constructor(
      * CRITICAL FIX: hasMore should be true if we got ANY jobs (even 1)
      * Only stop when we get 0 jobs from Firestore
      */
-    private suspend fun handleLoadMoreResult(result: Result<List<com.example.dutype.models.JobListingSummary>>, limit: Long) {
+    private suspend fun handleLoadMoreResult(
+        result: Result<List<com.example.dutype.models.JobListingSummary>>,
+        previousCursor: String?
+    ) {
         result.fold(
             onSuccess = { summaries ->
                 if (summaries.isEmpty()) {
@@ -981,6 +989,7 @@ class AllJobsViewModel @Inject constructor(
                         hasMore = false
                     )
                 } else {
+                    val previousSize = _uiState.value.jobs.size
                     var newJobs = summaries.map { it.toJobListing() }
                     
                     if (userLatitude != 0.0 || userLongitude != 0.0) {
@@ -997,16 +1006,33 @@ class AllJobsViewModel @Inject constructor(
                     newJobs = applyRuntimeFlags(newJobs)
                     
                     val updatedList = PaginationHelper.appendJobs(
-                        emptyList(), newJobs.distinctBy { it.jobId }, MAX_JOBS_IN_MEMORY
+                        emptyList(),
+                        newJobs.distinctBy { job ->
+                            normalizedJobId(job).ifBlank {
+                                "${job.employerId}:${job.title.trim().lowercase()}:${job.createdAt}"
+                            }
+                        },
+                        MAX_JOBS_IN_MEMORY
                     )
                     val lastJobId = summaries.lastOrNull()?.id
+                    val cursorAdvanced = !lastJobId.isNullOrBlank() && lastJobId != previousCursor
+                    val noGrowth = summaries.isNotEmpty() && updatedList.size == previousSize && !cursorAdvanced
+                    val shouldContinuePaging = PaginationHelper.hasMorePages(summaries.size) &&
+                        (cursorAdvanced || updatedList.size > previousSize)
+
+                    if (noGrowth) {
+                        Timber.w("📦 AllJobsVM: Pagination page had no new unique jobs. Stopping further load-more to avoid loop.")
+                    }
+                    if (!cursorAdvanced && summaries.isNotEmpty()) {
+                        Timber.w("📦 AllJobsVM: Pagination cursor did not advance (cursor=$lastJobId). Marking end of list.")
+                    }
                     
                     _uiState.value = _uiState.value.copy(
                         jobs = updatedList,
                         isLoadingMore = false,
                         totalJobs = updatedList.size,
-                        hasMore = PaginationHelper.hasMorePages(summaries.size),
-                        lastDocumentId = lastJobId
+                        hasMore = !noGrowth && shouldContinuePaging,
+                        lastDocumentId = lastJobId ?: previousCursor
                     )
                 }
             },

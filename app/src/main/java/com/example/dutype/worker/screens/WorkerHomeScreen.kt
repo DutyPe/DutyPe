@@ -117,6 +117,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import java.util.Calendar
 
 // NOTE: hasAppliedToJob function removed - Apply button removed from JobCard
 // Users now apply from JobDescriptionScreen only
@@ -526,11 +527,21 @@ fun WorkerHomeScreen(
         jobViewModel.loadJobsSummaryForHome()
     }
 
-    // Use a subtle off-white background for Worker home screen
+    // Layered gradient background to give the home screen a richer visual identity.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFFFEFEFD))
+        .background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFF0FDFA),
+                    Color(0xFFEFF6FF),
+                    Color(0xFFFFFBEB)
+                )
+            )
+        )
     ) {
+        WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
+
         // Track location bar visibility and alpha from scroll
         var showLocationBarState by remember { mutableStateOf(true) }
         var locationBarAlpha by remember { mutableStateOf(1f) }
@@ -744,6 +755,41 @@ private fun LoadingContent() {
         items(3) {
             JobCardShimmer()
         }
+    }
+}
+
+@Composable
+private fun WorkerHomeBackdropDecor(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(310.dp)
+                .offset(x = 200.dp, y = (-130).dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF99F6E4).copy(alpha = 0.55f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .size(260.dp)
+                .offset(x = (-90).dp, y = 450.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFBFDBFE).copy(alpha = 0.45f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
     }
 }
 
@@ -1023,7 +1069,7 @@ fun HomeSectionsContent(
     // Memoize skill-matched jobs - prioritize jobs matching worker skills, then by distance
     val skillMatchedJobs = remember(availableJobs, userSkills) {
         // Jobs are already distance-enriched and sorted by ViewModel/engine.
-        // Keep UI lightweight: only slice top cards for home.
+        // Keep home preview concise; full list is available in All Jobs.
         availableJobs.take(5)
     }
     
@@ -1658,31 +1704,56 @@ private fun DynamicHeader(
     onLocationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val greeting = remember {
+        when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+            in 5..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            in 17..21 -> "Good evening"
+            else -> "Welcome back"
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .background(
-                color = Color.White,  // White header background
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0F766E),
+                        Color(0xFF0E7490),
+                        Color(0xFF1D4ED8)
+                    )
+                ),
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
             )
     ) {
-        // Top row with DutyPe and icons (always visible)
+        // Top row with brand + actions
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 0.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "DutyPe",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 23.sp,
-                    color = Color.Black  // Changed to black
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "DutyPe",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 24.sp,
+                        color = Color.White
+                    )
                 )
-            )
+                Text(
+                    text = "$greeting • Discover nearby work",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp
+                    )
+                )
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1707,12 +1778,17 @@ private fun DynamicHeader(
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                color = Color.White.copy(alpha = 0.18f),
+                                shape = CircleShape
+                            )
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color.Black,
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1725,7 +1801,7 @@ private fun DynamicHeader(
                                 .align(Alignment.TopEnd)
                                 .offset(x = (-4).dp, y = 8.dp)
                                 .background(
-                                    color = Color(0xFFDC2626),
+                                    color = Color(0xFFF97316),
                                     shape = CircleShape
                                 )
                         )
@@ -1735,11 +1811,11 @@ private fun DynamicHeader(
         }
         
         // Collapsible location bar - hides when scrolling
-        if (locationBarAlpha > 0.01f) {
+        if (showLocationBar && locationBarAlpha > 0.01f) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 3.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
             ) {
                 androidx.compose.material3.Surface(
                     onClick = onLocationClick,
@@ -1749,13 +1825,17 @@ private fun DynamicHeader(
                             alpha = locationBarAlpha
                             scaleY = 0.8f + (0.2f * locationBarAlpha)
                         },
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Transparent  // Transparent background - no white box
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White.copy(alpha = 0.14f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.28f)
+                    )
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 3.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1772,25 +1852,33 @@ private fun DynamicHeader(
                                 Icon(
                                     imageVector = Icons.Outlined.LocationOn,
                                     contentDescription = null,
-                                    tint = Color.Black,
+                                    tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                             
                             Spacer(modifier = Modifier.width(8.dp))
                             
-                            
-                            Text(
-                                text = locationText,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Normal,
-                                    color = Color.Black,
-                                    fontSize = 14.sp
-                                ),
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Work zone",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = Color.White.copy(alpha = 0.78f),
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                Text(
+                                    text = locationText,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
 
                         Box(
@@ -1801,13 +1889,13 @@ private fun DynamicHeader(
                                 androidx.compose.material3.CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color.Black
+                                    color = Color.White
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.ChevronRight,
                                     contentDescription = null,
-                                    tint = Color.Black.copy(alpha = 0.5f),
+                                    tint = Color.White.copy(alpha = 0.8f),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }

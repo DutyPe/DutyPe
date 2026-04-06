@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -188,11 +189,7 @@ fun WorkerNotificationScreen(
             }
             uiState.notifications.isEmpty() -> {
                 if (isGuestUser) {
-                    GuestWorkerNotificationPreview(
-                        onLoginClick = {
-                            navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                        }
-                    )
+                    GuestWorkerNotificationPreview()
                 } else {
                     // Empty state with enhanced design
                     Box(
@@ -299,9 +296,8 @@ fun WorkerNotificationScreen(
 }
 
 @Composable
-private fun GuestWorkerNotificationPreview(
-    onLoginClick: () -> Unit
-) {
+private fun GuestWorkerNotificationPreview() {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val previewItems = listOf(
         Pair("🔥 27 workers applied in your area in the last hour", "Login to unlock instant apply before these jobs close."),
         Pair("💡 Your profile is 3x more likely to get shortlisted", "Complete your profile and start receiving better matches."),
@@ -329,7 +325,15 @@ private fun GuestWorkerNotificationPreview(
 
         previewItems.forEach { item ->
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        Toast.makeText(
+                            context,
+                            "Login or Register to unlock real notifications and track your applications.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -349,15 +353,6 @@ private fun GuestWorkerNotificationPreview(
                     )
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = onLoginClick,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111827))
-        ) {
-            Text("Login Now")
         }
     }
 }

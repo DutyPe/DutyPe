@@ -15,12 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -58,6 +60,7 @@ import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -154,6 +157,13 @@ fun MyJobsScreen(
 
     val tabTitles = listOf(stringResource(R.string.applied_jobs), stringResource(R.string.saved_jobs))
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
+    val myJobsBackground = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFFF0FDFA),
+            Color(0xFFEFF6FF),
+            Color(0xFFFFFBEB)
+        )
+    )
 
     // Status bar color management based on current tab
     val statusBarColor = when (selectedTabIndex) {
@@ -174,12 +184,18 @@ fun MyJobsScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
-            .statusBarsPadding() // Add top padding for status bar
+            .background(myJobsBackground)
     ) {
+            MyJobsBackdropDecor(modifier = Modifier.fillMaxSize())
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding() // Add top padding for status bar
+        ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
@@ -262,7 +278,7 @@ fun MyJobsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(WorkerColors.ScreenBackground)
+                        .background(Color.Transparent)
                 ) {
                     // Status filter chips for Applied Jobs - Only show when there are applications
                     if (applications.isNotEmpty() && !jobApplicationUiState.isLoading) {
@@ -310,7 +326,7 @@ fun MyJobsScreen(
                             ScrollAwareLazyColumn(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(WorkerColors.ScreenBackground),
+                                    .background(Color.Transparent),
                                 contentPadding = PaddingValues(
                                     top = 16.dp,
                                     start = 16.dp,
@@ -327,6 +343,7 @@ fun MyJobsScreen(
                         }
                         filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null -> {
                             EmptyListState(
+                                containerColor = Color.Transparent,
                                 icon = Icons.Default.Work,
                                 title = stringResource(R.string.no_applications_yet),
                                 subtitle = stringResource(R.string.apply_to_jobs_to_track),
@@ -351,7 +368,7 @@ fun MyJobsScreen(
                             ScrollAwareLazyColumn(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(WorkerColors.ScreenBackground),
+                                    .background(Color.Transparent),
                                 contentPadding = PaddingValues(
                                     top = 16.dp,
                                     start = 16.dp,
@@ -365,6 +382,7 @@ fun MyJobsScreen(
                                     item {
                                         EmptySearchState(
                                             searchQuery = searchQuery,
+                                            containerColor = Color.Transparent,
                                             onClearSearch = { 
                                                 searchQuery = ""
                                             }
@@ -414,6 +432,7 @@ fun MyJobsScreen(
                     navController = navController
                 )
             }
+        }
         }
     }
     
@@ -523,6 +542,41 @@ fun MyJobsScreen(
             }
             ratedApplicationIds = rated
         }
+    }
+}
+
+@Composable
+private fun MyJobsBackdropDecor(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(310.dp)
+                .offset(x = 200.dp, y = (-130).dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF99F6E4).copy(alpha = 0.55f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .size(260.dp)
+                .offset(x = (-90).dp, y = 450.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFBFDBFE).copy(alpha = 0.45f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
     }
 }
 

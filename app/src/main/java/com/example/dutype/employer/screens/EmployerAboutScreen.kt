@@ -37,7 +37,8 @@ fun EmployerAboutScreen(
     ) {
         CommonHeader(
             title = "About Us",
-            navController = navController
+            navController = navController,
+            backgroundColor = Color.White
         )
 
         Column(
@@ -50,42 +51,42 @@ fun EmployerAboutScreen(
                 text = "Welcome to DutyPe",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937),
+                    color = Color(0xFF0F172A),
                     fontSize = 22.sp
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(5.dp))
-            
+
             Text(
                 text = buildAnnotatedString {
                     append("Your all-in-one solution for finding the best local talent, right when you need it. We connect businesses with a pool of qualified, on-demand workers for gig-based and full-time roles.\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Our Mission\n")
                     }
                     append("To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce. We aim to simplify the hiring process, so you can focus on growing your business.\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Our Vision\n")
                     }
                     append("To become the leading platform for on-demand employment in India, creating a dynamic ecosystem where businesses can thrive with the right talent and workers can find meaningful opportunities.\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Key Features for Employers\n")
                     }
                     append("Post jobs in minutes • Access a large talent pool • GPS-based attendance tracking • Verified worker profiles • Flexible hiring options • Real-time application alerts • Manage multiple job postings • Track worker performance\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Hire For Any Role\n")
                     }
                     append("Delivery Personnel • Kitchen & Cooking Staff • Housekeeping & Cleaning • Shop Assistants & Retail • Childcare & Eldercare • Maintenance Workers • Event & Catering Staff • And many more...\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Why Choose DutyPe?\n")
                     }
                     append("Quick hiring process • Verified worker database • Cost-effective solutions • 24/7 platform access • Dedicated support team\n\n")
-                    
+
                     withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
                         append("Our Core Values\n")
                     }
@@ -96,12 +97,12 @@ fun EmployerAboutScreen(
                     lineHeight = 26.sp
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(40.dp))
-            
+
             // Footer
             Text(
-                text = "Made With Love in Bharat 💙",
+                text = "Made With Love in Bharat",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF6B7280),
                     fontWeight = FontWeight.Medium
@@ -109,9 +110,9 @@ fun EmployerAboutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(5.dp))
-            
+
             // Version info
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME}",
@@ -121,7 +122,7 @@ fun EmployerAboutScreen(
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

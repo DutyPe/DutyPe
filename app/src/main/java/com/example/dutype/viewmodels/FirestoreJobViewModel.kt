@@ -595,7 +595,7 @@ class FirestoreJobViewModel @Inject constructor(
                             // Convert summaries to JobListing for UI compatibility
                             val jobs = processJobsForDisplay(
                                 processedSummaries.map { it.toJobListing() },
-                                enforceStrictNearbyWindow = true
+                                enforceStrictNearbyWindow = false
                             )
                             val lastSummaryId = summaries.lastOrNull()?.id
                             

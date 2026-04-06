@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -56,15 +55,6 @@ fun LanguageOptionCard(
     onClick: () -> Unit
 ) {
     // Animation states
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.01f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "card_scale"
-    )
-    
     val borderWidth by animateDpAsState(
         targetValue = if (isSelected) 2.dp else 1.dp,
         animationSpec = tween(200),
@@ -86,7 +76,7 @@ fun LanguageOptionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
+            .heightIn(min = 84.dp)
             .shadow(
                 elevation = elevation,
                 shape = RoundedCornerShape(16.dp),
@@ -141,30 +131,35 @@ fun LanguageOptionCard(
                 }
             }
             
-            // Selection indicator - clean checkmark
-            AnimatedVisibility(
-                visible = isSelected,
-                enter = scaleIn(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                ) + fadeIn(),
-                exit = scaleOut() + fadeOut()
+            // Keep fixed indicator space so layout width stays stable while switching language.
+            Box(
+                modifier = Modifier.size(28.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(accentColor),
-                    contentAlignment = Alignment.Center
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = isSelected,
+                    enter = scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(accentColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }

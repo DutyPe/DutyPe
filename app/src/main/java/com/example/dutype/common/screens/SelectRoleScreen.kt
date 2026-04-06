@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -49,9 +50,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -209,7 +212,15 @@ fun SelectRoleScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0B1021),
+                        Color(0xFF131C3F),
+                        Color(0xFF0A1533)
+                    )
+                )
+            )
     ) {
         // Decorative background elements
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -217,17 +228,45 @@ fun SelectRoleScreen(
             val canvasHeight = size.height
 
             drawCircle(
-                color = Color(0xFF4CAF50).copy(alpha = 0.04f),
-                center = Offset(x = canvasWidth * 0.85f, y = canvasHeight * 0.1f),
-                radius = canvasWidth * 0.5f
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF93C5FD).copy(alpha = 0.26f),
+                        Color.Transparent
+                    )
+                ),
+                center = Offset(x = canvasWidth * 0.84f, y = canvasHeight * 0.1f),
+                radius = canvasWidth * 0.56f
             )
 
             drawCircle(
-                color = Color(0xFF2196F3).copy(alpha = 0.04f),
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFA78BFA).copy(alpha = 0.25f),
+                        Color.Transparent
+                    )
+                ),
                 center = Offset(x = canvasWidth * 0.15f, y = canvasHeight * 0.9f),
-                radius = canvasWidth * 0.6f
+                radius = canvasWidth * 0.65f
             )
         }
+
+        Box(
+            modifier = Modifier
+                .size(180.dp)
+                .offset(x = 220.dp, y = 130.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF67E8F9).copy(alpha = 0.28f))
+                .blur(70.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .offset(x = (-40).dp, y = 510.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF9A8D4).copy(alpha = 0.24f))
+                .blur(80.dp)
+        )
 
         Column(
             modifier = Modifier
@@ -252,7 +291,7 @@ fun SelectRoleScreen(
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontFamily = MeeshoFontFamily,
                         fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary
+                        color = Color(0xFFF8FAFC)
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -268,7 +307,7 @@ fun SelectRoleScreen(
                     text = "Choose your path. You can switch roles anytime.",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = MeeshoFontFamily,
-                        color = Color(0xFF64748B),
+                        color = Color(0xFFCBD5E1),
                         fontSize = 14.sp
                     ),
                     textAlign = TextAlign.Center,
@@ -277,20 +316,6 @@ fun SelectRoleScreen(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn(tween(350, delayMillis = 100))
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MiniInfoPill(text = "No spam")
-                    MiniInfoPill(text = "Private by default")
-                    MiniInfoPill(text = "Fast setup")
-                }
-            }
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -314,9 +339,9 @@ fun SelectRoleScreen(
                         icon = "👷",
                         title = stringResource(R.string.worker),
                         subtitle = stringResource(R.string.find_jobs_earn),
-                        primaryColor = Color(0xFF4CAF50),
-                        containerColor = Color(0xFFE8F5E9),
-                        arrowColor = Color(0xFF1F2937),
+                        primaryColor = Color(0xFF86EFAC),
+                        containerColor = Color(0xFF67E8F9),
+                        arrowColor = Color(0xFFE2E8F0),
                         delay = 50,
                         onClick = {
                             Timber.d("🔍 Worker role selected")
@@ -336,9 +361,9 @@ fun SelectRoleScreen(
                         icon = "🏢",
                         title = stringResource(R.string.employer),
                         subtitle = stringResource(R.string.hire_skilled_workers),
-                        primaryColor = Color(0xFF2196F3),
-                        containerColor = Color(0xFFE3F2FD),
-                        arrowColor = Color(0xFF2196F3),
+                        primaryColor = Color(0xFF93C5FD),
+                        containerColor = Color(0xFFA78BFA),
+                        arrowColor = Color(0xFFE2E8F0),
                         delay = 150,
                         onClick = {
                             Timber.d("🔍 Employer role selected")
@@ -395,7 +420,7 @@ fun RoleCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(118.dp)
+                .height(126.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -406,11 +431,15 @@ fun RoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = containerColor.copy(alpha = 0.26f)),
-            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = containerColor.copy(alpha = 0.17f)),
+            shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 1.dp,
-                pressedElevation = 3.dp
+                defaultElevation = 0.dp,
+                pressedElevation = 0.dp
+            ),
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.2.dp,
+                color = Color.White.copy(alpha = 0.38f)
             )
         ) {
             Row(
@@ -422,18 +451,23 @@ fun RoleCard(
                 // Icon Container - Minimal and clean
                 Box(
                     modifier = Modifier
-                        .size(70.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(18.dp))
                         .background(
-                            color = Color.White.copy(alpha = 0.85f),
-                            shape = RoundedCornerShape(12.dp)
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.3f),
+                                    Color.White.copy(alpha = 0.14f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(18.dp)
                         )
-                        .border(1.dp, primaryColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
+                        .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(18.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = icon,
-                        fontSize = 38.sp
+                        fontSize = 36.sp
                     )
                 }
 
@@ -446,7 +480,7 @@ fun RoleCard(
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontFamily = MeeshoFontFamily,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1F2937),
+                            color = Color(0xFFF8FAFC),
                             fontSize = 20.sp
                         )
                     )
@@ -455,7 +489,7 @@ fun RoleCard(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = MeeshoFontFamily,
-                            color = Color(0xFF6B7280),
+                            color = Color(0xFFCBD5E1),
                             fontSize = 13.sp
                         )
                     )
@@ -467,7 +501,15 @@ fun RoleCard(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(primaryColor.copy(alpha = 0.14f)),
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.34f),
+                                    Color.White.copy(alpha = 0.12f)
+                                )
+                            )
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.42f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -487,15 +529,15 @@ private fun MiniInfoPill(text: String) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(Color(0xFFF8FAFC))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
+            .background(Color.White.copy(alpha = 0.14f))
+            .border(1.dp, Color.White.copy(alpha = 0.34f), RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = MeeshoFontFamily,
-                color = Color(0xFF475569),
+                color = Color(0xFFE2E8F0),
                 fontWeight = FontWeight.SemiBold
             )
         )

@@ -1,6 +1,7 @@
 package com.example.dutype.worker.components
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +76,7 @@ fun JobCard(
     JobCardInternal(
         jobId = job.id,
         title = job.title,
+        companyName = job.companyName,
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
@@ -113,8 +116,11 @@ fun JobCard(
     val payDisplay = remember(job.salary, job.salaryType) {
         formatPayDisplay(job.salary, job.salaryType)
     }
-    val locationDisplay = remember(job.companyCity, job.distance) {
-        formatLocationWithDistance(job.companyCity, job.distance)
+    val locationDisplay = remember(job.locationText, job.companyCity, job.distance) {
+        formatLocationWithDistance(
+            job.locationText.ifBlank { job.companyCity },
+            job.distance
+        )
     }
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
@@ -122,6 +128,7 @@ fun JobCard(
     JobCardInternal(
         jobId = job.id,
         title = job.title,
+        companyName = job.companyName,
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
@@ -149,6 +156,7 @@ fun JobCard(
 private fun JobCardInternal(
     jobId: String,
     title: String,
+    companyName: String,
     payDisplay: String,
     locationDisplay: String,
     jobType: String,
@@ -165,18 +173,48 @@ private fun JobCardInternal(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onCardClick() }
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .clickable { onCardClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.86f)),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.65f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WorkerColors.CardBackground)
-                .padding(14.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.95f),
+                            Color(0xFFF7FBFF),
+                            Color(0xFFF1F8FF)
+                        )
+                    )
+                )
         ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 34.dp, y = (-28).dp)
+                    .size(104.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF93C5FD).copy(alpha = 0.2f))
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = (-24).dp, y = 26.dp)
+                    .size(86.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF67E8F9).copy(alpha = 0.18f))
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp)
+            ) {
             // Row 1: Job Icon + Title + Favorite
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -187,7 +225,16 @@ private fun JobCardInternal(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF3F4F6), CircleShape),
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.9f),
+                                    Color(0xFFE8F3FF)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.8f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
@@ -211,6 +258,39 @@ private fun JobCardInternal(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    if (companyName.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Business,
+                                contentDescription = null,
+                                tint = Color(0xFF7C3AED),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Company:",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B7280),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Text(
+                                text = companyName,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF111827),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
 
                 IconButton(
@@ -218,7 +298,11 @@ private fun JobCardInternal(
                         onSaveClick()
                         Toast.makeText(context, if (!isSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.72f))
+                        .border(1.dp, Color.White.copy(alpha = 0.82f), CircleShape)
                 ) {
                     Icon(
                         imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -306,6 +390,7 @@ private fun JobCardInternal(
                     CompactChip(text = "Urgent Hiring", chipType = ChipType.URGENT)
                 }
             }
+        }
         }
     }
 }
@@ -410,14 +495,20 @@ private fun formatPayDisplay(salary: Double, salaryType: String): String {
  * addressText comes from job_details (runtime only), distance is computed client-side.
  */
 private fun formatLocationWithDistance(addressText: String, distance: Double?): String {
-    val shortLocation = addressText.split(",").take(2).joinToString(", ") { it.trim() }
-    if (distance == null) return shortLocation
+    val normalizedLocation = addressText
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase() }
+        .joinToString(", ")
+
+    if (distance == null) return normalizedLocation
     val distStr = when {
         distance < 1.0 -> "${(distance * 1000).toInt()}m away"
         distance < 2.0 -> "${"%.1f".format(distance)} km walkable"
         else -> "${"%.1f".format(distance)} km away"
     }
-    return if (shortLocation.isNotEmpty()) "$shortLocation • $distStr" else distStr
+    return if (normalizedLocation.isNotEmpty()) "$normalizedLocation • $distStr" else distStr
 }
 
 /**

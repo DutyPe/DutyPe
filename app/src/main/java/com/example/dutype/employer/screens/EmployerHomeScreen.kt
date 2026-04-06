@@ -324,20 +324,25 @@ fun EmployerHomeScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        EmployerColors.HomeGradientStart,
+                        EmployerColors.HomeGradientMiddle,
+                        EmployerColors.HomeGradientEnd
+                    )
+                )
+            )
+    ) {
+        EmployerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            EmployerColors.HomeGradientStart,   // Vibrant blue
-                            EmployerColors.HomeGradientMiddle,  // Deeper blue
-                            EmployerColors.HomeGradientEnd      // Rich blue
-                        )
-                    )
-                )
         ) {
         // Offline banner at the very top
         val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -466,6 +471,41 @@ fun EmployerHomeScreen(
             userRole = "employer"
         )
     } // Box
+}
+
+@Composable
+private fun EmployerHomeBackdropDecor(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(340.dp)
+                .offset(x = 220.dp, y = (-150).dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF93C5FD).copy(alpha = 0.45f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .size(280.dp)
+                .offset(x = (-100).dp, y = 520.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFBFDBFE).copy(alpha = 0.35f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+    }
 }
 
 @Composable

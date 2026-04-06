@@ -172,15 +172,17 @@ fun JobApplicationCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        
-                        Text(
-                            text = application.companyName,
-                            style = AppTypography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+
+                        if (application.companyName.isNotBlank()) {
+                            Text(
+                                text = application.companyName,
+                                style = AppTypography.bodyMedium.copy(
+                                    color = Color(0xFF6B7280)
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     
                     // Status badge

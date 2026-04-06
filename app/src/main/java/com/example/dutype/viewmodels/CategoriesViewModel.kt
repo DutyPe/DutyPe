@@ -35,7 +35,7 @@ data class CategoriesUiState(
 /**
  * ViewModel for Categories Screen
  * Handles pagination for both "All Jobs" and category-specific jobs
- * Loads 15 jobs at a time for smooth infinite scroll experience
+ * Loads 10 jobs at a time for smooth infinite scroll experience
  */
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
@@ -47,7 +47,7 @@ class CategoriesViewModel @Inject constructor(
 ) : ViewModel() {
     
     companion object {
-        private const val PAGE_SIZE = 15L // Optimized for smooth infinite scroll
+        private const val PAGE_SIZE = 10L // Product requirement: 10 jobs per page
     }
     
     private val _uiState = MutableStateFlow(CategoriesUiState())
@@ -105,25 +105,26 @@ class CategoriesViewModel @Inject constructor(
      * CRITICAL FIX: Complete state reset when switching categories
      */
     fun loadJobsForCategory(category: String) {
+        val normalizedCategory = if (category.equals("All Jobs", ignoreCase = true)) "All" else category
         val currentCategory = _uiState.value.currentCategory
         val isLoading = _uiState.value.isLoading
         val isLoadingMore = _uiState.value.isLoadingMore
         
         // CRITICAL FIX: Prevent duplicate calls
-        if (currentCategory == category && (isLoading || isLoadingMore)) {
-            Timber.d("📦 CategoriesVM: Already loading $category, skipping duplicate call")
+        if (currentCategory == normalizedCategory && (isLoading || isLoadingMore)) {
+            Timber.d("📦 CategoriesVM: Already loading $normalizedCategory, skipping duplicate call")
             return
         }
         
         // CRITICAL FIX: Always reset state completely when switching categories OR reloading same category
         Timber.d("📦 ========== LOAD CATEGORY ==========")
-        Timber.d("📦 From: '$currentCategory' → To: '$category'")
+        Timber.d("📦 From: '$currentCategory' → To: '$normalizedCategory'")
         Timber.d("📦 Resetting ALL state (jobs, pagination, errors)")
         
         // Complete state reset - clear everything
         _uiState.value = CategoriesUiState(
             isLoading = true,
-            currentCategory = category,
+            currentCategory = normalizedCategory,
             jobs = emptyList(),
             hasMore = true,
             lastDocumentId = null,
@@ -135,13 +136,13 @@ class CategoriesViewModel @Inject constructor(
             com.example.dutype.performance.MainThreadChecker.assertMainThread()
             performanceTracker.trackOperation("loadJobsForCategory_$category")
             try {
-                if (category == "All") {
+                if (normalizedCategory == "All") {
                     loadAllJobs(PAGE_SIZE)
                 } else {
-                    loadCategoryJobs(category, PAGE_SIZE)
+                    loadCategoryJobs(normalizedCategory, PAGE_SIZE)
                 }
             } catch (e: Exception) {
-                Timber.e("❌ Error loading jobs for $category: ${e.message}")
+                Timber.e("❌ Error loading jobs for $normalizedCategory: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message
@@ -230,20 +231,19 @@ class CategoriesViewModel @Inject constructor(
     
     /**
      * Load all jobs with pagination
-     * Uses proper pagination - loads 15 jobs at a time
+        * Uses proper pagination - loads 10 jobs at a time
      * NO MEMORY LIMITS - loads all jobs progressively
      */
     private suspend fun loadAllJobs(limit: Long, lastDocumentId: String? = null) {
         Timber.d("📦 Loading all jobs with limit=$limit, after=$lastDocumentId")
-        val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
         // Keep "All" category paginated from first paint to avoid loading hundreds of jobs upfront.
         val summaryFlow = firestoreJobRepository.getAllJobsSummary(
             limit = limit,
             lastDocumentId = lastDocumentId,
             category = null,
-            userLatitude = if (hasLocation) userLatitude else null,
-            userLongitude = if (hasLocation) userLongitude else null,
-            radiusKm = 10.0
+            userLatitude = null,
+            userLongitude = null,
+            radiusKm = 0.0
         )
         
         summaryFlow.collect { result ->
@@ -302,14 +302,13 @@ class CategoriesViewModel @Inject constructor(
         Timber.d("📦 Limit: $limit")
         Timber.d("📦 lastDocumentId: $lastDocumentId")
         Timber.d("📦 =========================================")
-        val hasLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
         val summaryFlow = firestoreJobRepository.getAllJobsSummary(
             limit = limit,
             lastDocumentId = lastDocumentId,
             category = categoryQuery,
-            userLatitude = if (hasLocation) userLatitude else null,
-            userLongitude = if (hasLocation) userLongitude else null,
-            radiusKm = 10.0
+            userLatitude = null,
+            userLongitude = null,
+            radiusKm = 0.0
         )
         
         summaryFlow.collect { result ->
@@ -354,6 +353,7 @@ class CategoriesViewModel @Inject constructor(
         }
         
         val newJobs = processedSummaries.map { it.toJobListing() }
+        val previousSize = _uiState.value.jobs.size
         
         val mergedJobs = if (isLoadingMore) {
             PaginationHelper.appendJobs(_uiState.value.jobs, newJobs, maxInMemory = 0)
@@ -367,14 +367,26 @@ class CategoriesViewModel @Inject constructor(
             mergedJobs
         }
         
-        val lastJob = newJobs.lastOrNull()
+        val previousCursor = _uiState.value.lastDocumentId
+        val lastJobId = summaries.lastOrNull()?.id
+        val cursorAdvanced = !lastJobId.isNullOrBlank() && lastJobId != previousCursor
+        val noGrowth = isLoadingMore && summaries.isNotEmpty() && finalJobs.size == previousSize && !cursorAdvanced
+        val canContinuePaging = PaginationHelper.hasMorePages(summaries.size) &&
+            (!isLoadingMore || cursorAdvanced || finalJobs.size > previousSize)
+
+        if (noGrowth) {
+            Timber.w("📦 CategoriesVM: Pagination page had no new unique jobs. Stopping further load-more to avoid loop.")
+        }
+        if (!cursorAdvanced && summaries.isNotEmpty() && isLoadingMore) {
+            Timber.w("📦 CategoriesVM: Pagination cursor did not advance (cursor=$lastJobId). Marking end of list.")
+        }
         
         _uiState.value = _uiState.value.copy(
             jobs = finalJobs,
             isLoading = false,
             isLoadingMore = false,
-            hasMore = PaginationHelper.hasMorePages(newJobs.size),
-            lastDocumentId = lastJob?.id
+            hasMore = !noGrowth && canContinuePaging,
+            lastDocumentId = lastJobId ?: previousCursor
         )
     }
 }

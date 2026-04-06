@@ -152,6 +152,70 @@ class JobApplicationService @Inject constructor(
         )
     }
 
+    private suspend fun enrichApplicationsWithJobDetails(applications: List<JobApplication>): List<JobApplication> {
+        if (applications.isEmpty()) return applications
+
+        val needsEnrichmentIds = applications
+            .filter {
+                it.jobId.isNotBlank() && (
+                    it.jobTitle.isBlank() ||
+                    it.jobLocation.isBlank() ||
+                    it.companyName.isBlank()
+                )
+            }
+            .map { it.jobId }
+            .distinct()
+
+        if (needsEnrichmentIds.isEmpty()) return applications
+
+        val localJobsById = mutableMapOf<String, com.example.dutype.database.entity.JobEntity?>()
+        needsEnrichmentIds.forEach { jobId ->
+            localJobsById[jobId] = jobDao.getJobById(jobId)
+        }
+
+        val unresolvedIds = needsEnrichmentIds.filter { localJobsById[it] == null }
+        val remoteJobDataById = mutableMapOf<String, Map<String, Any>>()
+
+        unresolvedIds.chunked(50).forEach { chunk ->
+            if (chunk.isEmpty()) return@forEach
+            runCatching {
+                chunk.forEach { jobId ->
+                    val doc = firestore
+                        .collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
+                        .document(jobId)
+                        .get()
+                        .await()
+                    if (doc.exists()) {
+                        remoteJobDataById[jobId] = doc.data ?: emptyMap()
+                    }
+                }
+            }.onFailure { error ->
+                Timber.w(error, "[Applications] Failed to enrich job snapshot chunk")
+            }
+        }
+
+        return applications.map { application ->
+            val localJob = localJobsById[application.jobId]
+            val remoteJob = remoteJobDataById[application.jobId]
+
+            val resolvedTitle = application.jobTitle.ifBlank {
+                localJob?.title ?: remoteJob?.stringValue("title", "jobTitle").orEmpty()
+            }
+            val resolvedLocation = application.jobLocation.ifBlank {
+                localJob?.addressText ?: remoteJob?.stringValue("addressText", "jobLocation", "location").orEmpty()
+            }
+            val resolvedCompany = application.companyName.ifBlank {
+                remoteJob?.stringValue("companyName", "company", "employerName").orEmpty()
+            }
+
+            application.copy(
+                jobTitle = resolvedTitle,
+                jobLocation = resolvedLocation,
+                companyName = resolvedCompany
+            )
+        }
+    }
+
     private suspend fun queueApplicationLocally(application: JobApplication) {
         val normalized = application.withCanonicalId()
         applicationDao.queueApplication(
@@ -547,8 +611,10 @@ class JobApplicationService @Inject constructor(
                     }
                 }
 
-                cacheApplicationsLocally(applications)
-                emit(Result.success(mergeWorkerApplications(applications, localApplications)))
+                val enrichedApplications = enrichApplicationsWithJobDetails(applications)
+
+                cacheApplicationsLocally(enrichedApplications)
+                emit(Result.success(mergeWorkerApplications(enrichedApplications, localApplications)))
                 return@flow
             }
             
@@ -577,9 +643,11 @@ class JobApplicationService @Inject constructor(
                     null
                 }
             }
+
+            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
             
-            cacheApplicationsLocally(applications)
-            emit(Result.success(mergeWorkerApplications(applications, localApplications)))
+            cacheApplicationsLocally(enrichedApplications)
+            emit(Result.success(mergeWorkerApplications(enrichedApplications, localApplications)))
         } catch (e: Exception) {
             Timber.e(e, "[Applications] Error getting applications for workerId: $workerId")
             val localApplications = getLocalApplications(workerId)
@@ -746,9 +814,11 @@ class JobApplicationService @Inject constructor(
                     null
                 }
             }
-            
-            cacheApplicationsLocally(applications)
-            emit(Result.success(mergeWorkerApplications(applications, localApplications).filter { it.status == status }))
+
+            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
+
+            cacheApplicationsLocally(enrichedApplications)
+            emit(Result.success(mergeWorkerApplications(enrichedApplications, localApplications).filter { it.status == status }))
         } catch (e: Exception) {
             val localApplications = getLocalApplications(workerId).filter { it.status == status }
             if (localApplications.isNotEmpty()) {

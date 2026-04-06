@@ -1,6 +1,7 @@
 package com.example.dutype.services.firestore
 
 import com.example.dutype.models.JobListing
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.Timestamp
@@ -38,10 +39,21 @@ class JobFirestoreService @Inject constructor(
     }
 
     private fun toEpochMillis(value: Any?): Long {
+        fun normalizeEpoch(raw: Long): Long {
+            if (raw <= 0L) return 0L
+            return when {
+                // Seconds epoch (10 digits) -> milliseconds.
+                raw < 100_000_000_000L -> raw * 1000L
+                // Microseconds epoch (16+ digits) -> milliseconds.
+                raw > 9_999_999_999_999L -> raw / 1000L
+                else -> raw
+            }
+        }
+
         return when (value) {
-            is Timestamp -> value.toDate().time
-            is Number -> value.toLong()
-            is Date -> value.time
+            is Timestamp -> normalizeEpoch(value.toDate().time)
+            is Number -> normalizeEpoch(value.toLong())
+            is Date -> normalizeEpoch(value.time)
             else -> 0L
         }
     }
@@ -149,6 +161,15 @@ class JobFirestoreService @Inject constructor(
         return mapOf(
             "jobId" to docId,
             "employerId" to normalizeString(data["employerId"]),
+            "companyName" to normalizeString(data["companyName"]).ifBlank {
+                normalizeString(data["company"]).ifBlank {
+                    normalizeString(data["employerName"]).ifBlank {
+                        normalizeString(data["businessName"]).ifBlank {
+                            normalizeString(data["company_name"])
+                        }
+                    }
+                }
+            },
             "title" to normalizeString(data["title"]),
             "location" to mapOf("lat" to latitude, "lng" to longitude),
             "geohash" to normalizeString(data["geohash"]),
@@ -241,7 +262,9 @@ class JobFirestoreService @Inject constructor(
             
             val jobRef = firestore.collection(JOBS_COLLECTION).document()
             val currentTime = System.currentTimeMillis()
-            val employerId = normalizeString(jobData["employerId"])
+            val authUid = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+            val payloadEmployerId = normalizeString(jobData["employerId"])
+            val employerId = if (authUid.isNotBlank()) authUid else payloadEmployerId
             val title = normalizeString(jobData["title"])
             val jobType = normalizeString(jobData["jobType"])
             val description = normalizeString(jobData["description"])
@@ -268,6 +291,7 @@ class JobFirestoreService @Inject constructor(
             val longitude = (providedLocation?.get("lng") as? Number)?.toDouble()
 
             if (
+                authUid.isBlank() ||
                 employerId.isBlank() ||
                 title.isBlank() ||
                 jobType.isBlank() ||
@@ -280,6 +304,10 @@ class JobFirestoreService @Inject constructor(
                 !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)
             ) {
                 return Result.failure(IllegalArgumentException("Invalid job payload for strict schema"))
+            }
+
+            if (payloadEmployerId.isNotBlank() && payloadEmployerId != authUid) {
+                Timber.w("📝 FIRESTORE DEBUG: employerId mismatch (payload=$payloadEmployerId, auth=$authUid). Using authenticated UID.")
             }
 
             val employerProfile = firestore.collection(EMPLOYER_PROFILES_COLLECTION)
@@ -302,6 +330,7 @@ class JobFirestoreService @Inject constructor(
                 "companyName" to companyName,
                 "isVerified" to isVerified,
                 "title" to title,
+                "jobType" to jobType,
                 "salary" to salary,
                 "salaryType" to salaryType,
                 "urgency" to urgency,
@@ -524,7 +553,10 @@ class JobFirestoreService @Inject constructor(
             var filteredByStatus = 0
             var filteredByExpiry = 0
             
-            // Client-side strict filtering by status + expiry.
+            // Client-side filtering by status.
+            // NOTE: We intentionally do NOT drop by expiry in this list endpoint.
+            // Reason: legacy data may store mixed epoch units and aggressive expiry
+            // filtering can starve pagination (pages appear empty even when more jobs exist).
             val jobs = snapshot.documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
                 
@@ -535,13 +567,11 @@ class JobFirestoreService @Inject constructor(
                     filteredByStatus++
                     return@mapNotNull null
                 }
-                
-                // Filter 2: Expiry check
+
+                // Keep expiry stats for observability, but do not exclude from list here.
                 val expiresAt = toEpochMillis(data["expiresAt"])
-                val isNotExpired = expiresAt == 0L || expiresAt > currentTime
-                if (!isNotExpired) {
+                if (expiresAt != 0L && expiresAt <= currentTime) {
                     filteredByExpiry++
-                    return@mapNotNull null
                 }
 
                 val summary = buildJobSummary(doc.id, data, currentTime)

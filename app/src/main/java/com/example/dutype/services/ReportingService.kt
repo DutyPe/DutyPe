@@ -3,7 +3,8 @@ package com.example.dutype.services
 import com.example.dutype.utils.SecureLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -67,8 +68,6 @@ class ReportingService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
-    private val functions = FirebaseFunctions.getInstance()
-    
     companion object {
         const val REPORTS_COLLECTION = "job_reports"
         const val JOBS_COLLECTION = "jobs"
@@ -98,16 +97,63 @@ class ReportingService @Inject constructor(
                 "reporterId" to userId,
                 "reportType" to reportType.name
             )
+
+            val reportRef = firestore.collection(REPORTS_COLLECTION)
+                .document(buildReportId(userId, jobId))
+
+            if (reportRef.get().await().exists()) {
+                return Result.success(
+                    ReportResult(
+                        success = false,
+                        message = "You have already reported this job.",
+                        totalReports = 0,
+                        jobHidden = false
+                    )
+                )
+            }
+
+            val reportData = mapOf(
+                "reportId" to reportRef.id,
+                "jobId" to jobId,
+                "reporterId" to userId,
+                "reporterPhone" to userPhone,
+                "reportType" to reportType.name,
+                "description" to description.trim(),
+                "timestamp" to System.currentTimeMillis(),
+                "status" to "PENDING"
+            )
+
+            reportRef.set(reportData).await()
+
+            val totalReports = firestore.collection(REPORTS_COLLECTION)
+                .whereEqualTo("jobId", jobId)
+                .get()
+                .await()
+                .size()
+
+            val thresholdReached = totalReports >= AUTO_HIDE_THRESHOLD
+            val responseMessage = if (thresholdReached) {
+                "Report submitted. This job has reached review threshold."
+            } else {
+                "Thank you for reporting. We'll review this job."
+            }
+
+            Result.success(
+                ReportResult(
+                    success = true,
+                    message = responseMessage,
+                    totalReports = totalReports,
+                    jobHidden = thresholdReached
+                )
+            )
             
-            Timber.d("📝 Strict schema mode: skipping job_reports write for job $jobId, type=${reportType.name}")
-            
-            Result.success(ReportResult(
-                success = true,
-                message = "Thank you for reporting. We'll review this job.",
-                totalReports = 1,
-                jobHidden = false
-            ))
-            
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.e(e, "Failed to report job: permission denied")
+                return Result.failure(Exception("Unable to submit report right now. Please update app/rules and try again."))
+            }
+            Timber.e(e, "Failed to report job")
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to report job")
             Result.failure(e)
@@ -118,13 +164,47 @@ class ReportingService @Inject constructor(
      * Check if user already reported this job
      */
     private suspend fun checkExistingReport(jobId: String, userId: String): Boolean {
-        return false
+        val reportId = buildReportId(userId, jobId)
+        return firestore.collection(REPORTS_COLLECTION)
+            .document(reportId)
+            .get()
+            .await()
+            .exists()
     }
     
     /**
      * Get user's reports
      */
     suspend fun getUserReports(userId: String): List<JobReport> {
-        return emptyList()
+        return try {
+            firestore.collection(REPORTS_COLLECTION)
+                .whereEqualTo("reporterId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(100)
+                .get()
+                .await()
+                .documents
+                .mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    JobReport(
+                        reportId = data["reportId"] as? String ?: doc.id,
+                        jobId = data["jobId"] as? String ?: "",
+                        reporterId = data["reporterId"] as? String ?: "",
+                        reporterPhone = data["reporterPhone"] as? String ?: "",
+                        reportType = data["reportType"] as? String ?: "",
+                        description = data["description"] as? String ?: "",
+                        timestamp = (data["timestamp"] as? Number)?.toLong() ?: 0L,
+                        status = data["status"] as? String ?: "PENDING",
+                        reviewedBy = data["reviewedBy"] as? String,
+                        reviewedAt = (data["reviewedAt"] as? Number)?.toLong(),
+                        actionTaken = data["actionTaken"] as? String
+                    )
+                }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user reports")
+            emptyList()
+        }
     }
+
+    private fun buildReportId(userId: String, jobId: String): String = "${userId}_${jobId}"
 }

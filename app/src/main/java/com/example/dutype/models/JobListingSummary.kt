@@ -18,6 +18,7 @@ import java.util.Date
 data class JobListingSummary(
     val id: String = "",
     val employerId: String = "",
+    val companyName: String = "",
     val title: String = "",
     val jobType: String = "",
     val salary: Double = 0.0,
@@ -30,6 +31,7 @@ data class JobListingSummary(
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val companyCity: String = "",       // NEW: City name for location display
+    val locationText: String = "",      // NEW: Exact location text for card display
 
     // Runtime-only (never stored in Firestore)
     var distance: Double? = null,
@@ -74,11 +76,20 @@ data class JobListingSummary(
          * Create from Firestore document map — reads only canonical schema fields.
          */
         fun fromMap(data: Map<String, Any>, docId: String = ""): JobListingSummary {
+            fun normalizeEpoch(raw: Long): Long {
+                if (raw <= 0L) return 0L
+                return when {
+                    raw < 100_000_000_000L -> raw * 1000L
+                    raw > 9_999_999_999_999L -> raw / 1000L
+                    else -> raw
+                }
+            }
+
             fun toEpochMillis(value: Any?): Long {
                 return when (value) {
-                    is Timestamp -> value.toDate().time
-                    is Number -> value.toLong()
-                    is Date -> value.time
+                    is Timestamp -> normalizeEpoch(value.toDate().time)
+                    is Number -> normalizeEpoch(value.toLong())
+                    is Date -> normalizeEpoch(value.time)
                     else -> 0L
                 }
             }
@@ -100,10 +111,12 @@ data class JobListingSummary(
                 ?.takeIf { it.isNotBlank() }
                 ?: com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
 
+            val locationText = (data["addressText"] as? String).orEmpty().ifBlank {
+                (data["location"] as? String).orEmpty()
+            }
+
             val companyCity = (data["companyCity"] as? String).orEmpty().ifBlank {
-                (data["addressText"] as? String).orEmpty().ifBlank {
-                    (data["location"] as? String).orEmpty()
-                }
+                locationText
             }
 
             val salaryType = ((data["salaryType"] as? String)
@@ -115,6 +128,12 @@ data class JobListingSummary(
             return JobListingSummary(
                 id = id,
                 employerId = data["employerId"] as? String ?: "",
+                companyName = (data["companyName"] as? String)
+                    ?: (data["employerName"] as? String)
+                    ?: (data["company"] as? String)
+                    ?: (data["businessName"] as? String)
+                    ?: (data["company_name"] as? String)
+                    ?: "",
                 title = title,
                 jobType = jobType,
                 salary = salary,
@@ -126,7 +145,8 @@ data class JobListingSummary(
                 expiresAt = toEpochMillis(data["expiresAt"]),
                 lat = lat,
                 lng = lng,
-                companyCity = companyCity
+                companyCity = companyCity,
+                locationText = locationText
             )
         }
 
@@ -136,6 +156,7 @@ data class JobListingSummary(
         fun fromJobListing(job: JobListing): JobListingSummary = JobListingSummary(
             id = job.id,
             employerId = job.employerId,
+            companyName = job.companyName,
             title = job.title,
             jobType = job.jobType,
             salary = job.salary,
@@ -148,6 +169,7 @@ data class JobListingSummary(
             lat = job.lat,
             lng = job.lng,
             companyCity = job.addressText.ifBlank { job.location },
+            locationText = job.addressText.ifBlank { job.location },
             distance = job.distance,
             isSaved = job.isSaved
         )

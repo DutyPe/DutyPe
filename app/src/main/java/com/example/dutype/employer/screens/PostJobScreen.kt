@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -116,9 +117,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
@@ -794,7 +798,7 @@ fun PostJobScreen(
                 // ANTI-FRAUD: Location Consistency Check (NON-BLOCKING)
                 // Run in background - don't block job posting
                 if (finalLatitude != 0.0 && finalLongitude != 0.0) {
-                    scope.launch {
+                    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                         try {
                             val employerLocation = locationService.getHighAccuracyLocation(
                                 timeoutMs = 5000L,  // Reduced timeout
@@ -834,15 +838,15 @@ fun PostJobScreen(
     }
 
     // Professional color palette
-    val primaryBlue = Color(0xFF0F766E)
+    val primaryBlue = Color(0xFF1D4ED8)
     val successGreen = Color(0xFF059669)
     val lightGray = Color(0xFFF8FAFC)
-    val darkText = Color(0xFF1E293B)
+    val darkText = Color(0xFF0F172A)
     val pageBackground = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFFFFFDF7),
-            Color(0xFFF4F9FF),
-            Color(0xFFF6FFF9)
+            Color(0xFFEFF6FF),
+            Color(0xFFECFEFF),
+            Color(0xFFF8FAFC)
         )
     )
     
@@ -1129,9 +1133,10 @@ fun PostJobScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 16.dp,
-                color = Color.White
+                color = Color.White.copy(alpha = 0.98f)
             ) {
                 Column {
+                    Divider(color = Color(0xFFE2E8F0), thickness = 1.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1279,37 +1284,45 @@ fun PostJobScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(pageBackground)
-                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(paddingValues)
         ) {
-            // Offline banner at the very top
-            val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-            val isOnline by connectivityViewModel.isOnline.collectAsState()
-            com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-            
-            // Professional Step Indicator
-            StepProgressIndicator(
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                primaryColor = primaryBlue,
-                successColor = successGreen
-            )
+            PostJobBackdropDecor(modifier = Modifier.fillMaxSize())
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = PaddingValues(
-                    top = 8.dp,
-                    start = 16.dp,
-                    end = 16.dp,
-                    bottom = 100.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.statusBars)
             ) {
+                // Offline banner at the very top
+                val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+                val isOnline by connectivityViewModel.isOnline.collectAsState()
+                com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+
+                PostJobHeroCard(currentStep = currentStep, totalSteps = totalSteps)
+
+                // Professional Step Indicator
+                StepProgressIndicator(
+                    currentStep = currentStep,
+                    totalSteps = totalSteps,
+                    primaryColor = primaryBlue,
+                    successColor = successGreen
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        top = 8.dp,
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = 100.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                 when (currentStep) {
                     1 -> {
                         item {
@@ -1600,6 +1613,7 @@ fun PostJobScreen(
                 item {
                     Spacer(modifier = Modifier.height(100.dp))
                 }
+                }
             }
         }
     }
@@ -1629,6 +1643,103 @@ fun PostJobScreen(
     )
 }
 
+@Composable
+private fun PostJobBackdropDecor(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(280.dp)
+                .align(Alignment.TopEnd)
+                .padding(top = 10.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF93C5FD).copy(alpha = 0.34f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .size(220.dp)
+                .align(Alignment.BottomStart)
+                .padding(bottom = 140.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF67E8F9).copy(alpha = 0.25f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+    }
+}
+
+@Composable
+private fun PostJobHeroCard(currentStep: Int, totalSteps: Int) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.8f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFFEFF6FF),
+                            Color(0xFFECFEFF),
+                            Color(0xFFFFFFFF)
+                        )
+                    )
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Build a high-quality job post",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Clear details = faster and better applicants",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF475569)
+                    )
+                )
+            }
+            Surface(
+                color = Color(0xFFDBEAFE),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Step $currentStep/$totalSteps",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF1D4ED8)
+                    )
+                )
+            }
+        }
+    }
+}
+
 // Clean Minimal Step Progress Indicator - Enhanced Version
 @Composable
 fun StepProgressIndicator(
@@ -1638,7 +1749,6 @@ fun StepProgressIndicator(
     successColor: Color
 ) {
     val stepLabels = listOf("Job Details", "Pay & Location", "Requirements", "Review & Post")
-    val stepIcons = listOf("📝", "💰", "📋", "✨")
     val stepDescriptions = listOf(
         "Title, category & description",
         "Salary, location & vacancies", 
@@ -1647,53 +1757,44 @@ fun StepProgressIndicator(
     )
     
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        shadowElevation = 4.dp
+        shadowElevation = 6.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 20.dp, bottom = 20.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            // Header with step count and icon
+            // Header with step count and context
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stepIcons.getOrElse(currentStep - 1) { "📝" },
-                            fontSize = 24.sp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = stepLabels.getOrElse(currentStep - 1) { "" },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1E293B)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = stepDescriptions.getOrElse(currentStep - 1) { "" },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF6B7280)
-                            )
-                        }
-                    }
+                    Text(
+                        text = stepLabels.getOrElse(currentStep - 1) { "Post Job" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stepDescriptions.getOrElse(currentStep - 1) { "Complete the next section" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
                 }
                 
                 // Step counter badge
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = primaryColor.copy(alpha = 0.1f)
+                    shape = RoundedCornerShape(999.dp),
+                    color = primaryColor.copy(alpha = 0.12f)
                 ) {
                     Text(
                         text = "$currentStep/$totalSteps",
@@ -1705,14 +1806,13 @@ fun StepProgressIndicator(
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             
-            // Progress bar only (no step labels below)
+            // Progress rail with step points
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(totalSteps) { index ->
@@ -1733,8 +1833,8 @@ fun StepProgressIndicator(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
+                            .height(if (isCurrent) 8.dp else 6.dp)
+                            .clip(RoundedCornerShape(999.dp))
                             .background(barColor)
                     )
                 }
@@ -1754,32 +1854,45 @@ fun PolishedCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 3.dp,
+        color = Color.White.copy(alpha = 0.98f),
+        shadowElevation = 5.dp,
         tonalElevation = 1.dp
     ) {
-        if (showAccent) {
-            Row {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxSize()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    accentColor,
-                                    accentColor.copy(alpha = 0.5f)
-                                )
-                            ),
-                            shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White,
+                            Color(0xFFF8FAFC)
                         )
+                    )
                 )
-                Box(modifier = Modifier.weight(1f)) {
-                    content()
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
+        ) {
+            if (showAccent) {
+                Row {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        accentColor,
+                                        accentColor.copy(alpha = 0.55f)
+                                    )
+                                ),
+                                shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+                            )
+                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        content()
+                    }
                 }
+            } else {
+                content()
             }
-        } else {
-            content()
         }
     }
 }

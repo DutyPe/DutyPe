@@ -70,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -369,7 +370,15 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(Color.White)  // White background
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFF0FDFA),
+                            Color(0xFFEFF6FF),
+                            Color(0xFFFFFBEB)
+                        )
+                    )
+                )
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -380,7 +389,7 @@ fun WorkerProfileScreen(
             com.example.dutype.components.CommonHeader( 
                 title = "Profile",
                 showBackButton = false,
-                backgroundColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                backgroundColor = Color.Transparent,
                 titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 actions = {
                     Row(
@@ -448,13 +457,21 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD1FAE5)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFECFEFF),
+                                    Color(0xFFFFFFFF)
+                                )
+                            )
+                        )
                         .clickable { 
                             if (isLoggedIn) {
                                 rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
@@ -470,14 +487,13 @@ fun WorkerProfileScreen(
                     Box(
                         modifier = Modifier.size(56.dp)
                     ) {
-                        // Use SubcomposeAsyncImage for better loading/error handling
                         when {
                             isUploadingImage -> {
                                 Box(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF3F4F6)),
+                                        .background(Color(0xFFE0F2FE)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CircularProgressIndicator(
@@ -535,7 +551,7 @@ fun WorkerProfileScreen(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF3F4F6))
+                                        .background(Color(0xFFE0F2FE))
                                         .clickable { 
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
@@ -670,8 +686,8 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -739,8 +755,8 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -780,8 +796,8 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -910,9 +926,9 @@ fun WorkerProfileScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     MeeshoMenuItem(
                         icon = Icons.AutoMirrored.Outlined.ExitToApp,
@@ -1301,11 +1317,26 @@ private fun MeeshoMenuItem(
     isDestructive: Boolean = false,
     iconColor: Color? = null
 ) {
+    val menuContainerColor = if (isDestructive) {
+        Color(0xFFFEE2E2).copy(alpha = 0.55f)
+    } else {
+        Color.White.copy(alpha = 0.72f)
+    }
+
+    val menuBorderColor = if (isDestructive) {
+        Color(0xFFFCA5A5).copy(alpha = 0.75f)
+    } else {
+        Color(0xFFE2E8F0).copy(alpha = 0.8f)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(menuContainerColor)
+            .border(1.dp, menuBorderColor, RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Icon with custom color support
@@ -1315,7 +1346,7 @@ private fun MeeshoMenuItem(
             tint = when {
                 isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> Color(0xFF374151) // Professional dark gray (gray-700) for profile icons
+                else -> Color(0xFF64748B)
             },
             modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
@@ -1347,8 +1378,8 @@ private fun MeeshoMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-            modifier = Modifier.size(24.dp)
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -1411,9 +1442,9 @@ private fun MenuDivider() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 56.dp) // Align with text after icon (16dp padding + 24dp icon + 16dp spacing)
+            .padding(start = 52.dp)
             .height(1.dp)
-            .background(com.example.dutype.ui.theme.WorkerColors.Divider)
+            .background(Color(0xFFE5E7EB))
     )
 }
 

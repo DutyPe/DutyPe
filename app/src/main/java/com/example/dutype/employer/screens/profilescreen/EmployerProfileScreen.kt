@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -176,7 +177,15 @@ fun EmployerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(Color.White)  // White background
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFEEF2FF),
+                            Color(0xFFEFF6FF),
+                            Color(0xFFF8FAFC)
+                        )
+                    )
+                )
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -187,7 +196,7 @@ fun EmployerProfileScreen(
             com.example.dutype.components.CommonHeader(
                 title = stringResource(R.string.profile),
                 showBackButton = false,
-                backgroundColor = WorkerColors.CardBackground,
+                backgroundColor = Color.Transparent,
                 titleColor = WorkerColors.TextPrimary,
                 actions = {
                     Row(
@@ -255,15 +264,25 @@ fun EmployerProfileScreen(
                         .padding(horizontal = 16.dp),
                     // TODO: Rounded corners commented out for UI testing
                     // shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),  // White background for card
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFDBEAFE)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         // Profile as Flat Menu Item: Photo | Name + Phone | Arrow
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .background(
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Color(0xFFEFF6FF),
+                                            Color(0xFFFFFFFF)
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
                                 .clickable {
                                     if (isLoggedIn) {
                                         localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
@@ -273,7 +292,7 @@ fun EmployerProfileScreen(
                                         showLoginBottomSheet = true
                                     }
                                 }
-                                .padding(vertical = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Company Logo
@@ -282,7 +301,7 @@ fun EmployerProfileScreen(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(WorkerColors.ChipBackground)
+                                        .background(Color(0xFFE0E7FF))
                                         .clickable {
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
@@ -438,8 +457,9 @@ fun EmployerProfileScreen(
                     // TODO: Rounded corners commented out for UI testing
                     // shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = "My Activity")
@@ -518,8 +538,9 @@ fun EmployerProfileScreen(
                     // TODO: Rounded corners commented out for UI testing
                     // shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = "Rewards")
@@ -555,8 +576,9 @@ fun EmployerProfileScreen(
                     // TODO: Rounded corners commented out for UI testing
                     // shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = "Others")
@@ -698,10 +720,9 @@ fun EmployerProfileScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        // TODO: Rounded corners commented out for UI testing
-                        // shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             ProfileMenuItem(
@@ -801,11 +822,26 @@ private fun ProfileMenuItem(
     isDestructive: Boolean = false,
     iconColor: Color? = null
 ) {
+    val menuContainerColor = if (isDestructive) {
+        Color(0xFFFEE2E2).copy(alpha = 0.55f)
+    } else {
+        Color.White.copy(alpha = 0.72f)
+    }
+
+    val menuBorderColor = if (isDestructive) {
+        Color(0xFFFCA5A5).copy(alpha = 0.75f)
+    } else {
+        Color(0xFFE2E8F0).copy(alpha = 0.8f)
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(menuContainerColor)
+            .border(1.dp, menuBorderColor, RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 14.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Icon with custom color support
@@ -815,7 +851,7 @@ private fun ProfileMenuItem(
             tint = when {
                 isDestructive -> WorkerColors.Error
                 iconColor != null -> iconColor
-                else -> Color(0xFF4B5563) // text-gray-600 for profile icons
+                else -> Color(0xFF64748B)
             },
             modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
         )
@@ -842,8 +878,8 @@ private fun ProfileMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = WorkerColors.IconSecondary,
-            modifier = Modifier.size(24.dp)
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -905,7 +941,7 @@ private fun EmployerMenuDivider() {
             .fillMaxWidth()
             .padding(start = 40.dp) // Align with text after icon
             .height(1.dp)
-            .background(WorkerColors.Divider)
+            .background(Color(0xFFE5E7EB))
     )
 }
 

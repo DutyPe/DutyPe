@@ -61,7 +61,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -88,6 +87,7 @@ import com.example.dutype.components.EmptySearchState
 import com.example.dutype.components.EmptySavedItemsState
 import com.example.dutype.components.EmptyStateAction
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.Brush
 
 @Composable
 fun SavedJobsList(
@@ -100,6 +100,13 @@ fun SavedJobsList(
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
     val uiState by savedJobViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val myJobsBackground = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFFF0FDFA),
+            Color(0xFFEFF6FF),
+            Color(0xFFFFFBEB)
+        )
+    )
 
     LaunchedEffect(Unit) {
         savedJobViewModel.loadSavedJobs()
@@ -115,8 +122,8 @@ fun SavedJobsList(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
-        Column(modifier = Modifier.fillMaxSize().background(WorkerColors.ScreenBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(myJobsBackground)) {
+        Column(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
             when {
                 uiState.isLoading -> {
                     Timber.d("SavedJobsList: Showing loading state")
@@ -126,6 +133,7 @@ fun SavedJobsList(
                     Timber.d("SavedJobsList: Showing empty state")
                     EmptySavedItemsState(
                         itemType = "jobs",
+                        containerColor = Color.Transparent,
                         onBrowse = {
                             // Navigate to home tab to browse jobs
                             runCatching {
@@ -143,6 +151,7 @@ fun SavedJobsList(
                     Timber.d("SavedJobsList: Empty search results for: $searchQuery")
                     EmptySearchState(
                         searchQuery = searchQuery,
+                        containerColor = Color.Transparent,
                         onClearSearch = { 
                             // Clear search - handled by parent
                         }
