@@ -1,7 +1,6 @@
 package com.example.dutype.utils
 
 import android.content.Context
-import android.content.IntentFilter
 import com.google.android.gms.auth.api.phone.SmsRetriever
 import timber.log.Timber
 
@@ -20,6 +19,8 @@ import timber.log.Timber
  * Note: SMS must contain app hash code (Firebase handles this automatically)
  */
 object SmsRetrieverHelper {
+
+    private val otpRegex = Regex("\\b(\\d{6})\\b")
     
     /**
      * Start SMS Retriever to auto-read OTP
@@ -58,6 +59,10 @@ object SmsRetrieverHelper {
             Timber.w(e, "Failed to get app signature")
             null
         }
+    }
+
+    fun extractOtpCode(message: String): String? {
+        return otpRegex.find(message)?.groupValues?.getOrNull(1)
     }
 }
 

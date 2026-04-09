@@ -350,39 +350,43 @@ Find reliable workers for your business and earn Rs.25 bonus!
 @Composable
 private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     val tierName = ReferralRewards.getTierDisplayName(tier)
-    
+    val tierEmoji = when (tier) {
+        ReferralTier.BRONZE -> "🥉"
+        ReferralTier.SILVER -> "🥈"
+        ReferralTier.GOLD -> "🥇"
+        ReferralTier.PLATINUM -> "💎"
+        ReferralTier.DIAMOND -> "👑"
+    }
+    val tierColor = when (tier) {
+        ReferralTier.BRONZE -> Color(0xFFCD7F32)
+        ReferralTier.SILVER -> Color(0xFF94A3B8)
+        ReferralTier.GOLD -> Color(0xFFF59E0B)
+        ReferralTier.PLATINUM -> Color(0xFF6366F1)
+        ReferralTier.DIAMOND -> Color(0xFF8B5CF6)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Current Tier",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
-                )
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = tierName,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "$successfulReferrals successful referrals",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF4B5563)
-                )
-            )
+            Box(
+                modifier = Modifier.size(56.dp)
+                    .background(tierColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = tierEmoji, fontSize = 28.sp)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tierName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = tierColor))
+                Text("$successfulReferrals successful referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)))
+            }
         }
     }
 }
@@ -400,30 +404,40 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
         }
     }
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
-        Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
-            Spacer(Modifier.height(16.dp))
-            SelectionContainer {
-                Text(referralCode, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937), letterSpacing = 2.sp))
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier.size(48.dp).background(Color(0xFFFEF3C7), CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Text("🎁", fontSize = 24.sp) }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF6B7280)))
+            Spacer(Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier.background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp)).padding(horizontal = 24.dp, vertical = 12.dp)
+            ) {
+                SelectionContainer {
+                    Text(referralCode, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1F2937), letterSpacing = 3.sp, fontSize = 28.sp))
+                }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
+            Text("Share this code → friend gets ₹25 bonus!", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
+            Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Copy Code")
+                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Copy", fontWeight = FontWeight.SemiBold)
                 }
                 Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
-                    Icon(Icons.Default.Share, null, Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Share")
+                    Icon(Icons.Default.Share, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share", fontWeight = FontWeight.SemiBold)
                 }
             }
-            
-            Spacer(Modifier.height(8.dp))
-            
-            // Removed: QR Code and Copy Referral Link buttons
         }
     }
 }

@@ -32,8 +32,8 @@ class JobFirestoreService @Inject constructor(
 ) {
     
     companion object {
-        const val JOBS_COLLECTION = "jobs"
-        const val JOB_DETAILS_COLLECTION = "job_details"
+        const val JOBS_COLLECTION = "jobs"                  // Ultra-light card data (~200 bytes)
+        const val JOB_DETAILS_COLLECTION = "job_details"    // Full details loaded on click (~1KB)
         private const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         private const val MAX_JOB_QUERY_LIMIT = 100L
     }
@@ -148,14 +148,18 @@ class JobFirestoreService @Inject constructor(
             .ifBlank { "DAILY" }
         val createdAtMillis = toEpochMillis(data["createdAt"]).takeIf { it > 0L } ?: currentTime
 
+        // Extract human-readable address for display on job cards.
+        val addressDisplay = normalizeString(data["addressText"]).ifBlank {
+            normalizeString(data["address"]).ifBlank {
+                // Only use "location" if it's a string (not the lat/lng map)
+                val locValue = data["location"]
+                if (locValue is String) normalizeString(locValue) else ""
+            }
+        }
+
         // Extract city with fallback across canonical and legacy location fields.
         val companyCity = normalizeString(data["companyCity"]).ifBlank {
-            val inlineAddress = normalizeString(data["addressText"]).ifBlank {
-                normalizeString(data["address"]).ifBlank {
-                    normalizeString(data["location"])
-                }
-            }
-            extractCityFromAddress(inlineAddress)
+            extractCityFromAddress(addressDisplay)
         }
 
         return mapOf(
@@ -180,7 +184,8 @@ class JobFirestoreService @Inject constructor(
             "expiresAt" to toEpochMillis(data["expiresAt"]),
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
-            "companyCity" to companyCity  // NEW: Include city for display
+            "companyCity" to companyCity,
+            "addressText" to addressDisplay  // Full address for job card display
         )
     }
 
@@ -196,12 +201,26 @@ class JobFirestoreService @Inject constructor(
             )
         } ?: mapOf("lat" to 0.0, "lng" to 0.0)
 
+        val coreTitle = normalizeString(coreData["title"])
+        val coreDescription = normalizeString(coreData["description"])
+        val coreAddressText = normalizeString(coreData["addressText"])
+        val coreJobType = normalizeString(coreData["jobType"]).ifBlank {
+            deriveJobType(coreTitle, coreDescription)
+        }
+        val coreVacancies = (coreData["vacancies"] as? Number)?.toInt()
+            ?: normalizeString(coreData["vacancies"]).toIntOrNull()
+            ?: 1
+        val coreBenefits = parseBenefits(coreData["benefits"])
+        val coreCompanyCity = normalizeString(coreData["companyCity"]).ifBlank {
+            extractCityFromAddress(coreAddressText)
+        }
+
         val merged = linkedMapOf<String, Any>(
             "jobId" to jobId,
             "employerId" to normalizeString(coreData["employerId"]),
             "companyName" to normalizeString(coreData["companyName"]),
             "isVerified" to (coreData["isVerified"] as? Boolean ?: false),
-            "title" to normalizeString(coreData["title"]),
+            "title" to coreTitle,
             "salary" to toSalaryDouble(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
@@ -213,33 +232,71 @@ class JobFirestoreService @Inject constructor(
             "geohash" to normalizeString(coreData["geohash"]),
             "status" to normalizeReadStatus(coreData),
             "createdAt" to toEpochMillis(coreData["createdAt"]),
-            "expiresAt" to toEpochMillis(coreData["expiresAt"])
+            "expiresAt" to toEpochMillis(coreData["expiresAt"]),
+            "description" to coreDescription,
+            "contactNumber" to normalizeString(coreData["contactNumber"]),
+            "addressText" to coreAddressText,
+            "jobType" to coreJobType,
+            "vacancies" to coreVacancies,
+            "benefits" to coreBenefits,
+            "companyCity" to coreCompanyCity
         )
 
+        val coreWhatsappNumber = normalizeString(coreData["whatsappNumber"])
+        if (coreWhatsappNumber.isNotBlank()) merged["whatsappNumber"] = coreWhatsappNumber
+
+        val coreWorkingHours = normalizeString(coreData["workingHours"])
+        if (coreWorkingHours.isNotBlank()) merged["workingHours"] = coreWorkingHours
+
+        val coreEducationRequired = normalizeString(coreData["educationRequired"])
+        if (coreEducationRequired.isNotBlank()) merged["educationRequired"] = coreEducationRequired
+
         detailsData?.let { details ->
-            val description = normalizeString(details["description"])
-            val contactNumber = normalizeString(details["contactNumber"])
-            val whatsappNumber = normalizeString(details["whatsappNumber"])
-            val addressText = normalizeString(details["addressText"])
+            val description = normalizeString(details["description"]).ifBlank {
+                (merged["description"] as? String).orEmpty()
+            }
+            val contactNumber = normalizeString(details["contactNumber"]).ifBlank {
+                (merged["contactNumber"] as? String).orEmpty()
+            }
+            val whatsappNumber = normalizeString(details["whatsappNumber"]).ifBlank {
+                (merged["whatsappNumber"] as? String).orEmpty()
+            }
+            val addressText = normalizeString(details["addressText"]).ifBlank {
+                (merged["addressText"] as? String).orEmpty()
+            }
             val jobType = normalizeString(details["jobType"]).ifBlank {
-                deriveJobType(merged["title"].toString(), description)
+                (merged["jobType"] as? String).orEmpty().ifBlank {
+                    deriveJobType(merged["title"].toString(), description)
+                }
             }
             val vacancies = (details["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(details["vacancies"]).toIntOrNull()
-                ?: 1
-            val workingHours = normalizeString(details["workingHours"])
-            val educationRequired = normalizeString(details["educationRequired"])
+                ?: ((merged["vacancies"] as? Number)?.toInt() ?: 1)
+            val workingHours = normalizeString(details["workingHours"]).ifBlank {
+                (merged["workingHours"] as? String).orEmpty()
+            }
+            val educationRequired = normalizeString(details["educationRequired"]).ifBlank {
+                (merged["educationRequired"] as? String).orEmpty()
+            }
+            val benefits = parseBenefits(details["benefits"]).ifEmpty {
+                parseBenefits(merged["benefits"])
+            }
+            val companyCity = normalizeString(details["companyCity"]).ifBlank {
+                (merged["companyCity"] as? String).orEmpty().ifBlank {
+                    extractCityFromAddress(addressText)
+                }
+            }
 
             merged["description"] = description
             merged["contactNumber"] = contactNumber
             if (whatsappNumber.isNotBlank()) merged["whatsappNumber"] = whatsappNumber
             merged["addressText"] = addressText
-            merged["location"] = addressText
+            merged["companyCity"] = companyCity
             merged["jobType"] = jobType
             merged["vacancies"] = vacancies
             if (workingHours.isNotBlank()) merged["workingHours"] = workingHours
             if (educationRequired.isNotBlank()) merged["educationRequired"] = educationRequired
-            merged["benefits"] = parseBenefits(details["benefits"])
+            merged["benefits"] = benefits
         }
 
         if (!merged.containsKey("jobType")) {
@@ -325,7 +382,27 @@ class JobFirestoreService @Inject constructor(
             val createdAt = Timestamp(Date(currentTime))
             val expiresAt = Timestamp(Date(currentTime + (15L * 24 * 60 * 60 * 1000L)))
 
-            val coreData = linkedMapOf<String, Any>(
+            // 2-COLLECTION ARCHITECTURE
+            // jobs = card data only (~200 bytes), job_details = full data (~1KB)
+
+            val cardData = linkedMapOf<String, Any>(
+                "employerId" to employerId,
+                "title" to title,
+                "companyName" to companyName,
+                "jobType" to jobType,
+                "salary" to salary,
+                "salaryType" to salaryType,
+                "location" to location,
+                "geohash" to geohash,
+                "addressText" to addressText,
+                "companyCity" to companyCity,
+                "urgency" to urgency,
+                "status" to "open",
+                "createdAt" to createdAt,
+                "expiresAt" to expiresAt
+            )
+
+            val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
                 "companyName" to companyName,
                 "isVerified" to isVerified,
@@ -333,41 +410,35 @@ class JobFirestoreService @Inject constructor(
                 "jobType" to jobType,
                 "salary" to salary,
                 "salaryType" to salaryType,
-                "urgency" to urgency,
-                "gender" to gender,
-                "experienceRequired" to experienceRequired,
-                "shiftTiming" to shiftTiming,
-                "applicationCount" to 0,
-                "location" to location,
-                "geohash" to geohash,
-                "companyCity" to companyCity,
-                "status" to "open",
-                "createdAt" to createdAt,
-                "expiresAt" to expiresAt
-            )
-
-            val detailsData = linkedMapOf<String, Any>(
                 "description" to description,
                 "contactNumber" to contactNumber,
                 "addressText" to addressText,
-                "jobType" to jobType,
+                "companyCity" to companyCity,
+                "location" to location,
+                "geohash" to geohash,
+                "gender" to gender,
+                "experienceRequired" to experienceRequired,
+                "shiftTiming" to shiftTiming,
                 "vacancies" to vacancies,
-                "benefits" to benefits
+                "benefits" to benefits,
+                "urgency" to urgency,
+                "applicationCount" to 0,
+                "status" to "open",
+                "createdAt" to createdAt,
+                "expiresAt" to expiresAt
             )
             whatsappNumber?.let { detailsData["whatsappNumber"] = it }
             workingHours?.let { detailsData["workingHours"] = it }
             educationRequired?.let { detailsData["educationRequired"] = it }
 
-            Timber.d("📝 FIRESTORE DEBUG: Saving job with coordinates - lat: $latitude, lon: $longitude")
-            Timber.d("📝 FIRESTORE DEBUG: Job ID: ${jobRef.id}")
-            Timber.d("📝 FIRESTORE DEBUG: Job expires in 15 days")
-            
+            Timber.d("📝 Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
+
             val batch = firestore.batch()
-            batch.set(jobRef, coreData)
-            batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData)
+            batch.set(jobRef, cardData)                                                          // ~200 bytes
+            batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData) // ~1KB
             batch.commit().await()
             
-            Timber.i("📝 FIRESTORE DEBUG: ✅ Job saved successfully to Firestore")
+            Timber.i("📝 ✅ Job saved (2-collection split: jobs + job_details)")
             
             // Notify nearby workers about new job
             try {
@@ -611,7 +682,7 @@ class JobFirestoreService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Get jobs posted by a specific employer — P0 FIX: Added limit + server-side sort
      */
@@ -697,105 +768,92 @@ class JobFirestoreService @Inject constructor(
             jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
             val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
 
-            val coreUpdates = mutableMapOf<String, Any>()
+            // `jobs` = card data (title, salary, location, status, etc.)
+            // `job_details` = full data (description, contact, benefits, etc.)
+            val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()
 
             if (data.containsKey("title")) {
                 val title = normalizeString(data["title"])
                 if (title.isBlank()) return Result.failure(IllegalArgumentException("Job title is required"))
-                coreUpdates["title"] = title
+                cardUpdates["title"] = title
+                detailsUpdates["title"] = title
             }
-
             if (data.containsKey("salary")) {
                 val salary = toSalaryDouble(data["salary"])
                 if (salary <= 0.0) return Result.failure(IllegalArgumentException("Salary must be greater than zero"))
-                coreUpdates["salary"] = salary
+                cardUpdates["salary"] = salary
+                detailsUpdates["salary"] = salary
             }
-
             if (data.containsKey("salaryType")) {
-                coreUpdates["salaryType"] = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
+                val v = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
+                cardUpdates["salaryType"] = v
+                detailsUpdates["salaryType"] = v
+            }
+            if (data.containsKey("jobType")) {
+                val v = normalizeString(data["jobType"])
+                if (v.isBlank()) return Result.failure(IllegalArgumentException("Job type is required"))
+                cardUpdates["jobType"] = v
+                detailsUpdates["jobType"] = v
             }
 
             val providedLocation = data["location"] as? Map<*, *>
-            val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
-            val longitude = (providedLocation?.get("lng") as? Number)?.toDouble()
             if (providedLocation != null) {
+                val latitude = (providedLocation["lat"] as? Number)?.toDouble()
+                val longitude = (providedLocation["lng"] as? Number)?.toDouble()
                 if (latitude == null || longitude == null || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
                     return Result.failure(IllegalArgumentException("Valid job coordinates are required"))
                 }
-                coreUpdates["location"] = mapOf("lat" to latitude, "lng" to longitude)
-                coreUpdates["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
+                val loc = mapOf("lat" to latitude, "lng" to longitude)
+                val gh = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
+                cardUpdates["location"] = loc; cardUpdates["geohash"] = gh
+                detailsUpdates["location"] = loc; detailsUpdates["geohash"] = gh
             }
 
             (data["urgency"] as? String)?.let {
-                val normalized = it.uppercase()
-                coreUpdates["urgency"] = if (normalized in listOf("LOW", "MEDIUM", "HIGH")) normalized else "MEDIUM"
-            }
-            if (data.containsKey("gender")) {
-                coreUpdates["gender"] = normalizeString(data["gender"]).ifBlank { "Any" }
-            }
-            if (data.containsKey("experienceRequired")) {
-                coreUpdates["experienceRequired"] = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
-            }
-            if (data.containsKey("shiftTiming")) {
-                coreUpdates["shiftTiming"] = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
+                val v = it.uppercase().let { u -> if (u in listOf("LOW", "MEDIUM", "HIGH")) u else "MEDIUM" }
+                cardUpdates["urgency"] = v; detailsUpdates["urgency"] = v
             }
             (data["status"] as? String)?.let {
-                val normalized = it.lowercase()
-                if (normalized in listOf("open", "closed", "expired")) {
-                    coreUpdates["status"] = normalized
-                }
+                val v = it.lowercase()
+                if (v in listOf("open", "closed", "expired")) { cardUpdates["status"] = v; detailsUpdates["status"] = v }
             }
-            (data["expiresAt"] as? Timestamp)?.let { coreUpdates["expiresAt"] = it }
+            (data["expiresAt"] as? Timestamp)?.let { cardUpdates["expiresAt"] = it; detailsUpdates["expiresAt"] = it }
 
+            if (data.containsKey("addressText")) {
+                val v = normalizeString(data["addressText"])
+                if (v.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
+                cardUpdates["addressText"] = v; cardUpdates["companyCity"] = extractCityFromAddress(v)
+                detailsUpdates["addressText"] = v; detailsUpdates["companyCity"] = extractCityFromAddress(v)
+            }
+
+            // Details-only fields
             if (data.containsKey("description")) {
-                val description = normalizeString(data["description"])
-                if (description.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))
-                detailsUpdates["description"] = description
+                val v = normalizeString(data["description"])
+                if (v.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))
+                detailsUpdates["description"] = v
             }
             if (data.containsKey("contactNumber")) {
-                val contactNumber = normalizeString(data["contactNumber"])
-                if (contactNumber.isBlank()) return Result.failure(IllegalArgumentException("Contact number is required"))
-                detailsUpdates["contactNumber"] = contactNumber
+                val v = normalizeString(data["contactNumber"])
+                if (v.isBlank()) return Result.failure(IllegalArgumentException("Contact number is required"))
+                detailsUpdates["contactNumber"] = v
             }
-            if (data.containsKey("addressText")) {
-                val addressText = normalizeString(data["addressText"])
-                if (addressText.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
-                detailsUpdates["addressText"] = addressText
-                coreUpdates["companyCity"] = extractCityFromAddress(addressText)
-            }
-            if (data.containsKey("jobType")) {
-                val jobType = normalizeString(data["jobType"])
-                if (jobType.isBlank()) return Result.failure(IllegalArgumentException("Job type is required"))
-                detailsUpdates["jobType"] = jobType
-            }
+            if (data.containsKey("gender")) detailsUpdates["gender"] = normalizeString(data["gender"]).ifBlank { "Any" }
+            if (data.containsKey("experienceRequired")) detailsUpdates["experienceRequired"] = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
+            if (data.containsKey("shiftTiming")) detailsUpdates["shiftTiming"] = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
             if (data.containsKey("vacancies")) {
-                val vacancies = (data["vacancies"] as? Number)?.toInt()
-                    ?: normalizeString(data["vacancies"]).toIntOrNull()
-                    ?: return Result.failure(IllegalArgumentException("Vacancies must be a number"))
-                detailsUpdates["vacancies"] = vacancies
+                detailsUpdates["vacancies"] = (data["vacancies"] as? Number)?.toInt()
+                    ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
             }
-            if (data.containsKey("whatsappNumber")) {
-                normalizeString(data["whatsappNumber"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["whatsappNumber"] = it }
-            }
-            if (data.containsKey("workingHours")) {
-                normalizeString(data["workingHours"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["workingHours"] = it }
-            }
-            if (data.containsKey("educationRequired")) {
-                normalizeString(data["educationRequired"]).takeIf { it.isNotBlank() }?.let { detailsUpdates["educationRequired"] = it }
-            }
-            if (data.containsKey("benefits")) {
-                detailsUpdates["benefits"] = parseBenefits(data["benefits"])
-            }
+            data["whatsappNumber"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["whatsappNumber"] = v } }
+            data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
+            data["educationRequired"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["educationRequired"] = v } }
+            if (data.containsKey("benefits")) detailsUpdates["benefits"] = parseBenefits(data["benefits"])
 
-            if (coreUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
+            if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
                 val batch = firestore.batch()
-                if (coreUpdates.isNotEmpty()) {
-                    batch.set(jobRef, coreUpdates, com.google.firebase.firestore.SetOptions.merge())
-                }
-                if (detailsUpdates.isNotEmpty()) {
-                    batch.set(detailsRef, detailsUpdates, com.google.firebase.firestore.SetOptions.merge())
-                }
+                if (cardUpdates.isNotEmpty()) batch.set(jobRef, cardUpdates, com.google.firebase.firestore.SetOptions.merge())
+                if (detailsUpdates.isNotEmpty()) batch.set(detailsRef, detailsUpdates, com.google.firebase.firestore.SetOptions.merge())
                 batch.commit().await()
             }
 
@@ -810,10 +868,10 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun deleteJob(jobId: String): Result<Unit> {
         return try {
-            firestore.collection(JOBS_COLLECTION)
-                .document(jobId)
-                .delete()
-                .await()
+            val batch = firestore.batch()
+            batch.delete(firestore.collection(JOBS_COLLECTION).document(jobId))
+            batch.delete(firestore.collection(JOB_DETAILS_COLLECTION).document(jobId))
+            batch.commit().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -858,23 +916,31 @@ class JobFirestoreService @Inject constructor(
                 
                 val expiresAt = toEpochMillis(data["expiresAt"])
                 if (expiresAt > 0L && expiresAt < currentTime) return@mapNotNull null
-                
-                // Match query in title and derived job type text.
-                val title = (data["title"] as? String)?.lowercase() ?: ""
-                val jobType = summaryJobType(data).lowercase()
-                
-                if (title.contains(lowercaseQuery) || 
-                    jobType.contains(lowercaseQuery)) {
-                    
-                    // Relevance: title match = highest priority
+
+                val summary = buildJobSummary(doc.id, data, currentTime).toMutableMap()
+                val title = summary["title"].toString().lowercase()
+                val companyName = summary["companyName"].toString().lowercase()
+                val companyCity = summary["companyCity"].toString().lowercase()
+                val addressText = summary["addressText"].toString().lowercase()
+                val jobType = summary["jobType"].toString().lowercase()
+
+                val matches = title.contains(lowercaseQuery) ||
+                    companyName.contains(lowercaseQuery) ||
+                    companyCity.contains(lowercaseQuery) ||
+                    addressText.contains(lowercaseQuery) ||
+                    jobType.contains(lowercaseQuery)
+
+                if (matches) {
                     val score = when {
                         title.startsWith(lowercaseQuery) -> 100
-                        title.contains(lowercaseQuery) -> 80
+                        title.contains(lowercaseQuery) -> 90
+                        companyName.contains(lowercaseQuery) -> 80
+                        addressText.contains(lowercaseQuery) || companyCity.contains(lowercaseQuery) -> 70
                         jobType.contains(lowercaseQuery) -> 60
                         else -> 40
                     }
-                    
-                    data.toMutableMap().apply {
+
+                    summary.apply {
                         put("_score", score)
                         put("_time", toEpochMillis(data["createdAt"]))
                     }

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -17,7 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.BorderStroke 
 
 /**
  * Reusable shimmer components for loading states across the app.
@@ -531,6 +532,190 @@ fun NotificationShimmer(
             items(8) {
                 NotificationItemShimmer()
                 Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFF3F4F6)))
+            }
+        }
+    }
+}
+
+// ============================================
+// WORKER HOME SHIMMER COMPONENTS
+// ============================================
+
+/**
+ * Home-screen specific shimmer that follows the real WorkerHomeScreen
+ * section order and spacing instead of showing only generic job cards.
+ */
+@Composable
+fun WorkerHomeShimmer(
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Transparent),
+        contentPadding = PaddingValues(
+            top = 140.dp,
+            bottom = 100.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            WorkerHomeAnnouncementShimmer()
+        }
+
+        item {
+            WorkerHomeCategoriesShimmer()
+        }
+
+        item {
+            WorkerHomeJobsSectionShimmer()
+        }
+
+        item {
+            WorkerHomePromiseShimmer()
+        }
+    }
+}
+
+@Composable
+private fun WorkerHomeAnnouncementShimmer() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ShimmerBox(width = 120.dp, height = 14.dp, shape = RoundedCornerShape(999.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            ShimmerBox(height = 20.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+            ShimmerBox(width = 220.dp, height = 14.dp)
+        }
+    }
+}
+
+@Composable
+private fun WorkerHomeCategoriesShimmer() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShimmerBox(width = 110.dp, height = 22.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ShimmerBox(width = 54.dp, height = 14.dp)
+                Spacer(modifier = Modifier.width(6.dp))
+                ShimmerBox(width = 16.dp, height = 16.dp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            repeat(2) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    repeat(5) {
+                        WorkerHomeCategoryChipShimmer()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerHomeCategoryChipShimmer() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(68.dp)
+    ) {
+        Card(
+            modifier = Modifier.size(60.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(14.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ShimmerCircle(size = 28.dp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+        ShimmerBox(width = 54.dp, height = 10.dp, shape = RoundedCornerShape(6.dp))
+    }
+}
+
+@Composable
+private fun WorkerHomeJobsSectionShimmer() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ShimmerBox(width = 132.dp, height = 22.dp)
+            ShimmerBox(width = 18.dp, height = 18.dp)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            repeat(3) {
+                JobCardShimmer()
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerHomePromiseShimmer() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(3) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.width(90.dp)
+            ) {
+                ShimmerCircle(size = 44.dp)
+                Spacer(modifier = Modifier.height(10.dp))
+                ShimmerBox(width = 64.dp, height = 12.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+                ShimmerBox(width = 52.dp, height = 10.dp)
             }
         }
     }

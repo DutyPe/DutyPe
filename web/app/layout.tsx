@@ -24,6 +24,10 @@ export const metadata: Metadata = {
     template: "%s | DutyPe"
   },
   description: siteMeta.description,
+  authors: [{ name: siteMeta.companyName }],
+  creator: siteMeta.companyName,
+  publisher: siteMeta.companyName,
+  category: "employment",
   keywords: [
     ...coreSeoKeywords,
     ...cityLandingTargets.map((city) => `jobs in ${city.toLowerCase()}`),
@@ -38,12 +42,24 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/"
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1
+    }
+  },
   openGraph: {
     title: "DutyPe",
     description: siteMeta.description,
     type: "website",
     siteName: "DutyPe",
-    url: SITE_URL
+    url: SITE_URL,
+    locale: "en_IN"
   },
   twitter: {
     card: "summary_large_image",

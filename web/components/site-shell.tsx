@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 
-import { footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
+import { PLAY_STORE_URL, footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -20,6 +20,18 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <small>{siteMeta.strapline}</small>
               </span>
             </Link>
+
+            <div className="topbar-actions">
+              <span className="topbar-note">Workers apply free. Employers hire faster.</span>
+              <a
+                href={PLAY_STORE_URL}
+                className="button topbar-button"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download App
+              </a>
+            </div>
           </div>
 
           <nav className="nav-links" aria-label="Primary">
@@ -42,6 +54,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 Find local jobs near you. Connect workers with employers instantly. No
                 middlemen, no fees.
               </p>
+              <div className="footer-meta-grid">
+                <div className="footer-meta-card">
+                  <span className="footer-meta-label">Registered company</span>
+                  <strong>{siteMeta.companyName}</strong>
+                </div>
+                <div className="footer-meta-card">
+                  <span className="footer-meta-label">Support</span>
+                  <a href={`mailto:${siteMeta.supportEmail}`}>{siteMeta.supportEmail}</a>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -61,7 +83,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="footer-bottom-line">
-            <span>© 2026 DutyPe | dutypein@gmail.com</span>
+            <span>© 2026 DutyPe. Operated by {siteMeta.companyName}.</span>
+            <span>Built for local hiring across India.</span>
           </div>
         </footer>
       </div>

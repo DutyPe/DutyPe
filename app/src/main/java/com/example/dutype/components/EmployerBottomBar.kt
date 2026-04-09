@@ -111,99 +111,111 @@ fun EmployerBottomBar(
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
+        // Frosted glass background bar
         Surface(
-            modifier = Modifier
-                .fillMaxWidth(),
-            color = backgroundColor,
-            shape = RoundedCornerShape(0.dp),
-            shadowElevation = 10.dp,
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White.copy(alpha = 0.97f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 20.dp,
             tonalElevation = 0.dp
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp)
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(Color(0xFFE5E7EB))
-                )
+                sideItems.forEachIndexed { index, (route, labelResId, iconPair) ->
+                    val isSelected = currentRoute == route
+                    val label = stringResource(id = labelResId)
+                    val (iconUnfilled, iconFilled) = iconPair
+                    val iconRes = if (isSelected) iconFilled else iconUnfilled
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(74.dp)
-                        .padding(horizontal = 18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    sideItems.forEachIndexed { index, (route, labelResId, iconPair) ->
-                        val isSelected = currentRoute == route
-                        val label = stringResource(id = labelResId)
-                        val (iconUnfilled, iconFilled) = iconPair
-                        val iconRes = if (isSelected) iconFilled else iconUnfilled
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    navigateTo(route)
-                                }
-                        ) {
-                            Icon(
-                                painter = painterResource(id = iconRes),
-                                contentDescription = label,
-                                modifier = Modifier.size(26.dp),
-                                tint = if (isSelected) selectedItemColor else unselectedItemColor
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { navigateTo(route) }
+                    ) {
+                        // Active indicator dot
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 20.dp, height = 3.dp)
+                                    .background(
+                                        selectedItemColor,
+                                        RoundedCornerShape(2.dp)
+                                    )
                             )
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Text(
-                                text = label,
-                                fontFamily = MeeshoFontFamily,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                color = if (isSelected) selectedItemColor else unselectedItemColor,
-                                maxLines = 1
-                            )
+                            Spacer(modifier = Modifier.height(4.dp))
                         }
 
-                        if (index == 0) {
-                            Spacer(modifier = Modifier.width(86.dp))
-                        }
+                        Icon(
+                            painter = painterResource(id = iconRes),
+                            contentDescription = label,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isSelected) selectedItemColor else unselectedItemColor
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = label,
+                            fontFamily = MeeshoFontFamily,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) selectedItemColor else unselectedItemColor,
+                            maxLines = 1
+                        )
+                    }
+
+                    // Space for center FAB
+                    if (index == 0) {
+                        Spacer(modifier = Modifier.width(72.dp))
                     }
                 }
             }
         }
 
+        // Center floating Post Job button — pill shape with icon + text
         Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = (-20).dp)
-                .size(56.dp)
+                .offset(y = (-22).dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = ::openPostJob
                 ),
-            shape = CircleShape,
+            shape = RoundedCornerShape(20.dp),
             color = selectedItemColor,
-            shadowElevation = 14.dp,
+            shadowElevation = 12.dp,
             tonalElevation = 0.dp
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Icon(
                     painter = painterResource(id = R.drawable.post_job),
                     contentDescription = stringResource(id = R.string.bottom_nav_post),
-                    modifier = Modifier.size(26.dp),
+                    modifier = Modifier.size(20.dp),
                     tint = Color.White
+                )
+                Text(
+                    text = "Post Job",
+                    fontFamily = MeeshoFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
                 )
             }
         }

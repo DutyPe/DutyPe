@@ -355,16 +355,23 @@ class CategoriesViewModel @Inject constructor(
         val newJobs = processedSummaries.map { it.toJobListing() }
         val previousSize = _uiState.value.jobs.size
         
-        val mergedJobs = if (isLoadingMore) {
-            PaginationHelper.appendJobs(_uiState.value.jobs, newJobs, maxInMemory = 0)
+        val finalJobs = if (isLoadingMore) {
+            // APPEND only — never re-sort existing jobs on pagination.
+            // This prevents list from jumping/rearranging while scrolling.
+            // New jobs get distance calculated via calculateSummaryDistances above.
+            val withDistance = if (GeoUtils.hasValidCoordinates(userLatitude, userLongitude)) {
+                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(newJobs, userLatitude, userLongitude)
+            } else {
+                newJobs
+            }
+            PaginationHelper.appendJobs(_uiState.value.jobs, withDistance, maxInMemory = 0)
         } else {
-            newJobs
-        }
-
-        val finalJobs = if (GeoUtils.hasValidCoordinates(userLatitude, userLongitude)) {
-            com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(mergedJobs, userLatitude, userLongitude)
-        } else {
-            mergedJobs
+            // First page: sort by distance (nearest first)
+            if (GeoUtils.hasValidCoordinates(userLatitude, userLongitude)) {
+                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(newJobs, userLatitude, userLongitude)
+            } else {
+                newJobs
+            }
         }
         
         val previousCursor = _uiState.value.lastDocumentId

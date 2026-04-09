@@ -37,7 +37,6 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.CategoriesViewModel
-import com.example.dutype.location.TopCityChips
 import com.example.dutype.worker.components.JobCard
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -161,21 +160,11 @@ fun CategoriesScreen(
                     jobs = uiState.jobs,
                     selectedCategory = selectedCategory,
                     navController = navController,
-                    rootNavController = rootNavController,
                     viewModel = viewModel,
                     savedJobsViewModel = savedJobsViewModel,
                     hasMore = uiState.hasMore,
                     isLoading = uiState.isLoading,
                     isLoadingMore = uiState.isLoadingMore,
-                    suggestedCities = remember(currentLocation, uiState.jobs) {
-                        TopCityChips.buildTopLocationChips(currentLocation, uiState.jobs)
-                    },
-                    onLocationChipClick = { cityChip ->
-                        val selectedLocation = TopCityChips.toLocationData(cityChip)
-                        viewModel.locationPreferences.savePreferredLocation(selectedLocation)
-                        viewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude)
-                        viewModel.loadJobsForCategory(selectedCategory)
-                    },
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -279,22 +268,41 @@ private fun JobsListSection(
     jobs: List<JobListing>,
     selectedCategory: String,
     navController: NavController,
-    rootNavController: NavController?,
     viewModel: CategoriesViewModel,
     savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel,
     hasMore: Boolean,
     isLoading: Boolean,
     isLoadingMore: Boolean,
-    suggestedCities: List<TopCityChips.CityLocationChip>,
-    onLocationChipClick: (TopCityChips.CityLocationChip) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     var lastLoadTriggerToken by remember { mutableStateOf<String?>(null) }
+    val shouldLoadMore by remember(jobs.size, hasMore, isLoading, isLoadingMore, selectedCategory) {
+        derivedStateOf {
+            val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            jobs.isNotEmpty() &&
+                listState.isScrollInProgress &&
+                hasMore &&
+                !isLoading &&
+                !isLoadingMore &&
+                lastVisibleItemIndex >= jobs.lastIndex
+        }
+    }
     
     // Reset scroll position when category changes
     LaunchedEffect(selectedCategory) {
         listState.scrollToItem(0)
+    }
+
+    LaunchedEffect(shouldLoadMore, jobs.size, selectedCategory) {
+        if (shouldLoadMore) {
+            val nextLoadToken = "$selectedCategory:${jobs.size}"
+            if (nextLoadToken != lastLoadTriggerToken) {
+                lastLoadTriggerToken = nextLoadToken
+                Timber.d("📦 Categories: user reached last visible job for '$selectedCategory', requesting next page (token=$nextLoadToken)")
+                viewModel.loadMoreJobs()
+            }
+        }
     }
     
     Column(modifier = modifier.background(Color(0xFFF9FAFB))) {
@@ -347,51 +355,6 @@ private fun JobsListSection(
                             textAlign = TextAlign.Center
                         )
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (suggestedCities.isNotEmpty()) {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(suggestedCities) { chip ->
-                                FilterChip(
-                                    selected = false,
-                                    onClick = { onLocationChipClick(chip) },
-                                    label = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.LocationOn,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Text(chip.city)
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val locationNavController = rootNavController ?: navController
-                            kotlin.runCatching {
-                                locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                            }.onFailure {
-                                Timber.e(it, "CategoriesScreen: Failed to navigate to manual location route")
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Change Location")
-                    }
                 }
             }
         }
@@ -426,15 +389,6 @@ private fun JobsListSection(
 
                 if (hasMore && jobs.isNotEmpty()) {
                     item(key = "categories_load_more_sentinel_$selectedCategory") {
-                        val nextLoadToken = "$selectedCategory:${jobs.size}"
-                        LaunchedEffect(nextLoadToken, hasMore, isLoadingMore, isLoading, selectedCategory) {
-                            if (hasMore && !isLoadingMore && !isLoading && nextLoadToken != lastLoadTriggerToken) {
-                                lastLoadTriggerToken = nextLoadToken
-                                Timber.d("📦 Categories: sentinel reached for '$selectedCategory', requesting next page (token=$nextLoadToken)")
-                                viewModel.loadMoreJobs()
-                            }
-                        }
-
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

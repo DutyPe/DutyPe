@@ -34,7 +34,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -75,6 +75,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.auth.OtpAutoFillEffect
+import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
@@ -164,6 +166,12 @@ fun LoginBottomSheet(
     var codeValidationError by remember { mutableStateOf<String?>(null) }
     var validatedReferrerName by remember { mutableStateOf<String?>(null) }
     var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
+
+    OtpAutoFillEffect(
+        enabled = otpState.isLoading || otpState.otpSent,
+        otpValue = otpValue,
+        onOtpReceived = { otpValue = it }
+    )
 
     val effectiveTitle = if (title == "Login Required") {
         if (isTelugu) "లాగిన్ అవసరం" else title
@@ -583,6 +591,16 @@ private fun PhoneInputContent(
     val policyLinkColor = Color(0xFF1F2937)
     val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
+    var hasRequestedPhoneHint by remember { mutableStateOf(false) }
+    val requestPhoneNumberHint = rememberPhoneNumberHintRequester(
+        onPhoneNumberReceived = { selectedPhoneNumber ->
+            hasInteracted = true
+            onPhoneNumberChange(selectedPhoneNumber)
+        },
+        onUnavailable = { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    )
     
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
         if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
@@ -670,15 +688,15 @@ private fun PhoneInputContent(
                         )
                     )
                 },
-                trailingIcon = {
-                    Icon(
-                        Icons.Filled.Person, 
-                        contentDescription = null, 
-                        tint = WorkerColors.IconSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                },
-                modifier = Modifier.weight(1f).height(56.dp),  // Slightly taller for better touch target
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && phoneNumber.isBlank() && !hasRequestedPhoneHint) {
+                            hasRequestedPhoneHint = true
+                            requestPhoneNumberHint()
+                        }
+                    },  // Slightly taller for better touch target
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(8.dp),  // Slightly more rounded
@@ -1243,6 +1261,17 @@ private fun OtpInputContent(
             },
             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
         )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = if (isTelugu) {
+                "SMS వచ్చిన వెంటనే కోడ్ ఇక్కడ స్వయంగా కనిపిస్తుంది"
+            } else {
+                "The code will appear here automatically when the SMS arrives."
+            },
+            style = AppTypography.caption.copy(color = WorkerColors.Info)
+        )
         
         TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 2.dp)) {
             Text(
@@ -1433,7 +1462,7 @@ fun OtpInputBoxes(
                     isFocused = true
                 }
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)

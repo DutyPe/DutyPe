@@ -33,7 +33,8 @@ fun ScrollAwareLazyColumn(
         derivedStateOf { state.firstVisibleItemScrollOffset }
     }
 
-    LaunchedEffect(firstVisibleItemIndex, firstVisibleItemScrollOffset) {
+    // FIX: Throttle scroll callbacks to avoid CPU spikes (was firing 10-15x/sec)
+    LaunchedEffect(firstVisibleItemIndex) {
         scrollStateManager?.onScroll(
             offset = firstVisibleItemIndex.toFloat() + (firstVisibleItemScrollOffset / 1000f)
         )

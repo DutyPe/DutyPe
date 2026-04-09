@@ -49,8 +49,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -86,13 +84,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,30 +104,29 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.JobListing
-import com.example.dutype.navigation.Routes
-import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.components.TrustBadge
-import com.example.dutype.components.TrustBadgeWithInfo
-import com.example.dutype.components.TrustBadgeSize
-import com.example.dutype.components.ShareJobIconButton
-import com.example.dutype.components.JobSafetyCard
-import com.example.dutype.components.OfflineBanner
-import com.example.dutype.viewmodels.ConnectivityViewModel
-import com.example.dutype.components.analyzeJobRisk
-import com.example.dutype.models.parseTrustTier
-import com.example.dutype.viewmodels.SmartJobApplicationViewModel
-import com.example.dutype.ui.theme.WorkerColors
-import com.example.dutype.ads.AdManager
-import androidx.compose.runtime.collectAsState
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ads.AdManager
+import com.example.dutype.components.JobSafetyCard
+import com.example.dutype.components.OfflineBanner
+import com.example.dutype.components.ShareJobIconButton
+import com.example.dutype.components.TrustBadge
+import com.example.dutype.components.TrustBadgeSize
+import com.example.dutype.components.TrustBadgeWithInfo
+import com.example.dutype.components.analyzeJobRisk
+import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.JobListing
+import com.example.dutype.models.parseTrustTier
+import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.viewmodels.ConnectivityViewModel
+import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.SmartJobApplicationViewModel
+import com.example.dutype.worker.components.JobCard
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,30 +143,30 @@ fun JobDescriptionScreen(
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = hiltViewModel()
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
-    
+
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val savedJobIds by savedJobsViewModel.savedJobIds.collectAsStateWithLifecycle()
     val appliedJobIds by smartApplicationViewModel.appliedJobIds.collectAsStateWithLifecycle()
     val applicationStatuses by smartApplicationViewModel.applicationStatuses.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    
+
     // DISABLED: Ads temporarily disabled
     /*
     // Get AdManager from Hilt via ViewModel's injection (singleton instance)
     // This ensures we use the same AdManager that was initialized in Application.onCreate()
     val adManagerInstance = adManager ?: smartApplicationViewModel.adManager
-    
+
     // Collect ad ready state
     val isAdReady by adManagerInstance.isInterstitialReady.collectAsState()
-    
+
     // Preload interstitial ad when screen loads
     LaunchedEffect(Unit) {
         Timber.d("📺 JobDescriptionScreen: Loading interstitial ad... (currently ready: $isAdReady)")
         adManagerInstance.loadInterstitialAd(context)
     }
     */
-    
+
     LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
 
     var job by remember { mutableStateOf<JobListing?>(null) }
@@ -175,19 +175,21 @@ fun JobDescriptionScreen(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
-    
+    var similarJobs by remember { mutableStateOf<List<JobListing>>(emptyList()) }
+
     // Report state
     var showReportSheet by remember { mutableStateOf(false) }
+
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
-    
+
     // Guest mode - Login bottom sheet state
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<String?>(null) } // "apply", "call", "message", "whatsapp"
-    
+
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
-    
+
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     val resolvedJobId = remember(jobId, job?.id, job?.jobId) {
         when {
@@ -205,7 +207,7 @@ fun JobDescriptionScreen(
     }
     val hasApplied = currentApplicationStatus != null
     val applicationStatus = currentApplicationStatus?.name
-    
+
     // Prime shared saved/apply state for direct-entry detail screens
     LaunchedEffect(jobId, currentUser?.uid) {
         if (jobId.isNotEmpty()) {
@@ -215,10 +217,7 @@ fun JobDescriptionScreen(
             smartApplicationViewModel.hasUserApplied(jobId) { }
         }
     }
-    
-    // REMOVED: Don't load all applications on mount - too heavy
-    // LaunchedEffect(Unit) { jobApplicationViewModel.loadMyApplications() }
-    
+
     // Consolidated: Handle application success and error
     LaunchedEffect(applicationUiState.applicationSuccess, applicationUiState.error) {
         if (applicationUiState.applicationSuccess) {
@@ -232,7 +231,7 @@ fun JobDescriptionScreen(
             smartApplicationViewModel.clearError()
         }
     }
-    
+
     val contentAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0.3f else 1f,
         animationSpec = tween(600, easing = EaseInOutQuart),
@@ -247,8 +246,8 @@ fun JobDescriptionScreen(
                 val result = jobViewModel.getJobById(jobId)
                 result.fold(
                     onSuccess = { fetchedJob ->
-                        val jobWithDistance = if (fetchedJob != null && 
-                            currentLocation != null && 
+                        val jobWithDistance = if (fetchedJob != null &&
+                            currentLocation != null &&
                             (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
                             (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)) {
                             val distance = jobViewModel.locationService.calculateDistance(
@@ -269,6 +268,20 @@ fun JobDescriptionScreen(
                 error = e.message ?: "Failed to load job details"
                 isLoading = false
             }
+        }
+    }
+
+    LaunchedEffect(job?.id, job?.jobType, currentLocation?.latitude, currentLocation?.longitude) {
+        val currentJob = job ?: return@LaunchedEffect
+        similarJobs = try {
+            jobViewModel.getRecommendedJobsForJob(currentJob, limit = 5)
+                .getOrElse { exception ->
+                    Timber.w(exception, "JobDescriptionScreen: Failed to load recommended jobs for ${currentJob.id}")
+                    emptyList()
+                }
+        } catch (e: Exception) {
+            Timber.w(e, "JobDescriptionScreen: Non-critical recommended jobs load failure")
+            emptyList()
         }
     }
 
@@ -310,7 +323,7 @@ fun JobDescriptionScreen(
             val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             OfflineBanner(isOffline = !isOnline)
-            
+
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
                 title = "Job Details",
@@ -320,11 +333,10 @@ fun JobDescriptionScreen(
                 titleColor = Color.Black,
                 actions = {
                     // Save/Favorite Button
-                    job?.let { currentJob ->
+                    job?.let {
                         IconButton(
                             onClick = {
                                 if (currentUser == null) {
-                                    // Guest mode - show login sheet
                                     pendingAction = "save"
                                     showLoginBottomSheet = true
                                 } else {
@@ -347,8 +359,7 @@ fun JobDescriptionScreen(
                             )
                         }
                     }
-                    
-                    // Share Button
+
                     job?.let { currentJob ->
                         ShareJobIconButton(
                             job = currentJob,
@@ -357,22 +368,38 @@ fun JobDescriptionScreen(
                     }
                 }
             )
-            
-            // Loading indicator below header
+
             if (isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Color(0xFF10B981), trackColor = Color(0xFFE5E7EB))
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFF10B981),
+                    trackColor = Color(0xFFE5E7EB)
+                )
             }
 
-            // Content
             Box(modifier = Modifier.fillMaxSize().weight(1f).graphicsLayer(alpha = contentAlpha)) {
                 when {
                     isLoading -> LoadingContent()
                     error != null -> ErrorContent(error!!) { retryTrigger++ }
-                    job != null -> JobDetailsContent(job!!, onReportClick = { showReportSheet = true })
+                    job != null -> JobDetailsContent(
+                        job = job!!,
+                        similarJobs = similarJobs,
+                        savedJobIds = savedJobIds,
+                        onSimilarJobSaveToggle = { jobIdToToggle, shouldSave ->
+                            if (shouldSave) {
+                                savedJobsViewModel.saveJob(jobIdToToggle)
+                            } else {
+                                savedJobsViewModel.unsaveJob(jobIdToToggle)
+                            }
+                        },
+                        onReportClick = { showReportSheet = true },
+                        onJobClick = { clickedJobId ->
+                            navController.navigate(Routes.jobDetailRoute(clickedJobId))
+                        }
+                    )
                 }
             }
 
-            // Bottom Action Bar
             if (job != null && !isLoading && error == null) {
                 BottomActionBar(
                     job = job!!,
@@ -383,7 +410,6 @@ fun JobDescriptionScreen(
                     hasApplied = hasApplied,
                     applicationStatus = applicationStatus,
                     onApplyClick = {
-                        // Check profile completion before navigating
                         scope.launch {
                             val currentUserId = currentUser?.uid
                             if (currentUserId != null) {
@@ -646,7 +672,15 @@ private fun BottomActionBar(
 
 
 @Composable
-private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, onReportClick: () -> Unit = {}) {
+private fun JobDetailsContent(
+    job: JobListing,
+    modifier: Modifier = Modifier,
+    similarJobs: List<JobListing> = emptyList(),
+    savedJobIds: Set<String> = emptySet(),
+    onSimilarJobSaveToggle: (String, Boolean) -> Unit = { _, _ -> },
+    onReportClick: () -> Unit = {},
+    onJobClick: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     
     LazyColumn(
@@ -956,6 +990,73 @@ private fun JobDetailsContent(job: JobListing, modifier: Modifier = Modifier, on
                     ) {
                         Text("Report", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)))
                     }
+                }
+            }
+        }
+        
+        // Similar Jobs Section
+        if (similarJobs.isNotEmpty()) {
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(
+                                brush = Brush.linearGradient(
+                                    listOf(Color(0xFFDBEAFE), Color(0xFFBFDBFE))
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Outlined.WorkOutline,
+                            contentDescription = null,
+                            tint = Color(0xFF1D4ED8),
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Similar jobs",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            )
+                        )
+                        Text(
+                            text = "Roles related to this opening",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF64748B)
+                            )
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(14.dp)) }
+
+            items(similarJobs.size) { index ->
+                val similarJob = similarJobs[index]
+                JobCard(
+                    job = similarJob,
+                    isSaved = similarJob.id in savedJobIds,
+                    onSaveClick = { toggledJobId ->
+                        onSimilarJobSaveToggle(toggledJobId, toggledJobId !in savedJobIds)
+                    },
+                    onCardClick = onJobClick,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (index < similarJobs.size - 1) {
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
         }

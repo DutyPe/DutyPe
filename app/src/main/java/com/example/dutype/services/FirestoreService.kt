@@ -25,13 +25,6 @@ class FirestoreService @Inject constructor(
     private val applicationService: ApplicationFirestoreService
 ) {
     
-    companion object {
-        const val USERS_COLLECTION = "users"
-        const val JOBS_COLLECTION = "jobs"
-        const val APPLICATIONS_COLLECTION = "applications"
-        const val NOTIFICATIONS_COLLECTION = "notifications"
-    }
-    
     // ==================== USER METHODS ====================
     
     suspend fun getUserById(userId: String): Result<User?> = userService.getUserById(userId)

@@ -64,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
+import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
@@ -152,6 +154,12 @@ private fun RegisterContent(
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
+
+    OtpAutoFillEffect(
+        enabled = otpState.isLoading || otpState.otpSent,
+        otpValue = otpValue,
+        onOtpReceived = { otpValue = it }
+    )
 
     BackHandler {
         if (otpState.otpSent) {
@@ -382,9 +390,19 @@ private fun RegisterInputSection(
     onLoginClick: () -> Unit
 ) {
     var hasPhoneInteracted by remember { mutableStateOf(false) }
+    var hasRequestedPhoneHint by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val policyLinkColor = Color(0xFF1F2937)
+    val requestPhoneNumberHint = rememberPhoneNumberHintRequester(
+        onPhoneNumberReceived = { selectedPhoneNumber ->
+            hasPhoneInteracted = true
+            onPhoneNumberChange(selectedPhoneNumber)
+        },
+        onUnavailable = { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    )
 
     val phoneValidationError = remember(phoneNumber, hasPhoneInteracted) {
         if (!hasPhoneInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
@@ -528,7 +546,13 @@ private fun RegisterInputSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(53.dp),
+                    .height(53.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && phoneNumber.isBlank() && !hasRequestedPhoneHint) {
+                            hasRequestedPhoneHint = true
+                            requestPhoneNumberHint()
+                        }
+                    },
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(6.dp),
@@ -916,6 +940,17 @@ private fun RegisterOtpSection(
 
         Spacer(modifier = Modifier.height(3.dp))
 
+        Text(
+            text = if (isTelugu) {
+                "SMS వచ్చిన వెంటనే కోడ్ ఇక్కడ స్వయంగా కనిపిస్తుంది"
+            } else {
+                "The code will appear here automatically when the SMS arrives."
+            },
+            style = AppTypography.caption.copy(color = WorkerColors.Info)
+        )
+
+        Spacer(modifier = Modifier.height(2.dp))
+
         TextButton(
             onClick = onBackClick,
             modifier = Modifier.align(Alignment.Start)
@@ -1084,7 +1119,7 @@ private fun RegisterOtpInputBoxes(
                     isFocused = true
                 }
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)

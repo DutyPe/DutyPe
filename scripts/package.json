@@ -10,6 +10,7 @@
     "migrate:final-schema:purge": "node final-schema-cleanup.js --purge"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0"
+    "@google-cloud/firestore": "^8.3.0",
+    "firebase-admin": "^12.7.0"
   }
 }

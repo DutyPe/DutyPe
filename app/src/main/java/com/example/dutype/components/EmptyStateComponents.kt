@@ -253,10 +253,10 @@ fun EmptyLocationState(
     onCitySuggestionClick: (String) -> Unit = {}
 ) {
     val humorMessages = listOf(
-        "We checked 10km and 15km around you. Jobs are on a chai break ☕\nTry a different area!",
-        "Crickets... 🦗 No jobs match this spot.\nChange location and try again!",
-        "Jobs are playing hide & seek 🙈\nThey're definitely somewhere else!",
-        "Your area is on a job vacation 🏖️\nPick another city and get back to work!"
+        "We checked nearby jobs, but nothing matches right now.",
+        "No jobs available here at the moment.",
+        "Nothing relevant has come in for this area yet.",
+        "No nearby jobs are available right now."
     )
     val humorMessage = humorMessages.random()
 
@@ -294,63 +294,6 @@ fun EmptyLocationState(
                     textAlign = TextAlign.Center
                 )
             )
-
-            // Suggested cities
-            if (suggestedCities.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(suggestedCities) { city ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { onCitySuggestionClick(city) },
-                            label = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(city)
-                                }
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
-                                labelColor = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                }
-            }
-
-            // Change location button
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onChangeLocation,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F2937)
-                ),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(50.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Change Location",
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
         }
     }
 }

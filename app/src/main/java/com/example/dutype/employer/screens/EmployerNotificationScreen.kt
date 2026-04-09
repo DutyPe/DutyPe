@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -260,8 +262,9 @@ fun EmployerNotificationScreen(
 private fun GuestEmployerNotificationPreview(
     onLoginClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val previewItems = listOf(
-        Pair("📥 5 new candidates viewed your job today", "Login to review profiles before they get hired elsewhere."),
+        Pair("📥 5 new candidates viewed your job today", "Review profiles before they get hired elsewhere."),
         Pair("⚡ Fast responders hire 2x quicker", "Open applications and reply in minutes, not hours."),
         Pair("🎯 One small update can increase quality applications", "Refresh your post and attract better-fit workers.")
     )
@@ -281,13 +284,17 @@ private fun GuestEmployerNotificationPreview(
             )
         )
         Text(
-            text = "Login to unlock live hiring alerts.",
+            text = "Sign in to get live hiring alerts.",
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
         )
 
         previewItems.forEach { item ->
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        Toast.makeText(context, "Sign in to view notifications", Toast.LENGTH_SHORT).show()
+                    },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -307,15 +314,6 @@ private fun GuestEmployerNotificationPreview(
                     )
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = onLoginClick,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
-        ) {
-            Text("Login Now")
         }
     }
 }

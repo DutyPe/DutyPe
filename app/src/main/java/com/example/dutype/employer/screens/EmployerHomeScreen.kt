@@ -793,70 +793,80 @@ fun WelcomeHeader(
 
 @Composable
 fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(0.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Your Dashboard",
-                    style = AppTypography.sectionHeader.copy(
-                        color = Color(0xFF1F2937), // Darker black-based color
-                        fontSize = 20.sp, // Bigger font size
-                        fontWeight = FontWeight.Bold
-                    )
+            Text(
+                text = "Your Dashboard",
+                style = AppTypography.sectionHeader.copy(
+                    color = Color(0xFF0F172A),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                if (onViewAnalytics != null) {
-                    TextButton(onClick = onViewAnalytics) {
-                        Text(
-                            text = "View Analytics",
-                            style = AppTypography.buttonMedium.copy(color = WorkerColors.Primary)
-                        )
-                    }
+            )
+            if (onViewAnalytics != null) {
+                TextButton(onClick = onViewAnalytics) {
+                    Text("View Analytics", style = AppTypography.buttonMedium.copy(color = Color(0xFF2563EB)))
                 }
             }
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    title = "Paused Jobs",
-                    value = stats.pausedJobs.toString(),
-                    icon = Icons.Default.Pause,
-                    color = WorkerColors.Warning,
-                    modifier = Modifier.weight(1f)
-                )
-                StatCard(
-                    title = "Applications",
-                    value = stats.totalApplications.toString(),
-                    icon = Icons.Default.PersonAdd,
-                    color = WorkerColors.Success,
-                    modifier = Modifier.weight(1f)
-                )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GlassStatCard("Active", stats.activeJobs.toString(), Icons.Default.Work, Color(0xFF10B981), Modifier.weight(1f))
+            GlassStatCard("Applications", stats.totalApplications.toString(), Icons.Default.People, Color(0xFF3B82F6), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GlassStatCard("Today", stats.todayJobs.toString(), Icons.Default.CalendarToday, Color(0xFF8B5CF6), Modifier.weight(1f))
+            GlassStatCard("Total", stats.totalJobs.toString(), Icons.Default.Analytics, Color(0xFFF59E0B), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun GlassStatCard(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(color.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
             }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    title = "Today's Posts",
-                    value = stats.todayJobs.toString(),
-                    icon = Icons.Default.CalendarToday,
-                    color = WorkerColors.Info,
-                    modifier = Modifier.weight(1f)
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        fontSize = 22.sp
+                    )
                 )
-                StatCard(
-                    title = "Total Jobs",
-                    value = stats.totalJobs.toString(),
-                    icon = Icons.Default.Analytics,
-                    color = WorkerColors.Primary,
-                    modifier = Modifier.weight(1f)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp
+                    )
                 )
             }
         }

@@ -132,8 +132,28 @@ class ReportingService @Inject constructor(
                 .size()
 
             val thresholdReached = totalReports >= AUTO_HIDE_THRESHOLD
+            
+            // AUTO-HIDE: When threshold reached, mark job as closed in both collections
+            if (thresholdReached) {
+                try {
+                    val batch = firestore.batch()
+                    batch.update(
+                        firestore.collection(JOBS_COLLECTION).document(jobId),
+                        mapOf("status" to "closed")
+                    )
+                    batch.update(
+                        firestore.collection("job_details").document(jobId),
+                        mapOf("status" to "closed")
+                    )
+                    batch.commit().await()
+                    Timber.w("🚫 Job $jobId auto-hidden: reached $totalReports reports (threshold=$AUTO_HIDE_THRESHOLD)")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to auto-hide reported job $jobId")
+                }
+            }
+            
             val responseMessage = if (thresholdReached) {
-                "Report submitted. This job has reached review threshold."
+                "Report submitted. This job has been hidden due to multiple reports."
             } else {
                 "Thank you for reporting. We'll review this job."
             }

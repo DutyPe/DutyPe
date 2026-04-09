@@ -178,13 +178,16 @@ class SavedJobsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isUnsaving = true)
-            appStateManager.unsaveJob(jobId)
 
             try {
+                // FIX: Call API FIRST, only update local state on success.
+                // Prevents UI/cache mismatch when network fails.
                 withContext(Dispatchers.IO) {
                     savedJobRepository.unsaveJob(jobId)
                 }
 
+                // Success — now safe to update local state
+                appStateManager.unsaveJob(jobId)
                 val updatedJobs = _uiState.value.savedJobs.filter { it.id != jobId }
                 val updatedSummaries = _uiState.value.savedJobSummaries.filter { it.id != jobId }
                 _uiState.value = _uiState.value.copy(
@@ -195,7 +198,7 @@ class SavedJobsViewModel @Inject constructor(
                     showMessage = "Job removed from saved list"
                 )
             } catch (e: Exception) {
-                appStateManager.saveJob(jobId)
+                // Network failed — job was never unsaved on server, keep local state as-is
                 _uiState.value = _uiState.value.copy(
                     isUnsaving = false,
                     showMessage = "Failed to remove job: ${e.message}"

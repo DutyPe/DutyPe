@@ -74,10 +74,20 @@ class FirestoreJobRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
     
     /**
-     * SIMPLE: Get saved job IDs from Firestore (NO CACHE)
+     * PERFORMANCE FIX: Cached saved job IDs to prevent N+1 Firestore reads.
+     * Refreshed at most once per 60 seconds.
      */
+    private var cachedSavedJobIds: Set<String>? = null
+    private var cachedSavedJobIdsTimestamp: Long = 0L
+    private val SAVED_IDS_CACHE_TTL_MS = 60_000L // 60 seconds
+
     private suspend fun getSavedJobIds(): Set<String> {
         val workerId = auth.currentUser?.uid ?: return emptySet()
+        val now = System.currentTimeMillis()
+        val cached = cachedSavedJobIds
+        if (cached != null && (now - cachedSavedJobIdsTimestamp) < SAVED_IDS_CACHE_TTL_MS) {
+            return cached
+        }
         
         return try {
             val result = firestoreService.getSavedJobs(workerId)
@@ -85,7 +95,10 @@ class FirestoreJobRepository @Inject constructor(
                 onSuccess = { jobsData ->
                     jobsData.mapNotNull {
                         (it["jobId"] as? String) ?: (it["id"] as? String)
-                    }.toSet()
+                    }.toSet().also {
+                        cachedSavedJobIds = it
+                        cachedSavedJobIdsTimestamp = System.currentTimeMillis()
+                    }
                 },
                 onFailure = {
                     if (it is FirebaseFirestoreException && it.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
@@ -509,6 +522,7 @@ class FirestoreJobRepository @Inject constructor(
         }
 
         // Load-more pagination OR no location available.
+        // 2-COLLECTION ARCHITECTURE: `jobs` = card data, `job_details` = full data.
         val isUnfilteredFirstPage = lastDocumentId == null && category.isNullOrBlank()
         if (isUnfilteredFirstPage) {
             val cached = jobCacheManager.getCachedJobSummaries(limit.toInt())
@@ -627,6 +641,14 @@ class FirestoreJobRepository @Inject constructor(
         return com.example.dutype.utils.GeoUtils.enrichSummariesWithDistance(summaries, userLat, userLon)
     }
     
+    /**
+     * Invalidate saved job IDs cache when user saves/unsaves.
+     */
+    fun invalidateSavedJobIdsCache() {
+        cachedSavedJobIds = null
+        cachedSavedJobIdsTimestamp = 0L
+    }
+
     /**
      * REMOVED: No longer needed - we don't use cache
      */

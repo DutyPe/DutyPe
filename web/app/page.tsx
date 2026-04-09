@@ -31,6 +31,30 @@ const heroSignals = [
   }
 ];
 
+const audiencePanels = [
+  {
+    label: "Worker flow",
+    title: "Search and apply in minutes",
+    copy: "Workers can open nearby jobs, check pay, review employer details, and apply without forms or agent calls.",
+    href: "/jobs-near-me",
+    cta: "Browse jobs"
+  },
+  {
+    label: "Employer flow",
+    title: "Post openings and hire locally",
+    copy: "Local businesses can publish openings, review applicants, and continue hiring conversations inside the app.",
+    href: "/employer",
+    cta: "See employer flow"
+  },
+  {
+    label: "Referral flow",
+    title: "Grow trust through referrals",
+    copy: "DutyPe also supports referral-led growth so workers can invite others and help reliable opportunities travel faster.",
+    href: "/refer",
+    cta: "Explore referrals"
+  }
+];
+
 const howItWorks = [
   {
     step: "01",
@@ -51,6 +75,35 @@ const howItWorks = [
     step: "04",
     title: "Chat & get hired",
     description: "Message employers directly through the app. Many workers get hired within 24 to 48 hours."
+  }
+];
+
+const trustPoints = [
+  "Workers should never pay to access a job or attend an interview.",
+  "DutyPe focuses on verified employers, clear pay expectations, and direct worker-employer contact.",
+  "Support, safety, privacy, and refund policies are publicly indexed for transparency and trust."
+];
+
+const homeFaqs = [
+  {
+    question: "Is DutyPe free for workers?",
+    answer:
+      "Yes. Workers can browse jobs, apply, and connect with employers without paying fees or middlemen charges."
+  },
+  {
+    question: "What kind of jobs can I find on DutyPe?",
+    answer:
+      "DutyPe focuses on local hiring categories like delivery, driver, maid, helper, cook, cleaner, warehouse, retail, and part-time jobs."
+  },
+  {
+    question: "Can employers hire directly through DutyPe?",
+    answer:
+      "Yes. Employers can post openings, receive worker interest, and continue hiring communication inside the app."
+  },
+  {
+    question: "Which cities does DutyPe support?",
+    answer:
+      "The platform is designed for local hiring across Indian cities, with dedicated search pages for major locations and category-based landing pages."
   }
 ];
 
@@ -77,41 +130,116 @@ const allCities = [
 ];
 
 export const metadata: Metadata = {
-  title: "DutyPe - Find Local Jobs Near You",
-  description: siteMeta.description,
+  title: "DutyPe — Jobs Near Me | Local Hiring App for Workers & Employers in India",
+  description:
+    "Find jobs near you — delivery, driver, maid, cook, helper, security, warehouse, retail, part-time & daily wage jobs. Apply free on DutyPe. No middlemen, verified employers, instant hiring.",
   keywords: [
     ...coreSeoKeywords,
-    "jobs near me for freshers",
-    "instant job apply",
+    "job app india",
     "local job vacancy",
     "trusted hiring platform",
-    "worker employer direct contact"
+    "worker employer direct contact",
+    "local hiring app india",
+    "hire nearby workers",
+    "jobs hiring today",
+    "same day jobs near me",
+    "walk in jobs near me",
+    "jobs for women near me",
+    "jobs without interview near me",
+    "immediate joining jobs",
+    `${siteMeta.companyName.toLowerCase()} dutype`
   ],
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
-    title: "DutyPe - Local Jobs Near You",
-    description: siteMeta.description,
-    type: "website"
+    title: "DutyPe — Jobs Near Me | Local Hiring App for Workers & Employers",
+    description:
+      "Find delivery, driver, maid, cook, helper, security, warehouse & part-time jobs near you. Apply free — no middlemen, verified employers.",
+    type: "website",
+    url: "/"
   }
 };
 
 export default function HomePage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: siteMeta.companyName,
+        brand: { "@type": "Brand", name: siteMeta.name },
+        url: "https://dutype.in",
+        email: siteMeta.supportEmail,
+        description: siteMeta.description,
+        areaServed: { "@type": "Country", name: "India" },
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Hyderabad",
+          addressRegion: "Telangana",
+          addressCountry: "IN"
+        },
+        sameAs: [PLAY_STORE_URL]
+      },
+      {
+        "@type": "WebSite",
+        name: siteMeta.name,
+        url: "https://dutype.in",
+        description: siteMeta.description,
+        inLanguage: "en-IN",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://dutype.in/jobs-near-me?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "MobileApplication",
+        name: siteMeta.name,
+        operatingSystem: "Android",
+        applicationCategory: "BusinessApplication",
+        downloadUrl: PLAY_STORE_URL,
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "INR"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: homeFaqs.map((faq) => ({
+          "@type": "Question",
+          name: faq.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: faq.answer
+          }
+        }))
+      }
+    ]
+  };
+
   return (
     <SiteShell>
-      {/* ── Hero ── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+
       <section className="hero hero-home">
         <div className="hero-grid hero-home-grid">
           <div className="hero-copy">
             <div className="eyebrow-group">
               <span className="eyebrow">🇮🇳 Made in India</span>
-              <span className="hero-note">India's fastest growing local job platform</span>
+              <span className="hero-note">Local job discovery and hiring for India</span>
             </div>
 
             <h1 className="headline">Find Local Jobs Near You</h1>
 
             <p className="lede">
-              Connect with verified employers instantly. No middlemen, no fees.
-              Get hired faster with DutyPe — browse delivery, driver, maid, cook,
-              helper, and hundreds of other local jobs near your location.
+              DutyPe helps workers discover verified nearby jobs and helps employers hire
+              local staff faster. Browse delivery, driver, maid, cook, helper, cleaner,
+              warehouse, retail, and part-time roles with clear location-first discovery.
             </p>
 
             <div className="button-row">
@@ -121,6 +249,9 @@ export default function HomePage() {
               <Link href="/jobs-near-me" className="button ghost">
                 Jobs Near Me
               </Link>
+              <Link href="/contact" className="button ghost">
+                Contact Team
+              </Link>
             </div>
 
             <div className="hero-chip-row">
@@ -129,6 +260,19 @@ export default function HomePage() {
               <span className="pill">Verified employers</span>
               <span className="pill">Instant apply</span>
               <span className="pill">Daily payments</span>
+            </div>
+
+            <div className="hero-proof-grid">
+              <article className="hero-proof-card">
+                <span className="card-kicker">Search intent</span>
+                <strong>Built around jobs near me</strong>
+                <p>Category and city landing pages make it easier for workers to discover relevant openings fast.</p>
+              </article>
+              <article className="hero-proof-card">
+                <span className="card-kicker">Trust layer</span>
+                <strong>Clear policies and direct contact</strong>
+                <p>Safety, privacy, and support routes stay visible so the website feels legitimate and useful before app install.</p>
+              </article>
             </div>
           </div>
 
@@ -148,7 +292,41 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Stats strip ── */}
+      <section className="section">
+        <div className="section-header">
+          <div>
+            <span className="tag">Platform overview</span>
+            <h2>How DutyPe works for everyone</h2>
+          </div>
+          <p>
+            Whether you are looking for work, hiring local staff, or growing
+            through referrals — DutyPe has a clear path for you.
+          </p>
+        </div>
+
+        <div className="spotlight-grid">
+          {audiencePanels.map((panel) => (
+            <article key={panel.title} className="spotlight-card">
+              <span className="card-kicker">{panel.label}</span>
+              <h3>{panel.title}</h3>
+              <p>{panel.copy}</p>
+              <Link href={panel.href} className="route-note route-note-link">
+                {panel.cta}
+              </Link>
+            </article>
+          ))}
+        </div>
+
+        <div className="quick-link-grid">
+          {homeCategories.map((category) => (
+            <Link key={category.href} href={category.href} className="mini-route-card">
+              <strong>{category.label}</strong>
+              <span>Open landing page</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="section">
         <div className="brand-stat-row" style={{ justifyContent: "center", gap: "2rem", flexWrap: "wrap" }}>
           {homeStats.map((stat) => (
@@ -160,7 +338,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Features / Benefits ── */}
       <section className="section">
         <div className="section-header">
           <div>
@@ -184,7 +361,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── How it works ── */}
       <section className="section">
         <div className="section-header">
           <div>
@@ -197,7 +373,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="section-grid">
+        <div className="journey-grid">
           {howItWorks.map((item) => (
             <article key={item.step} className="card">
               <span className="card-kicker">Step {item.step}</span>
@@ -208,7 +384,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Browse by category ── */}
       <section className="section">
         <div className="section-header">
           <div>
@@ -233,7 +408,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Browse by city ── */}
       <section className="section">
         <div className="section-header">
           <div>
@@ -241,38 +415,46 @@ export default function HomePage() {
             <h2>Jobs in your city</h2>
           </div>
           <p>
-            Find local openings in major Indian cities. Click your city to see
-            available jobs.
+            Find local openings in major Indian cities. Pick your city to see
+            roles across all categories.
           </p>
         </div>
 
-        <div className="pill-row">
-          {allCities.map((city) => (
+        <div className="quick-link-grid city-link-grid">
+          {cityLandingTargets.map((city) => (
             <Link
               key={city}
               href={`/jobs-in-${city.toLowerCase()}`}
-              className="pill pill-link"
+              className="mini-route-card"
             >
-              Jobs in {city}
+              <strong>Jobs in {city}</strong>
+              <span>Open city landing page</span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="pill-row city-pill-row">
+          {allCities.map((city) => (
+            <Link key={city} href={`/jobs-in-${city.toLowerCase()}`} className="pill pill-link">
+              {city}
             </Link>
           ))}
         </div>
       </section>
 
-      {/* ── App handoff ── */}
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Get started</span>
-            <h2>Ready to find your next job?</h2>
+            <span className="tag">Trust &amp; transparency</span>
+            <h2>Why workers and employers trust DutyPe</h2>
           </div>
           <p>
-            Join thousands of workers who have found jobs through DutyPe.
-            Download the app and start your journey today.
+            Clear policies, verified employers, and a strict no-fee-for-workers promise
+            make DutyPe a safer way to find and offer work.
           </p>
         </div>
 
-        <div className="detail-grid">
+        <div className="trust-grid">
           <article className="detail-panel tone-highlight">
             <span className="card-kicker">For workers</span>
             <h3>Everything you need to get hired</h3>
@@ -296,6 +478,20 @@ export default function HomePage() {
             </ul>
           </article>
 
+          <article className="trust-panel">
+            <span className="card-kicker">Trust layer</span>
+            <h3>Visible support, safety, and company identity</h3>
+            <ul className="trust-list">
+              {trustPoints.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+            <div className="hero-chip-row">
+              <span className="pill">{siteMeta.companyName}</span>
+              <span className="pill">{siteMeta.supportEmail}</span>
+            </div>
+          </article>
+
           <AppLaunchCard
             kind="home"
             autoOpen={false}
@@ -309,6 +505,27 @@ export default function HomePage() {
             ]}
             badge="Free download"
           />
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-header">
+          <div>
+            <span className="tag">Frequently asked</span>
+            <h2>Common questions about DutyPe</h2>
+          </div>
+          <p>
+            Quick answers to what workers and employers ask us most.
+          </p>
+        </div>
+
+        <div className="faq-stack">
+          {homeFaqs.map((item) => (
+            <details key={item.question} className="faq-item faq-item-enhanced">
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
         </div>
       </section>
     </SiteShell>

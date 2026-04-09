@@ -140,6 +140,48 @@ export function generateMetadata({ params }: Props): Metadata {
     return {};
   }
 
+  // Build keyword-rich terms from the slug
+  const slugWords = params.slug.split("-").filter(Boolean);
+  const slugPhrase = params.slug.replace(/-/g, " ");
+
+  // Detect city pages and category pages for better keyword targeting
+  const isCityPage = params.slug.startsWith("jobs-in-");
+  const cityName = isCityPage ? slugWords.slice(2).join(" ") : null;
+
+  const categoryMatch = slugWords.find((w) =>
+    ["delivery", "driver", "maid", "cook", "helper", "cleaner", "security", "warehouse", "retail", "peon"].includes(w)
+  );
+
+  const locationKeywords = cityName
+    ? [
+        `jobs in ${cityName}`,
+        `${cityName} jobs`,
+        `jobs near me ${cityName}`,
+        `part time jobs in ${cityName}`,
+        `delivery jobs in ${cityName}`,
+        `driver jobs in ${cityName}`,
+        `maid jobs in ${cityName}`,
+        `daily wage jobs ${cityName}`,
+        `jobs in ${cityName} for freshers`,
+        `jobs in ${cityName} 10th pass`,
+        `night shift jobs ${cityName}`,
+        `${cityName} local hiring`,
+        `${cityName} job vacancy`
+      ]
+    : [];
+
+  const categoryKeywords = categoryMatch
+    ? [
+        `${categoryMatch} jobs near me`,
+        `${categoryMatch} jobs`,
+        `${categoryMatch} jobs for freshers`,
+        `part time ${categoryMatch} jobs`,
+        `${categoryMatch} jobs no experience`,
+        `${categoryMatch} salary`,
+        `${categoryMatch} vacancy`
+      ]
+    : [];
+
   return {
     title: page.title,
     description: page.description,
@@ -148,16 +190,32 @@ export function generateMetadata({ params }: Props): Metadata {
     },
     robots: {
       index: true,
-      follow: true
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-snippet": -1,
+        "max-image-preview": "large"
+      }
+    },
+    openGraph: {
+      title: page.title,
+      description: page.description,
+      type: "website",
+      url: `${SITE_URL}/${params.slug}`,
+      siteName: "DutyPe",
+      locale: "en_IN"
     },
     keywords: [
       ...coreSeoKeywords,
-      ...params.slug
-        .split("-")
-        .filter(Boolean)
-        .map((word) => `${word} jobs`),
-      `${params.slug.replace(/-/g, " ")} near me`,
-      "local hiring"
+      ...locationKeywords,
+      ...categoryKeywords,
+      `${slugPhrase}`,
+      `${slugPhrase} near me`,
+      "local hiring",
+      "apply free",
+      "no middlemen",
+      "verified employers"
     ]
   };
 }
@@ -178,8 +236,46 @@ export default function LegacyContentPage({ params }: Props) {
   const isSafety = page.eyebrow === "Safety";
   const isSupport = page.eyebrow === "Support";
 
+  // Build structured data for every page
+  const faqBlocks = page.blocks.filter(
+    (b): b is Extract<LegacyPageBlock, { kind: "faq" }> => b.kind === "faq"
+  );
+  const faqItems = faqBlocks.flatMap((b) => b.items);
+
+  const structuredData: Record<string, unknown>[] = [
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: page.title,
+          item: `${SITE_URL}/${params.slug}`
+        }
+      ]
+    }
+  ];
+
+  if (faqItems.length > 0) {
+    structuredData.push({
+      "@type": "FAQPage",
+      mainEntity: faqItems.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer", text: faq.answer }
+      }))
+    });
+  }
+
+  const jsonLd = { "@context": "https://schema.org", "@graph": structuredData };
+
   return (
     <SiteShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <section className="hero">
         <div className="hero-grid">
           <div className="hero-copy">

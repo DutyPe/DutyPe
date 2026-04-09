@@ -53,7 +53,7 @@ Create 10 more city pages:
 Copy the template from `driver-jobs-hyderabad.html` and change:
 1. City name
 2. Job category
-3. Meta tags
+3. Meta tagserw2
 
 ## 🎯 Expected Results
 

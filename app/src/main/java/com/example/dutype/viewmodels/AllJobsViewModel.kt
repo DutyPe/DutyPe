@@ -49,7 +49,9 @@ data class JobFilters(
     val salaryMax: Int = 100000,
     val maxDistance: Float? = null,
     val experienceLevel: String = "Any",
-    val sortBy: String = "Relevance"
+    val sortBy: String = "Relevance",
+    val payType: String = "Any",
+    val workType: String = "Any"
 )
 
 /**
@@ -130,6 +132,52 @@ class AllJobsViewModel @Inject constructor(
             else -> emptyList()
         }
         return keywords.any { text.contains(it) }
+    }
+
+    private fun currentQueryCategory(): String? = _initialCategory.value?.takeIf { it != "All Jobs" }
+
+    private fun shouldUseServerSideFiltering(filters: JobFilters): Boolean {
+        return filters.salaryMin > 0 ||
+            filters.salaryMax < 100000 ||
+            filters.payType != "Any"
+    }
+
+    private fun shouldReloadForCurrentFilters(filters: JobFilters): Boolean {
+        return shouldUseServerSideFiltering(filters) ||
+            filters.experienceLevel != "Any" ||
+            filters.workType != "Any"
+    }
+
+    private fun matchesWorkType(job: JobListing, selectedWorkType: String): Boolean {
+        if (selectedWorkType.equals("Any", ignoreCase = true)) return true
+
+        val text = listOf(job.workingHours, job.shiftTiming, job.title, job.description)
+            .joinToString(" ")
+            .lowercase()
+
+        return when (selectedWorkType.lowercase()) {
+            "part-time" -> listOf("part-time", "part time", "parttime", "weekend", "student").any(text::contains)
+            "full-time" -> listOf("full-time", "full time", "fulltime").any(text::contains)
+            "contract" -> text.contains("contract")
+            "temporary" -> text.contains("temporary") || text.contains("temp")
+            else -> text.contains(selectedWorkType.lowercase())
+        }
+    }
+
+    private fun matchesExperienceLevel(job: JobListing, selectedLevel: String): Boolean {
+        if (selectedLevel.equals("Any", ignoreCase = true)) return true
+
+        val text = listOf(job.experienceRequired, job.description, job.title)
+            .joinToString(" ")
+            .lowercase()
+
+        return when (selectedLevel) {
+            "Fresher" -> listOf("no experience", "fresher", "entry", "0 year", "0-", "0 ").any(text::contains)
+            "1-2 years" -> Regex("1\\s*(to|-)?\\s*2|1 year|2 year").containsMatchIn(text)
+            "2-5 years" -> Regex("2\\s*(to|-)?\\s*5|3 year|4 year|5 year").containsMatchIn(text)
+            "5+ years" -> Regex("5\\+|5 year|6 year|7 year|8 year|9 year|10 year").containsMatchIn(text)
+            else -> true
+        }
     }
     
     private val _uiState = MutableStateFlow(AllJobsUiState())
@@ -377,26 +425,12 @@ class AllJobsViewModel @Inject constructor(
                 val dist = job.distance
                 dist != null && dist < 10.0
             }.sortedBy { it.distance }
-            "Part Time" -> categoryFiltered.filter {
-                it.jobType.equals("Part-time", true) ||
-                it.jobType.contains("part", true)
-            }
-            "Full Time" -> categoryFiltered.filter {
-                it.jobType.equals("Full-time", true) ||
-                it.jobType.contains("full", true)
-            }
+            "Part Time" -> categoryFiltered.filter { matchesWorkType(it, "Part-time") }
+            "Full Time" -> categoryFiltered.filter { matchesWorkType(it, "Full-time") }
             else -> categoryFiltered
         }
         
         Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs (was ${categoryFiltered.size})")
-        
-        val chipRemoved = categoryFiltered - chipFiltered.toSet()
-        if (chipRemoved.isNotEmpty() && chip != "All Jobs") {
-            Timber.w("🔍 CHIP FILTER REMOVED: ${chipRemoved.size} jobs for chip='$chip'")
-            chipRemoved.take(3).forEach { job ->
-                Timber.w("🔍   - ${job.title} (salaryType='${job.salaryType}', jobType='${job.jobType}', distance=${job.distance})")
-            }
-        }
         
         // Step 5: Apply advanced filters
         val advancedFiltered = chipFiltered.filter { job ->
@@ -411,21 +445,14 @@ class AllJobsViewModel @Inject constructor(
             // Distance filter
             val dist = job.distance
             val distanceMatch = filters.maxDistance == null || dist == null || dist <= filters.maxDistance
+            val payTypeMatch = filters.payType == "Any" || job.salaryType.equals(filters.payType, ignoreCase = true)
+            val workTypeMatch = matchesWorkType(job, filters.workType)
+            val experienceMatch = matchesExperienceLevel(job, filters.experienceLevel)
             
-            salaryMatch && distanceMatch
+            salaryMatch && distanceMatch && payTypeMatch && workTypeMatch && experienceMatch
         }
         
         Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs (was ${chipFiltered.size})")
-        
-        val advancedRemoved = chipFiltered - advancedFiltered.toSet()
-        if (advancedRemoved.isNotEmpty()) {
-            Timber.w("🔍 ADVANCED FILTER REMOVED: ${advancedRemoved.size} jobs (salary range: ${filters.salaryMin}-${filters.salaryMax}, max distance: ${filters.maxDistance})")
-            advancedRemoved.take(3).forEach { job ->
-                val salary = job.salary.toInt()
-                val dist = job.distance
-                Timber.w("🔍   - ${job.title} (salary=$salary, distance=$dist)")
-            }
-        }
         
         // INDUSTRY STANDARD: When search is active (2+ chars), use database search results
         // No client-side filtering - trust the database query
@@ -439,28 +466,32 @@ class AllJobsViewModel @Inject constructor(
         }
         
         // Step 7: Apply sorting
-        // LOCATION FIRST: Default sort by distance (nearest jobs first)
-        // Then apply user's selected sort preference
-        val hasUsableLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
-
+        // CRITICAL: For "Relevance" (default), PRESERVE the order from _uiState.jobs.
+        // Initial load is already sorted nearest-first. Pagination appends to end.
+        // Re-sorting here would cause the list to jump/rearrange on every new page load.
+        // Only re-sort when user explicitly chooses a different sort option.
         val sorted = when (filters.sortBy) {
             "Newest" -> searchFiltered.sortedByDescending { it.createdAt }
             "Salary: High to Low" -> searchFiltered.sortedByDescending { parseSalaryForSort(it.salary) }
             "Salary: Low to High" -> searchFiltered.sortedBy { parseSalaryForSort(it.salary) }
-            "Distance", "Relevance" -> if (hasUsableLocation) {
-                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
-            } else {
-                searchFiltered
+            "Distance" -> {
+                // User explicitly wants distance sort — re-sort all
+                val hasUsableLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+                if (hasUsableLocation) {
+                    com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
+                } else {
+                    searchFiltered
+                }
             }
-            else -> if (hasUsableLocation) {
-                com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
-            } else {
+            else -> {
+                // "Relevance" and default: preserve existing order from ViewModel state
+                // Jobs are already sorted nearest-first on initial load
                 searchFiltered
             }
         }
         
-        Timber.d("🔍 filteredJobs: ✅ FINAL STAGE - Sorting by '${filters.sortBy}', location available: $hasUsableLocation")
-        Timber.d("🔍 filteredJobs: ✅ FINAL COUNT: ${sorted.size} jobs displayed to user")
+        Timber.d("filteredJobs: FINAL STAGE - Sorting by '${filters.sortBy}'")
+        Timber.d("filteredJobs: FINAL COUNT: ${sorted.size} jobs displayed to user")
         if (sorted.isEmpty()) {
             Timber.w("🔍 ⚠️  NO JOBS TO DISPLAY - Check filters above for culprit")
         }
@@ -481,6 +512,8 @@ class AllJobsViewModel @Inject constructor(
         if (filters.maxDistance != null) count++
         if (filters.experienceLevel != "Any") count++
         if (filters.sortBy != "Relevance") count++
+        if (filters.payType != "Any") count++
+        if (filters.workType != "Any") count++
         count
     }.stateIn(
         scope = viewModelScope,
@@ -510,6 +543,10 @@ class AllJobsViewModel @Inject constructor(
     fun setSelectedChip(chip: String) {
         _selectedChip.value = chip
         Timber.d("📊 AllJobsVM: Chip filter changed to: $chip")
+
+        if (_searchQuery.value.isBlank() && chip != "All Jobs" && _uiState.value.jobs.size <= PAGE_SIZE.toInt()) {
+            loadJobs(limit = 60L, category = currentQueryCategory())
+        }
     }
     
     fun setSearchQuery(query: String) {
@@ -528,19 +565,27 @@ class AllJobsViewModel @Inject constructor(
             }
         } else if (query.isBlank()) {
             // Reset to show all jobs when search is cleared
-            val categoryForQuery = _initialCategory.value?.takeIf { it != "All Jobs" }
-            loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
+            loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
         }
     }
     
     fun setFilters(filters: JobFilters) {
         _filters.value = filters
         Timber.d("🎛️ AllJobsVM: Filters updated")
+
+        if (_searchQuery.value.isBlank()) {
+            val reloadLimit = if (shouldReloadForCurrentFilters(filters)) 60L else PAGE_SIZE
+            loadJobs(limit = reloadLimit, category = currentQueryCategory())
+        }
     }
     
     fun resetFilters() {
         _filters.value = JobFilters()
         Timber.d("🔄 AllJobsVM: Filters reset to defaults")
+
+        if (_searchQuery.value.isBlank()) {
+            loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
+        }
     }
     
     fun setInitialCategory(category: String?) {
@@ -640,9 +685,7 @@ class AllJobsViewModel @Inject constructor(
                 
                 // P0 FIX: Use server-side filtering when filters are applied
                 val currentFilters = _filters.value
-                val useServerSideFiltering = currentFilters.salaryMin > 0 || 
-                                            currentFilters.salaryMax < 100000 ||
-                                            currentFilters.experienceLevel != "Any"
+                val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
                 paginationUsesLocation = false
                 
                 if (useServerSideFiltering) {
@@ -693,9 +736,9 @@ class AllJobsViewModel @Inject constructor(
                                     jobs = processedJobs,
                                     isLoading = false,
                                     totalJobs = processedJobs.size,
-                                    // Keep pagination alive as long as this page returned any jobs.
-                                    // First page can be < limit after server-side filtering.
-                                    hasMore = PaginationHelper.hasMorePages(processedJobs.size),
+                                    // FIX: Use raw summaries.size, not post-filtered processedJobs.size
+                                    // processedJobs is reduced by applyRuntimeFlags (filters applied jobs)
+                                    hasMore = PaginationHelper.hasMorePages(summaries.size),
                                     lastDocumentId = lastSummaryId
                                 )
                             },
@@ -741,6 +784,7 @@ class AllJobsViewModel @Inject constructor(
             category = category,
             minSalary = if (filters.salaryMin > 0) filters.salaryMin else null,
             maxSalary = if (filters.salaryMax < 100000) filters.salaryMax else null,
+            payType = filters.payType.takeIf { it != "Any" },
             gender = null,
             limit = limit
         ).collect { result ->
@@ -766,9 +810,8 @@ class AllJobsViewModel @Inject constructor(
                         jobs = processedJobs,
                         isLoading = false,
                         totalJobs = processedJobs.size,
-                        // Keep pagination alive as long as this page returned any jobs.
-                        // First page can be < limit after server-side filtering.
-                        hasMore = PaginationHelper.hasMorePages(processedJobs.size),
+                        // FIX: Use raw summaries.size, not post-filtered processedJobs.size
+                        hasMore = PaginationHelper.hasMorePages(summaries.size),
                         lastDocumentId = lastSummaryId
                     )
                 },
@@ -807,9 +850,7 @@ class AllJobsViewModel @Inject constructor(
                 
                 // P0 FIX: Use server-side filtering for pagination too
                 val currentFilters = _filters.value
-                val useServerSideFiltering = currentFilters.salaryMin > 0 || 
-                                            currentFilters.salaryMax < 100000 ||
-                                            currentFilters.experienceLevel != "Any"
+                val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
                 
                 if (useServerSideFiltering) {
                     Timber.d("📦 P0 FIX: Loading more with SERVER-SIDE filtering")
@@ -817,6 +858,7 @@ class AllJobsViewModel @Inject constructor(
                         category = firestoreCategory,
                         minSalary = if (currentFilters.salaryMin > 0) currentFilters.salaryMin else null,
                         maxSalary = if (currentFilters.salaryMax < 100000) currentFilters.salaryMax else null,
+                        payType = currentFilters.payType.takeIf { it != "Any" },
                         gender = null,
                         limit = limit,
                         lastDocumentId = lastDocumentId
@@ -992,22 +1034,23 @@ class AllJobsViewModel @Inject constructor(
                     val previousSize = _uiState.value.jobs.size
                     var newJobs = summaries.map { it.toJobListing() }
                     
+                    // FIX: Only calculate distances for NEW jobs, then APPEND.
+                    // Never re-sort the entire list — it causes the list to jump/rearrange.
+                    // Initial load is already sorted nearest-first.
+                    // LinkedIn/Indeed approach: append new pages to end, maintain scroll position.
                     if (userLatitude != 0.0 || userLongitude != 0.0) {
-                        newJobs = com.example.dutype.engine.NearestJobsEngine.mergeAndSort(
-                            _uiState.value.jobs,
-                            newJobs,
-                            userLatitude,
-                            userLongitude
+                        newJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
+                            newJobs, userLatitude, userLongitude
                         )
-                    } else {
-                        newJobs = _uiState.value.jobs + newJobs
                     }
-
-                    newJobs = applyRuntimeFlags(newJobs)
+                    
+                    // Append new jobs to existing list (no re-sorting of existing jobs)
+                    val combined = _uiState.value.jobs + newJobs
+                    val combined2 = applyRuntimeFlags(combined)
                     
                     val updatedList = PaginationHelper.appendJobs(
                         emptyList(),
-                        newJobs.distinctBy { job ->
+                        combined2.distinctBy { job ->
                             normalizedJobId(job).ifBlank {
                                 "${job.employerId}:${job.title.trim().lowercase()}:${job.createdAt}"
                             }

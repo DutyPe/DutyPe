@@ -51,24 +51,30 @@ fun LanguageOptionCard(
     name: String,
     nativeName: String,
     isSelected: Boolean,
-    accentColor: Color = Color(0xFFFF8C32), // Default orange
+    accentColor: Color = Color(0xFFF59E0B), // Warm amber/yellow
     onClick: () -> Unit
 ) {
-    // Animation states
+    // Liquid glass aesthetic: warm tinted background on selection
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected) Color(0xFFFFFBEB) else Color.White.copy(alpha = 0.75f),
+        animationSpec = tween(300),
+        label = "bg_color"
+    )
+    
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.dp else 1.dp,
+        targetValue = if (isSelected) 1.5.dp else 0.5.dp,
         animationSpec = tween(200),
         label = "border_width"
     )
     
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) accentColor else Color(0xFFE5E7EB),
+        targetValue = if (isSelected) accentColor else Color(0xFFE2E8F0).copy(alpha = 0.6f),
         animationSpec = tween(200),
         label = "border_color"
     )
     
     val elevation by animateDpAsState(
-        targetValue = if (isSelected) 4.dp else 1.dp,
+        targetValue = if (isSelected) 8.dp else 2.dp,
         animationSpec = tween(200),
         label = "elevation"
     )
@@ -76,20 +82,20 @@ fun LanguageOptionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 84.dp)
+            .heightIn(min = 80.dp)
             .shadow(
                 elevation = elevation,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = if (isSelected) accentColor.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.1f)
+                shape = RoundedCornerShape(20.dp),
+                spotColor = if (isSelected) accentColor.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.06f)
             )
             .border(
                 width = borderWidth,
                 color = borderColor,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(20.dp)
             )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(

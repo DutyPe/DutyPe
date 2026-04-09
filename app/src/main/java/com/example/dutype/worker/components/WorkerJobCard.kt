@@ -80,6 +80,12 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
+        workTypeLabel = extractWorkTypeLabel(
+            job.workingHours,
+            job.shiftTiming,
+            job.title,
+            job.description
+        ),
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
@@ -132,6 +138,7 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
+        workTypeLabel = extractWorkTypeLabel(job.jobType, job.title),
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
@@ -160,6 +167,7 @@ private fun JobCardInternal(
     payDisplay: String,
     locationDisplay: String,
     jobType: String,
+    workTypeLabel: String?,
     isUrgent: Boolean,
     isClosed: Boolean,
     isSaved: Boolean,
@@ -263,7 +271,7 @@ private fun JobCardInternal(
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Business,
@@ -272,19 +280,11 @@ private fun JobCardInternal(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Company:",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF6B7280),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                            Text(
                                 text = companyName,
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF111827),
+                                    color = Color(0xFF374151),
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Medium
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -384,6 +384,10 @@ private fun JobCardInternal(
 
                 if (jobType.isNotEmpty()) {
                     CompactChip(text = jobType, chipType = ChipType.JOB_TYPE)
+                }
+
+                if (!workTypeLabel.isNullOrBlank() && !jobType.equals(workTypeLabel, ignoreCase = true)) {
+                    CompactChip(text = workTypeLabel, chipType = ChipType.JOB_TYPE)
                 }
 
                 if (isUrgent) {
@@ -509,6 +513,23 @@ private fun formatLocationWithDistance(addressText: String, distance: Double?): 
         else -> "${"%.1f".format(distance)} km away"
     }
     return if (normalizedLocation.isNotEmpty()) "$normalizedLocation • $distStr" else distStr
+}
+
+private fun extractWorkTypeLabel(vararg candidates: String?): String? {
+    val text = candidates
+        .filterNotNull()
+        .joinToString(" ")
+        .lowercase()
+
+    if (text.isBlank()) return null
+
+    return when {
+        listOf("part-time", "part time", "parttime", "weekend", "student").any(text::contains) -> "Part-time"
+        listOf("full-time", "full time", "fulltime").any(text::contains) -> "Full-time"
+        text.contains("contract") -> "Contract"
+        text.contains("temporary") || text.contains("temp") -> "Temporary"
+        else -> null
+    }
 }
 
 /**

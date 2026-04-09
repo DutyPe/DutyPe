@@ -421,6 +421,19 @@ class MainActivity : ComponentActivity() {
                 activityResultLauncher = updateResultLauncher,
                 onUpdateAvailable = { appUpdateInfo, updateType ->
                     Timber.i("🔄 Update available - type: ${if (updateType == com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
+                    
+                    // Register listener for flexible updates to auto-complete when downloaded
+                    if (updateType == com.google.android.play.core.install.model.AppUpdateType.FLEXIBLE) {
+                        updateManager.registerFlexibleUpdateListener(
+                            onDownloaded = {
+                                Timber.i("✅ Flexible update downloaded - completing update")
+                                updateManager.completeFlexibleUpdate()
+                            },
+                            onFailed = { errorCode ->
+                                Timber.e("❌ Flexible update failed: $errorCode")
+                            }
+                        )
+                    }
                 },
                 onNoUpdate = {
                     Timber.d("✅ App is up to date")

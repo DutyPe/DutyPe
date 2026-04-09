@@ -822,54 +822,58 @@ private fun ProfileMenuItem(
     isDestructive: Boolean = false,
     iconColor: Color? = null
 ) {
-    val menuContainerColor = if (isDestructive) {
-        Color(0xFFFEE2E2).copy(alpha = 0.55f)
-    } else {
-        Color.White.copy(alpha = 0.72f)
+    val resolvedIconColor = when {
+        isDestructive -> WorkerColors.Error
+        iconColor != null -> iconColor
+        else -> Color(0xFF3B82F6)
     }
 
-    val menuBorderColor = if (isDestructive) {
-        Color(0xFFFCA5A5).copy(alpha = 0.75f)
-    } else {
-        Color(0xFFE2E8F0).copy(alpha = 0.8f)
+    val iconBgColor = when {
+        isDestructive -> Color(0xFFFEE2E2)
+        iconColor != null -> iconColor.copy(alpha = 0.1f)
+        else -> Color(0xFFEFF6FF)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(menuContainerColor)
-            .border(1.dp, menuBorderColor, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon with custom color support
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = when {
-                isDestructive -> WorkerColors.Error
-                iconColor != null -> iconColor
-                else -> Color(0xFF64748B)
-            },
-            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
-        )
+        // Icon with tinted background
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(iconBgColor, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = resolvedIconColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = AppTypography.menuItemTitle.copy(
-                    color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary
+                    color = if (isDestructive) WorkerColors.Error else Color(0xFF1E293B),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp
                 )
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = AppTypography.menuItemSubtitle.copy(
-                        color = WorkerColors.TextSecondary
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
                     )
                 )
             }
@@ -878,7 +882,7 @@ private fun ProfileMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF94A3B8),
+            tint = Color(0xFFCBD5E1),
             modifier = Modifier.size(20.dp)
         )
     }

@@ -144,7 +144,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'isVerified', 'title', 'jobType',
           'salary', 'salaryType', 'gender', 'experienceRequired', 'shiftTiming',
-          'applicationCount', 'location', 'geohash', 'companyCity',
+          'applicationCount', 'location', 'geohash', 'companyCity', 'addressText',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -175,7 +175,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'isVerified', 'title', 'jobType',
           'salary', 'salaryType', 'gender', 'experienceRequired', 'shiftTiming',
-          'applicationCount', 'location', 'geohash', 'companyCity',
+          'applicationCount', 'location', 'geohash', 'companyCity', 'addressText',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.employerId == resource.data.employerId &&
@@ -200,15 +200,19 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
     }
 
-    // job_details (display-only payload)
+    // job_details (full payload — requires auth to protect contact info)
     match /job_details/{jobId} {
-      allow get, list: if true;
+      allow get: if isSignedIn();
+      allow list: if false;
       allow create: if isSignedIn() &&
         existsAfter(/databases/$(database)/documents/jobs/$(jobId)) &&
         getAfter(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
-          'description', 'contactNumber', 'addressText',
-          'jobType', 'vacancies', 'benefits',
+          'employerId', 'companyName', 'isVerified', 'title', 'jobType',
+          'salary', 'salaryType', 'description', 'contactNumber', 'addressText',
+          'companyCity', 'location', 'geohash', 'gender', 'experienceRequired',
+          'shiftTiming', 'vacancies', 'benefits', 'urgency', 'applicationCount',
+          'status', 'createdAt', 'expiresAt',
           'whatsappNumber', 'workingHours', 'educationRequired'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -255,7 +259,8 @@ service cloud.firestore {
           (resource != null && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid)) ||
           applicationId.matches('^.*_' + request.auth.uid + '$')
         );
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() &&
+        (resource == null || resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([

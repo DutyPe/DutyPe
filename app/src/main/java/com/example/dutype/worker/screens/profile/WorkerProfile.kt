@@ -1317,68 +1317,77 @@ private fun MeeshoMenuItem(
     isDestructive: Boolean = false,
     iconColor: Color? = null
 ) {
-    val menuContainerColor = if (isDestructive) {
-        Color(0xFFFEE2E2).copy(alpha = 0.55f)
-    } else {
-        Color.White.copy(alpha = 0.72f)
+    val resolvedIconColor = when {
+        isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
+        iconColor != null -> iconColor
+        else -> Color(0xFF475569)
     }
 
-    val menuBorderColor = if (isDestructive) {
-        Color(0xFFFCA5A5).copy(alpha = 0.75f)
-    } else {
-        Color(0xFFE2E8F0).copy(alpha = 0.8f)
+    val iconBgColor = when {
+        isDestructive -> Color(0xFFFEE2E2)
+        iconColor != null -> iconColor.copy(alpha = 0.1f)
+        else -> Color(0xFFF1F5F9)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(menuContainerColor)
-            .border(1.dp, menuBorderColor, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon with custom color support
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = when {
-                isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
-                iconColor != null -> iconColor
-                else -> Color(0xFF64748B)
-            },
-            modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
-        )
+        // Icon with tinted circular background
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(iconBgColor, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = resolvedIconColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Text(
             text = title,
             style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
-                color = if (isDestructive) 
-                    com.example.dutype.ui.theme.WorkerColors.Error 
-                else 
-                    com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                color = if (isDestructive)
+                    com.example.dutype.ui.theme.WorkerColors.Error
+                else
+                    Color(0xFF1E293B),
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp
             ),
             modifier = Modifier.weight(1f)
         )
-        
-        // Badge if present
+
+        // Badge
         if (badgeText != null) {
-            Text(
-                text = badgeText,
-                style = com.example.dutype.ui.theme.AppTypography.newBadge.copy(
-                    color = com.example.dutype.ui.theme.WorkerColors.Primary
+            Box(
+                modifier = Modifier
+                    .background(Color(0xFFEEF2FF), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = badgeText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF4F46E5)
                 )
-            )
+            }
             Spacer(modifier = Modifier.width(8.dp))
         }
 
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF94A3B8),
+            tint = Color(0xFFCBD5E1),
             modifier = Modifier.size(20.dp)
         )
     }

@@ -204,11 +204,9 @@ class FirestoreJobViewModel @Inject constructor(
                     dist == null || 
                     dist <= maxDistance 
                 }
-                .sortedBy { job ->
-                    // LOCATION SORTING: Sort by distance (nearest first)
-                    // If distance is not calculated yet, sort to end
-                    job.distance ?: Double.MAX_VALUE
-                }
+                // PRESERVE existing order from _uiState.jobs.
+                // Jobs are already sorted nearest-first on initial load.
+                // Re-sorting here would cause list to jump on every pagination load.
         }
     }.stateIn(
         scope = viewModelScope,
@@ -393,42 +391,54 @@ class FirestoreJobViewModel @Inject constructor(
         if (_uiState.value.jobs.isEmpty()) return
         
         withContext(Dispatchers.Default) {
-            Timber.d("📍 ViewModel: Recalculating & re-sorting distances for ${_uiState.value.jobs.size} jobs...")
+            Timber.d("📍 ViewModel: Recalculating distances for ${_uiState.value.jobs.size} jobs (no re-sort)...")
             
-            // P0 FIX: Use NearestJobsEngine which calculates distances AND sorts
-            val resortedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                _uiState.value.jobs, latitude, longitude
-            )
-
-            val strictNearbyJobs = applyStrictNearbyWindow(resortedJobs)
+            // FIX: Only recalculate distances, do NOT re-sort.
+            // Re-sorting causes the list to jump/rearrange while user is scrolling.
+            // Initial load already sorted nearest-first. Just update distance values.
+            val jobsWithUpdatedDistance = _uiState.value.jobs.map { job ->
+                if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(job.lat, job.lng)) {
+                    job.copy(distance = com.example.dutype.engine.NearestJobsEngine.calculateDistance(
+                        latitude, longitude, job.lat, job.lng
+                    ))
+                } else {
+                    job.copy(distance = null)
+                }
+            }
             
-            // Log some sample distances for debugging
-            strictNearbyJobs.take(3).forEach { job ->
+            jobsWithUpdatedDistance.take(3).forEach { job ->
                 Timber.d("📍 ViewModel: Job '${job.title}' - distance=${job.distance?.let { "%.2f".format(it) }}km")
             }
             
-            // Update UI state on main thread
             withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(jobs = strictNearbyJobs)
+                _uiState.value = _uiState.value.copy(jobs = jobsWithUpdatedDistance)
                 lastRecalcLatitude = latitude
                 lastRecalcLongitude = longitude
-                Timber.d("📍 ViewModel: Distance recalculation & resort complete")
+                Timber.d("📍 ViewModel: Distance recalculation complete (order preserved)")
             }
         }
     }
 
     private fun applyStrictNearbyWindow(sortedJobs: List<JobListing>): List<JobListing> {
+        // FIX: Never return empty. Show nearby jobs first, then all remaining sorted by distance.
+        // User requirement: show near jobs first (10km, 15km...) then load more without distance limit.
         val inPrimaryRadius = sortedJobs.filter { job ->
             val distance = job.distance
             distance != null && distance <= STRICT_NEARBY_RADIUS_KM
         }
         if (inPrimaryRadius.isNotEmpty()) {
             Timber.d("📍 Strict nearby filter: ${inPrimaryRadius.size} jobs within ${STRICT_NEARBY_RADIUS_KM}km")
-            return inPrimaryRadius
+            // Return nearby jobs + remaining jobs (sorted by distance, nearest first)
+            val remaining = sortedJobs.filter { job ->
+                val distance = job.distance
+                distance == null || distance > STRICT_NEARBY_RADIUS_KM
+            }
+            return inPrimaryRadius + remaining
         }
 
-        Timber.w("📍 Strict nearby filter: 0 jobs within ${STRICT_NEARBY_RADIUS_KM}km - returning empty list")
-        return emptyList()
+        // No jobs within radius - return ALL jobs sorted by distance (don't return empty!)
+        Timber.w("📍 Strict nearby filter: 0 jobs within ${STRICT_NEARBY_RADIUS_KM}km - returning ALL ${sortedJobs.size} jobs sorted by distance")
+        return sortedJobs
     }
     
     fun loadJobs(limit: Long = 50L) {
@@ -464,9 +474,9 @@ class FirestoreJobViewModel @Inject constructor(
                 Timber.d("🔍 P0 FIX: Loading job SUMMARIES for workers (limit: $limit) - 70% bandwidth reduction")
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -476,14 +486,16 @@ class FirestoreJobViewModel @Inject constructor(
                             Timber.d("✅ Successfully loaded ${summaries.size} job summaries in ${duration}ms")
                             val processedJobs = processJobsForDisplay(summaries.map { it.toJobListing() })
                             
-                            val lastJob = processedJobs.lastOrNull()
+                            // FIX: Use raw summaries.size for hasMore, not post-filtered count
+                            // processJobsForDisplay filters out applied jobs, reducing count below limit
+                            val lastSummaryId = summaries.lastOrNull()?.id
                             
                             _uiState.value = _uiState.value.copy(
                                 jobs = processedJobs,
                                 isLoading = false,
                                 totalJobs = processedJobs.size,
-                                hasMore = processedJobs.size >= limit,
-                                lastDocumentId = lastJob?.id,
+                                hasMore = PaginationHelper.hasMorePages(summaries.size),
+                                lastDocumentId = lastSummaryId,
                                 prefetchedJobs = emptyList() // Clear any stale prefetched data
                             )
                             
@@ -539,15 +551,15 @@ class FirestoreJobViewModel @Inject constructor(
             return
         }
 
-        Timber.d("🏠 Loading jobs for HomeScreen (limit: 5) - LIGHTNING FAST")
-        loadJobsSummaryFromMetadata(5)
+        Timber.d("🏠 Loading jobs for HomeScreen with fast summary query (limit: 20, display 5)")
+        loadJobsSummaryFromMetadata(limit = 20, useLocationQuery = false)
     }
     
     /**
      * LIGHTNING-FAST: Load jobs using metadata document
      * Falls back to regular query if metadata is not available
      */
-    private fun loadJobsSummaryFromMetadata(limit: Int) {
+    private fun loadJobsSummaryFromMetadata(limit: Int, useLocationQuery: Boolean = true) {
         // CRITICAL FIX: Only skip if actively loading AND has already loaded once
         if (_uiState.value.isLoading && hasInitiallyLoaded) {
             Timber.d("🔍 loadJobsSummary skipped - currently loading")
@@ -568,9 +580,12 @@ class FirestoreJobViewModel @Inject constructor(
             )
             
             try {
-                val hasLocation = com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
-                Timber.d("📦 Loading adaptive home job summaries (displayLimit=$limit, hasLocation=$hasLocation)...")
-                val effectiveRadiusKm = 10.0
+                val hasLocation = useLocationQuery &&
+                    com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+                val effectiveRadiusKm = if (hasLocation) 10.0 else 0.0
+                Timber.d(
+                    "📦 Loading home job summaries (displayLimit=$limit, useLocationQuery=$useLocationQuery, hasLocation=$hasLocation)..."
+                )
                 val summaryFlow = firestoreJobRepository.getAllJobsSummary(
                     limit = limit.toLong(),
                     lastDocumentId = null,
@@ -582,7 +597,9 @@ class FirestoreJobViewModel @Inject constructor(
                 summaryFlow.collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
-                            Timber.d("✅ Loaded ${summaries.size} job summaries (base radius=${effectiveRadiusKm}km, fallback handled by repository)")
+                            Timber.d(
+                                "✅ Loaded ${summaries.size} home job summaries (radius=${effectiveRadiusKm}km, locationQuery=$hasLocation)"
+                            )
                             
                             // Calculate distances if user location is available
                             var processedSummaries = summaries
@@ -603,7 +620,7 @@ class FirestoreJobViewModel @Inject constructor(
                                 jobs = jobs,
                                 isLoading = false,
                                 totalJobs = jobs.size,
-                                hasMore = jobs.size >= limit,
+                                hasMore = PaginationHelper.hasMorePages(summaries.size),
                                 lastDocumentId = lastSummaryId,
                                 prefetchedJobs = emptyList(),
                                 usingSummaries = true
@@ -673,9 +690,9 @@ class FirestoreJobViewModel @Inject constructor(
                 Timber.d("📦 Loading job summaries for workers (limit: $limit) - LIGHTWEIGHT MODE")
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -691,14 +708,14 @@ class FirestoreJobViewModel @Inject constructor(
                             
                             // Convert summaries to JobListing for UI compatibility
                             val jobs = processJobsForDisplay(processedSummaries.map { it.toJobListing() })
-                            val lastJob = jobs.lastOrNull()
+                            val lastSummaryId = summaries.lastOrNull()?.id
                             
                             _uiState.value = _uiState.value.copy(
                                 jobs = jobs,
                                 isLoading = false,
                                 totalJobs = jobs.size,
-                                hasMore = jobs.size >= limit,
-                                lastDocumentId = lastJob?.id,
+                                hasMore = PaginationHelper.hasMorePages(summaries.size),
+                                lastDocumentId = lastSummaryId,
                                 prefetchedJobs = emptyList(),
                                 usingSummaries = true
                             )
@@ -761,9 +778,9 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = null,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -779,14 +796,14 @@ class FirestoreJobViewModel @Inject constructor(
                             
                             // Convert summaries to JobListing for UI compatibility
                             val jobs = processJobsForDisplay(processedSummaries.map { it.toJobListing() })
-                            val lastJob = jobs.lastOrNull()
+                            val lastSummaryId = summaries.lastOrNull()?.id
                             
                             _uiState.value = _uiState.value.copy(
                                 jobs = jobs,
                                 isLoading = false,
                                 totalJobs = jobs.size,
-                                hasMore = jobs.size >= limit, // More available if we got full page
-                                lastDocumentId = lastJob?.id,
+                                hasMore = PaginationHelper.hasMorePages(summaries.size),
+                                lastDocumentId = lastSummaryId,
                                 usingSummaries = true
                             )
                             
@@ -842,14 +859,16 @@ class FirestoreJobViewModel @Inject constructor(
                 val lastDocumentId = _uiState.value.lastDocumentId
                 Timber.d("📦 INFINITE SCROLL: Loading more job summaries (limit: $limit, after: $lastDocumentId, category: $currentCategoryFilter)")
                 
-                // Use summaries for faster loading — pass category filter for paginated category results
+                // FIX: Load more from FULL dataset (no radius limit) so pagination
+                // progressively shows farther jobs: 10km → 15km → 20km → all.
+                // Distance sorting is applied client-side via NearestJobsEngine.
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = lastDocumentId,
                     category = currentCategoryFilter,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -863,27 +882,22 @@ class FirestoreJobViewModel @Inject constructor(
                                 // Convert summaries to JobListing
                                 var newJobs = summaries.map { it.toJobListing() }
                                 
-                                // P0 FIX: USE NEARESTJOBSENGINE TO MERGE AND SORT PROPERLY
-                                // This maintains nearest-first order across pagination
+                                // FIX: Only calculate distances for NEW jobs, then APPEND.
+                                // Never re-sort the entire list — causes list to jump/rearrange on scroll.
+                                // Initial load is sorted nearest-first. Pagination appends to end.
                                 if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                    newJobs = com.example.dutype.engine.NearestJobsEngine.mergeAndSort(
-                                        _uiState.value.jobs,
-                                        newJobs,
-                                        userLatitude,
-                                        userLongitude
-                                    ).also {
-                                        Timber.d("🎯 Engine: Merged & sorted ${_uiState.value.jobs.size} + ${summaries.size} jobs")
-                                    }
+                                    newJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
+                                        newJobs, userLatitude, userLongitude
+                                    )
+                                    Timber.d("🎯 Engine: Calculated distances for ${newJobs.size} new jobs (append, no re-sort)")
                                 } else {
-                                    // No user location - just append
-                                    newJobs = _uiState.value.jobs + newJobs
                                     Timber.d("📦 No user location - appending jobs (not sorted)")
                                 }
                                 
                                 newJobs = applyRuntimeFlags(newJobs)
 
                                 val updatedList = PaginationHelper.appendJobs(
-                                    emptyList(), newJobs.distinctBy { it.jobId }, MAX_JOBS_IN_MEMORY
+                                    _uiState.value.jobs, newJobs.distinctBy { it.jobId }, MAX_JOBS_IN_MEMORY
                                 )
                                 val lastNewJob = summaries.lastOrNull()
                                 
@@ -932,7 +946,7 @@ class FirestoreJobViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     jobs = updatedList,
                     totalJobs = updatedList.size,
-                    hasMore = prefetchedJobs.size >= limit,
+                    hasMore = PaginationHelper.hasMorePages(prefetchedJobs.size),
                     lastDocumentId = lastJob?.id,
                     prefetchedJobs = emptyList() // Clear prefetched jobs
                 )
@@ -951,9 +965,9 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = lastDocumentId,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -969,14 +983,14 @@ class FirestoreJobViewModel @Inject constructor(
                                 val updatedList = PaginationHelper.appendJobs(
                                     _uiState.value.jobs, processedJobs, MAX_JOBS_IN_MEMORY
                                 )
-                                val lastJob = processedJobs.lastOrNull()
+                                val lastSummaryId = summaries.lastOrNull()?.id
                                 
                                 _uiState.value = _uiState.value.copy(
                                     jobs = updatedList,
                                     isLoadingMore = false,
                                     totalJobs = updatedList.size,
-                                    hasMore = PaginationHelper.hasMorePages(processedJobs.size),
-                                    lastDocumentId = lastJob?.id
+                                    hasMore = PaginationHelper.hasMorePages(summaries.size),
+                                    lastDocumentId = lastSummaryId
                                 )
                                 
                                 prefetchNextPage(limit)
@@ -1019,14 +1033,13 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = lastDocumentId,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
                             if (summaries.isNotEmpty()) {
-                                // Convert summaries to JobListing
                                 val processedJobs = processJobsForDisplay(summaries.map { it.toJobListing() })
                                 
                                 Timber.d("🔮 Prefetched ${processedJobs.size} job summaries")
@@ -1074,9 +1087,9 @@ class FirestoreJobViewModel @Inject constructor(
                     limit = 50L,
                     lastDocumentId = null,
                     category = currentCategoryFilter,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -1160,21 +1173,21 @@ class FirestoreJobViewModel @Inject constructor(
                     limit = limit,
                     lastDocumentId = null,
                     category = category,
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = STRICT_NEARBY_RADIUS_KM
+                    userLatitude = null,
+                    userLongitude = null,
+                    radiusKm = 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
                             val processedJobs = processJobsForDisplay(summaries.map { it.toJobListing() })
                             
-                            val lastJob = processedJobs.lastOrNull()
+                            val lastSummaryId = summaries.lastOrNull()?.id
                             _uiState.value = _uiState.value.copy(
                                 jobs = processedJobs,
                                 isLoading = false,
                                 totalJobs = processedJobs.size,
-                                hasMore = processedJobs.size >= limit,
-                                lastDocumentId = lastJob?.id
+                                hasMore = PaginationHelper.hasMorePages(summaries.size),
+                                lastDocumentId = lastSummaryId
                             )
                         },
                         onFailure = { exception ->
@@ -1257,6 +1270,54 @@ class FirestoreJobViewModel @Inject constructor(
             Timber.e("❌ Exception getting job by ID: ${e.message}")
             Result.failure(e)
         }
+    }
+
+    suspend fun getRecommendedJobsForJob(currentJob: JobListing, limit: Int = 5): Result<List<JobListing>> {
+        return try {
+            val primaryCategory = currentJob.jobType.takeIf { it.isNotBlank() }
+                ?: currentJob.getCategory().takeIf { it.isNotBlank() }
+
+            val primaryResult = loadRecommendedJobs(currentJob, primaryCategory, limit)
+            val primaryJobs = primaryResult.getOrNull().orEmpty()
+
+            when {
+                primaryJobs.isNotEmpty() -> Result.success(primaryJobs)
+                primaryResult.isFailure -> primaryResult
+                else -> loadRecommendedJobs(currentJob, category = null, limit = limit)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "❌ Exception loading recommended jobs for ${currentJob.id}")
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun loadRecommendedJobs(
+        currentJob: JobListing,
+        category: String?,
+        limit: Int
+    ): Result<List<JobListing>> {
+        var result: Result<List<JobListing>> = Result.success(emptyList())
+
+        firestoreJobRepository.getAllJobsSummary(
+            limit = maxOf(limit * 4, 12).toLong(),
+            lastDocumentId = null,
+            category = category?.trim()?.takeIf { it.isNotBlank() },
+            userLatitude = queryUserLatitude(),
+            userLongitude = queryUserLongitude(),
+            radiusKm = if (hasValidUserLocation()) 25.0 else 0.0
+        ).collect { summaryResult ->
+            result = summaryResult.map { summaries ->
+                processJobsForDisplay(
+                    summaries.map { it.toJobListing() },
+                    enforceStrictNearbyWindow = false
+                )
+                    .filter { normalizedJobId(it) != normalizedJobId(currentJob) }
+                    .filter { it.status == "open" }
+                    .take(limit)
+            }
+        }
+
+        return result
     }
     
     fun clearError() {

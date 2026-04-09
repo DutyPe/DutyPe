@@ -69,6 +69,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -87,10 +88,10 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
-import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ScrollAwareLazyColumn
+import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
@@ -117,7 +118,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import java.util.Calendar
+
+private val WorkerHomeHeaderTopColor = Color(0xFFFFF8E1)
+private val WorkerHomeHeaderMidColor = Color(0xFFFFF3CC)
+private val WorkerHomeHeaderBottomColor = Color(0xFFFFEDB3)
 
 // NOTE: hasAppliedToJob function removed - Apply button removed from JobCard
 // Users now apply from JobDescriptionScreen only
@@ -471,23 +475,14 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Status bar colors for different tabs (soft tinted white for Worker theme)
-    val statusBarColors = listOf(
-        WorkerColors.StatusBarColor, // All Jobs
-        WorkerColors.StatusBarColor, // Hourly
-        WorkerColors.StatusBarColor, // Daily
-        WorkerColors.StatusBarColor  // Part-time/Full-time
-    )
-
     // Update status bar color when tab changes
     LaunchedEffect(pagerState.currentPage) {
-        // Use new gradient color for status bar
-        onStatusBarColorChange(WorkerColors.StatusBarColor)
+        onStatusBarColorChange(WorkerHomeHeaderTopColor)
     }
 
     // Set initial status bar color
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(WorkerColors.StatusBarColor)
+        onStatusBarColorChange(WorkerHomeHeaderTopColor)
     }
 
 
@@ -542,8 +537,7 @@ fun WorkerHomeScreen(
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
-        // Track location bar visibility and alpha from scroll
-        var showLocationBarState by remember { mutableStateOf(true) }
+        // Track location bar alpha from scroll
         var locationBarAlpha by remember { mutableStateOf(1f) }
         
         Box(modifier = Modifier.fillMaxSize()) {
@@ -620,11 +614,7 @@ fun WorkerHomeScreen(
                                     userEmail = currentUser?.email ?: "",
                                     userSkills = emptyList(),
                                     onScrollOffsetChange = { offset ->
-                                        // Keep status bar matching gradient
-                                        onStatusBarColorChange(WorkerColors.StatusBarColor)
-                                    },
-                                    onLocationBarVisibilityChange = { visible ->
-                                        showLocationBarState = visible
+                                        onStatusBarColorChange(WorkerHomeHeaderTopColor)
                                     },
                                     onLocationBarAlphaChange = { alpha ->
                                         locationBarAlpha = alpha
@@ -639,7 +629,8 @@ fun WorkerHomeScreen(
                         }
                     }
                     
-                    // Voice Search FAB
+                    // Voice Search FAB - DISABLED
+                    /*
                     androidx.compose.material3.FloatingActionButton(
                         onClick = {
                             val activity = context as? android.app.Activity
@@ -669,6 +660,7 @@ fun WorkerHomeScreen(
                             modifier = Modifier.size(26.dp)
                         )
                     }
+                    */
                 }
             }
             
@@ -680,7 +672,6 @@ fun WorkerHomeScreen(
             ) {
                 DynamicHeader(
                     locationText = locationText,
-                    showLocationBar = showLocationBarState,
                     locationBarAlpha = locationBarAlpha,
                     isLocationLoading = isLocationLoading || locationLoadingState,
                     unreadNotificationCount = unreadNotificationCount,
@@ -745,17 +736,7 @@ private fun formatWorkerHomeLocation(location: com.example.dutype.models.Locatio
 
 @Composable
 private fun LoadingContent() {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 12.dp),
-        contentPadding = PaddingValues(bottom = 100.dp), // Add extra padding for bottom bar
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(3) {
-            JobCardShimmer()
-        }
-    }
+    WorkerHomeShimmer()
 }
 
 @Composable
@@ -1024,7 +1005,6 @@ fun HomeSectionsContent(
     userEmail: String = "",
     userSkills: List<String> = emptyList(),
     onScrollOffsetChange: (Float) -> Unit = {},
-    onLocationBarVisibilityChange: (Boolean) -> Unit = {},
     onLocationBarAlphaChange: (Float) -> Unit = {},
     showEmptyJobsState: Boolean = false,
     emptyJobsIsAppliedAllVariant: Boolean = false,
@@ -1105,19 +1085,12 @@ fun HomeSectionsContent(
         label = "locationBarAlpha"
     )
     
-    val showLocationBarLocal = locationBarAlpha > 0.01f
-    
     // P1 FIX: Use snapshotFlow to debounce scroll offset changes (was firing 60x/sec)
     LaunchedEffect(Unit) {
         snapshotFlow { scrollOffset.value }
             .collect { offset -> onScrollOffsetChange(offset) }
     }
-    
-    // Notify parent about location bar visibility
-    LaunchedEffect(showLocationBarLocal) {
-        onLocationBarVisibilityChange(showLocationBarLocal)
-    }
-    
+
     // Notify parent about alpha for gradual fade
     LaunchedEffect(locationBarAlpha) {
         onLocationBarAlphaChange(locationBarAlpha)
@@ -1247,12 +1220,15 @@ fun HomeSectionsContent(
         */
         
         // Section 1: Browse Categories (at the top) - transparent to show gradient
+        // Location chips removed per design requirement
+        /*
         item {
             TopLocationChipsSection(
                 currentLocation = currentLocation,
                 onLocationChipSelected = onLocationChipSelected
             )
         }
+        */
 
         if (showEmptyJobsState) {
             item {
@@ -1695,7 +1671,6 @@ fun PromiseItemWithIcon(
 @Composable
 private fun DynamicHeader(
     locationText: String,
-    showLocationBar: Boolean,
     locationBarAlpha: Float,
     isLocationLoading: Boolean = false,
     unreadNotificationCount: Int = 0,
@@ -1704,15 +1679,6 @@ private fun DynamicHeader(
     onLocationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val greeting = remember {
-        when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-            in 5..11 -> "Good morning"
-            in 12..16 -> "Good afternoon"
-            in 17..21 -> "Good evening"
-            else -> "Welcome back"
-        }
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1720,86 +1686,62 @@ private fun DynamicHeader(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0F766E),
-                        Color(0xFF0E7490),
-                        Color(0xFF1D4ED8)
+                        WorkerHomeHeaderTopColor,
+                        WorkerHomeHeaderMidColor,
+                        WorkerHomeHeaderBottomColor
                     )
                 ),
-                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             )
     ) {
-        // Top row with brand + actions
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = "DutyPe",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 24.sp,
-                        color = Color.White
-                    )
-                )
-                Text(
-                    text = "$greeting • Discover nearby work",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color.White.copy(alpha = 0.88f),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 12.sp
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 21.sp,
+                        color = Color(0xFF1A1A1A)
                     )
                 )
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // TODO: Re-enable map icon in future release
-                /*
-                IconButton(
-                    onClick = onMapClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = com.dutype.app.R.drawable.location_view),
-                        contentDescription = "Map View",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                */
-                
-                // Notification icon with badge
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .background(
-                                color = Color.White.copy(alpha = 0.18f),
+                                color = Color(0xFF1A1A1A).copy(alpha = 0.08f),
                                 shape = CircleShape
                             )
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            tint = Color(0xFF1A1A1A),
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    
-                    // Red dot badge when there are unread notifications
+
                     if (unreadNotificationCount > 0) {
                         Box(
                             modifier = Modifier
-                                .size(10.dp)
+                                .size(9.dp)
                                 .align(Alignment.TopEnd)
-                                .offset(x = (-4).dp, y = 8.dp)
+                                .offset(x = (-3).dp, y = 7.dp)
                                 .background(
                                     color = Color(0xFFF97316),
                                     shape = CircleShape
@@ -1810,95 +1752,100 @@ private fun DynamicHeader(
             }
         }
         
-        // Collapsible location bar - hides when scrolling
-        if (showLocationBar && locationBarAlpha > 0.01f) {
-            Box(
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height((60.dp * locationBarAlpha.coerceIn(0f, 1f)).coerceAtLeast(0.dp))
+                .clipToBounds()
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = 2.dp + (6.dp * locationBarAlpha)
+                )
+                .graphicsLayer {
+                    alpha = locationBarAlpha.coerceIn(0f, 1f)
+                    translationY = -10f * (1f - locationBarAlpha)
+                }
+        ) {
+            androidx.compose.material3.Surface(
+                onClick = onLocationClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .graphicsLayer {
+                        scaleX = 0.985f + (0.015f * locationBarAlpha)
+                        scaleY = 0.96f + (0.04f * locationBarAlpha)
+                    },
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF1A1A1A).copy(alpha = 0.05f + (0.05f * locationBarAlpha)),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = Color(0xFF1A1A1A).copy(alpha = 0.08f + (0.12f * locationBarAlpha))
+                )
             ) {
-                androidx.compose.material3.Surface(
-                    onClick = onLocationClick,
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            alpha = locationBarAlpha
-                            scaleY = 0.8f + (0.2f * locationBarAlpha)
-                        },
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color.White.copy(alpha = 0.14f),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.28f)
-                    )
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            
-                            // Location icon with loading indicator
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(20.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.width(8.dp))
-                            
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Work zone",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.78f),
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 11.sp
-                                    )
-                                )
-                                Text(
-                                    text = locationText,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.White,
-                                        fontSize = 14.sp
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier.size(20.dp)
                         ) {
-                            if (isLocationLoading) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = Color(0xFF92400E).copy(alpha = 0.82f + (0.18f * locationBarAlpha)),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Work zone",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF78716C).copy(alpha = 0.64f + (0.36f * locationBarAlpha)),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 11.sp
                                 )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            )
+                            Text(
+                                text = locationText,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF1A1A1A).copy(alpha = 0.8f + (0.2f * locationBarAlpha)),
+                                    fontSize = 14.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        if (isLocationLoading) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF92400E).copy(alpha = 0.82f + (0.18f * locationBarAlpha))
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = Color(0xFF1A1A1A).copy(alpha = 0.52f + (0.28f * locationBarAlpha)),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }

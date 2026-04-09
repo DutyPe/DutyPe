@@ -38,7 +38,6 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.ComponentHeights
 import com.example.dutype.components.JobCardShimmer
-import com.example.dutype.location.TopCityChips
 import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
@@ -85,8 +84,6 @@ fun AllJobsScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
-    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
-    
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
     
@@ -324,23 +321,11 @@ fun AllJobsScreen(
             }
             
             filteredJobs.isEmpty() && !uiState.isLoading -> {
-                val suggestedCities = remember(currentLocation, uiState.jobs) {
-                    TopCityChips.buildTopLocationChips(currentLocation, uiState.jobs)
-                }
                 EmptyState(
                     searchQuery = searchQuery,
                     selectedChip = selectedChip,
                     onViewAllJobs = { viewModel.setSelectedChip("All Jobs") },
-                    navController = navController,
-                    rootNavController = rootNavController,
-                    suggestedCities = suggestedCities,
-                    onLocationChipClick = { cityChip ->
-                        val selectedLocation = TopCityChips.toLocationData(cityChip)
-                        viewModel.locationPreferences.savePreferredLocation(selectedLocation)
-                        viewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude)
-                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
-                        viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
-                    }
+                    onClearSearch = { viewModel.setSearchQuery("") }
                 )
             }
             
@@ -397,6 +382,28 @@ private fun JobsList(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var lastLoadTriggerToken by remember { mutableStateOf<String?>(null) }
+    val shouldLoadMore by remember(jobs.size, uiState.hasMore, uiState.isLoading, uiState.isLoadingMore) {
+        derivedStateOf {
+            val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            jobs.isNotEmpty() &&
+                listState.isScrollInProgress &&
+                uiState.hasMore &&
+                !uiState.isLoading &&
+                !uiState.isLoadingMore &&
+                lastVisibleItemIndex >= jobs.lastIndex
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore, uiState.lastDocumentId, jobs.size) {
+        if (shouldLoadMore) {
+            val nextLoadToken = "${uiState.lastDocumentId ?: "null"}:${jobs.size}"
+            if (nextLoadToken != lastLoadTriggerToken) {
+                lastLoadTriggerToken = nextLoadToken
+                Timber.d("📦 AllJobs: user reached last visible job, requesting next page (token=$nextLoadToken)")
+                onLoadMore()
+            }
+        }
+    }
     
     // Show "Jump to Top" button after loading 300+ jobs (LinkedIn approach)
     // LinkedIn shows it earlier for better UX
@@ -427,15 +434,6 @@ private fun JobsList(
             
             if (uiState.hasMore && jobs.isNotEmpty()) {
                 item(key = "alljobs_load_more_sentinel") {
-                    val nextLoadToken = "${uiState.lastDocumentId ?: "null"}:${jobs.size}"
-                    LaunchedEffect(nextLoadToken, uiState.hasMore, uiState.isLoadingMore, uiState.isLoading) {
-                        if (uiState.hasMore && !uiState.isLoadingMore && !uiState.isLoading && nextLoadToken != lastLoadTriggerToken) {
-                            lastLoadTriggerToken = nextLoadToken
-                            Timber.d("📦 AllJobs: sentinel reached, requesting next page (token=$nextLoadToken)")
-                            onLoadMore()
-                        }
-                    }
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -563,37 +561,18 @@ private fun EmptyState(
     searchQuery: String,
     selectedChip: String,
     onViewAllJobs: () -> Unit,
-    navController: NavController? = null,
-    rootNavController: NavController? = null,
-    suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
-    onLocationChipClick: (TopCityChips.CityLocationChip) -> Unit = {}
+    onClearSearch: () -> Unit = {}
 ) {
-    val isLocationEmpty = searchQuery.isBlank()
-
     if (searchQuery.isNotBlank()) {
         // Show search empty state for search queries
         EmptySearchState(
             searchQuery = searchQuery,
-            onClearSearch = { /* Parent handles clearing */ }
+            onClearSearch = onClearSearch
         )
     } else {
         // Show location empty state for location misses
         EmptyLocationState(
-            categoryFilter = selectedChip,
-            suggestedCities = suggestedCities.map { it.city },
-            onChangeLocation = {
-                val locationNavController = rootNavController ?: navController
-                kotlin.runCatching {
-                    locationNavController?.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                }.onFailure {
-                    Timber.e(it, "AllJobsScreen: Failed to navigate to manual location route")
-                }
-            },
-            onCitySuggestionClick = { city ->
-                suggestedCities.find { it.city == city }?.let { chip ->
-                    onLocationChipClick(chip)
-                }
-            }
+            categoryFilter = selectedChip
         )
     }
 }
@@ -615,9 +594,13 @@ private fun JobFilterBottomSheet(
     var maxDistance by remember { mutableStateOf(filters.maxDistance) }
     var experienceLevel by remember { mutableStateOf(filters.experienceLevel) }
     var sortBy by remember { mutableStateOf(filters.sortBy) }
+    var payType by remember { mutableStateOf(filters.payType) }
+    var workType by remember { mutableStateOf(filters.workType) }
     
     val experienceOptions = listOf("Any", "Fresher", "1-2 years", "2-5 years", "5+ years")
     val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
+    val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
+    val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
     
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -649,11 +632,19 @@ private fun JobFilterBottomSheet(
                     maxDistance = null
                     experienceLevel = "Any"
                     sortBy = "Relevance"
+                    payType = "Any"
+                    workType = "Any"
                     onResetFilters()
                 }) {
                     Text(stringResource(R.string.reset), color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Sort, salary, distance, experience and work type",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+            )
             
             Spacer(modifier = Modifier.height(20.dp))
             
@@ -666,6 +657,56 @@ private fun JobFilterBottomSheet(
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Pay Type",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF374151)
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(payTypeOptions) { option ->
+                        FilterChip(
+                            onClick = { payType = option },
+                            label = { Text(option, fontSize = 13.sp) },
+                            selected = payType == option,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF1F2937),
+                                selectedLabelColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "Work Type",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF374151)
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(workTypeOptions) { option ->
+                        FilterChip(
+                            onClick = { workType = option },
+                            label = { Text(option, fontSize = 13.sp) },
+                            selected = workType == option,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF1F2937),
+                                selectedLabelColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(sortOptions) { option ->
                     FilterChip(
@@ -822,7 +863,9 @@ private fun JobFilterBottomSheet(
                             salaryMax = salaryMax,
                             maxDistance = maxDistance,
                             experienceLevel = experienceLevel,
-                            sortBy = sortBy
+                            sortBy = sortBy,
+                            payType = payType,
+                            workType = workType
                         )
                     )
                 },

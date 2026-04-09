@@ -8,8 +8,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const canonicalRoutes = [
     "",
     "/jobs",
+    "/jobs-near-me",
     "/refer",
     "/worker",
+    "/contact",
+    "/faq",
+    "/safety",
+    "/privacy",
+    "/terms",
+    "/refund",
+    "/accountdeletion",
     ...getKnownLegacySlugs().map((slug) => `/${slug}`)
   ];
 
@@ -21,16 +29,26 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency:
       route === ""
         ? "daily"
-        : route === "/jobs" || route.startsWith("/jobs-in-")
+        : route === "/jobs" || route === "/jobs-near-me"
           ? "daily"
-          : route === "/privacy" || route === "/terms" || route === "/refund"
-            ? "yearly"
-            : "weekly",
+          : route.startsWith("/jobs-in-") || route.endsWith("-jobs")
+            ? "daily"
+            : route === "/privacy" || route === "/terms" || route === "/refund" || route === "/accountdeletion"
+              ? "yearly"
+              : "weekly",
     priority:
       route === ""
-        ? 1
-        : route === "/jobs" || route.startsWith("/jobs-in-") || route.endsWith("-jobs")
-          ? 0.9
-          : 0.6
+        ? 1.0
+        : route === "/jobs" || route === "/jobs-near-me"
+          ? 0.95
+          : route.startsWith("/jobs-in-")
+            ? 0.9
+            : route.endsWith("-jobs")
+              ? 0.85
+              : route.includes("-jobs-")
+                ? 0.8
+                : route === "/contact" || route === "/faq" || route === "/safety"
+                  ? 0.6
+                  : 0.5
   }));
 }

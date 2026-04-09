@@ -309,13 +309,15 @@ class InAppUpdateManager @Inject constructor(
     
     /**
      * Check if downloaded update is waiting to be installed
+     * Automatically completes the update if one is pending
      */
     suspend fun checkForPendingUpdate(onPendingUpdate: () -> Unit = {}) {
         try {
             appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
                 if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                    Timber.i("⏳ Downloaded update is waiting to be installed")
+                    Timber.i("⏳ Downloaded update is waiting to be installed - auto-completing")
                     onPendingUpdate()
+                    completeFlexibleUpdate()
                 }
             }
         } catch (e: Exception) {
