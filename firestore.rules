@@ -2,6 +2,469 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── Helpers ────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function validLatLng(loc) {
+      return loc is map &&
+        loc.keys().hasOnly(['lat', 'lng']) &&
+        loc.lat is number && loc.lat >= -90 && loc.lat <= 90 &&
+        loc.lng is number && loc.lng >= -180 && loc.lng <= 180;
+    }
+
+    function validRoles(roles, activeRole) {
+      return roles is list &&
+        roles.size() > 0 &&
+        roles.size() <= 2 &&
+        roles.toSet().hasOnly(['WORKER', 'EMPLOYER']) &&
+        roles.toSet().hasAny([activeRole]);
+    }
+
+    // ── users ──────────────────────────────────────────────────────────
+    // Source of truth for identity (phone, fullName, roles, location, fcmToken).
+    match /users/{userId} {
+      allow get, list: if isSelf(userId);
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'location', 'geohash', 'fcmToken',
+          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'phone', 'fullName', 'roles', 'activeRole',
+          'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.phone is string &&
+        request.resource.data.fullName is string &&
+        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
+        request.resource.data.activeRole is string &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.lastActiveAt is timestamp &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+
+      // Lightweight activity/role/token update.
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt', 'activeRole', 'fcmToken']) &&
+        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp) &&
+        (!('activeRole' in request.resource.data) ||
+          (request.resource.data.activeRole is string &&
+           request.resource.data.roles is list &&
+           request.resource.data.roles.toSet().hasAny([request.resource.data.activeRole]))) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string);
+
+      // Full profile update (name, image, location, referral linking).
+      allow update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'location', 'geohash', 'fcmToken',
+          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'phone', 'fullName', 'roles', 'activeRole',
+          'createdAt', 'lastActiveAt'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.phone == resource.data.phone &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.fullName is string &&
+        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        request.resource.data.lastActiveAt is timestamp &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+
+      allow delete: if false;
+    }
+
+    // ── worker_profiles ───────────────────────────────────────────────
+    // Profile-owned fields only. Aggregates (rating, totalRatings, totalJobs)
+    // are Cloud Function-only.
+    match /worker_profiles/{userId} {
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'jobTypes', 'skills', 'isAvailable', 'lastActiveAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'isAvailable', 'lastActiveAt'
+        ]) &&
+        request.resource.data.userId == userId &&
+        (!('jobTypes' in request.resource.data) || request.resource.data.jobTypes is list) &&
+        (!('skills' in request.resource.data) || request.resource.data.skills is list) &&
+        request.resource.data.isAvailable is bool &&
+        request.resource.data.lastActiveAt is timestamp;
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'jobTypes', 'skills', 'isAvailable', 'lastActiveAt'
+        ]) &&
+        (!('jobTypes' in request.resource.data) || request.resource.data.jobTypes is list) &&
+        (!('skills' in request.resource.data) || request.resource.data.skills is list) &&
+        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
+        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+
+      allow delete: if isSelf(userId);
+    }
+
+    // ── employer_profiles ─────────────────────────────────────────────
+    // Profile-owned fields only. Aggregates (rating, totalRatings, totalHires)
+    // are Cloud Function-only.
+    match /employer_profiles/{userId} {
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'companyName', 'gstNumber', 'isVerified', 'lastActiveAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'companyName'
+        ]) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.companyName is string &&
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
+        (!('isVerified' in request.resource.data) || request.resource.data.isVerified is bool) &&
+        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'companyName', 'gstNumber', 'isVerified', 'lastActiveAt'
+        ]) &&
+        (!('companyName' in request.resource.data) || request.resource.data.companyName is string) &&
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
+        (!('isVerified' in request.resource.data) || request.resource.data.isVerified is bool) &&
+        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+
+      allow delete: if isSelf(userId);
+    }
+
+    // ── jobmetadata ────────────────────────────────────────────────────
+    // Public card-list payload. Tiny. Everything else is in job_details.
+    match /jobmetadata/{jobId} {
+      allow get, list: if true;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.companyName is string &&
+        request.resource.data.title is string &&
+        request.resource.data.jobType is string &&
+        request.resource.data.salary is number &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.addressText is string &&
+        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.expiresAt is timestamp;
+
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'urgency', 'status', 'createdAt', 'expiresAt'
+        ]) &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.companyName is string &&
+        request.resource.data.title is string &&
+        request.resource.data.jobType is string &&
+        request.resource.data.salary is number &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.addressText is string &&
+        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        request.resource.data.status in ['open', 'closed', 'expired'] &&
+        request.resource.data.expiresAt is timestamp;
+
+      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
+    }
+
+    // ── job_details ────────────────────────────────────────────────────
+    // Private, auth-required. Holds ONLY fields not present in jobmetadata or
+    // employer_profiles. No duplication of title, salary, company, location, status, etc.
+    match /job_details/{jobId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'description', 'contactNumber', 'whatsappNumber',
+          'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
+          'educationRequired', 'vacancies', 'benefits', 'applicationCount'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'description', 'contactNumber', 'vacancies', 'benefits', 'applicationCount'
+        ]) &&
+        request.resource.data.description is string &&
+        request.resource.data.contactNumber is string &&
+        request.resource.data.vacancies is int &&
+        request.resource.data.benefits is list &&
+        request.resource.data.applicationCount is int &&
+        (!('whatsappNumber' in request.resource.data) || request.resource.data.whatsappNumber is string) &&
+        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
+        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
+        (!('shiftTiming' in request.resource.data) || request.resource.data.shiftTiming is string) &&
+        (!('workingHours' in request.resource.data) || request.resource.data.workingHours is string) &&
+        (!('educationRequired' in request.resource.data) || request.resource.data.educationRequired is string);
+
+      allow update: if isSignedIn() &&
+        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'description', 'contactNumber', 'whatsappNumber',
+          'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
+          'educationRequired', 'vacancies', 'benefits', 'applicationCount'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        get(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid;
+    }
+
+    // ── applications ──────────────────────────────────────────────────
+    match /applications/{applicationId} {
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid)) ||
+          applicationId.matches('^.*_' + request.auth.uid + '$')
+        );
+      allow list: if isSignedIn() &&
+        (resource == null || resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.status == 'applied' &&
+        request.resource.data.createdAt is timestamp &&
+        applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
+        get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
+
+      allow update: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['applied', 'shortlisted', 'rejected', 'hired'];
+
+      allow delete: if false;
+    }
+
+    // ── saved_jobs ────────────────────────────────────────────────────
+    // Canonical schema: userId + jobId + createdAt. Doc ID = <userId>_<jobId>.
+    match /saved_jobs/{saveId} {
+      function saveIdOwnedByCaller() {
+        return saveId.matches('^' + request.auth.uid + '_.*$');
+      }
+
+      allow get: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || saveIdOwnedByCaller());
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.jobId is string &&
+        request.resource.data.createdAt is timestamp &&
+        saveIdOwnedByCaller();
+
+      allow delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || saveIdOwnedByCaller());
+      allow update: if false;
+    }
+
+    // ── ratings ───────────────────────────────────────────────────────
+    match /ratings/{ratingId} {
+      allow get, list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'fromUserId', 'toUserId', 'rating', 'createdAt'
+        ]) &&
+        request.resource.data.fromUserId == request.auth.uid &&
+        request.resource.data.jobId is string &&
+        request.resource.data.toUserId is string &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+        request.resource.data.createdAt is timestamp &&
+        (!('review' in request.resource.data) || request.resource.data.review is string);
+
+      allow update, delete: if false;
+    }
+
+    // ── job_reports ───────────────────────────────────────────────────
+    // One report per worker per job. No reporterPhone (already on /users).
+    match /job_reports/{reportId} {
+      allow get: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status'
+        ]) &&
+        reportId == (request.auth.uid + '_' + request.resource.data.jobId) &&
+        request.resource.data.jobId is string &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.reportType in ['SCAM', 'FAKE', 'INAPPROPRIATE', 'DUPLICATE', 'MISLEADING', 'HARASSMENT', 'SPAM', 'OTHER'] &&
+        request.resource.data.description is string &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.status == 'PENDING' &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
+
+      allow update, delete: if false;
+    }
+
+    // ── referrals ─────────────────────────────────────────────────────
+    // Reward amount is not stored per-doc; server derives it from policy.
+    match /referrals/{referralId} {
+      allow get: if isSignedIn() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'referrerId', 'referredUserId', 'referralCode', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'referrerId', 'referredUserId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.referredUserId == request.auth.uid &&
+        referralId == (request.resource.data.referrerId + '_' + request.resource.data.referredUserId) &&
+        request.resource.data.referrerId is string &&
+        request.resource.data.referredUserId is string &&
+        request.resource.data.status == 'PENDING' &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if false;
+    }
+
+    // ── referral_stats ────────────────────────────────────────────────
+    // Cloud Functions only.
+    match /referral_stats/{userId} {
+      allow get: if isSelf(userId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ── referral_codes ────────────────────────────────────────────────
+    match /referral_codes/{code} {
+      allow get: if code.matches('^[A-Za-z0-9]{7,10}$') &&
+        (resource == null || resource.data.isActive == true);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'code', 'userId', 'userRole', 'userName', 'isActive', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'code', 'userId', 'userRole', 'userName', 'isActive', 'createdAt'
+        ]) &&
+        request.resource.data.code == code &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.userRole in ['WORKER', 'EMPLOYER'] &&
+        request.resource.data.userName is string &&
+        request.resource.data.isActive is bool &&
+        request.resource.data.createdAt is timestamp;
+      allow update, delete: if false;
+    }
+
+    // ── users/{userId}/withdrawals (read-only; CF writes) ─────────────
+    match /users/{userId}/withdrawals/{withdrawalId} {
+      allow get, list: if isSelf(userId);
+      allow create, update, delete: if false;
+    }
+
+    // ── announcements ─────────────────────────────────────────────────
+    // Public read, admin-only write.
+    match /announcements/{announcementId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    // ── notifications ─────────────────────────────────────────────────
+    // TTL handled by Firestore TTL policy on `createdAt`, not a stored field.
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'recipientId', 'title', 'message', 'type', 'data', 'isRead', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'recipientId', 'title', 'message', 'type', 'isRead', 'createdAt'
+        ]) &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.message is string &&
+        request.resource.data.type is string &&
+        request.resource.data.isRead is bool &&
+        request.resource.data.createdAt is timestamp &&
+        (!('data' in request.resource.data) || request.resource.data.data is map);
+
+      allow update: if isSignedIn() &&
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
+        request.resource.data.isRead is bool;
+
+      allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+    }
+
+    // ── deny everything else (chat, work_verifications, etc.) ─────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
     function isSignedIn() {
       return request.auth != null;
     }

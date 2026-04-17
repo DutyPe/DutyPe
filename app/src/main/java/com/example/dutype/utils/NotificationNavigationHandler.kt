@@ -163,17 +163,11 @@ object NotificationNavigationHandler {
             // Employer: New Application
             NotificationType.NEW_APPLICATION -> {
                 val applicationId = notification.actionData["applicationId"]
-                if (!applicationId.isNullOrEmpty()) {
-                    Timber.i("🔔 Navigating to application detail: $applicationId")
-                    onMarkAsRead(notification.id)
-                    navController.navigate(
-                        Routes.EMPLOYER_APPLICATION_DETAIL.replace("{applicationId}", applicationId)
-                    )
-                } else {
-                    // Fallback: Navigate to all applications
+                run {
+                    // Route directly to the applications list scoped to the job if we know it
                     val jobId = notification.actionData["jobId"]
                     if (!jobId.isNullOrEmpty()) {
-                        Timber.i("🔔 No applicationId, navigating to job applications: $jobId")
+                        Timber.i("🔔 Navigating to job applications: $jobId (appId=$applicationId)")
                         onMarkAsRead(notification.id)
                         navController.navigate(
                             Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)

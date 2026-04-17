@@ -308,19 +308,10 @@ class EmployerApplicationViewModel @Inject constructor(
         val workerPhone = profile["phone"] as? String ?: application.workerPhone
         val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
 
-        val workerSkills = when (val rawSkills = profile["skills"] ?: profile["jobTypes"]) {
-            is List<*> -> rawSkills.filterIsInstance<String>()
-            is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
-            else -> application.skills
-        }
-        val skillsText = workerSkills.joinToString(", ").ifBlank { application.skillsText }
-
         return application.copy(
             workerName = workerName,
             workerPhone = workerPhone,
-            workerProfileImageUrl = workerProfileImageUrl,
-            skills = workerSkills,
-            skillsText = skillsText
+            workerProfileImageUrl = workerProfileImageUrl
         )
     }
     
@@ -442,11 +433,10 @@ class EmployerApplicationViewModel @Inject constructor(
     private fun updateApplicationStats(applications: List<JobApplication>) {
         val stats = ApplicationStats(
             totalApplications = applications.size,
-            pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-            reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-            shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+            appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+            shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
             rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-            hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+            hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
             recentApplications = applications.take(5)
         )
         

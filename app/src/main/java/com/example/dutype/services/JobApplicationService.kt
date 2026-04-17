@@ -51,7 +51,6 @@ class JobApplicationService @Inject constructor(
     private val profileCompletionService: ProfileCompletionService,
     private val applicationStateManager: ApplicationStateManager,
     private val metadataManager: com.example.dutype.metadata.MetadataManager,
-    private val workVerificationService: WorkVerificationService,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler,
     private val rateLimiter: com.example.dutype.core.resilience.RateLimiter
 ) {
@@ -430,7 +429,7 @@ class JobApplicationService @Inject constructor(
                 jobId = jobId,
                 workerId = userId,
                 employerId = employerId,
-                status = ApplicationStatus.PENDING,
+                status = ApplicationStatus.APPLIED,
                 createdAt = System.currentTimeMillis(),
                 jobTitle = jobTitle,
                 jobLocation = jobLocation,
@@ -782,11 +781,10 @@ class JobApplicationService @Inject constructor(
             
             val stats = ApplicationStats(
                 totalApplications = applications.size,
-                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.take(5) // Last 5 applications
             )
             
@@ -860,7 +858,7 @@ class JobApplicationService @Inject constructor(
                 return Result.success(
                     localApplication.toJobApplication()
                         .withCanonicalId(localApplication.applicationId)
-                        .copy(status = ApplicationStatus.WITHDRAWN)
+                        .copy(status = ApplicationStatus.REJECTED)
                 )
             }
 
@@ -881,18 +879,18 @@ class JobApplicationService @Inject constructor(
                 }
                 
                 // Can only withdraw PENDING or UNDER_REVIEW applications
-                if (currentApplication.status != ApplicationStatus.PENDING && 
-                    currentApplication.status != ApplicationStatus.UNDER_REVIEW) {
+                if (currentApplication.status != ApplicationStatus.APPLIED && 
+                    currentApplication.status != ApplicationStatus.SHORTLISTED) {
                     return@retryWithBackoffResult Result.failure(Exception("Cannot withdraw application with status: ${currentApplication.status.name}"))
                 }
                 
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.WITHDRAWN
+                    status = ApplicationStatus.REJECTED
                 )
                 
                 // Write only the status field - keep document lean
                 docRef.update(
-                    "status", ApplicationStatus.WITHDRAWN.toFirestoreValue()
+                    "status", ApplicationStatus.REJECTED.toFirestoreValue()
                 ).await()
 
                 applicationDao.insertApplication(
@@ -961,11 +959,10 @@ class JobApplicationService @Inject constructor(
             
             val stats = ApplicationStats(
                 totalApplications = applications.size,
-                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.take(5)
             )
             
@@ -1078,7 +1075,7 @@ class JobApplicationService @Inject constructor(
                 notificationService.sendApplicationStatusNotification(updatedApplication, newStatus, updatedApplication.workerId)
                 
                 // Send hired notification to both worker and employer when status is ACCEPTED
-                if (newStatus == ApplicationStatus.ACCEPTED) {
+                if (newStatus == ApplicationStatus.HIRED) {
                     try {
                         notificationService.sendWorkerHiredNotification(
                             workerName = "Worker",
@@ -1182,18 +1179,18 @@ class JobApplicationService @Inject constructor(
             val currentApplication = doc.toJobApplicationOrNull()
                 ?: return Result.failure(Exception("Invalid application data"))
             
-            if (currentApplication.status == ApplicationStatus.PENDING) {
+            if (currentApplication.status == ApplicationStatus.APPLIED) {
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.UNDER_REVIEW
+                    status = ApplicationStatus.SHORTLISTED
                 )
             
-            docRef.update("status", ApplicationStatus.UNDER_REVIEW.toFirestoreValue()).await()
+            docRef.update("status", ApplicationStatus.SHORTLISTED.toFirestoreValue()).await()
                 
                 // DEDUPLICATION FIX: Notification sent by updateApplicationStatus() to avoid duplicates
                 // Only send if called directly (not through updateApplicationStatus)
                 notificationService.sendApplicationStatusNotification(
                     updatedApplication, 
-                    ApplicationStatus.UNDER_REVIEW, 
+                    ApplicationStatus.SHORTLISTED, 
                     updatedApplication.workerId
                 )
                 
@@ -1235,34 +1232,17 @@ class JobApplicationService @Inject constructor(
             }
             
             val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.ACCEPTED
+                status = ApplicationStatus.HIRED
             )
             
             // Write only the status field - keep document lean
-            docRef.update("status", ApplicationStatus.ACCEPTED.toFirestoreValue()).await()
-            
-            // Generate Work Start Verification Code
-            try {
-                workVerificationService.generateVerification(
-                    jobId = currentApplication.jobId,
-                    applicationId = applicationId,
-                    workerId = currentApplication.workerId,
-                    employerId = employerId,
-                    workerName = "Worker",
-                    jobTitle = getJobTitle(currentApplication.jobId),
-                    employerName = "Employer"
-                )
-                Timber.i("=��� WORK VERIFICATION: Generated verification code for application $applicationId")
-            } catch (e: Exception) {
-                Timber.e(e, "=��� WORK VERIFICATION: Failed to generate verification code, but application was accepted")
-                // Don't fail the acceptance if verification generation fails
-            }
+            docRef.update("status", ApplicationStatus.HIRED.toFirestoreValue()).await()
             
             // DEDUPLICATION FIX: Send notifications here since this is the primary accept method
             // updateApplicationStatus() is for generic status changes
             notificationService.sendApplicationStatusNotification(
                 updatedApplication, 
-                ApplicationStatus.ACCEPTED, 
+                ApplicationStatus.HIRED, 
                 updatedApplication.workerId
             )
             

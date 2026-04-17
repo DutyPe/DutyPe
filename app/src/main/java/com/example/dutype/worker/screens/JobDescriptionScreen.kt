@@ -203,7 +203,7 @@ fun JobDescriptionScreen(
     }
     val currentApplicationStatus = remember(applicationStatuses, appliedJobIds, resolvedJobId) {
         applicationStatuses[resolvedJobId]
-            ?: if (resolvedJobId in appliedJobIds) ApplicationStatus.PENDING else null
+            ?: if (resolvedJobId in appliedJobIds) ApplicationStatus.APPLIED else null
     }
     val hasApplied = currentApplicationStatus != null
     val applicationStatus = currentApplicationStatus?.name

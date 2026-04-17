@@ -70,34 +70,28 @@ import java.util.Locale
 // Helper functions for status display
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.PENDING -> "⏳"
-        ApplicationStatus.UNDER_REVIEW -> "👀"
-        ApplicationStatus.ACCEPTED -> "🎉"
-        ApplicationStatus.COMPLETED -> "✅"
+        ApplicationStatus.APPLIED -> "⏳"
+        ApplicationStatus.SHORTLISTED -> "👀"
+        ApplicationStatus.HIRED -> "🎉"
         ApplicationStatus.REJECTED -> "❌"
-        ApplicationStatus.WITHDRAWN -> "↩️"
     }
 }
 
 private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.PENDING -> "Pending Review"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.COMPLETED -> "Completed"
+        ApplicationStatus.APPLIED -> "Applied"
+        ApplicationStatus.SHORTLISTED -> "Shortlisted"
+        ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.REJECTED -> "Not Selected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
 private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
-        ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
-        ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
-        ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
-        ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
+        ApplicationStatus.APPLIED -> Color(0xFFF59E0B) // Amber
+        ApplicationStatus.SHORTLISTED -> Color(0xFF3B82F6) // Blue
+        ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
-        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray
     }
 }
 
@@ -117,15 +111,15 @@ fun JobApplicationCard(
     modifier: Modifier = Modifier
 ) {
     // Can withdraw only if status is PENDING or UNDER_REVIEW
-    val canWithdraw = application.status == ApplicationStatus.PENDING || 
-                      application.status == ApplicationStatus.UNDER_REVIEW
+    val canWithdraw = application.status == ApplicationStatus.APPLIED || 
+                      application.status == ApplicationStatus.SHORTLISTED
     
     // Can start work only if status is ACCEPTED
-    val canStartWork = application.status == ApplicationStatus.ACCEPTED && onStartWorkClick != null
+    val canStartWork = application.status == ApplicationStatus.HIRED && onStartWorkClick != null
     
     // Can rate only if status is COMPLETED and hasn't rated yet
-    val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
-    val isCompleted = application.status == ApplicationStatus.COMPLETED
+    val canRate = application.status == ApplicationStatus.HIRED && !hasAlreadyRated && onRateClick != null
+    val isCompleted = application.status == ApplicationStatus.HIRED
     
     // State for rating section expansion
     var isRatingSectionExpanded by remember { mutableStateOf(canRate) }
@@ -413,45 +407,33 @@ private fun ApplicationTimeline(
         ),
         TimelineStepData(
             stepNumber = 2,
-            label = "Pending",
-            statusText = if (status == ApplicationStatus.PENDING) "In Progress" else if (status == ApplicationStatus.WITHDRAWN) "Withdrawn" else "Completed",
-            isCompleted = status != ApplicationStatus.PENDING && status != ApplicationStatus.WITHDRAWN,
-            isCurrent = status == ApplicationStatus.PENDING,
-            isFailure = status == ApplicationStatus.WITHDRAWN
+            label = "Shortlisted",
+            statusText = when (status) {
+                ApplicationStatus.APPLIED -> "Pending"
+                ApplicationStatus.SHORTLISTED -> "In Progress"
+                ApplicationStatus.HIRED -> "Completed"
+                ApplicationStatus.REJECTED -> "Cancelled"
+            },
+            isCompleted = status == ApplicationStatus.SHORTLISTED || status == ApplicationStatus.HIRED,
+            isCurrent = status == ApplicationStatus.SHORTLISTED,
+            isFailure = status == ApplicationStatus.REJECTED
         ),
         TimelineStepData(
             stepNumber = 3,
-            label = "Under Review",
-            statusText = when {
-                status == ApplicationStatus.UNDER_REVIEW -> "In Progress"
-                status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED -> "Completed"
-                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
-                else -> "Pending"
-            },
-            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.COMPLETED,
-            isCurrent = status == ApplicationStatus.UNDER_REVIEW,
-            isFailure = status == ApplicationStatus.WITHDRAWN
-        ),
-        TimelineStepData(
-            stepNumber = 4,
-            label = when {
-                status == ApplicationStatus.ACCEPTED -> "Hired"
-                status == ApplicationStatus.COMPLETED -> "Completed"
-                status == ApplicationStatus.REJECTED -> "Rejected"
-                status == ApplicationStatus.WITHDRAWN -> "Withdrawn"
+            label = when (status) {
+                ApplicationStatus.HIRED -> "Hired"
+                ApplicationStatus.REJECTED -> "Rejected"
                 else -> "Decision"
             },
-            statusText = when {
-                status == ApplicationStatus.ACCEPTED -> "Completed"
-                status == ApplicationStatus.COMPLETED -> "Completed"
-                status == ApplicationStatus.REJECTED -> "Completed"
-                status == ApplicationStatus.WITHDRAWN -> "Cancelled"
+            statusText = when (status) {
+                ApplicationStatus.HIRED -> "Completed"
+                ApplicationStatus.REJECTED -> "Completed"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.COMPLETED || status == ApplicationStatus.REJECTED,
+            isCompleted = status == ApplicationStatus.HIRED || status == ApplicationStatus.REJECTED,
             isCurrent = false,
-            isSuccess = status == ApplicationStatus.ACCEPTED || status == ApplicationStatus.COMPLETED,
-            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
+            isSuccess = status == ApplicationStatus.HIRED,
+            isFailure = status == ApplicationStatus.REJECTED
         )
     )
     

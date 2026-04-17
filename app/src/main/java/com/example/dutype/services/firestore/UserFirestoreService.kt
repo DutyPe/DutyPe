@@ -50,8 +50,6 @@ class UserFirestoreService @Inject constructor(
                     "activeRole" to user.activeRole.name,
                     "location" to mapOf("lat" to user.lat, "lng" to user.lng),
                     "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng),
-                    "isVerified" to false,
-                    "isActive" to user.isActive,
                     "fcmToken" to user.fcmToken,
                     "createdAt" to Timestamp(Date(user.createdAt)),
                     "lastActiveAt" to Timestamp.now()

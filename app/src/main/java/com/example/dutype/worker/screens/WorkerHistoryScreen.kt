@@ -66,10 +66,10 @@ fun WorkerHistoryScreen(
     // Filter applications based on selected tab
     val filteredApplications = remember(uiState.applications, selectedTab) {
         when (selectedTab) {
-            0 -> uiState.applications.filter { 
-                it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.ACCEPTED 
+            0 -> uiState.applications.filter {
+                it.status == ApplicationStatus.HIRED
             }.sortedByDescending { it.createdAt }
-            1 -> uiState.applications.filter { it.status == ApplicationStatus.COMPLETED }
+            1 -> uiState.applications.filter { it.status == ApplicationStatus.HIRED }
             2 -> uiState.applications.sortedByDescending { it.appliedAt }
             else -> uiState.applications
         }
@@ -271,8 +271,8 @@ private fun TimelineJobCard(
                     .clip(CircleShape)
                     .background(
                         when (application.status) {
-                            ApplicationStatus.COMPLETED -> Color(0xFF10B981)
-                            ApplicationStatus.ACCEPTED -> Color(0xFF3B82F6)
+                            ApplicationStatus.HIRED -> Color(0xFF10B981)
+                            ApplicationStatus.SHORTLISTED -> Color(0xFF3B82F6)
                             else -> Color(0xFF6B7280)
                         }
                     ),
@@ -280,8 +280,8 @@ private fun TimelineJobCard(
             ) {
                 Icon(
                     imageVector = when (application.status) {
-                        ApplicationStatus.COMPLETED -> Icons.Default.CheckCircle
-                        ApplicationStatus.ACCEPTED -> Icons.Default.ThumbUp
+                        ApplicationStatus.HIRED -> Icons.Default.CheckCircle
+                        ApplicationStatus.SHORTLISTED -> Icons.Default.ThumbUp
                         else -> Icons.Default.Work
                     },
                     contentDescription = null,
@@ -352,16 +352,7 @@ private fun TimelineJobCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Note: payInfo and jobType are not available in JobApplication model
-                    // These would need to be fetched from the JobListing or added to the application
-                    if (application.expectedSalary?.isNotBlank() == true) {
-                        InfoChip(
-                            icon = Icons.Default.CurrencyRupee,
-                            text = application.expectedSalary!!,
-                            backgroundColor = Color(0xFFECFDF5),
-                            iconColor = Color(0xFF10B981)
-                        )
-                    }
+                    // expectedSalary not stored on application
                 }
             }
         }
@@ -476,14 +467,6 @@ private fun HistoryApplicationCard(
                         text = application.jobLocation.take(20),
                         backgroundColor = Color(0xFFF3F4F6),
                         iconColor = Color(0xFF6B7280)
-                    )
-                }
-                if (application.expectedSalary?.isNotBlank() == true) {
-                    InfoChip(
-                        icon = Icons.Default.CurrencyRupee,
-                        text = application.expectedSalary!!,
-                        backgroundColor = Color(0xFFECFDF5),
-                        iconColor = Color(0xFF10B981)
                     )
                 }
             }

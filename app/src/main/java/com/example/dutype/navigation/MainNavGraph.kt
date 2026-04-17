@@ -26,7 +26,6 @@ import com.example.dutype.auth.RegisterScreen
 import com.example.dutype.common.screens.SelectRoleScreen
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
-import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.employer.screens.EditJobScreen
@@ -604,7 +603,7 @@ fun MainNavGraph(
                 jobId = null,
                 onApplicationClick = { application ->
                     // Navigate to detailed application view
-                    navController.navigate("employer_application_detail/${application.id}")
+                    navController.navigate("worker_profile_view/${application.workerId}")
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -619,50 +618,9 @@ fun MainNavGraph(
             EmployerApplicationManagementScreen(
                 jobId = jobId,
                 onApplicationClick = { application ->
-                    // Navigate to detailed application view
-                    navController.navigate("employer_application_detail/${application.id}")
+                    navController.navigate("worker_profile_view/${application.workerId}")
                 },
                 onBackClick = { navController.popBackStack() }
-            )
-        }
-        
-        composable(
-            route = Routes.EMPLOYER_APPLICATION_DETAIL,
-            arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
-            val employerViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val context = androidx.compose.ui.platform.LocalContext.current
-            
-            ApplicationDetailScreen(
-                applicationId = applicationId,
-                onBackClick = { navController.popBackStack() },
-                onUpdateStatus = { newStatus, notes ->
-                    // For ACCEPTED status, use hireApplicant which checks vacancy limits
-                    if (newStatus == com.example.dutype.models.ApplicationStatus.ACCEPTED) {
-                        val application = employerViewModel.uiState.value.applications.find { it.applicationId == applicationId }
-                        if (application != null) {
-                            employerViewModel.hireApplicant(
-                                applicationId = applicationId,
-                                jobId = application.jobId,
-                                onSuccess = {
-                                    android.widget.Toast.makeText(context, "Applicant hired successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                    navController.popBackStack()
-                                },
-                                onError = { error ->
-                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            )
-                        } else {
-                            employerViewModel.updateApplicationStatus(applicationId, newStatus, notes)
-                            navController.popBackStack()
-                        }
-                    } else {
-                        employerViewModel.updateApplicationStatus(applicationId, newStatus, notes)
-                        navController.popBackStack()
-                    }
-                },
-                onVerifyWork = null
             )
         }
         

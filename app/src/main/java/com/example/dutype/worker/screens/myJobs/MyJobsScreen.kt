@@ -411,7 +411,7 @@ fun MyJobsScreen(
                                                 showRatingSheet = true
                                             },
                                             onStartWorkClick = { app ->
-                                                navController.navigate(Routes.workerWorkStartQRRoute(app.jobId))
+                                                // Work-start verification has been removed; no-op.
                                             },
                                             hasAlreadyRated = application.canonicalId in ratedApplicationIds
                                         )
@@ -533,7 +533,7 @@ fun MyJobsScreen(
     // Check which applications have already been rated
     LaunchedEffect(applications) {
         currentUser?.uid?.let {
-            val completedApps = applications.filter { it.status == ApplicationStatus.COMPLETED }
+            val completedApps = applications.filter { it.status == ApplicationStatus.HIRED }
             val rated = mutableSetOf<String>()
             completedApps.forEach { app ->
                 if (ratingService.hasRated(app.jobId, app.employerId)) {

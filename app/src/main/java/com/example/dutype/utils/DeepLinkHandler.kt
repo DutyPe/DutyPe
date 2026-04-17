@@ -365,7 +365,7 @@ object DeepLinkHandler {
     }
     
     private fun navigateToEmployerApplication(navController: NavController, applicationId: String) {
-        safeNavigate(navController, "employer_application_detail/$applicationId", "employer-application:$applicationId")
+        safeNavigate(navController, Routes.EMPLOYER_APPLICATIONS, "employer-application:$applicationId")
     }
 
     private fun navigateToEmployerApplications(navController: NavController) {

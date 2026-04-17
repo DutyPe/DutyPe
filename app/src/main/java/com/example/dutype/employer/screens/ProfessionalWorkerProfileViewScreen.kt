@@ -119,63 +119,24 @@ fun ProfessionalWorkerProfileViewScreen(
                     val app = appResult
                     if (app != null) {
                         application = app
-                        
-                        // Build worker profile from application data
-                        val experienceList: List<WorkExperienceDisplay> = if (app.workExperience.isNotEmpty()) {
-                            app.workExperience.map { exp: com.example.dutype.models.WorkExperience ->
-                                WorkExperienceDisplay(
-                                    company = exp.company,
-                                    position = exp.position,
-                                    duration = "${exp.startDate} - ${exp.endDate ?: "Present"}",
-                                    description = exp.description
-                                )
-                            }
-                        } else if (!app.workExperienceText.isNullOrBlank()) {
-                            app.workExperienceText!!.split(",").map { it.trim() }.filter { it.isNotBlank() }.map { expStr: String ->
-                                WorkExperienceDisplay(
-                                    company = "",
-                                    position = expStr,
-                                    duration = "",
-                                    description = ""
-                                )
-                            }
-                        } else {
-                            emptyList()
-                        }
-                        
-                        val skillsList: List<String> = if (app.skills.isNotEmpty()) {
-                            app.skills
-                        } else if (!app.skillsText.isNullOrBlank()) {
-                            app.skillsText!!.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                        } else {
-                            emptyList()
-                        }
-                        
-                        val educationList: List<EducationDisplay> = app.education.map { edu: com.example.dutype.models.Education ->
-                            EducationDisplay(
-                                institution = edu.institution,
-                                degree = edu.degree,
-                                year = edu.endDate ?: edu.startDate
-                            )
-                        }
-                        
+
                         workerProfile = WorkerProfileData(
                             workerId = app.workerId,
                             fullName = app.workerName.ifBlank { "Unknown Worker" },
-                            email = app.workerEmail.orEmpty(),
+                            email = "",
                             phone = app.workerPhone ?: "",
-                            location = app.workerLocation ?: "",
-                            dateOfBirth = app.workerDateOfBirth ?: "",
-                            gender = app.workerGender ?: "",
+                            location = "",
+                            dateOfBirth = "",
+                            gender = "",
                             profileImageUrl = app.workerProfileImageUrl,
-                            experience = experienceList,
-                            skills = skillsList,
-                            education = educationList,
-                            certifications = app.certifications,
-                            languages = app.languages,
-                            availability = app.availability ?: "",
-                            expectedSalary = app.expectedSalary ?: "",
-                            resumeUrl = app.resumeUrl ?: "",
+                            experience = emptyList(),
+                            skills = emptyList(),
+                            education = emptyList(),
+                            certifications = emptyList(),
+                            languages = emptyList(),
+                            availability = "",
+                            expectedSalary = "",
+                            resumeUrl = "",
                             portfolioUrl = "",
                             linkedinUrl = "",
                             githubUrl = ""
@@ -342,10 +303,10 @@ fun ProfessionalWorkerProfileViewScreen(
                                 application?.let { app ->
                                     jobApplicationService.updateApplicationStatus(
                                         app.id,
-                                        ApplicationStatus.ACCEPTED,
+                                        ApplicationStatus.HIRED,
                                         "employer" // updatedBy parameter
                                     )
-                                    application = app.copy(status = ApplicationStatus.ACCEPTED)
+                                    application = app.copy(status = ApplicationStatus.HIRED)
                                 }
                             }
                             ApplicationAction.REJECT -> {

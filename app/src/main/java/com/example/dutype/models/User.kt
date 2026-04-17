@@ -5,19 +5,18 @@ import androidx.annotation.Keep
 /**
  * User — strict target schema model.
  *
- * Firestore users collection:
+ * Firestore users collection (canonical fields only):
  *   userId (doc ID), phone, fullName, profileImageUrl,
- *   roles:[], activeRole, location:{lat,lng}, geohash,
- *   isVerified, isActive, fcmToken, createdAt, lastActiveAt
+ *   roles[], activeRole, location{lat,lng}, geohash,
+ *   fcmToken, createdAt, lastActiveAt,
+ *   referralCode, referredByCode, referredByUserId
  */
 @Keep
 data class User(
     val id: String = "",
-    val email: String = "",
     val phone: String = "",
     val fullName: String = "",
     val profileImageUrl: String? = null,
-    val companyName: String = "",
 
     // Role management
     val roles: List<String> = listOf("WORKER"),
@@ -29,8 +28,6 @@ data class User(
     val geohash: String = "",
 
     // System
-    val isVerified: Boolean = false,
-    val isActive: Boolean = true,
     val fcmToken: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val lastActiveAt: Long = System.currentTimeMillis()

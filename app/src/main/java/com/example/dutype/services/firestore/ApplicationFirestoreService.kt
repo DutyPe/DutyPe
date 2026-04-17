@@ -58,16 +58,14 @@ class ApplicationFirestoreService @Inject constructor(
     // ==================== SAVED JOBS METHODS (OPTIMIZED) ====================
     
     /**
-     * Save a job for a worker
-     * OPTIMIZED: Single atomic write with FieldValue.arrayUnion (no read needed)
+     * Save a job for a worker.
+     * Canonical schema: doc ID = <userId>_<jobId>; payload = { userId, jobId, createdAt }.
      */
     suspend fun saveJob(workerId: String, jobId: String): Result<Unit> {
         return try {
             val saveId = "${workerId}_${jobId}"
             val payload = mapOf(
-                "id" to saveId,
                 "userId" to workerId,
-                "workerId" to workerId,
                 "jobId" to jobId,
                 "createdAt" to Timestamp.now()
             )
@@ -128,30 +126,17 @@ class ApplicationFirestoreService @Inject constructor(
      */
     suspend fun getSavedJobs(workerId: String): Result<List<Map<String, Any>>> {
         return try {
-            val userIdSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
+            val snapshot = firestore.collection(SAVED_JOBS_COLLECTION)
                 .whereEqualTo("userId", workerId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(200)
                 .get()
                 .await()
 
-            // Backward compatibility for older docs that stored owner as workerId.
-            val legacyWorkerSnapshot = firestore.collection(SAVED_JOBS_COLLECTION)
-                .whereEqualTo("workerId", workerId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(200)
-                .get()
-                .await()
-
-            val mergedSavedDocs = (userIdSnapshot.documents + legacyWorkerSnapshot.documents)
-                .associateBy { it.id }
-                .values
-                .toList()
-
-            val savedJobIds = mergedSavedDocs
+            val savedJobIds = snapshot.documents
                 .mapNotNull { it.getString("jobId") }
                 .distinct()
-            
+
             if (savedJobIds.isEmpty()) {
                 return Result.success(emptyList())
             }

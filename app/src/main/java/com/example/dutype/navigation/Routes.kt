@@ -53,7 +53,6 @@ object Routes {
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
-    const val EMPLOYER_APPLICATION_DETAIL = "employer_application_detail/{applicationId}"
     const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
     const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
     const val EMPLOYER_TRUST_BADGES = "employer_trust_badges"
@@ -80,10 +79,6 @@ object Routes {
     
     // Voice Job Posting
     const val EMPLOYER_VOICE_POST_JOB = "employer_voice_post_job"
-    
-    // Work Start Verification Routes
-    const val WORKER_WORK_START_QR = "worker_work_start_qr/{jobId}"
-    const val EMPLOYER_VERIFY_WORK = "employer_verify_work/{jobId}/{applicationId}"
     
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
@@ -124,14 +119,6 @@ object Routes {
     
     fun categoriesRoute(category: String? = null): String {
         return if (category != null) "worker_categories/$category" else "worker_categories"
-    }
-    
-    fun workerWorkStartQRRoute(jobId: String): String {
-        return "worker_work_start_qr/$jobId"
-    }
-    
-    fun employerVerifyWorkRoute(jobId: String, applicationId: String): String {
-        return "employer_verify_work/$jobId/$applicationId"
     }
     
     fun profileSetupWithReturnRoute(returnRoute: String): String {

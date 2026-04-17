@@ -216,13 +216,13 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                     color = Color(0xFF3B82F6)
                 )
                 ApplicationStatItem(
-                    label = "Pending",
-                    value = appStats.pendingApplications.toString(),
+                    label = "Applied",
+                    value = appStats.appliedApplications.toString(),
                     color = Color(0xFFF59E0B)
                 )
                 ApplicationStatItem(
-                    label = "Reviewed",
-                    value = appStats.reviewedApplications.toString(),
+                    label = "Shortlisted",
+                    value = appStats.shortlistedApplications.toString(),
                     color = Color(0xFF8B5CF6)
                 )
                 ApplicationStatItem(
@@ -331,7 +331,7 @@ fun RecentApplicationsSection(
                     RecentApplicationItem(
                         application = application,
                         onClick = {
-                            navController.navigate("employer_application_detail/${application.id}")
+                            navController.navigate("worker_profile_view/${application.workerId}")
                         }
                     )
                 }
@@ -594,44 +594,25 @@ fun RecentApplicationItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Profile Avatar
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF3B82F6).copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = application.workerName.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF3B82F6)
-                    )
-                )
-            }
-            
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = application.workerName,
+                    text = "Worker ${application.workerId.takeLast(6)}",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
                 )
                 Text(
-                    text = "Applied for ${application.jobTitle}",
+                    text = "Job ${application.jobId.takeLast(6)}",
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
                 )
             }
-            
-            // Status Badge
-    Card(
+
+            Card(
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = when (application.status) {
-                        ApplicationStatus.PENDING -> Color(0xFFFEF3C7)
-                        ApplicationStatus.UNDER_REVIEW -> Color(0xFFDBEAFE)
-                        ApplicationStatus.ACCEPTED -> Color(0xFFD1FAE5)
+                        ApplicationStatus.APPLIED -> Color(0xFFFEF3C7)
+                        ApplicationStatus.SHORTLISTED -> Color(0xFFDBEAFE)
+                        ApplicationStatus.HIRED -> Color(0xFFD1FAE5)
                         ApplicationStatus.REJECTED -> Color(0xFFFEE2E2)
-                        else -> Color(0xFFF3F4F6)
                     }
                 )
             ) {
@@ -640,11 +621,10 @@ fun RecentApplicationItem(
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontWeight = FontWeight.Medium,
                         color = when (application.status) {
-                            ApplicationStatus.PENDING -> Color(0xFF92400E)
-                            ApplicationStatus.UNDER_REVIEW -> Color(0xFF1E40AF)
-                            ApplicationStatus.ACCEPTED -> Color(0xFF065F46)
+                            ApplicationStatus.APPLIED -> Color(0xFF92400E)
+                            ApplicationStatus.SHORTLISTED -> Color(0xFF1E40AF)
+                            ApplicationStatus.HIRED -> Color(0xFF065F46)
                             ApplicationStatus.REJECTED -> Color(0xFF991B1B)
-                            else -> Color(0xFF6B7280)
                         }
                     ),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

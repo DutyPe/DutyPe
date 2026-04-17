@@ -46,11 +46,12 @@ class UserMetadata @Inject constructor(
         "activeRole",
         "location",
         "geohash",
-        "isVerified",
-        "isActive",
         "fcmToken",
         "createdAt",
-        "lastActiveAt"
+        "lastActiveAt",
+        "referralCode",
+        "referredByCode",
+        "referredByUserId"
     )
 
     
@@ -314,8 +315,6 @@ class UserMetadata @Inject constructor(
             "activeRole" to activeRole,
             "location" to mapOf("lat" to lat, "lng" to lng),
             "geohash" to ((data["geohash"] as? String).orEmpty()),
-            "isVerified" to ((data["isVerified"] as? Boolean) ?: false),
-            "isActive" to ((data["isActive"] as? Boolean) ?: true),
             "createdAt" to (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp.now()),
             "lastActiveAt" to (doc.getTimestamp("lastActiveAt") ?: com.google.firebase.Timestamp.now())
         )
@@ -325,6 +324,10 @@ class UserMetadata @Inject constructor(
 
         val fcmToken = (data["fcmToken"] as? String).orEmpty()
         if (fcmToken.isNotBlank()) strictDoc["fcmToken"] = fcmToken
+
+        (data["referralCode"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referralCode"] = it }
+        (data["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referredByCode"] = it }
+        (data["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referredByUserId"] = it }
 
         firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).set(strictDoc).await()
         Timber.w("📊 UserMetadata: Pruned legacy users fields for $userId")

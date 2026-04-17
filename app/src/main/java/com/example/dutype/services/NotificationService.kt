@@ -466,21 +466,17 @@ class NotificationService @Inject constructor(
         newStatus: ApplicationStatus
     ): NotificationData {
         val title = when (newStatus) {
-            ApplicationStatus.PENDING -> "Application Submitted"
-            ApplicationStatus.UNDER_REVIEW -> "Application Under Review"
-            ApplicationStatus.ACCEPTED -> "Congratulations! You're Accepted"
-            ApplicationStatus.COMPLETED -> "Job Completed"
+            ApplicationStatus.APPLIED -> "Application Submitted"
+            ApplicationStatus.SHORTLISTED -> "Application Under Review"
+            ApplicationStatus.HIRED -> "Congratulations! You're Hired"
             ApplicationStatus.REJECTED -> "Application Update"
-            ApplicationStatus.WITHDRAWN -> "Application Withdrawn"
         }
         
         val message = when (newStatus) {
-            ApplicationStatus.PENDING -> "Your application has been submitted successfully"
-            ApplicationStatus.UNDER_REVIEW -> "Your application is now under review"
-            ApplicationStatus.ACCEPTED -> "Congratulations! Your application has been accepted"
-            ApplicationStatus.COMPLETED -> "Your work has been marked as completed"
+            ApplicationStatus.APPLIED -> "Your application has been submitted successfully"
+            ApplicationStatus.SHORTLISTED -> "Your application is now under review"
+            ApplicationStatus.HIRED -> "Congratulations! Your application has been accepted"
             ApplicationStatus.REJECTED -> "Update on your application"
-            ApplicationStatus.WITHDRAWN -> "You have withdrawn your application"
         }
         
         return NotificationData(

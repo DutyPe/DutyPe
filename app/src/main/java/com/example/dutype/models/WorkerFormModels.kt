@@ -32,7 +32,7 @@ data class Education(
 
 @Keep
 data class StatusHistoryEntry(
-    val status: ApplicationStatus = ApplicationStatus.PENDING,
+    val status: ApplicationStatus = ApplicationStatus.APPLIED,
     val updatedAt: Long = System.currentTimeMillis(),
     val updatedBy: String = "",
     val notes: String? = null,

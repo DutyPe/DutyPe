@@ -215,20 +215,6 @@ fun WorkerNavGraph(
             )
         }
         
-        // Work Start QR Screen
-        composable(
-            route = Routes.WORKER_WORK_START_QR,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-            val workVerificationService: com.example.dutype.services.WorkVerificationService = hiltViewModel<com.example.dutype.viewmodels.WorkVerificationViewModel>().workVerificationService
-            com.example.dutype.worker.screens.WorkStartQRScreen(
-                jobId = jobId,
-                navController = navController,
-                workVerificationService = workVerificationService
-            )
-        }
-        
         // Worker About Screen
         composable(Routes.ABOUT_US) {
             com.example.dutype.worker.screens.WorkerAboutScreen(

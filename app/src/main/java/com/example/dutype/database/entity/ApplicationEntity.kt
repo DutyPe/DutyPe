@@ -45,7 +45,7 @@ data class ApplicationEntity(
             status = try {
                 ApplicationStatus.valueOf(status)
             } catch (e: Exception) {
-                ApplicationStatus.PENDING
+                ApplicationStatus.APPLIED
             },
             createdAt = appliedAt,
             jobTitle = jobTitle,
@@ -63,7 +63,7 @@ data class ApplicationEntity(
         return try {
             ApplicationStatus.valueOf(status)
         } catch (e: Exception) {
-            ApplicationStatus.PENDING
+            ApplicationStatus.APPLIED
         }
     }
     
@@ -103,7 +103,7 @@ data class ApplicationEntity(
                 jobId = jobId,
                 workerId = workerId,
                 employerId = employerId,
-                status = ApplicationStatus.PENDING.name,
+                status = ApplicationStatus.APPLIED.name,
                 appliedAt = now,
                 updatedAt = now,
                 jobTitle = jobTitle,

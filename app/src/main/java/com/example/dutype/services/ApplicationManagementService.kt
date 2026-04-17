@@ -30,8 +30,7 @@ import javax.inject.Singleton
 @Singleton
 class ApplicationManagementService @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val notificationService: NotificationService,
-    private val workVerificationService: WorkVerificationService
+    private val notificationService: NotificationService
 ) {
     
     private val applicationsCollection = "applications"
@@ -70,8 +69,8 @@ class ApplicationManagementService @Inject constructor(
                     updatedApplication, newStatus, updatedApplication.workerId
                 )
                 
-                // Send hired notification when status is ACCEPTED
-                if (newStatus == ApplicationStatus.ACCEPTED) {
+                // Send hired notification when status is HIRED
+                if (newStatus == ApplicationStatus.HIRED) {
                     try {
                         notificationService.sendWorkerHiredNotification(
                             workerName = updatedApplication.workerName,
@@ -108,17 +107,17 @@ class ApplicationManagementService @Inject constructor(
             val currentApplication = doc.toJobApplicationOrNull()
                 ?: return Result.failure(Exception("Invalid application data"))
             
-            // Only update if status is PENDING
-            if (currentApplication.status == ApplicationStatus.PENDING) {
+            // Only update if status is APPLIED
+            if (currentApplication.status == ApplicationStatus.APPLIED) {
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.UNDER_REVIEW
+                    status = ApplicationStatus.SHORTLISTED
                 )
                 
-                docRef.update("status", ApplicationStatus.UNDER_REVIEW.toFirestoreValue()).await()
+                docRef.update("status", ApplicationStatus.SHORTLISTED.toFirestoreValue()).await()
                 
                 notificationService.sendApplicationStatusNotification(
                     updatedApplication, 
-                    ApplicationStatus.UNDER_REVIEW, 
+                    ApplicationStatus.SHORTLISTED, 
                     updatedApplication.workerId
                 )
                 
@@ -161,32 +160,16 @@ class ApplicationManagementService @Inject constructor(
 
                 // Update status only — targeted update avoids writing non-schema fields
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.ACCEPTED
+                    status = ApplicationStatus.HIRED
                 )
-                transaction.update(docRef, "status", ApplicationStatus.ACCEPTED.toFirestoreValue())
+                transaction.update(docRef, "status", ApplicationStatus.HIRED.toFirestoreValue())
                 updatedApplication
             }.await()
-            
-            // Generate Work Start Verification Code (outside transaction)
-            try {
-                workVerificationService.generateVerification(
-                    jobId = result.jobId,
-                    applicationId = applicationId,
-                    workerId = result.workerId,
-                    employerId = employerId,
-                    workerName = result.workerName,
-                    jobTitle = result.jobTitle,
-                    employerName = result.companyName
-                )
-                Timber.i("🔐 WORK VERIFICATION: Generated verification code for application $applicationId")
-            } catch (e: Exception) {
-                Timber.e(e, "🔐 WORK VERIFICATION: Failed to generate verification code")
-            }
             
             // Send notification to worker (outside transaction)
             notificationService.sendApplicationStatusNotification(
                 result, 
-                ApplicationStatus.ACCEPTED, 
+                ApplicationStatus.HIRED, 
                 result.workerId
             )
             
@@ -367,11 +350,10 @@ class ApplicationManagementService @Inject constructor(
             
             val stats = com.example.dutype.models.ApplicationStats(
                 totalApplications = applications.size,
-                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.sortedByDescending { it.appliedAt }.take(5)
             )
             
@@ -402,11 +384,10 @@ class ApplicationManagementService @Inject constructor(
             
             val stats = com.example.dutype.models.ApplicationStats(
                 totalApplications = applications.size,
-                pendingApplications = applications.count { it.status == ApplicationStatus.PENDING },
-                reviewedApplications = applications.count { it.status == ApplicationStatus.UNDER_REVIEW },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-                hiredApplications = applications.count { it.status == ApplicationStatus.ACCEPTED },
+                hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.sortedByDescending { it.appliedAt }.take(5)
             )
             

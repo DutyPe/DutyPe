@@ -82,35 +82,25 @@ fun ApplicationStatusBadge(
  */
 private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, ImageVector> {
     return when (status) {
-        ApplicationStatus.PENDING -> Triple(
+        ApplicationStatus.APPLIED -> Triple(
             Color(0xFFFEF3C7),
             Color(0xFFD97706),
             Icons.Default.Schedule
         )
-        ApplicationStatus.UNDER_REVIEW -> Triple(
+        ApplicationStatus.SHORTLISTED -> Triple(
             Color(0xFFE0E7FF),
             Color(0xFF3730A3),
             Icons.Default.Visibility
         )
-        ApplicationStatus.ACCEPTED -> Triple(
+        ApplicationStatus.HIRED -> Triple(
             Color(0xFFD1FAE5),
             Color(0xFF059669),
             Icons.Default.CheckCircle
-        )
-        ApplicationStatus.COMPLETED -> Triple(
-            Color(0xFFF3E8FF),
-            Color(0xFF7C3AED),
-            Icons.Default.Star
         )
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),
             Color(0xFFDC2626),
             Icons.Default.Close
-        )
-        ApplicationStatus.WITHDRAWN -> Triple(
-            Color(0xFFF3F4F6),
-            Color(0xFF6B7280),
-            Icons.Default.Help
         )
     }
 }
@@ -121,11 +111,9 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
  */
 private fun ApplicationStatus.getDisplayName(): String {
     return when (this) {
-        ApplicationStatus.PENDING -> "Pending"
-        ApplicationStatus.UNDER_REVIEW -> "Under Review"
-        ApplicationStatus.ACCEPTED -> "Accepted"
-        ApplicationStatus.COMPLETED -> "Completed"
+        ApplicationStatus.APPLIED -> "Applied"
+        ApplicationStatus.SHORTLISTED -> "Shortlisted"
+        ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.REJECTED -> "Rejected"
-        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }

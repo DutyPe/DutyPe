@@ -18,7 +18,6 @@ import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerPublicProfileScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
-import com.example.dutype.employer.screens.applications.ApplicationDetailScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.models.ApplicationStatus
@@ -113,7 +112,7 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = jobId,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.id}")
+                navController.navigate("worker_profile_view/${application.workerId}")
             },
             onBackClick = { navController.popBackStack() }
         )
@@ -124,7 +123,7 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = null,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.id}")
+                navController.navigate("worker_profile_view/${application.workerId}")
             },
             onBackClick = { navController.popBackStack() }
         )
@@ -139,51 +138,9 @@ fun NavGraphBuilder.employerNavGraph(
         EmployerApplicationManagementScreen(
             jobId = jobId,
             onApplicationClick = { application ->
-                navController.navigate("employer_application_detail/${application.id}")
+                navController.navigate("worker_profile_view/${application.workerId}")
             },
             onBackClick = { navController.popBackStack() }
-        )
-    }
-    
-    // Application Detail
-    composable(
-        route = Routes.EMPLOYER_APPLICATION_DETAIL,
-        arguments = listOf(navArgument("applicationId") { type = NavType.StringType })
-    ) { backStackEntry ->
-        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
-        val employerViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
-        val context = LocalContext.current
-        
-        ApplicationDetailScreen(
-            applicationId = applicationId,
-            onBackClick = { navController.popBackStack() },
-            onUpdateStatus = { newStatus, notes ->
-                if (newStatus == ApplicationStatus.ACCEPTED) {
-                    val application = employerViewModel.uiState.value.applications.find { 
-                        it.applicationId == applicationId 
-                    }
-                    if (application != null) {
-                        employerViewModel.hireApplicant(
-                            applicationId = applicationId,
-                            jobId = application.jobId,
-                            onSuccess = {
-                                Toast.makeText(context, "Applicant hired successfully!", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            },
-                            onError = { error ->
-                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                            }
-                        )
-                    } else {
-                        employerViewModel.updateApplicationStatus(applicationId, newStatus, notes)
-                        navController.popBackStack()
-                    }
-                } else {
-                    employerViewModel.updateApplicationStatus(applicationId, newStatus, notes)
-                    navController.popBackStack()
-                }
-            },
-            onVerifyWork = null
         )
     }
     
@@ -351,25 +308,6 @@ fun NavGraphBuilder.employerNavGraph(
         com.example.dutype.employer.screens.EmployerHistoryScreen(
             navController = navController,
             onStatusBarColorChange = onStatusBarColorChange
-        )
-    }
-    
-    // Work Verification (Employer scans worker QR)
-    composable(
-        route = Routes.EMPLOYER_VERIFY_WORK,
-        arguments = listOf(
-            navArgument("jobId") { type = NavType.StringType },
-            navArgument("applicationId") { type = NavType.StringType }
-        )
-    ) { backStackEntry ->
-        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-        val applicationId = backStackEntry.arguments?.getString("applicationId") ?: ""
-        val workVerificationService: com.example.dutype.services.WorkVerificationService = hiltViewModel<com.example.dutype.viewmodels.WorkVerificationViewModel>().workVerificationService
-        com.example.dutype.employer.screens.EmployerVerifyWorkScreen(
-            jobId = jobId,
-            applicationId = applicationId,
-            navController = navController,
-            workVerificationService = workVerificationService
         )
     }
 }

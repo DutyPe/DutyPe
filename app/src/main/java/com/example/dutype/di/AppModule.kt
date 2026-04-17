@@ -25,7 +25,6 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ApplicationManagementService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
-import com.example.dutype.services.WorkVerificationService
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.services.ReferralService
 import com.example.dutype.repositories.FirestoreJobRepository
@@ -376,7 +375,6 @@ object AppModule {
         profileCompletionService: ProfileCompletionService,
         applicationStateManager: ApplicationStateManager,
         metadataManager: MetadataManager,
-        workVerificationService: WorkVerificationService,
         errorHandler: com.example.dutype.core.error.ErrorHandler,
         rateLimiter: com.example.dutype.core.resilience.RateLimiter
     ): JobApplicationService {
@@ -388,7 +386,6 @@ object AppModule {
             profileCompletionService,
             applicationStateManager,
             metadataManager,
-            workVerificationService,
             errorHandler,
             rateLimiter
         )
@@ -398,19 +395,9 @@ object AppModule {
     @Singleton
     fun provideApplicationManagementService(
         firestore: FirebaseFirestore,
-        notificationService: NotificationService,
-        workVerificationService: WorkVerificationService
+        notificationService: NotificationService
     ): ApplicationManagementService {
-        return ApplicationManagementService(firestore, notificationService, workVerificationService)
-    }
-
-    @Provides
-    @Singleton
-    fun provideWorkVerificationService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): WorkVerificationService {
-        return WorkVerificationService(firestore, auth)
+        return ApplicationManagementService(firestore, notificationService)
     }
 
     @Provides

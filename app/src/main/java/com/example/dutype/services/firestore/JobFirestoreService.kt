@@ -405,29 +405,14 @@ class JobFirestoreService @Inject constructor(
             )
 
             val detailsData = linkedMapOf<String, Any>(
-                "employerId" to employerId,
-                "companyName" to companyName,
-                "isVerified" to isVerified,
-                "title" to title,
-                "jobType" to jobType,
-                "salary" to salary,
-                "salaryType" to salaryType,
                 "description" to description,
                 "contactNumber" to contactNumber,
-                "addressText" to addressText,
-                "companyCity" to companyCity,
-                "location" to location,
-                "geohash" to geohash,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
                 "shiftTiming" to shiftTiming,
                 "vacancies" to vacancies,
                 "benefits" to benefits,
-                "urgency" to urgency,
-                "applicationCount" to 0,
-                "status" to "open",
-                "createdAt" to createdAt,
-                "expiresAt" to expiresAt
+                "applicationCount" to 0
             )
             whatsappNumber?.let { detailsData["whatsappNumber"] = it }
             workingHours?.let { detailsData["workingHours"] = it }
@@ -776,7 +761,9 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * Update a job posting
+     * Update a job posting.
+     * `jobmetadata` = card data (title, salary, location, status...).
+     * `job_details`  = description, contact, vacancies, benefits, etc. (no duplicates).
      */
     suspend fun updateJob(jobId: String, updates: Map<String, Any>): Result<Unit> {
         return try {
@@ -785,8 +772,6 @@ class JobFirestoreService @Inject constructor(
             jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
             val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
 
-            // `jobmetadata` = card data (title, salary, location, status, etc.)
-            // `job_details` = full data (description, contact, benefits, etc.)
             val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()
 
@@ -794,24 +779,19 @@ class JobFirestoreService @Inject constructor(
                 val title = normalizeString(data["title"])
                 if (title.isBlank()) return Result.failure(IllegalArgumentException("Job title is required"))
                 cardUpdates["title"] = title
-                detailsUpdates["title"] = title
             }
             if (data.containsKey("salary")) {
                 val salary = toSalaryDouble(data["salary"])
                 if (salary <= 0.0) return Result.failure(IllegalArgumentException("Salary must be greater than zero"))
                 cardUpdates["salary"] = salary
-                detailsUpdates["salary"] = salary
             }
             if (data.containsKey("salaryType")) {
-                val v = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
-                cardUpdates["salaryType"] = v
-                detailsUpdates["salaryType"] = v
+                cardUpdates["salaryType"] = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
             }
             if (data.containsKey("jobType")) {
                 val v = normalizeString(data["jobType"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Job type is required"))
                 cardUpdates["jobType"] = v
-                detailsUpdates["jobType"] = v
             }
 
             val providedLocation = data["location"] as? Map<*, *>
@@ -821,30 +801,27 @@ class JobFirestoreService @Inject constructor(
                 if (latitude == null || longitude == null || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
                     return Result.failure(IllegalArgumentException("Valid job coordinates are required"))
                 }
-                val loc = mapOf("lat" to latitude, "lng" to longitude)
-                val gh = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
-                cardUpdates["location"] = loc; cardUpdates["geohash"] = gh
-                detailsUpdates["location"] = loc; detailsUpdates["geohash"] = gh
+                cardUpdates["location"] = mapOf("lat" to latitude, "lng" to longitude)
+                cardUpdates["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             }
 
             (data["urgency"] as? String)?.let {
                 val v = it.uppercase().let { u -> if (u in listOf("LOW", "MEDIUM", "HIGH")) u else "MEDIUM" }
-                cardUpdates["urgency"] = v; detailsUpdates["urgency"] = v
+                cardUpdates["urgency"] = v
             }
             (data["status"] as? String)?.let {
                 val v = it.lowercase()
-                if (v in listOf("open", "closed", "expired")) { cardUpdates["status"] = v; detailsUpdates["status"] = v }
+                if (v in listOf("open", "closed", "expired")) cardUpdates["status"] = v
             }
-            (data["expiresAt"] as? Timestamp)?.let { cardUpdates["expiresAt"] = it; detailsUpdates["expiresAt"] = it }
+            (data["expiresAt"] as? Timestamp)?.let { cardUpdates["expiresAt"] = it }
 
             if (data.containsKey("addressText")) {
                 val v = normalizeString(data["addressText"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
-                cardUpdates["addressText"] = v; cardUpdates["companyCity"] = extractCityFromAddress(v)
-                detailsUpdates["addressText"] = v; detailsUpdates["companyCity"] = extractCityFromAddress(v)
+                cardUpdates["addressText"] = v
             }
 
-            // Details-only fields
+            // Details-only fields (must match firestore.rules for job_details).
             if (data.containsKey("description")) {
                 val v = normalizeString(data["description"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))

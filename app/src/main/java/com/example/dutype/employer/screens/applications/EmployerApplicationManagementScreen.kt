@@ -177,11 +177,11 @@ fun EmployerApplicationManagementScreen(
                             applicationIndex = index,
                             isContactUnlocked = isContactUnlocked,
                             onClick = { 
-                                // Update status to Under Review when employer clicks on application
-                                if (application.status == ApplicationStatus.PENDING) {
+                                // Update status to Shortlisted when employer clicks on application
+                                if (application.status == ApplicationStatus.APPLIED) {
                                     viewModel.updateApplicationStatus(
                                         applicationId = application.id,
-                                        newStatus = ApplicationStatus.UNDER_REVIEW,
+                                        newStatus = ApplicationStatus.SHORTLISTED,
                                         notes = "Application viewed by employer"
                                     )
                                 }
@@ -241,13 +241,13 @@ private fun ApplicationStatsSummary(stats: com.example.dutype.models.Application
                 color = Color(0xFF3B82F6)
             )
             StatsSummaryItem(
-                value = stats.pendingApplications.toString(),
-                label = "Pending",
+                value = stats.appliedApplications.toString(),
+                label = "Applied",
                 color = Color(0xFFF59E0B)
             )
             StatsSummaryItem(
-                value = stats.reviewedApplications.toString(),
-                label = "Reviewed",
+                value = stats.shortlistedApplications.toString(),
+                label = "Shortlisted",
                 color = Color(0xFF8B5CF6)
             )
             StatsSummaryItem(
@@ -291,11 +291,10 @@ private fun ApplicationCard(
     onUnlockContact: () -> Unit = {},
     onStatusUpdate: (ApplicationStatus, String?) -> Unit
 ) {
-    val workerEmail = application.workerEmail.orEmpty()
-    // Determine display name - fallback to email or "Unknown Worker" if name is empty
+    val workerEmail = ""
+    // Determine display name - fallback to "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
-        workerEmail.isNotBlank() -> workerEmail.substringBefore("@")
         else -> "Unknown Worker"
     }
     
@@ -390,28 +389,7 @@ private fun ApplicationCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        // Worker location if available
-                        application.workerLocation?.let { location ->
-                            if (location.isNotBlank()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        tint = Color(0xFF9CA3AF),
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        text = location,
-                                        style = AppTypography.caption.copy(color = Color(0xFF9CA3AF)),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
+                        // Worker location removed - not stored on application
                     }
                 }
                 
@@ -455,14 +433,8 @@ private fun ApplicationCard(
                 }
             }
             
-            // Skills Preview (if available)
-            val skillsToShow = if (application.skills.isNotEmpty()) {
-                application.skills.take(3)
-            } else if (!application.skillsText.isNullOrBlank()) {
-                application.skillsText.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
-            } else {
-                emptyList()
-            }
+            // Skills preview removed - skills not stored on application
+            val skillsToShow = emptyList<String>()
             
             if (skillsToShow.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -488,15 +460,7 @@ private fun ApplicationCard(
                             )
                         }
                     }
-                    if ((application.skills.size > 3) || 
-                        (!application.skillsText.isNullOrBlank() && 
-                         application.skillsText.split(",").filter { it.trim().isNotBlank() }.size > 3)) {
-                        Text(
-                            text = "+more",
-                            style = AppTypography.labelSmall.copy(color = Color(0xFF6B7280)),
-                            modifier = Modifier.align(Alignment.CenterVertically)
-                        )
-                    }
+                    // +more indicator removed along with skills
                 }
             }
             
@@ -574,7 +538,7 @@ private fun ApplicationCard(
             }
 
             // Quick actions on list card (replaces hidden menu flow)
-            if (application.status == ApplicationStatus.PENDING || application.status == ApplicationStatus.UNDER_REVIEW) {
+            if (application.status == ApplicationStatus.APPLIED || application.status == ApplicationStatus.SHORTLISTED) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -598,7 +562,7 @@ private fun ApplicationCard(
                     }
 
                     Button(
-                        onClick = { onStatusUpdate(ApplicationStatus.ACCEPTED, "Accepted from applications list") },
+                        onClick = { onStatusUpdate(ApplicationStatus.HIRED, "Hired from applications list") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
