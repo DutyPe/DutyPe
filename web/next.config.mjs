@@ -28,9 +28,15 @@ const baseConfig = {
   }
 };
 
+function shouldBuildStandalone() {
+  const value = process.env.NEXT_STANDALONE;
+  return value === "1" || value === "true";
+}
+
 export default function nextConfig(phase) {
   return {
     ...baseConfig,
+    ...(shouldBuildStandalone() ? { output: "standalone" } : {}),
     // Keep dev output separate from production builds so the two modes
     // cannot corrupt each other's chunk graph.
     distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next"

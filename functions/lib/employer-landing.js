@@ -9,7 +9,7 @@
  *
  * Industry Standard: LinkedIn, Indeed, Naukri pattern
  *
- * URL Pattern: https://dutypeapp.web.app/employer/{employerId}
+ * URL Pattern: https://dutype-860ac.web.app/employer/{employerId}
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.employerLanding = void 0;
@@ -74,14 +74,14 @@ exports.employerLanding = functions.https.onRequest(async (req, res) => {
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="business.business">
-    <meta property="og:url" content="https://dutypeapp.web.app/employer/${employerId}">
+    <meta property="og:url" content="https://dutype-860ac.web.app/employer/${employerId}">
     <meta property="og:title" content="${companyName} - ${trustBadgeText}">
     <meta property="og:description" content="${description}">
     ${profileImageUrl ? `<meta property="og:image" content="${profileImageUrl}">` : ""}
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://dutypeapp.web.app/employer/${employerId}">
+    <meta name="twitter:url" content="https://dutype-860ac.web.app/employer/${employerId}">
     <meta name="twitter:title" content="${companyName} - ${trustBadgeText}">
     <meta name="twitter:description" content="${description}">
     ${profileImageUrl ? `<meta name="twitter:image" content="${profileImageUrl}">` : ""}

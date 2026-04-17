@@ -21,9 +21,9 @@ const PURGE = process.argv.includes('--purge');
 function resolveServiceAccount() {
   const candidates = [
     path.join(__dirname, 'serviceAccountKey.json'),
-    path.join(__dirname, 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'),
+    path.join(__dirname, 'dutype-860ac-firebase-adminsdk.json'),
     path.join(__dirname, '..', 'serviceAccountKey.json'),
-    path.join(__dirname, '..', 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json')
+    path.join(__dirname, '..', 'dutype-860ac-firebase-adminsdk.json')
   ];
 
   for (const keyPath of candidates) {

@@ -19,7 +19,7 @@ const path = require('path');
 // Check if service account key exists - try multiple possible filenames
 const possibleKeyFiles = [
   'serviceAccountKey.json',
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
+  'dutype-860ac-firebase-adminsdk.json'
 ];
 
 let serviceAccountPath = null;
@@ -36,7 +36,7 @@ if (!serviceAccountPath) {
   console.error('❌ ERROR: Service account key not found!');
   console.error('');
   console.error('Please follow these steps:');
-  console.error('1. Go to Firebase Console: https://console.firebase.google.com/project/dutypeapp/settings/serviceaccounts/adminsdk');
+  console.error('1. Go to Firebase Console: https://console.firebase.google.com/project/dutype-860ac/settings/serviceaccounts/adminsdk');
   console.error('2. Click "Generate new private key"');
   console.error('3. Save the downloaded file in the scripts folder');
   console.error('');
@@ -47,7 +47,7 @@ if (!serviceAccountPath) {
 const serviceAccount = require(serviceAccountPath);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const db = admin.firestore();
@@ -229,10 +229,6 @@ function generateJob(category) {
     isFilled: false,
     employerTrustTier: randomElement(["VERIFIED", "TRUSTED", "BUSINESS"]),
     jobImageUrl: "",
-    expiresAt: expiresAt,
-    expiryDays: 15
-  };
-}
     expiresAt: expiresAt,
     expiryDays: 15
   };

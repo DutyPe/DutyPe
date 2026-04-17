@@ -7,9 +7,9 @@ if (!admin.apps.length) {
   try {
     // Try to initialize with default credentials
     admin.initializeApp({
-      projectId: 'dutypeapp'
+      projectId: 'dutype-860ac'
     });
-    console.log('✅ Firebase Admin initialized with project: dutypeapp');
+    console.log('✅ Firebase Admin initialized with project: dutype-860ac');
   } catch (error) {
     console.error('❌ Failed to initialize Firebase Admin:', error.message);
     console.log('\n💡 To fix this, run: firebase login');

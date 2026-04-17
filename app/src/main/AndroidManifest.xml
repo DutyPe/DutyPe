@@ -107,10 +107,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Primary domain -->
                 <data android:scheme="https" android:host="dutype.in" />
-                <!-- Legacy Firebase domain for backward compatibility -->
-                <data android:scheme="https" android:host="dutypeapp.web.app" />
             </intent-filter>
         </activity>
         

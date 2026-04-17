@@ -54,7 +54,7 @@ const TOPIC_APP_UPDATES = "app_updates";
  * If exceeded: Deletes job, flags user, sends alert
  */
 export const enforceJobRateLimit = functions.firestore
-  .document("jobs/{jobId}")
+  .document("jobmetadata/{jobId}")
   .onCreate(async (snapshot, context) => {
     const job = snapshot.data();
     const jobId = context.params.jobId;
@@ -81,7 +81,7 @@ export const enforceJobRateLimit = functions.firestore
       functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} is ${isPaidUser ? "PAID" : "FREE"}`);
 
       // Count jobs posted in last hour
-      const hourlyJobsSnapshot = await db.collection("jobs")
+      const hourlyJobsSnapshot = await db.collection("jobmetadata")
         .where("employerId", "==", employerId)
         .where("createdAt", ">", oneHourAgoTs)
         .get();
@@ -89,7 +89,7 @@ export const enforceJobRateLimit = functions.firestore
       const jobsInHour = hourlyJobsSnapshot.size;
 
       // Count jobs posted in last day
-      const dailyJobsSnapshot = await db.collection("jobs")
+      const dailyJobsSnapshot = await db.collection("jobmetadata")
         .where("employerId", "==", employerId)
         .where("createdAt", ">", oneDayAgoTs)
         .get();
@@ -283,28 +283,55 @@ export const sendPushNotification = functions.firestore
         return null;
       }
 
-      // DEDUPLICATION CHECK 3: Check for duplicate notifications in last 5 seconds
-      const fiveSecondsAgo = Date.now() - 5000;
-      const duplicateCheck = await db.collection("notifications")
+      // DEDUPLICATION CHECK 3: Best-effort duplicate detection in last 5 seconds.
+      // Use single-field query to avoid composite index failures in production.
+      const fiveSecondsAgoMs = Date.now() - 5000;
+      const candidateNotifications = await db.collection("notifications")
         .where("recipientId", "==", recipientId)
-        .where("title", "==", notification.title)
-        .where("type", "==", notification.type)
-        .where("createdAt", ">", fiveSecondsAgo)
-        .limit(5)
+        .limit(30)
         .get();
-      
-      if (duplicateCheck.size > 1) {
+
+      const getCreatedAtMs = (rawCreatedAt: unknown): number => {
+        if (rawCreatedAt instanceof admin.firestore.Timestamp) {
+          return rawCreatedAt.toMillis();
+        }
+
+        if (typeof rawCreatedAt === "number") {
+          return rawCreatedAt;
+        }
+
+        if (typeof rawCreatedAt === "object" && rawCreatedAt !== null && "toMillis" in rawCreatedAt) {
+          const maybeTimestamp = rawCreatedAt as { toMillis?: () => number };
+          if (typeof maybeTimestamp.toMillis === "function") {
+            return maybeTimestamp.toMillis();
+          }
+        }
+
+        return 0;
+      };
+
+      const matchingNotifications = candidateNotifications.docs.filter((doc) => {
+        const data = doc.data();
+
+        if (data.title !== notification.title) return false;
+        if (data.type !== notification.type) return false;
+
+        const createdAtMs = getCreatedAtMs(data.createdAt);
+        return createdAtMs >= fiveSecondsAgoMs;
+      });
+
+      if (matchingNotifications.length > 1) {
         // Found duplicates - only process the first one (oldest)
-        const sortedDocs = duplicateCheck.docs.sort((a, b) => {
-          const aTime = a.data().createdAt || 0;
-          const bTime = b.data().createdAt || 0;
+        const sortedDocs = matchingNotifications.sort((a, b) => {
+          const aTime = getCreatedAtMs(a.data().createdAt);
+          const bTime = getCreatedAtMs(b.data().createdAt);
           return aTime - bTime;
         });
-        
+
         const firstDocId = sortedDocs[0].id;
         if (notificationId !== firstDocId) {
           functions.logger.warn(`📬 FCM: ⚠️ Duplicate notification detected! Skipping ${notificationId}, keeping ${firstDocId}`);
-          
+
           // Mark this as duplicate and skip
           await snapshot.ref.update({
             processing: false,
@@ -313,7 +340,7 @@ export const sendPushNotification = functions.firestore
             skipReason: "DUPLICATE_NOTIFICATION",
             duplicateOf: firstDocId
           });
-          
+
           return null;
         }
       }
@@ -437,7 +464,7 @@ function calculateTextSimilarity(text1: string, text2: string): number {
  * 3. Same title + location combination
  */
 export const detectDuplicateJob = functions.firestore
-  .document("jobs/{jobId}")
+  .document("jobmetadata/{jobId}")
   .onCreate(async (snapshot, context) => {
     const job = snapshot.data();
     const jobId = context.params.jobId;
@@ -454,7 +481,7 @@ export const detectDuplicateJob = functions.firestore
 
       // CHECK 1: Same contact number from DIFFERENT user (HIGH SUSPICION)
       if (job.contactNumber) {
-        const sameContactJobs = await db.collection("jobs")
+        const sameContactJobs = await db.collection("jobmetadata")
           .where("contactNumber", "==", job.contactNumber)
           .where("createdAt", ">", twentyFourHoursAgoTs)
           .limit(10)
@@ -472,7 +499,7 @@ export const detectDuplicateJob = functions.firestore
       }
 
       // CHECK 2: Similar description (>70% match)
-      const recentJobs = await db.collection("jobs")
+      const recentJobs = await db.collection("jobmetadata")
         .where("createdAt", ">", twentyFourHoursAgoTs)
         .where("employerId", "!=", employerId)
         .limit(50)
@@ -507,7 +534,7 @@ export const detectDuplicateJob = functions.firestore
           : null;
 
       if (job.title && jobLat !== null && jobLng !== null) {
-        const sameTitleJobs = await db.collection("jobs")
+        const sameTitleJobs = await db.collection("jobmetadata")
           .where("title", "==", job.title)
           .where("createdAt", ">", twentyFourHoursAgoTs)
           .limit(20)
@@ -688,7 +715,7 @@ export const checkPhoneExists = functions.https.onCall(async (data) => {
  * Called when admin approves or rejects a job in moderation queue
  */
 export const processModerationDecision = functions.firestore
-  .document("jobs/{jobId}")
+  .document("jobmetadata/{jobId}")
   .onUpdate(async () => {
     // Legacy moderation queue path removed in final schema.
     return null;
@@ -725,7 +752,7 @@ export const processJobReport = functions.firestore
 
     try {
       // Get job document
-      const jobRef = db.collection("jobs").doc(jobId);
+      const jobRef = db.collection("jobmetadata").doc(jobId);
       const jobDoc = await jobRef.get();
 
       if (!jobDoc.exists) {
@@ -834,7 +861,7 @@ export const updatePlatformMetadata = functions.pubsub
  * Trigger to update metadata when a new job is created
  */
 export const updateMetadataOnJobCreate = functions.firestore
-  .document("jobs/{jobId}")
+  .document("jobmetadata/{jobId}")
   .onCreate(async (snapshot, context) => {
     functions.logger.info("📊 METADATA: update on job create skipped (metadata removed)");
     return null;
@@ -844,7 +871,7 @@ export const updateMetadataOnJobCreate = functions.firestore
  * Trigger to update metadata when a job is deleted
  */
 export const updateMetadataOnJobDelete = functions.firestore
-  .document("jobs/{jobId}")
+  .document("jobmetadata/{jobId}")
   .onDelete(async (snapshot, context) => {
     functions.logger.info("📊 METADATA: update on job delete skipped (metadata removed)");
     return null;

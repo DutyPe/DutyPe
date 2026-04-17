@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.utils.SecureLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -70,7 +71,7 @@ class ReportingService @Inject constructor(
 ) {
     companion object {
         const val REPORTS_COLLECTION = "job_reports"
-        const val JOBS_COLLECTION = "jobs"
+        const val JOBS_COLLECTION = FirestoreCollections.JOBS
         const val AUTO_HIDE_THRESHOLD = 3 // 3 reports = auto-hide
         const val REPORT_COOLDOWN_HOURS = 24 // Can't report same job twice in 24 hours
     }

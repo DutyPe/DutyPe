@@ -27,7 +27,7 @@ exports.jobLanding = functions.https.onRequest(async (req, res) => {
             res.send(getGenericJobsPage());
             return;
         }
-        const jobDoc = await admin.firestore().collection("jobs").doc(jobId).get();
+        const jobDoc = await admin.firestore().collection("jobmetadata").doc(jobId).get();
         if (!jobDoc.exists) {
             res.status(404).send(get404Page());
             return;
@@ -53,11 +53,11 @@ function generateJobLandingPage(job, jobId) {
     const title = `${job.title} - ${job.companyName}`;
     const salary = job.salary ? `₹${job.salary}/${job.salaryType || "FIXED"}` : "Salary Negotiable";
     const description = `💰 ${salary} | 📍 ${job.location}`;
-    const url = `https://dutypeapp.web.app/jobs/${jobId}`;
-    const imageUrl = job.imageUrl || "https://dutypeapp.web.app/logo.png";
+    const url = `https://dutype-860ac.web.app/jobs/${jobId}`;
+    const imageUrl = job.imageUrl || "https://dutype-860ac.web.app/logo.png";
     // CRITICAL FIX: Use App Link (not Intent URL) for INSTANT opening
     // App Links are verified and open instantly without any dialog or webpage
-    const appLink = `https://dutypeapp.web.app/jobs/${jobId}`;
+    const appLink = `https://dutype-860ac.web.app/jobs/${jobId}`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -47,6 +47,27 @@ object DeepLinkHandler {
         try {
             navController.navigate(route) { launchSingleTop = true }
             Timber.i("🔗 DEEP LINK: ✅ $label navigation successful")
+        } catch (e: IllegalArgumentException) {
+            // Some links target nested worker routes that may not exist on the root NavController.
+            val fallbackRoute = when (route) {
+                Routes.WORKER_PROFILE,
+                Routes.WORKER_NOTIFICATIONS,
+                Routes.WORKER_ALL_JOBS,
+                Routes.WORKER_MY_JOBS -> Routes.WORKER_HOME
+                else -> null
+            }
+
+            if (fallbackRoute != null) {
+                runCatching {
+                    navController.navigate(fallbackRoute) { launchSingleTop = true }
+                }.onSuccess {
+                    Timber.w(e, "🔗 DEEP LINK: ⚠️ $label not found on current graph, fallback to $fallbackRoute")
+                }.onFailure { fallbackError ->
+                    Timber.e(fallbackError, "🔗 DEEP LINK: ❌ Failed fallback navigation for $label")
+                }
+            } else {
+                Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate ($label)")
+            }
         } catch (e: Exception) {
             Timber.e(e, "🔗 DEEP LINK: ❌ Failed to navigate ($label)")
         }
@@ -396,7 +417,7 @@ object DeepLinkHandler {
     }
     
     private fun navigateToWorkerProfile(navController: NavController) {
-        safeNavigate(navController, Routes.WORKER_PROFILE, "worker-profile")
+        safeNavigate(navController, Routes.WORKER_PROFILE_DETAILS, "worker-profile")
     }
     
     private fun navigateToWorkerProfileById(navController: NavController, workerId: String) {

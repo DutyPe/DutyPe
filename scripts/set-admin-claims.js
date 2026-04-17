@@ -44,7 +44,7 @@ async function main() {
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    projectId: serviceAccount.project_id || serviceAccount.projectId || 'dutypeapp'
+    projectId: serviceAccount.project_id || serviceAccount.projectId || 'dutype-860ac'
   });
 
   const auth = admin.auth();

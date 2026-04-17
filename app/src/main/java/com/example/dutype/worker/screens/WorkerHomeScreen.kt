@@ -119,9 +119,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-private val WorkerHomeHeaderTopColor = Color(0xFFFFF8E1)
-private val WorkerHomeHeaderMidColor = Color(0xFFFFF3CC)
-private val WorkerHomeHeaderBottomColor = Color(0xFFFFEDB3)
+private val WorkerHomeHeaderTopColor = Color(0xFFFFFFFF)
+private val WorkerHomeHeaderMidColor = Color(0xFFF8FAFC)
+private val WorkerHomeHeaderBottomColor = Color(0xFFEEF6FF)
 
 // NOTE: hasAppliedToJob function removed - Apply button removed from JobCard
 // Users now apply from JobDescriptionScreen only

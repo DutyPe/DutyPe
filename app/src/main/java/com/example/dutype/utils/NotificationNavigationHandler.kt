@@ -1,5 +1,8 @@
 package com.example.dutype.utils
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.navigation.NavController
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
@@ -17,6 +20,40 @@ import timber.log.Timber
  * Architecture inspired by: Uber, Swiggy, Zomato, Google apps
  */
 object NotificationNavigationHandler {
+
+    private const val PLAY_STORE_PACKAGE_ID = "com.dutype.app"
+    private const val PLAY_STORE_WEB_URL = "https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE_ID"
+
+    private fun isAppUpdateNotification(notification: Notification): Boolean {
+        return notification.type == NotificationType.SYSTEM_UPDATE &&
+            notification.actionData["preset"].equals("APP_UPDATE", ignoreCase = true)
+    }
+
+    private fun openPlayStore(navController: NavController): Boolean {
+        val context = navController.context
+
+        return try {
+            val marketIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("market://details?id=$PLAY_STORE_PACKAGE_ID")
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(marketIntent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            try {
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(PLAY_STORE_WEB_URL)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(webIntent)
+                true
+            } catch (e: Exception) {
+                Timber.e(e, "🔔 Failed to open Play Store for app update notification")
+                false
+            }
+        }
+    }
     
     /** Navigate to a job detail by extracting jobId from notification data, with fallback dialog. */
     private fun navigateToJobOrFallback(
@@ -259,7 +296,14 @@ object NotificationNavigationHandler {
             // System Updates & General
             NotificationType.SYSTEM_UPDATE,
             NotificationType.GENERAL -> {
-                showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "ℹ️")
+                if (isAppUpdateNotification(notification)) {
+                    onMarkAsRead(notification.id)
+                    if (!openPlayStore(navController)) {
+                        showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "ℹ️")
+                    }
+                } else {
+                    showInfoDialog(notification, onMarkAsRead, onShowDialog, icon = "ℹ️")
+                }
             }
             
             // ========================================

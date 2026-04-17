@@ -628,15 +628,7 @@ class ProfileCompletionService @Inject constructor(
             val now = Timestamp.now()
             val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
             val existingUserSnapshot = userRef.get().await()
-            if (!existingUserSnapshot.exists()) {
-                return Result.failure(IllegalStateException("Complete registration before profile setup"))
-            }
-
-            val existingUser = existingUserSnapshot.data.orEmpty()
-            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString()?.uppercase() }.orEmpty()
-            if (!existingRoles.contains("WORKER")) {
-                return Result.failure(IllegalStateException("Worker role is not enabled for this account"))
-            }
+            var existingUser = existingUserSnapshot.data.orEmpty()
 
             val fullName = (profileData["fullName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
@@ -658,6 +650,26 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Select at least one skill"))
             }
 
+            // OTP-login-first flows may reach profile setup before users/{uid} exists.
+            // Bootstrap a canonical user doc so profile writes never dead-end.
+            if (!existingUserSnapshot.exists()) {
+                FirestoreUtils.ensureMinimalUserDocument(
+                    userId = currentUser.uid,
+                    role = "WORKER",
+                    phoneNumber = phone,
+                    fullName = fullName
+                )
+                existingUser = userRef.get().await().data.orEmpty()
+            }
+
+            val existingRoles = (existingUser["roles"] as? List<*>)
+                ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
+                .orEmpty()
+            val mergedRoles = (existingRoles + "WORKER")
+                .filter { it == "WORKER" || it == "EMPLOYER" }
+                .distinct()
+                .ifEmpty { listOf("WORKER") }
+
             val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
             val existingWorker = workerRef.get().await().data.orEmpty()
             val validLocation = extractValidLocation(profileData, existingUser)
@@ -665,7 +677,7 @@ class ProfileCompletionService @Inject constructor(
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
-                "roles" to existingRoles,
+                "roles" to mergedRoles,
                 "activeRole" to "WORKER",
                 "lastActiveAt" to now
             )
@@ -719,15 +731,7 @@ class ProfileCompletionService @Inject constructor(
             val now = Timestamp.now()
             val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
             val existingUserSnapshot = userRef.get().await()
-            if (!existingUserSnapshot.exists()) {
-                return Result.failure(IllegalStateException("Complete registration before profile setup"))
-            }
-
-            val existingUser = existingUserSnapshot.data.orEmpty()
-            val existingRoles = (existingUser["roles"] as? List<*>)?.mapNotNull { it?.toString()?.uppercase() }.orEmpty()
-            if (!existingRoles.contains("EMPLOYER")) {
-                return Result.failure(IllegalStateException("Employer role is not enabled for this account"))
-            }
+            var existingUser = existingUserSnapshot.data.orEmpty()
 
             val fullName = (profileData["fullName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
@@ -749,13 +753,33 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Company name is required"))
             }
 
+            // OTP-login-first flows may reach profile setup before users/{uid} exists.
+            // Bootstrap a canonical user doc so profile writes never dead-end.
+            if (!existingUserSnapshot.exists()) {
+                FirestoreUtils.ensureMinimalUserDocument(
+                    userId = currentUser.uid,
+                    role = "EMPLOYER",
+                    phoneNumber = phone,
+                    fullName = fullName
+                )
+                existingUser = userRef.get().await().data.orEmpty()
+            }
+
+            val existingRoles = (existingUser["roles"] as? List<*>)
+                ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
+                .orEmpty()
+            val mergedRoles = (existingRoles + "EMPLOYER")
+                .filter { it == "WORKER" || it == "EMPLOYER" }
+                .distinct()
+                .ifEmpty { listOf("EMPLOYER") }
+
             val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
             val existingEmployer = employerRef.get().await().data.orEmpty()
 
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
-                "roles" to existingRoles,
+                "roles" to mergedRoles,
                 "activeRole" to "EMPLOYER",
                 "lastActiveAt" to now
             )

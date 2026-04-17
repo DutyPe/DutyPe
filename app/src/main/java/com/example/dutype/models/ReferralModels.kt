@@ -78,9 +78,18 @@ data class Referral(
                 } catch (e: Exception) {
                     ReferralStatus.PENDING
                 },
-                rewardAmount = (data["rewardAmount"] as? Number)?.toDouble() ?: 25.0,
-                bonusAmount = (data["bonusAmount"] as? Number)?.toDouble() ?: 0.0,
-                referredUserReward = (data["referredUserReward"] as? Number)?.toDouble() ?: 0.0,
+                rewardAmount =
+                    (data["rewardAmount"] as? Number)?.toDouble()
+                        ?: (data["reward"] as? Number)?.toDouble()
+                        ?: 25.0,
+                bonusAmount =
+                    (data["bonusAmount"] as? Number)?.toDouble()
+                        ?: (data["milestoneBonus"] as? Number)?.toDouble()
+                        ?: 0.0,
+                referredUserReward =
+                    (data["referredUserReward"] as? Number)?.toDouble()
+                        ?: (data["signupBonusAmount"] as? Number)?.toDouble()
+                        ?: 0.0,
                 createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
                 completedAt = data["completedAt"].toEpochMillis(),
                 deviceFingerprint = data["deviceFingerprint"] as? String,

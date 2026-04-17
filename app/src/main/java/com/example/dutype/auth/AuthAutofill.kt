@@ -95,6 +95,13 @@ fun OtpAutoFillEffect(
             return@DisposableEffect onDispose { }
         }
 
+        // Keep SMS Retriever active whenever OTP input is visible.
+        runCatching {
+            SmsRetrieverHelper.startSmsRetriever(applicationContext)
+        }.onFailure {
+            Timber.w(it, "Unable to restart SMS Retriever from OTP UI effect")
+        }
+
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action != SmsRetriever.SMS_RETRIEVED_ACTION) return

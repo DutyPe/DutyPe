@@ -437,27 +437,6 @@ fun ManualLocationScreen(navController: NavController) {
                     }
                 }
                 
-                // Azure Maps info when not configured
-                if (!LocationSearchConfig.isAzureMapsEnabled() && searchText.isEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Location Search",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Using basic search. For better results, configure Azure Maps API key.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF795548))
-                            )
-                        }
-                    }
-                }
             }
         }
     }

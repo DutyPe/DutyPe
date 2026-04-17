@@ -1,5 +1,6 @@
 package com.example.dutype.services.firestore
 
+import com.example.dutype.firestore.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FieldPath
@@ -28,7 +29,7 @@ class ApplicationFirestoreService @Inject constructor(
 ) {
     
     companion object {
-        const val JOBS_COLLECTION = "jobs"
+        const val JOBS_COLLECTION = FirestoreCollections.JOBS
         const val APPLICATIONS_COLLECTION = "applications"
         const val SAVED_JOBS_COLLECTION = "saved_jobs"
     }

@@ -3,7 +3,7 @@ const admin = require('firebase-admin');
 
 // Initialize with project ID only
 admin.initializeApp({
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const db = admin.firestore();
@@ -81,7 +81,7 @@ async function checkReferralCode() {
     console.log('   4. Check Refer & Earn screen - earnings should increase');
     
     console.log('\n🌐 To check in admin panel:');
-    console.log('   Go to: https://dutypeapp.web.app/admin/referrals.html');
+    console.log('   Go to: https://dutype-860ac.web.app/admin/referrals.html');
     console.log('   You should see all referrals for code: ' + referralCode);
     
   } catch (error) {

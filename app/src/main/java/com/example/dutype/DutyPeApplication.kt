@@ -10,6 +10,7 @@ import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.ads.AdManager
 import com.example.dutype.services.NotificationChannelManager
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.crashlytics.crashlytics
@@ -43,6 +44,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
     // Access via: appMetadata.featureFlags.value
     
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var appCheckDebugHintLogged = false
     
     override fun attachBaseContext(base: Context) {
         // Apply saved language preference before super.attachBaseContext
@@ -59,15 +61,17 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Firebase-dependent singletons (FirebaseFirestore, FirebaseAuth, etc.)
         // Previously this was async causing race conditions with Hilt DI
         Firebase.initialize(this@DutyPeApplication)
+
+        // Diagnostic log to verify the runtime app is bound to the intended Firebase project.
+        logFirebaseBinding()
+
+        // CRITICAL: App Check must be installed BEFORE any Firestore/Auth/Functions calls.
+        // Async initialization can race with early app reads and cause PERMISSION_DENIED.
+        initializeAppCheck()
         
         // PERFORMANCE: Defer notification channels to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
-        }
-        
-        // PERFORMANCE: Initialize App Check asynchronously (not needed immediately)
-        applicationScope.launch(Dispatchers.IO) {
-            initializeAppCheck()
         }
         
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling
@@ -307,23 +311,101 @@ class DutyPeApplication : Application(), Configuration.Provider {
                     val getInstance = debugProviderClass.getMethod("getInstance")
                     val debugProvider = getInstance.invoke(null)
                     firebaseAppCheck.installAppCheckProviderFactory(debugProvider as com.google.firebase.appcheck.AppCheckProviderFactory)
-                    Timber.d("✅ Firebase App Check initialized (DEBUG mode)")
+                    Timber.i("✅ Firebase App Check initialized (DEBUG provider)")
+                    logAppCheckDebugSecretIfPresent()
+                    firebaseAppCheck.getAppCheckToken(false)
+                        .addOnSuccessListener {
+                            Timber.i("✅ App Check token acquired (debug) - expiresAt=%d", it.expireTimeMillis)
+                            logAppCheckDebugSecretIfPresent()
+                        }
+                        .addOnFailureListener { tokenError ->
+                            val errorMessage = tokenError.message.orEmpty()
+                            val isDebugRegistrationIssue =
+                                errorMessage.contains("App attestation failed", ignoreCase = true) ||
+                                errorMessage.contains("code: 403", ignoreCase = true)
+
+                            if (isDebugRegistrationIssue) {
+                                if (!appCheckDebugHintLogged) {
+                                    appCheckDebugHintLogged = true
+                                    val projectId = runCatching {
+                                        FirebaseApp.getInstance().options.projectId
+                                    }.getOrDefault("unknown-project")
+                                    Timber.w(
+                                        "⚠️ DEBUG App Check rejected (project=%s). Add the debug secret from logcat to Firebase Console > Build > App Check > Android app > Manage debug tokens.",
+                                        projectId
+                                    )
+                                }
+                                logAppCheckDebugSecretIfPresent()
+                            } else {
+                                Timber.e(tokenError, "❌ App Check token fetch failed in DEBUG")
+                                logAppCheckDebugSecretIfPresent()
+                            }
+                        }
                 } catch (e: Exception) {
-                    // Debug provider not available - this is fine for local testing
-                    // OTP will still work, just without App Check protection
-                    Timber.d("ℹ️ App Check debug provider not available - OTP will work without it")
+                    // Fallback to Play Integrity if debug provider class is unavailable.
+                    // This may fail on sideloaded/debug builds, but gives a deterministic state.
+                    firebaseAppCheck.installAppCheckProviderFactory(
+                        PlayIntegrityAppCheckProviderFactory.getInstance()
+                    )
+                    Timber.e(e, "❌ Debug App Check provider unavailable; fell back to Play Integrity")
                 }
             } else {
                 // Use Play Integrity for production builds
                 firebaseAppCheck.installAppCheckProviderFactory(
                     PlayIntegrityAppCheckProviderFactory.getInstance()
                 )
-                Timber.d("✅ Firebase App Check initialized (Play Integrity)")
+                Timber.i("✅ Firebase App Check initialized (Play Integrity)")
+                firebaseAppCheck.getAppCheckToken(false)
+                    .addOnSuccessListener {
+                        Timber.i("✅ App Check token acquired (release) - expiresAt=%d", it.expireTimeMillis)
+                    }
+                    .addOnFailureListener { tokenError ->
+                        Timber.e(tokenError, "❌ App Check token fetch failed in release")
+                    }
             }
         } catch (e: Exception) {
             // App Check initialization failed - this is non-fatal
             // OTP authentication will still work in most cases
             Timber.w("ℹ️ App Check init skipped: ${e.message}")
+        }
+    }
+
+    private fun logAppCheckDebugSecretIfPresent() {
+        if (!BuildConfig.DEBUG) return
+
+        runCatching {
+            val storeName = "com.google.firebase.appcheck.debug.store"
+            val keyName = "com.google.firebase.appcheck.debug.DEBUG_SECRET"
+            val prefs = getSharedPreferences(storeName, MODE_PRIVATE)
+            val uuidPattern = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+            val secret = prefs.getString(keyName, null)
+                ?: prefs.all.values
+                    .filterIsInstance<String>()
+                    .firstOrNull { candidate -> uuidPattern.matches(candidate) }
+
+            if (!secret.isNullOrBlank()) {
+                Timber.w("🔐 Firebase App Check debug secret (add in console): %s", secret)
+            } else {
+                Timber.i("ℹ️ App Check debug secret not generated yet. Check Logcat tag DebugAppCheckProvider after token request.")
+            }
+        }.onFailure { e ->
+            Timber.w(e, "⚠️ Unable to read App Check debug secret from local store")
+        }
+    }
+
+    private fun logFirebaseBinding() {
+        try {
+            val app = FirebaseApp.getInstance()
+            val options = app.options
+            Timber.i(
+                "🔥 Firebase binding: projectId=%s appId=%s senderId=%s apiKey=%s",
+                options.projectId,
+                options.applicationId,
+                options.gcmSenderId,
+                options.apiKey.take(10) + "..."
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "❌ Unable to log Firebase runtime binding")
         }
     }
     

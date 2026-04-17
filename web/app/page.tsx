@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AppLaunchCard } from "@/components/public/app-launch-card";
+import { HeroSignalDeck } from "@/components/public/hero-signal-deck";
+import { HomeImmersiveLayer } from "@/components/public/home-immersive-layer";
+import { HomeInteractiveSuite } from "@/components/public/home-interactive-suite";
+import { WorkCaseDeck } from "@/components/public/work-case-deck";
 import { SiteShell } from "@/components/site-shell";
 import {
   PLAY_STORE_URL,
@@ -129,6 +133,12 @@ const allCities = [
   "Nizamabad", "Rajahmundry", "Khammam"
 ];
 
+const interactiveCategoryTargets = allCategories.map(({ href, label }) => ({ href, label }));
+const interactiveCityTargets = allCities.map((city) => ({
+  href: `/jobs-in-${city.toLowerCase()}`,
+  label: `Jobs in ${city}`
+}));
+
 export const metadata: Metadata = {
   title: "DutyPe — Jobs Near Me | Local Hiring App for Workers & Employers in India",
   description:
@@ -226,6 +236,9 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
 
+      <div className="home-interactive-experience">
+        <HomeImmersiveLayer />
+
       <section className="hero hero-home">
         <div className="hero-grid hero-home-grid">
           <div className="hero-copy">
@@ -278,19 +291,18 @@ export default function HomePage() {
 
           <div className="hero-rail">
             <div className="orb-stage">
-              <div className="signal-stack">
-                {heroSignals.map((signal) => (
-                  <article key={signal.title} className="signal-card">
-                    <span className="signal-label">{signal.label}</span>
-                    <strong>{signal.title}</strong>
-                    <p>{signal.copy}</p>
-                  </article>
-                ))}
-              </div>
+              <HeroSignalDeck signals={heroSignals} />
             </div>
           </div>
         </div>
       </section>
+
+      <WorkCaseDeck />
+
+      <HomeInteractiveSuite
+        categories={interactiveCategoryTargets}
+        cities={interactiveCityTargets}
+      />
 
       <section className="section">
         <div className="section-header">
@@ -528,6 +540,7 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+      </div>
     </SiteShell>
   );
 }

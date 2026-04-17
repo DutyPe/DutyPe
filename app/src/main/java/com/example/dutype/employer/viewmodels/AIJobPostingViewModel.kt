@@ -2,6 +2,7 @@ package com.example.dutype.employer.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.repositories.AIBackendRepository
 import com.example.dutype.services.ai.*
 import com.example.dutype.utils.GeoUtils
@@ -79,10 +80,10 @@ class AIJobPostingViewModel @Inject constructor(
     companion object {
         private const val TAG = "AIJobPosting"
         private const val DEBOUNCE_MS = 500L
-        private const val COLLECTION_USERS = "users"
-        private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
-        private const val COLLECTION_JOBS = "jobs"
-        private const val COLLECTION_JOB_DETAILS = "job_details"
+        private const val COLLECTION_USERS = FirestoreCollections.USERS
+        private const val COLLECTION_EMPLOYER_PROFILES = FirestoreCollections.EMPLOYER_PROFILES
+        private const val COLLECTION_JOBS = FirestoreCollections.JOBS
+        private const val COLLECTION_JOB_DETAILS = FirestoreCollections.JOB_DETAILS
     }
     
     private val _uiState = MutableStateFlow(AIJobPostingUiState())
@@ -377,7 +378,6 @@ class AIJobPostingViewModel @Inject constructor(
             val userDoc = firestore.collection(COLLECTION_USERS).document(employerId).get().await()
             val employerDoc = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(employerId).get().await()
             val companyName = employerDoc.getString("companyName")?.trim().orEmpty()
-            val isVerified = employerDoc.getBoolean("isVerified") ?: false
             val contactNumber = userDoc.getString("phone")?.trim().orEmpty()
             val coordinates = parseCoordinates(state.location)
                 ?: parseLocationMap(userDoc.get("location") as? Map<*, *>)
@@ -411,6 +411,9 @@ class AIJobPostingViewModel @Inject constructor(
                 java.util.Date(createdAtMillis + (15L * 24 * 60 * 60 * 1000L))
             )
             val geohash = GeoUtils.encodeGeohash(coordinates.first, coordinates.second)
+            val resolvedJobType = state.category.ifBlank {
+                com.example.dutype.utils.CategoryDetector.detectCategory(state.title, state.description)
+            }.ifBlank { "OTHER" }
 
             val cityFromAddress = state.location.trim().split(',')
                 .map { it.trim() }
@@ -427,15 +430,12 @@ class AIJobPostingViewModel @Inject constructor(
             val jobData = hashMapOf<String, Any>(
                 "employerId" to employerId,
                 "companyName" to companyName,
-                "isVerified" to isVerified,
                 "title" to state.title.trim(),
+                "jobType" to resolvedJobType,
                 "salary" to salary,
                 "salaryType" to state.payType.trim().uppercase().ifBlank { "DAILY" },
+                "addressText" to state.location.trim(),
                 "urgency" to "MEDIUM",
-                "gender" to "Any",
-                "experienceRequired" to "No Experience Required",
-                "shiftTiming" to "Flexible",
-                "applicationCount" to 0,
                 "location" to mapOf("lat" to coordinates.first, "lng" to coordinates.second),
                 "geohash" to geohash,
                 "companyCity" to cityFromAddress,
@@ -449,7 +449,7 @@ class AIJobPostingViewModel @Inject constructor(
                 "contactNumber" to contactNumber,
                 "whatsappNumber" to "",
                 "addressText" to state.location.trim(),
-                "jobType" to state.category.ifBlank { "OTHER" },
+                "jobType" to resolvedJobType,
                 "vacancies" to (state.vacancies.toIntOrNull() ?: 1),
                 "workingHours" to "",
                 "educationRequired" to "",

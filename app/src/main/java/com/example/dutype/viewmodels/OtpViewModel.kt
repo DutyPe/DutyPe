@@ -3,6 +3,7 @@ package com.example.dutype.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dutype.app.BuildConfig
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
@@ -245,6 +246,8 @@ class OtpViewModel @Inject constructor(
                     )
                     return@launch
                 }
+
+                configureDebugRecaptchaFallback()
                 
                 val options = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
@@ -285,11 +288,20 @@ class OtpViewModel @Inject constructor(
                                     Timber.w("ðŸ’¡ Wait 24-48 hours after upload for Play Store to recognize your app")
                                     errorHandler.logEvent("app_not_recognized_by_play_store", true)
                                 }
+
+                                if (isBillingNotEnabledError(e.message)) {
+                                    errorHandler.logEvent("otp_billing_not_enabled", true)
+                                    errorHandler.logBreadcrumb("OTP blocked: Firebase phone auth billing not enabled")
+                                }
                                 
                                 _otpState.value = _otpState.value.copy(
                                     isLoading = false,
                                     error = mapPhoneAuthError(e),
-                                    message = "SMS verification encountered an issue. You can still manually enter the OTP sent to your phone."
+                                    message = if (isBillingNotEnabledError(e.message)) {
+                                        "Admin action required: enable billing on Firebase project 'dutype-860ac' to send OTP."
+                                    } else {
+                                        "SMS verification encountered an issue. Please retry in a moment."
+                                    }
                                 )
                             }
 
@@ -332,7 +344,11 @@ class OtpViewModel @Inject constructor(
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
                     error = mapPhoneAuthError(e),
-                    message = "SMS verification is temporarily unavailable. Please enter OTP manually when received."
+                    message = if (isBillingNotEnabledError(e.message)) {
+                        "Admin action required: enable billing on Firebase project 'dutype-860ac' to send OTP."
+                    } else {
+                        "SMS verification is temporarily unavailable. Please retry."
+                    }
                 )
             }
         }
@@ -430,27 +446,30 @@ class OtpViewModel @Inject constructor(
                     Timber.i("âœ… User authenticated successfully: $userId")
                     errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
                     errorHandler.setUserInfo(userId, phoneNumber)
-                    
-                    // ðŸ”” Register FCM token for push notifications with role-based topics
-                    viewModelScope.launch {
-                        try {
-                            // Use role from existing profile, or fall back to pendingRole from LoginBottomSheet
-                            val userRole = if (existingProfileData?.get("activeRole") != null) {
-                                user.activeRole.name
-                            } else {
-                                pendingRole.name
-                            }
-                            fcmTokenManager.registerTokenWithRole(userRole)
-                            Timber.i("âœ… FCM token registered with role for user: $userId, role: $userRole")
-                        } catch (e: Exception) {
-                            Timber.w(e, "âš ï¸ Failed to register FCM token with role, trying basic registration")
+
+                    if (hasExistingProfile) {
+                        // Existing account: users/{uid} already exists, safe to register token now.
+                        viewModelScope.launch {
                             try {
-                                fcmTokenManager.registerToken()
-                                Timber.i("âœ… FCM token registered (basic) for user: $userId")
-                            } catch (e2: Exception) {
-                                Timber.w(e2, "âš ï¸ Failed to register FCM token")
+                                val userRole = if (existingProfileData?.get("activeRole") != null) {
+                                    user.activeRole.name
+                                } else {
+                                    pendingRole.name
+                                }
+                                fcmTokenManager.registerTokenWithRole(userRole)
+                                Timber.i("âœ… FCM token registered with role for user: $userId, role: $userRole")
+                            } catch (e: Exception) {
+                                Timber.w(e, "âš ï¸ Failed to register FCM token with role, trying basic registration")
+                                try {
+                                    fcmTokenManager.registerToken()
+                                    Timber.i("âœ… FCM token registered (basic) for user: $userId")
+                                } catch (e2: Exception) {
+                                    Timber.w(e2, "âš ï¸ Failed to register FCM token")
+                                }
                             }
                         }
+                    } else {
+                        Timber.i("OtpViewModel - New user detected, deferring FCM registration until completeRegistration")
                     }
                     
                     // ðŸ“± IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
@@ -645,6 +664,8 @@ class OtpViewModel @Inject constructor(
                     )
                     return@launch
                 }
+
+                configureDebugRecaptchaFallback()
                 
                 val optionsBuilder = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
@@ -663,10 +684,20 @@ class OtpViewModel @Inject constructor(
                             Timber.e("âŒ OTP resend verification failed: ${e.message}")
                             errorHandler.logBreadcrumb("OTP resend verification failed: ${e::class.simpleName}")
                             errorHandler.logEvent("otp_resend_failed", e.message ?: "unknown")
+
+                            if (isBillingNotEnabledError(e.message)) {
+                                errorHandler.logEvent("otp_billing_not_enabled", true)
+                                errorHandler.logBreadcrumb("OTP resend blocked: Firebase phone auth billing not enabled")
+                            }
+
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
                                 error = mapPhoneAuthError(e),
-                                message = "SMS verification encountered an issue. You can still manually enter the OTP sent to your phone."
+                                message = if (isBillingNotEnabledError(e.message)) {
+                                    "Admin action required: enable billing on Firebase project 'dutype-860ac' to resend OTP."
+                                } else {
+                                    "SMS verification encountered an issue. Please retry in a moment."
+                                }
                             )
                         }
 
@@ -708,10 +739,37 @@ class OtpViewModel @Inject constructor(
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = mapPhoneAuthError(e),
-                        message = "SMS verification is temporarily unavailable. Please enter OTP manually when received."
+                        message = if (isBillingNotEnabledError(e.message)) {
+                            "Admin action required: enable billing on Firebase project 'dutype-860ac' to resend OTP."
+                        } else {
+                            "SMS verification is temporarily unavailable. Please retry."
+                        }
                     )
             }
         }
+    }
+
+    /**
+     * Force classic reCAPTCHA v2 flow in debug builds to avoid Play Integrity-only issues
+     * on local testing devices. Reflection keeps compatibility across Auth SDK versions.
+     */
+    private fun configureDebugRecaptchaFallback() {
+        if (!BuildConfig.DEBUG) return
+
+        runCatching {
+            val settings = auth.firebaseAuthSettings
+            val method = settings.javaClass.getMethod("forceRecaptchaFlowForTesting", Boolean::class.javaPrimitiveType)
+            method.invoke(settings, true)
+            Timber.d("OTP DEBUG: forceRecaptchaFlowForTesting enabled")
+        }.onFailure { e ->
+            Timber.d("OTP DEBUG: forceRecaptchaFlowForTesting not available: ${e.message}")
+        }
+    }
+
+    private fun isBillingNotEnabledError(message: String?): Boolean {
+        val safeMessage = message ?: return false
+        return safeMessage.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
+            safeMessage.contains("17499", ignoreCase = true)
     }
     
     /**
@@ -769,8 +827,9 @@ class OtpViewModel @Inject constructor(
                 msg.contains("Play Integrity", ignoreCase = true) ->
                     "SMS verification temporarily unavailable. Please enter OTP manually."
                     
-                msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ->
-                    "Phone authentication is disabled for this Firebase project."
+                msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
+                msg.contains("17499", ignoreCase = true) ->
+                    "Phone verification failed due to Firebase billing configuration. Enable billing on project 'dutype-860ac' and try again."
                     
                 msg.contains("quota", ignoreCase = true) ->
                     "SMS quota exceeded. Please try again later."

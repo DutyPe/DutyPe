@@ -4,9 +4,9 @@ const path = require('path');
 
 const keyCandidates = [
   path.join(__dirname, 'serviceAccountKey.json'),
-  path.join(__dirname, 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'),
+  path.join(__dirname, 'dutype-860ac-firebase-adminsdk.json'),
   path.join(__dirname, '..', 'serviceAccountKey.json'),
-  path.join(__dirname, '..', 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json')
+  path.join(__dirname, '..', 'dutype-860ac-firebase-adminsdk.json')
 ];
 
 const keyPath = keyCandidates.find((p) => fs.existsSync(p));
@@ -17,7 +17,7 @@ if (!keyPath) {
 
 admin.initializeApp({
   credential: admin.credential.cert(require(keyPath)),
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const db = admin.firestore();

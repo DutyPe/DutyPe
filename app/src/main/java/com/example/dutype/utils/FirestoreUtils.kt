@@ -1,9 +1,9 @@
 package com.example.dutype.utils
 
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -86,7 +86,8 @@ object FirestoreUtils {
             strictUserDoc["geohash"] = GeoUtils.encodeGeohash(lat, lng)
         }
 
-        userRef.set(strictUserDoc, SetOptions.merge()).await()
+        // Replace with canonical schema to remove legacy keys that violate strict Firestore rules.
+        userRef.set(strictUserDoc).await()
     }
 
     /**
@@ -121,6 +122,11 @@ object FirestoreUtils {
         val callableResult = checkPhoneExistenceViaCallable(phoneNumber)
         if (callableResult != PhoneExistenceResult.UNKNOWN) {
             return callableResult
+        }
+
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            Timber.d("Phone existence fallback skipped for guest user (users query requires auth)")
+            return PhoneExistenceResult.UNKNOWN
         }
 
         return try {

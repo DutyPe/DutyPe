@@ -29,6 +29,7 @@ class WorkerNotificationViewModel @Inject constructor(
                 NotificationType.PROFILE_COMPLETE,
                 NotificationType.WORKER_HIRED,
                 NotificationType.WELCOME,
+                NotificationType.SYSTEM_UPDATE,
                 NotificationType.GENERAL -> true
                 else -> false
             }

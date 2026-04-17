@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.VerificationStatus
 import com.example.dutype.models.WorkVerification
 import com.example.dutype.models.ApplicationStatus
@@ -30,7 +31,7 @@ class WorkVerificationService @Inject constructor(
         // OPTIMIZED: Verification data now stored in applications collection as nested field
         // No separate work_verifications collection needed - reduces collections from 39 to 8
         private const val COLLECTION_APPLICATIONS = "applications"
-        private const val COLLECTION_JOBS = "jobs"
+        private const val COLLECTION_JOBS = FirestoreCollections.JOBS
     }
     
     /**

@@ -38,10 +38,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
+import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ReferralViewModel
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -53,6 +55,7 @@ fun EmployerReferEarnScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +63,8 @@ fun EmployerReferEarnScreen(
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
+    var isCheckingProfileStatus by remember { mutableStateOf(true) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
     // Removed: showQRCode state
     
     val context = LocalContext.current
@@ -67,7 +72,24 @@ fun EmployerReferEarnScreen(
 
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        viewModel.loadReferralData()
+
+        val localProfileComplete = runCatching {
+            profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
+        }.getOrDefault(false)
+
+        val remoteProfileComplete = FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+            profileCompletionViewModel
+                .isProfileComplete(uid, UserRole.EMPLOYER)
+                .getOrElse { false }
+        } ?: false
+
+        isProfileCompleted = localProfileComplete || remoteProfileComplete
+        isCheckingProfileStatus = false
+
+        if (isProfileCompleted) {
+            viewModel.loadReferralData()
+        }
+
         delay(100)
         isVisible = true
     }
@@ -95,12 +117,12 @@ fun EmployerReferEarnScreen(
         )
         
         when {
-            uiState.isLoading -> {
+            isCheckingProfileStatus || (isProfileCompleted && uiState.isLoading) -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFF1F2937), strokeWidth = 3.dp)
                 }
             }
-            uiState.error != null -> {
+            isProfileCompleted && uiState.error != null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Error, null, tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
@@ -111,8 +133,7 @@ fun EmployerReferEarnScreen(
                     }
                 }
             }
-            // Check if referral code exists - if not, show "Complete Profile" message
-            uiState.stats?.referralCode.isNullOrEmpty() -> {
+            !isProfileCompleted -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -124,7 +145,7 @@ fun EmployerReferEarnScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
@@ -322,7 +343,8 @@ Find reliable workers for your business and earn Rs.25 bonus!
             Card(
                 modifier = Modifier.padding(16.dp).padding(bottom = 32.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -368,8 +390,9 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-        elevation = CardDefaults.cardElevation(4.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -385,7 +408,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(tierName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = tierColor))
-                Text("$successfulReferrals successful referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)))
+                Text("$successfulReferrals successful referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
         }
     }
@@ -404,7 +427,7 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
         }
     }
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier = Modifier.size(48.dp).background(Color(0xFFFEF3C7), CircleShape),
@@ -450,7 +473,7 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, totalEarnings: Double, availableBalance: Double) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("Your Stats", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
@@ -521,7 +544,7 @@ private fun FreeJobPostingsCard(freePostings: Int, expiryDate: Long) {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Available to Withdraw", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
@@ -540,7 +563,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
     val bonus = ReferralRewards.getMilestoneBonus(nextMilestone)
     val freePostings = ReferralRewards.getEmployerFreePostings(nextMilestone)
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Text("Next Milestone", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(12.dp))
@@ -568,7 +591,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
 
 @Composable
 private fun EmployerHowItWorksCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("How It Works", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
@@ -597,7 +620,7 @@ private fun EmployerHowItWorksCard() {
 
 @Composable
 private fun EmployerRewardsCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("Rewards & Milestones", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
@@ -629,7 +652,7 @@ private fun EmployerRewardsCard() {
 
 @Composable
 private fun EmployerRedemptionInstructionsCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("How to Redeem", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
@@ -676,7 +699,7 @@ private fun EmployerRedemptionInstructionsCard() {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text("Recent Referrals", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
@@ -826,7 +849,7 @@ data class EmployerReferralItem(
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))

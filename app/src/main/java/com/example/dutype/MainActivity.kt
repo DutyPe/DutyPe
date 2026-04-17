@@ -266,46 +266,7 @@ class MainActivity : ComponentActivity() {
                     
                     Box(modifier = Modifier.fillMaxSize()) {
                         Timber.d("🚀 Initializing MainNavGraph")
-                        
-                        // MODERN 2024-2026 APPROACH: Use navController.handleDeepLink()
-                        // This is the OFFICIAL Jetpack Compose Navigation method
-                        // Used by Google, LinkedIn, Instagram, and all modern apps
-                        LaunchedEffect(navController) {
-                            // Small delay to ensure NavController and navigation graph are fully initialized
-                            kotlinx.coroutines.delay(50)
-                            
-                            val deepLinkIntent = intent
-                            if (deepLinkIntent?.data != null) {
-                                Timber.i("🔗 DEEP LINK: Handling deep link from onCreate")
-                                Timber.d("🔗 DEEP LINK: URI = ${deepLinkIntent.data}")
-                                Timber.d("🔗 DEEP LINK: Action = ${deepLinkIntent.action}")
-                                
-                                try {
-                                    // OFFICIAL METHOD: navController.handleDeepLink()
-                                    // This is the recommended way in Jetpack Compose Navigation 2024+
-                                    val handled = navController.handleDeepLink(deepLinkIntent)
-                                    if (handled) {
-                                        Timber.i("🔗 DEEP LINK: ✅ Successfully handled by NavController")
-                                    } else {
-                                        Timber.w("🔗 DEEP LINK: ⚠️ NavController couldn't handle, trying manual")
-                                        // Fallback to manual handling
-                                        com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
-                                            deepLinkIntent,
-                                            navController
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e(e, "🔗 DEEP LINK: ❌ Error, trying manual handling")
-                                    // Fallback to manual handling
-                                    com.example.dutype.utils.DeepLinkHandler.handleDeepLink(
-                                        deepLinkIntent,
-                                        navController
-                                    )
-                                }
-                            } else {
-                                Timber.d("🔗 DEEP LINK: No deep link in intent")
-                            }
-                        }
+                        Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
                         
                         MainNavGraph(
                             navController = navController,
@@ -375,9 +336,8 @@ class MainActivity : ComponentActivity() {
             Timber.d("🔗 DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
         }
         
-        // CRITICAL FIX: Recreate the activity to trigger LaunchedEffect with new intent
-        // This is the INDUSTRY STANDARD approach (LinkedIn, Instagram, Uber)
-        // It ensures the deep link is handled properly even when app is already running
+        // Dispatch deep links to the active navigation graph without recreating the activity.
+        // This avoids a full UI rebuild while still handling notification taps reliably.
         val deepLinkUri = newIntent.data
         if (deepLinkUri != null) {
             Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
@@ -386,6 +346,7 @@ class MainActivity : ComponentActivity() {
             // P1 FIX: Use LocalBroadcast instead of recreate() to avoid full activity rebuild
             // MainNavGraph already has a broadcast receiver registered for this
             val broadcastIntent = android.content.Intent("com.example.dutype.DEEP_LINK").apply {
+                data = deepLinkUri
                 putExtra("deep_link_uri", deepLinkUri.toString())
             }
             androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)

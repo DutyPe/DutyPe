@@ -38,10 +38,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
+import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
@@ -53,6 +55,7 @@ fun WorkerReferEarnScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
+    val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
     val reviewTriggerService = reviewTriggerServiceHolder.service
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +63,8 @@ fun WorkerReferEarnScreen(
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
+    var isCheckingProfileStatus by remember { mutableStateOf(true) }
+    var isProfileCompleted by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
@@ -67,7 +72,24 @@ fun WorkerReferEarnScreen(
     // Load data on screen launch
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
-        viewModel.loadReferralData()
+
+        val localProfileComplete = runCatching {
+            profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
+        }.getOrDefault(false)
+
+        val remoteProfileComplete = FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+            profileCompletionViewModel
+                .isProfileComplete(uid, UserRole.WORKER)
+                .getOrElse { false }
+        } ?: false
+
+        isProfileCompleted = localProfileComplete || remoteProfileComplete
+        isCheckingProfileStatus = false
+
+        if (isProfileCompleted) {
+            viewModel.loadReferralData()
+        }
+
         delay(100)
         isVisible = true
     }
@@ -93,7 +115,7 @@ fun WorkerReferEarnScreen(
         )
         
         when {
-            uiState.isLoading -> {
+            isCheckingProfileStatus || (isProfileCompleted && uiState.isLoading) -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -101,7 +123,7 @@ fun WorkerReferEarnScreen(
                     CircularProgressIndicator(color = Color(0xFF1F2937), strokeWidth = 3.dp)
                 }
             }
-            uiState.error != null -> {
+            isProfileCompleted && uiState.error != null -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -125,8 +147,7 @@ fun WorkerReferEarnScreen(
                     }
                 }
             }
-            // Check if referral code exists - if not, show "Complete Profile" message
-            uiState.stats?.referralCode.isNullOrEmpty() -> {
+            !isProfileCompleted -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -138,7 +159,7 @@ fun WorkerReferEarnScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
@@ -346,7 +367,8 @@ Find local jobs near you and earn Rs.25 bonus!
                     .padding(16.dp)
                     .padding(bottom = 32.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -409,8 +431,9 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
-        elevation = CardDefaults.cardElevation(4.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Row(
             modifier = Modifier
@@ -441,7 +464,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
                 Text(
                     text = "$successfulReferrals successful referrals",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF9CA3AF)
+                        color = Color(0xFF6B7280)
                     )
                 )
             }
@@ -466,7 +489,7 @@ private fun ReferralCodeSection(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier

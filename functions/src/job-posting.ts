@@ -51,7 +51,7 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
 
     try {
         // Check if job with this idempotency key already exists
-        const existingJobsSnapshot = await db.collection('jobs')
+        const existingJobsSnapshot = await db.collection('jobmetadata')
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
             .get();
@@ -76,7 +76,7 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
         }
 
         // Create new job with idempotency key
-        const jobRef = await db.collection('jobs').add({
+        const jobRef = await db.collection('jobmetadata').add({
             ...jobData,
             idempotencyKey,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -125,7 +125,7 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
         const results: { [key: string]: any } = {};
 
         for (const jobId of jobIds) {
-            const jobDoc = await db.collection('jobs').doc(jobId).get();
+            const jobDoc = await db.collection('jobmetadata').doc(jobId).get();
             if (!jobDoc.exists) {
                 results[jobId] = { error: 'Job not found' };
                 continue;

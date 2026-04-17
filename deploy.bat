@@ -28,17 +28,17 @@ powershell -NoProfile -Command ^
    $bt = @{ client_id=$cred.client_id; client_secret=$cred.client_secret; refresh_token=$cred.refresh_token; grant_type='refresh_token' }; ^
    $tok = (Invoke-RestMethod 'https://oauth2.googleapis.com/token' -Method POST -Body $bt).access_token; ^
    $h = @{ Authorization=\"Bearer $tok\"; 'Content-Type'='application/json' }; ^
-   $raw = (Invoke-WebRequest 'https://run.googleapis.com/v2/projects/dutypeapp/locations/us-central1/services/ssrdutypeapp' -Headers $h -UseBasicParsing).Content; ^
+   $raw = (Invoke-WebRequest 'https://run.googleapis.com/v2/projects/dutype-860ac/locations/us-central1/services/ssrdutypeapp' -Headers $h -UseBasicParsing).Content; ^
    $svc = $raw | ConvertFrom-Json; ^
    $svc.template.revision = $null; ^
    $adminNames = @('FIREBASE_ADMIN_PROJECT_ID','FIREBASE_ADMIN_CLIENT_EMAIL','FIREBASE_ADMIN_PRIVATE_KEY'); ^
    $existing = @($svc.template.containers[0].env | Where-Object { $adminNames -notcontains $_.name }); ^
-   $svc.template.containers[0].env = $existing + @([PSCustomObject]@{name='FIREBASE_ADMIN_PROJECT_ID';value='dutypeapp'},[PSCustomObject]@{name='FIREBASE_ADMIN_CLIENT_EMAIL';value='firebase-adminsdk-fbsvc@dutypeapp.iam.gserviceaccount.com'},[PSCustomObject]@{name='FIREBASE_ADMIN_PRIVATE_KEY';value=$pk}); ^
+   $svc.template.containers[0].env = $existing + @([PSCustomObject]@{name='FIREBASE_ADMIN_PROJECT_ID';value='dutype-860ac'},[PSCustomObject]@{name='FIREBASE_ADMIN_CLIENT_EMAIL';value='firebase-adminsdk-fbsvc@dutype-860ac.iam.gserviceaccount.com'},[PSCustomObject]@{name='FIREBASE_ADMIN_PRIVATE_KEY';value=$pk}); ^
    $body = $svc | ConvertTo-Json -Depth 30 -Compress; ^
-   $result = Invoke-RestMethod 'https://run.googleapis.com/v2/projects/dutypeapp/locations/us-central1/services/ssrdutypeapp' -Headers $h -Method PATCH -Body $body -UseBasicParsing; ^
+   $result = Invoke-RestMethod 'https://run.googleapis.com/v2/projects/dutype-860ac/locations/us-central1/services/ssrdutypeapp' -Headers $h -Method PATCH -Body $body -UseBasicParsing; ^
    Write-Host 'Admin SDK env vars set. Waiting for rollout...'; ^
    Start-Sleep -Seconds 30; ^
-   $s = Invoke-RestMethod 'https://run.googleapis.com/v2/projects/dutypeapp/locations/us-central1/services/ssrdutypeapp' -Headers $h -UseBasicParsing; ^
+   $s = Invoke-RestMethod 'https://run.googleapis.com/v2/projects/dutype-860ac/locations/us-central1/services/ssrdutypeapp' -Headers $h -UseBasicParsing; ^
    Write-Host \"Ready revision: $($s.latestReadyRevision.Split('/')[-1])\""
 
 echo.
@@ -49,7 +49,7 @@ powershell -NoProfile -Command ^
    $token = (Invoke-RestMethod -Uri 'https://oauth2.googleapis.com/token' -Method POST -Body $body).access_token; ^
    $headers = @{ Authorization=\"Bearer $token\" }; ^
    $policy = @{ policy=@{ bindings=@(@{ role='roles/run.invoker'; members=@('allUsers') }) } }; ^
-   Invoke-RestMethod -Uri 'https://run.googleapis.com/v2/projects/dutypeapp/locations/us-central1/services/ssrdutypeapp:setIamPolicy' -Headers $headers -Method POST -Body ($policy | ConvertTo-Json -Depth 5) -ContentType 'application/json' | Out-Null; ^
+   Invoke-RestMethod -Uri 'https://run.googleapis.com/v2/projects/dutype-860ac/locations/us-central1/services/ssrdutypeapp:setIamPolicy' -Headers $headers -Method POST -Body ($policy | ConvertTo-Json -Depth 5) -ContentType 'application/json' | Out-Null; ^
    Write-Host 'Cloud Run public access set successfully.'"
 
 echo.

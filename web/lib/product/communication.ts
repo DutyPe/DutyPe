@@ -245,6 +245,7 @@ const workerNotificationTypes = new Set([
   "INTERVIEW_SCHEDULED",
   "PROFILE_COMPLETE",
   "WELCOME",
+  "SYSTEM_UPDATE",
   "WORKER_HIRED"
 ]);
 
@@ -256,6 +257,7 @@ const employerNotificationTypes = new Set([
   "NEW_APPLICATION",
   "PROFILE_COMPLETE",
   "WELCOME",
+  "SYSTEM_UPDATE",
   "WORKER_HIRED"
 ]);
 

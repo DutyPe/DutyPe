@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -64,15 +65,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -184,34 +189,42 @@ private fun RegisterContent(
                     )
 
                     if (registrationResult.isSuccess) {
+                        val resolvedName = fullName.trim()
                         profileCompletionViewModel.saveUserInfoToLocalStorage(
                             email = "",
-                            name = fullName.trim(),
+                            name = resolvedName,
                             role = role
                         )
 
-                        val userId = currentUser.uid
-                        val phoneToSave = currentUser.phoneNumber ?: otpState.phoneNumber
-                        val trimmedName = fullName.trim()
-
+                        var referralAppliedInstantly = false
                         if (!pendingReferralCode.isNullOrBlank()) {
-                            val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                            val resolvedPhone = currentUser.phoneNumber ?: otpState.phoneNumber ?: ""
+                            val applyResult = profileCompletionViewModel.applyReferralCode(
                                 referralCode = pendingReferralCode,
-                                newUserId = userId,
+                                newUserId = currentUser.uid,
                                 newUserRole = role.name,
-                                newUserName = trimmedName.ifBlank { currentUser.displayName ?: phoneToSave ?: "User" },
-                                newUserPhone = phoneToSave ?: ""
+                                newUserName = resolvedName.ifBlank { resolvedPhone.ifBlank { "DutyPe User" } },
+                                newUserPhone = resolvedPhone
                             )
 
-                            if (referralApplyResult.isSuccess) {
-                                Toast.makeText(
-                                    context,
-                                    if (isTelugu) "రిఫరల్ బోనస్ విజయవంతంగా జమైంది" else "Referral bonus credited successfully",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } else {
-                                Timber.w("REGISTER - Referral apply failed after registration: ${referralApplyResult.exceptionOrNull()?.message}")
-                            }
+                            applyResult.fold(
+                                onSuccess = {
+                                    referralAppliedInstantly = true
+                                    Timber.d("REGISTER - Referral applied immediately for user ${currentUser.uid}")
+                                    Toast.makeText(
+                                        context,
+                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹25 పొందారు." else "✓ Referral code applied successfully. You got ₹25 instantly.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                },
+                                onFailure = { error ->
+                                    Timber.w(error, "REGISTER - Immediate referral apply failed; fallback will run after profile completion")
+                                }
+                            )
+                        }
+
+                        if (!pendingReferralCode.isNullOrBlank() && !referralAppliedInstantly) {
+                            Timber.d("REGISTER - Referral preserved for fallback apply after profile completion")
                         }
 
                         otpViewModel.resetState()
@@ -409,12 +422,7 @@ private fun RegisterInputSection(
         else ValidationUtils.getPhoneError(phoneNumber, true)
     }
 
-    // Referral code state
-    var showReferralInput by remember { mutableStateOf(false) }
-    var referralCode by remember { mutableStateOf("") }
-    var isValidatingCode by remember { mutableStateOf(false) }
-    var codeValidationError by remember { mutableStateOf<String?>(null) }
-    var validatedReferrerName by remember { mutableStateOf<String?>(null) }
+    var validatedReferralCode by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Column(
@@ -579,196 +587,10 @@ private fun RegisterInputSection(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Referral Code (Expandable) ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
-                style = AppTypography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary,
-                    fontWeight = FontWeight.Medium
-                )
-            )
-            TextButton(
-                onClick = { showReferralInput = !showReferralInput },
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = if (showReferralInput) {
-                        if (isTelugu) "దాచు" else "Hide"
-                    } else {
-                        if (isTelugu) "కోడ్ నమోదు చేయండి" else "Enter Code"
-                    },
-                    style = AppTypography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.Info
-                    )
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = showReferralInput,
-            enter = slideInVertically(initialOffsetY = { -20 }, animationSpec = tween(300)) + fadeIn(tween(300)),
-            exit = slideOutVertically(targetOffsetY = { -20 }, animationSpec = tween(300)) + fadeOut(tween(300))
-        ) {
-            Column {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    OutlinedTextField(
-                        value = referralCode,
-                        onValueChange = { newValue ->
-                            val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
-                            referralCode = filtered
-                            codeValidationError = null
-                            validatedReferrerName = null
-                        },
-                        placeholder = {
-                            Text(
-                                if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
-                                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Filled.CardGiftcard, contentDescription = null, tint = WorkerColors.IconSecondary, modifier = Modifier.size(20.dp))
-                        },
-                        trailingIcon = {
-                            when {
-                                isValidatingCode -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = WorkerColors.TextPrimary)
-                                validatedReferrerName != null -> Icon(
-                                    Icons.Filled.CheckCircle,
-                                    contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
-                                    tint = WorkerColors.Success,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                referralCode.isNotEmpty() -> IconButton(onClick = { referralCode = ""; codeValidationError = null; validatedReferrerName = null }) {
-                                    Icon(
-                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                        contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
-                                        tint = WorkerColors.IconSecondary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                else -> null
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(53.dp),
-                        singleLine = true,
-                        isError = codeValidationError != null && referralCode.length >= 7,
-                        shape = RoundedCornerShape(6.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = when {
-                                validatedReferrerName != null -> WorkerColors.Success
-                                codeValidationError != null -> WorkerColors.Error
-                                else -> WorkerColors.TextPrimary
-                            },
-                            unfocusedBorderColor = when {
-                                validatedReferrerName != null -> WorkerColors.Success
-                                codeValidationError != null -> WorkerColors.Error
-                                else -> WorkerColors.Border
-                            },
-                            cursorColor = WorkerColors.TextPrimary,
-                            focusedContainerColor = WorkerColors.CardBackground,
-                            unfocusedContainerColor = WorkerColors.CardBackground
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.None
-                        )
-                    )
-
-                    Button(
-                        onClick = {
-                            if (referralCode.length >= 7) {
-                                isValidatingCode = true
-                                scope.launch {
-                                    try {
-                                        val referralService = com.example.dutype.services.ReferralService(
-                                            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                            com.google.firebase.auth.FirebaseAuth.getInstance(),
-                                            com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                            com.example.dutype.services.SmartNotificationManager(
-                                                context,
-                                                com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                            ),
-                                            context
-                                        )
-                                        val validation = referralService.validateReferralCode(referralCode)
-                                        isValidatingCode = false
-                                        if (validation.isValid) {
-                                            validatedReferrerName = validation.referrerName
-                                            codeValidationError = null
-                                            Toast.makeText(
-                                                context,
-                                                if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
-                                            codeValidationError = validation.errorMessage
-                                            validatedReferrerName = null
-                                            Toast.makeText(
-                                                context,
-                                                validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    } catch (e: Exception) {
-                                        isValidatingCode = false
-                                        codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
-                                        Timber.e(e, "🎁 REFERRAL: Validation error")
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.height(53.dp),
-                        enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WorkerColors.Info,
-                            contentColor = Color.White,
-                            disabledContainerColor = WorkerColors.ChipBackground,
-                            disabledContentColor = WorkerColors.TextSecondary
-                        ),
-                        shape = RoundedCornerShape(6.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
-                    ) {
-                        if (isValidatingCode) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
-                        } else {
-                            Text(
-                                text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
-                                style = AppTypography.buttonMedium
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                when {
-                    validatedReferrerName != null -> Text(
-                        if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
-                        style = AppTypography.caption.copy(color = WorkerColors.Success)
-                    )
-                    codeValidationError != null && referralCode.length >= 7 -> Text(
-                        codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
-                        style = AppTypography.caption.copy(color = WorkerColors.Error)
-                    )
-                    else -> Text(
-                        if (isTelugu) "₹25 బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹25 bonus",
-                        style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
-                    )
-                }
-            }
-        }
+        RegisterReferralSection(
+            isTelugu = isTelugu,
+            onValidatedCodeChanged = { validatedReferralCode = it }
+        )
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -813,9 +635,9 @@ private fun RegisterInputSection(
             onClick = {
                 Timber.d("📱 Register - Continue clicked, name=$fullName")
                 // Save referral code if validated
-                if (validatedReferrerName != null && referralCode.isNotBlank()) {
+                if (!validatedReferralCode.isNullOrBlank()) {
                     scope.launch {
-                        profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
+                        profileCompletionViewModel.saveReferralCode(validatedReferralCode!!)
                     }
                 }
                 onContinueClick()
@@ -889,6 +711,239 @@ private fun RegisterInputSection(
             exit = slideOutVertically() + fadeOut()
         ) {
             com.example.dutype.components.ErrorCard(message = otpState.error)
+        }
+    }
+}
+
+@Composable
+private fun RegisterReferralSection(
+    isTelugu: Boolean,
+    onValidatedCodeChanged: (String?) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showReferralInput by remember { mutableStateOf(false) }
+    var referralCode by remember { mutableStateOf("") }
+    var isValidatingCode by remember { mutableStateOf(false) }
+    var codeValidationError by remember { mutableStateOf<String?>(null) }
+    var validatedReferrerName by remember { mutableStateOf<String?>(null) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+            style = AppTypography.bodyMedium.copy(
+                color = WorkerColors.TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+        )
+        TextButton(
+            onClick = { showReferralInput = !showReferralInput },
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = if (showReferralInput) {
+                    if (isTelugu) "దాచు" else "Hide"
+                } else {
+                    if (isTelugu) "కోడ్ నమోదు చేయండి" else "Enter Code"
+                },
+                style = AppTypography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = WorkerColors.Info
+                )
+            )
+        }
+    }
+
+    AnimatedVisibility(
+        visible = showReferralInput,
+        enter = slideInVertically(initialOffsetY = { -20 }, animationSpec = tween(300)) + fadeIn(tween(300)),
+        exit = slideOutVertically(targetOffsetY = { -20 }, animationSpec = tween(300)) + fadeOut(tween(300))
+    ) {
+        Column {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                OutlinedTextField(
+                    value = referralCode,
+                    onValueChange = { newValue ->
+                        val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
+                        referralCode = filtered
+                        codeValidationError = null
+                        validatedReferrerName = null
+                        onValidatedCodeChanged(null)
+                    },
+                    placeholder = {
+                        Text(
+                            if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
+                            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.CardGiftcard,
+                            contentDescription = null,
+                            tint = WorkerColors.IconSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        when {
+                            isValidatingCode -> CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = WorkerColors.TextPrimary
+                            )
+
+                            validatedReferrerName != null -> Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
+                                tint = WorkerColors.Success,
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            referralCode.isNotEmpty() -> IconButton(onClick = {
+                                referralCode = ""
+                                codeValidationError = null
+                                validatedReferrerName = null
+                                onValidatedCodeChanged(null)
+                            }) {
+                                Icon(
+                                    painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                    contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
+                                    tint = WorkerColors.IconSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            else -> null
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(53.dp),
+                    singleLine = true,
+                    isError = codeValidationError != null && referralCode.length >= 7,
+                    shape = RoundedCornerShape(6.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = when {
+                            validatedReferrerName != null -> WorkerColors.Success
+                            codeValidationError != null -> WorkerColors.Error
+                            else -> WorkerColors.TextPrimary
+                        },
+                        unfocusedBorderColor = when {
+                            validatedReferrerName != null -> WorkerColors.Success
+                            codeValidationError != null -> WorkerColors.Error
+                            else -> WorkerColors.Border
+                        },
+                        cursorColor = WorkerColors.TextPrimary,
+                        focusedContainerColor = WorkerColors.CardBackground,
+                        unfocusedContainerColor = WorkerColors.CardBackground
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        capitalization = KeyboardCapitalization.None
+                    )
+                )
+
+                Button(
+                    onClick = {
+                        if (referralCode.length >= 7) {
+                            isValidatingCode = true
+                            scope.launch {
+                                try {
+                                    val referralService = com.example.dutype.services.ReferralService(
+                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                        com.google.firebase.auth.FirebaseAuth.getInstance(),
+                                        com.google.firebase.functions.FirebaseFunctions.getInstance(),
+                                        com.example.dutype.services.SmartNotificationManager(
+                                            context,
+                                            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
+                                            com.example.dutype.services.NotificationService(
+                                                context,
+                                                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                            )
+                                        ),
+                                        context
+                                    )
+                                    val validation = referralService.validateReferralCode(referralCode)
+                                    isValidatingCode = false
+                                    if (validation.isValid) {
+                                        val normalizedCode = com.example.dutype.models.normalizeReferralCode(referralCode)
+                                        validatedReferrerName = validation.referrerName
+                                        codeValidationError = null
+                                        onValidatedCodeChanged(normalizedCode)
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        codeValidationError = validation.errorMessage
+                                        validatedReferrerName = null
+                                        onValidatedCodeChanged(null)
+                                        Toast.makeText(
+                                            context,
+                                            validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } catch (e: Exception) {
+                                    isValidatingCode = false
+                                    codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
+                                    validatedReferrerName = null
+                                    onValidatedCodeChanged(null)
+                                    Timber.e(e, "🎁 REFERRAL: Validation error")
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.height(53.dp),
+                    enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = WorkerColors.Info,
+                        contentColor = Color.White,
+                        disabledContainerColor = WorkerColors.ChipBackground,
+                        disabledContentColor = WorkerColors.TextSecondary
+                    ),
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    if (isValidatingCode) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        Text(
+                            text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
+                            style = AppTypography.buttonMedium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            when {
+                validatedReferrerName != null -> Text(
+                    if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
+                    style = AppTypography.caption.copy(color = WorkerColors.Success)
+                )
+
+                codeValidationError != null && referralCode.length >= 7 -> Text(
+                    codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                    style = AppTypography.caption.copy(color = WorkerColors.Error)
+                )
+
+                else -> Text(
+                    if (isTelugu) "₹25 బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹25 bonus",
+                    style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
+                )
+            }
         }
     }
 }
@@ -1065,13 +1120,23 @@ private fun RegisterOtpInputBoxes(
     onOtpChange: (String) -> Unit,
     digitCount: Int = 6
 ) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     var isFocused by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { isFocused = true }
+    LaunchedEffect(Unit) {
+        isFocused = true
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isFocused = true }
+            .clickable {
+                isFocused = true
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            }
     ) {
         Row(
             modifier = Modifier
@@ -1114,17 +1179,26 @@ private fun RegisterOtpInputBoxes(
         BasicTextField(
             value = otpValue,
             onValueChange = { newValue ->
-                if (newValue.length <= digitCount && newValue.all { it.isDigit() }) {
-                    onOtpChange(newValue)
-                    isFocused = true
+                val normalizedOtp = newValue.filter { it.isDigit() }.take(digitCount)
+                if (normalizedOtp != otpValue) {
+                    onOtpChange(normalizedOtp)
                 }
+                isFocused = true
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                .clickable { isFocused = true }
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused || focusState.hasFocus
+                }
                 .alpha(0f),
+            singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(color = Color.Transparent),
             cursorBrush = SolidColor(Color.Transparent),
             decorationBox = { innerTextField -> innerTextField() }

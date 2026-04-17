@@ -6,13 +6,13 @@
  */
 
 const admin = require('firebase-admin');
-const path = require('path');
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
 
 // Initialize Firebase Admin
-const serviceAccount = require(path.join(__dirname, 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'));
+const serviceAccount = loadServiceAccount();
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const db = admin.firestore();

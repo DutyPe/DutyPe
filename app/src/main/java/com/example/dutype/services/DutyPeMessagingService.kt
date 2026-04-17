@@ -165,6 +165,17 @@ class DutyPeMessagingService : FirebaseMessagingService() {
      * Create intent for deep link
      */
     private fun createDeepLinkIntent(deepLink: String?): Intent {
+        val uri = deepLink?.let { Uri.parse(it) }
+        val uriHost = uri?.host.orEmpty()
+        val isExternalLink = uri?.scheme == "market" ||
+            (uri?.scheme in listOf("http", "https") && uriHost.contains("play.google.com"))
+
+        if (uri != null && isExternalLink) {
+            return Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+
         return if (deepLink != null) {
             Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
                 setClass(this@DutyPeMessagingService, MainActivity::class.java)

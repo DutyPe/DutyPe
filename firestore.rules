@@ -61,7 +61,9 @@ service cloud.firestore {
         (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp) &&
         (!('activeRole' in request.resource.data) ||
           (request.resource.data.activeRole is string &&
-           request.resource.data.roles.toSet().hasAny([request.resource.data.activeRole]))) &&
+           (!('roles' in request.resource.data) ||
+             (request.resource.data.roles is list &&
+              request.resource.data.roles.toSet().hasAny([request.resource.data.activeRole]))))) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string);
 
       allow update: if isSelf(userId) &&
@@ -75,8 +77,13 @@ service cloud.firestore {
           'isVerified', 'isActive', 'createdAt', 'lastActiveAt'
         ]) &&
         request.resource.data.userId == userId &&
-        request.resource.data.phone == resource.data.phone &&
-        request.resource.data.createdAt == resource.data.createdAt &&
+        (!('phone' in resource.data) ||
+          !(resource.data.phone is string) ||
+          resource.data.phone == '' ||
+          request.resource.data.phone == resource.data.phone) &&
+        (!('createdAt' in resource.data) ||
+          !(resource.data.createdAt is timestamp) ||
+          request.resource.data.createdAt == resource.data.createdAt) &&
         request.resource.data.fullName is string &&
         validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
         (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
@@ -136,34 +143,30 @@ service cloud.firestore {
       allow delete: if isSelf(userId);
     }
 
-    // jobs (public read)
-    match /jobs/{jobId} {
+    // jobmetadata (public read)
+    match /jobmetadata/{jobId} {
       allow get, list: if true;
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'employerId', 'companyName', 'isVerified', 'title', 'jobType',
-          'salary', 'salaryType', 'gender', 'experienceRequired', 'shiftTiming',
-          'applicationCount', 'location', 'geohash', 'companyCity', 'addressText',
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'companyCity', 'addressText',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'employerId', 'title', 'salary', 'salaryType',
-          'location', 'geohash', 'urgency', 'status', 'createdAt', 'expiresAt'
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.employerId == request.auth.uid &&
-        (!('companyName' in request.resource.data) || request.resource.data.companyName is string) &&
-        (!('isVerified' in request.resource.data) || request.resource.data.isVerified is bool) &&
+        request.resource.data.companyName is string &&
         request.resource.data.title is string &&
-        (!('jobType' in request.resource.data) || request.resource.data.jobType is string) &&
+        request.resource.data.jobType is string &&
         request.resource.data.salary is number &&
         request.resource.data.salaryType is string &&
-        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
-        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
-        (!('shiftTiming' in request.resource.data) || request.resource.data.shiftTiming is string) &&
-        (!('applicationCount' in request.resource.data) || request.resource.data.applicationCount is int) &&
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
+        request.resource.data.addressText is string &&
         (!('companyCity' in request.resource.data) || request.resource.data.companyCity is string) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
@@ -173,25 +176,20 @@ service cloud.firestore {
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
-          'employerId', 'companyName', 'isVerified', 'title', 'jobType',
-          'salary', 'salaryType', 'gender', 'experienceRequired', 'shiftTiming',
-          'applicationCount', 'location', 'geohash', 'companyCity', 'addressText',
+          'employerId', 'companyName', 'title', 'jobType',
+          'salary', 'salaryType', 'location', 'geohash', 'companyCity', 'addressText',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.createdAt == resource.data.createdAt &&
-        (!('companyName' in request.resource.data) || request.resource.data.companyName is string) &&
-        (!('isVerified' in request.resource.data) || request.resource.data.isVerified is bool) &&
+        request.resource.data.companyName is string &&
         request.resource.data.title is string &&
-        (!('jobType' in request.resource.data) || request.resource.data.jobType is string) &&
+        request.resource.data.jobType is string &&
         request.resource.data.salary is number &&
         request.resource.data.salaryType is string &&
-        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
-        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
-        (!('shiftTiming' in request.resource.data) || request.resource.data.shiftTiming is string) &&
-        (!('applicationCount' in request.resource.data) || request.resource.data.applicationCount is int) &&
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
+        request.resource.data.addressText is string &&
         (!('companyCity' in request.resource.data) || request.resource.data.companyCity is string) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
@@ -205,8 +203,8 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if false;
       allow create: if isSignedIn() &&
-        existsAfter(/databases/$(database)/documents/jobs/$(jobId)) &&
-        getAfter(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'isVerified', 'title', 'jobType',
           'salary', 'salaryType', 'description', 'contactNumber', 'addressText',
@@ -230,8 +228,8 @@ service cloud.firestore {
         (!('educationRequired' in request.resource.data) || request.resource.data.educationRequired is string);
 
       allow update: if isSignedIn() &&
-        existsAfter(/databases/$(database)/documents/jobs/$(jobId)) &&
-        getAfter(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'description', 'contactNumber', 'addressText',
           'jobType', 'vacancies', 'benefits',
@@ -248,8 +246,8 @@ service cloud.firestore {
         (!('educationRequired' in request.resource.data) || request.resource.data.educationRequired is string);
 
       allow delete: if isSignedIn() &&
-        exists(/databases/$(database)/documents/jobs/$(jobId)) &&
-        get(/databases/$(database)/documents/jobs/$(jobId)).data.employerId == request.auth.uid;
+        exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        get(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid;
     }
 
     // applications
@@ -273,8 +271,8 @@ service cloud.firestore {
         request.resource.data.status == 'applied' &&
         request.resource.data.createdAt is timestamp &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
-        exists(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)) &&
-        get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
+        get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
 
       allow update: if isSignedIn() &&
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid) &&
@@ -288,62 +286,6 @@ service cloud.firestore {
         request.resource.data.status in ['applied', 'shortlisted', 'rejected', 'hired'];
 
       allow delete: if false;
-    }
-
-    // work_locations/{userId}/locations/{locationId}
-    // Used by WorkLocationManager to save and query employer saved addresses.
-    match /work_locations/{userId} {
-      allow get, list: if isSelf(userId);
-      allow create, update, delete: if false;
-
-      match /locations/{locationId} {
-        allow get, list: if isSelf(userId);
-
-        allow create: if isSelf(userId) &&
-          request.resource.data.keys().hasOnly([
-            'label', 'address', 'normalizedAddress',
-            'latitude', 'longitude',
-            'addedAt', 'updatedAt', 'usageCount'
-          ]) &&
-          request.resource.data.keys().hasAll([
-            'label', 'address', 'normalizedAddress',
-            'latitude', 'longitude',
-            'addedAt', 'updatedAt', 'usageCount'
-          ]) &&
-          request.resource.data.label is string &&
-          request.resource.data.address is string &&
-          request.resource.data.normalizedAddress is string &&
-          request.resource.data.latitude is number &&
-          request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90 &&
-          request.resource.data.longitude is number &&
-          request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180 &&
-          request.resource.data.addedAt is int &&
-          request.resource.data.updatedAt is int &&
-          request.resource.data.usageCount is int &&
-          request.resource.data.usageCount >= 0;
-
-        allow update: if isSelf(userId) &&
-          request.resource.data.keys().hasOnly([
-            'label', 'address', 'normalizedAddress',
-            'latitude', 'longitude',
-            'addedAt', 'updatedAt', 'usageCount'
-          ]) &&
-          (!('label' in request.resource.data) || request.resource.data.label is string) &&
-          (!('address' in request.resource.data) || request.resource.data.address is string) &&
-          (!('normalizedAddress' in request.resource.data) || request.resource.data.normalizedAddress is string) &&
-          (!('latitude' in request.resource.data) ||
-            (request.resource.data.latitude is number &&
-             request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90)) &&
-          (!('longitude' in request.resource.data) ||
-            (request.resource.data.longitude is number &&
-             request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180)) &&
-          (!('addedAt' in request.resource.data) || request.resource.data.addedAt is int) &&
-          (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is int) &&
-          (!('usageCount' in request.resource.data) ||
-            (request.resource.data.usageCount is int && request.resource.data.usageCount >= 0));
-
-        allow delete: if isSelf(userId);
-      }
     }
 
     // saved_jobs
@@ -419,7 +361,7 @@ service cloud.firestore {
         request.resource.data.timestamp is int &&
         request.resource.data.status == 'PENDING' &&
         (!('reporterPhone' in request.resource.data) || request.resource.data.reporterPhone is string) &&
-        exists(/databases/$(database)/documents/jobs/$(request.resource.data.jobId));
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
 
       allow update, delete: if false;
     }
@@ -462,7 +404,12 @@ service cloud.firestore {
 
     // referral_codes
     match /referral_codes/{code} {
-      allow get, list: if isSignedIn();
+      // Registration validates referral code before OTP sign-in completes.
+      // Allow direct doc reads by code; include resource==null so missing docs
+      // return NOT_FOUND instead of PERMISSION_DENIED during case fallback lookups.
+      allow get: if code.matches('^[A-Za-z0-9]{7,10}$') &&
+        (resource == null || resource.data.isActive == true);
+      allow list: if isSignedIn();
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'code', 'userId', 'userRole', 'userName', 'isActive', 'createdAt'

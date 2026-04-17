@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
@@ -60,13 +61,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -1400,17 +1405,25 @@ fun OtpInputBoxes(
     onOtpChange: (String) -> Unit,
     digitCount: Int = 6
 ) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     var isFocused by remember { mutableStateOf(false) }
 
     // When this composable is first shown, mark as focused
     LaunchedEffect(Unit) {
         isFocused = true
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isFocused = true }
+            .clickable {
+                isFocused = true
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            }
     ) {
         Row(
             modifier = Modifier
@@ -1457,17 +1470,26 @@ fun OtpInputBoxes(
         androidx.compose.foundation.text.BasicTextField(
             value = otpValue,
             onValueChange = { newValue ->
-                if (newValue.length <= digitCount && newValue.all { it.isDigit() }) {
-                    onOtpChange(newValue)
-                    isFocused = true
+                val normalizedOtp = newValue.filter { it.isDigit() }.take(digitCount)
+                if (normalizedOtp != otpValue) {
+                    onOtpChange(normalizedOtp)
                 }
+                isFocused = true
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
-                .clickable { isFocused = true }
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused || focusState.hasFocus
+                }
                 .alpha(0f),
+            singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(color = Color.Transparent),
             cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.Transparent),
             decorationBox = { innerTextField ->

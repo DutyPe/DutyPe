@@ -2,6 +2,7 @@ package com.example.dutype.employer.screens
 
 import android.app.Activity
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -318,6 +319,29 @@ fun MandatoryEmployerProfileSetupScreen(
                     profileCompletionViewModel
                         .saveEmployerProfileData(employerProfileData)
                         .getOrThrow()
+
+                    val savedReferralCode = profileCompletionViewModel.getReferralCode()
+                    if (!savedReferralCode.isNullOrBlank()) {
+                        val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                            referralCode = savedReferralCode,
+                            newUserId = currentUser.uid,
+                            newUserRole = UserRole.EMPLOYER.name,
+                            newUserName = companyName.ifBlank { contactPhone },
+                            newUserPhone = contactPhone
+                        )
+
+                        if (referralApplyResult.isSuccess) {
+                            Toast.makeText(
+                                context,
+                                "Referral bonus credited successfully",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            Timber.w(
+                                "🎁 REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                            )
+                        }
+                    }
                 }
 
                 // Save role to local DataStore so app knows which home to navigate to on reopen

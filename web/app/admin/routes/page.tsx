@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
 import { AdminShell } from "@/components/admin-shell";
-import { requireAdminSession } from "@/lib/firebase/admin-session";
 
 const adminRoutes = [
   { href: "/admin", label: "Dashboard", description: "Platform overview and recent activity." },
@@ -11,6 +10,7 @@ const adminRoutes = [
   { href: "/admin/post-job", label: "Post Job", description: "Create and publish a new job posting." },
   { href: "/admin/applications", label: "Applications", description: "Track applications and update status." },
   { href: "/admin/referrals", label: "Referrals", description: "Monitor referrals and payouts." },
+  { href: "/admin/notifications", label: "Notifications", description: "Broadcast app alerts to all users or one role." },
   { href: "/admin/announcements", label: "Announcements", description: "Send notices and updates to users." },
   { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },
   { href: "/admin/create-test-referral", label: "Create Test Referral", description: "Generate test referral entries." },
@@ -22,8 +22,7 @@ export const metadata = {
   description: "Quick navigation map for all DutyPe admin routes."
 };
 
-export default async function AdminRoutesPage() {
-  await requireAdminSession();
+export default function AdminRoutesPage() {
 
   return (
     <AdminShell title="Routes" description="Navigate every admin route from one place.">

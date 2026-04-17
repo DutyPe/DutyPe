@@ -31,4 +31,4 @@ for city in "${cities[@]}"; do
 done
 
 echo "All city pages updated!"
-echo "Run 'firebase deploy --only hosting:dutypeapp' to deploy changes"
+echo "Run 'firebase deploy --only hosting:dutype-860ac' to deploy changes"

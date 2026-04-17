@@ -14,6 +14,7 @@ const adminLinks = [
   { href: "/admin/post-job", label: "Post Job", icon: "➕" },
   { href: "/admin/applications", label: "Applications", icon: "📋" },
   { href: "/admin/referrals", label: "Referrals", icon: "🎁" },
+  { href: "/admin/notifications", label: "Notifications", icon: "🔔" },
   { href: "/admin/announcements", label: "Announcements", icon: "📢" },
   { href: "/admin/routes", label: "Routes", icon: "🧭" }
 ];

@@ -121,7 +121,7 @@ export const rolloutTracks: RolloutTrack[] = [
     title: "Admin console",
     summary:
       "Replace the current browser-import Firebase admin pages with a structured dashboard that can later use proper auth guards and shared components.",
-    routes: ["/admin", "/admin/users", "/admin/jobs", "/admin/applications", "/admin/referrals", "/admin/announcements"],
+    routes: ["/admin", "/admin/users", "/admin/jobs", "/admin/applications", "/admin/referrals", "/admin/notifications", "/admin/announcements"],
     outcome: "Operational UI that can actually scale"
   }
 ];

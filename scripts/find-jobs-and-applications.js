@@ -10,7 +10,7 @@ const path = require('path');
 // Find service account key
 const possibleKeyFiles = [
   'serviceAccountKey.json',
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
+  'dutype-860ac-firebase-adminsdk.json'
 ];
 
 let serviceAccountPath = null;
@@ -31,7 +31,7 @@ if (!serviceAccountPath) {
 const serviceAccount = require(serviceAccountPath);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const db = admin.firestore();

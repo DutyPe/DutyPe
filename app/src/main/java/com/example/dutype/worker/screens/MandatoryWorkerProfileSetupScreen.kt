@@ -2,6 +2,7 @@ package com.example.dutype.worker.screens
 
 import android.app.Activity
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -715,6 +716,29 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 profileCompletionViewModel
                                                     .saveWorkerProfileData(workerProfileData)
                                                     .getOrThrow()
+
+                                                val savedReferralCode = profileCompletionViewModel.getReferralCode()
+                                                if (!savedReferralCode.isNullOrBlank()) {
+                                                    val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                                                        referralCode = savedReferralCode,
+                                                        newUserId = currentUser.uid,
+                                                        newUserRole = UserRole.WORKER.name,
+                                                        newUserName = fullName.ifBlank { phoneNumber },
+                                                        newUserPhone = phoneNumber
+                                                    )
+
+                                                    if (referralApplyResult.isSuccess) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Referral bonus credited successfully",
+                                                            Toast.LENGTH_LONG
+                                                        ).show()
+                                                    } else {
+                                                        Timber.w(
+                                                            "🎁 REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                                                        )
+                                                    }
+                                                }
                                             }
 
                                             // Save role to local DataStore so app knows which home to navigate to on reopen

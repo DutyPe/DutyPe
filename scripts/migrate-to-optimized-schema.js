@@ -27,7 +27,7 @@ const path = require('path');
 // Check if service account key exists - try multiple possible filenames
 const possibleKeyFiles = [
   'serviceAccountKey.json',
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
+  'dutype-860ac-firebase-adminsdk.json'
 ];
 
 let serviceAccountPath = null;

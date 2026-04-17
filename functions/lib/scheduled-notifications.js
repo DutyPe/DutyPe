@@ -216,38 +216,35 @@ function simpleHash(input) {
     return Math.abs(hash);
 }
 const WORKER_SMART_ENGAGEMENT_MESSAGES = [
-    {
-        title: '🎯 Fresh jobs are matching your profile',
-        body: 'Open DutyPe now and apply early to improve your chances.',
-        deepLink: 'dutype://jobs',
-    },
-    {
-        title: '⚡ Quick reminder: complete one action today',
-        body: 'Update profile skills or apply to one job to stay visible.',
-        deepLink: 'dutype://profile',
-    },
-    {
-        title: '📈 Small daily steps build bigger opportunities',
-        body: 'Check new nearby openings and keep your momentum going.',
-        deepLink: 'dutype://jobs',
-    },
+    // Jobs & Opportunities
+    { title: '🎯 Fresh jobs matching your skills', body: 'New openings nearby — apply early for the best chance.', deepLink: 'dutype://jobs' },
+    { title: '💼 Employers are actively hiring today', body: 'Don\'t miss out — check the latest openings now.', deepLink: 'dutype://jobs' },
+    { title: '📍 Jobs within 5 km of you', body: 'Walk-in interviews available near your location.', deepLink: 'dutype://jobs' },
+    { title: '🔥 Urgent hire — apply before it fills up', body: 'Some jobs posted today are closing fast.', deepLink: 'dutype://jobs' },
+    { title: '🌟 New companies just joined DutyPe', body: 'Check their open positions before others do.', deepLink: 'dutype://jobs' },
+    // Profile & Activity
+    { title: '⚡ One quick action can change your day', body: 'Update your skills or apply to a job to stay visible.', deepLink: 'dutype://profile' },
+    { title: '📈 Small steps, big opportunities', body: 'Keep your profile active — employers notice consistency.', deepLink: 'dutype://profile' },
+    { title: '🏆 Stand out from other applicants', body: 'Complete your profile to rank higher in search results.', deepLink: 'dutype://profile' },
+    // Motivation
+    { title: '💪 Your next job could be one tap away', body: 'Open DutyPe and see what\'s new for you.', deepLink: 'dutype://jobs' },
+    { title: '🎉 Good morning! Ready to find work?', body: 'Fresh daily and hourly jobs waiting for you.', deepLink: 'dutype://jobs' },
+    { title: '🌅 Evening check — any interviews coming up?', body: 'Review your applications and prepare for tomorrow.', deepLink: 'dutype://my-jobs' },
+    { title: '📱 You have unread updates', body: 'An employer may have responded to your application.', deepLink: 'dutype://notifications' },
 ];
 const EMPLOYER_SMART_ENGAGEMENT_MESSAGES = [
-    {
-        title: '👀 Candidates are waiting for your review',
-        body: 'Review applications now to hire faster and avoid drop-offs.',
-        deepLink: 'dutype://applications',
-    },
-    {
-        title: '🚀 A quick update can improve response quality',
-        body: 'Refresh one job post today to attract better-fit workers.',
-        deepLink: 'dutype://post-job',
-    },
-    {
-        title: '📊 Consistent activity improves hiring outcomes',
-        body: 'Open DutyPe and take one hiring action right now.',
-        deepLink: 'dutype://employer/home',
-    },
+    // Applications
+    { title: '👀 Candidates waiting for your review', body: 'Review applications now — don\'t lose top talent.', deepLink: 'dutype://applications' },
+    { title: '📬 New applications on your job post', body: 'Workers have applied — check their profiles today.', deepLink: 'dutype://applications' },
+    { title: '⏰ Don\'t keep applicants waiting', body: 'Quick responses improve your hiring success rate.', deepLink: 'dutype://applications' },
+    // Job Posting
+    { title: '🚀 Refresh your job post for more visibility', body: 'Updated posts get 3x more applications.', deepLink: 'dutype://post-job' },
+    { title: '📊 Your job post performance', body: 'See how many workers viewed and applied today.', deepLink: 'dutype://employer/home' },
+    { title: '💡 Tip: Add salary range to attract more workers', body: 'Posts with clear pay get 50% more applications.', deepLink: 'dutype://post-job' },
+    // Hiring
+    { title: '🏆 Hire faster with DutyPe', body: 'Take one hiring action today to keep momentum.', deepLink: 'dutype://employer/home' },
+    { title: '📞 Have you contacted your shortlisted candidates?', body: 'Quick follow-up prevents candidate drop-off.', deepLink: 'dutype://applications' },
+    { title: '✅ Great employers respond within 24 hours', body: 'Stay on top of your applications to build trust.', deepLink: 'dutype://applications' },
 ];
 async function sendRoleSpecificSmartEngagement(slot) {
     if (isQuietHours()) {
@@ -404,7 +401,7 @@ exports.checkExpiringJobs = functions.pubsub
     try {
         // Query jobs expiring in 24 hours
         const jobsSnapshot = await admin.firestore()
-            .collection('jobs')
+            .collection('jobmetadata')
             .where('status', '==', 'open')
             .where('expiresAt', '<', tomorrow)
             .where('expiresAt', '>', now)
@@ -593,7 +590,7 @@ exports.remindWorkersPendingApplications = functions.pubsub
                 continue;
             }
             // Get job details
-            const jobDoc = await admin.firestore().collection('jobs').doc(jobId).get();
+            const jobDoc = await admin.firestore().collection('jobmetadata').doc(jobId).get();
             if (!jobDoc.exists)
                 continue;
             const jobData = jobDoc.data();
@@ -801,7 +798,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
             }
             // Check last job post
             const lastJobSnapshot = await admin.firestore()
-                .collection('jobs')
+                .collection('jobmetadata')
                 .where('employerId', '==', userId)
                 .orderBy('postedAt', 'desc')
                 .limit(1)
@@ -911,18 +908,18 @@ exports.notifyApplicationStatusUpdate = functions.firestore
  * Quiet hours (10 PM – 8 AM) are respected.
  */
 const GUEST_MESSAGES = [
-    {
-        title: '💼 New jobs near you are waiting!',
-        body: 'Login to apply in one tap — don\'t miss out.',
-    },
-    {
-        title: '🌟 50+ fresh openings posted today',
-        body: 'Sign in and grab your chance before they fill up.',
-    },
-    {
-        title: '🔓 Complete your profile, unlock matches',
-        body: 'Personalised job recommendations are waiting for you — sign in now.',
-    },
+    // Morning vibes
+    { title: '💼 New jobs near you are waiting!', body: 'Login to apply in one tap — don\'t miss out.' },
+    { title: '🌅 Good morning! Fresh jobs just posted', body: 'Sign in to see openings near your location.' },
+    { title: '🎯 Your skills are in demand today', body: 'Create your profile and get matched instantly.' },
+    // Afternoon urgency
+    { title: '🔥 Jobs filling up fast today', body: 'Sign in and apply before they\'re gone.' },
+    { title: '⚡ Employers are hiring RIGHT NOW', body: 'One-tap apply — login to get started.' },
+    { title: '📍 Walk-in interviews near you', body: 'Sign in to see which companies are hiring today.' },
+    // Evening motivation
+    { title: '🔓 Complete your profile, unlock matches', body: 'Personalised job recommendations are waiting — sign in now.' },
+    { title: '🌟 Tomorrow could be your first day at work', body: 'Sign in tonight, apply, and get hired tomorrow.' },
+    { title: '💪 Thousands found jobs on DutyPe', body: 'Join them — create your profile in under 2 minutes.' },
 ];
 async function sendGuestEngagementTopicMessage() {
     if (isQuietHours()) {
@@ -930,14 +927,19 @@ async function sendGuestEngagementTopicMessage() {
         return;
     }
     const hour = new Date().getHours();
-    // Cycle through 3 messages based on time slot
-    // 08-12 → slot 0, 12-17 → slot 1, 17-22 → slot 2
+    // Rotate messages using day-of-year + time slot for daily variety
+    // Morning (08) → slot 0, Afternoon (13) → slot 1, Evening (19) → slot 2
     let slot = 0;
     if (hour >= 12 && hour < 17)
         slot = 1;
     else if (hour >= 17)
         slot = 2;
-    const { title, body } = GUEST_MESSAGES[slot];
+    // Day-of-year offset ensures different message each day
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
+    const messageIndex = (dayOfYear * 3 + slot) % GUEST_MESSAGES.length;
+    const { title, body } = GUEST_MESSAGES[messageIndex];
     try {
         await admin.messaging().send({
             topic: 'guest_users',

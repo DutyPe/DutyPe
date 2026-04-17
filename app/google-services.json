@@ -1,55 +1,28 @@
 {
   "project_info": {
-    "project_number": "1062348180452",
-    "project_id": "dutypeapp",
-    "storage_bucket": "dutypeapp.firebasestorage.app"
+    "project_number": "1024525807494",
+    "project_id": "dutype-860ac",
+    "storage_bucket": "dutype-860ac.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1062348180452:android:b48915e74d2469ad0095f1",
+        "mobilesdk_app_id": "1:1024525807494:android:9170fe4aa0b1592f35c607",
         "android_client_info": {
           "package_name": "com.dutype.app"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "1062348180452-7ti2l081tbretk7or1nqfl4fq2bpqq8r.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "51bd7311fcd402b933c09ae627197f4d63251cb4"
-          }
-        },
-        {
-          "client_id": "1062348180452-a9vm4748b653qolo79th7rr7eo73ab7h.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.dutype.app",
-            "certificate_hash": "bb6f30fa22df4797dd0f0ad6d7d69222ac16d3ba"
-          }
-        },
-        {
-          "client_id": "1062348180452-9p6v0q20rucppbbd6uo51ftjp0m1ek9n.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCO_0gcUBy0m290p8UPoEOqT_XWc1Gccdo"
+          "current_key": "AIzaSyDFIzb8G90t3OjUShiceM8AeEdKzJ640_c"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "1062348180452-9p6v0q20rucppbbd6uo51ftjp0m1ek9n.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
-      },
-      "admob_app_id": "ca-app-pub-5503082977524600~8481368080"
+      }
     }
   ],
   "configuration_version": "1"

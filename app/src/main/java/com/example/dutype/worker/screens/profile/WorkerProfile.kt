@@ -193,11 +193,14 @@ fun WorkerProfileScreen(
                 
                 // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
                 profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
+
+                // Read the latest StateFlow value directly to avoid stale Compose snapshot reads
+                val latestStats = profileCompletionViewModel.metadataManager.userMetadata.userStats.value
                 
                 // Use metadata for profile image URL
-                profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
+                profileImageUrl = latestStats.profileImageUrl.ifEmpty { null }
                 
-                Timber.i("Worker profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}")
+                Timber.i("Worker profile (lightweight) - Name: ${latestStats.fullName}, Phone: ${latestStats.phone}")
             }
         } catch (e: Exception) {
             Timber.e(e, "Error loading lightweight profile")

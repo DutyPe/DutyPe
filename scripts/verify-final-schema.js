@@ -5,7 +5,7 @@ const path = require('path');
 // Find service account key
 const possibleKeyFiles = [
   'serviceAccountKey.json',
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
+  'dutype-860ac-firebase-adminsdk.json'
 ];
 
 let serviceAccount = null;

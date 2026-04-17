@@ -151,7 +151,7 @@ async function testReferralCode() {
     
     // Step 8: Check in admin panel
     console.log('\n🌐 Step 8: Admin panel verification:');
-    console.log('   Go to: https://dutypeapp.web.app/admin/referrals.html');
+    console.log('   Go to: https://dutype-860ac.web.app/admin/referrals.html');
     console.log('   You should see:');
     console.log('   - Referral Code:', referralCode);
     console.log('   - Referred User: Test User');

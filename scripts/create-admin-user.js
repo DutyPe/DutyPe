@@ -13,7 +13,7 @@ const serviceAccount = require('../serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  projectId: 'dutypeapp'
+  projectId: 'dutype-860ac'
 });
 
 const rl = readline.createInterface({
@@ -59,7 +59,7 @@ async function createAdminUser() {
     console.log('📧 Email:', userRecord.email);
     console.log('🆔 UID:', userRecord.uid);
     console.log('👤 Name:', userRecord.displayName);
-    console.log('\n🎉 You can now login at: https://dutypeapp.web.app/admin/login.html\n');
+    console.log('\n🎉 You can now login at: https://dutype-860ac.web.app/admin/login.html\n');
 
   } catch (error) {
     if (error.code === 'auth/email-already-exists') {

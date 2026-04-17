@@ -5,5 +5,4 @@ Disallow: /api/
 Disallow: /app/
 Disallow: /app-redirect
 
-Host: https://dutype.in
 Sitemap: https://dutype.in/sitemap.xml

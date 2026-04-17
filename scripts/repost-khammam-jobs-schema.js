@@ -7,9 +7,9 @@ const SOURCE_FILE = path.join(__dirname, 'jobs_applications_9390515834_177139806
 function resolveServiceAccount() {
   const candidates = [
     path.join(__dirname, 'serviceAccountKey.json'),
-    path.join(__dirname, 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'),
+    path.join(__dirname, 'dutype-860ac-firebase-adminsdk.json'),
     path.join(__dirname, '..', 'serviceAccountKey.json'),
-    path.join(__dirname, '..', 'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json')
+    path.join(__dirname, '..', 'dutype-860ac-firebase-adminsdk.json')
   ];
 
   for (const candidate of candidates) {
@@ -62,7 +62,7 @@ async function run() {
 
   admin.initializeApp({
     credential: admin.credential.cert(require(keyPath)),
-    projectId: 'dutypeapp'
+    projectId: 'dutype-860ac'
   });
 
   const db = admin.firestore();

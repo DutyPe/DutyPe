@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    const snapshot = await db.collection("jobs").orderBy("createdAt", "desc").limit(500).get();
+    const snapshot = await db.collection("jobmetadata").orderBy("createdAt", "desc").limit(500).get();
 
     const jobs = snapshot.docs.map((item) => {
       const data = asRecord(item.data());
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    const created = await db.collection("jobs").add({
+    const created = await db.collection("jobmetadata").add({
       title,
       companyName,
       location,
@@ -161,7 +161,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    await db.collection("jobs").doc(jobId).set(payload, { merge: true });
+    await db.collection("jobmetadata").doc(jobId).set(payload, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update job.";
@@ -194,7 +194,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    await db.collection("jobs").doc(jobId).delete();
+    await db.collection("jobmetadata").doc(jobId).delete();
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete job.";

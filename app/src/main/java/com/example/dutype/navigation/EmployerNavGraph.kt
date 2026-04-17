@@ -197,9 +197,6 @@ fun NavGraphBuilder.employerNavGraph(
             },
             navDeepLink {
                 uriPattern = "https://dutype.in/worker/{workerId}"
-            },
-            navDeepLink {
-                uriPattern = "https://dutypeapp.web.app/worker/{workerId}"
             }
         )
     ) { backStackEntry ->
@@ -220,9 +217,6 @@ fun NavGraphBuilder.employerNavGraph(
             },
             navDeepLink {
                 uriPattern = "https://dutype.in/employer/{employerId}"
-            },
-            navDeepLink {
-                uriPattern = "https://dutypeapp.web.app/employer/{employerId}"
             }
         )
     ) { backStackEntry ->

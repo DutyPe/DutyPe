@@ -317,9 +317,6 @@ fun EmployerMainScreen(
                             },
                             navDeepLink {
                                 uriPattern = "https://dutype.in/worker/{workerId}"
-                            },
-                            navDeepLink {
-                                uriPattern = "https://dutypeapp.web.app/worker/{workerId}"
                             }
                         )
                     ) { backStackEntry ->

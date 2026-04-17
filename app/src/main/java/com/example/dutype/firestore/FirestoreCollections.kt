@@ -4,7 +4,7 @@ package com.example.dutype.firestore
  * SINGLE SOURCE OF TRUTH for all Firestore collection names.
  *
  * Architecture (2-collection job split for 1M user scale):
- *   jobs          → ultra-light card data (~250 bytes) for list scrolling
+ *   jobmetadata   → ultra-light card data (~250 bytes) for list scrolling
  *   job_details   → full job data (~1KB) loaded on click only
  *
  * All service files MUST use these constants instead of hardcoded strings.
@@ -16,7 +16,7 @@ object FirestoreCollections {
     const val EMPLOYER_PROFILES = "employer_profiles"
 
     // ── Jobs (2-collection split) ───────────────────────
-    const val JOBS = "jobs"                    // Card data for list views
+    const val JOBS = "jobmetadata"             // Card data for list views
     const val JOB_DETAILS = "job_details"      // Full data loaded on click
 
     // ── Applications & Saved ────────────────────────────

@@ -29,9 +29,9 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.dutype.app" />
-                  <option name="mobileSdkAppId" value="1:1062348180452:android:b48915e74d2469ad0095f1" />
-                  <option name="projectId" value="dutypeapp" />
-                  <option name="projectNumber" value="1062348180452" />
+                  <option name="mobileSdkAppId" value="1:1024525807494:android:9170fe4aa0b1592f35c607" />
+                  <option name="projectId" value="dutype-860ac" />
+                  <option name="projectNumber" value="1024525807494" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

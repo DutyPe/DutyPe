@@ -652,22 +652,6 @@ fun PostJobScreen(
                 Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
                 Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
                 
-                // Auto-save work location for future quick-pick
-                if (location.isNotBlank()) {
-                    scope.launch {
-                        try {
-                            workLocationManager.saveWorkLocation(
-                                label = location.take(30),
-                                address = location,
-                                latitude = locationLatitude,
-                                longitude = locationLongitude
-                            )
-                        } catch (e: Exception) {
-                            Timber.e(e, "Non-critical: failed to auto-save work location")
-                        }
-                    }
-                }
-                
                 // Trigger in-app review after successful job posting
                 context.findActivity()?.let { activity ->
                     reviewTriggerService.onEmployerJobPosted(activity)

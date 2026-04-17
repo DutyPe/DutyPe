@@ -468,7 +468,7 @@ export const checkExpiringJobs = functions.pubsub
     try {
       // Query jobs expiring in 24 hours
       const jobsSnapshot = await admin.firestore()
-        .collection('jobs')
+        .collection('jobmetadata')
         .where('status', '==', 'open')
         .where('expiresAt', '<', tomorrow)
         .where('expiresAt', '>', now)
@@ -692,7 +692,7 @@ export const remindWorkersPendingApplications = functions.pubsub
         }
         
         // Get job details
-        const jobDoc = await admin.firestore().collection('jobs').doc(jobId).get();
+        const jobDoc = await admin.firestore().collection('jobmetadata').doc(jobId).get();
         if (!jobDoc.exists) continue;
         
         const jobData = jobDoc.data();
@@ -934,7 +934,7 @@ export const reEngageInactiveEmployers = functions.pubsub
         
         // Check last job post
         const lastJobSnapshot = await admin.firestore()
-          .collection('jobs')
+          .collection('jobmetadata')
           .where('employerId', '==', userId)
           .orderBy('postedAt', 'desc')
           .limit(1)

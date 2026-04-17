@@ -1,8 +1,10 @@
 package com.example.dutype.services.firestore
 
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.async
@@ -32,8 +34,8 @@ class JobFirestoreService @Inject constructor(
 ) {
     
     companion object {
-        const val JOBS_COLLECTION = "jobs"                  // Ultra-light card data (~200 bytes)
-        const val JOB_DETAILS_COLLECTION = "job_details"    // Full details loaded on click (~1KB)
+        const val JOBS_COLLECTION = FirestoreCollections.JOBS                  // Ultra-light card data (~200 bytes)
+        const val JOB_DETAILS_COLLECTION = FirestoreCollections.JOB_DETAILS    // Full details loaded on click (~1KB)
         private const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         private const val MAX_JOB_QUERY_LIMIT = 100L
     }
@@ -383,7 +385,7 @@ class JobFirestoreService @Inject constructor(
             val expiresAt = Timestamp(Date(currentTime + (15L * 24 * 60 * 60 * 1000L)))
 
             // 2-COLLECTION ARCHITECTURE
-            // jobs = card data only (~200 bytes), job_details = full data (~1KB)
+            // jobmetadata = card data only (~200 bytes), job_details = full data (~1KB)
 
             val cardData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
@@ -438,7 +440,7 @@ class JobFirestoreService @Inject constructor(
             batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData) // ~1KB
             batch.commit().await()
             
-            Timber.i("📝 ✅ Job saved (2-collection split: jobs + job_details)")
+            Timber.i("📝 ✅ Job saved (2-collection split: jobmetadata + job_details)")
             
             // Notify nearby workers about new job
             try {
@@ -744,9 +746,24 @@ class JobFirestoreService @Inject constructor(
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (document.exists()) {
                 Timber.d("🔍 JobFirestoreService.getJobById - Document found by ID")
-                val detailsDocument = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await()
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                val detailsData = if (currentUser == null) {
+                    Timber.d("🔍 JobFirestoreService.getJobById - Guest session; skipping private job_details read")
+                    null
+                } else {
+                    try {
+                        firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
+                    } catch (e: FirebaseFirestoreException) {
+                        if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            Timber.w("🔍 JobFirestoreService.getJobById - job_details denied for user %s; returning core job data", currentUser.uid)
+                            null
+                        } else {
+                            throw e
+                        }
+                    }
+                }
                 Result.success(
-                    mergeJobWithDetails(jobId, document.data.orEmpty(), detailsDocument.data)
+                    mergeJobWithDetails(jobId, document.data.orEmpty(), detailsData)
                 )
             } else {
                 Timber.d("🔍 JobFirestoreService.getJobById - Document not found")
@@ -768,7 +785,7 @@ class JobFirestoreService @Inject constructor(
             jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
             val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
 
-            // `jobs` = card data (title, salary, location, status, etc.)
+            // `jobmetadata` = card data (title, salary, location, status, etc.)
             // `job_details` = full data (description, contact, benefits, etc.)
             val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()

@@ -13,7 +13,7 @@ const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: 'dutypeapp'
+    projectId: 'dutype-860ac'
   });
 }
 

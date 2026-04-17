@@ -39,7 +39,7 @@ try {
 if (!initialized) {
   // Use Application Default Credentials (firebase login / gcloud auth)
   admin.initializeApp({
-    projectId: 'dutypeapp'
+    projectId: 'dutype-860ac'
   });
   console.log('✅ Using Application Default Credentials (firebase login)');
 }

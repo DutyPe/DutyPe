@@ -7,7 +7,7 @@ import java.util.Date
 /**
  * JobListingSummary — strict target schema model for job card list views.
  *
- * Maps directly to the jobs collection fields:
+ * Maps directly to the jobmetadata collection fields:
  *   jobId, employerId, title, jobType, salary, salaryType,
  *   location:{lat,lng}, geohash, urgency, status, createdAt, expiresAt
  *

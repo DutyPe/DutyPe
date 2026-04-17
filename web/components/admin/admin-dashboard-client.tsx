@@ -169,6 +169,7 @@ const quickActions = [
   { href: "/admin/jobs", label: "Moderate Jobs", icon: "💼", color: "#8250df" },
   { href: "/admin/applications", label: "Applications", icon: "📋", color: "#bf8700" },
   { href: "/admin/referrals", label: "Referrals", icon: "🎁", color: "#cf222e" },
+  { href: "/admin/notifications", label: "Notifications", icon: "🔔", color: "#d1242f" },
   { href: "/admin/announcements", label: "Announcements", icon: "📢", color: "#0550ae" },
   { href: "/admin/routes", label: "Routes", icon: "🧭", color: "#24292f" }
 ];

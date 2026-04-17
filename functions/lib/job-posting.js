@@ -53,7 +53,7 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
     }
     try {
         // Check if job with this idempotency key already exists
-        const existingJobsSnapshot = await db.collection('jobs')
+        const existingJobsSnapshot = await db.collection('jobmetadata')
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
             .get();
@@ -71,7 +71,7 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
             throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: title, category, employerId');
         }
         // Create new job with idempotency key
-        const jobRef = await db.collection('jobs').add(Object.assign(Object.assign({}, jobData), { idempotencyKey, createdAt: admin.firestore.FieldValue.serverTimestamp(), status: 'open' }));
+        const jobRef = await db.collection('jobmetadata').add(Object.assign(Object.assign({}, jobData), { idempotencyKey, createdAt: admin.firestore.FieldValue.serverTimestamp(), status: 'open' }));
         functions.logger.info(`New job created: ${jobRef.id} with idempotency key: ${idempotencyKey}`);
         return {
             jobId: jobRef.id,
@@ -104,7 +104,7 @@ exports.batchUpdateVacancyStatus = functions.https.onCall(async (data, context) 
     try {
         const results = {};
         for (const jobId of jobIds) {
-            const jobDoc = await db.collection('jobs').doc(jobId).get();
+            const jobDoc = await db.collection('jobmetadata').doc(jobId).get();
             if (!jobDoc.exists) {
                 results[jobId] = { error: 'Job not found' };
                 continue;

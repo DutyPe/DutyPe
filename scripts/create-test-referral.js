@@ -117,8 +117,8 @@ async function testReferral() {
     console.log('   - Successful referrals: ' + (updatedData.successfulReferrals || 0));
     
     console.log('\n🌐 Check in admin panel:');
-    console.log('   - Go to: https://dutypeapp.web.app/admin/referrals.html');
-    console.log('   - Or: https://dutypeapp.web.app/admin/test-referral.html');
+    console.log('   - Go to: https://dutype-860ac.web.app/admin/referrals.html');
+    console.log('   - Or: https://dutype-860ac.web.app/admin/test-referral.html');
     console.log('   - You should see the test referral');
     
     console.log('\n🗑️  To remove test data:');

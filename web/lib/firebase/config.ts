@@ -1,10 +1,10 @@
 const fallbackConfig = {
-  apiKey: "AIzaSyCO_0gcUBy0m290p8UPoEOqT_XWc1Gccdo",
-  authDomain: "dutypeapp.firebaseapp.com",
-  projectId: "dutypeapp",
-  storageBucket: "dutypeapp.firebasestorage.app",
-  messagingSenderId: "1062348180452",
-  appId: "1:1062348180452:web:b48915e74d2469ad0095f1"
+  apiKey: "AIzaSyDFIzb8G90t3OjUShiceM8AeEdKzJ640_c",
+  authDomain: "dutype-860ac.firebaseapp.com",
+  projectId: "dutype-860ac",
+  storageBucket: "dutype-860ac.firebasestorage.app",
+  messagingSenderId: "1024525807494",
+  appId: "1:1024525807494:web:b425aaecaf4c873235c607"
 };
 
 export const firebaseConfig = {

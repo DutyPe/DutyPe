@@ -5,7 +5,9 @@ import com.example.dutype.models.normalizeReferralCode
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Transaction
 import kotlinx.coroutines.tasks.await
@@ -41,6 +43,36 @@ class AuthFlowService @Inject constructor(
         val roleForFcm: String
     )
 
+    private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
+        val normalizedCode = normalizeReferralCode(rawCode)
+        if (normalizedCode.isBlank()) return null
+
+        val candidates = linkedSetOf(
+            normalizedCode,
+            normalizedCode.lowercase()
+        )
+
+        for (candidate in candidates) {
+            try {
+                val snapshot = firestore.collection(COLLECTION_REFERRAL_CODES)
+                    .document(candidate)
+                    .get()
+                    .await()
+                if (snapshot.exists()) {
+                    return snapshot
+                }
+            } catch (e: FirebaseFirestoreException) {
+                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    Timber.w("AuthFlowService: referral code lookup denied for %s", candidate)
+                    continue
+                }
+                throw e
+            }
+        }
+
+        return null
+    }
+
     suspend fun completeRegistration(
         requestedRole: String,
         fullName: String,
@@ -67,13 +99,12 @@ class AuthFlowService @Inject constructor(
                 ?.takeIf { it.isNotBlank() }
 
             val referrerSnapshot = if (normalizedReferralCode != null) {
-                val snapshot = firestore.collection(COLLECTION_REFERRAL_CODES)
-                    .document(normalizedReferralCode)
-                    .get()
-                    .await()
+                val snapshot = findReferralCodeDocument(normalizedReferralCode)
+                    ?: return Result.failure(IllegalArgumentException("Referral code not found"))
 
-                if (!snapshot.exists()) {
-                    return Result.failure(IllegalArgumentException("Referral code not found"))
+                val isActive = snapshot.getBoolean("isActive") ?: true
+                if (!isActive) {
+                    return Result.failure(IllegalArgumentException("This referral code is no longer active"))
                 }
 
                 val referrerUserId = snapshot.getString("userId").orEmpty()
@@ -124,6 +155,7 @@ class AuthFlowService @Inject constructor(
                 }
 
                 val ownReferralCode = existingReferralCode.ifBlank { reserveUniqueReferralCode(transaction) }
+                val shouldCreateReferralCodeDoc = existingReferralCode.isBlank()
                 val now = Timestamp.now()
                 val referrerUserId = referrerSnapshot?.getString("userId").orEmpty()
                 val resolvedFullName = (existingData["fullName"] as? String)?.trim()
@@ -158,23 +190,41 @@ class AuthFlowService @Inject constructor(
                     }
                 }
 
-                transaction.set(userRef, userData, SetOptions.merge())
-                transaction.set(
-                    firestore.collection(COLLECTION_REFERRAL_CODES).document(ownReferralCode),
-                    linkedMapOf<String, Any>(
-                        "code" to ownReferralCode,
-                        "userId" to currentUser.uid,
-                        "userRole" to role,
-                        "userRoles" to mergedRoles,
-                        "userName" to resolvedFullName,
-                        "isActive" to true,
-                        "createdAt" to now
-                    ),
-                    SetOptions.merge()
-                )
+                // Preserve optional canonical fields when present while rebuilding the user doc.
+                (existingData["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                    userData["profileImageUrl"] = it
+                }
+                (existingData["fcmToken"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                    userData["fcmToken"] = it
+                }
+                val existingLocation = existingData["location"] as? Map<*, *>
+                val lat = (existingLocation?.get("lat") as? Number)?.toDouble()
+                val lng = (existingLocation?.get("lng") as? Number)?.toDouble()
+                if (lat != null && lng != null && lat in -90.0..90.0 && lng in -180.0..180.0) {
+                    userData["location"] = mapOf("lat" to lat, "lng" to lng)
+                }
+                (existingData["geohash"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                    userData["geohash"] = it
+                }
 
-                // Referral reward attachment is finalized via Cloud Function applyReferralCode
-                // immediately after successful registration from the UI flow.
+                // Overwrite with canonical shape to drop legacy keys that can block strict-rule updates.
+                transaction.set(userRef, userData)
+                if (shouldCreateReferralCodeDoc) {
+                    transaction.set(
+                        firestore.collection(COLLECTION_REFERRAL_CODES).document(ownReferralCode),
+                        linkedMapOf<String, Any>(
+                            "code" to ownReferralCode,
+                            "userId" to currentUser.uid,
+                            "userRole" to role,
+                            "userName" to resolvedFullName,
+                            "isActive" to true,
+                            "createdAt" to now
+                        )
+                    )
+                }
+
+                // Referral reward attachment is handled by Cloud Function applyReferralCode
+                // from the registration flow, with profile-setup fallback for retries.
 
                 RegistrationResolution(userData, ownReferralCode)
             }.await()

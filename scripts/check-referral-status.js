@@ -4,7 +4,8 @@
  */
 
 const admin = require('firebase-admin');
-const serviceAccount = require('./dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json');
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
+const serviceAccount = loadServiceAccount();
 
 if (!admin.apps.length) {
     admin.initializeApp({

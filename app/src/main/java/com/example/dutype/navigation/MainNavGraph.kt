@@ -60,10 +60,17 @@ fun MainNavGraph(
         val broadcastReceiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
                 val deepLinkUri = intent?.data
+                    ?: intent?.getStringExtra("deep_link_uri")?.let { uriString ->
+                        runCatching { android.net.Uri.parse(uriString) }
+                            .onFailure { Timber.e(it, "📱 MainNavGraph: Invalid deep link URI in broadcast: $uriString") }
+                            .getOrNull()
+                    }
                 if (deepLinkUri != null) {
                     Timber.i("📱 MainNavGraph: Received deep link broadcast: $deepLinkUri")
                     // Handle deep link using DeepLinkHandler
                     com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(deepLinkUri, navController)
+                } else {
+                    Timber.w("📱 MainNavGraph: Broadcast received without deep link URI")
                 }
             }
         }
@@ -246,10 +253,12 @@ fun MainNavGraph(
         }
     }
     
-    // Handle notification clicks - only after NavHost is ready and navigation is determined
+    // Handle startup deep links + notification clicks after NavHost is ready.
     LaunchedEffect(notificationData, notificationIntent, navigationDetermined, isLoading) {
         // Only proceed if NavHost is ready (navigationDetermined), not loading, and we have notification data
         if (notificationIntent != null && navigationDetermined && !isLoading) {
+            val startupDeepLinkUri = notificationIntent.data
+
             // Extract navigation data from intent
             val navigateTo = notificationIntent.getStringExtra("navigate_to")
             val notificationAction = notificationIntent.getStringExtra("notification_action")
@@ -260,7 +269,8 @@ fun MainNavGraph(
             val loginRoleExtra = notificationIntent.getStringExtra("login_role")
             
             // Only process if there's actual notification data (not just a regular app launch)
-            val hasNotificationData = navigateTo != null || notificationAction != null || 
+            val hasNotificationData = startupDeepLinkUri != null ||
+                                      navigateTo != null || notificationAction != null || 
                                       jobId != null || applicationId != null || notificationId != null ||
                                       directToLogin
             
@@ -273,6 +283,22 @@ fun MainNavGraph(
             
             // Small delay to ensure NavHost is fully initialized
             delay(100)
+
+            if (startupDeepLinkUri != null) {
+                Timber.i("MainNavGraph - Handling startup deep link: $startupDeepLinkUri")
+
+                val handledByNavController = runCatching {
+                    navController.handleDeepLink(notificationIntent)
+                }.onFailure { error ->
+                    Timber.e(error, "MainNavGraph - NavController.handleDeepLink failed, trying fallback handler")
+                }.getOrDefault(false)
+
+                if (!handledByNavController) {
+                    Timber.i("MainNavGraph - Deep link not matched by nav graph, using DeepLinkHandler fallback")
+                    com.example.dutype.utils.DeepLinkHandler.handleDeepLink(notificationIntent, navController)
+                }
+                return@LaunchedEffect
+            }
             
             Timber.i("MainNavGraph - Navigation data: navigateTo=$navigateTo, action=$notificationAction, jobId=$jobId, applicationId=$applicationId")
 

@@ -66,8 +66,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -786,8 +786,10 @@ private fun JobDetailsContent(
             val payAmount = salaryStr
             
             // Working hours — not in schema, show N/A
-            val workingHoursDisplay = "Not specified"
-            val experienceDisplay = "Not specified"
+            val displayLocation = job.addressText.ifBlank { job.location }
+            val workingHoursDisplay = job.workingHours.ifBlank { "Not specified" }
+            val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
+            val shiftTimingDisplay = job.shiftTiming.ifBlank { "Not specified" }
             // Employer joined time should be fetched from employer profile if needed
             
             Card(
@@ -846,7 +848,7 @@ private fun JobDetailsContent(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    job.location, 
+                                    displayLocation.ifBlank { "Not specified" },
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.SemiBold, 
                                         color = Color.Black
@@ -887,6 +889,10 @@ private fun JobDetailsContent(
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // Shift timing
+                    JobDetailRow(Icons.Default.Schedule, Color(0xFF0EA5E9), "Shift:", shiftTimingDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
                     
                     // Working Hours
                     JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Working Hours:", workingHoursDisplay)
@@ -900,6 +906,16 @@ private fun JobDetailsContent(
                     if (category.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(10.dp))
                         JobDetailRow(Icons.Filled.Category, Color(0xFF6366F1), "Category:", category)
+                    }
+
+                    if (job.vacancies > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        JobDetailRow(Icons.Default.People, Color(0xFF8B5CF6), "Vacancies:", job.vacancies.toString())
+                    }
+
+                    if (job.gender.isNotBlank() && !job.gender.equals("Any", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        JobDetailRow(Icons.Default.Person, Color(0xFFEC4899), "Gender:", job.gender)
                     }
                     
                     /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
@@ -932,9 +948,35 @@ private fun JobDetailsContent(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         parseDescriptionToBullets(job.description).forEach { point ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                                Text("-", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
+                            }
+                        }
+                    }
+
+                    if (job.benefits.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            "Benefits",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            job.benefits.forEach { benefit ->
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    Text("-", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(benefit, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
+                                }
                             }
                         }
                     }

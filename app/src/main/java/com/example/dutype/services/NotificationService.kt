@@ -729,10 +729,21 @@ class NotificationService @Inject constructor(
         }
 
         val deepLink = notification.data["deepLink"]
-        val intent = if (!deepLink.isNullOrEmpty()) {
-            Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
-                setClass(context, com.example.dutype.MainActivity::class.java)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val deepLinkUri = deepLink?.takeIf { it.isNotBlank() }?.let { Uri.parse(it) }
+        val deepLinkHost = deepLinkUri?.host.orEmpty()
+        val isExternalLink = deepLinkUri?.scheme == "market" ||
+            (deepLinkUri?.scheme in listOf("http", "https") && deepLinkHost.contains("play.google.com"))
+
+        val intent = if (deepLinkUri != null) {
+            if (isExternalLink) {
+                Intent(Intent.ACTION_VIEW, deepLinkUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            } else {
+                Intent(Intent.ACTION_VIEW, deepLinkUri).apply {
+                    setClass(context, com.example.dutype.MainActivity::class.java)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
             }
         } else {
             Intent(context, com.example.dutype.MainActivity::class.java).apply {

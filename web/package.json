@@ -11,7 +11,9 @@
     "dev:fresh": "npm run clean && next dev",
     "build": "next build",
     "build:fresh": "npm run clean && next build",
+    "build:standalone": "node scripts/build-standalone.mjs",
     "start": "next start",
+    "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint",
     "type-check": "tsc -p tsconfig.typecheck.json --noEmit"
   },
