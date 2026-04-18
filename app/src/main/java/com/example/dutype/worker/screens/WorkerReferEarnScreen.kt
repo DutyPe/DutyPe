@@ -42,7 +42,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
@@ -56,9 +56,9 @@ fun WorkerReferEarnScreen(
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val referralConfig by viewModel.referralConfig.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -267,6 +267,7 @@ fun WorkerReferEarnScreen(
                         ) {
                             ReferralCodeSection(
                                 referralCode = uiState.stats?.referralCode ?: "",
+                                signupBonus = referralConfig.signupBonus,
                                 onCopyClick = {
                                     copyTextToClipboard(
                                         context = context,
@@ -284,7 +285,7 @@ Use my referral code: $code
 
 Download: $playStoreUrl
 
-Find local jobs near you and earn Rs.25 bonus!
+Find local jobs near you and earn Rs.${referralConfig.signupBonus.toInt()} bonus!
                                     """.trimIndent()
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -318,7 +319,7 @@ Find local jobs near you and earn Rs.25 bonus!
                     }
                     
                     // Withdraw Button
-                    if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= 50.0) {
+                    if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= referralConfig.minWithdrawal) {
                         item {
                             AnimatedVisibility(
                                 visible = isVisible,
@@ -395,6 +396,7 @@ Find local jobs near you and earn Rs.25 bonus!
     if (showWithdrawDialog) {
         WithdrawDialog(
             availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
             onWithdraw = { amount, upiId ->
                 viewModel.requestWithdrawal(amount, upiId)
@@ -482,6 +484,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
 @Composable
 private fun ReferralCodeSection(
     referralCode: String,
+    signupBonus: Double,
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
@@ -541,7 +544,7 @@ private fun ReferralCodeSection(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Share this code → friend gets ₹25 bonus!",
+                text = "Share this code → friend gets ₹${signupBonus.toInt()} bonus!",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF6B7280)
                 ),
@@ -976,6 +979,7 @@ private fun ReferralHistoryItem(referral: Referral) {
 @Composable
 private fun WithdrawDialog(
     availableBalance: Double,
+    minWithdrawal: Double,
     onDismiss: () -> Unit,
     onWithdraw: (Double, String) -> Unit
 ) {
@@ -1017,7 +1021,7 @@ private fun WithdrawDialog(
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < 50 -> error = "Minimum withdrawal is Rs.50"
+                        amountValue < minWithdrawal -> error = "Minimum withdrawal is Rs.${minWithdrawal.toInt()}"
                         amountValue > availableBalance -> error = "Insufficient balance"
                         upiId.isBlank() -> error = "Enter UPI ID"
                         !upiId.contains("@") -> error = "Invalid UPI ID format"

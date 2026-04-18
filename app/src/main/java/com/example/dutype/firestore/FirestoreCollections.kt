@@ -31,4 +31,13 @@ object FirestoreCollections {
     // ── Referral ────────────────────────────────────────
     const val REFERRALS = "referrals"
     const val REFERRAL_CODES = "referral_codes"
+    const val REFERRAL_STATS = "referral_stats"
+    /** Subcollection: `users/{uid}/withdrawals/{wId}`. CF-only writes. */
+    const val WITHDRAWALS = "withdrawals"
+
+    // ── Config & Ops ────────────────────────────────────
+    /** Public admin-editable config (referral rewards, feature flags). */
+    const val APP_CONFIG = "app_config"
+    /** Worker/employer announcements. Pull-based; do not open snapshot listeners. */
+    const val ANNOUNCEMENTS = "announcements"
 }

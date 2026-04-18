@@ -14,9 +14,10 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const validation_1 = require("./validation");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // ============================================
@@ -564,14 +565,28 @@ exports.logUserActivity = functions.https.onCall(async (data, context) => {
 });
 /**
  * Check whether a user exists for a phone number.
- * Used by app login/register pre-checks because users-by-phone reads are blocked by client rules.
+ * HARDENED:
+ *   • Must be authenticated (prevents unauth'd phone enumeration).
+ *   • Per-caller rate limit (Firestore-backed, 5/min, 50/day).
+ *   • Response is boolean-only — never discloses userId or roles.
  */
-exports.checkPhoneExists = functions.https.onCall(async (data) => {
+exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
     var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "login required");
+    }
+    (0, validation_1.assertAppCheck)(context);
+    await (0, validation_1.requirePerUserRateLimit)(context.auth.uid, "checkPhoneExists", { perMinute: 5, perDay: 50 });
     const rawPhone = String((_a = data === null || data === void 0 ? void 0 : data.phone) !== null && _a !== void 0 ? _a : "").trim();
     const providedVariants = Array.isArray(data === null || data === void 0 ? void 0 : data.variants)
         ? data.variants.map(v => String(v)).filter(v => v.trim().length > 0)
         : [];
+    if (providedVariants.length > 10) {
+        throw new functions.https.HttpsError("invalid-argument", "too many variants");
+    }
+    if (rawPhone && (rawPhone.length < 7 || rawPhone.length > 20)) {
+        throw new functions.https.HttpsError("invalid-argument", "phone");
+    }
     if (!rawPhone && providedVariants.length === 0) {
         return { exists: false };
     }
@@ -602,16 +617,8 @@ exports.checkPhoneExists = functions.https.onCall(async (data) => {
             .limit(1)
             .get();
     }
-    if (usersSnapshot.empty) {
-        return { exists: false };
-    }
-    const doc = usersSnapshot.docs[0];
-    const userData = doc.data() || {};
-    return {
-        exists: true,
-        userId: doc.id,
-        roles: Array.isArray(userData.roles) ? userData.roles : [],
-    };
+    // Boolean-only response. Do NOT leak userId or roles.
+    return { exists: !usersSnapshot.empty };
 });
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM
@@ -783,4 +790,24 @@ Object.defineProperty(exports, "getReferralLeaderboard", { enumerable: true, get
 // EXPORT JOB POSTING FUNCTIONS
 // ============================================
 __exportStar(require("./job-posting"), exports);
+// ============================================
+// EXPORT COVER LETTER SIGNED URL
+// ============================================
+__exportStar(require("./cover-letter"), exports);
+// ============================================
+// EXPORT AGGREGATE MAINTAINERS + EXPIRY SWEEP
+// ============================================
+__exportStar(require("./aggregates"), exports);
+__exportStar(require("./job-expiry"), exports);
+// ============================================
+// EXPORT NOTIFICATION FAN-OUT + RATE-LIMIT CLEANUP
+// ============================================
+__exportStar(require("./notification-fanout"), exports);
+__exportStar(require("./rate-limit-cleanup"), exports);
+// ============================================
+// EXPORT APP CONFIG (admin-editable referral rewards)
+// ============================================
+var app_config_1 = require("./app-config");
+Object.defineProperty(exports, "updateReferralConfig", { enumerable: true, get: function () { return app_config_1.updateReferralConfig; } });
+Object.defineProperty(exports, "getReferralConfigCallable", { enumerable: true, get: function () { return app_config_1.getReferralConfigCallable; } });
 //# sourceMappingURL=index.js.map

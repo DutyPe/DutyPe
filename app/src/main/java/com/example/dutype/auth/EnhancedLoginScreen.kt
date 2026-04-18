@@ -330,7 +330,7 @@ private fun OtpLoginScreen(
                 } else {
                     // No Firebase user - go back to role selection
                     navController.navigate(Routes.SELECT_ROLE) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
             } catch (e: Exception) {
@@ -453,45 +453,6 @@ private fun OtpLoginScreen(
         }
     }
 }
-
-private fun safeAuthBackNavigation(navController: NavController) {
-    val popped = navController.popBackStack()
-    if (!popped) {
-        navController.navigate(Routes.SELECT_ROLE) {
-            popUpTo(0) { inclusive = true }
-            launchSingleTop = true
-        }
-    }
-}
-
-private fun navigateToHome(role: UserRole, navController: NavController) {
-    when (role) {
-        UserRole.WORKER -> navController.navigate(Routes.WORKER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-        UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-        else -> navController.navigate(Routes.WORKER_HOME) {
-            popUpTo(0) { inclusive = true }
-        }
-    }
-}
-
-private fun navigateToProfileSetup(role: UserRole, navController: NavController) {
-    when (role) {
-        UserRole.WORKER -> navController.navigate(Routes.PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-        UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-        else -> navController.navigate(Routes.PROFILE_SETUP) {
-            popUpTo(0) { inclusive = true }
-        }
-    }
-}
-
 
 /**
  * Phone Input Section - Login-only phone number entry
@@ -780,7 +741,7 @@ private fun OtpInputSection(
 
         Spacer(modifier = Modifier.height(23.dp))
 
-        OtpInputBoxes(
+        AuthOtpBoxes(
             otpValue = otpValue,
             onOtpChange = onOtpChange,
             digitCount = 6
@@ -883,104 +844,5 @@ private fun OtpInputSection(
                 message = otpState.error
             )
         }
-    }
-}
-
-/**
- * OTP Input Boxes - Visual representation of 6-digit OTP
- */
-@Composable
-private fun OtpInputBoxes(
-    otpValue: String,
-    onOtpChange: (String) -> Unit,
-    digitCount: Int = 6
-) {
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var isFocused by remember { mutableStateOf(false) }
-
-    // When this composable is first shown, mark as focused
-    LaunchedEffect(Unit) {
-        isFocused = true
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                isFocused = true
-                focusRequester.requestFocus()
-                keyboardController?.show()
-            }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-        ) {
-            repeat(digitCount) { index ->
-                val isFocusedIndex = index == otpValue.length && isFocused
-                val isFilledIndex = index < otpValue.length
-                val digit = otpValue.getOrNull(index)?.toString() ?: ""
-
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(color = WorkerColors.CardBackground, shape = RoundedCornerShape(8.dp))
-                        .border(
-                            width = 2.dp,
-                            color = when {
-                                isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.TextPrimary
-                                else -> WorkerColors.Border
-                            },
-                            shape = RoundedCornerShape(8.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = digit,
-                        style = AppTypography.pageTitle.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = WorkerColors.TextPrimary
-                    )
-                }
-            }
-        }
-
-        // Invisible text field for input with autofill support
-        BasicTextField(
-            value = otpValue,
-            onValueChange = { newValue ->
-                val normalizedOtp = newValue.filter { it.isDigit() }.take(digitCount)
-                if (normalizedOtp != otpValue) {
-                    onOtpChange(normalizedOtp)
-                }
-                isFocused = true
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .focusRequester(focusRequester)
-                .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused || focusState.hasFocus
-                }
-                .alpha(0f),
-            singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Transparent),
-            cursorBrush = SolidColor(Color.Transparent),
-            decorationBox = { innerTextField ->
-                innerTextField()
-            }
-        )
     }
 }

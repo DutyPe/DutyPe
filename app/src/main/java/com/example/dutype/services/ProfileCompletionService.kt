@@ -87,11 +87,8 @@ class ProfileCompletionService @Inject constructor(
             .distinct()
     }
 
-    private fun readWorkerSkills(workerData: Map<String, Any>): List<String> {
-        return extractSkills(workerData["skills"]).ifEmpty {
-            extractSkills(workerData["jobTypes"])
-        }
-    }
+    private fun readWorkerSkills(workerData: Map<String, Any>): List<String> =
+        extractSkills(workerData["skills"])
 
     private fun extractValidLocation(profileData: Map<String, Any>, existingUser: Map<String, Any>): Map<String, Any>? {
         val candidate = (profileData["location"] as? Map<*, *>) ?: (existingUser["location"] as? Map<*, *>)
@@ -695,12 +692,11 @@ class ProfileCompletionService @Inject constructor(
             val workerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "skills" to skills,
-                "jobTypes" to skills,
                 "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true),
-                "lastActiveAt" to now,
-                "rating" to ((existingWorker["rating"] as? Number)?.toDouble() ?: 0.0),
-                "totalRatings" to ((existingWorker["totalRatings"] as? Number)?.toInt() ?: 0),
-                "totalJobs" to ((existingWorker["totalJobs"] as? Number)?.toInt() ?: 0)
+                "lastActiveAt" to now
+                // Notes:
+                //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via
+                //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
             )
 
             val batch = firestore.batch()
@@ -774,7 +770,6 @@ class ProfileCompletionService @Inject constructor(
                 .ifEmpty { listOf("EMPLOYER") }
 
             val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
-            val existingEmployer = employerRef.get().await().data.orEmpty()
 
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
@@ -790,11 +785,8 @@ class ProfileCompletionService @Inject constructor(
             val employerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "companyName" to companyName,
-                "isVerified" to false,
-                "rating" to ((existingEmployer["rating"] as? Number)?.toDouble() ?: 0.0),
-                "totalRatings" to ((existingEmployer["totalRatings"] as? Number)?.toInt() ?: 0),
-                "totalHires" to ((existingEmployer["totalHires"] as? Number)?.toInt() ?: 0),
                 "lastActiveAt" to now
+                // isVerified / rating / totalRatings / totalHires are CF-only aggregates.
             )
 
             val batch = firestore.batch()
@@ -1112,7 +1104,7 @@ class ProfileCompletionService @Inject constructor(
         private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
         private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
         private const val COLLECTION_REFERRALS = "referrals"
-        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
+        private const val COLLECTION_REFERRAL_STATS = com.example.dutype.firestore.FirestoreCollections.REFERRAL_STATS
     }
     
     /**
@@ -1283,25 +1275,12 @@ class ProfileCompletionService @Inject constructor(
         "referralCode" to referralCode,
         "totalReferrals" to totalReferrals,
         "successfulReferrals" to successfulReferrals,
-        "pendingReferrals" to pendingReferrals,
-        "expiredReferrals" to expiredReferrals,
-        "rejectedReferrals" to rejectedReferrals,
         "totalEarnings" to totalEarnings,
-        "pendingEarnings" to pendingEarnings,
-        "withdrawnAmount" to withdrawnAmount,
         "availableBalance" to availableBalance,
         "canWithdraw" to canWithdraw,
-        "nextMilestone" to nextMilestone,
         "currentTier" to currentTier.name,
         "freeJobPostings" to freeJobPostings,
-        "freeJobPostingsExpiry" to freeJobPostingsExpiry,
-        "lastUpdated" to lastUpdated,
-        "referredByCode" to referredByCode,
-        "referredByUserId" to referredByUserId,
-        "lastWithdrawalAt" to lastWithdrawalAt,
-        "totalWithdrawals" to totalWithdrawals,
-        "isBlocked" to isBlocked,
-        "blockReason" to blockReason
+        "freeJobPostingsExpiry" to freeJobPostingsExpiry
     )
 
     private fun com.example.dutype.models.Referral.toMap(): Map<String, Any?> = mapOf(

@@ -616,7 +616,7 @@ class FirestoreJobRepository @Inject constructor(
      * P1 PERFORMANCE FIX: Ultra-fast distance calculation and sorting
      * 
      * Optimizations:
-     * - Uses GeoUtils.sortJobsByDistance (enterprise pattern)
+     * - Uses NearestJobsEngine (single source of truth)
      * - Inline Haversine formula (no function overhead)
      * - Single-pass calculation + sort
      * - Optimized for 500 jobs (LinkedIn sliding window)

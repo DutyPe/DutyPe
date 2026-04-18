@@ -33,6 +33,13 @@ import java.util.concurrent.TimeUnit
  * - Runs every 30 minutes when connected to network
  * - Requires battery not low
  * - Uses expedited work for critical syncs
+ *
+ * Idempotency contract:
+ * - Safe to re-run. All Firestore -> Room writes use `OnConflictStrategy.REPLACE`,
+ *   so re-syncing the same documents converges to the same state.
+ * - Queued application submissions are guarded by per-application status flags in Room;
+ *   a successful submit transitions the row out of the queued state, so retries skip it.
+ * - Cache cleanup is a delete-by-timestamp pass that is naturally idempotent.
  * 
  * @author DutyPe Engineering Team
  * @since 2.2.0

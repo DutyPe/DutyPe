@@ -37,7 +37,6 @@ data class ApplicationEntity(
     
     fun toJobApplication(): JobApplication {
         return JobApplication(
-            applicationId = applicationId,
             id = applicationId,
             jobId = jobId,
             workerId = workerId,
@@ -69,14 +68,14 @@ data class ApplicationEntity(
     
     companion object {
         fun fromJobApplication(app: JobApplication): ApplicationEntity {
-            val canonicalId = app.canonicalId.ifBlank { "${app.jobId}_${app.workerId}" }
+            val canonicalId = app.id.ifBlank { "${app.jobId}_${app.workerId}" }
             return ApplicationEntity(
                 applicationId = canonicalId,
                 jobId = app.jobId,
                 workerId = app.workerId,
                 employerId = app.employerId,
                 status = app.status.name,
-                appliedAt = app.appliedAt,
+                appliedAt = app.createdAt,
                 updatedAt = System.currentTimeMillis(),
                 jobTitle = app.jobTitle,
                 jobLocation = app.jobLocation,

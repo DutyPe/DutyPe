@@ -69,27 +69,4 @@ class NotificationPermissionManager(private val activity: ComponentActivity) {
             onResult(true)
         }
     }
-    
-    /**
-     * Request permission and show rationale if needed
-     */
-    fun requestPermissionWithRationale(
-        onResult: (Boolean) -> Unit,
-        showRationale: () -> Unit
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (isNotificationPermissionGranted()) {
-                onResult(true)
-            } else {
-                // Check if we should show rationale
-                if (activity.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
-                    showRationale()
-                } else {
-                    requestNotificationPermission(onResult)
-                }
-            }
-        } else {
-            onResult(true)
-        }
-    }
 }

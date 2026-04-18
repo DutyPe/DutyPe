@@ -32,6 +32,14 @@ import java.util.concurrent.TimeUnit
  * - Automatic retry with exponential backoff
  * - Idempotency key prevents duplicate submissions
  * - Sends notification on successful post
+ *
+ * Idempotency contract:
+ * - Safe to re-run. Each enqueued post carries a client-generated idempotency key
+ *   (`idempotencyKey` in worker input data) that the server / Firestore write path uses
+ *   to deduplicate. WorkManager retries with the same input data, so the same key flows
+ *   through and only one job document is ever created.
+ * - The success notification is keyed off the resulting `jobId`; a duplicate notification
+ *   would simply replace the previous one in the system tray.
  * 
  * @author DutyPe Engineering Team
  * @since 2.3.0

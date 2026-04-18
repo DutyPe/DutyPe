@@ -237,9 +237,14 @@ private fun performLogout(
             
             // Step 3: Navigate to role selection screen with cleared back stack
             // Using SELECT_ROLE allows user to choose their role again
+            // P1-7: invalidate cached start destination so a stale route can't
+            // be picked up by the next cold start.
+            runCatching {
+                com.example.dutype.navigation.StartDestinationCache.clear(navController.context)
+            }
             navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
-                // Clear the entire navigation stack - Google recommended practice
-                popUpTo(0) { inclusive = true }
+                // Clear the entire navigation stack via named-root pop (Google recommended)
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 launchSingleTop = true
             }
             
@@ -259,7 +264,7 @@ private fun performLogout(
             
             // Always navigate away from authenticated screens
             navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
-                popUpTo(0) { inclusive = true }
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 launchSingleTop = true
             }
         }

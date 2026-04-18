@@ -45,7 +45,7 @@ import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -73,8 +73,7 @@ fun MandatoryWorkerProfileSetupScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
@@ -148,8 +147,8 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
                     val savedPhone = existingData["phone"] as? String
-                    // jobTypes from worker_profiles (List<String>) — joined for display in skills field
-                    val savedSkills = when (val rawSkills = existingData["skills"] ?: existingData["jobTypes"]) {
+                    // skills from worker_profiles (List<String>) — joined for display in skills field
+                    val savedSkills = when (val rawSkills = existingData["skills"]) {
                         is List<*> -> rawSkills.filterIsInstance<String>()
                         is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
                         else -> emptyList()

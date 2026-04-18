@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 /**
  * Employer Trust Tier System
@@ -27,6 +28,7 @@ enum class EmployerTrustTier {
  * Trust tier display information
  */
 @Keep
+@Immutable
 data class TrustTierInfo(
     val tier: EmployerTrustTier,
     val displayName: String,

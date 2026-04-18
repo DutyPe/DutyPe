@@ -86,8 +86,8 @@ fun DigitalVisitingCardScreen(
     var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
     val ratingService = remember {
         com.example.dutype.services.RatingService(
-            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            FirebaseAuth.getInstance()
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
         )
     }
     
@@ -103,7 +103,7 @@ fun DigitalVisitingCardScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
-                val userDoc = FirebaseFirestore.getInstance()
+                val userDoc = com.example.dutype.di.firestoreFromHilt(context)
                     .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get()
@@ -117,15 +117,14 @@ fun DigitalVisitingCardScreen(
                     isVerified = userDoc.getBoolean("isVerified") ?: true
 
                     // Load worker-specific data from worker_profiles (target schema)
-                    val workerDoc = FirebaseFirestore.getInstance()
+                    val workerDoc = com.example.dutype.di.firestoreFromHilt(context)
                         .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
                         .document(currentUser.uid)
                         .get()
                         .await()
-                    val workerSkillsList = ((workerDoc.get("skills") as? List<*>)
+                    val workerSkillsList = (workerDoc.get("skills") as? List<*>)
                         ?.filterIsInstance<String>()
-                        ?: (workerDoc.get("jobTypes") as? List<*>)?.filterIsInstance<String>()
-                        ?: emptyList())
+                        ?: emptyList()
                     workerSkills = workerSkillsList.take(3)
                     workerExperience = ""
                     completedJobs = (workerDoc.getLong("totalJobs") ?: 0).toInt()
@@ -313,7 +312,7 @@ fun DigitalVisitingCardScreen(
                         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@DigitalVisitingCard
                         scope.launch {
                             isReviewsLoading = true
-                            workerReviews = ratingService.getUserRatings(userId, "WORKER")
+                            workerReviews = ratingService.getUserRatings(userId)
                             isReviewsLoading = false
                             showReviewsSheet = true
                         }

@@ -32,8 +32,12 @@ import java.util.concurrent.TimeUnit
  * Delivers local re-engagement nudges to authenticated users after app goes
  * to background. Guest users are handled by server-scheduled topic nudges.
  *
- * This worker is scheduled only from app background event and runs once.
- *
+ * This worker is scheduled only from app background event and runs once. *
+ * Idempotency contract:
+ * - Safe to re-run. Posting the same `NotificationCompat` with the same notification ID
+ *   simply replaces the previous notification in the system tray (no duplicate).
+ * - Worker is enqueued with `ExistingWorkPolicy.REPLACE`, so duplicate scheduling collapses
+ *   into a single pending run. *
  * Anti-spam controls:
  * - Never send to guests
  * - Skip if user already received 3 notifications today (all sources)
@@ -43,7 +47,9 @@ import java.util.concurrent.TimeUnit
 @HiltWorker
 class GuestEngagementWorker @AssistedInject constructor(
     @Assisted private val context: Context,
-    @Assisted params: WorkerParameters
+    @Assisted params: WorkerParameters,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
 ) : CoroutineWorker(context, params) {
 
     companion object {
@@ -139,14 +145,13 @@ class GuestEngagementWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        val user = FirebaseAuth.getInstance().currentUser
+        val user = auth.currentUser
         if (user == null) {
             Timber.d("🔔 EngagementWorker: guest user - skip local engagement")
             return Result.success()
         }
 
         val userId = user.uid
-        val firestore = FirebaseFirestore.getInstance()
 
         val now = Calendar.getInstance()
         val slot = getSlot(now)

@@ -22,7 +22,6 @@ import com.example.dutype.services.firestore.UserFirestoreService
 import com.example.dutype.services.firestore.JobFirestoreService
 import com.example.dutype.services.firestore.ApplicationFirestoreService
 import com.example.dutype.services.JobApplicationService
-import com.example.dutype.services.ApplicationManagementService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.JobShareImageGenerator
@@ -150,12 +149,26 @@ object AppModule {
     fun provideDutyPeDatabase(
         @ApplicationContext context: Context
     ): DutyPeDatabase {
+        // SECURITY: Room DB is encrypted with SQLCipher using a device-bound
+        // passphrase stored in EncryptedSharedPreferences (Keystore-wrapped).
+        val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
+        val factory = net.sqlcipher.database.SupportFactory(passphrase)
+        // SCHEMA MIGRATION POLICY:
+        // - Any schema bump from v7 onward MUST add an explicit Migration object.
+        //   Blanket destructive migration is a data-loss bomb for offline users.
+        // - Legacy versions 1..6 predate the current release; wiping those
+        //   installs is acceptable because their schemas are not exported.
+        // - Downgrades wipe (nothing we can do safely).
+        // When adding a migration, register it here with `.addMigrations(Migration_7_8, ...)`
+        // and REMOVE the corresponding version number from the legacy list.
         return Room.databaseBuilder(
             context,
             DutyPeDatabase::class.java,
             DutyPeDatabase.DATABASE_NAME
         )
-            .fallbackToDestructiveMigration()
+            .openHelperFactory(factory)
+            .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
+            .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
 
@@ -187,11 +200,7 @@ object AppModule {
         return JobCacheManager()
     }
 
-    @Provides
-    @Singleton
-    fun provideEmployerProfileCache(): com.example.dutype.cache.EmployerProfileCache {
-        return com.example.dutype.cache.EmployerProfileCache()
-    }
+    // EmployerProfileCache uses @Inject constructor, so Hilt resolves it automatically.
 
     @Provides
     @Singleton
@@ -204,18 +213,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideViewModelCleaner(): com.example.dutype.utils.ViewModelCleaner {
-        return com.example.dutype.utils.ViewModelCleaner()
-    }
-
-    @Provides
-    @Singleton
     fun provideRoleSwitchManager(
         roleCacheManager: com.example.dutype.cache.RoleCacheManager,
-        viewModelCleaner: com.example.dutype.utils.ViewModelCleaner,
         authManager: AuthManager
     ): com.example.dutype.managers.RoleSwitchManager {
-        return com.example.dutype.managers.RoleSwitchManager(roleCacheManager, viewModelCleaner, authManager)
+        return com.example.dutype.managers.RoleSwitchManager(roleCacheManager, authManager)
     }
 
     // ==========================================
@@ -245,10 +247,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJobFirestoreService(
-        firestore: FirebaseFirestore,
-        smartNotificationManager: com.example.dutype.services.SmartNotificationManager
+        firestore: FirebaseFirestore
     ): JobFirestoreService {
-        return JobFirestoreService(firestore, smartNotificationManager)
+        return JobFirestoreService(firestore)
     }
 
     @Provides
@@ -345,6 +346,7 @@ object AppModule {
         appStateManager: AppStateManager,
         jobCacheManager: JobCacheManager,
         firebaseAuth: FirebaseAuth,
+        firestore: FirebaseFirestore,
         sessionManager: com.example.dutype.auth.SessionManager
     ): AuthManager {
         return AuthManager(
@@ -354,6 +356,7 @@ object AppModule {
             appStateManager,
             jobCacheManager,
             firebaseAuth,
+            firestore,
             sessionManager
         )
     }
@@ -389,15 +392,6 @@ object AppModule {
             errorHandler,
             rateLimiter
         )
-    }
-
-    @Provides
-    @Singleton
-    fun provideApplicationManagementService(
-        firestore: FirebaseFirestore,
-        notificationService: NotificationService
-    ): ApplicationManagementService {
-        return ApplicationManagementService(firestore, notificationService)
     }
 
     @Provides
@@ -490,11 +484,8 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideWorkLocationManager(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): com.example.dutype.services.WorkLocationManager {
-        return com.example.dutype.services.WorkLocationManager(firestore, auth)
+    fun provideSavedWorkLocationsStore(): com.example.dutype.services.SavedWorkLocationsStore {
+        return com.example.dutype.services.SavedWorkLocationsStore()
     }
 
     @Provides
@@ -690,14 +681,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideObservabilityManager(
-        @ApplicationContext context: Context,
-        analytics: com.google.firebase.analytics.FirebaseAnalytics,
-        crashlytics: com.google.firebase.crashlytics.FirebaseCrashlytics,
-        performance: com.google.firebase.perf.FirebasePerformance
+        crashlytics: com.google.firebase.crashlytics.FirebaseCrashlytics
     ): com.example.dutype.core.observability.ObservabilityManager {
-        return com.example.dutype.core.observability.ObservabilityManager(
-            context, analytics, crashlytics, performance
-        )
+        return com.example.dutype.core.observability.ObservabilityManager(crashlytics)
     }
 
     @Provides

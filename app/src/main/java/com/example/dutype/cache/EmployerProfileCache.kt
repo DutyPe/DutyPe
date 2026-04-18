@@ -26,7 +26,9 @@ import javax.inject.Singleton
  * @since 2.3.0
  */
 @Singleton
-class EmployerProfileCache @Inject constructor() {
+class EmployerProfileCache @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
     
     companion object {
         // Cache TTL: 5 minutes (profile data doesn't change frequently)
@@ -34,7 +36,6 @@ class EmployerProfileCache @Inject constructor() {
     }
     
     private val mutex = Mutex()
-    private val firestore = FirebaseFirestore.getInstance()
     
     // Cached profile data per employer
     private val profileCache = mutableMapOf<String, CachedProfile>()

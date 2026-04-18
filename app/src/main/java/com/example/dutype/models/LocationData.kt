@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 /**
  * Simplified location data for job search application.
@@ -18,6 +19,7 @@ import androidx.annotation.Keep
  * - postalCode (not used for job filtering)
  */
 @Keep
+@Immutable
 data class LocationData(
     // Core fields for job search
     val latitude: Double,

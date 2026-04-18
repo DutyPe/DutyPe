@@ -379,8 +379,8 @@ fun JobDescriptionScreen(
 
             Box(modifier = Modifier.fillMaxSize().weight(1f).graphicsLayer(alpha = contentAlpha)) {
                 when {
-                    isLoading -> LoadingContent()
-                    error != null -> ErrorContent(error!!) { retryTrigger++ }
+                    isLoading -> JobDescriptionLoadingContent()
+                    error != null -> JobDescriptionErrorContent(error!!) { retryTrigger++ }
                     job != null -> JobDetailsContent(
                         job = job!!,
                         similarJobs = similarJobs,
@@ -1143,7 +1143,7 @@ private fun parseDescriptionToBullets(description: String): List<String> {
 }
 
 @Composable
-private fun LoadingContent() {
+private fun JobDescriptionLoadingContent() {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { ShimmerBox(height = 100.dp) }
         item { ShimmerBox(height = 30.dp, width = 250.dp) }
@@ -1155,7 +1155,7 @@ private fun LoadingContent() {
 }
 
 @Composable
-private fun ErrorContent(error: String, onRetry: () -> Unit) {
+private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
     val errorAnimation by rememberInfiniteTransition(label = "error").animateFloat(
         initialValue = 0.8f, targetValue = 1f,
         animationSpec = infiniteRepeatable(animation = tween(2000, easing = EaseInOutSine), repeatMode = RepeatMode.Reverse),

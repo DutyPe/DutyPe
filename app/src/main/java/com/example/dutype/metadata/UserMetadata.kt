@@ -84,13 +84,6 @@ class UserMetadata @Inject constructor(
     val usageLimits: StateFlow<UsageLimits> = _usageLimits.asStateFlow()
     
     // ==========================================
-    // ACHIEVEMENTS
-    // ==========================================
-    
-    private val _achievements = MutableStateFlow<List<Achievement>>(emptyList())
-    val achievements: StateFlow<List<Achievement>> = _achievements.asStateFlow()
-    
-    // ==========================================
     // LOADING STATE
     // ==========================================
     
@@ -141,7 +134,6 @@ class UserMetadata @Inject constructor(
             }
             
             loadUsageLimits(userId)
-            loadAchievements(userId)
             
             _lastUpdated.value = System.currentTimeMillis()
             Timber.d("📊 FULL UserMetadata initialized successfully")
@@ -167,7 +159,6 @@ class UserMetadata @Inject constructor(
         _workerStats.value = WorkerStats()
         _employerStats.value = EmployerStats()
         _usageLimits.value = UsageLimits()
-        _achievements.value = emptyList()
         _lastUpdated.value = 0L
         Timber.d("📊 UserMetadata cleared")
     }
@@ -452,11 +443,6 @@ class UserMetadata @Inject constructor(
         }
     }
     
-    private suspend fun loadAchievements(userId: String) {
-        // Achievements collection removed - return empty
-        _achievements.value = emptyList()
-    }
-    
     private fun getStartOfMonth(): Long {
         val calendar = java.util.Calendar.getInstance()
         calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
@@ -541,15 +527,4 @@ data class UsageLimits(
     val hasReachedApplicationLimit: Boolean = false,
     val hasReachedJobPostLimit: Boolean = false,
     val isPremium: Boolean = false
-)
-
-/**
- * User achievement
- */
-data class Achievement(
-    val id: String,
-    val title: String,
-    val description: String,
-    val icon: String = "🏆",
-    val unlockedAt: Long = 0L
 )

@@ -158,6 +158,9 @@ private fun RegisterContent(
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
+    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
+    val referralConfig by appConfigViewModel.referralConfig.collectAsState()
+    val signupBonusInt = referralConfig.signupBonus.toInt()
     val otpState by otpViewModel.otpState.collectAsState()
 
     OtpAutoFillEffect(
@@ -213,7 +216,7 @@ private fun RegisterContent(
                                     Timber.d("REGISTER - Referral applied immediately for user ${currentUser.uid}")
                                     Toast.makeText(
                                         context,
-                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹25 పొందారు." else "✓ Referral code applied successfully. You got ₹25 instantly.",
+                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹$signupBonusInt పొందారు." else "✓ Referral code applied successfully. You got ₹$signupBonusInt instantly.",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 },
@@ -242,7 +245,7 @@ private fun RegisterContent(
                     return@LaunchedEffect
                 } else {
                     navController.navigate(Routes.SELECT_ROLE) {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
             } catch (e: Exception) {
@@ -370,16 +373,6 @@ private fun RegisterContent(
                     )
                 }
             }
-        }
-    }
-}
-
-private fun safeAuthBackNavigation(navController: NavController) {
-    val popped = navController.popBackStack()
-    if (!popped) {
-        navController.navigate(Routes.SELECT_ROLE) {
-            popUpTo(0) { inclusive = true }
-            launchSingleTop = true
         }
     }
 }
@@ -720,6 +713,9 @@ private fun RegisterReferralSection(
     isTelugu: Boolean,
     onValidatedCodeChanged: (String?) -> Unit
 ) {
+    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
+    val referralConfig by appConfigViewModel.referralConfig.collectAsState()
+    val signupBonusInt = referralConfig.signupBonus.toInt()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -859,20 +855,7 @@ private fun RegisterReferralSection(
                             isValidatingCode = true
                             scope.launch {
                                 try {
-                                    val referralService = com.example.dutype.services.ReferralService(
-                                        com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                        com.google.firebase.auth.FirebaseAuth.getInstance(),
-                                        com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                        com.example.dutype.services.SmartNotificationManager(
-                                            context,
-                                            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                            com.example.dutype.services.NotificationService(
-                                                context,
-                                                com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                            )
-                                        ),
-                                        context
-                                    )
+                                    val referralService = com.example.dutype.di.referralServiceFromHilt(context)
                                     val validation = referralService.validateReferralCode(referralCode)
                                     isValidatingCode = false
                                     if (validation.isValid) {
@@ -940,7 +923,7 @@ private fun RegisterReferralSection(
                 )
 
                 else -> Text(
-                    if (isTelugu) "₹25 బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹25 bonus",
+                    if (isTelugu) "₹$signupBonusInt బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹$signupBonusInt bonus",
                     style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                 )
             }
@@ -1022,7 +1005,7 @@ private fun RegisterOtpSection(
         Spacer(modifier = Modifier.height(23.dp))
 
         // OTP Input Boxes
-        RegisterOtpInputBoxes(otpValue = otpValue, onOtpChange = onOtpChange, digitCount = 6)
+        AuthOtpBoxes(otpValue = otpValue, onOtpChange = onOtpChange, digitCount = 6)
 
         Spacer(modifier = Modifier.height(18.dp))
 
@@ -1114,104 +1097,4 @@ private fun RegisterOtpSection(
 
 // ─── OTP Input Boxes ─────────────────────────────────────────────────────────
 
-@Composable
-private fun RegisterOtpInputBoxes(
-    otpValue: String,
-    onOtpChange: (String) -> Unit,
-    digitCount: Int = 6
-) {
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    var isFocused by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        isFocused = true
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                isFocused = true
-                focusRequester.requestFocus()
-                keyboardController?.show()
-            }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-        ) {
-            repeat(digitCount) { index ->
-                val isFocusedIndex = index == otpValue.length && isFocused
-                val isFilledIndex = index < otpValue.length
-                val digit = otpValue.getOrNull(index)?.toString() ?: ""
-
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = WorkerColors.CardBackground,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = 2.dp,
-                            color = when {
-                                isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.TextPrimary
-                                else -> WorkerColors.Border
-                            },
-                            shape = RoundedCornerShape(8.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = digit,
-                        style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
-                        color = WorkerColors.TextPrimary
-                    )
-                }
-            }
-        }
-
-        BasicTextField(
-            value = otpValue,
-            onValueChange = { newValue ->
-                val normalizedOtp = newValue.filter { it.isDigit() }.take(digitCount)
-                if (normalizedOtp != otpValue) {
-                    onOtpChange(normalizedOtp)
-                }
-                isFocused = true
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .focusRequester(focusRequester)
-                .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused || focusState.hasFocus
-                }
-                .alpha(0f),
-            singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Transparent),
-            cursorBrush = SolidColor(Color.Transparent),
-            decorationBox = { innerTextField -> innerTextField() }
-        )
-    }
-}
-
 // ─── Navigation helpers ──────────────────────────────────────────────────────
-
-private fun navigateToProfileSetup(role: UserRole, navController: NavController) {
-    when (role) {
-        UserRole.WORKER -> navController.navigate(Routes.PROFILE_SETUP) { popUpTo(0) { inclusive = true } }
-        UserRole.EMPLOYER -> navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) { popUpTo(0) { inclusive = true } }
-        else -> navController.navigate(Routes.PROFILE_SETUP) { popUpTo(0) { inclusive = true } }
-    }
-}

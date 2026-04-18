@@ -145,9 +145,6 @@ interface JobDao {
     
     // ==================== QUERY - SYNC STATUS ====================
     
-    @Query("SELECT * FROM jobs WHERE isSynced = 0")
-    suspend fun getUnsyncedJobs(): List<JobEntity>
-    
     @Query("SELECT COUNT(*) FROM jobs WHERE isSynced = 0")
     suspend fun getUnsyncedJobCount(): Int
     
@@ -181,14 +178,6 @@ interface JobDao {
      */
     @Query("DELETE FROM jobs WHERE cachedAt < :timestamp")
     suspend fun deleteOldCache(timestamp: Long)
-    
-    /**
-     * Delete expired jobs
-     * REMOVED: expiresAt column - expiry is now calculated from postedAt + expiryDays
-     * This query is no longer needed as expiry is calculated on-demand
-     */
-    // @Query("DELETE FROM jobs WHERE expiresAt > 0 AND expiresAt < :currentTime")
-    // suspend fun deleteExpiredJobs(currentTime: Long)
     
     @Query("DELETE FROM jobs")
     suspend fun deleteAllJobs()

@@ -7,7 +7,6 @@ import androidx.work.Configuration
 import com.dutype.app.BuildConfig
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
-import com.example.dutype.ads.AdManager
 import com.example.dutype.services.NotificationChannelManager
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -35,9 +34,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
     lateinit var workerFactory: HiltWorkerFactory
     
     @Inject
-    lateinit var adManager: AdManager
-    
-    @Inject
     lateinit var anrHandler: com.example.dutype.performance.ANRHandler
     
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
@@ -56,18 +52,40 @@ class DutyPeApplication : Application(), Configuration.Provider {
         
         // Initialize Timber first for logging
         initializeTimber()
+
+        // Enable StrictMode in debug builds to surface main-thread disk/network I/O,
+        // leaked closables, and untagged sockets early. Release builds skip this entirely.
+        if (BuildConfig.DEBUG) {
+            android.os.StrictMode.setThreadPolicy(
+                android.os.StrictMode.ThreadPolicy.Builder()
+                    .detectDiskReads()
+                    .detectDiskWrites()
+                    .detectNetwork()
+                    .detectCustomSlowCalls()
+                    .penaltyLog()
+                    .build()
+            )
+            android.os.StrictMode.setVmPolicy(
+                android.os.StrictMode.VmPolicy.Builder()
+                    .detectLeakedClosableObjects()
+                    .detectLeakedRegistrationObjects()
+                    .detectActivityLeaks()
+                    .penaltyLog()
+                    .build()
+            )
+        }
         
         // CRITICAL P0 FIX: Firebase MUST be initialized synchronously BEFORE Hilt injects
         // Firebase-dependent singletons (FirebaseFirestore, FirebaseAuth, etc.)
         // Previously this was async causing race conditions with Hilt DI
         Firebase.initialize(this@DutyPeApplication)
 
-        // Diagnostic log to verify the runtime app is bound to the intended Firebase project.
-        logFirebaseBinding()
-
         // CRITICAL: App Check must be installed BEFORE any Firestore/Auth/Functions calls.
         // Async initialization can race with early app reads and cause PERMISSION_DENIED.
         initializeAppCheck()
+
+        // Diagnostic log: deferred off the startup critical path.
+        applicationScope.launch { logFirebaseBinding() }
         
         // PERFORMANCE: Defer notification channels to background
         applicationScope.launch(Dispatchers.IO) {
@@ -77,35 +95,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling
         com.example.dutype.performance.MainThreadChecker.init(this, anrHandler)
         
-        // Defer ALL heavy initialization to background for instant app launch
-        applicationScope.launch {
-            // DISABLED: AdMob initialization temporarily disabled
-            /*
-            // CRITICAL OPTIMIZATION: Defer AdMob initialization by 5 seconds
-            // This prevents WebView and Camera service from loading on startup
-            // AdMob will be ready by the time user navigates to screens with ads
-            kotlinx.coroutines.delay(5000) // 5 second delay for instant startup
-            
-            Timber.d("🚀 Starting deferred initialization (AdMob + WebView)")
-            
-            // AdMob initialization - must use Main dispatcher for ad loading
-            try {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    adManager.initialize(this@DutyPeApplication)
-                    Timber.d("📺 AdMob SDK initialized (deferred 5s, WebView camera disabled)")
-                    
-                    // Preload ads after initialization (requires main thread)
-                    adManager.preloadAllAds(this@DutyPeApplication)
-                    Timber.d("📺 AdMob ads preloading started (background)")
-                }
-            } catch (e: Exception) {
-                Timber.w(e, "📺 AdMob initialization failed (non-fatal)")
-            }
-            */
-            Timber.d("📺 AdMob initialization DISABLED")
-        }
-        
-        // Schedule background job sync immediately (don't wait for AdMob)
+        // Schedule background job sync immediately
         applicationScope.launch {
             try {
                 scheduleBackgroundSync()

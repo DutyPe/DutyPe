@@ -288,24 +288,4 @@ class RoleManagementViewModel @Inject constructor(
         
         return result
     }
-    
-    /**
-     * Clear role-specific data (called by RoleSwitchManager)
-     * This method is a hook for future enhancements
-     */
-    fun clearRoleSpecificData(oldRole: UserRole) {
-        Timber.d("🧹 ROLE_MGMT: Clearing data for role $oldRole")
-        // Additional cleanup logic can be added here
-        // For example: clearing in-memory caches, canceling pending operations, etc.
-    }
-    
-    /**
-     * Initialize role data (called by RoleSwitchManager)
-     * This method is a hook for future enhancements
-     */
-    fun initializeRoleData(newRole: UserRole) {
-        Timber.d("🚀 ROLE_MGMT: Initializing data for role $newRole")
-        // Additional initialization logic can be added here
-        // For example: pre-fetching role-specific data, setting up listeners, etc.
-    }
 }

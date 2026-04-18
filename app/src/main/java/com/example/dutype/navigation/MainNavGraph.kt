@@ -53,47 +53,32 @@ fun MainNavGraph(
 ) {
     val context = LocalContext.current
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    
-    // DEEP LINK FIX: Listen for deep link broadcasts from MainActivity.onNewIntent()
-    LaunchedEffect(Unit) {
-        val broadcastReceiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-                val deepLinkUri = intent?.data
-                    ?: intent?.getStringExtra("deep_link_uri")?.let { uriString ->
-                        runCatching { android.net.Uri.parse(uriString) }
-                            .onFailure { Timber.e(it, "📱 MainNavGraph: Invalid deep link URI in broadcast: $uriString") }
-                            .getOrNull()
-                    }
-                if (deepLinkUri != null) {
-                    Timber.i("📱 MainNavGraph: Received deep link broadcast: $deepLinkUri")
-                    // Handle deep link using DeepLinkHandler
-                    com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(deepLinkUri, navController)
-                } else {
-                    Timber.w("📱 MainNavGraph: Broadcast received without deep link URI")
-                }
-            }
-        }
-        
-        val filter = android.content.IntentFilter("com.example.dutype.DEEP_LINK")
-        androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(context)
-            .registerReceiver(broadcastReceiver, filter)
-        
-        Timber.d("📱 MainNavGraph: Deep link broadcast receiver registered")
-        
-        // Cleanup on dispose - use try-finally to ensure unregister
-        try {
-            kotlinx.coroutines.awaitCancellation()
-        } finally {
-            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(context)
-                .unregisterReceiver(broadcastReceiver)
-            Timber.d("📱 MainNavGraph: Deep link broadcast receiver unregistered")
+
+    // P2-4: Replaces the previous LocalBroadcastManager-based deep-link relay
+    // with a Hilt-singleton SharedFlow. MainActivity.onNewIntent emits; we
+    // collect here. One indirection instead of three, no broadcaster lifecycle.
+    val deepLinkBus = remember(context) {
+        com.example.dutype.di.ComposeServiceEntryPoint.from(context).deepLinkBus()
+    }
+    LaunchedEffect(deepLinkBus) {
+        deepLinkBus.events.collect { uri ->
+            Timber.i("📱 MainNavGraph: Received deep link: $uri")
+            com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(uri, navController)
         }
     }
     
-    // State management for determining start destination
-    var isLoading by remember { mutableStateOf(true) }
-    var startDestination by remember { mutableStateOf(Routes.ONBOARDING) } // Start with onboarding or role selection
-    var navigationDetermined by remember { mutableStateOf(false) }
+    // State management for determining start destination.
+    //
+    // P1-7: Seed `startDestination` from a synchronous on-disk cache so the
+    // NavHost is built with the correct route on the very first frame after a
+    // cold start. The async resolver below still runs to reconcile against
+    // DataStore + Firestore and corrects the route if reality differs.
+    val cachedStartDestination = remember { StartDestinationCache.read(context) }
+    var isLoading by remember { mutableStateOf(cachedStartDestination == null) }
+    var startDestination by remember {
+        mutableStateOf(cachedStartDestination ?: Routes.ONBOARDING)
+    }
+    var navigationDetermined by remember { mutableStateOf(cachedStartDestination != null) }
     
     LaunchedEffect(Unit) {
         try {
@@ -123,7 +108,7 @@ fun MainNavGraph(
                     
                     val userDoc = try {
                         kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            com.example.dutype.di.firestoreFromHilt(context)
                                 .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                                 .document(currentUser.uid)
                                 .get()
@@ -227,7 +212,11 @@ fun MainNavGraph(
             }
             
             Timber.d("🚀 MainNavGraph - Final startDestination: $startDestination")
-            
+
+            // P1-7: persist the resolved route so the next cold start can
+            // skip the loading state and draw the right screen instantly.
+            runCatching { StartDestinationCache.save(context, startDestination) }
+
             // Set states immediately for instant navigation
             isLoading = false
             navigationDetermined = true
@@ -625,22 +614,9 @@ fun MainNavGraph(
         }
         
        
-        composable(Routes.COMPANY_DETAILS) {
-            // Use EmployerCompanyDetailsScreen instead of deleted CompanyDetailsScreen
-            EmployerCompanyDetailsScreen(navController)
-        }
         composable(Routes.ANALYTICS) {
             // Analytics screen
             AnalyticsScreen(navController)
-        }
-        
-        // Language Selection - Now handled via bottom sheet in profile screens
-        // Route kept for backward compatibility but redirects to profile
-        composable(Routes.LANGUAGE_SELECTION) {
-            // Navigate back - language selection is now a bottom sheet
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                navController.popBackStack()
-            }
         }
         
         // Contact Us Screen

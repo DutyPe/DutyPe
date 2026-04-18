@@ -139,7 +139,7 @@ fun PostedJobsScreen(
                 } else {
                     items(
                         items = postedJobs,
-                        key = { job -> "posted_${job.id}" }
+                        key = { job -> "posted_${job.jobId}" }
                     ) { job ->
                         EmployerJobCard(
                             jobPosting = job,

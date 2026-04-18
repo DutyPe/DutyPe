@@ -23,7 +23,7 @@ class AnnouncementService @Inject constructor(
 ) {
     
     companion object {
-        private const val COLLECTION_ANNOUNCEMENTS = "announcements"
+        private const val COLLECTION_ANNOUNCEMENTS = com.example.dutype.firestore.FirestoreCollections.ANNOUNCEMENTS
     }
 
     private fun mapAnnouncement(doc: com.google.firebase.firestore.DocumentSnapshot): Announcement? {

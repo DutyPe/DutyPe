@@ -6,7 +6,6 @@ import com.example.dutype.auth.AuthManager
 import com.example.dutype.cache.RoleCacheManager
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
-import com.example.dutype.utils.ViewModelCleaner
 import com.example.dutype.viewmodels.RoleManagementViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +33,6 @@ import javax.inject.Singleton
 @Singleton
 class RoleSwitchManager @Inject constructor(
     private val roleCacheManager: RoleCacheManager,
-    private val viewModelCleaner: ViewModelCleaner,
     private val authManager: AuthManager
 ) {
     
@@ -93,9 +91,8 @@ class RoleSwitchManager @Inject constructor(
                 Timber.w("⚠️ ROLE_SWITCH: Failed to refresh user data, but continuing...")
             }
             
-            // Step 2: Clear old role's ViewModels
-            Timber.d("🔄 ROLE_SWITCH: Step 2 - Clearing ViewModels")
-            viewModelCleaner.clearRoleSpecificViewModels(oldRole)
+            // Step 2: ViewModels are scoped to their composables and clear automatically
+            // when navigation removes them from composition (handled by Step 4 below).
             
             // Step 3: Clear old role's caches
             Timber.d("🔄 ROLE_SWITCH: Step 3 - Clearing caches")
@@ -133,9 +130,14 @@ class RoleSwitchManager @Inject constructor(
         }
         
         // Clear entire back stack and navigate to new home
+        // P1-7: refresh cached start destination for the new role so the next
+        // cold start lands on the correct home screen instantly.
+        runCatching {
+            com.example.dutype.navigation.StartDestinationCache.save(navController.context, route)
+        }
         navController.navigate(route) {
-            // Pop everything up to and including the root
-            popUpTo(0) { inclusive = true }
+            // Pop everything up to and including the dynamic start destination (named-root pop)
+            popUpTo(navController.graph.startDestinationId) { inclusive = true }
             // Avoid multiple copies of the same destination
             launchSingleTop = true
         }

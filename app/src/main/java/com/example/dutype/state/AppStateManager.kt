@@ -1,217 +1,67 @@
 package com.example.dutype.state
 
-import com.example.dutype.models.JobApplication
-import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Unified App State Manager
- * 
- * Single source of truth for all app-wide state, coordinating:
- * - Saved jobs state
- * - Application state
- * - User session state
- * 
- * This eliminates state duplication and ensures consistency across the app.
+ * Shared in-memory session state that outlives individual ViewModels.
+ *
+ * Scope is intentionally narrow:
+ *   - saved job IDs (shared between SavedJobsViewModel and job-list VMs so a
+ *     save on one screen is visible on another without re-hitting Firestore).
+ *   - applied job IDs, delegated to [ApplicationStateManager].
+ *   - logout-time cleanup.
+ *
+ * Do NOT add user session fields (uid, role, isLoggedIn) here — AuthManager
+ * already owns those. Do NOT add profile-completion fields — that lives in
+ * [ProfileSetupStateManager] (DataStore-backed).
  */
 @Singleton
 class AppStateManager @Inject constructor(
     private val applicationStateManager: ApplicationStateManager,
     private val profileSetupStateManager: ProfileSetupStateManager
 ) {
-    
-    // ==================== USER SESSION STATE ====================
-    
-    private val _isLoggedIn = MutableStateFlow(false)
-    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
-    
-    private val _currentUserId = MutableStateFlow<String?>(null)
-    val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
-    
-    private val _currentUserRole = MutableStateFlow<UserRole?>(null)
-    val currentUserRole: StateFlow<UserRole?> = _currentUserRole.asStateFlow()
-    
-    // ==================== DELEGATED STATE (Single Source of Truth) ====================
-    
-    /**
-     * Saved job IDs - handled by SavedJobsViewModel
-     */
+
+    // ==================== SAVED JOBS (shared across VMs) ====================
+
     private val _savedJobIds = MutableStateFlow<Set<String>>(emptySet())
     val savedJobIds: StateFlow<Set<String>> = _savedJobIds.asStateFlow()
-    
-    /**
-     * Applied job IDs - delegated to ApplicationStateManager
-     */
+
+    /** Applied job IDs — authoritative store is [ApplicationStateManager]. */
     val appliedJobIds: StateFlow<Set<String>> = applicationStateManager.appliedJobIds
-    
-    /**
-     * Applications list - delegated to ApplicationStateManager
-     */
-    val applications: StateFlow<List<JobApplication>> = applicationStateManager.applications
-    
-    /**
-     * Application statuses - delegated to ApplicationStateManager
-     */
-    val applicationStatuses: StateFlow<Map<String, ApplicationStatus>> = applicationStateManager.applicationStatuses
-    
-    // ==================== COMBINED STATE FLOWS ====================
-    
-    /**
-     * Combined refresh trigger - emits when any state changes
-     */
-    val globalRefreshTrigger = applicationStateManager.refreshTrigger
-    
-    // ==================== USER SESSION METHODS ====================
-    
-    /**
-     * Initialize user session
-     */
-    fun initializeSession(userId: String, role: UserRole) {
-        Timber.d("AppStateManager: Initializing session for user $userId with role $role")
-        _currentUserId.value = userId
-        _currentUserRole.value = role
-        _isLoggedIn.value = true
-    }
-    
-    /**
-     * Clear user session (logout)
-     */
-    suspend fun clearSession() {
-        Timber.d("AppStateManager: Clearing session")
-        _currentUserId.value = null
-        _currentUserRole.value = null
-        _isLoggedIn.value = false
-        _savedJobIds.value = emptySet()
-        
-        // Clear all state managers
-        applicationStateManager.clearAll()
-        profileSetupStateManager.resetProfileSetupState()
-    }
-    
-    // ==================== SAVED JOBS METHODS (Delegated) ====================
-    
-    /**
-     * Add a job to saved jobs - handled by SavedJobsViewModel
-     */
+
+    // ==================== SAVED JOBS MUTATORS ====================
+
     fun saveJob(jobId: String) {
         _savedJobIds.value = _savedJobIds.value + jobId
     }
-    
-    /**
-     * Remove a job from saved jobs - handled by SavedJobsViewModel
-     */
+
     fun unsaveJob(jobId: String) {
         _savedJobIds.value = _savedJobIds.value - jobId
     }
-    
-    /**
-     * Check if a job is saved - use SavedJobsViewModel instead
-     */
-    fun isJobSaved(jobId: String): Boolean {
-        return _savedJobIds.value.contains(jobId)
-    }
-    
-    /**
-     * Set all saved job IDs - use SavedJobsViewModel instead
-     */
+
+    fun isJobSaved(jobId: String): Boolean = _savedJobIds.value.contains(jobId)
+
     fun setSavedJobIds(jobIds: Set<String>) {
         _savedJobIds.value = jobIds
     }
 
-    /**
-     * Prime applied-job state from lightweight jobId lookups.
-     */
+    /** Prime applied-job state from lightweight jobId lookups. */
     fun setAppliedJobIds(jobIds: Set<String>) {
         applicationStateManager.setAppliedJobs(jobIds)
     }
-    
-    // ==================== APPLICATION METHODS (Delegated) ====================
-    
-    /**
-     * Add an applied job
-     */
-    fun addAppliedJob(jobId: String) {
-        applicationStateManager.addAppliedJob(jobId)
-    }
-    
-    /**
-     * Check if user has applied to a job
-     */
-    fun hasAppliedToJob(jobId: String): Boolean {
-        return applicationStateManager.isJobApplied(jobId)
-    }
-    
-    /**
-     * Update applications list
-     */
-    fun updateApplications(applications: List<JobApplication>) {
-        applicationStateManager.updateApplications(applications)
-    }
-    
-    /**
-     * Get application by job ID
-     */
-    fun getApplicationByJobId(jobId: String): JobApplication? {
-        return applicationStateManager.getApplicationByJobId(jobId)
-    }
-    
-    /**
-     * Get application status by job ID
-     */
-    fun getApplicationStatus(jobId: String): ApplicationStatus? {
-        return applicationStateManager.getApplicationStatus(jobId)
-    }
-    
-    /**
-     * Update application status
-     */
-    fun updateApplicationStatus(jobId: String, status: ApplicationStatus) {
-        applicationStateManager.updateApplicationStatus(jobId, status)
-    }
-    
-    // ==================== PROFILE METHODS (Delegated) ====================
-    
-    /**
-     * Check if profile is complete
-     */
-    suspend fun isProfileComplete(role: UserRole): Boolean {
-        return profileSetupStateManager.isProfileComplete(role)
-    }
-    
-    /**
-     * Get profile setup status
-     */
-    suspend fun getProfileSetupStatus(role: UserRole): ProfileSetupStatus {
-        return profileSetupStateManager.getProfileSetupStatus(role)
-    }
-    
-    // ==================== CONVENIENCE METHODS ====================
-    
-    /**
-     * Get job status summary for a specific job
-     * Returns a combined status including saved and application status
-     */
-    fun getJobStatusSummary(jobId: String): JobStatusSummary {
-        return JobStatusSummary(
-            isSaved = isJobSaved(jobId),
-            hasApplied = hasAppliedToJob(jobId),
-            applicationStatus = getApplicationStatus(jobId)
-        )
+
+    // ==================== SESSION CLEANUP ====================
+
+    /** Wipe all session-scoped state. Called from AuthManager on logout. */
+    suspend fun clearSession() {
+        Timber.d("AppStateManager: Clearing session")
+        _savedJobIds.value = emptySet()
+        applicationStateManager.clearAll()
+        profileSetupStateManager.resetProfileSetupState()
     }
 }
-
-/**
- * Data class representing combined job status
- */
-data class JobStatusSummary(
-    val isSaved: Boolean,
-    val hasApplied: Boolean,
-    val applicationStatus: ApplicationStatus?
-)

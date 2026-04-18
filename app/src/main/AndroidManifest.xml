@@ -27,7 +27,7 @@
 	<application
 		android:name="com.example.dutype.DutyPeApplication"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -94,7 +94,6 @@
                 <data android:scheme="dutype" android:host="refer" />
                 <data android:scheme="dutype" android:host="application" />
                 <data android:scheme="dutype" android:host="employer" />
-                <data android:scheme="dutype" android:host="chat" />
                 <data android:scheme="dutype" android:host="profile" />
                 <data android:scheme="dutype" android:host="notifications" />
                 <data android:scheme="dutype" android:host="home" />

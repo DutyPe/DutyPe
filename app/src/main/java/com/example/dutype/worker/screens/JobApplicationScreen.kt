@@ -38,7 +38,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileUiState
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
@@ -71,8 +71,7 @@ fun JobApplicationScreen(
     val applicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     
     // Get InAppReviewTriggerService from Hilt
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     
     val currentUser = FirebaseAuth.getInstance().currentUser
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()

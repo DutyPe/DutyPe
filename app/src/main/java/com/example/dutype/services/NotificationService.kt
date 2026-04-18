@@ -273,7 +273,7 @@ class NotificationService @Inject constructor(
                 message = "A worker has withdrawn their application",
                 type = NotificationType.APPLICATION_STATUS,
                 data = mapOf(
-                    "applicationId" to application.applicationId,
+                    "applicationId" to application.id,
                     "jobId" to application.jobId,
                     "workerId" to application.workerId,
                     "status" to "WITHDRAWN"
@@ -487,7 +487,7 @@ class NotificationService @Inject constructor(
             type = NotificationType.APPLICATION_STATUS,
             targetRole = "WORKER",
             data = mapOf(
-                "applicationId" to application.applicationId,
+                "applicationId" to application.id,
                 "jobId" to application.jobId,
                 "status" to newStatus.name
             ),
@@ -508,7 +508,7 @@ class NotificationService @Inject constructor(
             type = NotificationType.NEW_APPLICATION,
             targetRole = "EMPLOYER",
             data = mapOf(
-                "applicationId" to application.applicationId,
+                "applicationId" to application.id,
                 "jobId" to application.jobId,
                 "workerId" to application.workerId
             ),
@@ -791,21 +791,6 @@ class NotificationService @Inject constructor(
             Timber.d("NotificationService: ✅ Local notification shown: ${notification.title}")
         } catch (e: SecurityException) {
             Timber.e(e, "NotificationService: ❌ Failed to show local notification")
-        }
-    }
-    
-    /**
-     * Archive a notification
-     */
-    suspend fun archiveNotification(notificationId: String): Result<Unit> {
-        return try {
-            // In a real implementation, this would update the database
-            // For now, we'll just return success
-            Timber.i("NotificationService - Archiving notification: $notificationId")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "NotificationService - Error archiving notification")
-            Result.failure(e)
         }
     }
     

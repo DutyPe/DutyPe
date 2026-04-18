@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 import com.google.firebase.Timestamp
 import java.util.Date
 import kotlin.random.Random
@@ -38,6 +39,7 @@ fun Any?.toEpochMillis(): Long? = when (this) {
  * Based on Dropbox/PayPal/Airbnb patterns
  */
 @Keep
+@Immutable
 data class Referral(
     val id: String = "",
     val referrerUserId: String = "",
@@ -67,10 +69,7 @@ data class Referral(
 
             return Referral(
                 id = data["id"] as? String ?: "",
-                referrerUserId =
-                    data["referrerId"] as? String
-                        ?: data["referrerUserId"] as? String
-                        ?: "",
+                referrerUserId = data["referrerId"] as? String ?: "",
                 referredUserId = data["referredUserId"] as? String ?: "",
                 referralCode = data["referralCode"] as? String ?: "",
                 status = try {
@@ -78,18 +77,9 @@ data class Referral(
                 } catch (e: Exception) {
                     ReferralStatus.PENDING
                 },
-                rewardAmount =
-                    (data["rewardAmount"] as? Number)?.toDouble()
-                        ?: (data["reward"] as? Number)?.toDouble()
-                        ?: 25.0,
-                bonusAmount =
-                    (data["bonusAmount"] as? Number)?.toDouble()
-                        ?: (data["milestoneBonus"] as? Number)?.toDouble()
-                        ?: 0.0,
-                referredUserReward =
-                    (data["referredUserReward"] as? Number)?.toDouble()
-                        ?: (data["signupBonusAmount"] as? Number)?.toDouble()
-                        ?: 0.0,
+                rewardAmount = (data["rewardAmount"] as? Number)?.toDouble() ?: 25.0,
+                bonusAmount = (data["bonusAmount"] as? Number)?.toDouble() ?: 0.0,
+                referredUserReward = (data["referredUserReward"] as? Number)?.toDouble() ?: 0.0,
                 createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
                 completedAt = data["completedAt"].toEpochMillis(),
                 deviceFingerprint = data["deviceFingerprint"] as? String,
@@ -236,25 +226,12 @@ data class ReferralStats(
     val referralCode: String = "",
     val totalReferrals: Int = 0,
     val successfulReferrals: Int = 0,
-    val pendingReferrals: Int = 0,
-    val expiredReferrals: Int = 0,
-    val rejectedReferrals: Int = 0,
     val totalEarnings: Double = 0.0,
-    val pendingEarnings: Double = 0.0,
-    val withdrawnAmount: Double = 0.0,
     val availableBalance: Double = 0.0,
     val canWithdraw: Boolean = false,
-    val nextMilestone: Int = 5,
     val currentTier: ReferralTier = ReferralTier.BRONZE,
     val freeJobPostings: Int = 0,
-    val freeJobPostingsExpiry: Long? = null,
-    val lastUpdated: Long = System.currentTimeMillis(),
-    val referredByCode: String? = null,
-    val referredByUserId: String? = null,
-    val lastWithdrawalAt: Long? = null,
-    val totalWithdrawals: Int = 0,
-    val isBlocked: Boolean = false,
-    val blockReason: String? = null
+    val freeJobPostingsExpiry: Long? = null
 )
 
 /**

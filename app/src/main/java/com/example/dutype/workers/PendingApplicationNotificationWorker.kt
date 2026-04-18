@@ -28,6 +28,12 @@ import java.util.concurrent.TimeUnit
  * 
  * Notification Message:
  * "Your application is still pending. For faster update, please call the employer."
+ *
+ * Idempotency contract:
+ * - Safe to re-run. The 24-hour rate limiter (`lastNotifiedAt` per application doc)
+ *   prevents duplicate notifications even if WorkManager retries this run after a failure.
+ * - No external side effects beyond the rate-limited notification + a Firestore write
+ *   that is itself a last-write-wins update on a single document, so retries converge.
  */
 @HiltWorker
 class PendingApplicationNotificationWorker @AssistedInject constructor(

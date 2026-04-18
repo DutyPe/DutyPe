@@ -55,8 +55,8 @@ class ReferralService @Inject constructor(
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val COLLECTION_REFERRALS = "referrals"
-        private const val COLLECTION_REFERRAL_STATS = "referral_stats"
-        private const val SUBCOLLECTION_WITHDRAWALS = "withdrawals"
+        private const val COLLECTION_REFERRAL_STATS = com.example.dutype.firestore.FirestoreCollections.REFERRAL_STATS
+        private const val SUBCOLLECTION_WITHDRAWALS = com.example.dutype.firestore.FirestoreCollections.WITHDRAWALS
         private const val COLLECTION_USERS = "users"
         private const val FIELD_REFERRER_ID = "referrerId"
         private const val FIELD_CREATED_AT = "createdAt"
@@ -188,22 +188,16 @@ class ReferralService @Inject constructor(
             referralCode = referralCode,
             totalReferrals = (statsMap["totalReferrals"] as? Number)?.toInt() ?: 0,
             successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0,
-            pendingReferrals = (statsMap["pendingReferrals"] as? Number)?.toInt() ?: 0,
             totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
             availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0,
-            withdrawnAmount = (statsMap["withdrawnAmount"] as? Number)?.toDouble() ?: 0.0,
             canWithdraw = statsMap["canWithdraw"] as? Boolean ?: false,
-            nextMilestone = (statsMap["nextMilestone"] as? Number)?.toInt() ?: 5,
             currentTier = try {
                 ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
             } catch (e: Exception) {
                 ReferralTier.BRONZE
             },
             freeJobPostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0,
-            freeJobPostingsExpiry = statsMap["freeJobPostingsExpiry"].toEpochMillis(),
-            lastUpdated = statsMap["lastUpdated"].toEpochMillis() ?: System.currentTimeMillis(),
-            referredByCode = statsMap["referredByCode"] as? String,
-            referredByUserId = statsMap["referredByUserId"] as? String
+            freeJobPostingsExpiry = statsMap["freeJobPostingsExpiry"].toEpochMillis()
         )
     }
 
@@ -249,7 +243,7 @@ class ReferralService @Inject constructor(
                             statsMap = statsMap
                         )
 
-                        Timber.d("🎁 REFERRAL: Stats updated from Firestore - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
+                        Timber.d("🎁 REFERRAL: Stats updated from Firestore - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}")
 
                         // 🔔 SMART NOTIFICATION: Check for referral milestones
                         val currentCount = stats.successfulReferrals
@@ -488,16 +482,10 @@ class ReferralService @Inject constructor(
                         referralCode = "",
                         totalReferrals = 0,
                         successfulReferrals = 0,
-                        pendingReferrals = 0,
                         totalEarnings = 0.0,
                         availableBalance = 0.0,
-                        withdrawnAmount = 0.0,
                         canWithdraw = false,
-                        nextMilestone = 5,
-                        currentTier = ReferralTier.BRONZE,
-                        freeJobPostings = 0,
-                        freeJobPostingsExpiry = null,
-                        lastUpdated = System.currentTimeMillis()
+                        currentTier = ReferralTier.BRONZE
                     )
                 }
                 
@@ -527,16 +515,10 @@ class ReferralService @Inject constructor(
                     referralCode = fallbackCode,
                     totalReferrals = 0,
                     successfulReferrals = 0,
-                    pendingReferrals = 0,
                     totalEarnings = 0.0,
                     availableBalance = 0.0,
-                    withdrawnAmount = 0.0,
                     canWithdraw = false,
-                    nextMilestone = 5,
-                    currentTier = ReferralTier.BRONZE,
-                    freeJobPostings = 0,
-                    freeJobPostingsExpiry = null,
-                    lastUpdated = System.currentTimeMillis()
+                    currentTier = ReferralTier.BRONZE
                 )
             }
         } catch (e: Exception) {
@@ -989,9 +971,7 @@ https://play.google.com/store/apps/details?id=com.example.dutype
             val referrerMap = mutableMapOf<String, MutableList<Double>>()
             val referrerNames = mutableMapOf<String, String>()
             for (doc in topReferrers.documents) {
-                val referrerId = doc.getString(FIELD_REFERRER_ID)
-                    ?: doc.getString("referrerUserId")
-                    ?: continue
+                val referrerId = doc.getString(FIELD_REFERRER_ID) ?: continue
                 val referral = Referral.fromMap(doc.data ?: emptyMap())
                 referrerMap.getOrPut(referrerId) { mutableListOf() }.add(referral.getTotalReferrerReward())
                 if (referrerId !in referrerNames) {

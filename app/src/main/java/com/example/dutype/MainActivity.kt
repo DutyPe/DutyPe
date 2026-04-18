@@ -74,6 +74,15 @@ class MainActivity : ComponentActivity() {
     
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
+
+    /**
+     * P2-7: Cold-start trace. Started as the very first work in [onCreate]; stopped when
+     * Compose reports the main nav graph fully drawn. The Firebase plugin auto-instruments
+     * `_app_start` already, but that includes process bring-up before our code runs — this
+     * trace captures everything from `super.onCreate` through the first usable frame, which
+     * is the metric we actually optimize.
+     */
+    private var coldStartTrace: com.google.firebase.perf.metrics.Trace? = null
     
     @Inject
     lateinit var jobApplicationService: JobApplicationService
@@ -89,6 +98,13 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
+
+    /**
+     * P2-4: Deep-link bus replaces the prior `LocalBroadcastManager` relay
+     * between this activity and [com.example.dutype.navigation.MainNavGraph].
+     */
+    @Inject
+    lateinit var deepLinkBus: com.example.dutype.navigation.DeepLinkBus
     
     // Activity result launcher for in-app updates
     private val updateResultLauncher = registerForActivityResult(
@@ -117,6 +133,13 @@ class MainActivity : ComponentActivity() {
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
+        // P2-7: start cold-start trace before any other work in onCreate.
+        coldStartTrace = runCatching {
+            com.google.firebase.perf.FirebasePerformance.getInstance()
+                .newTrace("app_cold_start")
+                .also { it.start() }
+        }.getOrNull()
+
         // MODERN SPLASH SCREEN API (Android 12+)
         // CRITICAL: Must be called BEFORE super.onCreate()
         // This is the official Google-recommended approach (2024-2026)
@@ -226,6 +249,18 @@ class MainActivity : ComponentActivity() {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
                     val navController = rememberNavController()
 
+                    // P3-7: Crashlytics breadcrumb on every nav route change so crash
+                    // reports include the user's recent navigation path.
+                    LaunchedEffect(navController) {
+                        navController.currentBackStackEntryFlow.collect { entry ->
+                            val route = entry.destination.route ?: "unknown"
+                            runCatching {
+                                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+                                    .log("nav: $route")
+                            }
+                        }
+                    }
+
                     // System bar color state
                     var statusBarColor by remember { mutableStateOf(Color.White) } // White
 
@@ -309,6 +344,11 @@ class MainActivity : ComponentActivity() {
                     // This is a good signal that your app's main UI is ready.
                     LaunchedEffect(Unit) {
                         reportFullyDrawn()
+                        // P2-7: stop the cold-start Perf trace at first usable frame.
+                        runCatching {
+                            coldStartTrace?.stop()
+                            coldStartTrace = null
+                        }
                         Timber.d("✅ MainActivity - Report fully drawn")
                     }
                 }
@@ -341,16 +381,9 @@ class MainActivity : ComponentActivity() {
         val deepLinkUri = newIntent.data
         if (deepLinkUri != null) {
             Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
-            Timber.i("🔗 DEEP LINK: Broadcasting to MainNavGraph deep link receiver...")
-            
-            // P1 FIX: Use LocalBroadcast instead of recreate() to avoid full activity rebuild
-            // MainNavGraph already has a broadcast receiver registered for this
-            val broadcastIntent = android.content.Intent("com.example.dutype.DEEP_LINK").apply {
-                data = deepLinkUri
-                putExtra("deep_link_uri", deepLinkUri.toString())
-            }
-            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
-                .sendBroadcast(broadcastIntent)
+            // P2-4: Emit through DeepLinkBus instead of LocalBroadcastManager.
+            // MainNavGraph collects this flow inside a LaunchedEffect.
+            deepLinkBus.emit(deepLinkUri)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }

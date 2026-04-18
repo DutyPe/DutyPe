@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -66,6 +67,7 @@ fun EmployerPublicProfileScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var employerDisplayName by remember { mutableStateOf("Employer") }
     var jobs by remember { mutableStateOf<List<EmployerPublicJobPreview>>(emptyList()) }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         onStatusBarColorChange?.invoke(Color.White)
@@ -76,7 +78,7 @@ fun EmployerPublicProfileScreen(
         errorMessage = null
 
         try {
-            val snapshot = FirebaseFirestore.getInstance()
+            val snapshot = com.example.dutype.di.firestoreFromHilt(context)
                 .collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                 .whereEqualTo("employerId", employerId)
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)

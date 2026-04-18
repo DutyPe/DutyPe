@@ -70,8 +70,8 @@ fun EmployerDigitalVisitingCardScreen(
     var isProfileComplete by remember { mutableStateOf(false) }
     val ratingService = remember {
         com.example.dutype.services.RatingService(
-            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            FirebaseAuth.getInstance()
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
         )
     }
     
@@ -84,7 +84,7 @@ fun EmployerDigitalVisitingCardScreen(
         if (currentUser != null) {
             try {
                 // Load phone/profileImageUrl from users (schema fields)
-                val userDoc = FirebaseFirestore.getInstance()
+                val userDoc = com.example.dutype.di.firestoreFromHilt(context)
                     .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get()
@@ -95,7 +95,7 @@ fun EmployerDigitalVisitingCardScreen(
                 }
 
                 // Load employer-specific fields from employer_profiles (target schema)
-                val employerDoc = FirebaseFirestore.getInstance()
+                val employerDoc = com.example.dutype.di.firestoreFromHilt(context)
                     .collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(currentUser.uid)
                     .get()
@@ -244,7 +244,7 @@ fun EmployerDigitalVisitingCardScreen(
                         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@EmployerVisitingCard
                         scope.launch {
                             isReviewsLoading = true
-                            employerReviews = ratingService.getUserRatings(userId, "EMPLOYER")
+                            employerReviews = ratingService.getUserRatings(userId)
                             isReviewsLoading = false
                             showReviewsSheet = true
                         }

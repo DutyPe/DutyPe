@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { validateString, validateMessage, validateEnum, checkRateLimit, validateUserId } from "./validation";
+import { validateString, validateMessage, validateEnum, checkRateLimit, validateUserId, requirePerUserRateLimit, assertAppCheck } from "./validation";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -646,13 +646,29 @@ export const logUserActivity = functions.https.onCall(async (data, context) => {
 
 /**
  * Check whether a user exists for a phone number.
- * Used by app login/register pre-checks because users-by-phone reads are blocked by client rules.
+ * HARDENED:
+ *   • Must be authenticated (prevents unauth'd phone enumeration).
+ *   • Per-caller rate limit (Firestore-backed, 5/min, 50/day).
+ *   • Response is boolean-only — never discloses userId or roles.
  */
-export const checkPhoneExists = functions.https.onCall(async (data) => {
+export const checkPhoneExists = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "login required");
+  }
+  assertAppCheck(context);
+  await requirePerUserRateLimit(context.auth.uid, "checkPhoneExists", { perMinute: 5, perDay: 50 });
+
   const rawPhone = String(data?.phone ?? "").trim();
   const providedVariants = Array.isArray(data?.variants)
     ? (data.variants as unknown[]).map(v => String(v)).filter(v => v.trim().length > 0)
     : [];
+
+  if (providedVariants.length > 10) {
+    throw new functions.https.HttpsError("invalid-argument", "too many variants");
+  }
+  if (rawPhone && (rawPhone.length < 7 || rawPhone.length > 20)) {
+    throw new functions.https.HttpsError("invalid-argument", "phone");
+  }
 
   if (!rawPhone && providedVariants.length === 0) {
     return { exists: false };
@@ -690,17 +706,8 @@ export const checkPhoneExists = functions.https.onCall(async (data) => {
       .get();
   }
 
-  if (usersSnapshot.empty) {
-    return { exists: false };
-  }
-
-  const doc = usersSnapshot.docs[0];
-  const userData = doc.data() || {};
-  return {
-    exists: true,
-    userId: doc.id,
-    roles: Array.isArray(userData.roles) ? userData.roles : [],
-  };
+  // Boolean-only response. Do NOT leak userId or roles.
+  return { exists: !usersSnapshot.empty };
 });
 
 
@@ -911,3 +918,25 @@ export {
 // EXPORT JOB POSTING FUNCTIONS
 // ============================================
 export * from "./job-posting";
+
+// ============================================
+// EXPORT COVER LETTER SIGNED URL
+// ============================================
+export * from "./cover-letter";
+
+// ============================================
+// EXPORT AGGREGATE MAINTAINERS + EXPIRY SWEEP
+// ============================================
+export * from "./aggregates";
+export * from "./job-expiry";
+
+// ============================================
+// EXPORT NOTIFICATION FAN-OUT + RATE-LIMIT CLEANUP
+// ============================================
+export * from "./notification-fanout";
+export * from "./rate-limit-cleanup";
+
+// ============================================
+// EXPORT APP CONFIG (admin-editable referral rewards)
+// ============================================
+export { updateReferralConfig, getReferralConfigCallable } from "./app-config";

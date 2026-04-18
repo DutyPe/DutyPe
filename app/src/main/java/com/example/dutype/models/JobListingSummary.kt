@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Stable
 import com.google.firebase.Timestamp
 import java.util.Date
 
@@ -15,6 +16,7 @@ import java.util.Date
  *   distance, isSaved, isApplied
  */
 @Keep
+@Stable
 data class JobListingSummary(
     val id: String = "",
     val employerId: String = "",

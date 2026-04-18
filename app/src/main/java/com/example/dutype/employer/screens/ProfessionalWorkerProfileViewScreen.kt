@@ -123,23 +123,13 @@ fun ProfessionalWorkerProfileViewScreen(
                         workerProfile = WorkerProfileData(
                             workerId = app.workerId,
                             fullName = app.workerName.ifBlank { "Unknown Worker" },
-                            email = "",
                             phone = app.workerPhone ?: "",
                             location = "",
-                            dateOfBirth = "",
                             gender = "",
                             profileImageUrl = app.workerProfileImageUrl,
                             experience = emptyList(),
                             skills = emptyList(),
-                            education = emptyList(),
-                            certifications = emptyList(),
-                            languages = emptyList(),
-                            availability = "",
-                            expectedSalary = "",
-                            resumeUrl = "",
-                            portfolioUrl = "",
-                            linkedinUrl = "",
-                            githubUrl = ""
+                            languages = emptyList()
                         )
                     } else {
                         error = "Application not found"
@@ -181,9 +171,16 @@ fun ProfessionalWorkerProfileViewScreen(
                 workerProfile = workerProfile,
                 application = application,
                 onBackClick = { navController.popBackStack() },
-                onContactClick = { 
-                    // Navigate to messaging
-                    navController.navigate("message/$workerId")
+                onContactClick = {
+                    // No in-app messaging in this app — fall back to phone dial.
+                    val phone = workerProfile?.phone.orEmpty()
+                    if (phone.isNotBlank()) {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_DIAL,
+                            android.net.Uri.parse("tel:$phone")
+                        )
+                        runCatching { context.startActivity(intent) }
+                    }
                 }
             )
             
@@ -249,20 +246,6 @@ fun ProfessionalWorkerProfileViewScreen(
                     if (workerProfile!!.skills.isNotEmpty()) {
                         item {
                             SkillsCard(skills = workerProfile!!.skills)
-                        }
-                    }
-                    
-                    // Education
-                    if (workerProfile!!.education.isNotEmpty()) {
-                        item {
-                            EducationCard(education = workerProfile!!.education)
-                        }
-                    }
-                    
-                    // Certifications
-                    if (workerProfile!!.certifications.isNotEmpty()) {
-                        item {
-                            CertificationsCard(certifications = workerProfile!!.certifications)
                         }
                     }
                     
@@ -467,12 +450,6 @@ private fun ProfessionalWorkerProfileHeader(
                             )
                         )
                         Text(
-                            text = profile.email,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                        Text(
                             text = profile.location,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF9CA3AF)
@@ -541,7 +518,7 @@ private fun ApplicationStatusCard(
             )
             
             Text(
-                text = "Applied on ${dateFormat.format(Date(application.appliedAt))}",
+                text = "Applied on ${dateFormat.format(Date(application.createdAt))}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )
@@ -599,13 +576,9 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
                 )
             )
             
-            PersonalInfoRow("Email", workerProfile.email)
             PersonalInfoRow("Phone", workerProfile.phone)
             PersonalInfoRow("Location", workerProfile.location)
-            PersonalInfoRow("Date of Birth", workerProfile.dateOfBirth)
             PersonalInfoRow("Gender", workerProfile.gender)
-            PersonalInfoRow("Availability", workerProfile.availability)
-            PersonalInfoRow("Expected Salary", workerProfile.expectedSalary)
         }
     }
 }
@@ -755,106 +728,6 @@ private fun SkillsCard(skills: List<String>) {
 }
 
 @Composable
-private fun EducationCard(education: List<EducationDisplay>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Education",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            
-            education.forEach { edu ->
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF8FAFC)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = edu.degree,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                        Text(
-                            text = edu.institution,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF3B82F6)
-                            )
-                        )
-                        Text(
-                            text = edu.year,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CertificationsCard(certifications: List<String>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Certifications",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
-            )
-            
-            certifications.forEach { cert ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Verified,
-                        contentDescription = "Certified",
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF10B981)
-                    )
-                    Text(
-                        text = cert,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF1F2937)
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -881,46 +754,6 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
                         color = Color(0xFF6B7280)
                     )
                 )
-            }
-            
-            if (workerProfile.resumeUrl.isNotEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Description,
-                        contentDescription = "Resume",
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF3B82F6)
-                    )
-                    Text(
-                        text = "Resume Available",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF3B82F6)
-                        )
-                    )
-                }
-            }
-            
-            if (workerProfile.portfolioUrl.isNotEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Link,
-                        contentDescription = "Portfolio",
-                        modifier = Modifier.size(16.dp),
-                        tint = Color(0xFF3B82F6)
-                    )
-                    Text(
-                        text = "Portfolio Available",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF3B82F6)
-                        )
-                    )
-                }
             }
         }
     }
@@ -1125,23 +958,13 @@ private fun ErrorWorkerProfileState(
 data class WorkerProfileData(
     val workerId: String,
     val fullName: String,
-    val email: String,
     val phone: String,
     val location: String,
-    val dateOfBirth: String,
     val gender: String,
     val profileImageUrl: String?,
     val experience: List<WorkExperienceDisplay>,
     val skills: List<String>,
-    val education: List<EducationDisplay>,
-    val certifications: List<String>,
-    val languages: List<String>,
-    val availability: String,
-    val expectedSalary: String,
-    val resumeUrl: String,
-    val portfolioUrl: String,
-    val linkedinUrl: String,
-    val githubUrl: String
+    val languages: List<String>
 )
 
 /**
@@ -1153,16 +976,6 @@ data class WorkExperienceDisplay(
     val position: String,
     val duration: String,
     val description: String
-)
-
-/**
- * Simplified education for display only
- * Different from models/JobApplicationModels.Education which has more fields
- */
-data class EducationDisplay(
-    val institution: String,
-    val degree: String,
-    val year: String
 )
 
 enum class ApplicationAction {

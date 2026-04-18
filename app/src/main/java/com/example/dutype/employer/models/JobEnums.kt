@@ -7,9 +7,6 @@ enum class PayType(val displayName: String) {
     TASK("Per Task")
 }
 
-// NOTE: EmployerPayType removed - duplicate of PayType
-// Use PayType instead throughout the codebase
-
 enum class JobCategory(val displayName: String, val icon: String) {
     COOK("Cook", "👨‍🍳"),
     MAID("Maid", "🧹"),
@@ -56,7 +53,3 @@ enum class JobPerk(val displayName: String, val icon: String) {
     PAID_LEAVES("Paid Leaves", "📅"),
     TRAINING("Training Provided", "📚")
 }
-
-// NOTE: ApplicationStatus enum removed - use com.example.dutype.models.ApplicationStatus instead
-// The canonical ApplicationStatus is in models/JobApplicationModels.kt with values:
-// PENDING, UNDER_REVIEW, REJECTED, ACCEPTED, COMPLETED, WITHDRAWN

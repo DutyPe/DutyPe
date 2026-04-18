@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,13 +44,15 @@ fun TrustBadgesScreen(
     var isGstVerified by remember { mutableStateOf(false) }
     var completedJobsCount by remember { mutableStateOf(0) }
     var averageRating by remember { mutableStateOf(0f) }
-    
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
-        val currentUser = FirebaseAuth.getInstance().currentUser
+        val currentUser = com.example.dutype.di.authFromHilt(context).currentUser
         if (currentUser != null) {
+            val firestore = com.example.dutype.di.firestoreFromHilt(context)
             try {
                 // P1 FIX: Use cached Firestore data first to avoid blocking on network
-                val userDoc = FirebaseFirestore.getInstance()
+                val userDoc = firestore
                     .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                     .document(currentUser.uid)
                     .get(com.google.firebase.firestore.Source.CACHE)
@@ -64,7 +67,7 @@ fun TrustBadgesScreen(
             } catch (e: Exception) {
                 // Cache miss — fallback to server
                 try {
-                    val userDoc = FirebaseFirestore.getInstance()
+                    val userDoc = firestore
                         .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                         .document(currentUser.uid)
                         .get()

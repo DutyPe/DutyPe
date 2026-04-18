@@ -71,6 +71,9 @@ export function ReferralToolsNav() {
       <Link href="/admin/referrals" className="pill pill-link">
         Referrals
       </Link>
+      <Link href="/admin/referral-config" className="pill pill-link">
+        Config
+      </Link>
       <Link href="/admin/check-and-create-code" className="pill pill-link">
         Check code
       </Link>

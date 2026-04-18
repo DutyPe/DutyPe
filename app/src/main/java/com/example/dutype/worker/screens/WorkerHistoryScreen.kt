@@ -70,7 +70,7 @@ fun WorkerHistoryScreen(
                 it.status == ApplicationStatus.HIRED
             }.sortedByDescending { it.createdAt }
             1 -> uiState.applications.filter { it.status == ApplicationStatus.HIRED }
-            2 -> uiState.applications.sortedByDescending { it.appliedAt }
+            2 -> uiState.applications.sortedByDescending { it.createdAt }
             else -> uiState.applications
         }
     }
@@ -183,7 +183,7 @@ private fun TimelineView(
             // Timeline items for this month
             items(
                 items = applications,
-                key = { it.applicationId }
+                key = { it.id }
             ) { application ->
                 val isLastInMonth = applications.last() == application
                 TimelineJobCard(
@@ -474,7 +474,7 @@ private fun HistoryApplicationCard(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Applied ${DateTimeUtils.formatRelativeTime(application.appliedAt)}",
+                text = "Applied ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )

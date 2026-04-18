@@ -60,8 +60,8 @@ class JobApplicationService @Inject constructor(
     private fun JobApplication.withCanonicalId(
         fallbackId: String = if (jobId.isNotBlank() && workerId.isNotBlank()) "${jobId}_${workerId}" else ""
     ): JobApplication {
-        val resolvedId = canonicalId.ifBlank { fallbackId }
-        return if (resolvedId.isBlank()) this else copy(applicationId = resolvedId, id = resolvedId)
+        val resolvedId = id.ifBlank { fallbackId }
+        return if (resolvedId.isBlank()) this else copy(id = resolvedId)
     }
 
     private fun Map<String, Any>.stringValue(vararg keys: String): String {
@@ -133,15 +133,15 @@ class JobApplicationService @Inject constructor(
 
         localApplications.forEach { application ->
             val normalized = application.withCanonicalId()
-            merged[normalized.canonicalId] = normalized
+            merged[normalized.id] = normalized
         }
 
         remoteApplications.forEach { application ->
             val normalized = application.withCanonicalId()
-            merged[normalized.canonicalId] = normalized
+            merged[normalized.id] = normalized
         }
 
-        return merged.values.sortedByDescending { it.appliedAt }
+        return merged.values.sortedByDescending { it.createdAt }
     }
 
     private suspend fun cacheApplicationsLocally(applications: List<JobApplication>) {
@@ -219,7 +219,7 @@ class JobApplicationService @Inject constructor(
         val normalized = application.withCanonicalId()
         applicationDao.queueApplication(
             ApplicationEntity.createPendingApplication(
-                applicationId = normalized.canonicalId,
+                applicationId = normalized.id,
                 jobId = normalized.jobId,
                 workerId = normalized.workerId,
                 employerId = normalized.employerId,
@@ -424,7 +424,6 @@ class JobApplicationService @Inject constructor(
             Timber.d("=📋 APPLY: jobId=$jobId userId=$userId employerId=$employerId")
 
             val application = JobApplication(
-                applicationId = "${jobId}_${userId}",  // deterministic ID = prevents double-apply
                 id = "${jobId}_${userId}",
                 jobId = jobId,
                 workerId = userId,
@@ -444,7 +443,7 @@ class JobApplicationService @Inject constructor(
                 applicationStateManager.addAppliedJob(jobId)
 
                 Timber.d("=📋 OPTIMIZED APPLY: Success! Application saved with clean schema")
-                Result.success(saveResult.getOrNull()?.withCanonicalId(application.canonicalId) ?: application)
+                Result.success(saveResult.getOrNull()?.withCanonicalId(application.id) ?: application)
             } else {
                 Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
             }
@@ -543,7 +542,7 @@ class JobApplicationService @Inject constructor(
         application: JobApplication,
         allowOfflineQueue: Boolean = true
     ): Result<JobApplication> {
-        val docId = application.canonicalId.ifBlank { "${application.jobId}_${application.workerId}" }
+        val docId = application.id.ifBlank { "${application.jobId}_${application.workerId}" }
         val appWithId = application.withCanonicalId(docId)
 
         if (appWithId.jobId.isBlank() || appWithId.workerId.isBlank() || appWithId.employerId.isBlank()) {
@@ -571,7 +570,7 @@ class JobApplicationService @Inject constructor(
         } catch (e: Exception) {
             if (allowOfflineQueue && !isAlreadyAppliedError(e) && isOfflineRecoverableError(e)) {
                 queueApplicationLocally(appWithId)
-                Timber.w(e, "JobApplicationService.submitApplication - queued offline application ${appWithId.canonicalId}")
+                Timber.w(e, "JobApplicationService.submitApplication - queued offline application ${appWithId.id}")
                 Result.success(appWithId)
             } else {
                 Result.failure(e)
@@ -651,7 +650,7 @@ class JobApplicationService @Inject constructor(
             Timber.e(e, "[Applications] Error getting applications for workerId: $workerId")
             val localApplications = getLocalApplications(workerId)
             if (localApplications.isNotEmpty()) {
-                emit(Result.success(localApplications.sortedByDescending { it.appliedAt }))
+                emit(Result.success(localApplications.sortedByDescending { it.createdAt }))
             } else {
                 emit(Result.failure(e))
             }
@@ -720,7 +719,7 @@ class JobApplicationService @Inject constructor(
                         Timber.d("[Applications] DEBUG: Processing document ${doc.id}")
                         Timber.d("[Applications] DEBUG: Document data: ${doc.data}")
                         val app = doc.toJobApplicationOrNull()
-                        Timber.d("[Applications] DEBUG: Parsed application: ${app?.applicationId}")
+                        Timber.d("[Applications] DEBUG: Parsed application: ${app?.id}")
                         app
                     } catch (e: Exception) {
                         Timber.e(e, "[Applications] Failed to parse document ${doc.id}")
@@ -730,8 +729,8 @@ class JobApplicationService @Inject constructor(
                 }
                 
                 Timber.d("[Applications] DEBUG: Successfully parsed ${applications.size} applications")
-                // Sort in memory by appliedAt descending
-                val sortedApplications = applications.sortedByDescending { it.appliedAt }
+                // Sort in memory by createdAt descending
+                val sortedApplications = applications.sortedByDescending { it.createdAt }
                 emit(Result.success(sortedApplications))
                 return@flow
             } else {
@@ -820,7 +819,7 @@ class JobApplicationService @Inject constructor(
         } catch (e: Exception) {
             val localApplications = getLocalApplications(workerId).filter { it.status == status }
             if (localApplications.isNotEmpty()) {
-                emit(Result.success(localApplications.sortedByDescending { it.appliedAt }))
+                emit(Result.success(localApplications.sortedByDescending { it.createdAt }))
             } else {
                 emit(Result.failure(e))
             }
@@ -894,7 +893,7 @@ class JobApplicationService @Inject constructor(
                 ).await()
 
                 applicationDao.insertApplication(
-                    ApplicationEntity.fromJobApplication(updatedApplication.withCanonicalId(currentApplication.canonicalId))
+                    ApplicationEntity.fromJobApplication(updatedApplication.withCanonicalId(currentApplication.id))
                 )
                 
                 // Update state manager
@@ -979,46 +978,6 @@ class JobApplicationService @Inject constructor(
         return Result.success(Unit)
     }
     
-    /**
-     * Get application analytics for employer dashboard
-     */
-    suspend fun getApplicationAnalytics(employerId: String): Result<com.example.dutype.models.ApplicationAnalytics> {
-        return try {
-            val applications = getEmployerApplications(employerId).first().getOrNull() ?: emptyList()
-            
-            val analytics = com.example.dutype.models.ApplicationAnalytics(
-                totalApplications = applications.size,
-                applicationsThisWeek = applications.count { 
-                    System.currentTimeMillis() - it.appliedAt <= 7 * 24 * 60 * 60 * 1000 
-                },
-                applicationsThisMonth = applications.count { 
-                    System.currentTimeMillis() - it.appliedAt <= 30 * 24 * 60 * 60 * 1000 
-                },
-                averageResponseTime = calculateAverageResponseTime(applications),
-                topJobTitles = getTopJobTitles(applications),
-                applicationTrends = getApplicationTrends(applications)
-            )
-            
-            Result.success(analytics)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    private fun calculateAverageResponseTime(applications: List<JobApplication>): Long {
-        // statusHistory removed from schema — return 0 as placeholder
-        return 0L
-    }
-    
-    private fun getTopJobTitles(applications: List<JobApplication>): List<String> {
-        return applications.groupBy { it.jobId }
-            .mapValues { it.value.size }
-            .toList()
-            .sortedByDescending { it.second }
-            .take(5)
-            .map { it.first }
-    }
-
     private suspend fun getJobTitle(jobId: String): String {
         return try {
             val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
@@ -1027,28 +986,7 @@ class JobApplicationService @Inject constructor(
             "Job"
         }
     }
-    
-    private fun getApplicationTrends(applications: List<JobApplication>): Map<String, Int> {
-        val calendar = java.util.Calendar.getInstance()
-        val trends = mutableMapOf<String, Int>()
-        
-        // Get last 7 days
-        repeat(7) { daysAgo ->
-            calendar.timeInMillis = System.currentTimeMillis() - (daysAgo * 24 * 60 * 60 * 1000)
-            val dayKey = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()).format(calendar.time)
-            
-            val dayStart = calendar.timeInMillis
-            val dayEnd = dayStart + (24 * 60 * 60 * 1000)
-            
-            val dayApplications = applications.count { app ->
-                app.appliedAt in dayStart until dayEnd
-            }
-            
-            trends[dayKey] = dayApplications
-        }
-        
-        return trends
-    }
+
     suspend fun updateApplicationStatus(
         applicationId: String, 
         newStatus: ApplicationStatus,

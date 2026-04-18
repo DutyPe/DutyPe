@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.ui.graphics.Color
 import com.example.dutype.utils.PhoneNumberUtils
 import java.net.URLEncoder
 
@@ -14,10 +13,6 @@ import java.net.URLEncoder
  * P0 Feature: One-click WhatsApp apply with pre-filled message
  * India runs on WhatsApp - this is critical for user adoption
  */
-
-// WhatsApp brand color
-val WhatsAppGreen = Color(0xFF25D366)
-val WhatsAppDarkGreen = Color(0xFF128C7E)
 
 /**
  * Opens WhatsApp with pre-filled job application message
@@ -60,8 +55,3 @@ fun openWhatsAppApply(
         Toast.makeText(context, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
     }
 }
-
-// REMOVED: WhatsAppApplyButton(), WhatsAppApplyIconButton(), WhatsAppApplyOutlinedButton()
-// These Composable button variants were never called anywhere in the codebase
-// Only openWhatsAppApply() function is used directly in JobDescriptionScreen
-// If button variants are needed in future, they can be re-added

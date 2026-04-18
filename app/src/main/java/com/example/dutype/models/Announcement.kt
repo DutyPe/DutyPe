@@ -1,10 +1,12 @@
 package com.example.dutype.models
 
+import androidx.compose.runtime.Immutable
 import com.google.firebase.Timestamp
 
 /**
  * Announcement Model - For in-app announcements and banners
  */
+@Immutable
 data class Announcement(
     val id: String = "",
     val title: String = "",

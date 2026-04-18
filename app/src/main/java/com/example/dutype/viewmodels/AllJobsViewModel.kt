@@ -19,8 +19,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -55,7 +58,15 @@ data class JobFilters(
 )
 
 /**
- * UI State for AllJobsScreen
+ * UI State for AllJobsScreen.
+ *
+ * P2-1: Consolidates the previously separate `_selectedChip`, `_searchQuery`,
+ * `_filters`, and `_initialCategory` MutableStateFlows into a single atomic
+ * state container. The screen still observes derived StateFlows for each
+ * field (see [AllJobsViewModel.selectedChip], [AllJobsViewModel.searchQuery],
+ * [AllJobsViewModel.filters]) so call sites are unchanged, but every mutation
+ * now routes through one `_uiState.update { it.copy(...) }` so updates are
+ * atomic and recompositions are bounded by `distinctUntilChanged`.
  */
 data class AllJobsUiState(
     val jobs: List<JobListing> = emptyList(),
@@ -66,7 +77,12 @@ data class AllJobsUiState(
     val hasError: Boolean = false,
     val hasMore: Boolean = true,
     val lastDocumentId: String? = null, // CRITICAL FIX: Use document ID for pagination cursor
-    val totalJobs: Int = 0
+    val totalJobs: Int = 0,
+    // P2-1: Filter inputs folded into the same UiState.
+    val selectedChip: String = "All Jobs",
+    val searchQuery: String = "",
+    val filters: JobFilters = JobFilters(),
+    val initialCategory: String? = null
 )
 
 private data class FilterPipelineInputs(
@@ -134,7 +150,7 @@ class AllJobsViewModel @Inject constructor(
         return keywords.any { text.contains(it) }
     }
 
-    private fun currentQueryCategory(): String? = _initialCategory.value?.takeIf { it != "All Jobs" }
+    private fun currentQueryCategory(): String? = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }
 
     private fun shouldUseServerSideFiltering(filters: JobFilters): Boolean {
         return filters.salaryMin > 0 ||
@@ -180,20 +196,35 @@ class AllJobsViewModel @Inject constructor(
         }
     }
     
-    private val _uiState = MutableStateFlow(AllJobsUiState())
+    // P2-1: Single source of truth. Initial values seeded from SavedStateHandle
+    // (P2-2) so process death + recreate restores the user's filter context.
+    private val _uiState = MutableStateFlow(
+        AllJobsUiState(
+            selectedChip = savedStateHandle.get<String>(KEY_SELECTED_CHIP) ?: "All Jobs",
+            searchQuery = savedStateHandle.get<String>(KEY_SEARCH_QUERY).orEmpty(),
+            filters = restoreFiltersFromSavedState(),
+            initialCategory = savedStateHandle.get<String>(KEY_INITIAL_CATEGORY)
+        )
+    )
     val uiState: StateFlow<AllJobsUiState> = _uiState.asStateFlow()
     
-    // Filter state - managed in ViewModel
-    private val _selectedChip = MutableStateFlow("All Jobs")
-    val selectedChip: StateFlow<String> = _selectedChip.asStateFlow()
+    // Derived StateFlows so existing screen call sites (`viewModel.selectedChip`,
+    // `viewModel.searchQuery`, `viewModel.filters`) keep working. distinctUntilChanged
+    // ensures collectors recompose only when their slice actually changes.
+    val selectedChip: StateFlow<String> = _uiState
+        .map { it.selectedChip }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value.selectedChip)
     
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val searchQuery: StateFlow<String> = _uiState
+        .map { it.searchQuery }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value.searchQuery)
     
-    private val _filters = MutableStateFlow(JobFilters())
-    val filters: StateFlow<JobFilters> = _filters.asStateFlow()
-    
-    private val _initialCategory = MutableStateFlow<String?>(null)
+    val filters: StateFlow<JobFilters> = _uiState
+        .map { it.filters }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, _uiState.value.filters)
     
     // User location for distance calculation
     private var userLatitude: Double = savedStateHandle.get<Double>("userLatitude") ?: 0.0
@@ -232,7 +263,7 @@ class AllJobsViewModel @Inject constructor(
     
     // SENIOR FIX: Debounced search query — delays recomputation only on user input, not on initial load
     // Lazy initialization ensures debounce is only applied when user actually searches
-    private val _debouncedSearchQuery = _searchQuery
+    private val _debouncedSearchQuery = searchQuery
         .debounce(300)
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
     
@@ -271,10 +302,10 @@ class AllJobsViewModel @Inject constructor(
     }
 
     private val filterPipelineInputs: StateFlow<FilterPipelineInputs> = combine(
-        _selectedChip,
+        selectedChip,
         debouncedSearchQuery,
-        _filters,
-        _initialCategory,
+        filters,
+        _uiState.map { it.initialCategory }.distinctUntilChanged(),
         combine(appStateManager.savedJobIds, appStateManager.appliedJobIds) { savedJobIds, appliedJobIds ->
             savedJobIds to appliedJobIds
         }
@@ -506,14 +537,14 @@ class AllJobsViewModel @Inject constructor(
     /**
      * Active filter count computed as StateFlow
      */
-    val activeFilterCount: StateFlow<Int> = _filters.combine(_filters) { filters, _ ->
+    val activeFilterCount: StateFlow<Int> = filters.map { f ->
         var count = 0
-        if (filters.salaryMin > 0 || filters.salaryMax < 100000) count++
-        if (filters.maxDistance != null) count++
-        if (filters.experienceLevel != "Any") count++
-        if (filters.sortBy != "Relevance") count++
-        if (filters.payType != "Any") count++
-        if (filters.workType != "Any") count++
+        if (f.salaryMin > 0 || f.salaryMax < 100000) count++
+        if (f.maxDistance != null) count++
+        if (f.experienceLevel != "Any") count++
+        if (f.sortBy != "Relevance") count++
+        if (f.payType != "Any") count++
+        if (f.workType != "Any") count++
         count
     }.stateIn(
         scope = viewModelScope,
@@ -541,16 +572,18 @@ class AllJobsViewModel @Inject constructor(
     // ==========================================
     
     fun setSelectedChip(chip: String) {
-        _selectedChip.value = chip
+        _uiState.update { it.copy(selectedChip = chip) }
+        savedStateHandle[KEY_SELECTED_CHIP] = chip
         Timber.d("📊 AllJobsVM: Chip filter changed to: $chip")
 
-        if (_searchQuery.value.isBlank() && chip != "All Jobs" && _uiState.value.jobs.size <= PAGE_SIZE.toInt()) {
+        if (_uiState.value.searchQuery.isBlank() && chip != "All Jobs" && _uiState.value.jobs.size <= PAGE_SIZE.toInt()) {
             loadJobs(limit = 60L, category = currentQueryCategory())
         }
     }
     
     fun setSearchQuery(query: String) {
-        _searchQuery.value = query
+        _uiState.update { it.copy(searchQuery = query) }
+        savedStateHandle[KEY_SEARCH_QUERY] = query
         Timber.d("🔍 AllJobsVM: Search query changed to: $query")
         
         // Cancel previous search job
@@ -570,33 +603,37 @@ class AllJobsViewModel @Inject constructor(
     }
     
     fun setFilters(filters: JobFilters) {
-        _filters.value = filters
+        _uiState.update { it.copy(filters = filters) }
+        persistFiltersToSavedState(filters)
         Timber.d("🎛️ AllJobsVM: Filters updated")
 
-        if (_searchQuery.value.isBlank()) {
+        if (_uiState.value.searchQuery.isBlank()) {
             val reloadLimit = if (shouldReloadForCurrentFilters(filters)) 60L else PAGE_SIZE
             loadJobs(limit = reloadLimit, category = currentQueryCategory())
         }
     }
     
     fun resetFilters() {
-        _filters.value = JobFilters()
+        val defaults = JobFilters()
+        _uiState.update { it.copy(filters = defaults) }
+        persistFiltersToSavedState(defaults)
         Timber.d("🔄 AllJobsVM: Filters reset to defaults")
 
-        if (_searchQuery.value.isBlank()) {
+        if (_uiState.value.searchQuery.isBlank()) {
             loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
         }
     }
     
     fun setInitialCategory(category: String?) {
-        _initialCategory.value = category
+        _uiState.update { it.copy(initialCategory = category) }
+        savedStateHandle[KEY_INITIAL_CATEGORY] = category
         if (category != null) {
             Timber.d("📂 AllJobsVM: Initial category set to: $category")
         }
     }
     
     fun isInitialFilterCategory(): Boolean {
-        val category = _initialCategory.value
+        val category = _uiState.value.initialCategory
         return category != null && categoryMapping.containsKey(category)
     }
     
@@ -632,7 +669,7 @@ class AllJobsViewModel @Inject constructor(
     
     fun loadJobs(limit: Long = PAGE_SIZE, category: String? = null) {
         // Allow reload if category is different from what was loaded
-        val currentCategory = _initialCategory.value
+        val currentCategory = _uiState.value.initialCategory
         val isDifferentCategory = currentCategory != category
         
         // CRITICAL FIX: Always allow loading if category is different OR if no jobs loaded yet
@@ -647,17 +684,18 @@ class AllJobsViewModel @Inject constructor(
             Timber.d("🔍 AllJobsVM: From '$currentCategory' → To '$category'")
             Timber.d("🔍 Resetting state and pagination")
             hasInitiallyLoaded = false
-            _initialCategory.value = category
-            
-            // CRITICAL FIX: Reset UI state completely when category changes
-            _uiState.value = AllJobsUiState(
-                isLoading = true,
-                jobs = emptyList(),
-                hasMore = true,
-                lastDocumentId = null,
-                error = null,
-                hasError = false
-            )
+            _uiState.update {
+                it.copy(
+                    initialCategory = category,
+                    // CRITICAL FIX: Reset UI state completely when category changes
+                    isLoading = true,
+                    jobs = emptyList(),
+                    hasMore = true,
+                    lastDocumentId = null,
+                    error = null,
+                    hasError = false
+                )
+            }
         }
         
         hasInitiallyLoaded = true
@@ -684,7 +722,7 @@ class AllJobsViewModel @Inject constructor(
                 }
                 
                 // P0 FIX: Use server-side filtering when filters are applied
-                val currentFilters = _filters.value
+                val currentFilters = _uiState.value.filters
                 val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
                 paginationUsesLocation = false
                 
@@ -849,7 +887,7 @@ class AllJobsViewModel @Inject constructor(
                 }
                 
                 // P0 FIX: Use server-side filtering for pagination too
-                val currentFilters = _filters.value
+                val currentFilters = _uiState.value.filters
                 val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
                 
                 if (useServerSideFiltering) {
@@ -900,7 +938,7 @@ class AllJobsViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = PAGE_SIZE, 
                     lastDocumentId = null,
-                    category = _initialCategory.value?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
+                    category = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
                     userLatitude = null,
                     userLongitude = null,
                     radiusKm = 0.0
@@ -1087,5 +1125,45 @@ class AllJobsViewModel @Inject constructor(
                 )
             }
         )
+    }
+
+    // ==========================================
+    // P2-2: SavedStateHandle persistence helpers
+    // ==========================================
+
+    private fun restoreFiltersFromSavedState(): JobFilters {
+        val defaults = JobFilters()
+        return JobFilters(
+            salaryMin = savedStateHandle.get<Int>(KEY_FILTER_SALARY_MIN) ?: defaults.salaryMin,
+            salaryMax = savedStateHandle.get<Int>(KEY_FILTER_SALARY_MAX) ?: defaults.salaryMax,
+            maxDistance = savedStateHandle.get<Float>(KEY_FILTER_MAX_DISTANCE),
+            experienceLevel = savedStateHandle.get<String>(KEY_FILTER_EXPERIENCE) ?: defaults.experienceLevel,
+            sortBy = savedStateHandle.get<String>(KEY_FILTER_SORT_BY) ?: defaults.sortBy,
+            payType = savedStateHandle.get<String>(KEY_FILTER_PAY_TYPE) ?: defaults.payType,
+            workType = savedStateHandle.get<String>(KEY_FILTER_WORK_TYPE) ?: defaults.workType
+        )
+    }
+
+    private fun persistFiltersToSavedState(filters: JobFilters) {
+        savedStateHandle[KEY_FILTER_SALARY_MIN] = filters.salaryMin
+        savedStateHandle[KEY_FILTER_SALARY_MAX] = filters.salaryMax
+        savedStateHandle[KEY_FILTER_MAX_DISTANCE] = filters.maxDistance
+        savedStateHandle[KEY_FILTER_EXPERIENCE] = filters.experienceLevel
+        savedStateHandle[KEY_FILTER_SORT_BY] = filters.sortBy
+        savedStateHandle[KEY_FILTER_PAY_TYPE] = filters.payType
+        savedStateHandle[KEY_FILTER_WORK_TYPE] = filters.workType
+    }
+
+    private companion object {
+        const val KEY_SELECTED_CHIP = "alljobs_selected_chip"
+        const val KEY_SEARCH_QUERY = "alljobs_search_query"
+        const val KEY_INITIAL_CATEGORY = "alljobs_initial_category"
+        const val KEY_FILTER_SALARY_MIN = "alljobs_filter_salary_min"
+        const val KEY_FILTER_SALARY_MAX = "alljobs_filter_salary_max"
+        const val KEY_FILTER_MAX_DISTANCE = "alljobs_filter_max_distance"
+        const val KEY_FILTER_EXPERIENCE = "alljobs_filter_experience"
+        const val KEY_FILTER_SORT_BY = "alljobs_filter_sort_by"
+        const val KEY_FILTER_PAY_TYPE = "alljobs_filter_pay_type"
+        const val KEY_FILTER_WORK_TYPE = "alljobs_filter_work_type"
     }
 }

@@ -50,8 +50,10 @@ fun EditJobScreen(
     val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
     
-    // WorkLocationManager for saving work locations
-    val workLocationManager: com.example.dutype.services.WorkLocationManager = hiltViewModel<com.example.dutype.viewmodels.WorkerHomeViewModel>().workLocationManager
+    // Saved work locations quick-pick (process-scoped, in-memory)
+    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore =
+        hiltViewModel<com.example.dutype.viewmodels.WorkerHomeViewModel>().savedWorkLocationsStore
+    val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
 
     // Get the current job from ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -85,7 +87,6 @@ fun EditJobScreen(
     var isLoadingJob by remember { mutableStateOf(true) }
     
     // Work Location Management (Industry standard pattern)
-    var savedWorkLocations by remember { mutableStateOf<List<com.example.dutype.models.WorkLocation>>(emptyList()) }
     var showSaveLocationDialog by remember { mutableStateOf(false) }
     var showSavedLocationsSheet by remember { mutableStateOf(false) }
     var locationLabel by remember { mutableStateOf("") }
@@ -102,18 +103,7 @@ fun EditJobScreen(
         viewModel.loadMyJobs()
     }
     
-    // Load saved work locations (Industry standard pattern)
-    LaunchedEffect(Unit) {
-        scope.launch {
-            val result = workLocationManager.getWorkLocations()
-            result.onSuccess { locations ->
-                savedWorkLocations = locations
-                Timber.d("📍 EditJob: Loaded ${locations.size} saved work locations")
-            }.onFailure { error ->
-                Timber.e(error, "❌ EditJob: Failed to load work locations")
-            }
-        }
-    }
+    // Saved work locations now flow from SavedWorkLocationsStore via collectAsState above.
     
     // Add timeout for job loading (10 seconds)
     LaunchedEffect(jobId) {
@@ -1315,31 +1305,25 @@ fun EditJobScreen(
                 Button(
                     onClick = {
                         if (locationLabel.isNotBlank()) {
-                            scope.launch {
-                                val result = workLocationManager.saveWorkLocation(
+                            runCatching {
+                                savedWorkLocationsStore.add(
                                     label = locationLabel,
                                     address = location,
                                     latitude = locationLatitude,
                                     longitude = locationLongitude
                                 )
-                                result.onSuccess {
-                                    // Reload saved locations
-                                    val locationsResult = workLocationManager.getWorkLocations()
-                                    locationsResult.onSuccess { locations ->
-                                        savedWorkLocations = locations
-                                    }
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Location saved successfully",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }.onFailure { error ->
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Failed to save location: ${error.message}",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                            }.onSuccess {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Location saved for this session",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }.onFailure { error ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Failed to save location: ${error.message}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
                             showSaveLocationDialog = false
                             locationLabel = ""
@@ -1384,17 +1368,17 @@ fun EditJobScreen(
                                 location = workLocation.address
                                 locationLatitude = workLocation.latitude
                                 locationLongitude = workLocation.longitude
-                                
+
                                 // Increment usage count
-                                scope.launch {
-                                    workLocationManager.saveWorkLocation(
+                                runCatching {
+                                    savedWorkLocationsStore.add(
                                         label = workLocation.label,
                                         address = workLocation.address,
                                         latitude = workLocation.latitude,
                                         longitude = workLocation.longitude
                                     )
                                 }
-                                
+
                                 showSavedLocationsSheet = false
                             },
                             modifier = Modifier.fillMaxWidth(),

@@ -42,7 +42,7 @@ import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -69,8 +69,7 @@ fun MandatoryEmployerProfileSetupScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val notificationService = profileCompletionViewModel.notificationService

@@ -73,6 +73,7 @@ fun AllJobsScreen(
 ) {
     val context = LocalContext.current
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     
     // P0 FIX: Use dedicated AllJobsViewModel with filtering in ViewModel
     val viewModel: AllJobsViewModel = hiltViewModel()
@@ -118,7 +119,7 @@ fun AllJobsScreen(
                     // Fetch only when cache is stale to avoid repeated GPS calls.
                     if (!locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
                         val locationService = viewModel.locationService
-                        locationService.getLocationFast(locationPreferences) { freshLocation ->
+                        locationRepository.refresh { freshLocation ->
                             if (freshLocation != null) {
                                 Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
                                 // Location already saved by getLocationFast()

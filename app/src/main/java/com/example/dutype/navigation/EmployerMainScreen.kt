@@ -85,7 +85,6 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_MORE_SETTINGS,
         Routes.EMPLOYER_MY_RATINGS,
         Routes.EMPLOYER_TRUST_BADGES, // Hide bottom bar on trust badges screen
-        Routes.EMPLOYER_AI_POST_JOB,
         Routes.EMPLOYER_VOICE_POST_JOB, // Hide bottom bar for voice job posting
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
         Routes.EMPLOYER_VISITING_CARD, // Hide bottom bar on visiting card
@@ -359,21 +358,6 @@ fun EmployerMainScreen(
                     composable(Routes.EMPLOYER_TRUST_BADGES) {
                         com.example.dutype.employer.screens.TrustBadgesScreen(
                             navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // AI-Enhanced Job Posting
-                    composable(Routes.EMPLOYER_AI_POST_JOB) {
-                        com.example.dutype.employer.screens.AIJobPostingScreen(
-                            navController = navController,
-                            onJobPosted = {
-                                navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                                }
-                            },
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
                             }

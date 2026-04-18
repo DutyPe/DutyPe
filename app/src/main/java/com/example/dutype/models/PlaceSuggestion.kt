@@ -1,8 +1,11 @@
 package com.example.dutype.models
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Place suggestion from Google Places Autocomplete API
  */
+@Immutable
 data class PlaceSuggestion(
     val placeId: String,
     val description: String,

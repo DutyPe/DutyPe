@@ -29,8 +29,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class JobFirestoreService @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager
+    private val firestore: FirebaseFirestore
 ) {
     
     companion object {
@@ -426,27 +425,9 @@ class JobFirestoreService @Inject constructor(
             batch.commit().await()
             
             Timber.i("📝 ✅ Job saved (2-collection split: jobmetadata + job_details)")
-            
-            // Notify nearby workers about new job
-            try {
-                val job = JobListing(
-                    id = jobRef.id,
-                    employerId = employerId,
-                    title = title,
-                    lat = latitude,
-                    lng = longitude,
-                    salary = salary,
-                    salaryType = salaryType,
-                    jobType = jobType,
-                    geohash = geohash,
-                    status = "open",
-                    companyName = companyName
-                )
-                smartNotificationManager.notifyNearbyWorkersAboutNewJob(job)
-            } catch (e: Exception) {
-                Timber.e(e, "🔔 SMART NOTIFICATION: Failed to notify nearby workers (non-critical)")
-            }
-            
+
+            // Nearby-worker notifications run server-side via Cloud Functions
+
             Result.success(jobRef.id)
         } catch (e: Exception) {
             Timber.e(e, "📝 FIRESTORE DEBUG: ❌ Failed to save job to Firestore")

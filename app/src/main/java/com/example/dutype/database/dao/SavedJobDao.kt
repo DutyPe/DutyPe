@@ -32,15 +32,6 @@ interface SavedJobDao {
     @Query("SELECT EXISTS(SELECT 1 FROM saved_jobs WHERE workerId = :workerId AND jobId = :jobId)")
     suspend fun isJobSaved(workerId: String, jobId: String): Boolean
 
-    @Query("SELECT EXISTS(SELECT 1 FROM saved_jobs WHERE workerId = :workerId AND jobId = :jobId)")
-    fun isJobSavedFlow(workerId: String, jobId: String): Flow<Boolean>
-
-    @Query("SELECT * FROM saved_jobs WHERE isSynced = 0")
-    suspend fun getUnsyncedSavedJobs(): List<SavedJobEntity>
-
-    @Query("SELECT * FROM saved_jobs WHERE pendingAction IS NOT NULL")
-    suspend fun getPendingActions(): List<SavedJobEntity>
-
     // ==================== UPDATE ====================
 
     @Update
@@ -54,14 +45,8 @@ interface SavedJobDao {
     @Delete
     suspend fun deleteSavedJob(savedJob: SavedJobEntity)
 
-    @Query("DELETE FROM saved_jobs WHERE workerId = :workerId AND jobId = :jobId")
-    suspend fun deleteSavedJobByIds(workerId: String, jobId: String)
-
     @Query("DELETE FROM saved_jobs WHERE cachedAt < :timestamp")
     suspend fun deleteOldCache(timestamp: Long)
-
-    @Query("DELETE FROM saved_jobs WHERE workerId = :workerId")
-    suspend fun deleteSavedJobsByWorker(workerId: String)
 
     @Query("DELETE FROM saved_jobs")
     suspend fun deleteAllSavedJobs()

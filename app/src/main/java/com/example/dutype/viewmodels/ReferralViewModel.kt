@@ -21,13 +21,18 @@ import javax.inject.Inject
 @HiltViewModel
 class ReferralViewModel @Inject constructor(
     private val referralService: ReferralService,
-    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
+    appConfigRepository: com.example.dutype.repositories.AppConfigRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(ReferralUiState())
     val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
     private var statsObserverJob: Job? = null
     private var historyObserverJob: Job? = null
+
+    /** Admin-editable referral config. UI consumes this for reward amounts. */
+    val referralConfig: StateFlow<com.example.dutype.repositories.ReferralConfig> =
+        appConfigRepository.referralConfig
     
     private val _analytics = MutableStateFlow<ReferralAnalytics?>(null)
     val analytics: StateFlow<ReferralAnalytics?> = _analytics.asStateFlow()
@@ -36,49 +41,16 @@ class ReferralViewModel @Inject constructor(
     val successStories: StateFlow<List<ReferralSuccessStory>> = _successStories.asStateFlow()
     
     /**
-     * Load referral data for current user
+     * Load referral data for current user.
+     *
+     * Implementation: this used to do a one-shot `getCurrentUserReferralStats()` +
+     * `getCurrentUserReferralHistory()` fetch in addition to starting the
+     * realtime observers. The observers already do a cache-first + server
+     * read via addSnapshotListener, so the one-shots were pure duplicate
+     * traffic. We now just ensure observers are running.
      */
     fun loadReferralData() {
         ensureRealtimeObservers()
-        viewModelScope.launch {
-            com.example.dutype.performance.MainThreadChecker.assertMainThread()
-            performanceTracker.trackOperation("loadReferralData")
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            try {
-                // Load stats
-                val statsResult = referralService.getCurrentUserReferralStats()
-                statsResult.fold(
-                    onSuccess = { stats ->
-                        Timber.d("🎁 REFERRAL: Stats loaded - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}, NextMilestone: ${stats.nextMilestone}")
-                        _uiState.value = _uiState.value.copy(stats = stats)
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "🎁 REFERRAL: Failed to load referral stats")
-                    }
-                )
-                
-                // Load history
-                val historyResult = referralService.getCurrentUserReferralHistory()
-                historyResult.fold(
-                    onSuccess = { history ->
-                        Timber.d("🎁 REFERRAL: History loaded - ${history.size} referrals")
-                        _uiState.value = _uiState.value.copy(referralHistory = history)
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "🎁 REFERRAL: Failed to load referral history")
-                    }
-                )
-                
-                _uiState.value = _uiState.value.copy(isLoading = false)
-            } catch (e: Exception) {
-                Timber.e(e, "🎁 REFERRAL: Error loading referral data")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load referral data"
-                )
-            }
-        }
     }
 
     fun refreshReferralStats() {

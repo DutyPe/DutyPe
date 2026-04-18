@@ -215,7 +215,7 @@ fun JobApplicationCard(
                     
                     // Applied time
                     Text(
-                        text = "Applied ${formatDate(application.appliedAt)}",
+                        text = "Applied ${formatDate(application.createdAt)}",
                         style = AppTypography.caption.copy(
                             color = Color(0xFF9CA3AF)
                         )

@@ -224,14 +224,3 @@ fun InAppNotificationProvider(
 fun rememberInAppNotificationManager(): InAppNotificationManager {
     return androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.viewmodels.InAppNotificationManagerViewModel>().notificationManager
 }
-
-// ViewModel moved to com.example.dutype.viewmodels.InAppNotificationManagerViewModel
-// Keep deprecated alias for backward compatibility
-@Deprecated(
-    "Use com.example.dutype.viewmodels.InAppNotificationManagerViewModel instead",
-    ReplaceWith("com.example.dutype.viewmodels.InAppNotificationManagerViewModel")
-)
-typealias InAppNotificationManagerViewModel = com.example.dutype.viewmodels.InAppNotificationManagerViewModel
-
-@Deprecated("Use InAppNotificationManagerViewModel instead", ReplaceWith("InAppNotificationManagerViewModel"))
-typealias InAppNotificationManagerProvider = com.example.dutype.viewmodels.InAppNotificationManagerViewModel

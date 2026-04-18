@@ -82,8 +82,8 @@ fun WorkerProfileDetailsScreen(
     var isReviewsLoading by remember { mutableStateOf(false) }
     val ratingService = remember {
         com.example.dutype.services.RatingService(
-            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            com.google.firebase.auth.FirebaseAuth.getInstance()
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
         )
     }
     
@@ -160,8 +160,8 @@ fun WorkerProfileDetailsScreen(
                         phoneNumber = data["phone"] as? String ?: phoneNumber
                         profileImageUrl = data["profileImageUrl"] as? String
 
-                        // jobTypes from worker_profiles — displayed as comma-separated skills
-                        val rawSkills = data["skills"] ?: data["jobTypes"]
+                        // skills from worker_profiles — displayed as comma-separated skills
+                        val rawSkills = data["skills"]
                         skills = when (rawSkills) {
                             is List<*> -> rawSkills.filterIsInstance<String>().joinToString(", ")
                             is String -> rawSkills
@@ -190,7 +190,7 @@ fun WorkerProfileDetailsScreen(
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             try {
-                val workerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val workerDoc = com.example.dutype.di.firestoreFromHilt(context)
                     .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUserId).get().await()
                 workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
                 workerTotalRatings = (workerDoc.getLong("totalRatings") ?: 0L).toInt()
@@ -295,7 +295,7 @@ fun WorkerProfileDetailsScreen(
                                     .clickable {
                                         scope.launch {
                                             isReviewsLoading = true
-                                            workerReviews = ratingService.getUserRatings(currentUserId, "WORKER")
+                                            workerReviews = ratingService.getUserRatings(currentUserId)
                                             isReviewsLoading = false
                                             showReviewsSheet = true
                                         }

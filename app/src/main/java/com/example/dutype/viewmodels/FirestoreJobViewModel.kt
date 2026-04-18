@@ -85,7 +85,7 @@ class FirestoreJobViewModel @Inject constructor(
     val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator,
     val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
     val adManager: com.example.dutype.ads.AdManager,
-    val workLocationManager: com.example.dutype.services.WorkLocationManager
+    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(FirestoreJobUiState())

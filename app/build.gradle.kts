@@ -10,6 +10,17 @@ plugins {
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
     id("com.google.firebase.crashlytics")
+    id("com.google.firebase.firebase-perf")
+
+    // P2-3: kotlinx.serialization powers `@Serializable` NavKey-style destination classes
+    // in `navigation/destinations/`. Plugin was already declared `apply false` at the
+    // root; we apply it here so destination classes can be serialized for Nav 3 / Compose
+    // Nav 2.8 type-safe routes.
+    id("org.jetbrains.kotlin.plugin.serialization")
+
+    // P1-1: Baseline Profile consumer plugin. Pairs with the :baselineprofile
+    // module to produce + bundle baseline profiles into the release AAB.
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 // Load keystore properties
@@ -41,11 +52,7 @@ android {
         
         buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
         buildConfigField("String", "AZURE_MAPS_KEY", "\"${localProperties.getProperty("AZURE_MAPS_KEY", "")}\"")
-        
-        // AI Backend Configuration
-        buildConfigField("String", "AI_BACKEND_URL", "\"${localProperties.getProperty("AI_BACKEND_URL", "http://10.0.2.2:8000/")}\"")
-        buildConfigField("String", "AI_BACKEND_API_KEY", "\"${localProperties.getProperty("AI_BACKEND_API_KEY", "")}\"")
-        
+
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
@@ -77,7 +84,7 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
-            
+
             // Enable debug symbols for crash analysis
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
@@ -154,6 +161,21 @@ android {
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
         )
+
+        // P3-1: Compose Compiler metrics + reports.
+        // Outputs to app/build/compose-metrics and app/build/compose-reports.
+        // Enable by passing -Pcom.dutype.enableComposeMetrics=true to Gradle
+        // (off by default to keep CI builds fast).
+        if (project.findProperty("com.dutype.enableComposeMetrics") == "true") {
+            val composeMetricsDir = layout.buildDirectory.dir("compose-metrics").get().asFile.absolutePath
+            val composeReportsDir = layout.buildDirectory.dir("compose-reports").get().asFile.absolutePath
+            freeCompilerArgs += listOf(
+                "-P",
+                "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=$composeMetricsDir",
+                "-P",
+                "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=$composeReportsDir"
+            )
+        }
     }
     buildFeatures {
         compose = true
@@ -171,12 +193,28 @@ android {
     }
 }
 
+// Room schema export for migration testing (P2-5).
+// JSON snapshots are written to `app/schemas/<DbClass>/<version>.json` and
+// must be committed so MigrationTestHelper can validate future Migration objects.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.activity.compose)
+
+    // P1-1: ProfileInstaller is the runtime that loads the bundled
+    // baseline-prof.txt at app install / first launch.
+    implementation(libs.androidx.profileinstaller)
+
+    // P1-1: Wire the :baselineprofile module so the AndroidX plugin can
+    // discover the BaselineProfileGenerator producer.
+    "baselineProfile"(project(":baselineprofile"))
+
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -290,6 +328,12 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // SQLCipher for encrypted Room database
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite:2.4.0")
+    // EncryptedSharedPreferences for securely storing the DB passphrase
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
     // WorkManager for background sync
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.hilt:hilt-work:1.2.0")
@@ -298,13 +342,8 @@ dependencies {
     // Timber
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // OkHttp for Azure Maps API calls and AI Backend
+    // OkHttp for Azure Maps API calls
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // Retrofit for AI Backend API
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")

@@ -31,7 +31,6 @@ class AzureMapsService(private val subscriptionKey: String) {
         private const val SEARCH_ADDRESS = "/search/address/json"
         private const val SEARCH_FUZZY = "/search/fuzzy/json"
         private const val SEARCH_POI = "/search/poi/json"
-        private const val REVERSE_GEOCODE = "/search/address/reverse/json"
         
         // Default to India for better local results
         private const val DEFAULT_COUNTRY = "IN"
@@ -128,45 +127,6 @@ class AzureMapsService(private val subscriptionKey: String) {
     }
     
     /**
-     * Reverse geocode - get address from coordinates
-     */
-    suspend fun reverseGeocode(
-        latitude: Double,
-        longitude: Double
-    ): Result<AzureLocationResult?> = withContext(Dispatchers.IO) {
-        try {
-            val url = "$BASE_URL$REVERSE_GEOCODE?" +
-                    "api-version=$API_VERSION" +
-                    "&subscription-key=$subscriptionKey" +
-                    "&query=$latitude,$longitude" +
-                    "&language=$DEFAULT_LANGUAGE"
-            
-            Timber.d("🗺️ Azure Maps: Reverse geocoding $latitude, $longitude")
-            
-            val request = Request.Builder()
-                .url(url)
-                .get()
-                .build()
-            
-            val response = client.newCall(request).execute()
-            
-            if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("Reverse geocode failed: ${response.code}"))
-            }
-            
-            val responseBody = response.body?.string() ?: ""
-            val result = parseReverseGeocodeResult(responseBody)
-            
-            Timber.d("🗺️ Azure Maps: Reverse geocode result: ${result?.formattedAddress}")
-            Result.success(result)
-            
-        } catch (e: Exception) {
-            Timber.e(e, "🗺️ Azure Maps: Reverse geocode error")
-            Result.failure(e)
-        }
-    }
-    
-    /**
      * Parse search results from Azure Maps API response
      */
     private fun parseSearchResults(jsonString: String): List<AzureLocationResult> {
@@ -203,40 +163,6 @@ class AzureMapsService(private val subscriptionKey: String) {
         }
         
         return results
-    }
-    
-    /**
-     * Parse reverse geocode result
-     */
-    private fun parseReverseGeocodeResult(jsonString: String): AzureLocationResult? {
-        try {
-            val json = JSONObject(jsonString)
-            val addresses = json.optJSONArray("addresses") ?: return null
-            
-            if (addresses.length() == 0) return null
-            
-            val item = addresses.getJSONObject(0)
-            val address = item.optJSONObject("address") ?: return null
-            val position = item.optString("position", "0,0").split(",")
-            
-            return AzureLocationResult(
-                id = "reverse_geocode",
-                formattedAddress = address.optString("freeformAddress", ""),
-                streetName = address.optString("streetName", ""),
-                streetNumber = address.optString("streetNumber", ""),
-                municipality = address.optString("municipality", ""),
-                municipalitySubdivision = address.optString("municipalitySubdivision", ""),
-                countrySubdivision = address.optString("countrySubdivision", ""),
-                postalCode = address.optString("postalCode", ""),
-                country = address.optString("country", "India"),
-                latitude = position.getOrNull(0)?.toDoubleOrNull() ?: 0.0,
-                longitude = position.getOrNull(1)?.toDoubleOrNull() ?: 0.0,
-                score = 1.0
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "🗺️ Azure Maps: Error parsing reverse geocode result")
-            return null
-        }
     }
 }
 

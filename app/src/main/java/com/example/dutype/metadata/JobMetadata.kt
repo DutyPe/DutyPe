@@ -384,22 +384,6 @@ class JobMetadata @Inject constructor(
         }
     }
     
-    private suspend fun loadCategoryStats() {
-        loadStatsFromJobsCollection()
-    }
-    
-    private suspend fun loadLocationStats() {
-        loadStatsFromJobsCollection()
-    }
-    
-    private suspend fun loadTrendingData() {
-        loadStatsFromJobsCollection()
-    }
-    
-    private suspend fun loadPayRangeStats() {
-        loadStatsFromJobsCollection()
-    }
-    
     private fun getTrendDirection(category: String): TrendDirection {
         // Simple logic - can be enhanced with historical data
         return TrendDirection.STABLE

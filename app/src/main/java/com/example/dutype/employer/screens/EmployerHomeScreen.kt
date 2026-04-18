@@ -137,6 +137,8 @@ fun EmployerHomeScreen(
     notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
     val context = LocalContext.current
+    val hiltFirestore = remember(context) { com.example.dutype.di.firestoreFromHilt(context) }
+    val hiltAuth = remember(context) { com.example.dutype.di.authFromHilt(context) }
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -145,7 +147,7 @@ fun EmployerHomeScreen(
     val notificationService = remember { 
         com.example.dutype.services.NotificationService(
             context,
-            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            hiltFirestore
         )
     }
     val employerJobUiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -161,9 +163,9 @@ fun EmployerHomeScreen(
     // Birthday wish state 🎂
     val birthdayService = remember { 
         BirthdayService(
-            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            com.google.firebase.auth.FirebaseAuth.getInstance(),
-            com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
+            hiltFirestore,
+            hiltAuth,
+            com.example.dutype.services.NotificationService(context, hiltFirestore)
         )
     }
     var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }

@@ -57,6 +57,8 @@ fun CategoriesScreen(
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val normalizedInitialCategory = remember(initialCategory) {
         if (initialCategory.equals("All Jobs", ignoreCase = true)) "All" else initialCategory
     }
@@ -91,7 +93,7 @@ fun CategoriesScreen(
                 try {
                     // Avoid repeated GPS work when cached location is still fresh.
                     if (!viewModel.locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
-                        viewModel.locationService.getLocationFast(viewModel.locationPreferences) { freshLocation ->
+                        locationRepository.refresh { freshLocation ->
                             if (freshLocation != null) {
                                 Timber.d("📍 CategoriesScreen: Fresh location received - re-sorting jobs by distance")
                                 viewModel.setUserLocation(freshLocation.latitude, freshLocation.longitude)

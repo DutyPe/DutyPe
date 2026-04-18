@@ -13,7 +13,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
+import javax.inject.Inject
 
 /**
  * Firebase Cloud Messaging Service - Enterprise Grade
@@ -24,8 +26,16 @@ import timber.log.Timber
  * 
  * ARCHITECTURE:
  * Cloud Functions → FCM → This Service → Notification Channels → User
+ *
+ * PUSH-PATH DISCIPLINE: onMessageReceived MUST render the notification using
+ * only the FCM payload (title, body, type, deepLink, channel). No Firestore
+ * reads on this path — those belong in the app's cold-start enrichment only.
  */
+@AndroidEntryPoint
 class DutyPeMessagingService : FirebaseMessagingService() {
+
+    @Inject lateinit var firestore: FirebaseFirestore
+    @Inject lateinit var auth: FirebaseAuth
     
     companion object {
         private const val NOTIFICATION_GROUP = "DUTYPE_NOTIFICATIONS"
@@ -84,15 +94,15 @@ class DutyPeMessagingService : FirebaseMessagingService() {
      * Allows Cloud Functions to send targeted notifications
      */
     private fun saveFCMToken(token: String) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        
+        val userId = auth.currentUser?.uid
+
         if (userId == null) {
             Timber.w("🔔 Cannot save FCM token - user not authenticated")
             return
         }
-        
+
         // Save to users.fcmToken field only (schema: fcmToken)
-        FirebaseFirestore.getInstance()
+        firestore
             .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
             .document(userId)
             .update("fcmToken", token)

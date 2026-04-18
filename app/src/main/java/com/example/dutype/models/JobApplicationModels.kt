@@ -1,19 +1,20 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
  * JobApplication — strict target schema model.
  *
  * Firestore applications collection:
- *   applicationId (doc ID = jobId_workerId), jobId, workerId,
+ *   id (doc ID = jobId_workerId), jobId, workerId,
  *   employerId, status, createdAt
  */
 @Keep
+@Immutable
 @com.google.firebase.firestore.IgnoreExtraProperties
 data class JobApplication(
-    val applicationId: String = "",
     val id: String = "",
     val jobId: String = "",
     val workerId: String = "",
@@ -31,13 +32,8 @@ data class JobApplication(
     val workerName: String = "",
     val workerPhone: String? = null,
     val workerProfileImageUrl: String? = null,
-    val coverLetter: String = "",
-    val statusHistory: List<StatusHistoryEntry> = emptyList()
+    val coverLetter: String = ""
 ) {
-    val canonicalId: String get() = if (applicationId.isNotBlank()) applicationId else id
-    val appliedAt: Long get() = createdAt
-    val active: Boolean get() = status != ApplicationStatus.REJECTED
-
     /** ONLY the fields that belong in Firestore. Use for all writes. */
     fun toFirestoreMap(): Map<String, Any> = mapOf(
         "jobId" to jobId,
@@ -49,35 +45,6 @@ data class JobApplication(
 }
 
 // ─── Supporting types ────────────────────────────────────────────────────────
-
-@Keep
-@com.google.firebase.firestore.IgnoreExtraProperties
-data class DocumentAttachment(
-    val id: String = "",
-    val name: String = "",
-    val url: String = "",
-    val type: String = "",
-    val uploadedAt: Long = System.currentTimeMillis()
-) {
-    // Aliases used in UI
-    val fileName: String get() = name
-    val fileUrl: String get() = url
-    val fileType: DocumentFileType get() = DocumentFileType.fromString(type)
-    val fileSize: Long get() = 0L  // not stored — display placeholder
-}
-
-enum class DocumentFileType {
-    PDF, IMAGE, DOC, OTHER;
-
-    companion object {
-        fun fromString(type: String): DocumentFileType = when (type.uppercase()) {
-            "PDF" -> PDF
-            "IMAGE", "JPG", "JPEG", "PNG" -> IMAGE
-            "DOC", "DOCX" -> DOC
-            else -> OTHER
-        }
-    }
-}
 
 /**
  * Canonical 4-state machine. Matches [firestore.rules] exactly; no UI-only aliases.
@@ -135,11 +102,7 @@ fun JobVacancyStatus.getDisplayName(): String = when (this) {
 
 data class JobApplicationUiState(
     val applications: List<JobApplication> = emptyList(),
-    val isLoading: Boolean = false,
-    val isSubmitting: Boolean = false,
-    val hasError: Boolean = false,
-    val error: String = "",
-    val submissionSuccess: Boolean = false
+    val isLoading: Boolean = false
 )
 
 @Keep
@@ -151,19 +114,4 @@ data class ApplicationStats(
     val rejectedApplications: Int = 0,
     val hiredApplications: Int = 0,
     val recentApplications: List<JobApplication> = emptyList()
-)
-
-@Keep
-@com.google.firebase.firestore.IgnoreExtraProperties
-data class ApplicationAnalytics(
-    val totalApplications: Int = 0,
-    val applicationsThisWeek: Int = 0,
-    val applicationsThisMonth: Int = 0,
-    val appliedApplications: Int = 0,
-    val shortlistedApplications: Int = 0,
-    val hiredApplications: Int = 0,
-    val rejectedApplications: Int = 0,
-    val averageResponseTime: Long = 0L,
-    val topJobTitles: List<String> = emptyList(),
-    val applicationTrends: Map<String, Int> = emptyMap()
 )

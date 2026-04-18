@@ -1,6 +1,8 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import com.google.firebase.firestore.PropertyName
 
 /**
@@ -8,6 +10,7 @@ import com.google.firebase.firestore.PropertyName
  * Based on Urban Company/TaskRabbit patterns
  */
 @Keep
+@Stable
 data class NotificationData(
     val id: String = "",
     val recipientId: String = "",
@@ -81,6 +84,7 @@ fun NotificationType.getDisplayName(): String = when (this) {
 
 // UI display model for notifications
 @Keep
+@Immutable
 data class Notification(
     val id: String,
     val userId: String = "",
@@ -90,11 +94,7 @@ data class Notification(
     val priority: NotificationPriority = NotificationPriority.NORMAL,
     val isRead: Boolean = false,
     val readAt: Long? = null,
-    val isArchived: Boolean = false,
-    val archivedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val relatedJobId: String? = null,
-    val relatedApplicationId: String? = null,
     val actionData: Map<String, String> = emptyMap()
 ) {
     /**

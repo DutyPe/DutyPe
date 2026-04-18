@@ -3,7 +3,7 @@ package com.example.dutype.worker.models
 /**
  * Worker-specific data models for job applications.
  * 
- * Canonical models (ApplicationStatus, WorkExperience, DocumentFileType) live in
+ * Canonical models (ApplicationStatus, WorkExperience) live in
  * com.example.dutype.models to maintain single source of truth.
  */
 

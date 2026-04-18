@@ -197,13 +197,6 @@ abstract class BaseNotificationViewModel(
         }
     }
 
-    fun archiveNotification(notificationId: String) {
-        viewModelScope.launch {
-            notificationService.archiveNotification(notificationId)
-            loadNotifications()
-        }
-    }
-
     fun deleteNotification(notificationId: String) {
         viewModelScope.launch {
             notificationService.deleteNotification(notificationId)

@@ -1,9 +1,12 @@
 package com.example.dutype.models
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Lightweight model for displaying recently hired workers
  * Used for social proof on worker home screen
  */
+@Immutable
 data class RecentHire(
     val workerName: String,      // "Raj K." (first name + last initial)
     val jobTitle: String,         // "Delivery Driver"

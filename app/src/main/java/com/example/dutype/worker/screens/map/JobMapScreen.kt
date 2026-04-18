@@ -87,6 +87,7 @@ fun JobMapScreen(
     val scope = rememberCoroutineScope()
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
     val locationService = viewModel.locationService
+    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     
     // UI State
     val uiState by viewModel.uiState.collectAsState()
@@ -121,7 +122,7 @@ fun JobMapScreen(
         if (locationPermissionState.status.isGranted) {
             isLoadingLocation = true
             try {
-                val location = locationService.getHighAccuracyLocation(
+                val location = locationRepository.getHighAccuracy(
                     timeoutMs = 10000L,
                     minAccuracyMeters = 50f
                 )
@@ -753,41 +754,6 @@ private fun EnhancedJobMapCard(
                         backgroundColor = Color(0xFFFEF3C7),
                         textColor = Color(0xFF92400E)
                     )
-                }
-            }
-            
-            // Landmark info
-            val landmark = ""
-            if (landmark.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF3F4F6)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("🏛️", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Landmark",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF94A3B8)
-                            )
-                            Text(
-                                text = landmark,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF475569),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
                 }
             }
             

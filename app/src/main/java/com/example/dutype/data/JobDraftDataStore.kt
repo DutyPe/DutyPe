@@ -3,7 +3,6 @@ package com.example.dutype.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -12,7 +11,6 @@ import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
-import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -68,14 +66,13 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_EXPERIENCE_LEVEL = stringPreferencesKey("draft_experience_level")
         private val KEY_AGE_RANGE = stringPreferencesKey("draft_age_range")
         private val KEY_GENDER = stringPreferencesKey("draft_gender")
-        private val KEY_LANDMARK = stringPreferencesKey("draft_landmark")
-        private val KEY_REQUIREMENTS = stringPreferencesKey("draft_requirements")
-        private val KEY_BENEFITS = stringPreferencesKey("draft_benefits")
         private val KEY_TIMESTAMP = longPreferencesKey("draft_timestamp")
         private val KEY_EMPLOYER_ID = stringPreferencesKey("draft_employer_id")
     }
     
-    private val gson = Gson()
+    private val gson = sharedGson
+    private val store get() = context.jobDraftDataStore
+    private val tag = "JOB_DRAFT"
 
     
     /**
@@ -107,40 +104,29 @@ class JobDraftDataStore @Inject constructor(
         fun isValid(): Boolean = System.currentTimeMillis() - timestamp < DRAFT_TTL_MS
         fun hasContent(): Boolean = title.isNotBlank() || description.isNotBlank() || 
             payAmount.isNotBlank() || location.isNotBlank()
-    }
-    
+    }    
     /**
-     * Save job draft
+     * Save job draft (atomic write of all fields).
      */
-    suspend fun saveDraft(draft: JobDraft) = withContext(Dispatchers.IO) {
-        try {
-            context.jobDraftDataStore.edit { prefs ->
-                prefs[KEY_TITLE] = draft.title
-                prefs[KEY_DESCRIPTION] = draft.description
-                prefs[KEY_PAY_AMOUNT] = draft.payAmount
-                prefs[KEY_PAY_TYPE] = draft.payType.name
-                prefs[KEY_LOCATION] = draft.location
-                // Category removed - will be auto-detected
-                prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
-                prefs[KEY_VACANCIES] = draft.vacancies
-                prefs[KEY_CONTACT_NUMBER] = draft.contactNumber
-                prefs[KEY_SHIFT_TIMING] = draft.shiftTiming.name
-                prefs[KEY_URGENCY] = draft.urgency.name
-                prefs[KEY_PERKS] = gson.toJson(draft.perks.map { it.name })
-                prefs[KEY_WORK_TYPE] = draft.workType
-                prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
-                prefs[KEY_AGE_RANGE] = draft.ageRange
-                prefs[KEY_GENDER] = draft.gender
-                prefs[KEY_LANDMARK] = draft.landmark
-                prefs[KEY_REQUIREMENTS] = draft.requirements
-                prefs[KEY_BENEFITS] = draft.benefits
-                prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
-                prefs[KEY_EMPLOYER_ID] = draft.employerId
-            }
-            Timber.d("📝 JOB_DRAFT: Draft saved successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "📝 JOB_DRAFT: Failed to save draft")
-        }
+    suspend fun saveDraft(draft: JobDraft) = store.editIo<Unit>(tag) { prefs ->
+        prefs[KEY_TITLE] = draft.title
+        prefs[KEY_DESCRIPTION] = draft.description
+        prefs[KEY_PAY_AMOUNT] = draft.payAmount
+        prefs[KEY_PAY_TYPE] = draft.payType.name
+        prefs[KEY_LOCATION] = draft.location
+        // Category removed - will be auto-detected
+        prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
+        prefs[KEY_VACANCIES] = draft.vacancies
+        prefs[KEY_CONTACT_NUMBER] = draft.contactNumber
+        prefs[KEY_SHIFT_TIMING] = draft.shiftTiming.name
+        prefs[KEY_URGENCY] = draft.urgency.name
+        prefs[KEY_PERKS] = gson.toJson(draft.perks.map { it.name })
+        prefs[KEY_WORK_TYPE] = draft.workType
+        prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
+        prefs[KEY_AGE_RANGE] = draft.ageRange
+        prefs[KEY_GENDER] = draft.gender
+        prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
+        prefs[KEY_EMPLOYER_ID] = draft.employerId
     }
 
     
@@ -195,9 +181,6 @@ class JobDraftDataStore @Inject constructor(
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
                     ageRange = prefs[KEY_AGE_RANGE] ?: "18-35",
                     gender = prefs[KEY_GENDER] ?: "Any",
-                    landmark = prefs[KEY_LANDMARK] ?: "",
-                    requirements = prefs[KEY_REQUIREMENTS] ?: "",
-                    benefits = prefs[KEY_BENEFITS] ?: "",
                     timestamp = timestamp,
                     employerId = savedEmployerId
                 )
@@ -214,18 +197,9 @@ class JobDraftDataStore @Inject constructor(
 
     
     /**
-     * Clear draft after successful post
+     * Clear draft after successful post.
      */
-    suspend fun clearDraft() = withContext(Dispatchers.IO) {
-        try {
-            context.jobDraftDataStore.edit { prefs ->
-                prefs.clear()
-            }
-            Timber.d("📝 JOB_DRAFT: Draft cleared")
-        } catch (e: Exception) {
-            Timber.e(e, "📝 JOB_DRAFT: Failed to clear draft")
-        }
-    }
+    suspend fun clearDraft() = store.editIo<Unit>(tag) { it.clear() }
     
     /**
      * Check if a draft exists for employer
@@ -240,26 +214,17 @@ class JobDraftDataStore @Inject constructor(
     }
     
     /**
-     * Update single field in draft (for debounced auto-save)
+     * Update single field in draft (for debounced auto-save).
      */
-    suspend fun updateField(field: String, value: String) = withContext(Dispatchers.IO) {
-        try {
-            context.jobDraftDataStore.edit { prefs ->
-                when (field) {
-                    "title" -> prefs[KEY_TITLE] = value
-                    "description" -> prefs[KEY_DESCRIPTION] = value
-                    "payAmount" -> prefs[KEY_PAY_AMOUNT] = value
-                    "location" -> prefs[KEY_LOCATION] = value
-                    "vacancies" -> prefs[KEY_VACANCIES] = value
-                    "contactNumber" -> prefs[KEY_CONTACT_NUMBER] = value
-                    "landmark" -> prefs[KEY_LANDMARK] = value
-                    "requirements" -> prefs[KEY_REQUIREMENTS] = value
-                    "benefits" -> prefs[KEY_BENEFITS] = value
-                }
-                prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "📝 JOB_DRAFT: Failed to update field $field")
+    suspend fun updateField(field: String, value: String) = store.editIo<Unit>(tag) { prefs ->
+        when (field) {
+            "title" -> prefs[KEY_TITLE] = value
+            "description" -> prefs[KEY_DESCRIPTION] = value
+            "payAmount" -> prefs[KEY_PAY_AMOUNT] = value
+            "location" -> prefs[KEY_LOCATION] = value
+            "vacancies" -> prefs[KEY_VACANCIES] = value
+            "contactNumber" -> prefs[KEY_CONTACT_NUMBER] = value
         }
+        prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
     }
 }

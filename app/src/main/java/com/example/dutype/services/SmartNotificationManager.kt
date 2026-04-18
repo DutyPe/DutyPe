@@ -25,20 +25,6 @@ class SmartNotificationManager @Inject constructor(
 ) {
     
     /**
-     * Send notification to nearby workers when a new job is posted
-     * TODO: Implement when User model has preferredCategories and JobListing has category
-     */
-    suspend fun notifyNearbyWorkersAboutNewJob(job: JobListing): Result<Unit> {
-        return try {
-            Timber.i("SmartNotification: Location-based alerts not yet implemented")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "SmartNotification: Error notifying nearby workers")
-            Result.failure(e)
-        }
-    }
-    
-    /**
      * Notify user about profile completion milestone
      * Only triggers at 75% (reminder) and 100% (celebration)
      */

@@ -42,7 +42,7 @@ import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import java.util.*
 
 /**
@@ -58,12 +58,10 @@ fun EmployerApplicationManagementScreen(
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
-    val analytics by viewModel.analytics.collectAsStateWithLifecycle()
-    
+
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
@@ -483,7 +481,7 @@ private fun ApplicationCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Applied ${DateTimeUtils.formatRelativeTime(application.appliedAt)}",
+                        text = "Applied ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
                         style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
                     )
                 }

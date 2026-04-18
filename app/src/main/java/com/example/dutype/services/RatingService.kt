@@ -21,15 +21,11 @@ import javax.inject.Singleton
 
 data class Rating(
     val id: String = "",
-    val applicationId: String = "",
     val jobId: String = "",
-    val raterId: String = "",
+    val fromUserId: String = "",
+    val toUserId: String = "",
     val raterName: String = "",
-    val raterRole: String = "",        // WORKER or EMPLOYER - the role of the person giving the rating
-    val targetUserId: String = "",
-    val targetUserName: String = "",
-    val targetRole: String = "",       // WORKER or EMPLOYER - the role being rated
-    val rating: Int = 0,               // 1-5 stars
+    val rating: Int = 0,            // 1-5 stars
     val review: String = "",
     val tags: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
@@ -51,16 +47,13 @@ class RatingService @Inject constructor(
     }
 
     /**
-     * Submit a rating for a completed job
-     * Worker rates employer OR employer rates worker
+     * Submit a rating for a completed job.
+     * Worker rates employer OR employer rates worker. `raterName` is denormalized
+     * from the users collection at write time so reviews render without an extra read.
      */
     suspend fun submitRating(
-        applicationId: String,
         jobId: String,
         targetUserId: String,
-        targetUserName: String,
-        targetRole: String,
-        raterRole: String,
         rating: Int,
         review: String = "",
         tags: List<String> = emptyList()
@@ -69,7 +62,7 @@ class RatingService @Inject constructor(
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
 
-            // Check if already rated this application for this target role
+            // Block duplicate (one rating per rater+target+job)
             val existing = firestore.collection(RATINGS_COLLECTION)
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("fromUserId", currentUser.uid)
@@ -82,20 +75,29 @@ class RatingService @Inject constructor(
                 return Result.success(RatingResult(false, "You have already rated this"))
             }
 
+            // Denormalize rater's display name (1 read; saves N reads at display time)
+            val raterName = firestore.collection(USERS_COLLECTION)
+                .document(currentUser.uid)
+                .get()
+                .await()
+                .getString("fullName")
+                .orEmpty()
+
             val ratingRef = firestore.collection(RATINGS_COLLECTION).document()
             val ratingData = mapOf(
                 "jobId" to jobId,
                 "fromUserId" to currentUser.uid,
                 "toUserId" to targetUserId,
+                "raterName" to raterName,
                 "rating" to rating,
                 "review" to review,
+                "tags" to tags,
                 "createdAt" to Timestamp.now()
             )
 
-            // Save rating
             ratingRef.set(ratingData).await()
 
-            Timber.d("⭐ Rating submitted: $rating stars for $targetRole $targetUserId")
+            Timber.d("⭐ Rating submitted: $rating stars for $targetUserId")
 
             Result.success(RatingResult(true, "Rating submitted successfully!"))
         } catch (e: Exception) {
@@ -129,11 +131,10 @@ class RatingService @Inject constructor(
     }
 
     /**
-     * Get ratings for a specific user filtered by their role.
-     * NOTE: No orderBy clause here to avoid composite index requirement in Firestore.
-     * We filter by targetUserId only (single-field query), then filter role and sort in memory.
+     * Get ratings received by a user. Single-field query (no composite index);
+     * sort happens in memory.
      */
-    suspend fun getUserRatings(userId: String, role: String): List<Rating> {
+    suspend fun getUserRatings(userId: String): List<Rating> {
         return try {
             val snapshot = firestore.collection(RATINGS_COLLECTION)
                 .whereEqualTo("toUserId", userId)
@@ -145,12 +146,14 @@ class RatingService @Inject constructor(
                 .mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
                     Rating(
-                        id = data["ratingId"] as? String ?: doc.id,
+                        id = doc.id,
                         jobId = data["jobId"] as? String ?: "",
-                        raterId = data["fromUserId"] as? String ?: "",
-                        targetUserId = data["toUserId"] as? String ?: "",
+                        fromUserId = data["fromUserId"] as? String ?: "",
+                        toUserId = data["toUserId"] as? String ?: "",
+                        raterName = data["raterName"] as? String ?: "",
                         rating = (data["rating"] as? Number)?.toInt() ?: 0,
                         review = data["review"] as? String ?: "",
+                        tags = (data["tags"] as? List<*>)?.filterIsInstance<String>().orEmpty(),
                         createdAt = when (val created = data["createdAt"]) {
                             is Number -> created.toLong()
                             is Timestamp -> created.toDate().time
@@ -160,7 +163,7 @@ class RatingService @Inject constructor(
                 }
                 .sortedByDescending { it.createdAt }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get user ratings for $userId/$role")
+            Timber.e(e, "Failed to get user ratings for $userId")
             emptyList()
         }
     }

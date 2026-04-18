@@ -143,7 +143,7 @@ class ReportingService @Inject constructor(
                         mapOf("status" to "closed")
                     )
                     batch.update(
-                        firestore.collection("job_details").document(jobId),
+                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOB_DETAILS).document(jobId),
                         mapOf("status" to "closed")
                     )
                     batch.commit().await()

@@ -21,12 +21,20 @@ androidxTestExt = "1.2.1"
 androidxTestUiautomator = "2.3.0"
 androidxBenchmarkMacro = "1.2.4"
 androidxProfileinstaller = "1.3.1"
+androidxBaselineProfile = "1.2.4"
 firebaseAuth = "24.0.1"
 firebaseAppcheckDebug = "19.0.1"
 hilt = "2.52"
 androidxFoundation = "1.10.1"
 firebasePnv = "16.0.0-beta01"
 uiTextVersion = "1.10.3"
+
+# P2-3: Jetpack Navigation 3 — stable since Nov 2025.
+# Declarations only; not wired into :app yet because Nav3 requires `compileSdk = 36`
+# (current project is on 35). Bump compileSdk in a dedicated change before consuming
+# these libraries. See `docs/android-scale-audit/02_brutal_issue_list.md` §P2-3.
+nav3Core = "1.0.0"
+lifecycleViewmodelNav3 = "2.10.0-rc01"
 
 [libraries]
 androidx-compose-material3-material33 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3Version" }
@@ -65,9 +73,17 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 firebase-pnv = { group = "com.google.firebase", name = "firebase-pnv", version.ref = "firebasePnv" }
 androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiTextVersion" }
 
+# P2-3: Navigation 3 (stable). See note next to nav3Core above for the
+# compileSdk prerequisite before these can be implementation()-wired.
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
+androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidxBaselineProfile" }

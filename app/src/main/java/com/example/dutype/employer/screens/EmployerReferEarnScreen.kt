@@ -42,7 +42,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
-import com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ReferralViewModel
 import kotlinx.coroutines.delay
@@ -56,9 +56,9 @@ fun EmployerReferEarnScreen(
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val reviewTriggerServiceHolder: InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val referralConfig by viewModel.referralConfig.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -266,7 +266,7 @@ Use my referral code: $code
 
 Download DutyPe: $playStoreUrl
 
-Find reliable workers for your business and earn Rs.25 bonus!
+Find reliable workers for your business and earn Rs.${referralConfig.signupBonus.toInt()} bonus!
                                     """.trimIndent()
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
@@ -308,7 +308,7 @@ Find reliable workers for your business and earn Rs.25 bonus!
                     }
                     
                     // Withdraw Button
-                    if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= 50.0) {
+                    if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= referralConfig.minWithdrawal) {
                         item {
                             AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))) {
                                 EmployerWithdrawCard(
@@ -359,6 +359,7 @@ Find reliable workers for your business and earn Rs.25 bonus!
     if (showWithdrawDialog) {
         EmployerWithdrawDialog(
             availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
             onWithdraw = { amount, upiId ->
                 viewModel.requestWithdrawal(amount, upiId)
@@ -793,7 +794,7 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
 }
 
 @Composable
-private fun EmployerWithdrawDialog(availableBalance: Double, onDismiss: () -> Unit, onWithdraw: (Double, String) -> Unit) {
+private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Double, onDismiss: () -> Unit, onWithdraw: (Double, String) -> Unit) {
     var amount by remember { mutableStateOf(availableBalance.toString()) }
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -819,7 +820,7 @@ private fun EmployerWithdrawDialog(availableBalance: Double, onDismiss: () -> Un
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < 50 -> error = "Minimum withdrawal is Rs.50"
+                        amountValue < minWithdrawal -> error = "Minimum withdrawal is Rs.${minWithdrawal.toInt()}"
                         amountValue > availableBalance -> error = "Insufficient balance"
                         upiId.isBlank() -> error = "Enter UPI ID"
                         !upiId.contains("@") -> error = "Invalid UPI ID format"

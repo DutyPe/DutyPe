@@ -137,19 +137,8 @@ fun WorkerNavGraph(
             )
         }
         
-        // All Jobs (with filter) - legacy route
-        composable(
-            route = Routes.WORKER_ALL_JOBS_FILTERED,
-            arguments = listOf(navArgument("filter") { type = NavType.StringType; defaultValue = "All Jobs" })
-        ) { backStackEntry ->
-            val filter = backStackEntry.arguments?.getString("filter") ?: "All Jobs"
-            com.example.dutype.worker.screens.AllJobsScreen(
-                navController = navController,
-                rootNavController = rootNavController,
-                initialFilter = filter,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
+        // All Jobs (primary route, supports ?filter=&voiceQuery=)
+        // Legacy path-based variant removed — callers now use query params.
         
         // Categories Screen (all categories)
         composable(Routes.WORKER_CATEGORIES) {
@@ -228,14 +217,6 @@ fun WorkerNavGraph(
             com.example.dutype.worker.screens.WorkerHistoryScreen(
                 navController = navController
             )
-        }
-        
-        // Language Selection - Now handled via bottom sheet in profile screens
-        composable(Routes.LANGUAGE_SELECTION) {
-            // Navigate back - language selection is now a bottom sheet
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                navController.popBackStack()
-            }
         }
         
         // Help

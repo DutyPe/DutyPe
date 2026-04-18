@@ -2,8 +2,6 @@ package com.example.dutype.employer.screens
 
 import android.Manifest
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -108,7 +106,6 @@ import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
-import com.example.dutype.employer.viewmodels.AIJobPostingViewModel
 import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.JobValidationUtils
@@ -128,82 +125,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import java.io.ByteArrayOutputStream
-
-/**
- * PERFORMANCE FIX: Compress image before upload to reduce bandwidth and storage costs
- * Reduces image size by ~60-80% while maintaining acceptable quality
- * 
- * @param context Android context for content resolver
- * @param uri Image URI to compress
- * @param maxWidth Maximum width in pixels (default 1200px for job images)
- * @param quality JPEG quality 0-100 (default 85 for good balance)
- * @return Compressed image as ByteArray, or null if compression fails
- */
-private fun compressImage(
-    context: Context,
-    uri: Uri,
-    maxWidth: Int = 1200,
-    quality: Int = 85
-): ByteArray? {
-    return try {
-        // Load bitmap from URI
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeStream(inputStream, null, options)
-        inputStream?.close()
-        
-        // Calculate sample size for efficient memory usage
-        val originalWidth = options.outWidth
-        val originalHeight = options.outHeight
-        var sampleSize = 1
-        
-        if (originalWidth > maxWidth) {
-            sampleSize = (originalWidth.toFloat() / maxWidth).toInt()
-        }
-        
-        // Decode with sample size
-        val decodeOptions = BitmapFactory.Options().apply {
-            inSampleSize = sampleSize
-        }
-        val newInputStream = context.contentResolver.openInputStream(uri)
-        val bitmap = BitmapFactory.decodeStream(newInputStream, null, decodeOptions)
-        newInputStream?.close()
-        
-        if (bitmap == null) {
-            Timber.w("📸 COMPRESS: Failed to decode bitmap")
-            return null
-        }
-        
-        // Scale if still too large
-        val scaledBitmap = if (bitmap.width > maxWidth) {
-            val ratio = maxWidth.toFloat() / bitmap.width
-            val newHeight = (bitmap.height * ratio).toInt()
-            Bitmap.createScaledBitmap(bitmap, maxWidth, newHeight, true).also {
-                if (it != bitmap) bitmap.recycle()
-            }
-        } else {
-            bitmap
-        }
-        
-        // Compress to JPEG
-        val outputStream = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-        val compressedBytes = outputStream.toByteArray()
-        
-        // Cleanup
-        scaledBitmap.recycle()
-        outputStream.close()
-        
-        Timber.d("📸 COMPRESS: Original size estimate: ${originalWidth}x${originalHeight}, Compressed: ${compressedBytes.size / 1024}KB")
-        compressedBytes
-    } catch (e: Exception) {
-        Timber.e(e, "📸 COMPRESS: Failed to compress image")
-        null
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,27 +145,20 @@ fun PostJobScreen(
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
     val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
+    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     
-    // WorkLocationManager for saved locations quick-pick (from shared ViewModel)
-    val workLocationManager = jobViewModel.workLocationManager
-    var savedWorkLocations by remember { mutableStateOf<List<com.example.dutype.models.WorkLocation>>(emptyList()) }
-    LaunchedEffect(Unit) {
-        workLocationManager.getWorkLocations().onSuccess { savedWorkLocations = it }
-    }
+    // Saved work locations quick-pick (process-scoped, in-memory)
+    val savedWorkLocationsStore = jobViewModel.savedWorkLocationsStore
+    val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
     
     // Get InAppReviewTriggerService from Hilt
-    val reviewTriggerServiceHolder: com.example.dutype.viewmodels.InAppReviewTriggerServiceHolder = hiltViewModel()
-    val reviewTriggerService = reviewTriggerServiceHolder.service
+    val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
     
     val employerJobUiState by employerJobViewModel.uiState.collectAsState()
     
     // Profile Completion Service for pre-check
     val profileCompletionService = jobViewModel.profileCompletionService
-
-    // AI Backend Repository for fraud detection
-    val aiJobPostingViewModel: AIJobPostingViewModel = hiltViewModel()
-    val aiUiState by aiJobPostingViewModel.uiState.collectAsState()
     
     // PROFILE COMPLETION CHECK STATE - Check only when submitting, not on screen load
     var isCheckingProfile by remember { mutableStateOf(false) }
@@ -276,14 +190,9 @@ fun PostJobScreen(
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var ageRange by remember { mutableStateOf("18-35") }
     var gender by remember { mutableStateOf("Any") }
-    var requirements by remember { mutableStateOf("") }
-    var benefits by remember { mutableStateOf("") }
     
     // Employer Trust Tier (loaded from profile)
     var employerTrustTier by remember { mutableStateOf("VERIFIED") }
-    
-    // ACCESSIBILITY: Landmark Navigation - helps workers find location by landmarks
-    var landmark by remember { mutableStateOf("") }
     
     // JOB IMAGE: Optional image upload for job posting
     var jobImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -309,18 +218,6 @@ fun PostJobScreen(
     var showPayRateWarningDialog by remember { mutableStateOf(false) }
     var isSubmittingJob by remember { mutableStateOf(false) } // Local guard against duplicate submissions
     
-    // AI FRAUD DETECTION: State for AI-powered job screening
-    var isAIAnalyzing by remember { mutableStateOf(false) }
-    var aiBlockReason by remember { mutableStateOf<String?>(null) }
-    var showAIBlockDialog by remember { mutableStateOf(false) }
-    var aiRiskScore by remember { mutableStateOf(0) }
-
-    // AI REAL-TIME REVIEW: Show user feedback while typing
-    var aiReviewStatus by remember { mutableStateOf("pending") } // pending, analyzing, good, warning, bad
-    var aiReviewMessage by remember { mutableStateOf("") }
-    var aiDetectedIssues by remember { mutableStateOf<List<String>>(emptyList()) }
-    var isAIReviewing by remember { mutableStateOf(false) }
-
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableDoubleStateOf(0.0) }
     var locationLongitude by remember { mutableStateOf(0.0) }
@@ -364,9 +261,8 @@ fun PostJobScreen(
                         experienceLevel = experienceLevel,
                         ageRange = ageRange,
                         gender = gender,
-                        landmark = landmark,
-                        requirements = requirements,
-                        benefits = benefits
+                        requirements = "",
+                        benefits = ""
                     )
                     employerJobViewModel.saveDraft(draft)
                     Timber.d("📝 AUTO-SAVE: Draft saved")
@@ -390,8 +286,8 @@ fun PostJobScreen(
             scope.launch {
                 try {
                     Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location (GPS-level precision)...")
-                    // Use getHighAccuracyLocation with GPS-level precision (5-10m)
-                    val locationInfo = locationService.getHighAccuracyLocation(
+                    // Use locationRepository for single-source-of-truth GPS with mutex dedup
+                    val locationInfo = locationRepository.getHighAccuracy(
                         timeoutMs = 5000L,  // Fall back to manual selection quickly
                         minAccuracyMeters = 10f  // Target 10m GPS precision
                     )
@@ -455,7 +351,7 @@ fun PostJobScreen(
                     } else {
                         // Fallback to direct Firestore fetch (cache miss)
                         Timber.d("📦 Cache miss, fetching from Firestore...")
-                        val db = FirebaseFirestore.getInstance()
+                        val db = com.example.dutype.di.firestoreFromHilt(context)
                         val userDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid).get().await()
                         val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
 
@@ -500,9 +396,6 @@ fun PostJobScreen(
                         experienceLevel = savedDraft.experienceLevel
                         ageRange = savedDraft.ageRange
                         gender = savedDraft.gender
-                        landmark = savedDraft.landmark
-                        requirements = savedDraft.requirements
-                        benefits = savedDraft.benefits
                         Timber.d("✅ Draft restored successfully")
                     }
                 } catch (e: Exception) {
@@ -599,10 +492,7 @@ fun PostJobScreen(
             JobUrgency.NORMAL -> "MEDIUM"
             JobUrgency.FLEXIBLE -> "LOW"
         }
-        val normalizedBenefits = (
-            selectedPerks.map { it.displayName } +
-                benefits.split(",").map { it.trim() }.filter { it.isNotBlank() }
-            ).distinct()
+        val normalizedBenefits = selectedPerks.map { it.displayName }.distinct()
         
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
@@ -629,7 +519,6 @@ fun PostJobScreen(
             // Contact information
             "contactNumber" to jobPosting.contactNumber,
             "workingHours" to workType,
-            "educationRequired" to requirements.trim(),
             
             // Job metadata — createdAt/expiresAt set by JobFirestoreService.createJob()
             "urgency" to normalizedUrgency,
@@ -661,9 +550,9 @@ fun PostJobScreen(
                 onJobPosted?.invoke()
                 // Navigate to employer home screen to show the posted job
                 if (onJobPosted == null) {
-                    navController.navigate("employer_home") {
+                    navController.navigate(Routes.EMPLOYER_HOME) {
                         // Clear the back stack so user can't go back to the posting form
-                        popUpTo("employer_home") { inclusive = false }
+                        popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
                     }
                 }
             } else {
@@ -779,7 +668,7 @@ fun PostJobScreen(
                 if (finalLatitude != 0.0 && finalLongitude != 0.0) {
                     CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
                         try {
-                            val employerLocation = locationService.getHighAccuracyLocation(
+                            val employerLocation = locationRepository.getHighAccuracy(
                                 timeoutMs = 5000L,  // Reduced timeout
                                 minAccuracyMeters = 100f  // Less strict accuracy
                             )
@@ -1303,7 +1192,7 @@ fun PostJobScreen(
                                     locationError = null
                                     scope.launch {
                                         try {
-                                            val locationInfo = locationService.getHighAccuracyLocation(
+                                            val locationInfo = locationRepository.getHighAccuracy(
                                                 timeoutMs = 5000L,
                                                 minAccuracyMeters = 10f
                                             )
@@ -1329,8 +1218,6 @@ fun PostJobScreen(
                                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                 }
                             },
-                            landmark = landmark,
-                            onLandmarkChange = { landmark = it },
                             onLocationSelected = { lat, lon ->
                                 locationLatitude = lat
                                 locationLongitude = lon
@@ -1367,15 +1254,6 @@ fun PostJobScreen(
                             onContactNumberChange = { contactNumber = it },
                             employerName = employerName,
                             onEmployerNameChange = { employerName = it }
-                        )
-                    }
-
-                    item {
-                        AdditionalHiringNotesSection(
-                            requirements = requirements,
-                            onRequirementsChange = { requirements = it },
-                            benefits = benefits,
-                            onBenefitsChange = { benefits = it }
                         )
                     }
 
@@ -2067,79 +1945,6 @@ private fun StudioSignalCard(
 }
 
 @Composable
-private fun AdditionalHiringNotesSection(
-    requirements: String,
-    onRequirementsChange: (String) -> Unit,
-    benefits: String,
-    onBenefitsChange: (String) -> Unit
-) {
-    PolishedCard(accentColor = Color(0xFF7C3AED)) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFFF3E8FF), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("✍", fontSize = 18.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Extra Requirements & Benefits",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
-                    )
-                }
-            }
-
-            OutlinedTextField(
-                value = requirements,
-                onValueChange = onRequirementsChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Extra Requirements") },
-                minLines = 3,
-                maxLines = 5,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF7C3AED),
-                    focusedLabelColor = Color(0xFF7C3AED),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = Color(0xFF7C3AED),
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
-                )
-            )
-
-            OutlinedTextField(
-                value = benefits,
-                onValueChange = onBenefitsChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Additional Benefits") },
-                minLines = 2,
-                maxLines = 4,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF2563EB),
-                    focusedLabelColor = Color(0xFF2563EB),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = Color(0xFF2563EB),
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
-                )
-            )
-        }
-    }
-}
-
-@Composable
 fun PolishedCard(
     modifier: Modifier = Modifier,
     accentColor: Color = Color(0xFFFF8A3D),
@@ -2697,8 +2502,6 @@ fun EnhancedLocationSection(
     isLoadingLocation: Boolean,
     locationError: String?,
     onLocationButtonClick: () -> Unit,
-    landmark: String = "",
-    onLandmarkChange: (String) -> Unit = {},
     onLocationSelected: ((Double, Double) -> Unit)? = null,
     savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
 ) {
@@ -2963,52 +2766,6 @@ fun EnhancedLocationSection(
                     }
                 }
             }
-            
-            // ACCESSIBILITY FEATURE: Landmark Navigation
-            // Workers recognize landmarks better than street names
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Landmark info banner
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFFF0FDF4)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("🏛️", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Add a nearby landmark to help workers find the location easily",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF166534)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            OutlinedTextField(
-                value = landmark,
-                onValueChange = onLandmarkChange,
-                label = { Text(stringResource(R.string.nearby_landmark_optional)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                leadingIcon = {
-                    Text("🏛️", fontSize = 18.sp, modifier = Modifier.padding(start = 12.dp))
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF10B981),
-                    focusedLabelColor = Color(0xFF10B981),
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = Color(0xFF10B981),
-                    unfocusedContainerColor = Color(0xFFFAFAFA),
-                    focusedContainerColor = Color.White
-                )
-            )
             
             // Show detected address in highlighted box
             if (location.isNotBlank() && !isLoadingLocation && locationError == null) {

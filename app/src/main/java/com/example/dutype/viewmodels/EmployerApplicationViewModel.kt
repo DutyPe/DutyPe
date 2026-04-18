@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.ApplicationStats
-import com.example.dutype.models.ApplicationAnalytics
 import com.example.dutype.services.JobApplicationService
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,10 +45,7 @@ class EmployerApplicationViewModel @Inject constructor(
     
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
-    
-    private val _analytics = MutableStateFlow(ApplicationAnalytics())
-    val analytics: StateFlow<ApplicationAnalytics> = _analytics.asStateFlow()
-    
+
     // P0 FIX: LRU cache for worker profiles with bounded size
     // Uses LinkedHashMap with accessOrder=true for LRU eviction
     private val workerProfileCache = object : LinkedHashMap<String, Map<String, Any?>>(
@@ -115,9 +111,8 @@ class EmployerApplicationViewModel @Inject constructor(
                                 error = null
                             )
                             
-                            // Update statistics and analytics
+                            // Update statistics
                             updateApplicationStats(enrichedApplications)
-                            loadApplicationAnalytics()
                         },
                         onFailure = { error ->
                             val duration = System.currentTimeMillis() - startTime
@@ -219,7 +214,7 @@ class EmployerApplicationViewModel @Inject constructor(
                             
                             // Add to applications list if not already present
                             val currentApps = _uiState.value.applications.toMutableList()
-                            val existingIndex = currentApps.indexOfFirst { it.applicationId == applicationId }
+                            val existingIndex = currentApps.indexOfFirst { it.id == applicationId }
                             if (existingIndex >= 0) {
                                 currentApps[existingIndex] = enrichedApplication
                             } else {
@@ -400,29 +395,6 @@ class EmployerApplicationViewModel @Inject constructor(
                 Timber.d("Application $applicationId marked as under review")
             } catch (e: Exception) {
                 Timber.w("Failed to mark application as under review: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Load application analytics
-     */
-    private fun loadApplicationAnalytics() {
-        val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
-            try {
-                val result = jobApplicationService.getApplicationAnalytics(currentUser.uid)
-                result.fold(
-                    onSuccess = { analytics ->
-                        _analytics.value = analytics
-                    },
-                    onFailure = { error ->
-                        Timber.e("Failed to load analytics: ${error.message}")
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e("Failed to load analytics: ${e.message}")
             }
         }
     }

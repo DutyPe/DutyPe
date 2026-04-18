@@ -33,7 +33,8 @@
 
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { validateString, validateNumber, validateUserId, validateEnum, checkRateLimit } from "./validation";
+import { validateString, validateNumber, validateUserId, validateEnum, checkRateLimit, requirePerUserRateLimit, assertAppCheck } from "./validation";
+import { getReferralConfig } from "./app-config";
 
 const db = admin.firestore();
 
@@ -232,10 +233,14 @@ function isReferralCodeReady(user: any = {}): boolean {
   return hasName && hasPhone;
 }
 
-function getCombinedReferralStats(userData: any = {}, legacyStats: any = {}) {
+function getCombinedReferralStats(userData: any = {}, canonicalStats: any = {}) {
+  // Canonical source of truth is /referral_stats/{uid}. We still read legacy
+  // users.{uid}.referralStats as a fallback for users who existed before the
+  // dual-write was removed and whose canonical doc hasn't been backfilled yet.
+  // The canonical stats win when both are present.
   return {
-    ...legacyStats,
-    ...(userData?.referralStats || {})
+    ...(userData?.referralStats || {}),
+    ...canonicalStats
   };
 }
 
@@ -260,15 +265,10 @@ function userWithdrawalsCollection(userId: string) {
 }
 
 function buildMissingReferralStatsUpdates(existingStats: any = {}) {
-  const updates: { [key: string]: any } = {};
-
-  for (const [field, defaultValue] of Object.entries(DEFAULT_REFERRAL_STATS)) {
-    if (existingStats[field] === undefined) {
-      updates[`referralStats.${field}`] = defaultValue;
-    }
-  }
-
-  return updates;
+  // DEPRECATED: Kept only so legacy call-sites compile during migration.
+  // Writes to users.referralStats have been removed; do not re-introduce.
+  void existingStats;
+  return {} as { [key: string]: any };
 }
 
 async function getReferralCodeLookup(rawCode: string) {
@@ -648,6 +648,8 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
     const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
     const newUserStatsRef = db.collection("referral_stats").doc(newUserId);
 
+    const cfg = await getReferralConfig();
+
     const result = await db.runTransaction(async (transaction) => {
       const existingReferralQuery = db.collection("referrals")
         .where("referredUserId", "==", newUserId)
@@ -712,8 +714,8 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
 
       const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
       const newSuccessfulCount = currentSuccessful + 1;
-      const referrerReward = REFERRAL_CONFIG.REWARD_PER_REFERRAL;
-      const referredUserReward = REFERRAL_CONFIG.SIGNUP_BONUS;
+      const referrerReward = cfg.rewardPerReferral;
+      const referredUserReward = cfg.signupBonus;
       const milestoneBonus = getMilestoneBonus(newSuccessfulCount);
       const totalReferrerReward = referrerReward + milestoneBonus;
       const newTier = calculateTier(newSuccessfulCount);
@@ -919,18 +921,13 @@ export const onReferredUserProfileComplete = functions.firestore
           completedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        const referrerUserRef = db.collection("users").doc(referrerUserId);
+        const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
         await db.runTransaction(async (transaction) => {
-          transaction.set(db.collection("users").doc(referrerUserId), {
+          transaction.set(referrerStatsRef, {
             pendingReferrals: admin.firestore.FieldValue.increment(-1),
             expiredReferrals: admin.firestore.FieldValue.increment(1),
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
-          transaction.update(referrerUserRef, {
-            "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-            "referralStats.expiredReferrals": admin.firestore.FieldValue.increment(1),
-            "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-          });
         });
 
         return { status: "EXPIRED" };
@@ -947,8 +944,9 @@ export const onReferredUserProfileComplete = functions.firestore
       const newSuccessfulCount = currentSuccessful + 1;
 
       // Calculate rewards
-      const referrerReward = REFERRAL_CONFIG.REWARD_PER_REFERRAL;
-      const referredUserReward = REFERRAL_CONFIG.SIGNUP_BONUS;
+      const cfg2 = await getReferralConfig();
+      const referrerReward = cfg2.rewardPerReferral;
+      const referredUserReward = cfg2.signupBonus;
       const milestoneBonus = getMilestoneBonus(newSuccessfulCount);
       const totalReferrerReward = referrerReward + milestoneBonus;
 
@@ -994,8 +992,8 @@ export const onReferredUserProfileComplete = functions.firestore
         completedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // 2. Update referrer's stats in BOTH locations
-      const referrerStatsRef = db.collection("users").doc(referrerUserId);
+      // 2. Update referrer's stats (canonical: referral_stats/{uid})
+      const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
       const referrerStatsUpdate: { [key: string]: any } = {
         userId: referrerUserId,
         userRole: referrerRole,
@@ -1016,27 +1014,6 @@ export const onReferredUserProfileComplete = functions.firestore
 
       batch.set(referrerStatsRef, referrerStatsUpdate, { merge: true });
 
-      // Also update users.referralStats
-      const referrerUserRef = db.collection("users").doc(referrerUserId);
-      const userStatsUpdate: { [key: string]: any } = {
-        ...buildMissingReferralStatsUpdates(referrerUserData.referralStats || {}),
-        "referralStats.successfulReferrals": newSuccessfulCount,
-        "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-        "referralStats.totalEarnings": admin.firestore.FieldValue.increment(totalReferrerReward),
-        "referralStats.availableBalance": admin.firestore.FieldValue.increment(totalReferrerReward),
-        "referralStats.canWithdraw": newCanWithdraw,
-        "referralStats.currentTier": newTier,
-        "referralStats.nextMilestone": newNextMilestone,
-        "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-      };
-
-      if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-        userStatsUpdate["referralStats.freeJobPostings"] = freePostings;
-        userStatsUpdate["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry;
-      }
-
-      batch.update(referrerUserRef, userStatsUpdate);
-
       // 3. Update referral code stats
       const codeRef = db.collection("referral_codes").doc(referral.referralCode);
       batch.set(codeRef, {
@@ -1044,8 +1021,8 @@ export const onReferredUserProfileComplete = functions.firestore
         successfulReferrals: admin.firestore.FieldValue.increment(1)
       }, { merge: true });
 
-      // 4. Credit referred user's signup bonus in BOTH locations
-      const referredStatsRef = db.collection("users").doc(referredUserId);
+      // 4. Credit referred user's signup bonus (canonical: referral_stats/{uid})
+      const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
       batch.set(referredStatsRef, {
         userId: referredUserId,
         userRole: getStringValue(after.activeRole, "WORKER"),
@@ -1055,17 +1032,6 @@ export const onReferredUserProfileComplete = functions.firestore
         signupBonusAmount: referredUserReward,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-
-      // Also update users.referralStats
-      const referredUserRef = db.collection("users").doc(referredUserId);
-      batch.update(referredUserRef, {
-        ...buildMissingReferralStatsUpdates(after.referralStats || {}),
-        "referralStats.totalEarnings": admin.firestore.FieldValue.increment(referredUserReward),
-        "referralStats.availableBalance": admin.firestore.FieldValue.increment(referredUserReward),
-        "referralStats.signupBonusReceived": true,
-        "referralStats.signupBonusAmount": referredUserReward,
-        "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-      });
 
       // 5. Log events
       const referrerEventRef = referralAuditDocRef(referralId);
@@ -1206,19 +1172,14 @@ export const expirePendingReferrals = functions.pubsub
         });
       }
 
-      // Update referrer stats
+      // Update referrer stats (canonical: referral_stats/{uid})
       for (const [referrerId, expiredCount] of Object.entries(referrerUpdates)) {
-        const statsRef = db.collection("users").doc(referrerId);
+        const statsRef = db.collection("referral_stats").doc(referrerId);
         batch.set(statsRef, {
           pendingReferrals: admin.firestore.FieldValue.increment(-expiredCount),
           expiredReferrals: admin.firestore.FieldValue.increment(expiredCount),
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        batch.update(db.collection("users").doc(referrerId), {
-          "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-expiredCount),
-          "referralStats.expiredReferrals": admin.firestore.FieldValue.increment(expiredCount),
-          "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-        });
       }
 
       await batch.commit();
@@ -1241,6 +1202,7 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
   }
+  assertAppCheck(context);
 
   const userId = context.auth.uid;
 
@@ -1262,8 +1224,9 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
     throw new functions.https.HttpsError("invalid-argument", error.message);
   }
 
-  await checkRateLimit(userId, "withdrawals", 5, 24 * 60 * 60 * 1000);
+  await requirePerUserRateLimit(userId, "withdrawals", { perDay: 5 });
 
+  const cfg = await getReferralConfig();
   const amount = parseFloat(data.amount);
   const paymentMethod = data.paymentMethod || "UPI";
   const upiId = data.upiId;
@@ -1272,102 +1235,97 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
   try {
     const userRef = db.collection("users").doc(userId);
     const legacyStatsRef = db.collection("users").doc(userId);
-    const [userDoc, legacyStatsDoc] = await Promise.all([
-      userRef.get(),
-      legacyStatsRef.get()
-    ]);
+    const withdrawalRef = userWithdrawalsCollection(userId).doc();
+    const auditRef = userReferralAuditDocRef(userId);
+    const withdrawalId = withdrawalRef.id;
 
-    if (!userDoc.exists) {
-      return { success: false, error: "No referral stats found" };
-    }
+    const result = await db.runTransaction(async (tx) => {
+      const [userDoc, legacyStatsDoc] = await Promise.all([
+        tx.get(userRef),
+        tx.get(legacyStatsRef),
+      ]);
 
-    const userData = userDoc.data() || {};
-    const stats = getCombinedReferralStats(userData, legacyStatsDoc.data() || {});
-    const availableBalance = getNumberValue(stats.availableBalance);
-    const successfulReferrals = getNumberValue(stats.successfulReferrals);
-    const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(successfulReferrals));
+      if (!userDoc.exists) {
+        return { success: false as const, error: "No referral stats found" };
+      }
 
-    if (getBooleanValue(stats.isBlocked)) {
-      return { success: false, error: "Your account is blocked from withdrawals" };
-    }
+      const userData = userDoc.data() || {};
+      const stats = getCombinedReferralStats(userData, legacyStatsDoc.data() || {});
+      const availableBalance = getNumberValue(stats.availableBalance);
+      const successfulReferrals = getNumberValue(stats.successfulReferrals);
+      const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(successfulReferrals));
 
-    if (!canUserWithdraw) {
-      return { success: false, error: "You need at least 5 successful referrals to withdraw" };
-    }
+      if (getBooleanValue(stats.isBlocked)) {
+        return { success: false as const, error: "Your account is blocked from withdrawals" };
+      }
+      if (!canUserWithdraw) {
+        return { success: false as const, error: "You need at least 5 successful referrals to withdraw" };
+      }
+      if (amount < cfg.minWithdrawal) {
+        return { success: false as const, error: "Minimum withdrawal is Rs." + cfg.minWithdrawal };
+      }
+      if (amount > availableBalance) {
+        return { success: false as const, error: "Insufficient balance. Available: Rs." + availableBalance };
+      }
 
-    if (amount < REFERRAL_CONFIG.MIN_WITHDRAWAL) {
-      return { success: false, error: "Minimum withdrawal is Rs." + REFERRAL_CONFIG.MIN_WITHDRAWAL };
-    }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayWithdrawals = await tx.get(
+        userWithdrawalsCollection(userId).where("createdAt", ">=", today)
+      );
+      const todayTotal = todayWithdrawals.docs.reduce(
+        (sum, doc) => sum + getNumberValue(doc.data().amount), 0
+      );
+      if (todayTotal + amount > cfg.maxWithdrawalPerDay) {
+        return { success: false as const, error: "Daily limit is Rs." + cfg.maxWithdrawalPerDay };
+      }
 
-    if (amount > availableBalance) {
-      return { success: false, error: "Insufficient balance. Available: Rs." + availableBalance };
-    }
+      if (paymentMethod === "UPI" && !upiId) {
+        return { success: false as const, error: "UPI ID is required" };
+      }
+      if (paymentMethod === "BANK_TRANSFER" && (!bankDetails?.accountNumber || !bankDetails?.ifscCode)) {
+        return { success: false as const, error: "Bank account details are required" };
+      }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      const userRole = getStringValue(userData.activeRole, "WORKER");
 
-    const todayWithdrawals = await userWithdrawalsCollection(userId)
-      .where("createdAt", ">=", today)
-      .get();
+      tx.set(withdrawalRef, {
+        id: withdrawalId,
+        userId,
+        userRole,
+        amount,
+        status: "PENDING",
+        paymentMethod,
+        upiId: upiId || null,
+        bankAccountNumber: bankDetails?.accountNumber || null,
+        ifscCode: bankDetails?.ifscCode || null,
+        accountHolderName: bankDetails?.accountHolderName || null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    const todayTotal = todayWithdrawals.docs.reduce((sum, doc) => sum + getNumberValue(doc.data().amount), 0);
-    if (todayTotal + amount > REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY) {
-      return { success: false, error: "Daily limit is Rs." + REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY };
-    }
+      tx.set(legacyStatsRef, {
+        userId,
+        userRole,
+        availableBalance: admin.firestore.FieldValue.increment(-amount),
+        withdrawnAmount: admin.firestore.FieldValue.increment(amount),
+        lastWithdrawalAt: admin.firestore.FieldValue.serverTimestamp(),
+        totalWithdrawals: admin.firestore.FieldValue.increment(1),
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
 
-    if (paymentMethod === "UPI" && !upiId) {
-      return { success: false, error: "UPI ID is required" };
-    }
+      tx.set(auditRef, {
+        eventType: "WITHDRAWAL_REQUESTED",
+        userId,
+        withdrawalId,
+        amount,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    if (paymentMethod === "BANK_TRANSFER" && (!bankDetails?.accountNumber || !bankDetails?.ifscCode)) {
-      return { success: false, error: "Bank account details are required" };
-    }
-
-    const userRole = getStringValue(userData.activeRole, "WORKER");
-    const withdrawalId = userWithdrawalsCollection(userId).doc().id;
-    const batch = db.batch();
-
-    batch.set(userWithdrawalsCollection(userId).doc(withdrawalId), {
-      id: withdrawalId,
-      userId,
-      userRole,
-      amount,
-      status: "PENDING",
-      paymentMethod,
-      upiId: upiId || null,
-      bankAccountNumber: bankDetails?.accountNumber || null,
-      ifscCode: bankDetails?.ifscCode || null,
-      accountHolderName: bankDetails?.accountHolderName || null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      return { success: true as const, withdrawalId };
     });
 
-    batch.update(userRef, {
-      "referralStats.availableBalance": admin.firestore.FieldValue.increment(-amount),
-      "referralStats.withdrawnAmount": admin.firestore.FieldValue.increment(amount),
-      "referralStats.lastWithdrawalAt": admin.firestore.FieldValue.serverTimestamp(),
-      "referralStats.totalWithdrawals": admin.firestore.FieldValue.increment(1),
-      "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-    });
-    batch.set(legacyStatsRef, {
-      userId,
-      userRole,
-      availableBalance: admin.firestore.FieldValue.increment(-amount),
-      withdrawnAmount: admin.firestore.FieldValue.increment(amount),
-      lastWithdrawalAt: admin.firestore.FieldValue.serverTimestamp(),
-      totalWithdrawals: admin.firestore.FieldValue.increment(1),
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    batch.set(userReferralAuditDocRef(userId), {
-      eventType: "WITHDRAWAL_REQUESTED",
-      userId,
-      withdrawalId,
-      amount,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    await batch.commit();
-    return { success: true, withdrawalId };
+    if (!result.success) return result;
+    return { success: true, withdrawalId: result.withdrawalId };
   } catch (error) {
     functions.logger.error("REFERRAL: Error creating withdrawal:", error);
     throw new functions.https.HttpsError("internal", "Failed to create withdrawal request");
@@ -1407,16 +1365,11 @@ export const detectReferralFraud = functions.firestore
           fraudCheckedAt: admin.firestore.FieldValue.serverTimestamp(),
           completedAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        batch.set(db.collection("users").doc(referrerUserId), {
+        batch.set(db.collection("referral_stats").doc(referrerUserId), {
           pendingReferrals: admin.firestore.FieldValue.increment(-1),
           rejectedReferrals: admin.firestore.FieldValue.increment(1),
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        batch.update(db.collection("users").doc(referrerUserId), {
-          "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-          "referralStats.rejectedReferrals": admin.firestore.FieldValue.increment(1),
-          "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-        });
         await batch.commit();
         return { status: "REJECTED", fraudScore: fraudResult.fraudScore, signals: fraudResult.signals };
       }
@@ -1445,6 +1398,129 @@ export const detectReferralFraud = functions.firestore
 // ============================================
 
 /**
+ * Admin-only backfill: copy legacy users/{uid}.referralStats (and any stale
+ * root-level stats fields like `pendingReferrals`, `successfulReferrals`,
+ * `totalEarnings`, etc.) into the canonical /referral_stats/{uid} document.
+ *
+ * Idempotent: fields already present in /referral_stats/{uid} are NEVER
+ * overwritten, so running this repeatedly is safe. After the backfill has
+ * been run once in production, the `users.referralStats` and the root-level
+ * stats fields on users are considered dead and may be removed in a future
+ * release.
+ *
+ * Invocation requires a caller with the `admin` custom claim.
+ */
+export const backfillReferralStats = functions
+  .region("asia-south1")
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+    }
+    const token = context.auth.token || {};
+    if (!token.admin && !token.isAdmin) {
+      throw new functions.https.HttpsError("permission-denied", "Admin only");
+    }
+
+    const dryRun = getBooleanValue(data?.dryRun, false);
+    const pageSize = Math.min(Math.max(getNumberValue(data?.pageSize, 200), 1), 500);
+    const startAfterId = getStringValue(data?.startAfterId);
+
+    // Fields that were historically dual-written. Root-level entries are
+    // legacy (pre-dual-write) and nested entries come from users.referralStats.
+    const LEGACY_ROOT_FIELDS = [
+      "totalReferrals",
+      "successfulReferrals",
+      "pendingReferrals",
+      "expiredReferrals",
+      "rejectedReferrals",
+      "totalEarnings",
+      "availableBalance",
+      "withdrawnAmount",
+      "canWithdraw",
+      "currentTier",
+      "nextMilestone",
+      "freeJobPostings",
+      "freeJobPostingsExpiry",
+      "signupBonusReceived",
+      "signupBonusAmount",
+      "totalWithdrawals",
+      "lastWithdrawalAt",
+      "isBlocked"
+    ];
+
+    let query: FirebaseFirestore.Query = db.collection("users")
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(pageSize);
+    if (startAfterId) {
+      query = query.startAfter(startAfterId);
+    }
+
+    const snap = await query.get();
+    if (snap.empty) {
+      return { scanned: 0, written: 0, done: true, nextStartAfterId: null };
+    }
+
+    let written = 0;
+    let lastId: string | null = null;
+    const batch = db.batch();
+
+    for (const userDoc of snap.docs) {
+      lastId = userDoc.id;
+      const userData = userDoc.data() || {};
+      const nested = (userData.referralStats as { [key: string]: any } | undefined) || {};
+
+      // Merge: nested field wins over legacy root, but only if present.
+      const candidate: { [key: string]: any } = {};
+      for (const field of LEGACY_ROOT_FIELDS) {
+        if (nested[field] !== undefined) {
+          candidate[field] = nested[field];
+        } else if (userData[field] !== undefined) {
+          candidate[field] = userData[field];
+        }
+      }
+      if (Object.keys(candidate).length === 0) {
+        continue;
+      }
+
+      const canonicalRef = db.collection("referral_stats").doc(userDoc.id);
+      const canonicalDoc = await canonicalRef.get();
+      const canonical = canonicalDoc.data() || {};
+
+      // Never overwrite an existing canonical value.
+      const toWrite: { [key: string]: any } = {};
+      for (const [field, value] of Object.entries(candidate)) {
+        if (canonical[field] === undefined) {
+          toWrite[field] = value;
+        }
+      }
+      if (Object.keys(toWrite).length === 0) {
+        continue;
+      }
+
+      toWrite.userId = userDoc.id;
+      toWrite.userRole = getStringValue(userData.activeRole, "WORKER");
+      toWrite.lastUpdated = admin.firestore.FieldValue.serverTimestamp();
+
+      if (!dryRun) {
+        batch.set(canonicalRef, toWrite, { merge: true });
+      }
+      written++;
+    }
+
+    if (!dryRun && written > 0) {
+      await batch.commit();
+    }
+
+    return {
+      scanned: snap.size,
+      written,
+      done: snap.size < pageSize,
+      nextStartAfterId: lastId,
+      dryRun
+    };
+  });
+
+/**
  * Get referral stats for a user
  */
 export const getReferralStats = functions.https.onCall(async (data, context) => {
@@ -1452,7 +1528,11 @@ export const getReferralStats = functions.https.onCall(async (data, context) => 
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
   }
 
-  const userId = data.userId || context.auth.uid;
+  // SECURITY: reject cross-user reads. A user may only query their own stats.
+  if (data?.userId && data.userId !== context.auth.uid) {
+    throw new functions.https.HttpsError("permission-denied", "cannot read another user's stats");
+  }
+  const userId = context.auth.uid;
 
   try {
     const [userDoc, referralStatsDoc] = await Promise.all([

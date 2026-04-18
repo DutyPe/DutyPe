@@ -106,7 +106,7 @@ private fun FirstTimeLanguageSelection(
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit
 ) {
-    val effectiveInitialLanguage = if (selectedLanguage == LocaleHelper.LANGUAGE_HINDI) {
+    val effectiveInitialLanguage = if (selectedLanguage == "hi") {
         LocaleHelper.LANGUAGE_ENGLISH
     } else {
         selectedLanguage

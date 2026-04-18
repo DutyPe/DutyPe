@@ -95,44 +95,6 @@ object GeoUtils {
     }
     
     /**
-     * ULTRA-FAST: Calculate distance and sort jobs by proximity
-     * 
-     * Optimizations Applied:
-     * - Inline Haversine formula (no function call overhead)
-     * - Single-pass calculation + sort
-     * - Early return for invalid coordinates
-     * - Optimized for 500 jobs (LinkedIn sliding window)
-     * 
-     * Performance: ~4ms for 500 jobs on mid-range device
-     * 
-     * Standards:
-     * - Uber: Client-side sorting for <1K results
-     * - DoorDash: Haversine for accurate distance
-     * - LinkedIn: Bounded list (500 max)
-     */
-    fun sortJobsByDistance(
-        jobs: List<JobListingSummary>,
-        userLat: Double,
-        userLon: Double
-    ): List<JobListingSummary> {
-        if (!hasValidCoordinates(userLat, userLon)) return jobs
-
-        return enrichSummariesWithDistance(jobs, userLat, userLon)
-            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
-    }
-
-    fun sortJobListingsByDistance(
-        jobs: List<JobListing>,
-        userLat: Double,
-        userLon: Double
-    ): List<JobListing> {
-        if (!hasValidCoordinates(userLat, userLon)) return jobs
-
-        return enrichJobsWithDistance(jobs, userLat, userLon)
-            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
-    }
-    
-    /**
      * OPTIMIZED: Haversine distance calculation
      * 
      * Formula: d = 2r * arcsin(sqrt(sin²(Δφ/2) + cos(φ1) * cos(φ2) * sin²(Δλ/2)))
@@ -228,15 +190,5 @@ object GeoUtils {
             com.firebase.geofire.GeoLocation(userLat, userLng)
         )
         return distanceM <= radiusKm * 1000.0
-    }
-
-    // Keep the old GeohashBounds data class so any existing code referencing it still compiles
-    @Deprecated("Use getGeohashQueryBounds() which returns List<GeohashQueryBound>")
-    data class GeohashBounds(val start: String, val end: String)
-
-    @Deprecated("Use getGeohashQueryBounds() instead")
-    fun getGeohashBounds(centerLat: Double, centerLon: Double, radiusKm: Double): List<GeohashBounds> {
-        return getGeohashQueryBounds(centerLat, centerLon, radiusKm)
-            .map { GeohashBounds(it.startHash, it.endHash) }
     }
 }

@@ -98,28 +98,6 @@ class LocalNotificationService @Inject constructor() {
     }
     
     /**
-     * Archive notification
-     */
-    suspend fun archiveNotification(notificationId: String): Result<Unit> {
-        return try {
-        val index = notificationsList.indexOfFirst { it.id == notificationId }
-        if (index != -1) {
-            notificationsList[index] = notificationsList[index].copy(
-                isArchived = true,
-                archivedAt = System.currentTimeMillis()
-            )
-            _notifications.value = notificationsList.toList()
-                updateUnreadCount()
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Notification not found"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
      * Delete notification
      */
     suspend fun deleteNotification(notificationId: String): Result<Unit> {
@@ -146,8 +124,6 @@ class LocalNotificationService @Inject constructor() {
         message: String,
         type: NotificationType,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        relatedJobId: String? = null,
-        relatedApplicationId: String? = null,
         actionData: Map<String, String> = emptyMap()
     ): Result<Notification> {
         return try {
@@ -158,8 +134,6 @@ class LocalNotificationService @Inject constructor() {
                 type = type,
                 priority = priority,
                 userId = userId,
-                relatedJobId = relatedJobId,
-                relatedApplicationId = relatedApplicationId,
                 actionData = actionData
             )
             
@@ -257,8 +231,6 @@ class LocalNotificationService @Inject constructor() {
         message: String,
         type: NotificationType,
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        relatedJobId: String? = null,
-        relatedApplicationId: String? = null,
         actionData: Map<String, String> = emptyMap()
     ): Result<Notification> {
         return createNotification(
@@ -267,8 +239,6 @@ class LocalNotificationService @Inject constructor() {
             message = message,
             type = type,
             priority = priority,
-            relatedJobId = relatedJobId,
-            relatedApplicationId = relatedApplicationId,
             actionData = actionData
         )
     }

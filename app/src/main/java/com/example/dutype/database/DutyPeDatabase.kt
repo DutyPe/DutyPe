@@ -36,7 +36,10 @@ import com.example.dutype.database.entity.SavedJobEntity
         SavedJobEntity::class
     ],
     version = 7,
-    exportSchema = false // Disabled schema export to avoid KSP warning
+    // Schema export ON so future Migration objects can be unit-tested with
+    // Room's MigrationTestHelper. JSON snapshots land under
+    // `app/schemas/<DbClass>/<version>.json` and should be committed.
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class DutyPeDatabase : RoomDatabase() {

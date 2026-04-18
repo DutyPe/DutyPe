@@ -1,5 +1,6 @@
 package com.example.dutype.models
 
+import androidx.compose.runtime.Stable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -16,6 +17,7 @@ import androidx.room.PrimaryKey
  * Runtime-only fields (never written to Firestore):
  *   distance, isSaved, companyName, description, location, addressText, contactNumber
  */
+@Stable
 @Entity(tableName = "joblisting")
 data class JobListing(
     @PrimaryKey

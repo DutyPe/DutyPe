@@ -10,8 +10,6 @@ import java.util.Locale
  * LocaleHelper - Language Selector Utility
  * 
  * Supports Telugu (te) and English (en) languages.
- * NOTE: Hindi key is retained only for backward compatibility and
- * is normalized to English until full Hindi localization is added.
  * Persists language preference and applies it app-wide.
  * 
  * @author DutyPe Engineering Team
@@ -25,8 +23,8 @@ object LocaleHelper {
     // Supported languages
     const val LANGUAGE_ENGLISH = "en"
     const val LANGUAGE_TELUGU = "te"
-    // Backward compatibility constant (legacy value only)
-    const val LANGUAGE_HINDI = "hi"
+    // Legacy stored value normalized to English on read/write
+    private const val LEGACY_LANGUAGE_HINDI = "hi"
     
     /**
      * Get the currently selected language
@@ -34,7 +32,7 @@ object LocaleHelper {
     fun getLanguage(context: Context): String {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         val selected = prefs.getString(KEY_LANGUAGE, LANGUAGE_ENGLISH) ?: LANGUAGE_ENGLISH
-        return if (selected == LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
+        return if (selected == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
     }
     
     /**
@@ -42,7 +40,7 @@ object LocaleHelper {
      */
     fun saveLanguage(context: Context, language: String) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val normalized = if (language == LANGUAGE_HINDI) LANGUAGE_ENGLISH else language
+        val normalized = if (language == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else language
         prefs.edit().putString(KEY_LANGUAGE, normalized).apply()
     }
     
@@ -52,7 +50,7 @@ object LocaleHelper {
      */
     fun setLocale(context: Context, language: String? = null): Context {
         val selected = language ?: getLanguage(context)
-        val lang = if (selected == LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
+        val lang = if (selected == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
         val locale = Locale(lang)
         Locale.setDefault(locale)
         
@@ -92,13 +90,6 @@ object LocaleHelper {
         return getLanguage(context) == LANGUAGE_ENGLISH
     }
 
-    /**
-     * Check if current language is Hindi
-     */
-    fun isHindi(context: Context): Boolean {
-        return getLanguage(context) == LANGUAGE_HINDI
-    }
-    
     /**
      * Get display name for a language code (in native script)
      */

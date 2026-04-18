@@ -1,11 +1,13 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 /**
  * UserSummary - MINIMAL for list views
  */
 @Keep
+@Immutable
 data class UserSummary(
     val id: String = "",
     val fullName: String = "",

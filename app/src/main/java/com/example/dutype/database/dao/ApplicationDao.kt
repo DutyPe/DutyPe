@@ -108,25 +108,10 @@ interface ApplicationDao {
     @Query("SELECT * FROM applications WHERE jobId = :jobId ORDER BY appliedAt DESC")
     fun getApplicationsByJob(jobId: String): Flow<List<ApplicationEntity>>
     
-    /**
-     * Get application count for a job
-     */
-    @Query("SELECT COUNT(*) FROM applications WHERE jobId = :jobId AND status NOT IN ('WITHDRAWN', 'REJECTED')")
-    suspend fun getApplicationCountForJob(jobId: String): Int
-    
-    /**
-     * Get accepted application count for a job (for vacancy tracking)
-     */
-    @Query("SELECT COUNT(*) FROM applications WHERE jobId = :jobId AND status = 'ACCEPTED'")
-    suspend fun getAcceptedCountForJob(jobId: String): Int
-    
     // ==================== QUERY - SINGLE ====================
     
     @Query("SELECT * FROM applications WHERE applicationId = :applicationId")
     suspend fun getApplicationById(applicationId: String): ApplicationEntity?
-    
-    @Query("SELECT * FROM applications WHERE applicationId = :applicationId")
-    fun getApplicationByIdFlow(applicationId: String): Flow<ApplicationEntity?>
     
     // ==================== QUERY - STATUS ====================
     
@@ -135,12 +120,6 @@ interface ApplicationDao {
      */
     @Query("SELECT * FROM applications WHERE workerId = :workerId AND status = :status ORDER BY appliedAt DESC")
     fun getApplicationsByStatus(workerId: String, status: String): Flow<List<ApplicationEntity>>
-    
-    /**
-     * Get pending applications count
-     */
-    @Query("SELECT COUNT(*) FROM applications WHERE workerId = :workerId AND status = 'PENDING'")
-    suspend fun getPendingApplicationCount(workerId: String): Int
     
     // ==================== QUERY - SYNC ====================
     

@@ -59,10 +59,6 @@ object NearestJobsEngine {
      * MAIN METHOD: Get sorted nearby jobs
      * 
      * This is the single entry point for all job sorting in the app.
-     * Replaces:
-     * - GeoUtils.sortJobListingsByDistance()
-     * - GeoUtils.sortJobsByDistance()
-     * - All inline distance calculations
      * 
      * Flow:
      * 1. Validate coordinates

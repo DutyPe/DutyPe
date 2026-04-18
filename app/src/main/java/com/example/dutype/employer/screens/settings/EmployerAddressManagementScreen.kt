@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,41 +86,29 @@ fun EmployerAddressManagementScreen(
     val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
     val locationService = jobViewModel.locationService
     
-    // WorkLocationManager for saving work locations to database
+    // Saved work locations (process-scoped, in-memory)
     val workerViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
-    val workLocationManager = workerViewModel.workLocationManager
+    val savedWorkLocationsStore = workerViewModel.savedWorkLocationsStore
+    val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
     
     // Employer theme color
     val employerBlue = Color(0xFF3B82F6)
     
-    // Office addresses state - Load from database
-    var officeAddresses by remember { mutableStateOf<List<OfficeAddress>>(emptyList()) }
-    var isLoadingAddresses by remember { mutableStateOf(true) }
-    
-    // Load saved work locations from database
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        scope.launch {
-            val result = workLocationManager.getWorkLocations()
-            result.onSuccess { locations ->
-                officeAddresses = locations.map { workLocation ->
-                    OfficeAddress(
-                        id = workLocation.id,
-                        name = workLocation.label,
-                        address = workLocation.address,
-                        isDefault = officeAddresses.isEmpty(), // First one is default
-                        isActive = true,
-                        latitude = workLocation.latitude,
-                        longitude = workLocation.longitude
-                    )
-                }
-                isLoadingAddresses = false
-                timber.log.Timber.d("📍 AddressManagement: Loaded ${locations.size} saved addresses")
-            }.onFailure { error ->
-                timber.log.Timber.e(error, "❌ AddressManagement: Failed to load addresses")
-                isLoadingAddresses = false
-            }
+    // Office addresses derived from SavedWorkLocationsStore
+    val officeAddresses = remember(savedWorkLocations) {
+        savedWorkLocations.mapIndexed { index, workLocation ->
+            OfficeAddress(
+                id = workLocation.id,
+                name = workLocation.label,
+                address = workLocation.address,
+                isDefault = index == 0,
+                isActive = true,
+                latitude = workLocation.latitude,
+                longitude = workLocation.longitude
+            )
         }
     }
+    val isLoadingAddresses = false
     
     // Add address form state
     var officeName by remember { mutableStateOf("") }
@@ -369,57 +358,37 @@ fun EmployerAddressManagementScreen(
                         onClick = {
                             if (officeName.isNotBlank() && fullAddress.isNotBlank()) {
                                 isAddingAddress = true
-                                scope.launch {
-                                    // Save to database using WorkLocationManager
-                                    val result = workLocationManager.saveWorkLocation(
+                                runCatching {
+                                    savedWorkLocationsStore.add(
                                         label = officeName.trim(),
                                         address = fullAddress.trim(),
                                         latitude = locationLatitude,
                                         longitude = locationLongitude
                                     )
-                                    
-                                    result.onSuccess { savedLocation ->
-                                        // Reload addresses from database
-                                        val locationsResult = workLocationManager.getWorkLocations()
-                                        locationsResult.onSuccess { locations ->
-                                            officeAddresses = locations.map { workLocation ->
-                                                OfficeAddress(
-                                                    id = workLocation.id,
-                                                    name = workLocation.label,
-                                                    address = workLocation.address,
-                                                    isDefault = officeAddresses.isEmpty(),
-                                                    isActive = true,
-                                                    latitude = workLocation.latitude,
-                                                    longitude = workLocation.longitude
-                                                )
-                                            }
-                                        }
-                                        
-                                        // Clear form
-                                        officeName = ""
-                                        searchQuery = ""
-                                        fullAddress = ""
-                                        locationLatitude = 0.0
-                                        locationLongitude = 0.0
-                                        
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Address saved successfully",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                        
-                                        timber.log.Timber.d("📍 AddressManagement: Address saved successfully")
-                                    }.onFailure { error ->
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Failed to save address: ${error.message}",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                        timber.log.Timber.e(error, "❌ AddressManagement: Failed to save address")
-                                    }
-                                    
-                                    isAddingAddress = false
+                                }.onSuccess {
+                                    // Clear form
+                                    officeName = ""
+                                    searchQuery = ""
+                                    fullAddress = ""
+                                    locationLatitude = 0.0
+                                    locationLongitude = 0.0
+
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Address saved for this session",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    timber.log.Timber.d("📍 AddressManagement: Address saved successfully")
+                                }.onFailure { error ->
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Failed to save address: ${error.message}",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                    timber.log.Timber.e(error, "❌ AddressManagement: Failed to save address")
                                 }
+                                isAddingAddress = false
                             }
                         },
                         enabled = officeName.isNotBlank() && fullAddress.isNotBlank() && !isAddingAddress,
@@ -475,47 +444,29 @@ fun EmployerAddressManagementScreen(
                             locationLongitude = address.longitude
                         },
                         onDelete = {
-                            scope.launch {
-                                val result = workLocationManager.removeWorkLocation(address.id)
-                                result.onSuccess {
-                                    // Reload addresses from database
-                                    val locationsResult = workLocationManager.getWorkLocations()
-                                    locationsResult.onSuccess { locations ->
-                                        officeAddresses = locations.map { workLocation ->
-                                            OfficeAddress(
-                                                id = workLocation.id,
-                                                name = workLocation.label,
-                                                address = workLocation.address,
-                                                isDefault = officeAddresses.isEmpty(),
-                                                isActive = true,
-                                                latitude = workLocation.latitude,
-                                                longitude = workLocation.longitude
-                                            )
-                                        }
-                                    }
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Address deleted successfully",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }.onFailure { error ->
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Failed to delete address: ${error.message}",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
+                            savedWorkLocationsStore.remove(address.id)
+                            android.widget.Toast.makeText(
+                                context,
+                                "Address deleted",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         },
                         onSetDefault = {
-                            officeAddresses = officeAddresses.map { 
-                                it.copy(isDefault = it.id == address.id)
-                            }
+                            // Default-flag is derived from list order; reordering would require a
+                            // persistent backing store. No-op for now (session-only store).
+                            android.widget.Toast.makeText(
+                                context,
+                                "Default address selection is not persisted in this session",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         },
                         onToggleActive = {
-                            officeAddresses = officeAddresses.map { 
-                                if (it.id == address.id) it.copy(isActive = !it.isActive) else it
-                            }
+                            // Active flag has no backing field in the in-memory store yet.
+                            android.widget.Toast.makeText(
+                                context,
+                                "Address activation is not persisted in this session",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         }
                     )
                     Spacer(modifier = Modifier.height(12.dp))

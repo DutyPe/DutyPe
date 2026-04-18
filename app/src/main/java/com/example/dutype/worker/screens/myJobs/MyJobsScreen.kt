@@ -120,7 +120,8 @@ fun MyJobsScreen(
     var showRatingSheet by remember { mutableStateOf(false) }
     var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
     var ratedApplicationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    val ratingService = remember { com.example.dutype.services.RatingService(com.google.firebase.firestore.FirebaseFirestore.getInstance(), FirebaseAuth.getInstance()) }
+    val cardContext = androidx.compose.ui.platform.LocalContext.current
+    val ratingService = remember { com.example.dutype.services.RatingService(com.example.dutype.di.firestoreFromHilt(cardContext), com.example.dutype.di.authFromHilt(cardContext)) }
     val ratingScope = rememberCoroutineScope()
     
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -391,7 +392,7 @@ fun MyJobsScreen(
                                 } else {
                                     items(
                                         items = filteredApplications,
-                                        key = { application -> "myjobs_${application.canonicalId}" }
+                                        key = { application -> "myjobs_${application.id}" }
                                     ) { application ->
                                         JobApplicationCard(
                                             application = application,
@@ -413,7 +414,7 @@ fun MyJobsScreen(
                                             onStartWorkClick = { app ->
                                                 // Work-start verification has been removed; no-op.
                                             },
-                                            hasAlreadyRated = application.canonicalId in ratedApplicationIds
+                                            hasAlreadyRated = application.id in ratedApplicationIds
                                         )
                                     }
                                 }
@@ -460,7 +461,7 @@ fun MyJobsScreen(
                 TextButton(
                     onClick = {
                         applicationToWithdraw?.let { app ->
-                            jobApplicationViewModel.withdrawApplication(app.canonicalId) { success, error ->
+                            jobApplicationViewModel.withdrawApplication(app.id) { success, error ->
                                 if (success) {
                                     Timber.d("Application withdrawn successfully")
                                 } else {
@@ -508,19 +509,15 @@ fun MyJobsScreen(
             applicationToRate?.let { app ->
                 ratingScope.launch {
                     val result = ratingService.submitRating(
-                        applicationId = app.canonicalId,
                         jobId = app.jobId,
                         targetUserId = app.employerId,
-                        targetUserName = app.companyName,
-                        targetRole = "EMPLOYER",
-                        raterRole = "WORKER",
                         rating = rating,
                         review = review,
                         tags = tags
                     )
                     result.onSuccess { ratingResult ->
                         if (ratingResult.success) {
-                            ratedApplicationIds = ratedApplicationIds + app.canonicalId
+                            ratedApplicationIds = ratedApplicationIds + app.id
                         }
                     }
                     showRatingSheet = false
@@ -537,7 +534,7 @@ fun MyJobsScreen(
             val rated = mutableSetOf<String>()
             completedApps.forEach { app ->
                 if (ratingService.hasRated(app.jobId, app.employerId)) {
-                    rated.add(app.canonicalId)
+                    rated.add(app.id)
                 }
             }
             ratedApplicationIds = rated

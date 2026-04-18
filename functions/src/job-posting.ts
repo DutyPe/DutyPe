@@ -1,143 +1,192 @@
 /**
- * Job Posting Cloud Functions
- * 
- * P0 FIX: Idempotency validation to prevent duplicate job postings
- * 
- * Features:
- * - Validates idempotency key before creating job
- * - Returns existing job if duplicate detected
- * - Prevents double-posting when user clicks submit multiple times
- * 
- * @author DutyPe Engineering Team
- * @since 2.4.0
+ * Job Posting Cloud Functions — HARDENED
+ *
+ * Security:
+ *   • Strict field whitelist mirroring firestore.rules /jobmetadata schema.
+ *   • employerId is ALWAYS derived from context.auth.uid (never client-supplied).
+ *   • Idempotency check + creation run inside one transaction — no race doubles.
+ *   • Per-caller rate limiting (Firestore-backed) on write paths.
+ *   • batchUpdateVacancyStatus only returns status for jobs the caller owns.
  */
 
-import * as functions from 'firebase-functions';
-import * as admin from 'firebase-admin';
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
+import { requirePerUserRateLimit, assertAppCheck } from "./validation";
 
 const db = admin.firestore();
 
-/**
- * Create job with idempotency validation
- * 
- * This prevents duplicate job postings by checking the idempotency key
- * before creating a new job. If a job with the same key exists, returns
- * the existing job ID instead of creating a duplicate.
- * 
- * Usage from Android:
- * ```kotlin
- * val createJob = functions.getHttpsCallable("createJobWithIdempotency")
- * val result = createJob.call(jobData).await()
- * ```
- */
+const JOB_ALLOWED_FIELDS: ReadonlyArray<string> = [
+  "companyName",
+  "title",
+  "jobType",
+  "salary",
+  "salaryType",
+  "location",   // { lat, lng }
+  "geohash",
+  "addressText",
+  "urgency",
+  "expiresAt",  // ms since epoch or ISO — converted to Timestamp server-side
+];
+
+const URGENCY_ENUM = new Set(["LOW", "MEDIUM", "HIGH"]);
+
+function assertString(v: unknown, field: string, min: number, max: number): string {
+  if (typeof v !== "string" || v.length < min || v.length > max) {
+    throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+  }
+  return v;
+}
+
+function assertNumber(v: unknown, field: string, min: number, max: number): number {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) {
+    throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+  }
+  return v;
+}
+
+function assertLatLng(v: unknown): { lat: number; lng: number } {
+  if (
+    !v || typeof v !== "object" ||
+    typeof (v as any).lat !== "number" || typeof (v as any).lng !== "number" ||
+    (v as any).lat < -90 || (v as any).lat > 90 ||
+    (v as any).lng < -180 || (v as any).lng > 180
+  ) {
+    throw new functions.https.HttpsError("invalid-argument", "location invalid");
+  }
+  return { lat: (v as any).lat, lng: (v as any).lng };
+}
+
+function toTimestamp(v: unknown, field: string): admin.firestore.Timestamp {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+    return admin.firestore.Timestamp.fromMillis(v);
+  }
+  if (typeof v === "string" && v.length > 0) {
+    const parsed = Date.parse(v);
+    if (!Number.isNaN(parsed)) return admin.firestore.Timestamp.fromMillis(parsed);
+  }
+  throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+}
+
 export const createJobWithIdempotency = functions.https.onCall(async (data, context) => {
-    // Verify authentication
-    if (!context.auth) {
-        throw new functions.https.HttpsError(
-            'unauthenticated',
-            'User must be authenticated to create jobs'
-        );
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "login required");
+  }
+  assertAppCheck(context);
+  const uid = context.auth.uid;
+
+  // Rate-limit per employer: 10/min, 60/hour, 200/day.
+  await requirePerUserRateLimit(uid, "createJob", { perMinute: 10, perHour: 60, perDay: 200 });
+
+  const { idempotencyKey, ...rest } = (data ?? {}) as Record<string, unknown>;
+
+  if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 64) {
+    throw new functions.https.HttpsError("invalid-argument", "idempotencyKey required (8..64 chars)");
+  }
+
+  // Strict whitelist — reject any client-supplied field outside the allowlist.
+  for (const k of Object.keys(rest)) {
+    if (!JOB_ALLOWED_FIELDS.includes(k)) {
+      throw new functions.https.HttpsError("invalid-argument", `field not allowed: ${k}`);
     }
+  }
 
-    const { idempotencyKey, ...jobData } = data;
+  const companyName = assertString(rest.companyName, "companyName", 1, 120);
+  const title = assertString(rest.title, "title", 3, 120);
+  const jobType = assertString(rest.jobType, "jobType", 1, 80);
+  const salary = assertNumber(rest.salary, "salary", 0, 10_000_000);
+  const salaryType = assertString(rest.salaryType, "salaryType", 1, 40);
+  const geohash = assertString(rest.geohash, "geohash", 1, 20);
+  const addressText = assertString(rest.addressText, "addressText", 1, 300);
+  const urgencyRaw = assertString(rest.urgency, "urgency", 1, 20);
+  if (!URGENCY_ENUM.has(urgencyRaw)) {
+    throw new functions.https.HttpsError("invalid-argument", "urgency invalid");
+  }
+  const location = assertLatLng(rest.location);
+  const expiresAt = toTimestamp(rest.expiresAt, "expiresAt");
 
-    // Validate idempotency key
-    if (!idempotencyKey || typeof idempotencyKey !== 'string') {
-        throw new functions.https.HttpsError(
-            'invalid-argument',
-            'Idempotency key is required'
-        );
-    }
+  try {
+    // Idempotency + creation atomically inside one transaction.
+    const result = await db.runTransaction(async (tx) => {
+      const dup = await tx.get(
+        db.collection("jobmetadata")
+          .where("employerId", "==", uid)
+          .where("idempotencyKey", "==", idempotencyKey)
+          .limit(1)
+      );
+      if (!dup.empty) {
+        return { jobId: dup.docs[0].id, duplicate: true as const };
+      }
 
-    try {
-        // Check if job with this idempotency key already exists
-        const existingJobsSnapshot = await db.collection('jobmetadata')
-            .where('idempotencyKey', '==', idempotencyKey)
-            .limit(1)
-            .get();
+      const ref = db.collection("jobmetadata").doc();
+      tx.set(ref, {
+        employerId: uid,                       // server-set — never trust client
+        companyName,
+        title,
+        jobType,
+        salary,
+        salaryType,
+        location,
+        geohash,
+        addressText,
+        urgency: urgencyRaw,
+        status: "open",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt,
+        idempotencyKey,
+      });
+      return { jobId: ref.id, duplicate: false as const };
+    });
 
-        if (!existingJobsSnapshot.empty) {
-            const existingJob = existingJobsSnapshot.docs[0];
-            functions.logger.info(`Duplicate job detected with idempotency key: ${idempotencyKey}`);
-            
-            return {
-                jobId: existingJob.id,
-                duplicate: true,
-                message: 'Job already exists with this idempotency key'
-            };
-        }
-
-        // Validate required fields
-        if (!jobData.title || !jobData.category || !jobData.employerId) {
-            throw new functions.https.HttpsError(
-                'invalid-argument',
-                'Missing required fields: title, category, employerId'
-            );
-        }
-
-        // Create new job with idempotency key
-        const jobRef = await db.collection('jobmetadata').add({
-            ...jobData,
-            idempotencyKey,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            status: 'open'
-        });
-
-        functions.logger.info(`New job created: ${jobRef.id} with idempotency key: ${idempotencyKey}`);
-
-        return {
-            jobId: jobRef.id,
-            duplicate: false,
-            message: 'Job created successfully'
-        };
-
-    } catch (error: any) {
-        functions.logger.error('Error creating job:', error);
-        throw new functions.https.HttpsError(
-            'internal',
-            'Failed to create job',
-            error.message
-        );
-    }
+    functions.logger.info(`job-posting: ${result.duplicate ? "duplicate" : "created"} ${result.jobId} by ${uid}`);
+    return {
+      jobId: result.jobId,
+      duplicate: result.duplicate,
+      message: result.duplicate ? "Job already exists with this idempotency key" : "Job created successfully",
+    };
+  } catch (err: any) {
+    if (err instanceof functions.https.HttpsError) throw err;
+    functions.logger.error("createJobWithIdempotency failed:", err);
+    throw new functions.https.HttpsError("internal", "Failed to create job");
+  }
 });
 
 /**
- * Batch get job status
- * Returns status (open/closed/expired) for a list of job IDs.
- * vacancies/applicationCount/isFilled removed from target schema.
+ * Batch get job status — only for jobs the caller OWNS.
  */
 export const batchUpdateVacancyStatus = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "login required");
+  }
+  const uid = context.auth.uid;
+
+  const { jobIds } = (data ?? {}) as { jobIds?: unknown };
+  if (!Array.isArray(jobIds) || jobIds.length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "jobIds must be a non-empty array");
+  }
+  if (jobIds.length > 10) {
+    throw new functions.https.HttpsError("invalid-argument", "Maximum 10 jobs per batch");
+  }
+
+  try {
+    const results: { [k: string]: { status?: string; error?: string } } = {};
+    for (const idRaw of jobIds) {
+      const jobId = String(idRaw);
+      const snap = await db.collection("jobmetadata").doc(jobId).get();
+      if (!snap.exists) {
+        results[jobId] = { error: "Job not found" };
+        continue;
+      }
+      const d = snap.data() || {};
+      if (d.employerId !== uid) {
+        // Ownership check — do NOT leak status of jobs you don't own.
+        results[jobId] = { error: "Forbidden" };
+        continue;
+      }
+      results[jobId] = { status: d.status ?? "open" };
     }
-
-    const { jobIds } = data;
-
-    if (!Array.isArray(jobIds) || jobIds.length === 0) {
-        throw new functions.https.HttpsError('invalid-argument', 'jobIds must be a non-empty array');
-    }
-
-    if (jobIds.length > 10) {
-        throw new functions.https.HttpsError('invalid-argument', 'Maximum 10 jobs per batch');
-    }
-
-    try {
-        const results: { [key: string]: any } = {};
-
-        for (const jobId of jobIds) {
-            const jobDoc = await db.collection('jobmetadata').doc(jobId).get();
-            if (!jobDoc.exists) {
-                results[jobId] = { error: 'Job not found' };
-                continue;
-            }
-            const status = jobDoc.data()?.status ?? 'open';
-            results[jobId] = { status };
-        }
-
-        return { success: true, results };
-
-    } catch (error: any) {
-        functions.logger.error('Batch status error:', error);
-        throw new functions.https.HttpsError('internal', 'Batch status failed', error.message);
-    }
+    return { success: true, results };
+  } catch (err: any) {
+    functions.logger.error("batchUpdateVacancyStatus failed:", err);
+    throw new functions.https.HttpsError("internal", "Batch status failed");
+  }
 });

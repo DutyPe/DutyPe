@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 /**
  * User — strict target schema model.
@@ -12,6 +13,7 @@ import androidx.annotation.Keep
  *   referralCode, referredByCode, referredByUserId
  */
 @Keep
+@Immutable
 data class User(
     val id: String = "",
     val phone: String = "",

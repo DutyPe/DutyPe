@@ -19,7 +19,6 @@ object Routes {
     const val WORKER_VISITING_CARD = "worker_visiting_card"
     const val EMPLOYER_VISITING_CARD = "employer_visiting_card"
     const val WORKER_ALL_JOBS = "worker_all_jobs"
-    const val WORKER_ALL_JOBS_FILTERED = "worker_all_jobs/{filter}"
     const val WORKER_CATEGORIES = "worker_categories"
     const val WORKER_CATEGORIES_FILTERED = "worker_categories/{category}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
@@ -47,7 +46,6 @@ object Routes {
     const val EMPLOYER_HELP = "employer_help"
     const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
     const val EMPLOYER_REFER_EARN = "employer_refer_earn"
-    const val COMPANY_DETAILS = "company_details"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
@@ -65,17 +63,11 @@ object Routes {
     // Map-First Interface Route (Accessibility Feature)
     const val WORKER_JOB_MAP = "worker_job_map"
     
-    // Language Selection
-    const val LANGUAGE_SELECTION = "language_selection"
-    
     // Earnings Dashboard (Worker Financial Clarity)
     const val WORKER_EARNINGS = "worker_earnings"
     
     // Worker Refer & Earn
     const val WORKER_REFER_EARN = "worker_refer_earn"
-    
-    // AI-Enhanced Job Posting
-    const val EMPLOYER_AI_POST_JOB = "employer_ai_post_job"
     
     // Voice Job Posting
     const val EMPLOYER_VOICE_POST_JOB = "employer_voice_post_job"
@@ -107,14 +99,6 @@ object Routes {
     
     fun employerProfileViewRoute(employerId: String): String {
         return "employer_profile_view/$employerId"
-    }
-    
-    fun messageWorkerRoute(workerId: String): String {
-        return "message/$workerId"
-    }
-    
-    fun allJobsRoute(filter: String = "All Jobs"): String {
-        return "worker_all_jobs/$filter"
     }
     
     fun categoriesRoute(category: String? = null): String {

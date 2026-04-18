@@ -1,8 +1,10 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 @Keep
+@Immutable
 data class WorkLocation(
     val id: String = "",
     val label: String = "",

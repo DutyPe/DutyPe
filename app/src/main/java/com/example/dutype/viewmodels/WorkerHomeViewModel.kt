@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -92,6 +94,9 @@ data class WorkerHomeUiState(
     // Recently hired workers (social proof)
     val recentHires: List<com.example.dutype.models.RecentHire> = emptyList(),
     
+    // P2-1: Vacancy statuses folded into UiState for atomic mutation.
+    val jobVacancyStatuses: Map<String, JobVacancyStatus> = emptyMap(),
+    
     // Job interaction
     val clickedJobId: String? = null
 )
@@ -103,15 +108,19 @@ class WorkerHomeViewModel @Inject constructor(
     private val performanceTracker: PerformanceTracker,
     val locationService: LocationService,
     val locationPreferences: LocationPreferences,
-    val workLocationManager: com.example.dutype.services.WorkLocationManager
+    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(WorkerHomeUiState())
     val uiState: StateFlow<WorkerHomeUiState> = _uiState.asStateFlow()
     
-    // Vacancy statuses for jobs (managed state)
-    private val _jobVacancyStatuses = MutableStateFlow<Map<String, JobVacancyStatus>>(emptyMap())
-    val jobVacancyStatuses: StateFlow<Map<String, JobVacancyStatus>> = _jobVacancyStatuses.asStateFlow()
+    // P2-1: `jobVacancyStatuses` is now a slice of `_uiState`. Public StateFlow
+    // preserved as derived so the screen API is unchanged; recomposition fires
+    // only when the vacancy map actually changes thanks to distinctUntilChanged.
+    val jobVacancyStatuses: StateFlow<Map<String, JobVacancyStatus>> = _uiState
+        .map { it.jobVacancyStatuses }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     
     // Track which job IDs have had vacancy status loaded
     private val loadedVacancyJobIds = mutableSetOf<String>()
@@ -120,24 +129,23 @@ class WorkerHomeViewModel @Inject constructor(
     private var userLatitude: Double = 0.0
     private var userLongitude: Double = 0.0
     
-    // User skills for job matching
-    private val _userSkills = MutableStateFlow<List<String>>(emptyList())
-    
     /**
-     * Filtered jobs - excludes filled jobs and jobs user has applied to
+     * Filtered jobs - excludes filled jobs and jobs user has applied to.
+     * P2-1: Single-source `_uiState` carries both `jobs` and `jobVacancyStatuses`,
+     * so `combine` over two flows collapses to a single `map`.
      */
-    val filteredJobs: StateFlow<List<JobListing>> = combine(
-        _uiState,
-        _jobVacancyStatuses
-    ) { state, vacancyStatuses ->
-        state.jobs.filter { job ->
-            vacancyStatuses[job.id] != JobVacancyStatus.FILLED
+    val filteredJobs: StateFlow<List<JobListing>> = _uiState
+        .map { state ->
+            state.jobs.filter { job ->
+                state.jobVacancyStatuses[job.id] != JobVacancyStatus.FILLED
+            }
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         // CRITICAL: Load saved location immediately on init
@@ -220,7 +228,7 @@ class WorkerHomeViewModel @Inject constructor(
             _uiState.update { it.copy(isRefreshing = true, error = null, hasError = false) }
             
             // Clear vacancy statuses on refresh
-            _jobVacancyStatuses.value = emptyMap()
+            _uiState.update { it.copy(jobVacancyStatuses = emptyMap()) }
             loadedVacancyJobIds.clear()
             
             try {
@@ -326,8 +334,8 @@ class WorkerHomeViewModel @Inject constructor(
     }
     
     fun updateVacancyStatuses(statuses: Map<String, JobVacancyStatus>) {
-        _jobVacancyStatuses.update { current ->
-            current + statuses
+        _uiState.update { current ->
+            current.copy(jobVacancyStatuses = current.jobVacancyStatuses + statuses)
         }
     }
 

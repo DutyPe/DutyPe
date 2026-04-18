@@ -879,17 +879,7 @@ private fun PhoneInputContent(
                                 onIsValidatingCodeChange(true)
                                 scope.launch {
                                     try {
-                                        val referralService = com.example.dutype.services.ReferralService(
-                                            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                            com.google.firebase.auth.FirebaseAuth.getInstance(),
-                                            com.google.firebase.functions.FirebaseFunctions.getInstance(),
-                                            com.example.dutype.services.SmartNotificationManager(
-                                                context,
-                                                com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-                                                com.example.dutype.services.NotificationService(context, com.google.firebase.firestore.FirebaseFirestore.getInstance())
-                                            ),
-                                            context
-                                        )
+                                        val referralService = com.example.dutype.di.referralServiceFromHilt(context)
                                         
                                         val validation = referralService.validateReferralCode(referralCode)
                                         
@@ -1071,11 +1061,11 @@ private fun PhoneInputContent(
             if (ValidationUtils.isValidIndianPhoneNumber(phoneNumber)) {
                 try {
                     val fullPhone = selectedCountryCode + phoneNumber
-                    val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                    val userId = com.example.dutype.di.authFromHilt(context).currentUser?.uid
                     
                     if (userId != null) {
                         // Check if user already has a referral record
-                        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        val db = com.example.dutype.di.firestoreFromHilt(context)
                         val referralSnapshot = db.collection(com.example.dutype.firestore.FirestoreCollections.REFERRALS)
                             .whereEqualTo("referredUserId", userId)
                             .limit(1)

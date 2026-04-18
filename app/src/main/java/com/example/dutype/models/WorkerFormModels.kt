@@ -1,6 +1,7 @@
 package com.example.dutype.models
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 
 /**
  * Local/runtime-only models for worker profile enrichment.
@@ -9,6 +10,7 @@ import androidx.annotation.Keep
  */
 
 @Keep
+@Immutable
 data class WorkExperience(
     val company: String = "",
     val position: String = "",
@@ -16,28 +18,6 @@ data class WorkExperience(
     val endDate: String? = null,
     val description: String = "",
     val location: String? = null,
-    val isCurrent: Boolean = false,
-    val achievements: List<String> = emptyList()
+    val isCurrent: Boolean = false
 )
 
-@Keep
-data class Education(
-    val institution: String = "",
-    val degree: String = "",
-    val fieldOfStudy: String? = null,
-    val startDate: String = "",
-    val endDate: String? = null,
-    val gpa: String? = null
-)
-
-@Keep
-data class StatusHistoryEntry(
-    val status: ApplicationStatus = ApplicationStatus.APPLIED,
-    val updatedAt: Long = System.currentTimeMillis(),
-    val updatedBy: String = "",
-    val notes: String? = null,
-    val systemUpdate: Boolean = false
-) {
-    // Legacy alias
-    val timestamp: Long get() = updatedAt
-}

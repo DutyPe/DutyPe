@@ -9,7 +9,6 @@ import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
 import com.example.dutype.services.AuthFlowService
 import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.state.AppStateManager
 import com.example.dutype.utils.FirestoreUtils
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
@@ -38,14 +37,12 @@ import javax.inject.Inject
  * REFACTORED:
  * - Now injects AuthManager singleton instead of creating new instance
  * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation)
- * - Integrates AppStateManager for proper session initialization
  * - Initializes MetadataManager after successful authentication
  */
 @HiltViewModel
 class OtpViewModel @Inject constructor(
     private val fcmTokenManager: FCMTokenManager,
     private val authManager: AuthManager,
-    private val appStateManager: AppStateManager,
     private val metadataManager: MetadataManager,
     private val authFlowService: AuthFlowService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
@@ -429,10 +426,7 @@ class OtpViewModel @Inject constructor(
                     // CRITICAL FIX: Use injected AuthManager singleton instead of creating new instance
                     authManager.saveUser(user)
                     authManager.setLoggedIn(true)
-                    
-                    // Initialize AppStateManager session for proper state tracking
-                    appStateManager.initializeSession(userId, user.activeRole)
-                    
+
                     // Initialize Firestore-dependent metadata now that user is authenticated
                     viewModelScope.launch {
                         try {
@@ -568,7 +562,6 @@ class OtpViewModel @Inject constructor(
 
             authManager.saveUser(cachedUser)
             authManager.setLoggedIn(true)
-            appStateManager.initializeSession(cachedUser.id, activeRole)
         } catch (e: Exception) {
             Timber.w(e, "Failed to cache resolved user")
         }

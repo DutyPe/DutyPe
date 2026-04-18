@@ -132,8 +132,8 @@ fun EmployerCompanyDetailsScreen(
     var isReviewsLoading by remember { mutableStateOf(false) }
     val ratingService = remember {
         com.example.dutype.services.RatingService(
-            com.google.firebase.firestore.FirebaseFirestore.getInstance(),
-            FirebaseAuth.getInstance()
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
         )
     }
     
@@ -206,7 +206,7 @@ fun EmployerCompanyDetailsScreen(
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             try {
-                val employerDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val employerDoc = com.example.dutype.di.firestoreFromHilt(context)
                     .collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(currentUserId)
                     .get()
@@ -412,7 +412,7 @@ fun EmployerCompanyDetailsScreen(
                         .clickable {
                             scope.launch {
                                 isReviewsLoading = true
-                                employerReviews = ratingService.getUserRatings(currentUserId, "EMPLOYER")
+                                employerReviews = ratingService.getUserRatings(currentUserId)
                                 isReviewsLoading = false
                                 showReviewsSheet = true
                             }
