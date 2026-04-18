@@ -122,7 +122,7 @@ fun EmployerApplicationManagementScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Common Header - consistent across all screens
         CommonHeader(
@@ -312,7 +312,7 @@ private fun ApplicationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {

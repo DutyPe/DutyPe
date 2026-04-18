@@ -300,18 +300,33 @@ class MainActivity : ComponentActivity() {
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
-                        Timber.d("🚀 Initializing MainNavGraph")
-                        Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
-                        
-                        MainNavGraph(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                statusBarColor = color
-                            },
-                            notificationData = intent.extras?.getString("notificationId"),
-                            notificationPermissionManager = notificationPermissionManager,
-                            notificationIntent = intent
-                        )
+                        // COLD-START FLOW:
+                        //  1. The Compose splash animates on its own (nothing else
+                        //     composed) so the main thread is not busy inflating
+                        //     MainNavGraph + Hilt view-models + Firestore listeners
+                        //     while the letters are revealing. This fixes the
+                        //     "splash animation takes time to start" stutter.
+                        //  2. Once the splash calls back, we mount MainNavGraph.
+                        var showSplash by remember { mutableStateOf(true) }
+
+                        if (showSplash) {
+                            com.example.dutype.components.AnimatedSplashScreen(
+                                onAnimationEnd = { showSplash = false }
+                            )
+                        } else {
+                            Timber.d("🚀 Initializing MainNavGraph")
+                            Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
+
+                            MainNavGraph(
+                                navController = navController,
+                                onStatusBarColorChange = { color ->
+                                    statusBarColor = color
+                                },
+                                notificationData = intent.extras?.getString("notificationId"),
+                                notificationPermissionManager = notificationPermissionManager,
+                                notificationIntent = intent
+                            )
+                        }
                         
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {

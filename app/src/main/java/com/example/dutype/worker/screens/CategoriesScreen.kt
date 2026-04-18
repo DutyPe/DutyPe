@@ -122,7 +122,7 @@ fun CategoriesScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Offline banner at the very top
         val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
@@ -307,7 +307,7 @@ private fun JobsListSection(
         }
     }
     
-    Column(modifier = modifier.background(Color(0xFFF9FAFB))) {
+    Column(modifier = modifier.background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)) {
         // Divider at top
         HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         

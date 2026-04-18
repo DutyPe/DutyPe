@@ -127,7 +127,7 @@ fun WorkerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Use CommonHeader - NO subtitle showing unread count
         com.example.dutype.components.CommonHeader(
@@ -307,7 +307,7 @@ private fun GuestWorkerNotificationPreview() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {

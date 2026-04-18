@@ -5,23 +5,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 
 /**
- * Worker screen background wrapper.
- * Applies warm gray background (#E8E6DF) matching the web app design.
- * 
- * Used by: WorkerHomeScreen, MyJobsScreen
+ * Wrapper that fills the available space with the active role's solid screen
+ * background pulled from [LocalRoleColors]. The historical name is kept so
+ * existing call-sites continue to compile, but the implementation now respects
+ * the role theme instead of hard-coding the worker palette.
+ *
+ * Prefer reading `LocalRoleColors.current.screenBackground` directly in new
+ * code; this helper is here only for backwards compatibility.
  */
 @Composable
 fun WorkerGradientBackground(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
+    val roleColors = LocalRoleColors.current
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(roleColors.screenBackground)
     ) {
         content()
     }

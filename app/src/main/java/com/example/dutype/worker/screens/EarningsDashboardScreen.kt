@@ -61,7 +61,7 @@ fun EarningsDashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // CommonHeader with back button
         CommonHeader(
@@ -172,13 +172,9 @@ private fun TotalEarningsCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                // Solid dark hero surface (no gradient).
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            WorkerColors.TextPrimary,
-                            Color(0xFF374151)
-                        )
-                    ),
+                    color = WorkerColors.TextPrimary,
                     shape = RoundedCornerShape(20.dp)
                 )
                 .padding(24.dp)

@@ -158,13 +158,7 @@ fun MyJobsScreen(
 
     val tabTitles = listOf(stringResource(R.string.applied_jobs), stringResource(R.string.saved_jobs))
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
-    val myJobsBackground = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFF0FDFA),
-            Color(0xFFEFF6FF),
-            Color(0xFFFFFBEB)
-        )
-    )
+    val myJobsBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
 
     // Status bar color management based on current tab
     val statusBarColor = when (selectedTabIndex) {
@@ -544,36 +538,8 @@ fun MyJobsScreen(
 
 @Composable
 private fun MyJobsBackdropDecor(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(310.dp)
-                .offset(x = 200.dp, y = (-130).dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF99F6E4).copy(alpha = 0.55f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .size(260.dp)
-                .offset(x = (-90).dp, y = 450.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFBFDBFE).copy(alpha = 0.45f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-    }
+    // Intentionally empty: design rule forbids gradient halos. Kept as a
+    // no-op so existing call-sites continue to work.
+    Box(modifier = modifier)
 }
 

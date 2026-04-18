@@ -151,8 +151,14 @@ object AppModule {
     ): DutyPeDatabase {
         // SECURITY: Room DB is encrypted with SQLCipher using a device-bound
         // passphrase stored in EncryptedSharedPreferences (Keystore-wrapped).
+        //
+        // We use the modern `net.zetetic:sqlcipher-android` artifact (16 KB
+        // page-size compatible). Its native library must be loaded once before
+        // any database operation — `System.loadLibrary` is idempotent so it is
+        // safe to call here on every provider invocation.
+        System.loadLibrary("sqlcipher")
         val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
-        val factory = net.sqlcipher.database.SupportFactory(passphrase)
+        val factory = net.zetetic.database.sqlcipher.SupportOpenHelperFactory(passphrase)
         // SCHEMA MIGRATION POLICY:
         // - Any schema bump from v7 onward MUST add an explicit Migration object.
         //   Blanket destructive migration is a data-loss bomb for offline users.

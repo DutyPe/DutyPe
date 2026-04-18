@@ -328,9 +328,14 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
-    // SQLCipher for encrypted Room database
-    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
-    implementation("androidx.sqlite:sqlite:2.4.0")
+    // SQLCipher for encrypted Room database.
+    // Use the modern `sqlcipher-android` artifact (4.6.0+) — it ships native
+    // libraries with 16 KB ELF segment alignment, which is required by Google
+    // Play for Android 15+ targets starting Nov 1, 2025. The legacy
+    // `net.zetetic:android-database-sqlcipher:4.5.4` artifact is NOT 16 KB
+    // compatible.
+    implementation("net.zetetic:sqlcipher-android:4.14.0")
+    implementation("androidx.sqlite:sqlite:2.6.2")
     // EncryptedSharedPreferences for securely storing the DB passphrase
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

@@ -19,22 +19,20 @@
         Used by: WhatsApp, Instagram, LinkedIn, Uber
     -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
-        <!-- Pure black background -->
+        <!-- Pure black background — matches the Compose AnimatedSplashScreen for a
+             seamless hand-off (no flash, no logo). -->
         <item name="windowSplashScreenBackground">#000000</item>
-        
-        <!-- App launcher icon (adaptive icon) -->
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        
-        <!-- Fast animation (200ms) -->
-        <item name="windowSplashScreenAnimationDuration">200</item>
-        
-        <!-- Black icon background -->
+
+        <!-- Transparent icon: branding is handled by the Compose splash. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="windowSplashScreenIconBackgroundColor">#000000</item>
-        
+
         <!-- Post-splash theme -->
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
-        
-        <!-- Black status bar and navigation bar -->
+
+        <!-- Black system bars with light (white) icons so battery / network /
+             time stay visible against the black splash background. -->
         <item name="android:statusBarColor">#000000</item>
         <item name="android:navigationBarColor">#000000</item>
         <item name="android:windowLightStatusBar">false</item>

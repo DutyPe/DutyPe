@@ -562,15 +562,9 @@ fun JobDescriptionSection(
     onDescriptionChange: (String) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+
+    SectionContainer {
         Column(
-            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
@@ -726,15 +720,9 @@ fun VacanciesSection(
 ) {
     val primaryBlue = Color(0xFF2563EB)
     val isError = vacancies.isNotEmpty() && (vacancies.toIntOrNull() ?: 0) > 50
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+
+    SectionContainer {
         Column(
-            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
@@ -794,15 +782,9 @@ fun ContactSection(
     onEmployerNameChange: (String) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+
+    SectionContainer {
         Column(
-            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(

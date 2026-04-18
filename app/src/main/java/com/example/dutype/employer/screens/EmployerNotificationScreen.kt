@@ -106,7 +106,7 @@ fun EmployerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         com.example.dutype.components.CommonHeader(
             title = "Notifications",

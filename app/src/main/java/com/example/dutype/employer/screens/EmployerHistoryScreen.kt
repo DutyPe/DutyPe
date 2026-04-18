@@ -98,7 +98,7 @@ fun EmployerHistoryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Common Header
         CommonHeader(

@@ -373,15 +373,8 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFF0FDFA),
-                            Color(0xFFEFF6FF),
-                            Color(0xFFFFFBEB)
-                        )
-                    )
-                )
+                // Solid role background — no gradient.
+                .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -414,7 +407,7 @@ fun WorkerProfileScreen(
                         // WhatsApp Support Icon
                         IconButton(onClick = {
                             val whatsappNumber = "919121706236" // DutyPe support number
-                            val message = "Hello DutyPe Team! I need help with DutyPe app."
+                            val message = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
                             val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
                             val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
                             
@@ -461,20 +454,15 @@ fun WorkerProfileScreen(
                     containerColor = Color.White
                 ),
                 shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD1FAE5)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFFECFEFF),
-                                    Color(0xFFFFFFFF)
-                                )
-                            )
-                        )
+                        // Solid card surface (no gradient) so the row matches the
+                        // role-themed cards across the app.
+                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
                         .clickable { 
                             if (isLoggedIn) {
                                 rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
@@ -1501,7 +1489,7 @@ private fun FollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
@@ -1525,7 +1513,7 @@ private fun FollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(

@@ -106,7 +106,7 @@ fun EmployerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         CommonHeader(
             title = stringResource(R.string.refer_earn),

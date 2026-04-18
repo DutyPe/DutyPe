@@ -109,54 +109,92 @@ fun HelpMainScreen(
     navController: NavController,
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
+    val context = LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
         onStatusBarColorChange(androidx.compose.ui.graphics.Color.White)
     }
     var expandedGuideIndex by remember { mutableStateOf(-1) }
     var expandedFaqIndex by remember { mutableStateOf(-1) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val accent = androidx.compose.ui.graphics.Color(0xFF2563EB)
+    val accentSoft = androidx.compose.ui.graphics.Color(0xFFDBEAFE)
+    val ink = androidx.compose.ui.graphics.Color(0xFF0F172A)
+    val muted = androidx.compose.ui.graphics.Color(0xFF64748B)
 
     val guideItems = listOf(
         HelpExpandableItem(
+            icon = Icons.Default.RocketLaunch,
             title = "Getting Started",
             content = "1. Complete your worker profile with skills and location\n2. Keep your phone and profile photo updated\n3. Turn on notifications to avoid missing jobs"
         ),
         HelpExpandableItem(
+            icon = Icons.Default.Search,
             title = "Finding Jobs Faster",
             content = "1. Use category tabs and filters\n2. Keep location access on for nearby jobs\n3. Save jobs to revisit quickly"
         ),
         HelpExpandableItem(
+            icon = Icons.Default.WorkOutline,
             title = "Applying & Work Start",
             content = "1. Open job details and apply\n2. Track status in My Jobs\n3. Use QR verification when starting work"
         ),
         HelpExpandableItem(
+            icon = Icons.Default.Star,
             title = "Building Reputation",
             content = "1. Complete jobs on time\n2. Keep communication professional\n3. Maintain high ratings and profile completeness"
+        ),
+        HelpExpandableItem(
+            icon = Icons.Default.Payments,
+            title = "Getting Paid Safely",
+            content = "1. Confirm pay terms before starting\n2. Use the in-app QR to mark work start & finish\n3. Never share OTP/UPI PIN with anyone"
         )
     )
 
     val faqItems = listOf(
         HelpExpandableItem(
+            icon = Icons.Default.HelpOutline,
             title = "Why am I not seeing enough jobs?",
             content = "Enable location permissions, set the correct city, and check different tabs (Hourly/Daily/Part-time)."
         ),
         HelpExpandableItem(
+            icon = Icons.Default.Assignment,
             title = "How do I track my application status?",
             content = "Open My Jobs or Applied Jobs. You can see pending, shortlisted, accepted, or rejected status there."
         ),
         HelpExpandableItem(
+            icon = Icons.Default.SupportAgent,
             title = "How do I contact support?",
-            content = "Use Contact Us from this section to reach us by email/WhatsApp and include screenshots for faster help."
+            content = "Tap WhatsApp Support above, or use Contact Us to reach us by email. Include screenshots for faster help."
         ),
         HelpExpandableItem(
+            icon = Icons.Default.Verified,
             title = "How do I improve trust and visibility?",
             content = "Complete profile details, keep work history accurate, and collect good ratings from completed jobs."
+        ),
+        HelpExpandableItem(
+            icon = Icons.Default.Security,
+            title = "Is my personal data safe?",
+            content = "Your contact details are only shared with employers after you apply. We never sell your data."
+        ),
+        HelpExpandableItem(
+            icon = Icons.Default.MoneyOff,
+            title = "Why can't I apply / something looks blocked?",
+            content = "Check your internet connection, restart the app, and ensure your profile is complete. If the issue stays, report it from below."
         )
     )
+
+    val q = searchQuery.trim().lowercase()
+    val filteredGuides = if (q.isEmpty()) guideItems else guideItems.filter {
+        it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
+    }
+    val filteredFaqs = if (q.isEmpty()) faqItems else faqItems.filter {
+        it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.White)
+            .background(androidx.compose.ui.graphics.Color(0xFFF8FAFC))
     ) {
         CommonHeader(
             title = "Help & FAQs",
@@ -166,81 +204,276 @@ fun HelpMainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            // Hero
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                color = androidx.compose.ui.graphics.Color.White,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(accent.copy(alpha = 0.12f), accent.copy(alpha = 0.02f))
+                            )
+                        )
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(accent, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.SupportAgent,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "How can we help?",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = ink
                         )
                         Text(
-                            "How can we help you today?",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            "Search guides, browse FAQs, or chat with us directly.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = muted
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        "Find quick guides and FAQs for common worker-side issues.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
-            Text(
-                text = "Worker Guide",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            // Search
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search help topics") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = accent,
+                    unfocusedBorderColor = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
+                    focusedContainerColor = androidx.compose.ui.graphics.Color.White,
+                    unfocusedContainerColor = androidx.compose.ui.graphics.Color.White
+                )
             )
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    guideItems.forEachIndexed { index, item ->
-                        ExpandableHelpRow(
-                            item = item,
-                            expanded = expandedGuideIndex == index,
-                            onClick = {
-                                expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
+            // Quick actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Phone,
+                    label = "WhatsApp",
+                    bg = androidx.compose.ui.graphics.Color(0xFFDCFCE7),
+                    tint = androidx.compose.ui.graphics.Color(0xFF16A34A)
+                ) {
+                    val msg = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
+                    val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }
+                QuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Email,
+                    label = "Email",
+                    bg = accentSoft,
+                    tint = accent
+                ) {
+                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
+                    intent.putExtra(Intent.EXTRA_SUBJECT, "Worker Support")
+                    context.startActivity(Intent.createChooser(intent, "Send Email"))
+                }
+                QuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.BugReport,
+                    label = "Report",
+                    bg = androidx.compose.ui.graphics.Color(0xFFFFE4E6),
+                    tint = androidx.compose.ui.graphics.Color(0xFFE11D48)
+                ) {
+                    navController.navigate(com.example.dutype.navigation.Routes.REPORT)
+                }
+            }
+
+            // Worker Guide
+            if (filteredGuides.isNotEmpty()) {
+                SectionLabel(title = "Worker Guide", count = filteredGuides.size, accent = accent)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    color = androidx.compose.ui.graphics.Color.White,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        filteredGuides.forEachIndexed { index, item ->
+                            ExpandableHelpRow(
+                                item = item,
+                                expanded = expandedGuideIndex == index,
+                                accent = accent,
+                                onClick = {
+                                    expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
+                                }
+                            )
+                            if (index < filteredGuides.lastIndex) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                             }
-                        )
-                        if (index < guideItems.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
             }
 
-            Text(
-                text = "Frequently Asked Questions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    faqItems.forEachIndexed { index, item ->
-                        ExpandableHelpRow(
-                            item = item,
-                            expanded = expandedFaqIndex == index,
-                            onClick = {
-                                expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
+            // FAQs
+            if (filteredFaqs.isNotEmpty()) {
+                SectionLabel(title = "Frequently Asked", count = filteredFaqs.size, accent = accent)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    color = androidx.compose.ui.graphics.Color.White,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                        filteredFaqs.forEachIndexed { index, item ->
+                            ExpandableHelpRow(
+                                item = item,
+                                expanded = expandedFaqIndex == index,
+                                accent = accent,
+                                onClick = {
+                                    expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
+                                }
+                            )
+                            if (index < filteredFaqs.lastIndex) {
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                             }
-                        )
-                        if (index < faqItems.lastIndex) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
                 }
             }
+
+            if (filteredGuides.isEmpty() && filteredFaqs.isEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    color = androidx.compose.ui.graphics.Color.White
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.SearchOff,
+                            contentDescription = null,
+                            tint = muted,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "No matching topics",
+                            fontWeight = FontWeight.SemiBold,
+                            color = ink
+                        )
+                        Text(
+                            "Try a different keyword or message us on WhatsApp.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun QuickActionTile(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    bg: androidx.compose.ui.graphics.Color,
+    tint: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable { onClick() },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        color = androidx.compose.ui.graphics.Color.White,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(bg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = androidx.compose.ui.graphics.Color(0xFF0F172A)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(title: String, count: Int, accent: androidx.compose.ui.graphics.Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = androidx.compose.ui.graphics.Color(0xFF0F172A)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+            color = accent.copy(alpha = 0.12f)
+        ) {
+            Text(
+                text = count.toString(),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -249,42 +482,54 @@ fun HelpMainScreen(
 private fun ExpandableHelpRow(
     item: HelpExpandableItem,
     expanded: Boolean,
+    accent: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onClick() }
-                .padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            if (item.icon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(accent.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(item.icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+            }
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
+                color = androidx.compose.ui.graphics.Color(0xFF0F172A),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = androidx.compose.ui.graphics.Color(0xFF64748B)
             )
         }
 
         if (expanded) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = item.content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = androidx.compose.ui.graphics.Color(0xFF475569),
+                lineHeight = androidx.compose.ui.unit.TextUnit(20f, androidx.compose.ui.unit.TextUnitType.Sp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp, bottom = 12.dp)
+                    .padding(start = if (item.icon != null) 46.dp else 0.dp)
             )
         }
     }
@@ -292,7 +537,8 @@ private fun ExpandableHelpRow(
 
 private data class HelpExpandableItem(
     val title: String,
-    val content: String
+    val content: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -166,7 +166,7 @@ fun AllJobsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Offline banner at the very top
         val connectivityViewModel: ConnectivityViewModel = hiltViewModel()

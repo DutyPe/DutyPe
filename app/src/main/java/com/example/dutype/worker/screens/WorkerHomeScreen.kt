@@ -435,18 +435,11 @@ fun WorkerHomeScreen(
         jobViewModel.loadJobsSummaryForHome()
     }
 
-    // Layered gradient background to give the home screen a richer visual identity.
+    // Solid role background — every worker screen shares the same clean
+    // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFFF0FDFA),
-                    Color(0xFFEFF6FF),
-                    Color(0xFFFFFBEB)
-                )
-            )
-        )
+        .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 

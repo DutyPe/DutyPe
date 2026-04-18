@@ -128,16 +128,9 @@ fun JobImageUploadSection(
             android.content.pm.PackageManager.PERMISSION_GRANTED
     }
     
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+    SectionContainer(modifier = modifier) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             // Header
             Row(

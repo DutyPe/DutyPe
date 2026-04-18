@@ -329,15 +329,9 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        EmployerColors.HomeGradientStart,
-                        EmployerColors.HomeGradientMiddle,
-                        EmployerColors.HomeGradientEnd
-                    )
-                )
-            )
+            // Solid role background — every employer screen shares the same
+            // calm light-blue surface so the role identity stays consistent.
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         EmployerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
@@ -477,37 +471,10 @@ fun EmployerHomeScreen(
 
 @Composable
 private fun EmployerHomeBackdropDecor(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(340.dp)
-                .offset(x = 220.dp, y = (-150).dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF93C5FD).copy(alpha = 0.45f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .size(280.dp)
-                .offset(x = (-100).dp, y = 520.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFBFDBFE).copy(alpha = 0.35f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-    }
+    // Intentionally empty: the role theme provides a single solid screen
+    // background, and the design rule forbids gradient halos. Kept as a
+    // no-op so existing call-sites continue to work without restructuring.
+    Box(modifier = modifier)
 }
 
 @Composable
@@ -569,6 +536,10 @@ fun DashboardContent(
                     onShareJob = onShareJob,
                     context = context
                 )
+            }
+
+            item {
+                com.example.dutype.components.MadeWithLoveFooter()
             }
             
         }
@@ -647,15 +618,9 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        EmployerColors.HomeGradientStart,   // Vibrant blue
-                        EmployerColors.HomeGradientMiddle,  // Deeper blue
-                        EmployerColors.HomeGradientEnd      // Rich blue
-                    )
-                )
-            )
+            // Solid role background — the shimmer skeleton sits on the same
+            // surface as the rest of the employer flow.
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         // Welcome header shimmer
         Box(

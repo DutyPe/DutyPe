@@ -294,7 +294,7 @@ fun JobMapScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White)
+                                .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
@@ -449,7 +449,7 @@ fun JobMapScreen(
             ) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
@@ -478,7 +478,7 @@ fun JobMapScreen(
                     .align(Alignment.Center)
                     .padding(32.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Column(
@@ -653,7 +653,7 @@ private fun EnhancedJobMapCard(
     Card(
         modifier = modifier.shadow(12.dp, RoundedCornerShape(24.dp)),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header with urgency badge and close

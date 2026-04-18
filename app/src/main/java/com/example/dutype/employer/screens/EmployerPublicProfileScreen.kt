@@ -166,7 +166,7 @@ fun EmployerPublicProfileScreen(
                 ) {
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                             shape = RoundedCornerShape(20.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                         ) {
@@ -246,7 +246,7 @@ fun EmployerPublicProfileScreen(
 
                     items(jobs, key = { it.id }) { job ->
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                             shape = RoundedCornerShape(16.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {

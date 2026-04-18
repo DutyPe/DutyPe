@@ -193,7 +193,7 @@ fun DigitalVisitingCardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, CardBorderColor)
                 ) {
                     Column(
@@ -413,7 +413,7 @@ fun DigitalVisitingCardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, CardBorderColor)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {

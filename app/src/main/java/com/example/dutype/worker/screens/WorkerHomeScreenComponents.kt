@@ -152,66 +152,48 @@ internal fun LoadingContent() {
 
 @Composable
 internal fun WorkerHomeBackdropDecor(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(310.dp)
-                .offset(x = 200.dp, y = (-130).dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF99F6E4).copy(alpha = 0.55f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .size(260.dp)
-                .offset(x = (-90).dp, y = 450.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFBFDBFE).copy(alpha = 0.45f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-    }
+    // Intentionally empty: design rule forbids gradient halos. The role
+    // theme handles the screen surface; this composable is kept so existing
+    // call-sites continue to compile.
+    Box(modifier = modifier)
 }
+
+
+private val WorkerEmptyHumorMessages = listOf(
+    "Even the busiest streets need a coffee break.",
+    "No jobs here yet \u2014 perfect time to plan your next move.",
+    "Quiet neighborhood today. Try a new area to spark something.",
+    "Opportunities are shy here. Let\u2019s go find them.",
+    "Empty list, big plans. Switch your zone and explore."
+)
+
+private val WorkerAppliedAllHumorMessages = listOf(
+    "You\u2019ve applied to everything in sight \u2014 superstar move!",
+    "Inbox: empty. Hustle: maxed out.",
+    "All caught up. Time to widen the net.",
+    "Local jobs: conquered. Try a fresh location."
+)
 
 @Composable
 fun EmptyJobsState(
+    modifier: Modifier = Modifier,
     navController: NavController? = null,
     currentLocationName: String? = null,
     isAppliedAllVariant: Boolean = false,
-    suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
-    onCitySelected: (TopCityChips.CityLocationChip) -> Unit = {}
+    @Suppress("UNUSED_PARAMETER") suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
+    @Suppress("UNUSED_PARAMETER") onCitySelected: (TopCityChips.CityLocationChip) -> Unit = {}
 ) {
-    // Rotate through humorous messages so repeat visits feel fresh
-    val humorMessages = remember {
-        listOf(
-            "Looks like the jobs took a chai break â˜•\nTry a different area â€” they're hiding nearby!",
-            "Even Google Maps can't find jobs here ðŸ˜…\nLet's search somewhere else!",
-            "The jobs are playing hide & seek ðŸ™ˆ\nChange your location and catch them!",
-            "Your area is on a job vacation ðŸ–ï¸\nPick another spot and get back to work!",
-            "No jobs found... but your potential is unlimited ðŸ’ª\nTry a different location!"
-        )
-    }
-    val messageIndex = remember { (0 until humorMessages.size).random() }
-    val humorMessage = humorMessages[messageIndex]
-
     val locationLabel = currentLocationName?.let { "near \"$it\"" } ?: "in your area"
+    val humorPool = if (isAppliedAllVariant) WorkerAppliedAllHumorMessages else WorkerEmptyHumorMessages
+    // Pick a stable random message per location so it does not flicker on recomposition.
+    val humorMessage = remember(currentLocationName, isAppliedAllVariant) {
+        humorPool.random()
+    }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 80.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -219,23 +201,8 @@ fun EmptyJobsState(
             verticalArrangement = Arrangement.spacedBy(0.dp),
             modifier = Modifier.padding(horizontal = 32.dp)
         ) {
-            // Illustration circle
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(Color(0xFFF1F5F9), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isAppliedAllVariant) "ðŸŽ‰" else "ðŸ“",
-                    fontSize = 44.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
             Text(
-                text = if (isAppliedAllVariant) "You're on fire!" else "No jobs $locationLabel",
+                text = if (isAppliedAllVariant) "You are on top of it!" else "No jobs $locationLabel",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1F2937)
@@ -243,13 +210,10 @@ fun EmptyJobsState(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = if (isAppliedAllVariant)
-                    "You've applied to everything here ðŸš€\nChange your location to find more opportunities!"
-                else
-                    humorMessage,
+                text = humorMessage,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF6B7280),
                     lineHeight = 22.sp
@@ -257,75 +221,30 @@ fun EmptyJobsState(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Primary CTA â€” navigate to location picker
+            // Primary CTA - compact change-location button.
             Button(
                 onClick = { navController?.navigate(Routes.MANUAL_LOCATION_ROUTE) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
             ) {
                 Icon(
                     imageVector = Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Change Location",
-                    style = MaterialTheme.typography.bodyLarge.copy(
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                 )
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (suggestedCities.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(suggestedCities) { chip ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { onCitySelected(chip) },
-                            label = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.LocationOn,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(chip.label())
-                                }
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
-                                labelColor = Color(0xFF1F2937)
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            // Secondary hint
-            Text(
-                text = "Jobs are available in 500+ cities across India",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
-                ),
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
@@ -640,6 +559,7 @@ fun HomeSectionsContent(
         if (showEmptyJobsState) {
             item {
                 EmptyJobsState(
+                    modifier = Modifier.fillParentMaxHeight(0.65f),
                     navController = rootNavController,
                     currentLocationName = emptyJobsCurrentLocationName,
                     isAppliedAllVariant = emptyJobsIsAppliedAllVariant,
@@ -697,6 +617,11 @@ fun HomeSectionsContent(
         // Section 4: DutyPe Promise Carousel (at the bottom after jobs)
         item {
             DutyPePromiseCarousel()
+        }
+
+        // Footer: Made with love in Bharat (always shown).
+        item {
+            com.example.dutype.components.MadeWithLoveFooter()
         }
         
     }
@@ -1090,14 +1015,9 @@ internal fun DynamicHeader(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
+            // Solid card surface for the worker home header — no gradient.
             .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        WorkerHomeHeaderTopColor,
-                        WorkerHomeHeaderMidColor,
-                        WorkerHomeHeaderBottomColor
-                    )
-                ),
+                color = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
                 shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             )
     ) {
@@ -1128,18 +1048,13 @@ internal fun DynamicHeader(
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(
-                                color = Color(0xFF1A1A1A).copy(alpha = 0.08f),
-                                shape = CircleShape
-                            )
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
                             tint = Color(0xFF1A1A1A),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
@@ -1183,7 +1098,8 @@ internal fun DynamicHeader(
                         scaleY = 0.96f + (0.04f * locationBarAlpha)
                     },
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF1A1A1A).copy(alpha = 0.05f + (0.05f * locationBarAlpha)),
+                // Transparent surface \u2014 header row sits on the role screen bg.
+                color = Color.Transparent,
                 border = androidx.compose.foundation.BorderStroke(
                     width = 1.dp,
                     color = Color(0xFF1A1A1A).copy(alpha = 0.08f + (0.12f * locationBarAlpha))
@@ -1215,14 +1131,6 @@ internal fun DynamicHeader(
                         Spacer(modifier = Modifier.width(8.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Work zone",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF78716C).copy(alpha = 0.64f + (0.36f * locationBarAlpha)),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            )
                             Text(
                                 text = locationText,
                                 style = MaterialTheme.typography.bodyMedium.copy(

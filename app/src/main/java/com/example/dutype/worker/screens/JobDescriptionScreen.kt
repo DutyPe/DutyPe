@@ -316,7 +316,7 @@ fun JobDescriptionScreen(
         handleBackNavigation()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF9FAFB))) {
+    Box(modifier = Modifier.fillMaxSize().background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)) {
         // Main content - ad is shown before navigation (in WorkerHomeScreen)
         Column(modifier = Modifier.fillMaxSize()) {
             // Offline banner at the very top
@@ -693,7 +693,7 @@ private fun JobDetailsContent(
         //     item {
         //         Card(
         //             modifier = Modifier.fillMaxWidth(),
-        //             colors = CardDefaults.cardColors(containerColor = Color.White),
+        //             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
         //             shape = RoundedCornerShape(12.dp),
         //             elevation = CardDefaults.cardElevation(2.dp)
         //         ) {
@@ -794,7 +794,7 @@ private fun JobDetailsContent(
             
             Card(
                 modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -934,7 +934,7 @@ private fun JobDetailsContent(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -1049,10 +1049,9 @@ private fun JobDetailsContent(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
+                            // Solid blue tile (no gradient).
                             .background(
-                                brush = Brush.linearGradient(
-                                    listOf(Color(0xFFDBEAFE), Color(0xFFBFDBFE))
-                                ),
+                                color = Color(0xFFDBEAFE),
                                 shape = RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -1165,7 +1164,7 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
             elevation = CardDefaults.cardElevation(8.dp),
             shape = RoundedCornerShape(24.dp),
             border = BorderStroke(1.dp, Color(0xFFE5E7EB))

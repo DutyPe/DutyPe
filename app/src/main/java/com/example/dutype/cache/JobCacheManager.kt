@@ -24,7 +24,7 @@ import javax.inject.Singleton
 class JobCacheManager @Inject constructor() {
     
     companion object {
-        // Cache TTL in milliseconds (5 minutes)
+        // Cache TTL in millisecosnds (5 minutes)
         private const val CACHE_TTL_MS = 5 * 60 * 1000L
         
         // PERFORMANCE FIX: Increased from 1 min to 5 min to reduce stale data issues

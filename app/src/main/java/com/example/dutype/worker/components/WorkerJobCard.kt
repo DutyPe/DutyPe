@@ -190,15 +190,8 @@ private fun JobCardInternal(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.95f),
-                            Color(0xFFF7FBFF),
-                            Color(0xFFF1F8FF)
-                        )
-                    )
-                )
+                // Solid card surface (no gradient) per the role-theme rule.
+                .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
         ) {
             Box(
                 modifier = Modifier
@@ -233,13 +226,9 @@ private fun JobCardInternal(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
+                        // Solid surface for the job icon — no gradient.
                         .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.9f),
-                                    Color(0xFFE8F3FF)
-                                )
-                            ),
+                            color = com.example.dutype.ui.theme.LocalRoleColors.current.secondaryBackground,
                             shape = CircleShape
                         )
                         .border(1.dp, Color.White.copy(alpha = 0.8f), CircleShape),

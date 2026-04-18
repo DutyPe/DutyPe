@@ -166,7 +166,7 @@ fun EmployerAddressManagementScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
     ) {
         // Common Header
         CommonHeader(
@@ -299,7 +299,7 @@ fun EmployerAddressManagementScreen(
                                     .fillMaxWidth()
                                     .padding(top = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                             ) {
                                 LazyColumn(

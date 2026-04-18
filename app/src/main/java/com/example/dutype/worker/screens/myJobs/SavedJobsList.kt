@@ -100,13 +100,7 @@ fun SavedJobsList(
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
     val uiState by savedJobViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val myJobsBackground = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFF0FDFA),
-            Color(0xFFEFF6FF),
-            Color(0xFFFFFBEB)
-        )
-    )
+    val myJobsBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
 
     LaunchedEffect(Unit) {
         savedJobViewModel.loadSavedJobs()
@@ -282,14 +276,8 @@ private fun SavedJobsHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF1F2937),
-                                    Color(0xFF374151)
-                                )
-                            )
-                        ),
+                        // Solid worker-primary tint icon background (no gradient).
+                        .background(Color(0xFF1F2937)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

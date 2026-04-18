@@ -116,12 +116,19 @@ fun WorkerMainScreen(
     
     showBottomBar = shouldShowBottomBar
 
-    // Main container that handles all system bars with white background
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
+    // ---- ROLE THEME ----
+    // Publish the worker palette via LocalRoleColors so every screen and card
+    // hosted under this scaffold reads its background / card / divider colour
+    // from the same source (no per-screen hardcoded hex).
+    com.example.dutype.ui.theme.DutyPeWorkerTheme {
+        val roleColors = com.example.dutype.ui.theme.LocalRoleColors.current
+
+        // Main container that handles all system bars with the role background.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(roleColors.screenBackground)
+        ) {
 
         // Status bar overlay - Dynamic color based on current screen
         Box(
@@ -143,11 +150,12 @@ fun WorkerMainScreen(
                 .zIndex(1000f) // Ensure it's always on top
         )
 
-        // Main content area with white background
+        // Main content area with role background
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(roleColors.screenBackground),
+            containerColor = roleColors.screenBackground,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 // Animated bottom bar visibility
@@ -169,7 +177,7 @@ fun WorkerMainScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
+                    .background(roleColors.screenBackground)
                     .padding(
                         start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                         end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
@@ -189,4 +197,5 @@ fun WorkerMainScreen(
             }
         }
     }
+    } // end DutyPeWorkerTheme
 }

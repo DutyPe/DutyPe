@@ -1,26 +1,28 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.dutype.app.BuildConfig
+import com.example.dutype.components.AboutBullet
+import com.example.dutype.components.AboutFooter
+import com.example.dutype.components.AboutHero
+import com.example.dutype.components.AboutParagraph
+import com.example.dutype.components.AboutSectionCard
 import com.example.dutype.components.CommonHeader
+
 @Composable
 fun EmployerAboutScreen(
     navController: NavController,
@@ -30,10 +32,12 @@ fun EmployerAboutScreen(
         onStatusBarColorChange(Color.White)
     }
 
+    val accent = Color(0xFF2563EB)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         CommonHeader(
             title = "About Us",
@@ -45,94 +49,93 @@ fun EmployerAboutScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 20.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = "Welcome to DutyPe",
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    fontSize = 22.sp
+            AboutHero(
+                title = "Welcome to DutyPe",
+                subtitle = "Your all-in-one solution for finding the best local talent, on-demand.",
+                accentColor = accent,
+                badgeEmoji = "\uD83C\uDFE2"
+            )
+
+            AboutSectionCard(
+                title = "Our Mission",
+                accentColor = Color(0xFF10B981),
+                icon = "\uD83C\uDFAF"
+            ) {
+                AboutParagraph(
+                    text = "To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce \u2014 so you can focus on growing your business."
                 )
-            )
+            }
 
-            Spacer(modifier = Modifier.height(5.dp))
-
-            Text(
-                text = buildAnnotatedString {
-                    append("Your all-in-one solution for finding the best local talent, right when you need it. We connect businesses with a pool of qualified, on-demand workers for gig-based and full-time roles.\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Our Mission\n")
-                    }
-                    append("To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce. We aim to simplify the hiring process, so you can focus on growing your business.\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Our Vision\n")
-                    }
-                    append("To become the leading platform for on-demand employment in India, creating a dynamic ecosystem where businesses can thrive with the right talent and workers can find meaningful opportunities.\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Key Features for Employers\n")
-                    }
-                    append("Post jobs in minutes • Access a large talent pool • GPS-based attendance tracking • Verified worker profiles • Flexible hiring options • Real-time application alerts • Manage multiple job postings • Track worker performance\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Hire For Any Role\n")
-                    }
-                    append("Delivery Personnel • Kitchen & Cooking Staff • Housekeeping & Cleaning • Shop Assistants & Retail • Childcare & Eldercare • Maintenance Workers • Event & Catering Staff • And many more...\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Why Choose DutyPe?\n")
-                    }
-                    append("Quick hiring process • Verified worker database • Cost-effective solutions • 24/7 platform access • Dedicated support team\n\n")
-
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF111827))) {
-                        append("Our Core Values\n")
-                    }
-                    append("Efficiency in hiring • Reliability you can trust • Transparency in all dealings • Empowerment for businesses")
-                },
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color(0xFF4B5563),
-                    lineHeight = 26.sp
+            AboutSectionCard(
+                title = "Our Vision",
+                accentColor = Color(0xFFF59E0B),
+                icon = "\uD83D\uDD2D"
+            ) {
+                AboutParagraph(
+                    text = "To become the leading platform for on-demand employment in India, where businesses thrive with the right talent and workers find meaningful opportunities."
                 )
-            )
+            }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            AboutSectionCard(
+                title = "Key Features for Employers",
+                accentColor = Color(0xFF2563EB),
+                icon = "\u2728"
+            ) {
+                AboutBullet("Post jobs in minutes", accent)
+                AboutBullet("Access a large talent pool", accent)
+                AboutBullet("GPS-based attendance tracking", accent)
+                AboutBullet("Verified worker profiles", accent)
+                AboutBullet("Flexible hiring options", accent)
+                AboutBullet("Real-time application alerts", accent)
+                AboutBullet("Manage multiple postings", accent)
+                AboutBullet("Track worker performance", accent)
+            }
 
-            // Footer
-            Text(
-                text = "Made With Love in Bharat",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280),
-                    fontWeight = FontWeight.Medium
-                ),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+            AboutSectionCard(
+                title = "Hire For Any Role",
+                accentColor = Color(0xFFEF4444),
+                icon = "\uD83D\uDC65"
+            ) {
+                AboutBullet("Delivery Personnel", Color(0xFFEF4444))
+                AboutBullet("Kitchen & Cooking Staff", Color(0xFFEF4444))
+                AboutBullet("Housekeeping & Cleaning", Color(0xFFEF4444))
+                AboutBullet("Shop Assistants & Retail", Color(0xFFEF4444))
+                AboutBullet("Childcare & Eldercare", Color(0xFFEF4444))
+                AboutBullet("Maintenance Workers", Color(0xFFEF4444))
+                AboutBullet("Event & Catering Staff", Color(0xFFEF4444))
+            }
 
-            Spacer(modifier = Modifier.height(5.dp))
+            AboutSectionCard(
+                title = "Why Choose DutyPe?",
+                accentColor = Color(0xFF8B5CF6),
+                icon = "\uD83D\uDC8E"
+            ) {
+                AboutBullet("Quick hiring process", Color(0xFF8B5CF6))
+                AboutBullet("Verified worker database", Color(0xFF8B5CF6))
+                AboutBullet("Cost-effective solutions", Color(0xFF8B5CF6))
+                AboutBullet("24/7 platform access", Color(0xFF8B5CF6))
+                AboutBullet("Dedicated support team", Color(0xFF8B5CF6))
+            }
 
-            // Version info
-            Text(
-                text = "Version ${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
-                ),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+            AboutSectionCard(
+                title = "Our Core Values",
+                accentColor = Color(0xFF0EA5E9),
+                icon = "\uD83E\uDD1D"
+            ) {
+                AboutBullet("Efficiency in hiring", Color(0xFF0EA5E9))
+                AboutBullet("Reliability you can trust", Color(0xFF0EA5E9))
+                AboutBullet("Transparency in all dealings", Color(0xFF0EA5E9))
+                AboutBullet("Empowerment for businesses", Color(0xFF0EA5E9))
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AboutFooter(version = BuildConfig.VERSION_NAME)
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun EmployerAboutScreenPreview() {
-    EmployerAboutScreen(
-        navController = rememberNavController(),
-        onStatusBarColorChange = {}
-    )
 }

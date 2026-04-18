@@ -52,6 +52,7 @@ fun EmployerSupportScreen(
     // FAQ items
     var expandedFaqIndex by remember { mutableStateOf(-1) }
     var expandedGuideIndex by remember { mutableStateOf(-1) }
+    var searchQuery by remember { mutableStateOf("") }
     
     val userGuideItems = listOf(
         GuideItem(
@@ -131,7 +132,7 @@ fun EmployerSupportScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
@@ -168,8 +169,87 @@ fun EmployerSupportScreen(
             }
             
             Spacer(modifier = Modifier.height(20.dp))
-            
+
+            // Quick action tiles: WhatsApp / Email / Report
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                EmployerQuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Phone,
+                    label = "WhatsApp",
+                    bg = Color(0xFFDCFCE7),
+                    tint = Color(0xFF16A34A)
+                ) {
+                    val msg = "Hello DutyPe Team! I am an employer on DutyPe and I need help with the app."
+                    val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }
+                EmployerQuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Email,
+                    label = "Email",
+                    bg = EmployerLightBlue,
+                    tint = EmployerSecondaryBlue
+                ) {
+                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
+                    intent.putExtra(Intent.EXTRA_SUBJECT, "Employer Support")
+                    context.startActivity(Intent.createChooser(intent, "Send Email"))
+                }
+                EmployerQuickActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.BugReport,
+                    label = "Report",
+                    bg = Color(0xFFFFE4E6),
+                    tint = Color(0xFFE11D48)
+                ) {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:dutypein@gmail.com")
+                        putExtra(Intent.EXTRA_SUBJECT, "Bug Report - Employer App")
+                    }
+                    context.startActivity(intent)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Search across guide + faq
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search help topics") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = EmployerSecondaryBlue,
+                    unfocusedBorderColor = Color(0xFFCBD5E1),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            val q = searchQuery.trim().lowercase()
+            val filteredGuides = if (q.isEmpty()) userGuideItems else userGuideItems.filter {
+                it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
+            }
+            val filteredFaqs = if (q.isEmpty()) faqItems else faqItems.filter {
+                it.question.lowercase().contains(q) || it.answer.lowercase().contains(q)
+            }
+
             // User Guide Section
+            if (filteredGuides.isNotEmpty()) {
             Text(
                 text = "User Guide",
                 style = AppTypography.sectionHeader.copy(
@@ -181,11 +261,11 @@ fun EmployerSupportScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    userGuideItems.forEachIndexed { index, guide ->
+                    filteredGuides.forEachIndexed { index, guide ->
                         GuideItemCard(
                             guide = guide,
                             isExpanded = expandedGuideIndex == index,
@@ -193,7 +273,7 @@ fun EmployerSupportScreen(
                                 expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
                             }
                         )
-                        if (index < userGuideItems.size - 1) {
+                        if (index < filteredGuides.size - 1) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 color = Color(0xFFE5E7EB)
@@ -204,9 +284,10 @@ fun EmployerSupportScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            
+            }
             
             // FAQ Section
+            if (filteredFaqs.isNotEmpty()) {
             Text(
                 text = "Frequently Asked Questions",
                 style = AppTypography.sectionHeader.copy(
@@ -218,11 +299,11 @@ fun EmployerSupportScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    faqItems.forEachIndexed { index, faq ->
+                    filteredFaqs.forEachIndexed { index, faq ->
                         FaqItemCard(
                             faq = faq,
                             isExpanded = expandedFaqIndex == index,
@@ -230,7 +311,7 @@ fun EmployerSupportScreen(
                                 expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
                             }
                         )
-                        if (index < faqItems.size - 1) {
+                        if (index < filteredFaqs.size - 1) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 color = Color(0xFFE5E7EB)
@@ -241,6 +322,42 @@ fun EmployerSupportScreen(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            if (filteredGuides.isEmpty() && filteredFaqs.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.SearchOff,
+                            contentDescription = null,
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "No matching topics",
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            "Try a different keyword or message us on WhatsApp.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
             
             // Quick Links
             Text(
@@ -254,7 +371,7 @@ fun EmployerSupportScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column {
@@ -298,7 +415,7 @@ fun EmployerSupportScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column {
@@ -328,6 +445,46 @@ fun EmployerSupportScreen(
 }
 
 @Composable
+private fun EmployerQuickActionTile(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    bg: Color,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(bg, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0F172A)
+            )
+        }
+    }
+}
+
+@Composable
 private fun ContactOptionCard(
     icon: ImageVector,
     title: String,
@@ -338,7 +495,7 @@ private fun ContactOptionCard(
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(

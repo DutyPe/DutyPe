@@ -99,8 +99,19 @@ fun EmployerMainScreen(
         }
     } ?: true
 
-    // Main container that handles all system bars
-    Box(modifier = Modifier.fillMaxSize()) {
+    // ---- ROLE THEME ----
+    // Publish the employer palette via LocalRoleColors so every screen and
+    // card hosted under this scaffold reads its background / card / divider
+    // colour from the same source (no per-screen hardcoded hex).
+    com.example.dutype.ui.theme.DutyPeEmployerTheme {
+        val roleColors = com.example.dutype.ui.theme.LocalRoleColors.current
+
+        // Main container that handles all system bars
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(roleColors.screenBackground)
+        ) {
 
         // Status bar overlay - ALWAYS at the top
         Box(
@@ -117,7 +128,7 @@ fun EmployerMainScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .background(Color.White)
+                .background(roleColors.navigationBar)
                 .align(Alignment.BottomCenter)
                 .zIndex(1000f) // Ensure it's always on top
         )
@@ -125,6 +136,7 @@ fun EmployerMainScreen(
         // Main content area
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            containerColor = roleColors.screenBackground,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (shouldShowBottomBar) {
@@ -399,5 +411,6 @@ fun EmployerMainScreen(
             }
         }
     }
+    } // end DutyPeEmployerTheme
 }
 

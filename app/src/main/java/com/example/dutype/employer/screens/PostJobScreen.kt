@@ -42,6 +42,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -59,6 +60,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -186,6 +188,9 @@ fun PostJobScreen(
     
     // Enhanced fields for hyper-local jobs
     var selectedPerks by remember { mutableStateOf(setOf<JobPerk>()) }
+    // Custom perks the employer has typed manually (e.g. "Gym membership").
+    // These are merged with selectedPerks.displayName when persisting.
+    var customPerks by remember { mutableStateOf(listOf<String>()) }
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var ageRange by remember { mutableStateOf("18-35") }
@@ -234,6 +239,16 @@ fun PostJobScreen(
     
     // LazyList state for the single-canvas studio layout
     val listState = rememberLazyListState()
+
+    // Stepper state: 1=Job Details, 2=Pay & Location, 3=People & Schedule, 4=Review
+    var currentStep by remember { mutableStateOf(1) }
+    val stepLabels = listOf("Role", "Pay & Place", "People", "Review")
+
+    // When the step changes, scroll the canvas to the top so the new step
+    // header is in view immediately.
+    LaunchedEffect(currentStep) {
+        listState.animateScrollToItem(0)
+    }
 
     // P2 FIX: Auto-save draft on field changes (debounced 2 seconds)
     val draftTrigger = remember { MutableStateFlow(0L) }
@@ -492,7 +507,7 @@ fun PostJobScreen(
             JobUrgency.NORMAL -> "MEDIUM"
             JobUrgency.FLEXIBLE -> "LOW"
         }
-        val normalizedBenefits = selectedPerks.map { it.displayName }.distinct()
+        val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
         
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
@@ -710,13 +725,8 @@ fun PostJobScreen(
     val successGreen = Color(0xFF059669)
     val accentOrange = Color(0xFFFF8A3D)
     val darkText = Color(0xFF0F172A)
-    val pageBackground = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFFFFBF5),
-            Color(0xFFF2F6FF),
-            Color(0xFFF8FAFC)
-        )
-    )
+    // Solid role background pulled from the theme — no gradient.
+    val pageBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
     val basicsReady = title.isNotBlank() && description.isNotBlank()
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
     val requirementsReady = contactNumber.isNotBlank()
@@ -1044,9 +1054,20 @@ fun PostJobScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            PostJobLaunchBar(
+            val canAdvance = when (currentStep) {
+                1 -> basicsReady
+                2 -> compensationReady && locationPinned
+                3 -> true
+                else -> true
+            }
+            PostJobStepperBar(
+                currentStep = currentStep,
+                totalSteps = totalSteps,
+                canAdvance = canAdvance,
                 publishEnabled = publishEnabled,
                 isPublishing = employerJobUiState.isCreatingJob || isSubmittingJob,
+                onBack = { if (currentStep > 1) currentStep -= 1 },
+                onNext = { if (currentStep < totalSteps) currentStep += 1 },
                 onPublish = { attemptPublishJob() }
             )
         }
@@ -1086,169 +1107,257 @@ fun PostJobScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     item {
-                        EnhancedJobTitleSection(
-                            title = title,
-                            onTitleChange = { title = it },
-                            category = category,
-                            onCategoryChange = { category = it },
-                            customCategory = customCategory,
-                            onCustomCategoryChange = { customCategory = it }
+                        PostJobStepperHeader(
+                            currentStep = currentStep,
+                            totalSteps = totalSteps,
+                            stepLabels = stepLabels
                         )
                     }
 
-                    item {
-                        WorkTypeSelection(
-                            workType = workType,
-                            onWorkTypeChange = { workType = it },
-                            workTypes = workTypes
-                        )
-                    }
+                    // Group 1: Job Details (title, work type, description, image)
+                    if (currentStep == 1) item {
+                        StudioGroupCard(
+                            stepNumber = 1,
+                            title = "Tell us about the role",
+                            subtitle = "Job title, work type, description and a photo",
+                            icon = "\uD83D\uDCDD",
+                            accentColor = Color(0xFF2563EB)
+                        ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    EnhancedJobTitleSection(
+                                        title = title,
+                                        onTitleChange = { title = it },
+                                        category = category,
+                                        onCategoryChange = { category = it },
+                                        customCategory = customCategory,
+                                        onCustomCategoryChange = { customCategory = it }
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    WorkTypeSelection(
+                                        workType = workType,
+                                        onWorkTypeChange = { workType = it },
+                                        workTypes = workTypes
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    JobDescriptionSection(
+                                        description = description,
+                                        onDescriptionChange = { description = it }
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    JobImageUploadSection(
+                                        selectedImageUri = jobImageUri,
+                                        isUploading = isUploadingJobImage,
+                                        onImageSelected = { uri ->
+                                            jobImageUri = uri
+                                            scope.launch {
+                                                isUploadingJobImage = true
+                                                try {
+                                                    val currentUser = FirebaseAuth.getInstance().currentUser
+                                                    if (currentUser != null) {
+                                                        val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                                        val storagePath = "job_images/${currentUser.uid}/$fileName"
 
-                    item {
-                        JobDescriptionSection(
-                            description = description,
-                            onDescriptionChange = { description = it }
-                        )
-                    }
+                                                        Timber.d("📸 JOB IMAGE: Starting upload with compression...")
 
-                    item {
-                        JobImageUploadSection(
-                            selectedImageUri = jobImageUri,
-                            isUploading = isUploadingJobImage,
-                            onImageSelected = { uri ->
-                                jobImageUri = uri
-                                scope.launch {
-                                    isUploadingJobImage = true
-                                    try {
-                                        val currentUser = FirebaseAuth.getInstance().currentUser
-                                        if (currentUser != null) {
-                                            val fileName = "job_image_${System.currentTimeMillis()}.jpg"
-                                            val storagePath = "job_images/${currentUser.uid}/$fileName"
+                                                        val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                                                            context = context,
+                                                            uri = uri,
+                                                            storagePath = storagePath
+                                                        )
 
-                                            Timber.d("📸 JOB IMAGE: Starting upload with compression...")
-
-                                            val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
-                                                context = context,
-                                                uri = uri,
-                                                storagePath = storagePath
-                                            )
-
-                                            when (uploadResult) {
-                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
-                                                    jobImageUrl = uploadResult.downloadUrl
-                                                    Timber.d("📸 JOB IMAGE: ✅ Upload successful!")
-                                                    Toast.makeText(context, "Image uploaded successfully!", Toast.LENGTH_SHORT).show()
-                                                }
-                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
-                                                    Timber.e(uploadResult.exception, "📸 JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
-                                                    Toast.makeText(context, "Failed to upload image: ${uploadResult.error}", Toast.LENGTH_SHORT).show()
+                                                        when (uploadResult) {
+                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                                                                jobImageUrl = uploadResult.downloadUrl
+                                                                Timber.d("📸 JOB IMAGE: ✅ Upload successful!")
+                                                                Toast.makeText(context, "Image uploaded successfully!", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                                                                Timber.e(uploadResult.exception, "📸 JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
+                                                                Toast.makeText(context, "Failed to upload image: ${uploadResult.error}", Toast.LENGTH_SHORT).show()
+                                                                jobImageUri = null
+                                                                jobImageUrl = ""
+                                                            }
+                                                            else -> {
+                                                            }
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Timber.e(e, "📸 JOB IMAGE: ❌ Upload failed")
+                                                    Toast.makeText(context, "Failed to upload image: ${e.message}", Toast.LENGTH_SHORT).show()
                                                     jobImageUri = null
                                                     jobImageUrl = ""
-                                                }
-                                                else -> {
+                                                } finally {
+                                                    isUploadingJobImage = false
                                                 }
                                             }
+                                        },
+                                        onImageRemoved = {
+                                            jobImageUri = null
+                                            jobImageUrl = ""
+                                            Timber.d("📸 JOB IMAGE: Image removed")
                                         }
-                                    } catch (e: Exception) {
-                                        Timber.e(e, "📸 JOB IMAGE: ❌ Upload failed")
-                                        Toast.makeText(context, "Failed to upload image: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        jobImageUri = null
-                                        jobImageUrl = ""
-                                    } finally {
-                                        isUploadingJobImage = false
-                                    }
+                                    )
+                                    // Group 1 close
                                 }
-                            },
-                            onImageRemoved = {
-                                jobImageUri = null
-                                jobImageUrl = ""
-                                Timber.d("📸 JOB IMAGE: Image removed")
-                            }
-                        )
+                        }
                     }
 
-                    item {
-                        EnhancedPaymentSection(
-                            payAmount = payAmount,
-                            onPayAmountChange = { payAmount = it },
-                            payType = payType,
-                            onPayTypeChange = { payType = it },
-                            category = category,
-                            suggestedRange = getSuggestedPayRange()
-                        )
-                    }
-
-                    item {
-                        EnhancedLocationSection(
-                            location = location,
-                            onLocationChange = { location = it },
-                            isLoadingLocation = isLoadingLocation,
-                            locationError = locationError,
-                            onLocationButtonClick = {
-                                Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
-                                if (locationService.hasLocationPermission()) {
-                                    Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location (Swiggy/Zomato precision)...")
-                                    isLoadingLocation = true
-                                    locationError = null
-                                    scope.launch {
-                                        try {
-                                            val locationInfo = locationRepository.getHighAccuracy(
-                                                timeoutMs = 5000L,
-                                                minAccuracyMeters = 10f
-                                            )
-                                            if (locationInfo != null) {
-                                                location = locationInfo.getFullAddress()
-                                                locationLatitude = locationInfo.latitude
-                                                locationLongitude = locationInfo.longitude
-                                                Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
-                                                Timber.d("📍 LOCATION BUTTON: Full Address: $location")
+                    // Group 2: Pay & Location
+                    if (currentStep == 2) item {
+                        StudioGroupCard(
+                            stepNumber = 2,
+                            title = "Pay & where to work",
+                            subtitle = "Set the pay and pin the work location",
+                            icon = "\uD83D\uDCB0",
+                            accentColor = Color(0xFF059669)
+                        ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    EnhancedPaymentSection(
+                                        payAmount = payAmount,
+                                        onPayAmountChange = { payAmount = it },
+                                        payType = payType,
+                                        onPayTypeChange = { payType = it },
+                                        category = category,
+                                        suggestedRange = getSuggestedPayRange()
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    EnhancedLocationSection(
+                                        location = location,
+                                        onLocationChange = { location = it },
+                                        isLoadingLocation = isLoadingLocation,
+                                        locationError = locationError,
+                                        onLocationButtonClick = {
+                                            Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
+                                            if (locationService.hasLocationPermission()) {
+                                                Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location (Swiggy/Zomato precision)...")
+                                                isLoadingLocation = true
+                                                locationError = null
+                                                scope.launch {
+                                                    try {
+                                                        val locationInfo = locationRepository.getHighAccuracy(
+                                                            timeoutMs = 5000L,
+                                                            minAccuracyMeters = 10f
+                                                        )
+                                                        if (locationInfo != null) {
+                                                            location = locationInfo.getFullAddress()
+                                                            locationLatitude = locationInfo.latitude
+                                                            locationLongitude = locationInfo.longitude
+                                                            Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
+                                                            Timber.d("📍 LOCATION BUTTON: Full Address: $location")
+                                                        } else {
+                                                            Timber.w("📍 LOCATION BUTTON: locationInfo is null")
+                                                            locationError = "Unable to get current location"
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
+                                                        locationError = "Error getting location"
+                                                    } finally {
+                                                        isLoadingLocation = false
+                                                    }
+                                                }
                                             } else {
-                                                Timber.w("📍 LOCATION BUTTON: locationInfo is null")
-                                                locationError = "Unable to get current location"
+                                                Timber.d("📍 LOCATION BUTTON: Requesting permission...")
+                                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                             }
-                                        } catch (e: Exception) {
-                                            Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
-                                            locationError = "Error getting location"
-                                        } finally {
-                                            isLoadingLocation = false
-                                        }
-                                    }
-                                } else {
-                                    Timber.d("📍 LOCATION BUTTON: Requesting permission...")
-                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                        },
+                                        onLocationSelected = { lat, lon ->
+                                            locationLatitude = lat
+                                            locationLongitude = lon
+                                            Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
+                                        },
+                                        savedLocations = savedWorkLocations
+                                    )
+                                    // Group 2 close
                                 }
-                            },
-                            onLocationSelected = { lat, lon ->
-                                locationLatitude = lat
-                                locationLongitude = lon
-                                Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
-                            },
-                            savedLocations = savedWorkLocations
-                        )
+                        }
                     }
 
-                    item {
-                        VacanciesSection(
-                            vacancies = vacancies,
-                            onVacanciesChange = { vacancies = it }
-                        )
+                    // Group 3: People, Schedule & Perks
+                    if (currentStep == 3) item {
+                        StudioGroupCard(
+                            stepNumber = 3,
+                            title = "Who you want & extras",
+                            subtitle = "Vacancies, requirements, schedule and perks",
+                            icon = "\uD83D\uDC65",
+                            accentColor = Color(0xFFD946EF)
+                        ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    VacanciesSection(
+                                        vacancies = vacancies,
+                                        onVacanciesChange = { vacancies = it }
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    RequirementsSection(
+                                        experienceLevel = experienceLevel,
+                                        onExperienceLevelChange = { experienceLevel = it },
+                                        experienceLevels = experienceLevels,
+                                        ageRange = ageRange,
+                                        onAgeRangeChange = { ageRange = it },
+                                        ageRanges = ageRanges,
+                                        gender = gender,
+                                        onGenderChange = { gender = it },
+                                        genders = genders
+                                    )
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    Column(
+                                        modifier = Modifier.padding(20.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .background(Color(0xFFECFCCB), RoundedCornerShape(10.dp)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("🕐", fontSize = 18.sp)
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Work Schedule & Urgency",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF1E293B)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(18.dp))
+
+                                        WorkScheduleSection(
+                                            selectedShift = shiftTiming,
+                                            onShiftSelected = { shiftTiming = it },
+                                            selectedUrgency = urgency,
+                                            onUrgencySelected = { urgency = it }
+                                        )
+                                    }
+                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    PerksSelectionSection(
+                                        selectedPerks = selectedPerks,
+                                        onPerksChanged = { selectedPerks = it },
+                                        customPerks = customPerks,
+                                        onCustomPerksChanged = { customPerks = it }
+                                    )
+                                    // Group 3 close
+                                }
+                        }
                     }
 
-                    item {
-                        RequirementsSection(
-                            experienceLevel = experienceLevel,
-                            onExperienceLevelChange = { experienceLevel = it },
-                            experienceLevels = experienceLevels,
-                            ageRange = ageRange,
-                            onAgeRangeChange = { ageRange = it },
-                            ageRanges = ageRanges,
-                            gender = gender,
-                            onGenderChange = { gender = it },
-                            genders = genders
-                        )
-                    }
-
-                    item {
+                    // Standalone: Contact details
+                    if (currentStep == 4) item {
                         ContactSection(
                             contactNumber = contactNumber,
                             onContactNumberChange = { contactNumber = it },
@@ -1257,52 +1366,7 @@ fun PostJobScreen(
                         )
                     }
 
-                    item {
-                        PolishedCard {
-                            Column(
-                                modifier = Modifier.padding(20.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color(0xFFECFCCB), RoundedCornerShape(10.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text("🕐", fontSize = 18.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "Work Schedule & Urgency",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF1E293B)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(18.dp))
-
-                                WorkScheduleSection(
-                                    selectedShift = shiftTiming,
-                                    onShiftSelected = { shiftTiming = it },
-                                    selectedUrgency = urgency,
-                                    onUrgencySelected = { urgency = it }
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        PerksSelectionSection(
-                            selectedPerks = selectedPerks,
-                            onPerksChanged = { selectedPerks = it }
-                        )
-                    }
-
-                    item {
+                    if (currentStep == 4) item {
                         JobSummaryCard(
                             title = title,
                             category = category,
@@ -1358,44 +1422,17 @@ private fun PostJobBackdropDecor(modifier: Modifier = Modifier) {
                 .align(Alignment.TopEnd)
                 .padding(top = 24.dp, end = 12.dp)
                 .size(220.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFFFFC48A).copy(alpha = 0.45f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
         )
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .size(180.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF93C5FD).copy(alpha = 0.28f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
         )
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(bottom = 120.dp, end = 24.dp)
                 .size(200.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF86EFAC).copy(alpha = 0.2f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
         )
     }
 }
@@ -1463,14 +1500,9 @@ private fun PostJobHeroCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                // Solid premium navy hero surface (no gradient).
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF0F172A),
-                            Color(0xFF1D4ED8),
-                            Color(0xFFFF8A3D)
-                        )
-                    ),
+                    color = Color(0xFF0F172A),
                     shape = RoundedCornerShape(30.dp)
                 )
                 .padding(22.dp)
@@ -1777,6 +1809,223 @@ private fun StudioSectionBanner(
 }
 
 @Composable
+private fun PostJobStepperHeader(
+    currentStep: Int,
+    totalSteps: Int,
+    stepLabels: List<String>
+) {
+    val activeColor = Color(0xFF2563EB)
+    val doneColor = Color(0xFF10B981)
+    val inactiveColor = Color(0xFFCBD5E1)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 4.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEDF2F7))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Step $currentStep of $totalSteps",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = stepLabels.getOrNull(currentStep - 1).orEmpty(),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                for (i in 1..totalSteps) {
+                    val isDone = i < currentStep
+                    val isCurrent = i == currentStep
+                    val circleColor = when {
+                        isDone -> doneColor
+                        isCurrent -> activeColor
+                        else -> Color.White
+                    }
+                    val borderColor = when {
+                        isDone -> doneColor
+                        isCurrent -> activeColor
+                        else -> inactiveColor
+                    }
+                    val numberColor = when {
+                        isDone || isCurrent -> Color.White
+                        else -> Color(0xFF94A3B8)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(circleColor, CircleShape)
+                            .border(2.dp, borderColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isDone) {
+                            Text(
+                                text = "\u2713",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        } else {
+                            Text(
+                                text = i.toString(),
+                                color = numberColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                    if (i < totalSteps) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(3.dp)
+                                .padding(horizontal = 6.dp)
+                                .background(
+                                    if (i < currentStep) doneColor else inactiveColor,
+                                    RoundedCornerShape(2.dp)
+                                )
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                stepLabels.forEachIndexed { index, label ->
+                    val step = index + 1
+                    val color = when {
+                        step < currentStep -> doneColor
+                        step == currentStep -> Color(0xFF0F172A)
+                        else -> Color(0xFF94A3B8)
+                    }
+                    Text(
+                        text = label,
+                        modifier = Modifier.weight(1f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = color,
+                            fontWeight = if (step == currentStep) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PostJobStepperBar(
+    currentStep: Int,
+    totalSteps: Int,
+    canAdvance: Boolean,
+    publishEnabled: Boolean,
+    isPublishing: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+    onPublish: () -> Unit
+) {
+    val isLastStep = currentStep == totalSteps
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+    ) {
+        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (currentStep > 1) {
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
+                ) {
+                    Text(text = "Back", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+            }
+            if (isLastStep) {
+                Button(
+                    onClick = onPublish,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    enabled = publishEnabled,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1F2937),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFE2E8F0),
+                        disabledContentColor = Color(0xFF94A3B8)
+                    )
+                ) {
+                    if (isPublishing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.post_job),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    enabled = canAdvance,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2563EB),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFE2E8F0),
+                        disabledContentColor = Color(0xFF94A3B8)
+                    )
+                ) {
+                    Text(
+                        text = if (currentStep == totalSteps - 1) "Review" else "Next",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun PostJobLaunchBar(
     publishEnabled: Boolean,
     isPublishing: Boolean,
@@ -1951,6 +2200,14 @@ fun PolishedCard(
     showAccent: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    // When already inside a grouped parent card, render flat so we don't
+    // produce nested chrome.
+    if (com.example.dutype.employer.components.LocalSectionInGroup.current) {
+        Box(modifier = modifier.fillMaxWidth()) {
+            content()
+        }
+        return
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1965,29 +2222,16 @@ fun PolishedCard(
         tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White,
-                        Color(0xFFF8FAFC)
-                    )
-                )
-            )
+            // Solid card surface (no gradient).
+            modifier = Modifier.background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
         ) {
             if (showAccent) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    accentColor,
-                                    Color(0xFF2563EB),
-                                    Color(0xFF10B981)
-                                )
-                            )
-                        )
+                        // Solid accent strip (no gradient).
+                        .background(accentColor)
                 )
             }
 
@@ -1999,6 +2243,48 @@ fun PolishedCard(
 }
 
 // Enhanced UI Components for Hyper-Local Jobs
+
+/**
+ * Studio-style group card used by the redesigned Post Job flow.
+ * Renders a numbered step badge, gradient-tinted header (icon + title +
+ * subtitle), then the section's stacked sub-sections inside one cohesive
+ * card so the screen reads as a guided studio rather than a long form.
+ */
+@Composable
+fun StudioGroupCard(
+    stepNumber: Int,
+    title: String,
+    subtitle: String,
+    icon: String,
+    accentColor: Color,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        shadowElevation = 6.dp,
+        tonalElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEDF2F7))
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // NOTE: The step badge/title/subtitle that used to render here was
+            // removed because the top stepper header already shows the same
+            // step number + title — having both was duplicate noise.
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.example.dutype.employer.components.LocalSectionInGroup provides true
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    content()
+                }
+            }
+        }
+    }
+}
 
 /**
  * ANTI-FRAUD FEATURE: Structured Job Titles
@@ -2993,11 +3279,17 @@ private fun RequirementChipSection(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PerksSelectionSection(
     selectedPerks: Set<JobPerk>,
-    onPerksChanged: (Set<JobPerk>) -> Unit
+    onPerksChanged: (Set<JobPerk>) -> Unit,
+    customPerks: List<String> = emptyList(),
+    onCustomPerksChanged: (List<String>) -> Unit = {}
 ) {
+    var newPerkText by remember { mutableStateOf("") }
+    val totalCount = selectedPerks.size + customPerks.size
+
     PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -3035,13 +3327,13 @@ fun PerksSelectionSection(
                 }
                 
                 // Selected count badge
-                if (selectedPerks.isNotEmpty()) {
+                if (totalCount > 0) {
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = Color(0xFF10B981)
                     ) {
                         Text(
-                            text = "${selectedPerks.size} selected",
+                            text = "$totalCount selected",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
@@ -3057,6 +3349,106 @@ fun PerksSelectionSection(
                 selectedPerks = selectedPerks,
                 onPerksChanged = onPerksChanged
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Add your own perk",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0F172A)
+            )
+            Text(
+                text = "Type any extra benefit (e.g. Gym membership, Festival bonus)",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6B7280)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = newPerkText,
+                    onValueChange = { if (it.length <= 40) newPerkText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("e.g. Free meals", fontSize = 14.sp) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF10B981),
+                        unfocusedBorderColor = Color(0xFFCBD5E1)
+                    )
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Button(
+                    onClick = {
+                        val trimmed = newPerkText.trim()
+                        if (trimmed.isNotEmpty() &&
+                            customPerks.none { it.equals(trimmed, ignoreCase = true) } &&
+                            selectedPerks.none { it.displayName.equals(trimmed, ignoreCase = true) }
+                        ) {
+                            onCustomPerksChanged(customPerks + trimmed)
+                            newPerkText = ""
+                        }
+                    },
+                    enabled = newPerkText.trim().isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFE2E8F0),
+                        disabledContentColor = Color(0xFF94A3B8)
+                    ),
+                    modifier = Modifier.height(52.dp)
+                ) {
+                    Text("Add", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (customPerks.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                androidx.compose.foundation.layout.FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    customPerks.forEach { perk ->
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFFECFDF5),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = perk,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color(0xFF065F46),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                IconButton(
+                                    onClick = { onCustomPerksChanged(customPerks - perk) },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Remove $perk",
+                                        tint = Color(0xFF065F46),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

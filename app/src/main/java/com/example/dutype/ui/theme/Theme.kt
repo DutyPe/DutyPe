@@ -41,7 +41,10 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun dutypeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Disabled by default: dynamic colour pulls from the device wallpaper and
+    // can override our brand palette (and our role-based backgrounds via
+    // MaterialTheme.colorScheme.background). Keep our own palette consistent.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
