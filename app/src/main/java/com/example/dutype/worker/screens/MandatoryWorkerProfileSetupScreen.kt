@@ -938,8 +938,8 @@ private fun PersonalInformationStep(
             OutlinedTextField(
                 value = fullName,
                 onValueChange = onFullNameChange,
-                label = { Text("Full Name *") },
-                placeholder = { Text("Enter your full name") },
+                label = { Text(stringResource(R.string.full_name_required)) },
+                placeholder = { Text(stringResource(R.string.enter_full_name)) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -972,7 +972,7 @@ private fun PersonalInformationStep(
             OutlinedTextField(
                 value = email,
                 onValueChange = { }, // Read-only
-                label = { Text("Email Address (Verified)") },
+                label = { Text(stringResource(R.string.email_address_verified)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = false,
@@ -996,8 +996,8 @@ private fun PersonalInformationStep(
                 OutlinedTextField(
                     value = email,
                     onValueChange = onEmailChange,
-                    label = { Text("Email Address (Optional)") },
-                    placeholder = { Text("Enter your email") },
+                    label = { Text(stringResource(R.string.email_address_optional)) },
+                    placeholder = { Text(stringResource(R.string.enter_email)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -1025,8 +1025,8 @@ private fun PersonalInformationStep(
                 OutlinedTextField(
                     value = email,
                     onValueChange = onEmailChange,
-                    label = { Text("Email Address") },
-                    placeholder = { Text("Enter your email") },
+                    label = { Text(stringResource(R.string.email_address)) },
+                    placeholder = { Text(stringResource(R.string.enter_email)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -1056,7 +1056,7 @@ private fun PersonalInformationStep(
             OutlinedTextField(
                 value = phoneNumber,
                 onValueChange = { }, // Read-only
-                label = { Text("Phone Number (Verified)") },
+                label = { Text(stringResource(R.string.phone_number_verified)) },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = false,
@@ -1085,8 +1085,8 @@ private fun PersonalInformationStep(
                             onPhoneChange(newValue)
                         }
                     },
-                    label = { Text("Phone Number *") },
-                    placeholder = { Text("Enter 10-digit phone number") },
+                    label = { Text(stringResource(R.string.phone_number_required)) },
+                    placeholder = { Text(stringResource(R.string.enter_10_digit_phone)) },
                     leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1434,7 +1434,7 @@ private fun AdditionalDetailsStep(
                                 showDatePicker = false
                             }
                         ) {
-                            Text("OK", color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.ok), color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
                         }
                     },
                     dismissButton = {
@@ -1938,7 +1938,7 @@ private fun ProfessionalInformationStep(
                     value = experience,
                     onValueChange = { },
                     readOnly = true,
-                    placeholder = { Text("Select your experience level") },
+                    placeholder = { Text(stringResource(R.string.select_experience_level)) },
                     leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = experienceExpanded) },
                     modifier = Modifier

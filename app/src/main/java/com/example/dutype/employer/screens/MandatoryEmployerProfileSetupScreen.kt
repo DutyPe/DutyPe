@@ -844,8 +844,8 @@ private fun CompanyInformationStep(
             OutlinedTextField(
                 value = companyName,
                 onValueChange = onCompanyNameChange,
-                label = { Text("Company Name *") },
-                placeholder = { Text("Enter your company name") },
+                label = { Text(stringResource(R.string.company_name_required)) },
+                placeholder = { Text(stringResource(R.string.enter_company_name)) },
                 leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -1018,8 +1018,8 @@ private fun CompanyInformationStep(
                     value = companySize,
                     onValueChange = { },
                     readOnly = true,
-                    label = { Text("Company Size") },
-                    placeholder = { Text("Select company size") },
+                    label = { Text(stringResource(R.string.company_size_label)) },
+                    placeholder = { Text(stringResource(R.string.select_company_size)) },
                     leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = companySizeExpanded) },
                     modifier = Modifier
@@ -1068,7 +1068,7 @@ private fun CompanyInformationStep(
                         onGstNumberChange(newValue.uppercase())
                     }
                 },
-                label = { Text("GST Number (Optional)") },
+                label = { Text(stringResource(R.string.gst_number_optional)) },
                 placeholder = { Text("e.g., 22AAAAA0000A1Z5") },
                 leadingIcon = { 
                     Icon(
@@ -1231,8 +1231,8 @@ private fun ContactDetailsStep(
                         onContactPhoneChange(newValue)
                     }
                 },
-                label = { Text("Contact Phone *") },
-                placeholder = { Text("Enter 10-digit phone number") },
+                label = { Text(stringResource(R.string.contact_phone_required)) },
+                placeholder = { Text(stringResource(R.string.enter_10_digit_phone)) },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1258,8 +1258,8 @@ private fun ContactDetailsStep(
             OutlinedTextField(
                 value = contactEmail,
                 onValueChange = onContactEmailChange,
-                label = { Text("Contact Email (Optional)") },
-                placeholder = { Text("Enter email address") },
+                label = { Text(stringResource(R.string.contact_email_optional)) },
+                placeholder = { Text(stringResource(R.string.enter_email_address)) },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -1444,7 +1444,7 @@ private fun ContactDetailsStep(
                 value = dateOfBirth,
                 onValueChange = { },
                 readOnly = true,
-                placeholder = { Text("Select your date of birth") },
+                placeholder = { Text(stringResource(R.string.select_date_of_birth)) },
                 leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
                 trailingIcon = {
                     IconButton(onClick = { showDatePicker = true }) {
@@ -1485,7 +1485,7 @@ private fun ContactDetailsStep(
                                 showDatePicker = false
                             }
                         ) {
-                            Text("OK")
+                            Text(stringResource(R.string.ok))
                         }
                     },
                     dismissButton = {

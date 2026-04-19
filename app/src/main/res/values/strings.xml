@@ -525,4 +525,50 @@
     <string name="gender_label">Gender</string>
     <string name="generate_new_code">Generate New Code</string>
     <string name="done_button">Done</string>
+
+    <!-- ========================================================== -->
+    <!-- Telugu localization batch (Apr 2026)                       -->
+    <!-- ========================================================== -->
+
+    <!-- Common -->
+    <string name="dismiss">Dismiss</string>
+    <string name="role_worker">Worker</string>
+    <string name="role_employer">Employer</string>
+
+    <!-- Role switch -->
+    <string name="switch_to_role_title">Switch to %1$s?</string>
+    <string name="switch_role_body">You are switching from %1$s to %2$s mode. Your active role will change and you will see the %2$s dashboard.</string>
+    <string name="yes_switch">Yes, Switch</string>
+    <string name="switch_role_title">Switch Role</string>
+    <string name="select_active_mode">Select your active mode</string>
+    <string name="switching_roles">Switching roles\u2026</string>
+    <string name="active_label">Active</string>
+    <string name="tap_to_switch_role">Tap to switch</string>
+
+    <!-- Home -->
+    <string name="view_analytics">View Analytics</string>
+
+    <!-- Profile / forms shared -->
+    <string name="full_name_required">Full Name *</string>
+    <string name="enter_full_name">Enter your full name</string>
+    <string name="email_address_verified">Email Address (Verified)</string>
+    <string name="email_address_optional">Email Address (Optional)</string>
+    <string name="enter_email">Enter your email</string>
+    <string name="phone_number_verified">Phone Number (Verified)</string>
+    <string name="phone_number_required">Phone Number *</string>
+    <string name="enter_10_digit_phone">Enter 10-digit phone number</string>
+    <string name="select_experience_level">Select your experience level</string>
+
+    <!-- Employer onboarding -->
+    <string name="company_name_required">Company Name *</string>
+    <string name="enter_company_name">Enter your company name</string>
+    <string name="company_size_label">Company Size</string>
+    <string name="select_company_size">Select company size</string>
+    <string name="gst_number_optional">GST Number (Optional)</string>
+    <string name="contact_phone_required">Contact Phone *</string>
+    <string name="contact_email_optional">Contact Email (Optional)</string>
+    <string name="enter_email_address">Enter email address</string>
+    <string name="select_date_of_birth">Select your date of birth</string>
+
+    <!-- Validation -->
 </resources>

@@ -514,4 +514,51 @@
     <string name="gender_label">లింగం</string>
     <string name="generate_new_code">కొత్త కోడ్ రూపొందించు</string>
     <string name="done_button">పూర్తయింది</string>
+
+    <!-- ========================================================== -->
+    <!-- Telugu localization batch (Apr 2026)                       -->
+    <!-- ========================================================== -->
+
+    <!-- Common -->
+    <string name="dismiss">తొలగించు</string>
+    <string name="role_worker">వర్కర్</string>
+    <string name="role_employer">ఎంప్లాయర్</string>
+
+    <!-- Role switch -->
+    <string name="switch_to_role_title">%1$s‌కి మారాలా?</string>
+    <string name="switch_role_body">మీరు %1$s నుండి %2$s మోడ్‌కి మారుతున్నారు. మీ యాక్టివ్ పాత్ర మారుతుంది మరియు మీరు %2$s డ్యాష్‌బోర్డ్‌ను చూస్తారు.</string>
+    <string name="yes_switch">అవును, మార్చు</string>
+    <string name="switch_role_title">పాత్ర మార్చు</string>
+    <string name="select_active_mode">మీ యాక్టివ్ మోడ్‌ను ఎంచుకోండి</string>
+    <string name="switching_roles">పాత్రలను మారుస్తోంది…</string>
+    <string name="active_label">యాక్టివ్</string>
+    <string name="tap_to_switch_role">మార్చేందుకు నొక్కండి</string>
+
+    <!-- Home -->
+    <string name="view_analytics">విశ్లేషణలను చూడండి</string>
+
+    <!-- Profile / forms shared -->
+    <string name="full_name_required">పూర్తి పేరు *</string>
+    <string name="enter_full_name">మీ పూర్తి పేరును నమోదు చేయండి</string>
+    <string name="email_address_verified">ఇమెయిల్ చిరునామా (ధృవీకరించబడింది)</string>
+    <string name="email_address_optional">ఇమెయిల్ చిరునామా (ఐచ్ఛికం)</string>
+    <string name="enter_email">మీ ఇమెయిల్‌ను నమోదు చేయండి</string>
+    <string name="phone_number_verified">ఫోన్ నంబర్ (ధృవీకరించబడింది)</string>
+    <string name="phone_number_required">ఫోన్ నంబర్ *</string>
+    <string name="enter_10_digit_phone">10-అంకెల ఫోన్ నంబర్ నమోదు చేయండి</string>
+    <string name="select_experience_level">మీ అనుభవ స్థాయిని ఎంచుకోండి</string>
+
+    <!-- Employer onboarding -->
+    <string name="company_name_required">కంపెనీ పేరు *</string>
+    <string name="enter_company_name">మీ కంపెనీ పేరును నమోదు చేయండి</string>
+    <string name="company_size_label">కంపెనీ పరిమాణం</string>
+    <string name="select_company_size">కంపెనీ పరిమాణాన్ని ఎంచుకోండి</string>
+    <string name="gst_number_optional">GST నంబర్ (ఐచ్ఛికం)</string>
+    <string name="contact_phone_required">సంప్రదింపు ఫోన్ *</string>
+    <string name="contact_email_optional">సంప్రదింపు ఇమెయిల్ (ఐచ్ఛికం)</string>
+    <string name="enter_email_address">ఇమెయిల్ చిరునామాను నమోదు చేయండి</string>
+    <string name="select_date_of_birth">మీ పుట్టిన తేదీని ఎంచుకోండి</string>
+
+    <!-- Validation -->
+    <string name="valid_job_location_required">చెల్లుబాటు అయ్యే ఉద్యోగ స్థానం అవసరం</string>
 </resources>

@@ -69,6 +69,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.collectAsState
@@ -98,6 +99,7 @@ import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import androidx.compose.ui.platform.LocalContext
+import com.dutype.app.R
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -429,7 +431,7 @@ fun EmployerHomeScreen(
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(onClick = { viewModel.clearError() }) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.dismiss))
                         }
                     }
                 }
@@ -776,7 +778,7 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             )
             if (onViewAnalytics != null) {
                 TextButton(onClick = onViewAnalytics) {
-                    Text("View Analytics", style = AppTypography.buttonMedium.copy(color = Color(0xFF2563EB)))
+                    Text(stringResource(R.string.view_analytics), style = AppTypography.buttonMedium.copy(color = Color(0xFF2563EB)))
                 }
             }
         }

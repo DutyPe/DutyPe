@@ -35,10 +35,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dutype.app.R
 import com.example.dutype.models.UserRole
 
 @Composable
@@ -52,22 +55,24 @@ fun RoleSwitchDialog(
 ) {
     if (!showDialog) return
 
+    val context = LocalContext.current
     var pendingSwitchRole by remember { mutableStateOf<UserRole?>(null) }
 
     // Confirmation AlertDialog
     pendingSwitchRole?.let { targetRole ->
+        val targetName = targetRole.displayName(context)
+        val currentName = currentRole.displayName(context)
         AlertDialog(
             onDismissRequest = { pendingSwitchRole = null },
             title = {
                 Text(
-                    text = "Switch to ${targetRole.displayName()}?",
+                    text = stringResource(R.string.switch_to_role_title, targetName),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
             text = {
                 Text(
-                    text = "You are switching from ${currentRole.displayName()} to ${targetRole.displayName()} mode. " +
-                        "Your active role will change and you will see the ${targetRole.displayName()} dashboard.",
+                    text = stringResource(R.string.switch_role_body, currentName, targetName),
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                 )
             },
@@ -79,7 +84,7 @@ fun RoleSwitchDialog(
                     }
                 ) {
                     Text(
-                        text = "Yes, Switch",
+                        text = stringResource(R.string.yes_switch),
                         color = when (targetRole) {
                             UserRole.WORKER -> Color(0xFF10B981)
                             UserRole.EMPLOYER -> Color(0xFF3B82F6)
@@ -91,7 +96,7 @@ fun RoleSwitchDialog(
             },
             dismissButton = {
                 TextButton(onClick = { pendingSwitchRole = null }) {
-                    Text("Cancel", color = Color(0xFF6B7280))
+                    Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
                 }
             },
             containerColor = Color.White
@@ -113,7 +118,7 @@ fun RoleSwitchDialog(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Switch Role",
+                text = stringResource(R.string.switch_role_title),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = Color(0xFF111827)
             )
@@ -121,7 +126,7 @@ fun RoleSwitchDialog(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Select your active mode",
+                text = stringResource(R.string.select_active_mode),
                 style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
             )
 
@@ -133,7 +138,7 @@ fun RoleSwitchDialog(
                     color = Color(0xFF3B82F6)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                Text("Switching roles…", color = Color(0xFF6B7280))
+                Text(stringResource(R.string.switching_roles), color = Color(0xFF6B7280))
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -161,7 +166,7 @@ fun RoleSwitchDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.cancel),
                     color = Color(0xFF6B7280),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -219,9 +224,10 @@ private fun RoleSquareBox(
                     ),
                 contentAlignment = Alignment.Center
             ) {
+                val context = LocalContext.current
                 Icon(
                     imageVector = icon,
-                    contentDescription = role.displayName(),
+                    contentDescription = role.displayName(context),
                     tint = if (isCurrent) accent else Color(0xFF9CA3AF),
                     modifier = Modifier.size(28.dp)
                 )
@@ -230,7 +236,7 @@ private fun RoleSquareBox(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = role.displayName(),
+                text = role.displayName(LocalContext.current),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
                     color = if (isCurrent) Color(0xFF111827) else Color(0xFF6B7280),
@@ -248,13 +254,13 @@ private fun RoleSquareBox(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Active",
+                        contentDescription = stringResource(R.string.active_label),
                         tint = accent,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Active",
+                        text = stringResource(R.string.active_label),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = accent,
                             fontWeight = FontWeight.SemiBold
@@ -263,7 +269,7 @@ private fun RoleSquareBox(
                 }
             } else {
                 Text(
-                    text = "Tap to switch",
+                    text = stringResource(R.string.tap_to_switch_role),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Color(0xFF9CA3AF)
                     )
@@ -273,6 +279,14 @@ private fun RoleSquareBox(
     }
 }
 
-private fun UserRole.displayName(): String {
-    return name.lowercase().replaceFirstChar { it.uppercase() }
+/**
+ * Returns the localized display name ("Worker" / "Employer" or Telugu equivalents)
+ * for a UserRole, using the supplied context's locale.
+ */
+private fun UserRole.displayName(context: android.content.Context): String {
+    return when (this) {
+        UserRole.WORKER -> context.getString(R.string.role_worker)
+        UserRole.EMPLOYER -> context.getString(R.string.role_employer)
+        else -> name.lowercase().replaceFirstChar { it.uppercase() }
+    }
 }

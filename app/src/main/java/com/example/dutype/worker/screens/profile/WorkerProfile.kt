@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1139,7 +1140,7 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newName,
                             onValueChange = { newName = it },
-                            label = { Text("Full Name") },
+                            label = { Text(stringResource(R.string.full_name)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Person, contentDescription = null)
                             },
@@ -1157,7 +1158,7 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newEmail,
                             onValueChange = { /* Email cannot be changed */ },
-                            label = { Text("Email Address") },
+                            label = { Text(stringResource(R.string.email_address)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Email, contentDescription = null)
                             },
@@ -1177,7 +1178,7 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newPhone,
                             onValueChange = { /* Phone cannot be changed */ },
-                            label = { Text("Phone Number") },
+                            label = { Text(stringResource(R.string.phone_number)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Phone, contentDescription = null)
                             },
@@ -1205,7 +1206,7 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newAddress,
                             onValueChange = { newAddress = it },
-                            label = { Text("Address") },
+                            label = { Text(stringResource(R.string.address)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Home, contentDescription = null)
                             },
@@ -1223,8 +1224,8 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newDateOfBirth,
                             onValueChange = { newDateOfBirth = it },
-                            label = { Text("Date of Birth") },
-                            placeholder = { Text("DD/MM/YYYY") },
+                            label = { Text(stringResource(R.string.date_of_birth)) },
+                            placeholder = { Text(stringResource(R.string.dob_placeholder)) },
                             leadingIcon = {
                                 Icon(Icons.Default.DateRange, contentDescription = null)
                             },
@@ -1242,7 +1243,7 @@ private fun ModernEditDialog(
                         OutlinedTextField(
                             value = newGender,
                             onValueChange = { newGender = it },
-                            label = { Text("Gender") },
+                            label = { Text(stringResource(R.string.gender)) },
                             leadingIcon = {
                                 Icon(Icons.Default.Person, contentDescription = null)
                             },
@@ -1269,7 +1270,7 @@ private fun ModernEditDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Cancel", color = Color(0xFF6B7280))
+                        Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
                     }
                     
                     Button(
@@ -1290,7 +1291,7 @@ private fun ModernEditDialog(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Save Changes")
+                        Text(stringResource(R.string.save_changes))
                     }
                 }
             }
