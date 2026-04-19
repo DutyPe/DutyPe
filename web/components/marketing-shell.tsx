@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import type { MarketingTreeNode } from "@/lib/marketing-content";
 
@@ -221,5 +223,18 @@ export function CsvTable({ csv }: { csv: string }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Renders a markdown document with GitHub-flavored markdown (tables, task
+ * lists, strikethrough, autolinks). Used by /admin/marketing/[[...slug]] to
+ * display .md files from the moved /growth and /marketing folders.
+ */
+export function MarkdownView({ source }: { source: string }) {
+  return (
+    <article className="marketing-doc-md">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{source}</ReactMarkdown>
+    </article>
   );
 }

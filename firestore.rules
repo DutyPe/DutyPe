@@ -17,6 +17,36 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
 
+    // ── Admin authorization ──────────────────────────────────────────
+    // Mirrors web/lib/firebase/admin-access.ts so the Next.js admin webapp
+    // can read/write tooling collections (users, referrals, referral_codes,
+    // app_config, etc.) directly from the browser using the signed-in admin's
+    // ID token. Cloud Functions and the Admin SDK keep bypassing rules entirely.
+    //
+    // An admin is anyone who satisfies ANY of:
+    //   • request.auth.token.admin == true
+    //   • request.auth.token.role == 'ADMIN'
+    //   • request.auth.token.activeRole == 'ADMIN'
+    //   • request.auth.token.email ends with '@dutype.com'
+    //   • request.auth.token.email is in the legacy allowlist
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.get('admin', false) == true) ||
+        (request.auth.token.get('role', '') == 'ADMIN') ||
+        (request.auth.token.get('activeRole', '') == 'ADMIN') ||
+        (request.auth.token.get('email', '') is string &&
+          (
+            request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
+            request.auth.token.email.lower() in [
+              'admin@dutype.com',
+              'vamsi@dutype.com',
+              'vamsib298@gmail.com'
+            ]
+          )
+        )
+      );
+    }
+
     function validLatLng(loc) {
       return loc is map &&
         loc.keys().hasOnly(['lat', 'lng']) &&
@@ -34,6 +64,10 @@ service cloud.firestore {
     // ── users ──────────────────────────────────────────────────────────
     // Source of truth for identity. Trust fields (isVerified, isActive) are CF-only.
     match /users/{userId} {
+      // Admins (DutyPe internal staff) need full read/write for the Next.js
+      // admin tooling (user list, referral utilities, etc).
+      allow read, write: if isAdmin();
+
       allow get, list: if isSelf(userId);
 
       allow create: if isSelf(userId) &&
@@ -128,6 +162,8 @@ service cloud.firestore {
     // employs this worker. Use a callable CF (`getWorkerProfileForEmployer({jobId, workerId})`)
     // that asserts `exists(applications/{jobId}_{workerId})` && employerId == auth.uid.
     match /worker_profiles/{userId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSelf(userId);
       allow list: if false;
 
@@ -163,6 +199,8 @@ service cloud.firestore {
     // ── employer_profiles ─────────────────────────────────────────────
     // Profile-owned fields only. Aggregates (rating, totalRatings, totalHires, isVerified) are CF-only.
     match /employer_profiles/{userId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSelf(userId);
       allow list: if false;
 
@@ -191,6 +229,8 @@ service cloud.firestore {
     // ── jobmetadata ────────────────────────────────────────────────────
     // Public card-list payload. Tiny. Everything else is in job_details.
     match /jobmetadata/{jobId} {
+      allow read, write: if isAdmin();
+
       allow get, list: if true;
 
       allow create: if isSignedIn() &&
@@ -251,6 +291,8 @@ service cloud.firestore {
     // ── job_details ────────────────────────────────────────────────────
     // Private, auth-required. Holds ONLY fields not present in jobmetadata.
     match /job_details/{jobId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSignedIn();
       allow list: if false;
 
@@ -302,6 +344,8 @@ service cloud.firestore {
     // ── applications ──────────────────────────────────────────────────
     // Deterministic doc id: {jobId}_{workerId}.
     match /applications/{applicationId} {
+      allow read, write: if isAdmin();
+
       function appDocOwnedByCaller() {
         return applicationId.matches('^.+_' + request.auth.uid + '$');
       }
@@ -470,6 +514,8 @@ service cloud.firestore {
     // ── referrals ─────────────────────────────────────────────────────
     // Rewards are server-derived; no money fields client-writable.
     match /referrals/{referralId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSignedIn() &&
         (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
       allow list: if isSignedIn() &&
@@ -498,6 +544,8 @@ service cloud.firestore {
     // ── referral_stats ────────────────────────────────────────────────
     // Cloud Functions only.
     match /referral_stats/{userId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSelf(userId);
       allow list: if false;
       allow create, update, delete: if false;
@@ -507,6 +555,8 @@ service cloud.firestore {
     // Read allowed by deterministic code match. Creation is CF-only (derives userName
     // from the authenticated user record to prevent brand impersonation).
     match /referral_codes/{code} {
+      allow read, write: if isAdmin();
+
       allow get: if code.matches('^[A-Za-z0-9]{7,10}$') &&
         (resource == null || resource.data.isActive == true);
       allow list: if false;
@@ -522,6 +572,8 @@ service cloud.firestore {
     // ── announcements ─────────────────────────────────────────────────
     // Public read, admin-only write via Admin SDK.
     match /announcements/{announcementId} {
+      allow read, write: if isAdmin();
+
       allow get, list: if true;
       allow create, update, delete: if false;
     }
@@ -529,6 +581,8 @@ service cloud.firestore {
     // ── notifications ─────────────────────────────────────────────────
     // CF-only writes. Recipient may only mark read / delete own notifications.
     match /notifications/{notificationId} {
+      allow read, write: if isAdmin();
+
       allow get: if isSignedIn() && resource.data.recipientId == request.auth.uid;
       allow list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
 
@@ -546,6 +600,8 @@ service cloud.firestore {
     // Public read (clients listen to e.g. /app_config/referral for dynamic
     // reward amounts). Writes are CF/admin-only via Admin SDK.
     match /app_config/{doc} {
+      allow read, write: if isAdmin();
+
       allow get: if true;
       allow list: if false;
       allow create, update, delete: if false;

@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
-import { CsvTable, MarketingShell } from "@/components/marketing-shell";
+import { CsvTable, MarketingShell, MarkdownView } from "@/components/marketing-shell";
 import {
   getMarketingTree,
   readMarketingFile,
@@ -69,7 +69,7 @@ export default function MarketingDocPage({
         {ext === ".csv" ? (
           <CsvTable csv={raw} />
         ) : (
-          <pre className="marketing-doc">{raw}</pre>
+          <MarkdownView source={raw} />
         )}
       </MarketingShell>
     </AdminAuthGate>
