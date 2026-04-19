@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.services.ReportType
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Report Job Bottom Sheet - Improved Design
@@ -514,7 +516,7 @@ private fun SuccessContent(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Done", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(stringResource(R.string.done), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
     }
 }

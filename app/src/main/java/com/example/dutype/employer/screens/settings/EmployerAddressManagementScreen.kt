@@ -68,6 +68,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import com.example.dutype.components.EmptyListState
 import com.example.dutype.components.EmptyStateAction
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -204,7 +206,7 @@ fun EmployerAddressManagementScreen(
                     OutlinedTextField(
                         value = officeName,
                         onValueChange = { officeName = it },
-                        label = { Text("Office Name") },
+                        label = { Text(stringResource(R.string.office_name)) },
                         placeholder = { Text("e.g., Main Office, Branch") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -244,8 +246,8 @@ fun EmployerAddressManagementScreen(
                                     placeSuggestions = emptyList()
                                 }
                             },
-                            label = { Text("Search or Enter Address") },
-                            placeholder = { Text("Search location or enter address") },
+                            label = { Text(stringResource(R.string.search_or_enter_address)) },
+                            placeholder = { Text(stringResource(R.string.search_location_or_enter_address)) },
                             singleLine = false,
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth(),
@@ -405,7 +407,7 @@ fun EmployerAddressManagementScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Saving...")
+                            Text(stringResource(R.string.saving))
                         } else {
                             Icon(
                                 Icons.Default.Add,
@@ -413,7 +415,7 @@ fun EmployerAddressManagementScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Add Address")
+                            Text(stringResource(R.string.add_address))
                         }
                     }
                 }

@@ -142,7 +142,7 @@ fun WorkerReferEarnScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { viewModel.loadReferralData() }) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -567,7 +567,7 @@ private fun ReferralCodeSection(
                 ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Copy", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.copy_button), fontWeight = FontWeight.SemiBold)
                 }
                 
                 Button(
@@ -578,7 +578,7 @@ private fun ReferralCodeSection(
                 ) {
                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Share", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.share_button), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -614,11 +614,11 @@ private fun StatsGrid(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Total Referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(totalReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Successful", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
@@ -632,11 +632,11 @@ private fun StatsGrid(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Total Earned", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("Rs.${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
@@ -989,7 +989,7 @@ private fun WithdrawDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Withdraw Earnings", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text("Available: Rs.${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
@@ -997,7 +997,7 @@ private fun WithdrawDialog(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Amount (Rs.)") },
+                    label = { Text(stringResource(R.string.amount_rs)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -1005,7 +1005,7 @@ private fun WithdrawDialog(
                 OutlinedTextField(
                     value = upiId,
                     onValueChange = { upiId = it },
-                    label = { Text("UPI ID") },
+                    label = { Text(stringResource(R.string.upi_id)) },
                     placeholder = { Text("yourname@upi") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -1085,7 +1085,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Conversion Rate", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(
                         "${String.format("%.1f", analytics.conversionRate)}%",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1095,7 +1095,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Total Clicks", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(
                         analytics.totalClicks.toString(),
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1116,7 +1116,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Your Rank", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(
                         "#${analytics.rankOverall}",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1126,7 +1126,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Top Percentile", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(
                         "Top ${analytics.percentile}%",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1149,7 +1149,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                         Text(
                         "Rs.${analytics.projectedMonthlyEarnings}",
                             style = MaterialTheme.typography.titleLarge.copy(

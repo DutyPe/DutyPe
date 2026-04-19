@@ -520,7 +520,7 @@ fun JobMapScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Change Location")
+                            Text(stringResource(R.string.change_location))
                         }
 
                         Button(
@@ -792,7 +792,7 @@ private fun EnhancedJobMapCard(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Navigate", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.navigate), fontWeight = FontWeight.SemiBold)
                 }
                 
                 // View details button
@@ -802,7 +802,7 @@ private fun EnhancedJobMapCard(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
                 ) {
-                    Text("View Details", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.view_details), fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         Icons.Default.ArrowForward,

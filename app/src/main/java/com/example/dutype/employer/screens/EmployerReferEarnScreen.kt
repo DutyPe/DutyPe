@@ -129,7 +129,7 @@ fun EmployerReferEarnScreen(
                         Spacer(Modifier.height(16.dp))
                         Text(uiState.error ?: "Something went wrong", color = Color(0xFF6B7280))
                         Spacer(Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadReferralData() }) { Text("Retry") }
+                        Button(onClick = { viewModel.loadReferralData() }) { Text(stringResource(R.string.retry)) }
                     }
                 }
             }
@@ -349,7 +349,7 @@ Find reliable workers for your business and earn Rs.${referralConfig.signupBonus
                 Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(10.dp))
-                    Text("Code copied!", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.code_copied), color = Color.White, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -437,7 +437,7 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
 
             Spacer(Modifier.height(12.dp))
 
-            Text("Your Referral Code", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF6B7280)))
+            Text(stringResource(R.string.your_referral_code), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF6B7280)))
             Spacer(Modifier.height(8.dp))
 
             Box(
@@ -448,18 +448,18 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text("Share this code → friend gets ₹25 bonus!", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
+            Text(stringResource(R.string.share_code_friend_bonus), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Copy", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.copy_button), fontWeight = FontWeight.SemiBold)
                 }
                 Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Share", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.share_button), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -476,16 +476,16 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, totalEarnings: Double, availableBalance: Double) {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Your Stats", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.your_stats), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Total Referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(totalReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Successful", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
@@ -496,11 +496,11 @@ private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, tot
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Total Earned", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("Rs.${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
@@ -533,7 +533,7 @@ private fun FreeJobPostingsCard(freePostings: Int, expiryDate: Long) {
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Free Job Postings", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF4338CA)))
+                Text(stringResource(R.string.free_job_postings), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF4338CA)))
                 Text("$freePostings posts available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6366F1)))
                 Text("Expires: $expiryStr", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF818CF8)))
             }
@@ -548,7 +548,7 @@ private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Available to Withdraw", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.available_to_withdraw), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                 Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             }
             Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
@@ -566,7 +566,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
     
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-            Text("Next Milestone", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.next_milestone), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(12.dp))
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
@@ -594,7 +594,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
 private fun EmployerHowItWorksCard() {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("How It Works", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.how_it_works), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val steps = listOf(
                 "Share your referral code with employers or workers",
@@ -623,7 +623,7 @@ private fun EmployerHowItWorksCard() {
 private fun EmployerRewardsCard() {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Rewards & Milestones", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.rewards_milestones), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val rewards = listOf(
                 "You earn Rs.25 for every successful referral",
@@ -655,7 +655,7 @@ private fun EmployerRewardsCard() {
 private fun EmployerRedemptionInstructionsCard() {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("How to Redeem", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.how_to_redeem), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
 
             Text(
@@ -702,7 +702,7 @@ private fun EmployerRedemptionInstructionsCard() {
 private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
     Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Recent Referrals", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+            Text(stringResource(R.string.recent_referrals), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             if (referralHistory.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
@@ -801,14 +801,14 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Withdraw Earnings", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text("Available: Rs.${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
                 Spacer(Modifier.height(16.dp))
-                OutlinedTextField(value = amount, onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Amount (Rs.)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = amount, onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(stringResource(R.string.amount_rs)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value = upiId, onValueChange = { upiId = it }, label = { Text("UPI ID") }, placeholder = { Text("yourname@upi") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = upiId, onValueChange = { upiId = it }, label = { Text(stringResource(R.string.upi_id)) }, placeholder = { Text("yourname@upi") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(error!!, color = Color(0xFFEF4444), style = MaterialTheme.typography.bodySmall)
@@ -855,7 +855,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Performance Analytics", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
+                Text(stringResource(R.string.performance_analytics), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             }
             
             Spacer(Modifier.height(16.dp))
@@ -863,11 +863,11 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
             // Conversion Rate
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Conversion Rate", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("${String.format("%.1f", analytics.conversionRate)}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Total Clicks", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(analytics.totalClicks.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
             }
@@ -879,11 +879,11 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
             // Rankings
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Your Rank", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("#${analytics.rankOverall}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Top Percentile", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text("Top ${analytics.percentile}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
                 }
             }
@@ -896,7 +896,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 // Projected Earnings
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("Projected Monthly", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                         Text("Rs.${analytics.projectedMonthlyEarnings}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
                     }
                     Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
@@ -914,7 +914,7 @@ private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Top Performers", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                Text(stringResource(R.string.top_performers), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
             }
             
             Spacer(Modifier.height(12.dp))
@@ -944,7 +944,7 @@ private fun EmployerLegalDisclaimerCard() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Important Information", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                Text(stringResource(R.string.important_information), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
             }
             
             Spacer(Modifier.height(12.dp))
@@ -957,7 +957,7 @@ private fun EmployerLegalDisclaimerCard() {
             
             Spacer(Modifier.height(8.dp))
             
-            Text("By participating, you agree to our Terms & Conditions and RBI guidelines.", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+            Text(stringResource(R.string.terms_rbi_consent), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
         }
     }
 }

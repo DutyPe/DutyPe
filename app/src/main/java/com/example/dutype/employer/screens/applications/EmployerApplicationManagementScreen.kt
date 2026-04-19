@@ -709,7 +709,7 @@ private fun ApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Reject", style = AppTypography.labelLarge)
+                        Text(stringResource(R.string.reject), style = AppTypography.labelLarge)
                     }
 
                     Button(
@@ -724,7 +724,7 @@ private fun ApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Accept", style = AppTypography.labelLarge, color = Color.White)
+                        Text(stringResource(R.string.accept), style = AppTypography.labelLarge, color = Color.White)
                     }
                 }
             }
@@ -940,7 +940,7 @@ private fun ContactUnlockDialog(
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Processing...")
+                    Text(stringResource(R.string.processing))
                 } else {
                     Icon(
                         imageVector = Icons.Default.LockOpen,

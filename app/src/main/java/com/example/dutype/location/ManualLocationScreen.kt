@@ -62,6 +62,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 
 @Composable
@@ -425,8 +427,8 @@ fun ManualLocationScreen(navController: NavController) {
                                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                                     Icon(Icons.Default.LocationOff, contentDescription = "No results", tint = Color(0xFFBDBDBD), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                                                     Spacer(modifier = Modifier.height(8.dp))
-                                                    Text(text = "No locations found", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9E9E9E)), textAlign = TextAlign.Center)
-                                                    Text(text = "Try a different search term", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBDBDBD)), textAlign = TextAlign.Center)
+                                                    Text(text = stringResource(R.string.no_locations_found), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9E9E9E)), textAlign = TextAlign.Center)
+                                                    Text(text = stringResource(R.string.try_different_search), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBDBDBD)), textAlign = TextAlign.Center)
                                                 }
                                             }
                                         }

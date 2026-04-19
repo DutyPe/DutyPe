@@ -401,7 +401,7 @@ private fun ProfessionalWorkerProfileHeader(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Contact", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.contact), style = MaterialTheme.typography.bodySmall)
                 }
             }
             
@@ -811,7 +811,7 @@ private fun ActionButtonsCard(
                 ) {
                     Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Shortlist", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.shortlist), style = MaterialTheme.typography.bodySmall)
                 }
             }
             
@@ -829,7 +829,7 @@ private fun ActionButtonsCard(
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reject", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -878,7 +878,7 @@ private fun ApplicationActionDialog(
                     }
                 )
             ) {
-                Text("Confirm")
+                Text(stringResource(R.string.confirm))
             }
         },
         dismissButton = {
@@ -959,7 +959,7 @@ private fun ErrorWorkerProfileState(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
             }
         }

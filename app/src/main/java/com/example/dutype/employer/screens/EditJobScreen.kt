@@ -518,10 +518,10 @@ fun EditJobScreen(
                                         color = Color.White,
                                         strokeWidth = 2.dp
                                     )
-                                    Text("Updating...", color = Color.White, fontWeight = FontWeight.Medium)
+                                    Text(stringResource(R.string.updating), color = Color.White, fontWeight = FontWeight.Medium)
                                 }
                             } else {
-                                Text("Update Job", fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.update_job), fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -705,7 +705,7 @@ fun EditJobScreen(
                             OutlinedTextField(
                                 value = payAmount,
                                 onValueChange = { payAmount = it },
-                                label = { Text("Amount") },
+                                label = { Text(stringResource(R.string.amount)) },
                                 placeholder = { Text("e.g., 500", color = Color(0xFF9CA3AF)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(2f),
@@ -940,7 +940,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            placeholder = { Text("Describe the job responsibilities and requirements...", color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.describe_job_placeholder), color = Color(0xFF9CA3AF)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
@@ -996,7 +996,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = contactNumber,
                             onValueChange = { contactNumber = it },
-                            label = { Text("Contact Number") },
+                            label = { Text(stringResource(R.string.contact_number_label)) },
                             placeholder = { Text("e.g., +91 9876543210", color = Color(0xFF9CA3AF)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
@@ -1010,8 +1010,8 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = employerName,
                             onValueChange = { employerName = it },
-                            label = { Text("Your Name (Optional)") },
-                            placeholder = { Text("Enter your name", color = Color(0xFF9CA3AF)) },
+                            label = { Text(stringResource(R.string.your_name_optional)) },
+                            placeholder = { Text(stringResource(R.string.enter_your_name), color = Color(0xFF9CA3AF)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
@@ -1119,7 +1119,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = vacancies,
                             onValueChange = { vacancies = it },
-                            label = { Text("Number of Vacancies") },
+                            label = { Text(stringResource(R.string.number_of_vacancies)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -1231,8 +1231,8 @@ fun EditJobScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Job") },
-            text = { Text("Are you sure you want to delete this job posting? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_job)) },
+            text = { Text(stringResource(R.string.delete_job_confirm)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1250,10 +1250,10 @@ fun EditJobScreen(
                                 modifier = Modifier.size(16.dp),
                                 color = MaterialTheme.colorScheme.error
                             )
-                            Text("Deleting...", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.deleting), color = MaterialTheme.colorScheme.error)
                         }
                     } else {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
@@ -1288,8 +1288,8 @@ fun EditJobScreen(
                     OutlinedTextField(
                         value = locationLabel,
                         onValueChange = { locationLabel = it },
-                        label = { Text("Label (e.g., Office, Factory, Shop)") },
-                        placeholder = { Text("Enter label") },
+                        label = { Text(stringResource(R.string.address_label_hint)) },
+                        placeholder = { Text(stringResource(R.string.enter_label)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
@@ -1435,7 +1435,7 @@ fun EditJobScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSavedLocationsSheet = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.close))
                 }
             }
         )

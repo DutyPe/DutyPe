@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Rating Bottom Sheet for rating employers/workers after job completion.
@@ -184,8 +186,8 @@ fun RatingBottomSheet(
                 value = reviewText,
                 onValueChange = { if (it.length <= 300) reviewText = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Write a review (optional)") },
-                placeholder = { Text("Share your experience...") },
+                label = { Text(stringResource(R.string.write_review_optional)) },
+                placeholder = { Text(stringResource(R.string.review_hint)) },
                 minLines = 2,
                 maxLines = 4,
                 shape = RoundedCornerShape(12.dp),

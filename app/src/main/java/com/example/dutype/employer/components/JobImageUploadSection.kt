@@ -55,6 +55,8 @@ import androidx.core.content.FileProvider
 import com.example.dutype.components.OptimizedJobImage
 import timber.log.Timber
 import java.io.File
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Job Image Upload Section for PostJobScreen
@@ -244,7 +246,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Gallery", fontSize = 13.sp)
+                            Text(stringResource(R.string.gallery), fontSize = 13.sp)
                         }
                         
                         OutlinedButton(
@@ -265,7 +267,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Camera", fontSize = 13.sp)
+                            Text(stringResource(R.string.camera), fontSize = 13.sp)
                         }
                     }
                 }
@@ -334,7 +336,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Gallery", fontSize = 13.sp)
+                            Text(stringResource(R.string.gallery), fontSize = 13.sp)
                         }
                         
                         Button(
@@ -359,7 +361,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Camera", fontSize = 13.sp)
+                            Text(stringResource(R.string.camera), fontSize = 13.sp)
                         }
                     }
                 }

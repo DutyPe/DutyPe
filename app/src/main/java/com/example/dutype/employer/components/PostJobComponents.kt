@@ -51,11 +51,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dutype.app.R
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobUrgency
@@ -80,7 +82,7 @@ fun PayTypeDropdown(
             value = selectedType.displayName,
             onValueChange = { },
             readOnly = true,
-            label = { Text("Pay Type") },
+            label = { Text(stringResource(R.string.pay_type)) },
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
@@ -162,7 +164,7 @@ fun CategorySelectionGrid(
             androidx.compose.material3.OutlinedTextField(
                 value = customCategory,
                 onValueChange = onCustomCategoryChange,
-                label = { Text("Enter Job Type") },
+                label = { Text(stringResource(R.string.enter_job_type)) },
                 placeholder = { Text("e.g., Tailor, Mechanic, Tutor, Beautician") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -450,7 +452,7 @@ fun PostJobBottomBar(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Preview")
+                Text(stringResource(R.string.preview_button))
             }
 
             Button(
@@ -475,7 +477,7 @@ fun PostJobBottomBar(
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Post Job")
+                Text(stringResource(R.string.post_job_button))
             }
         }
     }
@@ -634,7 +636,7 @@ fun PaymentSection(
                 OutlinedTextField(
                     value = payAmount,
                     onValueChange = onPayAmountChange,
-                    label = { Text("Amount") },
+                    label = { Text(stringResource(R.string.amount)) },
                     placeholder = { Text("e.g., 10000 or 11000-15000") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     modifier = Modifier.weight(2f),
@@ -686,7 +688,7 @@ fun LocationSection(
             OutlinedTextField(
                 value = location,
                 onValueChange = onLocationChange,
-                placeholder = { Text("Enter location or use GPS") },
+                placeholder = { Text(stringResource(R.string.enter_location_or_gps)) },
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
                     Icon(Icons.Default.LocationOn, contentDescription = null)
@@ -745,14 +747,14 @@ fun VacanciesSection(
                         }
                     }
                 },
-                label = { Text("Vacancies (Max 50)") },
-                placeholder = { Text("Enter number of positions") },
+                label = { Text(stringResource(R.string.vacancies_max_50)) },
+                placeholder = { Text(stringResource(R.string.enter_number_of_positions)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 isError = isError,
                 supportingText = if (isError) {
-                    { Text("Maximum 50 vacancies allowed for hyper-local jobs", color = Color(0xFFDC2626)) }
+                    { Text(stringResource(R.string.max_50_vacancies_hint), color = Color(0xFFDC2626)) }
                 } else null,
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = {
@@ -807,7 +809,7 @@ fun ContactSection(
             OutlinedTextField(
                 value = contactNumber,
                 onValueChange = onContactNumberChange,
-                label = { Text("Contact Number") },
+                label = { Text(stringResource(R.string.contact_number_label)) },
                 placeholder = { Text("+91 9876543210") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
@@ -831,8 +833,8 @@ fun ContactSection(
             OutlinedTextField(
                 value = employerName,
                 onValueChange = onEmployerNameChange,
-                label = { Text("Your Name") },
-                placeholder = { Text("Enter your name") },
+                label = { Text(stringResource(R.string.your_name)) },
+                placeholder = { Text(stringResource(R.string.enter_your_name)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),

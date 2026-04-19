@@ -759,7 +759,7 @@ private fun JobDetailsContent(
         //             ) {
         //                 Text("🏛️", style = MaterialTheme.typography.bodyMedium)
         //                 Spacer(modifier = Modifier.width(8.dp))
-        //                 Text("Near: ", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF166534)))
+        //                 Text(stringResource(R.string.near_label), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF166534)))
         //                 Text(job.landmark, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF166534)))
         //             }
         //         }
@@ -987,7 +987,7 @@ private fun JobDetailsContent(
                     //     Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
                     //     Spacer(modifier = Modifier.height(16.dp))
                     //     
-                    //     Text("Requirements", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                    //     Text(stringResource(R.string.requirements), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
                     //     
                     //     Spacer(modifier = Modifier.height(12.dp))
                     //     
@@ -1030,7 +1030,7 @@ private fun JobDetailsContent(
                         onClick = onReportClick,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text("Report", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)))
+                        Text(stringResource(R.string.report), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)))
                     }
                 }
             }

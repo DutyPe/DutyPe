@@ -524,7 +524,7 @@ private fun JobManagementDialog(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Applications")
+                    Text(stringResource(R.string.applications))
                 }
                 
                 // Edit Job

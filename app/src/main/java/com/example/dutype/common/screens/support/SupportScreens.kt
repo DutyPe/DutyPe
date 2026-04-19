@@ -15,8 +15,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 
@@ -31,7 +33,7 @@ fun ContactUsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Contact Us") },
+                title = { Text(stringResource(R.string.contact_us)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -74,7 +76,7 @@ fun ContactUsScreen(
                 ) {
                     Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Column {
-                        Text("Email Support", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.email_support), fontWeight = FontWeight.SemiBold)
                         Text("support@dutypeapp.com", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -94,8 +96,8 @@ fun ContactUsScreen(
                 ) {
                     Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Column {
-                        Text("WhatsApp Support", fontWeight = FontWeight.SemiBold)
-                        Text("Message us on WhatsApp", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.whatsapp_support), fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.whatsapp_support_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -261,7 +263,7 @@ fun HelpMainScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search help topics") },
+                placeholder = { Text(stringResource(R.string.search_help_topics)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -553,7 +555,7 @@ fun ReportProblemScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Report a Problem") },
+                title = { Text(stringResource(R.string.report_a_problem)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -571,16 +573,16 @@ fun ReportProblemScreen(
         ) {
             if (submitted) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp).align(Alignment.CenterHorizontally))
-                Text("Report Submitted", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-                Text("Thank you for reporting. We'll look into this.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
-                Button(onClick = { navController.popBackStack() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Go Back") }
+                Text(stringResource(R.string.report_submitted), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
+                Text(stringResource(R.string.report_submitted_thanks), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
+                Button(onClick = { navController.popBackStack() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.go_back)) }
             } else {
-                Text("Report a Problem", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Describe the issue you're facing and we'll investigate.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.report_a_problem), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.describe_issue_intro), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(
                     value = reportText,
                     onValueChange = { reportText = it },
-                    label = { Text("Describe the problem") },
+                    label = { Text(stringResource(R.string.describe_problem)) },
                     modifier = Modifier.fillMaxWidth().height(200.dp),
                     maxLines = 10
                 )
@@ -588,7 +590,7 @@ fun ReportProblemScreen(
                     onClick = { submitted = true },
                     enabled = reportText.length >= 10,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Submit Report") }
+                ) { Text(stringResource(R.string.submit_report)) }
             }
         }
     }
@@ -603,7 +605,7 @@ fun TutorialScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tutorial") },
+                title = { Text(stringResource(R.string.tutorial)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

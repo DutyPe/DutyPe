@@ -561,4 +561,89 @@
 
     <!-- Validation -->
     <string name="valid_job_location_required">చెల్లుబాటు అయ్యే ఉద్యోగ స్థానం అవసరం</string>
+
+    <!-- Batch 2: Refer & Earn, Support, Edit/Post Job -->
+    <string name="copy_button">కాపీ</string>
+    <string name="share_button">షేర్</string>
+    <string name="code_copied">కోడ్ కాపీ చేయబడింది!</string>
+    <string name="your_referral_code">మీ రిఫరల్ కోడ్</string>
+    <string name="share_code_friend_bonus">ఈ కోడ్‌ను షేర్ చేయండి → స్నేహితుడికి ₹25 బోనస్!</string>
+    <string name="your_stats">మీ గణాంకాలు</string>
+    <string name="free_job_postings">ఉచిత ఉద్యోగ పోస్టింగ్‌లు</string>
+    <string name="available_to_withdraw">విత్‌డ్రా చేయడానికి అందుబాటులో</string>
+    <string name="next_milestone">తదుపరి మైలురాయి</string>
+    <string name="how_it_works">ఇది ఎలా పని చేస్తుంది</string>
+    <string name="rewards_milestones">రివార్డులు మరియు మైలురాళ్లు</string>
+    <string name="how_to_redeem">ఎలా రిడీమ్ చేయాలి</string>
+    <string name="recent_referrals">ఇటీవలి రిఫరల్స్</string>
+    <string name="amount_rs">మొత్తం (రూ.)</string>
+    <string name="performance_analytics">పనితీరు విశ్లేషణ</string>
+    <string name="top_percentile">టాప్ పర్సంటైల్</string>
+    <string name="top_performers">అగ్ర పనితీరు</string>
+    <string name="important_information">ముఖ్యమైన సమాచారం</string>
+    <string name="terms_rbi_consent">పాల్గొనడం ద్వారా, మీరు మా నిబంధనలు, షరతులు మరియు RBI మార్గదర్శకాలకు అంగీకరిస్తున్నారు.</string>
+
+    <!-- Support -->
+    <string name="email_support">ఇమెయిల్ సపోర్ట్</string>
+    <string name="whatsapp_support">వాట్సాప్ సపోర్ట్</string>
+    <string name="whatsapp_support_subtitle">మాకు వాట్సాప్‌లో సందేశం పంపండి</string>
+    <string name="search_help_topics">సహాయ అంశాలను శోధించండి</string>
+    <string name="report_a_problem">సమస్యను నివేదించండి</string>
+    <string name="report_submitted">నివేదిక సమర్పించబడింది</string>
+    <string name="report_submitted_thanks">నివేదించినందుకు ధన్యవాదాలు. మేము దీన్ని పరిశీలిస్తాము.</string>
+    <string name="describe_issue_intro">మీరు ఎదుర్కొంటున్న సమస్యను వివరించండి, మేము విచారిస్తాము.</string>
+    <string name="describe_problem">సమస్యను వివరించండి</string>
+    <string name="submit_report">నివేదికను సమర్పించు</string>
+    <string name="tutorial">ట్యుటోరియల్</string>
+
+    <!-- Edit/Post job -->
+    <string name="updating">అప్‌డేట్ అవుతోంది...</string>
+    <string name="update_job">ఉద్యోగాన్ని అప్‌డేట్ చేయండి</string>
+    <string name="amount">మొత్తం</string>
+    <string name="describe_job_placeholder">ఉద్యోగ బాధ్యతలు మరియు అవసరాలను వివరించండి...</string>
+    <string name="contact_number_label">సంప్రదింపు నంబర్</string>
+    <string name="your_name_optional">మీ పేరు (ఐచ్ఛికం)</string>
+    <string name="enter_your_name">మీ పేరును నమోదు చేయండి</string>
+    <string name="number_of_vacancies">ఖాళీల సంఖ్య</string>
+    <string name="delete_job">ఉద్యోగాన్ని తొలగించండి</string>
+    <string name="delete_job_confirm">ఈ ఉద్యోగ పోస్టింగ్‌ను తొలగించాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయలేరు.</string>
+    <string name="deleting">తొలగించబడుతోంది...</string>
+    <string name="delete">తొలగించు</string>
+    <string name="address_label_hint">లేబుల్ (ఉదా: ఆఫీస్, ఫ్యాక్టరీ, షాప్)</string>
+    <string name="enter_label">లేబుల్ నమోదు చేయండి</string>
+    <string name="pay_type">చెల్లింపు రకం</string>
+    <string name="enter_job_type">ఉద్యోగ రకాన్ని నమోదు చేయండి</string>
+    <string name="preview_button">ప్రివ్యూ</string>
+    <string name="post_job_button">ఉద్యోగాన్ని పోస్ట్ చేయండి</string>
+    <string name="enter_location_or_gps">స్థానాన్ని నమోదు చేయండి లేదా GPS ఉపయోగించండి</string>
+    <string name="vacancies_max_50">ఖాళీలు (గరిష్టంగా 50)</string>
+    <string name="enter_number_of_positions">పదవుల సంఖ్యను నమోదు చేయండి</string>
+    <string name="max_50_vacancies_hint">హైపర్-లోకల్ ఉద్యోగాలకు గరిష్టంగా 50 ఖాళీలు అనుమతించబడతాయి</string>
+    <string name="your_name">మీ పేరు</string>
+    <!-- Batch 3: misc remaining screens -->
+    <string name="contact">సంప్రదించండి</string>
+    <string name="shortlist">షార్ట్‌లిస్ట్</string>
+    <string name="reject">తిరస్కరించు</string>
+    <string name="confirm">నిర్ధారించు</string>
+    <string name="office_name">కార్యాలయ పేరు</string>
+    <string name="search_or_enter_address">చిరునామాను శోధించండి లేదా నమోదు చేయండి</string>
+    <string name="search_location_or_enter_address">స్థానాన్ని శోధించండి లేదా చిరునామాను నమోదు చేయండి</string>
+    <string name="saving">సేవ్ అవుతోంది...</string>
+    <string name="add_address">చిరునామాను జోడించండి</string>
+    <string name="gallery">గ్యాలరీ</string>
+    <string name="camera">కెమెరా</string>
+    <string name="add_button">జోడించు</string>
+    <string name="accept">అంగీకరించు</string>
+    <string name="processing">ప్రాసెస్ అవుతోంది...</string>
+    <string name="report">నివేదిక</string>
+    <string name="change_location">స్థానాన్ని మార్చండి</string>
+    <string name="feedback_optional">మీ అభిప్రాయం (ఐచ్ఛికం)</string>
+    <string name="feedback_hint">మీరు ఏమనుకుంటున్నారో చెప్పండి...</string>
+    <string name="write_review_optional">సమీక్షను రాయండి (ఐచ్ఛికం)</string>
+    <string name="review_hint">మీ అనుభవాన్ని పంచుకోండి...</string>
+    <string name="no_locations_found">స్థానాలు కనుగొనబడలేదు</string>
+    <string name="try_different_search">వేరే శోధన పదాన్ని ప్రయత్నించండి</string>
+    <string name="applications">దరఖాస్తులు</string>
+    <string name="near_label">సమీపంలో: </string>
+    <string name="education_example_hint">ఉదా: 10వ తరగతి + 2 సంవత్సరాలు</string>
 </resources>

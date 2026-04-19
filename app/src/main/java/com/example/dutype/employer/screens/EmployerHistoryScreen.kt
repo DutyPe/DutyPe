@@ -36,6 +36,8 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,7 +174,7 @@ fun EmployerHistoryScreen(
                                 containerColor = Color(0xFF3B82F6)
                             )
                         ) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }

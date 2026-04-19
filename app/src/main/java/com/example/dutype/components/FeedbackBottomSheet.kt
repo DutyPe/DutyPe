@@ -31,6 +31,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Helper function to get app version dynamically
 private fun getAppVersion(context: android.content.Context): String {
@@ -294,8 +296,8 @@ fun FeedbackBottomSheet(
                     OutlinedTextField(
                         value = feedbackText,
                         onValueChange = { feedbackText = it },
-                        label = { Text("Your feedback (optional)") },
-                        placeholder = { Text("Tell us what you think...") },
+                        label = { Text(stringResource(R.string.feedback_optional)) },
+                        placeholder = { Text(stringResource(R.string.feedback_hint)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(120.dp),

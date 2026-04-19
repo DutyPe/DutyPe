@@ -1989,7 +1989,7 @@ private fun PostJobStepperBar(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
                 ) {
-                    Text(text = "Back", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(text = stringResource(R.string.back), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
             if (isLastStep) {
@@ -3348,7 +3348,7 @@ private fun RequirementChipSection(
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 label = { Text(customOptionHint) },
-                placeholder = { Text("Eg: 10th pass + 2 years") },
+                placeholder = { Text(stringResource(R.string.education_example_hint)) },
                 shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
@@ -3372,7 +3372,7 @@ private fun RequirementChipSection(
                 colors = ButtonDefaults.buttonColors(containerColor = selectedColor),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Add")
+                Text(stringResource(R.string.add_button))
             }
         }
     }
@@ -3504,7 +3504,7 @@ fun PerksSelectionSection(
                     ),
                     modifier = Modifier.height(52.dp)
                 ) {
-                    Text("Add", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold)
                 }
             }
 

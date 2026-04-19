@@ -312,11 +312,11 @@ private fun PostedJobsErrorCard(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Retry")
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(onClick = onDismiss) {
-                    Text("Dismiss")
+                    Text(stringResource(R.string.dismiss))
                 }
             }
         }
