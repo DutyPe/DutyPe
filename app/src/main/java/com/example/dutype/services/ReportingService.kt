@@ -5,6 +5,7 @@ import com.example.dutype.utils.SecureLogger
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -90,7 +91,6 @@ class ReportingService @Inject constructor(
                 ?: return Result.failure(Exception("User not authenticated"))
             
             val userId = currentUser.uid
-            val userPhone = currentUser.phoneNumber ?: ""
             
             // P0 FIX: Use SecureLogger to mask sensitive data
             SecureLogger.d("ReportingService", "Reporting job", 
@@ -113,58 +113,24 @@ class ReportingService @Inject constructor(
                 )
             }
 
+            val normalizedDescription = description.trim().ifBlank { reportType.description }
             val reportData = mapOf(
-                "reportId" to reportRef.id,
                 "jobId" to jobId,
                 "reporterId" to userId,
-                "reporterPhone" to userPhone,
                 "reportType" to reportType.name,
-                "description" to description.trim(),
-                "timestamp" to System.currentTimeMillis(),
+                "description" to normalizedDescription,
+                "createdAt" to Timestamp.now(),
                 "status" to "PENDING"
             )
 
             reportRef.set(reportData).await()
 
-            val totalReports = firestore.collection(REPORTS_COLLECTION)
-                .whereEqualTo("jobId", jobId)
-                .get()
-                .await()
-                .size()
-
-            val thresholdReached = totalReports >= AUTO_HIDE_THRESHOLD
-            
-            // AUTO-HIDE: When threshold reached, mark job as closed in both collections
-            if (thresholdReached) {
-                try {
-                    val batch = firestore.batch()
-                    batch.update(
-                        firestore.collection(JOBS_COLLECTION).document(jobId),
-                        mapOf("status" to "closed")
-                    )
-                    batch.update(
-                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOB_DETAILS).document(jobId),
-                        mapOf("status" to "closed")
-                    )
-                    batch.commit().await()
-                    Timber.w("🚫 Job $jobId auto-hidden: reached $totalReports reports (threshold=$AUTO_HIDE_THRESHOLD)")
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to auto-hide reported job $jobId")
-                }
-            }
-            
-            val responseMessage = if (thresholdReached) {
-                "Report submitted. This job has been hidden due to multiple reports."
-            } else {
-                "Thank you for reporting. We'll review this job."
-            }
-
             Result.success(
                 ReportResult(
                     success = true,
-                    message = responseMessage,
-                    totalReports = totalReports,
-                    jobHidden = thresholdReached
+                    message = "Thank you for reporting. We'll review this job.",
+                    totalReports = 0,
+                    jobHidden = false
                 )
             )
             
@@ -214,7 +180,11 @@ class ReportingService @Inject constructor(
                         reporterPhone = data["reporterPhone"] as? String ?: "",
                         reportType = data["reportType"] as? String ?: "",
                         description = data["description"] as? String ?: "",
-                        timestamp = (data["timestamp"] as? Number)?.toLong() ?: 0L,
+                        timestamp = when (val createdAt = data["createdAt"]) {
+                            is Timestamp -> createdAt.toDate().time
+                            is Number -> createdAt.toLong()
+                            else -> (data["timestamp"] as? Number)?.toLong() ?: 0L
+                        },
                         status = data["status"] as? String ?: "PENDING",
                         reviewedBy = data["reviewedBy"] as? String,
                         reviewedAt = (data["reviewedAt"] as? Number)?.toLong(),

@@ -215,6 +215,14 @@ function simpleHash(input) {
     }
     return Math.abs(hash);
 }
+function currentTimeOfDay() {
+    const hour = new Date().getHours();
+    if (hour < 12)
+        return 'morning';
+    if (hour < 17)
+        return 'afternoon';
+    return 'evening';
+}
 const WORKER_SMART_ENGAGEMENT_MESSAGES = [
     // Jobs & Opportunities
     { title: '🎯 Fresh jobs matching your skills', body: 'New openings nearby — apply early for the best chance.', deepLink: 'dutype://jobs' },
@@ -228,8 +236,8 @@ const WORKER_SMART_ENGAGEMENT_MESSAGES = [
     { title: '🏆 Stand out from other applicants', body: 'Complete your profile to rank higher in search results.', deepLink: 'dutype://profile' },
     // Motivation
     { title: '💪 Your next job could be one tap away', body: 'Open DutyPe and see what\'s new for you.', deepLink: 'dutype://jobs' },
-    { title: '🎉 Good morning! Ready to find work?', body: 'Fresh daily and hourly jobs waiting for you.', deepLink: 'dutype://jobs' },
-    { title: '🌅 Evening check — any interviews coming up?', body: 'Review your applications and prepare for tomorrow.', deepLink: 'dutype://my-jobs' },
+    { title: '🎉 Good morning! Ready to find work?', body: 'Fresh daily and hourly jobs waiting for you.', deepLink: 'dutype://jobs', timeOfDay: 'morning' },
+    { title: '🌅 Evening check — any interviews coming up?', body: 'Review your applications and prepare for tomorrow.', deepLink: 'dutype://my-jobs', timeOfDay: 'evening' },
     { title: '📱 You have unread updates', body: 'An employer may have responded to your application.', deepLink: 'dutype://notifications' },
 ];
 const EMPLOYER_SMART_ENGAGEMENT_MESSAGES = [
@@ -280,7 +288,10 @@ async function sendRoleSpecificSmartEngagement(slot) {
         if (!allowed) {
             continue;
         }
-        const pool = role === 'WORKER' ? WORKER_SMART_ENGAGEMENT_MESSAGES : EMPLOYER_SMART_ENGAGEMENT_MESSAGES;
+        const fullPool = role === 'WORKER' ? WORKER_SMART_ENGAGEMENT_MESSAGES : EMPLOYER_SMART_ENGAGEMENT_MESSAGES;
+        // Filter by time-of-day so e.g. "Good morning" never fires at 8 PM.
+        const tod = currentTimeOfDay();
+        const pool = fullPool.filter((m) => !m.timeOfDay || m.timeOfDay === tod);
         const messageIndex = (simpleHash(userId) + dayOfMonth + slot) % pool.length;
         const message = pool[messageIndex];
         const sent = await sendFCMNotification(userId, {
@@ -909,17 +920,17 @@ exports.notifyApplicationStatusUpdate = functions.firestore
  */
 const GUEST_MESSAGES = [
     // Morning vibes
-    { title: '💼 New jobs near you are waiting!', body: 'Login to apply in one tap — don\'t miss out.' },
-    { title: '🌅 Good morning! Fresh jobs just posted', body: 'Sign in to see openings near your location.' },
-    { title: '🎯 Your skills are in demand today', body: 'Create your profile and get matched instantly.' },
+    { title: '💼 New jobs near you are waiting!', body: 'Login to apply in one tap — don\'t miss out.', timeOfDay: 'morning' },
+    { title: '🌅 Good morning! Fresh jobs just posted', body: 'Sign in to see openings near your location.', timeOfDay: 'morning' },
+    { title: '🎯 Your skills are in demand today', body: 'Create your profile and get matched instantly.', timeOfDay: 'morning' },
     // Afternoon urgency
-    { title: '🔥 Jobs filling up fast today', body: 'Sign in and apply before they\'re gone.' },
-    { title: '⚡ Employers are hiring RIGHT NOW', body: 'One-tap apply — login to get started.' },
-    { title: '📍 Walk-in interviews near you', body: 'Sign in to see which companies are hiring today.' },
+    { title: '🔥 Jobs filling up fast today', body: 'Sign in and apply before they\'re gone.', timeOfDay: 'afternoon' },
+    { title: '⚡ Employers are hiring RIGHT NOW', body: 'One-tap apply — login to get started.', timeOfDay: 'afternoon' },
+    { title: '📍 Walk-in interviews near you', body: 'Sign in to see which companies are hiring today.', timeOfDay: 'afternoon' },
     // Evening motivation
-    { title: '🔓 Complete your profile, unlock matches', body: 'Personalised job recommendations are waiting — sign in now.' },
-    { title: '🌟 Tomorrow could be your first day at work', body: 'Sign in tonight, apply, and get hired tomorrow.' },
-    { title: '💪 Thousands found jobs on DutyPe', body: 'Join them — create your profile in under 2 minutes.' },
+    { title: '🔓 Complete your profile, unlock matches', body: 'Personalised job recommendations are waiting — sign in now.', timeOfDay: 'evening' },
+    { title: '🌟 Tomorrow could be your first day at work', body: 'Sign in tonight, apply, and get hired tomorrow.', timeOfDay: 'evening' },
+    { title: '💪 Thousands found jobs on DutyPe', body: 'Join them — create your profile in under 2 minutes.', timeOfDay: 'evening' },
 ];
 async function sendGuestEngagementTopicMessage() {
     if (isQuietHours()) {
@@ -934,12 +945,16 @@ async function sendGuestEngagementTopicMessage() {
         slot = 1;
     else if (hour >= 17)
         slot = 2;
+    // Filter messages to the matching time-of-day so "Good morning" never fires
+    // in the afternoon or evening.
+    const tod = slot === 0 ? 'morning' : slot === 1 ? 'afternoon' : 'evening';
+    const pool = GUEST_MESSAGES.filter((m) => m.timeOfDay === tod);
     // Day-of-year offset ensures different message each day
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
-    const messageIndex = (dayOfYear * 3 + slot) % GUEST_MESSAGES.length;
-    const { title, body } = GUEST_MESSAGES[messageIndex];
+    const messageIndex = dayOfYear % pool.length;
+    const { title, body } = pool[messageIndex];
     try {
         await admin.messaging().send({
             topic: 'guest_users',

@@ -43,6 +43,9 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.di.rememberInAppReviewTriggerService
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.tasks.await
 import java.util.*
 
 /**
@@ -71,6 +74,8 @@ fun EmployerApplicationManagementScreen(
     var showUnlockDialog by remember { mutableStateOf(false) }
     var pendingUnlockApplication by remember { mutableStateOf<JobApplication?>(null) }
     var isProcessingPayment by remember { mutableStateOf(false) }
+    var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
+    var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
     
     // Load applications based on whether it's for a specific job or all jobs
     LaunchedEffect(jobId) {
@@ -79,6 +84,18 @@ fun EmployerApplicationManagementScreen(
         } else {
             viewModel.loadEmployerApplications()
         }
+    }
+
+    LaunchedEffect(jobId) {
+        if (jobId.isNullOrBlank()) {
+            reportSummary = null
+            isReportSummaryLoading = false
+            return@LaunchedEffect
+        }
+
+        isReportSummaryLoading = true
+        reportSummary = fetchJobReportSummary(jobId)
+        isReportSummaryLoading = false
     }
     
     // Handle search
@@ -129,6 +146,13 @@ fun EmployerApplicationManagementScreen(
             title = if (jobId != null) "Job Applications" else "All Applications",
             onBackClick = onBackClick
         )
+
+        if (jobId != null && (isReportSummaryLoading || reportSummary != null)) {
+            JobReportSummaryCard(
+                summary = reportSummary,
+                isLoading = isReportSummaryLoading
+            )
+        }
         
         // FINTECH: Free contacts remaining banner
         if (uiState.freeContactsRemaining > 0 && uiState.applications.size > 3) {
@@ -208,6 +232,135 @@ fun EmployerApplicationManagementScreen(
                                     notes = notes
                                 )
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class ReportPreviewItem(
+    val reportType: String,
+    val description: String
+)
+
+private data class JobReportSummary(
+    val reportCount: Int,
+    val typeCounts: Map<String, Int>,
+    val recentReports: List<ReportPreviewItem>
+)
+
+private suspend fun fetchJobReportSummary(jobId: String): JobReportSummary? {
+    return try {
+        val doc = FirebaseFirestore.getInstance()
+            .collection("jobmetadata")
+            .document(jobId)
+            .get()
+            .await()
+
+        val data = doc.data ?: return null
+        val reportCount = (data["reportCount"] as? Number)?.toInt() ?: 0
+        if (reportCount <= 0) return null
+
+        val typeCounts = mutableMapOf<String, Int>()
+        val rawTypeCounts = data["reportTypeCounts"] as? Map<*, *>
+        rawTypeCounts?.forEach { (rawType, rawCount) ->
+            val type = rawType?.toString()?.trim().orEmpty().ifBlank { "OTHER" }
+            val count = (rawCount as? Number)?.toInt() ?: 0
+            if (count > 0) {
+                typeCounts[type] = count
+            }
+        }
+
+        val recentReports = (data["reportSamples"] as? List<*>)
+            ?.mapNotNull { rawItem ->
+                val itemMap = rawItem as? Map<*, *> ?: return@mapNotNull null
+                val type = itemMap["reportType"]?.toString()?.trim().orEmpty().ifBlank { "OTHER" }
+                val description = itemMap["description"]?.toString()?.trim().orEmpty()
+                if (description.isBlank()) return@mapNotNull null
+                ReportPreviewItem(reportType = type, description = description)
+            }
+            .orEmpty()
+
+        JobReportSummary(
+            reportCount = reportCount,
+            typeCounts = typeCounts,
+            recentReports = recentReports
+        )
+    } catch (_: FirebaseFirestoreException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+}
+
+@Composable
+private fun JobReportSummaryCard(
+    summary: JobReportSummary?,
+    isLoading: Boolean
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Community Reports",
+                style = AppTypography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF991B1B)
+                )
+            )
+
+            if (isLoading) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color(0xFFB91C1C)
+                    )
+                    Text(
+                        text = "Loading report details...",
+                        style = AppTypography.caption.copy(color = Color(0xFF7F1D1D))
+                    )
+                }
+            } else if (summary != null) {
+                Text(
+                    text = "Reported by ${summary.reportCount} worker(s)",
+                    style = AppTypography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF7F1D1D)
+                    )
+                )
+
+                if (summary.typeCounts.isNotEmpty()) {
+                    summary.typeCounts.entries
+                        .sortedByDescending { it.value }
+                        .forEach { entry ->
+                            Text(
+                                text = "${entry.key}: ${entry.value}",
+                                style = AppTypography.caption.copy(color = Color(0xFF7F1D1D))
+                            )
+                        }
+                }
+
+                if (summary.recentReports.isNotEmpty()) {
+                    HorizontalDivider(color = Color(0xFFFECACA), thickness = 1.dp)
+                    summary.recentReports.take(3).forEach { report ->
+                        Text(
+                            text = "${report.reportType}: ${report.description}",
+                            style = AppTypography.bodySmall.copy(color = Color(0xFF7F1D1D))
                         )
                     }
                 }

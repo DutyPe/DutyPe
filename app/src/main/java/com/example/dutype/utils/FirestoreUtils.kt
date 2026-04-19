@@ -62,8 +62,6 @@ object FirestoreUtils {
             "fullName" to resolvedName,
             "roles" to mergedRoles,
             "activeRole" to roleUpper,
-            "isVerified" to ((existingData["isVerified"] as? Boolean) ?: false),
-            "isActive" to ((existingData["isActive"] as? Boolean) ?: true),
             "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now()),
             "lastActiveAt" to Timestamp.now()
         )

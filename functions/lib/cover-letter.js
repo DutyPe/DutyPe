@@ -24,9 +24,6 @@ exports.getCoverLetterSignedUrl = functions.https.onCall(async (data, context) =
     }
     (0, validation_1.assertAppCheck)(context);
     const employerUid = context.auth.uid;
-    await (0, validation_1.requirePerUserRateLimit)(employerUid, "getCoverLetterSignedUrl", {
-        perMinute: 20, perHour: 200, perDay: 1000,
-    });
     const applicationId = String((_a = data === null || data === void 0 ? void 0 : data.applicationId) !== null && _a !== void 0 ? _a : "").trim();
     if (!applicationId || applicationId.length > 200 || !applicationId.includes("_")) {
         throw new functions.https.HttpsError("invalid-argument", "applicationId invalid");

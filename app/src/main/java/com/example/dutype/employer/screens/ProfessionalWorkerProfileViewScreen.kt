@@ -62,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
 import androidx.navigation.compose.rememberNavController
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
@@ -96,6 +97,7 @@ fun ProfessionalWorkerProfileViewScreen(
     val jobApplicationViewModel: com.example.dutype.viewmodels.SmartJobApplicationViewModel = hiltViewModel()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val profileCompletionService = profileCompletionViewModel.profileCompletionService
     
     // State management
     var workerProfile by remember { mutableStateOf<WorkerProfileData?>(null) }
@@ -137,6 +139,45 @@ fun ProfessionalWorkerProfileViewScreen(
                 }.onFailure { e: Throwable ->
                     error = e.message
                 }
+            } ?: run {
+                val profileResult = profileCompletionService.getWorkerProfileData(workerId)
+                profileResult.fold(
+                    onSuccess = { data ->
+                        val locationMap = data["location"] as? Map<*, *>
+                        val lat = (locationMap?.get("lat") as? Number)?.toDouble()
+                        val lng = (locationMap?.get("lng") as? Number)?.toDouble()
+                        val locationText = when {
+                            !((data["city"] as? String).isNullOrBlank()) -> data["city"] as String
+                            lat != null && lng != null && (lat != 0.0 || lng != 0.0) ->
+                                String.format(Locale.US, "%.4f, %.4f", lat, lng)
+                            else -> ""
+                        }
+
+                        val primarySkills = (data["skills"] as? List<*>)
+                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                            .orEmpty()
+                        val jobTypeSkills = (data["jobTypes"] as? List<*>)
+                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                            .orEmpty()
+
+                        workerProfile = WorkerProfileData(
+                            workerId = workerId,
+                            fullName = (data["fullName"] as? String).orEmpty().ifBlank { "Worker" },
+                            phone = (data["phone"] as? String).orEmpty(),
+                            location = locationText,
+                            gender = (data["gender"] as? String).orEmpty().ifBlank { "Not specified" },
+                            profileImageUrl = data["profileImageUrl"] as? String,
+                            experience = emptyList(),
+                            skills = (primarySkills + jobTypeSkills).distinct(),
+                            languages = (data["languages"] as? List<*>)
+                                ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                                .orEmpty()
+                        )
+                    },
+                    onFailure = { e ->
+                        error = e.message ?: "Failed to load worker profile"
+                    }
+                )
             }
             
             isLoading = false
@@ -157,11 +198,16 @@ fun ProfessionalWorkerProfileViewScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
+            CommonHeader(
+                title = "Worker Profile",
+                onBackClick = { navController.popBackStack() },
+                backgroundColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
+            )
+
             // Professional Header
             ProfessionalWorkerProfileHeader(
                 workerProfile = workerProfile,
                 application = application,
-                onBackClick = { navController.popBackStack() },
                 onContactClick = {
                     // No in-app messaging in this app — fall back to phone dial.
                     val phone = workerProfile?.phone.orEmpty()
@@ -310,7 +356,6 @@ fun ProfessionalWorkerProfileViewScreen(
 private fun ProfessionalWorkerProfileHeader(
     workerProfile: WorkerProfileData?,
     application: JobApplication?,
-    onBackClick: () -> Unit,
     onContactClick: () -> Unit
 ) {
     Card(
@@ -330,41 +375,20 @@ private fun ProfessionalWorkerProfileHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                CircleShape
-                            )
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF3B82F6)
+                Column {
+                    Text(
+                        text = workerProfile?.fullName.orEmpty().ifBlank { "Worker" },
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
                         )
-                    }
-                    
-                    Column {
-                        Text(
-                            text = "Worker Profile",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
-                            )
+                    )
+                    Text(
+                        text = application?.jobTitle.orEmpty().ifBlank { "Candidate Profile" },
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF6B7280)
                         )
-                        Text(
-                            text = "Review candidate information",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    }
+                    )
                 }
                 
                 // Contact button

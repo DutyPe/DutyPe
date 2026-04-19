@@ -511,7 +511,17 @@ fun LoginBottomSheet(
                                             }
                                         }
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            Timber.w("📱 Phone pre-check unavailable, continuing with OTP flow")
+                                            if (!isRegistrationMode) {
+                                                isCheckingPhone = false
+                                                Toast.makeText(
+                                                    context,
+                                                    if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                                Timber.w("📱 Login blocked - Phone pre-check unavailable: $fullPhoneNumber")
+                                                return@launch
+                                            }
+                                            Timber.w("📱 Registration pre-check unavailable, continuing with OTP flow")
                                         }
                                     }
                                     
@@ -535,8 +545,17 @@ fun LoginBottomSheet(
                                         profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
-                                    
-                                    // On error, allow OTP to proceed (fail open for better UX)
+
+                                    if (!isRegistrationMode) {
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
+
+                                    // Registration mode remains fail-open for better onboarding UX.
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }

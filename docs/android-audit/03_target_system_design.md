@@ -153,7 +153,6 @@ Canonical collections (no more, no less):
 | `users/{uid}/withdrawals/{wId}` | random | payout log | deny | full |
 | `notifications/{nId}` | random | inbox | `isRead` only | full |
 | `app_config/{doc}` | static | admin-editable config | deny | admin-callable |
-| `_rate_limits/{doc}` | internal | CF rate-limit buckets | deny | full |
 
 Remove from the universe: `announcements` (unless product demands it), any `*_v2` shadow collection if present, anything that looks like a duplicate projection of `users`.
 

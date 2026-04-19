@@ -92,6 +92,34 @@ export const onApplicationHired = functions.firestore
     ]);
   });
 
+/**
+ * Keep per-job application counters in sync for employer views.
+ * This runs on application create and updates `job_details/{jobId}.applicationCount`.
+ */
+export const onApplicationCreatedIncrementApplicationCount = functions.firestore
+  .document("applications/{applicationId}")
+  .onCreate(async (snap) => {
+    const data = snap.data() || {};
+    const jobId = String(data.jobId ?? "");
+    if (!jobId) {
+      functions.logger.warn("onApplicationCreatedIncrementApplicationCount: missing jobId", { id: snap.id });
+      return;
+    }
+
+    try {
+      await db.doc(`job_details/${jobId}`).set(
+        { applicationCount: FIELD.increment(1) },
+        { merge: true }
+      );
+    } catch (e: any) {
+      functions.logger.error("onApplicationCreatedIncrementApplicationCount failed", {
+        id: snap.id,
+        jobId,
+        err: e?.message,
+      });
+    }
+  });
+
 async function safeIncrement(
   ref: FirebaseFirestore.DocumentReference,
   updates: Record<string, FirebaseFirestore.FieldValue>

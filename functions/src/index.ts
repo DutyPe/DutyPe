@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { validateString, validateMessage, validateEnum, checkRateLimit, validateUserId, requirePerUserRateLimit, assertAppCheck } from "./validation";
+import { validateString, validateMessage, validateEnum, validateUserId, assertAppCheck } from "./validation";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -40,6 +40,36 @@ const TOPIC_ALL_USERS = "all_users";
 const TOPIC_WORKERS = "workers";
 const TOPIC_EMPLOYERS = "employers";
 const TOPIC_APP_UPDATES = "app_updates";
+const SELF_NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_SELF_NOTIFICATION_DATA_KEYS = 25;
+const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
+  "PROFILE_COMPLETE",
+  "WELCOME",
+  "JOB_POSTED",
+  "JOB_PAUSED",
+  "WORKER_HIRED",
+  "SYSTEM_UPDATE",
+  "GENERAL",
+]);
+
+function sanitizeNotificationDataMap(rawData: unknown): Record<string, string> {
+  if (!rawData || typeof rawData !== "object") {
+    return {};
+  }
+
+  const dataObject = rawData as Record<string, unknown>;
+  const cleanData: Record<string, string> = {};
+
+  for (const [rawKey, rawValue] of Object.entries(dataObject).slice(0, MAX_SELF_NOTIFICATION_DATA_KEYS)) {
+    const key = String(rawKey).trim().slice(0, 64);
+    if (!key) continue;
+
+    const value = String(rawValue ?? "").trim().slice(0, 500);
+    cleanData[key] = value;
+  }
+
+  return cleanData;
+}
 
 // ============================================
 // P0 FIX #2: RATE LIMITING FOR JOB POSTS
@@ -250,6 +280,16 @@ export const sendPushNotification = functions.firestore
       return null;
     }
 
+    if (notification.skipPush === true) {
+      functions.logger.info(`📬 FCM: Skipping push for self-notification ${notificationId}`);
+      await snapshot.ref.update({
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        skipped: true,
+        skipReason: "SKIP_PUSH",
+      });
+      return null;
+    }
+
     try {
       // DEDUPLICATION CHECK 2: Transaction-based lock to prevent race conditions
       const lockResult = await db.runTransaction(async (transaction) => {
@@ -431,6 +471,84 @@ export const sendPushNotification = functions.firestore
       return null;
     }
   });
+
+/**
+ * Persists self-targeted notifications for inbox visibility.
+ * Recipient is always the authenticated user; push is skipped to avoid duplicates
+ * because the app already shows an immediate local notification.
+ */
+export const persistSelfNotification = functions.https.onCall(async (data, context) => {
+  if (!context.auth?.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Authentication required");
+  }
+
+  const userId = context.auth.uid;
+
+  const title = validateString(data?.title, "title", {
+    required: true,
+    minLength: 1,
+    maxLength: 120,
+  });
+  const message = validateMessage(data?.message, 700);
+
+  const notificationType = validateString(data?.type, "type", {
+    required: true,
+    minLength: 1,
+    maxLength: 64,
+  }).toUpperCase();
+
+  if (!ALLOWED_SELF_NOTIFICATION_TYPES.has(notificationType)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `Unsupported self notification type: ${notificationType}`
+    );
+  }
+
+  const targetRoleRaw = validateString(data?.targetRole, "targetRole", {
+    required: false,
+    maxLength: 16,
+  }).toUpperCase();
+  const targetRole = targetRoleRaw === "WORKER" || targetRoleRaw === "EMPLOYER"
+    ? targetRoleRaw
+    : "";
+
+  const payloadData = sanitizeNotificationDataMap(data?.data);
+
+  const requestedNotificationId = typeof data?.notificationId === "string"
+    ? data.notificationId.trim()
+    : "";
+  const notificationId = /^[A-Za-z0-9_-]{8,128}$/.test(requestedNotificationId)
+    ? requestedNotificationId
+    : db.collection("notifications").doc().id;
+
+  const nowMs = Date.now();
+  const requestedExpiresAt = Number(data?.expiresAt);
+  const maxAllowedExpiry = nowMs + SELF_NOTIFICATION_RETENTION_MS;
+  const resolvedExpiryMs = Number.isFinite(requestedExpiresAt) && requestedExpiresAt > nowMs
+    ? Math.min(requestedExpiresAt, maxAllowedExpiry)
+    : maxAllowedExpiry;
+
+  const notificationRef = db.collection("notifications").doc(notificationId);
+  await notificationRef.set({
+    id: notificationRef.id,
+    recipientId: userId,
+    title,
+    message,
+    type: notificationType,
+    ...(targetRole ? { targetRole } : {}),
+    data: payloadData,
+    isRead: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromMillis(resolvedExpiryMs),
+    skipPush: true,
+    source: "SELF_IN_APP",
+  });
+
+  return {
+    success: true,
+    notificationId: notificationRef.id,
+  };
+});
 
 
 // ============================================
@@ -648,15 +766,19 @@ export const logUserActivity = functions.https.onCall(async (data, context) => {
  * Check whether a user exists for a phone number.
  * HARDENED:
  *   • Must be authenticated (prevents unauth'd phone enumeration).
- *   • Per-caller rate limit (Firestore-backed, 5/min, 50/day).
  *   • Response is boolean-only — never discloses userId or roles.
  */
 export const checkPhoneExists = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "login required");
+  const rawIp = context.rawRequest?.ip || "unknown";
+  const callerIdentity = context.auth?.uid || `ip_${rawIp}`;
+  const callerKey = callerIdentity.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 120) || "anon";
+
+  if (!context.app) {
+    functions.logger.warn("checkPhoneExists called without App Check token", {
+      callerKey,
+      hasAuth: !!context.auth,
+    });
   }
-  assertAppCheck(context);
-  await requirePerUserRateLimit(context.auth.uid, "checkPhoneExists", { perMinute: 5, perDay: 50 });
 
   const rawPhone = String(data?.phone ?? "").trim();
   const providedVariants = Array.isArray(data?.variants)
@@ -775,15 +897,59 @@ export const processJobReport = functions.firestore
         .get();
       const currentReportCount = reportsSnapshot.size;
 
+      const reportTypeCounts: Record<string, number> = {};
+      const sortedReports = reportsSnapshot.docs
+        .map((doc) => {
+          const data = doc.data() as Record<string, unknown>;
+          const rawCreatedAt = data.createdAt;
+          const createdAtMs = rawCreatedAt instanceof admin.firestore.Timestamp
+            ? rawCreatedAt.toMillis()
+            : (typeof rawCreatedAt === "number" ? rawCreatedAt : 0);
+          return { data, createdAtMs };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+
+      for (const item of sortedReports) {
+        const type = typeof item.data.reportType === "string" && item.data.reportType.trim().length > 0
+          ? item.data.reportType
+          : "OTHER";
+        reportTypeCounts[type] = (reportTypeCounts[type] || 0) + 1;
+      }
+
+      const reportSamples = sortedReports.slice(0, 5).map((item) => {
+        const type = typeof item.data.reportType === "string" && item.data.reportType.trim().length > 0
+          ? item.data.reportType
+          : "OTHER";
+        const rawDescription = typeof item.data.description === "string"
+          ? item.data.description.trim()
+          : "";
+        const description = (rawDescription.length > 220
+          ? `${rawDescription.slice(0, 220)}...`
+          : rawDescription) || "No details provided";
+        const createdAt = item.data.createdAt instanceof admin.firestore.Timestamp
+          ? item.data.createdAt
+          : null;
+        return {
+          reportType: type,
+          description,
+          createdAt,
+        };
+      });
+
+      const jobAggregateUpdate: Record<string, unknown> = {
+        reportCount: currentReportCount,
+        reportTypeCounts,
+        reportSamples,
+        lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
       // Check if threshold reached
       if (currentReportCount >= AUTO_HIDE_THRESHOLD) {
         functions.logger.warn(`🚨 REPORT: Job ${jobId} reached ${currentReportCount} reports - AUTO-HIDING`);
 
         // Deactivate the job
-        await jobRef.update({
-          status: "closed",
-          moderationStatus: "HIDDEN_BY_REPORTS",
-        });
+        jobAggregateUpdate.status = "closed";
+        jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
 
         // Notify employer instead of creating legacy moderation queue documents.
         if (jobData?.employerId) {
@@ -802,6 +968,22 @@ export const processJobReport = functions.firestore
         }
 
         
+      }
+
+      await jobRef.set(jobAggregateUpdate, { merge: true });
+
+      const jobDetailsRef = db.collection("job_details").doc(jobId);
+      const jobDetailsDoc = await jobDetailsRef.get();
+      if (jobDetailsDoc.exists) {
+        await jobDetailsRef.set(
+          {
+            reportCount: currentReportCount,
+            reportTypeCounts,
+            reportSamples,
+            lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
 
       functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
@@ -825,15 +1007,17 @@ export const getReportStats = functions.https.onCall(async (data, context) => {
     const now = Date.now();
     const oneDayAgo = now - (24 * 60 * 60 * 1000);
     const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
+    const oneWeekAgoTs = admin.firestore.Timestamp.fromMillis(oneWeekAgo);
 
     // Get reports from last 24 hours
     const dailyReports = await db.collection("job_reports")
-      .where("timestamp", ">", oneDayAgo)
+      .where("createdAt", ">", oneDayAgoTs)
       .get();
 
     // Get reports from last week
     const weeklyReports = await db.collection("job_reports")
-      .where("timestamp", ">", oneWeekAgo)
+      .where("createdAt", ">", oneWeekAgoTs)
       .get();
 
     return {
@@ -901,6 +1085,7 @@ export const updateMetadataOnUserCreate = functions.firestore
 // Import and re-export referral system functions
 export {
   onUserProfileComplete,
+  ensureUserReferralCode,
   applyReferralCode,
   onReferredUserProfileComplete,
   expirePendingReferrals,
@@ -931,10 +1116,9 @@ export * from "./aggregates";
 export * from "./job-expiry";
 
 // ============================================
-// EXPORT NOTIFICATION FAN-OUT + RATE-LIMIT CLEANUP
+// EXPORT NOTIFICATION FAN-OUT
 // ============================================
 export * from "./notification-fanout";
-export * from "./rate-limit-cleanup";
 
 // ============================================
 // EXPORT APP CONFIG (admin-editable referral rewards)

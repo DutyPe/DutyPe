@@ -43,7 +43,34 @@ class RatingService @Inject constructor(
 ) {
     companion object {
         const val RATINGS_COLLECTION = "ratings"
+        const val APPLICATIONS_COLLECTION = "applications"
         const val USERS_COLLECTION = "users"
+    }
+
+    private suspend fun resolveTargetUserId(
+        jobId: String,
+        providedTargetUserId: String,
+        currentUserId: String
+    ): String {
+        val normalizedProvided = providedTargetUserId.trim()
+        if (normalizedProvided.isNotBlank() && normalizedProvided != currentUserId) {
+            return normalizedProvided
+        }
+
+        // Worker-side fallback: deterministic application id = {jobId}_{workerId}.
+        val applicationDoc = firestore.collection(APPLICATIONS_COLLECTION)
+            .document("${jobId}_${currentUserId}")
+            .get()
+            .await()
+
+        if (applicationDoc.exists()) {
+            val employerId = applicationDoc.getString("employerId").orEmpty().trim()
+            if (employerId.isNotBlank() && employerId != currentUserId) {
+                return employerId
+            }
+        }
+
+        return normalizedProvided
     }
 
     /**
@@ -62,42 +89,47 @@ class RatingService @Inject constructor(
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
 
-            // Block duplicate (one rating per rater+target+job)
+            val resolvedTargetUserId = resolveTargetUserId(
+                jobId = jobId,
+                providedTargetUserId = targetUserId,
+                currentUserId = currentUser.uid
+            )
+
+            if (resolvedTargetUserId.isBlank()) {
+                return Result.failure(Exception("Unable to identify employer for this job. Please refresh and try again."))
+            }
+
+            if (currentUser.uid == resolvedTargetUserId) {
+                return Result.success(RatingResult(false, "You cannot rate yourself"))
+            }
+
+            val ratingId = "${jobId}_${currentUser.uid}"
+
+            // Block duplicate using deterministic doc id required by Firestore rules.
             val existing = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("fromUserId", currentUser.uid)
-                .whereEqualTo("toUserId", targetUserId)
-                .limit(1)
+                .document(ratingId)
                 .get()
                 .await()
 
-            if (!existing.isEmpty) {
+            if (existing.exists()) {
                 return Result.success(RatingResult(false, "You have already rated this"))
             }
 
-            // Denormalize rater's display name (1 read; saves N reads at display time)
-            val raterName = firestore.collection(USERS_COLLECTION)
-                .document(currentUser.uid)
-                .get()
-                .await()
-                .getString("fullName")
-                .orEmpty()
-
-            val ratingRef = firestore.collection(RATINGS_COLLECTION).document()
             val ratingData = mapOf(
                 "jobId" to jobId,
                 "fromUserId" to currentUser.uid,
-                "toUserId" to targetUserId,
-                "raterName" to raterName,
+                "toUserId" to resolvedTargetUserId,
                 "rating" to rating,
                 "review" to review,
-                "tags" to tags,
                 "createdAt" to Timestamp.now()
             )
 
-            ratingRef.set(ratingData).await()
+            firestore.collection(RATINGS_COLLECTION)
+                .document(ratingId)
+                .set(ratingData)
+                .await()
 
-            Timber.d("⭐ Rating submitted: $rating stars for $targetUserId")
+            Timber.d("⭐ Rating submitted: $rating stars for $resolvedTargetUserId")
 
             Result.success(RatingResult(true, "Rating submitted successfully!"))
         } catch (e: Exception) {
@@ -116,14 +148,15 @@ class RatingService @Inject constructor(
     suspend fun hasRated(jobId: String, targetUserId: String): Boolean {
         return try {
             val currentUser = auth.currentUser ?: return false
+            val ratingId = "${jobId}_${currentUser.uid}"
             val snapshot = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("jobId", jobId)
-                .whereEqualTo("fromUserId", currentUser.uid)
-                .whereEqualTo("toUserId", targetUserId)
-                .limit(1)
+                .document(ratingId)
                 .get()
                 .await()
-            !snapshot.isEmpty
+            if (!snapshot.exists()) return false
+
+            val expectedTarget = targetUserId.trim()
+            expectedTarget.isBlank() || snapshot.getString("toUserId") == expectedTarget
         } catch (e: Exception) {
             Timber.e(e, "Error checking if rated")
             false

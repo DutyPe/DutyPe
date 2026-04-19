@@ -147,6 +147,9 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
                     val savedPhone = existingData["phone"] as? String
+                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
+                    val savedGender = existingData["gender"] as? String
+                    val savedExperience = existingData["experience"] as? String
                     // skills from worker_profiles (List<String>) — joined for display in skills field
                     val savedSkills = when (val rawSkills = existingData["skills"]) {
                         is List<*> -> rawSkills.filterIsInstance<String>()
@@ -168,6 +171,18 @@ fun MandatoryWorkerProfileSetupScreen(
                     if (skills.isBlank() && savedSkills.isNotEmpty()) {
                         skills = savedSkills.joinToString(", ")
                         Timber.d("📦 PREFILL: skills from jobTypes = $skills")
+                    }
+                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
+                        dateOfBirth = savedDateOfBirth
+                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
+                    }
+                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
+                        gender = savedGender
+                        Timber.d("📦 PREFILL: gender = $gender")
+                    }
+                    if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
+                        experience = savedExperience
+                        Timber.d("📦 PREFILL: experience restored")
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
@@ -299,7 +314,11 @@ fun MandatoryWorkerProfileSetupScreen(
     var experienceError by remember { mutableStateOf<String?>(null) }
     
     // Debug logging for form validation
-    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid) {
+    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid, showValidationErrors) {
+        // Show DOB age errors immediately when a DOB is selected/typed,
+        // while keeping "required" gating behind Next click.
+        val liveDateOfBirthError = if (dateOfBirth.isBlank()) null else ValidationUtils.getDateOfBirthError(dateOfBirth)
+
         // Only update error messages when user tries to proceed (showValidationErrors = true)
         if (showValidationErrors) {
             // Update phone error
@@ -353,7 +372,7 @@ fun MandatoryWorkerProfileSetupScreen(
             emailError = null
             fullNameError = null
             addressError = null
-            dateOfBirthError = null
+            dateOfBirthError = liveDateOfBirthError
             genderError = null
             skillsError = null
             experienceError = null
@@ -524,7 +543,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                         dateOfBirth = dateOfBirth,
                                         gender = gender,
                                         addressError = if (showValidationErrors) addressError else null,
-                                        dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
+                                        dateOfBirthError = dateOfBirthError,
                                         genderError = if (showValidationErrors) genderError else null,
                                         onAddressChange = { address = it },
                                         onDateOfBirthChange = { dateOfBirth = it },
@@ -688,12 +707,14 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     }
                                                 }
                                                 
-                                                // skills → jobTypes mapping is handled in ProfileCompletionService.saveWorkerProfileData
-                                                // experience/address/dateOfBirth/gender are NOT stored in Firestore (not in target schema)
+                                                // skills are normalized in ProfileCompletionService.saveWorkerProfileData
                                                 val workerProfileData = mutableMapOf<String, Any>(
                                                     "fullName" to fullName,
                                                     "phone" to phoneNumber,
-                                                    "skills" to skills
+                                                    "skills" to skills,
+                                                    "dateOfBirth" to dateOfBirth,
+                                                    "gender" to gender,
+                                                    "experience" to experience
                                                 )
 
                                                 profileCompletionViewModel.locationPreferences
@@ -1195,6 +1216,36 @@ private fun AdditionalDetailsStep(
                 var isFetchingLocation by remember { mutableStateOf(false) }
                 var fetchError by remember { mutableStateOf<String?>(null) }
                 val coroutineScope = rememberCoroutineScope()
+
+                suspend fun fetchAddressFast() {
+                    val cachedLocation = locationPreferences.getSavedLocationIfFresh(10 * 60 * 1000L)
+                    if (cachedLocation != null) {
+                        Timber.d("📍 Fetch button - Using recent cached location immediately")
+                        onAddressChange(cachedLocation.getFullAddress())
+                        locationPreferences.setPermissionGranted(true)
+                    }
+
+                    val refinedLocation = locationService.getHighAccuracyLocationData(
+                        timeoutMs = if (cachedLocation != null) 4000L else 6000L,
+                        minAccuracyMeters = 35f
+                    )
+
+                    val finalLocation = refinedLocation ?: cachedLocation
+                    if (finalLocation != null) {
+                        Timber.d("📍 Fetch button - Location resolved: ${finalLocation.getFullAddress()}")
+                        onAddressChange(finalLocation.getFullAddress())
+                        locationPreferences.saveLocation(finalLocation)
+                        locationPreferences.setPermissionGranted(true)
+                    } else {
+                        Timber.w("📍 Fetch button - Could not resolve location")
+                        fetchError = "Could not get location quickly. Please try again."
+                        android.widget.Toast.makeText(
+                            context,
+                            "Could not get location quickly. Please try again.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
                 
                 // Location permission launcher for fetch button
                 val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -1206,30 +1257,12 @@ private fun AdditionalDetailsStep(
                     Timber.d("📍 Fetch button - Location permission result: $granted")
                     
                     if (granted) {
-                        // Permission granted, now fetch location with high accuracy
+                        // Permission granted, now fetch location with fast-first strategy.
                         coroutineScope.launch {
                             isFetchingLocation = true
                             fetchError = null
                             try {
-                                // Use getHighAccuracyLocationData for GPS-level precision (5-10m)
-                                val locationData = locationService.getHighAccuracyLocationData(
-                                    timeoutMs = 15000L,
-                                    minAccuracyMeters = 10f
-                                )
-                                if (locationData != null) {
-                                    // Use detailed full address for profile
-                                    Timber.d("📍 Fetch button - High accuracy location fetched: ${locationData.getFullAddress()}")
-                                    onAddressChange(locationData.getFullAddress())
-                                    
-                                    // Save location to LocationPreferences for WorkerHomeScreen
-                                    locationPreferences.saveLocation(locationData)
-                                    locationPreferences.setPermissionGranted(true)
-                                    Timber.d("📍 Fetch button - Location saved to preferences for reuse")
-                                } else {
-                                    Timber.w("📍 Fetch button - Location is null, check if GPS is enabled")
-                                    fetchError = "Could not get location. Please enable GPS."
-                                    android.widget.Toast.makeText(context, "Could not get location. Please enable GPS.", android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                fetchAddressFast()
                             } catch (e: Exception) {
                                 Timber.e(e, "📍 Fetch button - Error fetching location")
                                 fetchError = "Error fetching location"
@@ -1248,33 +1281,14 @@ private fun AdditionalDetailsStep(
                 Button(
                     onClick = {
                         Timber.d("📍 Fetch button clicked")
-                        isFetchingLocation = true
                         fetchError = null
                         
                         if (locationService.hasLocationPermission()) {
-                            Timber.d("📍 Fetch button - Has permission, fetching high accuracy location...")
+                            Timber.d("📍 Fetch button - Has permission, fetching fast-first location...")
                             coroutineScope.launch {
+                                isFetchingLocation = true
                                 try {
-                                    // Use getHighAccuracyLocationData for GPS-level precision (5-10m)
-                                    // This returns LocationData which can be saved to LocationPreferences
-                                    val locationData = locationService.getHighAccuracyLocationData(
-                                        timeoutMs = 15000L,
-                                        minAccuracyMeters = 10f
-                                    )
-                                    if (locationData != null) {
-                                        // Use detailed full address for profile
-                                        Timber.d("📍 Fetch button - High accuracy location fetched: ${locationData.getFullAddress()}")
-                                        onAddressChange(locationData.getFullAddress())
-                                        
-                                        // Save location to LocationPreferences for WorkerHomeScreen
-                                        locationPreferences.saveLocation(locationData)
-                                        locationPreferences.setPermissionGranted(true)
-                                        Timber.d("📍 Fetch button - Location saved to preferences for reuse")
-                                    } else {
-                                        Timber.w("📍 Fetch button - Location is null")
-                                        fetchError = "Could not get location. Please enable GPS."
-                                        android.widget.Toast.makeText(context, "Could not get location. Please enable GPS.", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
+                                    fetchAddressFast()
                                 } catch (e: Exception) {
                                     Timber.e(e, "📍 Fetch button - Error fetching location")
                                     fetchError = "Error fetching location"

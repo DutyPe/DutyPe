@@ -26,6 +26,11 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class DutyPeApplication : Application(), Configuration.Provider {
+
+    companion object {
+        // Keep StrictMode opt-in to avoid vendor ROM noise drowning real app errors in Logcat.
+        private const val ENABLE_STRICT_MODE_IN_DEBUG = false
+    }
     
     @Inject
     lateinit var metadataManager: MetadataManager
@@ -53,9 +58,9 @@ class DutyPeApplication : Application(), Configuration.Provider {
         // Initialize Timber first for logging
         initializeTimber()
 
-        // Enable StrictMode in debug builds to surface main-thread disk/network I/O,
-        // leaked closables, and untagged sockets early. Release builds skip this entirely.
-        if (BuildConfig.DEBUG) {
+        // StrictMode is opt-in in debug builds because some vendor ROM hooks generate
+        // high-volume violations unrelated to app logic, which can hide actionable errors.
+        if (BuildConfig.DEBUG && ENABLE_STRICT_MODE_IN_DEBUG) {
             android.os.StrictMode.setThreadPolicy(
                 android.os.StrictMode.ThreadPolicy.Builder()
                     .detectDiskReads()

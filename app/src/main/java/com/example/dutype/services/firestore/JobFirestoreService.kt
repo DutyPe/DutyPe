@@ -341,7 +341,6 @@ class JobFirestoreService @Inject constructor(
             val benefits = parseBenefits(jobData["benefits"])
             val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
-            val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { null }
             val companyCity = extractCityFromAddress(addressText)
 
             val providedLocation = jobData["location"] as? Map<*, *>
@@ -415,7 +414,6 @@ class JobFirestoreService @Inject constructor(
             )
             whatsappNumber?.let { detailsData["whatsappNumber"] = it }
             workingHours?.let { detailsData["workingHours"] = it }
-            educationRequired?.let { detailsData["educationRequired"] = it }
 
             Timber.d("📝 Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
@@ -822,7 +820,6 @@ class JobFirestoreService @Inject constructor(
             }
             data["whatsappNumber"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["whatsappNumber"] = v } }
             data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
-            data["educationRequired"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["educationRequired"] = v } }
             if (data.containsKey("benefits")) detailsUpdates["benefits"] = parseBenefits(data["benefits"])
 
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {

@@ -207,7 +207,20 @@ fun PostJobScreen(
     
     // Quick selection options for hyper-local jobs
     val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
-    val experienceLevels = listOf("No Experience Required", "1-2 years", "2-5 years", "5+ years")
+    val baseExperienceLevels = listOf(
+        "No Experience Required",
+        "Fresher (Educated)",
+        "1-2 years",
+        "2-5 years",
+        "5+ years"
+    )
+    val experienceLevels = remember(experienceLevel) {
+        if (experienceLevel.isNotBlank() && experienceLevel !in baseExperienceLevels) {
+            baseExperienceLevels + experienceLevel
+        } else {
+            baseExperienceLevels
+        }
+    }
     val ageRanges = listOf("18-25", "18-35", "25-45", "35+", "Any Age")
     val genders = listOf("Any", "Male", "Female")
 
@@ -258,7 +271,24 @@ fun PostJobScreen(
         draftTrigger
             .debounce(2000L) // 2 second debounce
             .collect {
-                if (title.isNotBlank() || description.isNotBlank() || payAmount.isNotBlank() || location.isNotBlank()) {
+                val hasDraftContent =
+                    title.isNotBlank() ||
+                    description.isNotBlank() ||
+                    payAmount.isNotBlank() ||
+                    location.isNotBlank() ||
+                    vacancies.isNotBlank() ||
+                    contactNumber.isNotBlank() ||
+                    customCategory.isNotBlank() ||
+                    selectedPerks.isNotEmpty() ||
+                    customPerks.isNotEmpty() ||
+                    experienceLevel != "No Experience Required" ||
+                    ageRange != "18-35" ||
+                    gender != "Any" ||
+                    shiftTiming != ShiftTiming.FLEXIBLE ||
+                    urgency != JobUrgency.FLEXIBLE ||
+                    workType != "Part-time"
+
+                if (hasDraftContent) {
                     val draft = JobDraftDataStore.JobDraft(
                         title = title,
                         description = description,
@@ -286,8 +316,53 @@ fun PostJobScreen(
     }
 
     // Trigger auto-save when form fields change
-    LaunchedEffect(title, description, payAmount, location, category, vacancies, contactNumber) {
+    LaunchedEffect(
+        title,
+        description,
+        payAmount,
+        payType,
+        location,
+        category,
+        customCategory,
+        vacancies,
+        contactNumber,
+        shiftTiming,
+        urgency,
+        selectedPerks,
+        customPerks,
+        workType,
+        experienceLevel,
+        ageRange,
+        gender
+    ) {
         draftTrigger.value = System.currentTimeMillis()
+    }
+
+    suspend fun fetchWorkLocationFast() {
+        val cachedLocation = locationRepository.lastKnownLocationIfFresh(10 * 60 * 1000L)
+        if (cachedLocation != null) {
+            location = cachedLocation.getFullAddress()
+            locationLatitude = cachedLocation.latitude
+            locationLongitude = cachedLocation.longitude
+            Timber.d("📍 LOCATION DEBUG: Using recent cached location immediately")
+        }
+
+        val refinedLocation = locationRepository.getHighAccuracy(
+            timeoutMs = if (cachedLocation != null) 4000L else 6000L,
+            minAccuracyMeters = 35f
+        )
+
+        if (refinedLocation != null) {
+            location = refinedLocation.getFullAddress()
+            locationLatitude = refinedLocation.latitude
+            locationLongitude = refinedLocation.longitude
+            Timber.d("📍 LOCATION DEBUG: ✅ Refined location fetched (${refinedLocation.accuracy}m)")
+        } else if (cachedLocation == null) {
+            Timber.w("📍 LOCATION DEBUG: No cached or refined location available")
+            locationError = "Unable to get current location"
+        } else {
+            Timber.w("📍 LOCATION DEBUG: Refinement timed out, keeping cached location")
+        }
     }
 
     // Location permission launcher
@@ -300,28 +375,8 @@ fun PostJobScreen(
             locationError = null
             scope.launch {
                 try {
-                    Timber.d("📍 LOCATION DEBUG: Fetching high accuracy location (GPS-level precision)...")
-                    // Use locationRepository for single-source-of-truth GPS with mutex dedup
-                    val locationInfo = locationRepository.getHighAccuracy(
-                        timeoutMs = 5000L,  // Fall back to manual selection quickly
-                        minAccuracyMeters = 10f  // Target 10m GPS precision
-                    )
-                    if (locationInfo != null) {
-                        // Use detailed address for job posting
-                        location = locationInfo.getFullAddress()
-                        // Store coordinates for distance calculation
-                        locationLatitude = locationInfo.latitude
-                        locationLongitude = locationInfo.longitude
-                        Timber.d("📍 LOCATION DEBUG: ✅ High accuracy location fetched!")
-                        Timber.d("📍   - Full Address: ${locationInfo.getFullAddress()}")
-                        Timber.d("📍   - Short: ${locationInfo.getShortAddress()}")
-                        Timber.d("📍   - Latitude: ${locationInfo.latitude}")
-                        Timber.d("📍   - Longitude: ${locationInfo.longitude}")
-                        Timber.d("📍   - Accuracy: ${locationInfo.accuracy}m")
-                    } else {
-                        Timber.w("📍 LOCATION DEBUG: locationInfo is null")
-                        locationError = "Unable to get current location"
-                    }
+                    Timber.d("📍 LOCATION DEBUG: Fetching fast-first location...")
+                    fetchWorkLocationFast()
                 } catch (e: Exception) {
                     Timber.e(e, "📍 LOCATION DEBUG: Error getting location")
                     locationError = "Error getting location: ${e.message}"
@@ -1237,25 +1292,13 @@ fun PostJobScreen(
                                         onLocationButtonClick = {
                                             Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
                                             if (locationService.hasLocationPermission()) {
-                                                Timber.d("📍 LOCATION BUTTON: Permission granted, fetching high accuracy location (Swiggy/Zomato precision)...")
+                                                Timber.d("📍 LOCATION BUTTON: Permission granted, fetching fast-first location...")
                                                 isLoadingLocation = true
                                                 locationError = null
                                                 scope.launch {
                                                     try {
-                                                        val locationInfo = locationRepository.getHighAccuracy(
-                                                            timeoutMs = 5000L,
-                                                            minAccuracyMeters = 10f
-                                                        )
-                                                        if (locationInfo != null) {
-                                                            location = locationInfo.getFullAddress()
-                                                            locationLatitude = locationInfo.latitude
-                                                            locationLongitude = locationInfo.longitude
-                                                            Timber.d("📍 LOCATION BUTTON: ✅ High accuracy location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
-                                                            Timber.d("📍 LOCATION BUTTON: Full Address: $location")
-                                                        } else {
-                                                            Timber.w("📍 LOCATION BUTTON: locationInfo is null")
-                                                            locationError = "Unable to get current location"
-                                                        }
+                                                        fetchWorkLocationFast()
+                                                        Timber.d("📍 LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
                                                     } catch (e: Exception) {
                                                         Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
                                                         locationError = "Error getting location"
@@ -1904,27 +1947,6 @@ private fun PostJobStepperHeader(
                                 )
                         )
                     }
-                }
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
-                stepLabels.forEachIndexed { index, label ->
-                    val step = index + 1
-                    val color = when {
-                        step < currentStep -> doneColor
-                        step == currentStep -> Color(0xFF0F172A)
-                        else -> Color(0xFF94A3B8)
-                    }
-                    Text(
-                        text = label,
-                        modifier = Modifier.weight(1f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = color,
-                            fontWeight = if (step == currentStep) FontWeight.Bold else FontWeight.Medium
-                        ),
-                        maxLines = 1
-                    )
                 }
             }
         }
@@ -3166,7 +3188,9 @@ fun RequirementsSection(
                 options = experienceLevels,
                 selectedOption = experienceLevel,
                 onOptionSelected = onExperienceLevelChange,
-                selectedColor = Color(0xFF10B981)
+                selectedColor = Color(0xFF10B981),
+                allowCustomOption = true,
+                customOptionHint = "Add your own experience"
             )
             
             Spacer(modifier = Modifier.height(18.dp))
@@ -3231,8 +3255,13 @@ private fun RequirementChipSection(
     options: List<String>,
     selectedOption: String,
     onOptionSelected: (String) -> Unit,
-    selectedColor: Color
+    selectedColor: Color,
+    allowCustomOption: Boolean = false,
+    customOptionHint: String = "Add your own"
 ) {
+    var showCustomInput by remember { mutableStateOf(false) }
+    var customOptionText by remember { mutableStateOf("") }
+
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3275,6 +3304,76 @@ private fun RequirementChipSection(
                     selected = selectedOption == option
                 )
             )
+        }
+
+        if (allowCustomOption) {
+            item {
+                FilterChip(
+                    onClick = { showCustomInput = !showCustomInput },
+                    label = {
+                        Text(
+                            if (showCustomInput) "Cancel" else "Add your own +",
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    selected = false,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFF1F5F9),
+                        selectedLabelColor = Color(0xFF334155),
+                        containerColor = Color(0xFFF1F5F9),
+                        labelColor = Color(0xFF334155)
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = Color.Transparent,
+                        selectedBorderColor = Color.Transparent,
+                        enabled = true,
+                        selected = false
+                    )
+                )
+            }
+        }
+    }
+
+    if (allowCustomOption && showCustomInput) {
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = customOptionText,
+                onValueChange = { customOptionText = it },
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                label = { Text(customOptionHint) },
+                placeholder = { Text("Eg: 10th pass + 2 years") },
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = selectedColor,
+                    focusedLabelColor = selectedColor,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = selectedColor
+                )
+            )
+
+            Button(
+                onClick = {
+                    val trimmed = customOptionText.trim()
+                    if (trimmed.isNotBlank()) {
+                        val existingOption = options.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+                        onOptionSelected(existingOption ?: trimmed)
+                        customOptionText = ""
+                        showCustomInput = false
+                    }
+                },
+                enabled = customOptionText.trim().isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = selectedColor),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Add")
+            }
         }
     }
 }

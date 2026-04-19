@@ -670,6 +670,15 @@ class ProfileCompletionService @Inject constructor(
             val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
             val existingWorker = workerRef.get().await().data.orEmpty()
             val validLocation = extractValidLocation(profileData, existingUser)
+            val dateOfBirth = (profileData["dateOfBirth"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingWorker["dateOfBirth"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val gender = (profileData["gender"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingWorker["gender"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val experience = (profileData["experience"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingWorker["experience"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
@@ -698,6 +707,15 @@ class ProfileCompletionService @Inject constructor(
                 //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via
                 //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
             )
+            if (!dateOfBirth.isNullOrBlank()) {
+                workerProfile["dateOfBirth"] = dateOfBirth
+            }
+            if (!gender.isNullOrBlank()) {
+                workerProfile["gender"] = gender
+            }
+            if (!experience.isNullOrBlank()) {
+                workerProfile["experience"] = experience
+            }
 
             val batch = firestore.batch()
             batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())

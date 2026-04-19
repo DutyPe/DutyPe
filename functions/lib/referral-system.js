@@ -32,7 +32,7 @@
  * @version 2.0.0 - Enterprise Edition with Security Hardening
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.backfillReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = void 0;
+exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.backfillReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onUserProfileComplete = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -266,6 +266,86 @@ async function getReferralCodeLookup(rawCode) {
     }
     return null;
 }
+async function ensureCanonicalReferralCodeForUser(userId, userRole, userName, existingCode = "") {
+    const resolvedUserRole = getStringValue(userRole, "WORKER").toUpperCase();
+    const resolvedUserName = getStringValue(userName, "DutyPe User");
+    const normalizedExistingCode = normalizeReferralCodeInput(existingCode);
+    const statsRef = db.collection("referral_stats").doc(userId);
+    const userRef = db.collection("users").doc(userId);
+    const currentStatsDoc = await statsRef.get();
+    const currentStatsCode = currentStatsDoc.exists
+        ? normalizeReferralCodeInput(getStringValue(currentStatsDoc.get("referralCode")))
+        : "";
+    if (currentStatsCode) {
+        return currentStatsCode;
+    }
+    const codeCandidates = [];
+    if (normalizedExistingCode) {
+        codeCandidates.push(normalizedExistingCode);
+    }
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const candidate = codeCandidates.length > 0
+            ? codeCandidates.shift()
+            : await generateUniqueReferralCode(resolvedUserName);
+        try {
+            const resolvedCode = await db.runTransaction(async (transaction) => {
+                const latestStatsDoc = await transaction.get(statsRef);
+                const latestStatsCode = latestStatsDoc.exists
+                    ? normalizeReferralCodeInput(getStringValue(latestStatsDoc.get("referralCode")))
+                    : "";
+                if (latestStatsCode) {
+                    return latestStatsCode;
+                }
+                const latestUserDoc = await transaction.get(userRef);
+                const latestUserCode = latestUserDoc.exists
+                    ? normalizeReferralCodeInput(getStringValue(latestUserDoc.get("referralCode")))
+                    : "";
+                const codeToUse = latestUserCode || candidate;
+                if (!codeToUse) {
+                    throw new Error("INVALID_REFERRAL_CODE");
+                }
+                const codeRef = db.collection("referral_codes").doc(codeToUse);
+                const codeDoc = await transaction.get(codeRef);
+                if (codeDoc.exists) {
+                    const ownerUserId = getStringValue(codeDoc.get("userId"));
+                    if (ownerUserId && ownerUserId !== userId) {
+                        throw new Error("REFERRAL_CODE_COLLISION");
+                    }
+                }
+                transaction.set(statsRef, {
+                    userId,
+                    userRole: resolvedUserRole,
+                    userName: resolvedUserName,
+                    referralCode: codeToUse,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                transaction.set(codeRef, {
+                    code: codeToUse,
+                    userId,
+                    userRole: resolvedUserRole,
+                    userName: resolvedUserName,
+                    isActive: true,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    totalUsed: 0,
+                    successfulReferrals: 0
+                }, { merge: true });
+                transaction.set(userRef, {
+                    referralCode: codeToUse
+                }, { merge: true });
+                return codeToUse;
+            });
+            if (resolvedCode) {
+                return resolvedCode;
+            }
+        }
+        catch (error) {
+            if ((error === null || error === void 0 ? void 0 : error.message) !== "REFERRAL_CODE_COLLISION") {
+                throw error;
+            }
+        }
+    }
+    throw new Error("Failed to reserve canonical referral code");
+}
 async function evaluateReferralFraud(params) {
     const { referrerUserId, deviceFingerprint, ipAddress } = params;
     let fraudScore = 0;
@@ -404,60 +484,46 @@ exports.onUserProfileComplete = functions.firestore
         return null;
     }
     try {
-        const statsRef = db.collection("referral_stats").doc(userId);
-        const existingStatsDoc = await statsRef.get();
-        if (existingStatsDoc.exists && getStringValue(existingStatsDoc.get("referralCode"))) {
-            return null;
-        }
-        for (let attempt = 0; attempt < 10; attempt++) {
-            const referralCode = await generateUniqueReferralCode(userName);
-            try {
-                const resolvedCode = await db.runTransaction(async (transaction) => {
-                    const latestStatsDoc = await transaction.get(statsRef);
-                    const existingCode = latestStatsDoc.exists ? getStringValue(latestStatsDoc.get("referralCode")) : "";
-                    if (existingCode) {
-                        return existingCode;
-                    }
-                    const codeRef = db.collection("referral_codes").doc(referralCode);
-                    const codeDoc = await transaction.get(codeRef);
-                    if (codeDoc.exists) {
-                        throw new Error("REFERRAL_CODE_COLLISION");
-                    }
-                    transaction.set(statsRef, {
-                        userId,
-                        userRole,
-                        userName,
-                        referralCode,
-                        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    transaction.set(codeRef, {
-                        code: referralCode,
-                        userId,
-                        userRole,
-                        userName,
-                        isActive: true,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        totalUsed: 0,
-                        successfulReferrals: 0
-                    });
-                    return referralCode;
-                });
-                if (resolvedCode) {
-                    functions.logger.info("REFERRAL: Ensured code " + resolvedCode + " for user " + userId);
-                    return { success: true, referralCode: resolvedCode };
-                }
-            }
-            catch (error) {
-                if ((error === null || error === void 0 ? void 0 : error.message) !== "REFERRAL_CODE_COLLISION") {
-                    throw error;
-                }
-            }
-        }
-        throw new Error("Failed to reserve canonical referral code");
+        const resolvedCode = await ensureCanonicalReferralCodeForUser(userId, userRole, userName, getStringValue(after.referralCode));
+        functions.logger.info("REFERRAL: Ensured code " + resolvedCode + " for user " + userId);
+        return { success: true, referralCode: resolvedCode };
     }
     catch (error) {
         functions.logger.error("REFERRAL: Error creating referral code for " + userId + ":", error);
         return null;
+    }
+});
+exports.ensureUserReferralCode = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+    }
+    const userId = context.auth.uid;
+    try {
+        (0, validation_1.validateUserId)(userId, true);
+    }
+    catch (error) {
+        throw new functions.https.HttpsError("invalid-argument", error.message);
+    }
+    try {
+        const userDoc = await db.collection("users").doc(userId).get();
+        if (!userDoc.exists) {
+            throw new functions.https.HttpsError("failed-precondition", "User profile not found");
+        }
+        const userData = userDoc.data() || {};
+        const roleFromPayload = getStringValue(data === null || data === void 0 ? void 0 : data.userRole, "WORKER").toUpperCase();
+        const nameFromPayload = getStringValue(data === null || data === void 0 ? void 0 : data.userName, "");
+        const userRole = getStringValue(userData.activeRole, roleFromPayload).toUpperCase();
+        const userName = getStringValue(userData.fullName || userData.companyName, nameFromPayload || "DutyPe User");
+        const existingCode = getStringValue(userData.referralCode);
+        const referralCode = await ensureCanonicalReferralCodeForUser(userId, userRole, userName, existingCode);
+        return {
+            success: true,
+            referralCode
+        };
+    }
+    catch (error) {
+        functions.logger.error("REFERRAL: ensureUserReferralCode failed for " + userId + ":", error);
+        throw new functions.https.HttpsError("internal", "Failed to ensure referral code");
     }
 });
 /**
@@ -1032,7 +1098,6 @@ exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
     catch (error) {
         throw new functions.https.HttpsError("invalid-argument", error.message);
     }
-    await (0, validation_1.requirePerUserRateLimit)(userId, "withdrawals", { perDay: 5 });
     const cfg = await (0, app_config_1.getReferralConfig)();
     const amount = parseFloat(data.amount);
     const paymentMethod = data.paymentMethod || "UPI";

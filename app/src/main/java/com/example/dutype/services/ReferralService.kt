@@ -8,7 +8,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
-import com.google.firebase.Timestamp
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -105,41 +104,10 @@ class ReferralService @Inject constructor(
             return normalizedExistingCode
         }
 
-        val existingCode = firestore.collection(COLLECTION_REFERRAL_CODES)
-            .whereEqualTo("userId", userId)
-            .limit(1)
-            .get()
-            .await()
-            .documents
-            .firstOrNull()
-
-        if (existingCode != null) {
-            return existingCode.getString("code") ?: existingCode.id
-        }
-
-        repeat(10) {
-            val candidate = generateReferralCode()
-            val candidateRef = firestore.collection(COLLECTION_REFERRAL_CODES).document(candidate)
-            val candidateSnapshot = candidateRef.get().await()
-            if (candidateSnapshot.exists()) {
-                return@repeat
-            }
-
-            val referralCodeDoc = linkedMapOf<String, Any>(
-                "code" to candidate,
-                "userId" to userId,
-                "userRole" to userRole,
-                "userName" to if (userName.isBlank()) "DutyPe User" else userName,
-                "isActive" to true,
-                "createdAt" to Timestamp.now()
-            )
-
-            candidateRef.set(referralCodeDoc).await()
-            Timber.d("🎁 REFERRAL: Created missing referral code $candidate for user $userId")
-            return candidate
-        }
-
-        return ""
+        return callEnsureUserReferralCode(
+            userRole = userRole,
+            userName = userName
+        )
     }
 
     private suspend fun findExistingReferralCodeForUser(userId: String): String {
@@ -154,24 +122,41 @@ class ReferralService @Inject constructor(
                 return userCode
             }
 
-            val existingCodeDoc = firestore.collection(COLLECTION_REFERRAL_CODES)
-                .whereEqualTo("userId", userId)
-                .limit(1)
-                .get()
-                .await()
-                .documents
-                .firstOrNull()
-
-            if (existingCodeDoc != null) {
-                val codeFromDoc = normalizeReferralCode(existingCodeDoc.getString("code") ?: existingCodeDoc.id)
-                if (codeFromDoc.isNotBlank()) {
-                    return codeFromDoc
-                }
-            }
-
-            ""
+            callEnsureUserReferralCode(
+                userRole = (userDoc.getString("activeRole") ?: "WORKER").uppercase(),
+                userName = userDoc.getString("fullName") ?: ""
+            )
         } catch (e: Exception) {
             Timber.w(e, "🎁 REFERRAL: Unable to resolve referral code for user $userId")
+            ""
+        }
+    }
+
+    private suspend fun callEnsureUserReferralCode(
+        userRole: String,
+        userName: String
+    ): String {
+        return try {
+            val payload = hashMapOf(
+                "userRole" to userRole,
+                "userName" to userName
+            )
+
+            val result = functions
+                .getHttpsCallable("ensureUserReferralCode")
+                .call(payload)
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            val success = response["success"] as? Boolean ?: false
+            if (!success) {
+                return ""
+            }
+
+            normalizeReferralCode(response["referralCode"]?.toString().orEmpty())
+        } catch (e: Exception) {
+            Timber.w(e, "🎁 REFERRAL: ensureUserReferralCode callable failed")
             ""
         }
     }
@@ -283,7 +268,37 @@ class ReferralService @Inject constructor(
                         trySend(stats)
                     }
                 } else {
-                    trySend(null)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val userDoc = firestore.collection(COLLECTION_USERS)
+                                .document(userId)
+                                .get()
+                                .await()
+                            val roleFromUser = (userDoc.getString("activeRole") ?: "WORKER").uppercase()
+                            val userDocCode = normalizeReferralCode(userDoc.getString("referralCode") ?: "")
+                            val resolvedCode = if (userDocCode.isNotBlank()) {
+                                userDocCode
+                            } else {
+                                findExistingReferralCodeForUser(userId)
+                            }
+
+                            val fallbackStats = ReferralStats(
+                                userId = userId,
+                                userRole = roleFromUser,
+                                referralCode = resolvedCode,
+                                totalReferrals = 0,
+                                successfulReferrals = 0,
+                                totalEarnings = 0.0,
+                                availableBalance = 0.0,
+                                canWithdraw = false,
+                                currentTier = ReferralTier.BRONZE
+                            )
+                            trySend(fallbackStats)
+                        } catch (e: Exception) {
+                            Timber.w(e, "🎁 REFERRAL: Failed fallback stats generation")
+                            trySend(null)
+                        }
+                    }
                 }
             }
         

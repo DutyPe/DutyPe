@@ -492,13 +492,27 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getApplicationsForJob(jobId: String): Result<List<JobApplication>> {
         return try {
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                ?: return Result.failure(IllegalStateException("User not authenticated"))
+
             RetryUtils.retryWithBackoffResult {
-                val snapshot = firestore.collection(applicationsCollection)
-                .whereEqualTo("jobId", jobId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(200)
-                .get()
-                .await()
+                val base = firestore.collection(applicationsCollection)
+                    .whereEqualTo("jobId", jobId)
+                    .whereEqualTo("employerId", currentUserId)
+
+                val snapshot = try {
+                    base
+                        .orderBy("createdAt", Query.Direction.DESCENDING)
+                        .limit(200)
+                        .get()
+                        .await()
+                } catch (e: Exception) {
+                    Timber.w(e, "[JobApplicationService] Ordered query failed in getApplicationsForJob, falling back")
+                    base
+                        .limit(200)
+                        .get()
+                        .await()
+                }
             
                 val applications = snapshot.documents.mapNotNull { doc ->
                     try {
@@ -663,12 +677,30 @@ class JobApplicationService @Inject constructor(
     fun getJobApplications(jobId: String): Flow<Result<List<JobApplication>>> = flow {
         try {
             Timber.d("[JobApplicationService] Getting applications for jobId: $jobId")
+
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            if (currentUserId.isNullOrBlank()) {
+                emit(Result.failure(IllegalStateException("User not authenticated")))
+                return@flow
+            }
             
             val base = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .whereEqualTo("employerId", currentUserId)
 
-            val snapshot = base.limit(200).get().await()
+            val snapshot = try {
+                base
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(200)
+                    .get()
+                    .await()
+            } catch (e: Exception) {
+                Timber.w(e, "[JobApplicationService] Ordered query failed in getJobApplications, falling back")
+                base
+                    .limit(200)
+                    .get()
+                    .await()
+            }
             Timber.d("[JobApplicationService] Found ${snapshot.size()} applications for jobId: $jobId")
 
             val applications = snapshot.documents.mapNotNull { doc ->
@@ -1379,12 +1411,26 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun getApplicationsForSpecificJob(jobId: String): Result<List<JobApplication>> {
         return try {
-            val snapshot = firestore.collection(applicationsCollection)
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                ?: return Result.failure(IllegalStateException("User not authenticated"))
+
+            val base = firestore.collection(applicationsCollection)
                 .whereEqualTo("jobId", jobId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(200)
-                .get()
-                .await()
+                .whereEqualTo("employerId", currentUserId)
+
+            val snapshot = try {
+                base
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(200)
+                    .get()
+                    .await()
+            } catch (e: Exception) {
+                Timber.w(e, "[JobApplicationService] Ordered query failed in getApplicationsForSpecificJob, falling back")
+                base
+                    .limit(200)
+                    .get()
+                    .await()
+            }
             
             val applications = snapshot.documents.mapNotNull { doc ->
                 try {

@@ -11,7 +11,7 @@
 
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { requirePerUserRateLimit, assertAppCheck } from "./validation";
+import { assertAppCheck } from "./validation";
 
 const db = admin.firestore();
 
@@ -73,9 +73,6 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
   }
   assertAppCheck(context);
   const uid = context.auth.uid;
-
-  // Rate-limit per employer: 10/min, 60/hour, 200/day.
-  await requirePerUserRateLimit(uid, "createJob", { perMinute: 10, perHour: 60, perDay: 200 });
 
   const { idempotencyKey, ...rest } = (data ?? {}) as Record<string, unknown>;
 

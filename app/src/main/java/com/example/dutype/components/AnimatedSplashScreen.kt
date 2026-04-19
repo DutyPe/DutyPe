@@ -118,7 +118,7 @@ fun AnimatedSplashScreen(
                     Text(
                         text = char.toString(),
                         color = Color.White,
-                        fontSize = 50.sp,
+                        fontSize = 47.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier

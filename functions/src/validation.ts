@@ -323,58 +323,6 @@ export function validateEnum<T>(
 }
 
 /**
- * Rate limiting — Firestore-transaction backed. Survives cold starts and
- * scales across Cloud Functions instances. Writes to /_rate_limits/{uid__action}
- * which is denied to all clients (see firestore.rules).
- */
-import * as admin from "firebase-admin";
-
-export async function requirePerUserRateLimit(
-  userId: string,
-  action: string,
-  opts: { perMinute?: number; perHour?: number; perDay?: number } = {}
-): Promise<void> {  const perMinute = opts.perMinute ?? Number.MAX_SAFE_INTEGER;
-  const perHour = opts.perHour ?? Number.MAX_SAFE_INTEGER;
-  const perDay = opts.perDay ?? Number.MAX_SAFE_INTEGER;
-
-  const ref = admin.firestore().doc(`_rate_limits/${userId}__${action}`);
-  const now = Date.now();
-
-  await admin.firestore().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const d = (snap.data() as {
-      minuteStart?: number; minuteCount?: number;
-      hourStart?: number; hourCount?: number;
-      dayStart?: number; dayCount?: number;
-    }) ?? {};
-
-    const minuteStart = (d.minuteStart ?? 0);
-    const hourStart = (d.hourStart ?? 0);
-    const dayStart = (d.dayStart ?? 0);
-    const minuteCount = now - minuteStart > 60_000 ? 0 : (d.minuteCount ?? 0);
-    const hourCount = now - hourStart > 3_600_000 ? 0 : (d.hourCount ?? 0);
-    const dayCount = now - dayStart > 86_400_000 ? 0 : (d.dayCount ?? 0);
-
-    if (minuteCount >= perMinute || hourCount >= perHour || dayCount >= perDay) {
-      throw new functions.https.HttpsError(
-        "resource-exhausted",
-        `rate limit exceeded for ${action}`
-      );
-    }
-
-    tx.set(ref, {
-      minuteStart: now - minuteStart > 60_000 ? now : minuteStart,
-      minuteCount: minuteCount + 1,
-      hourStart: now - hourStart > 3_600_000 ? now : hourStart,
-      hourCount: hourCount + 1,
-      dayStart: now - dayStart > 86_400_000 ? now : dayStart,
-      dayCount: dayCount + 1,
-      lastActionAt: now,
-    });
-  });
-}
-
-/**
  * Require a valid App Check token on a callable request. Rejects the call
  * with failed-precondition if absent. Use on sensitive paths (money,
  * identity lookups, signed URL issuers).
@@ -382,53 +330,5 @@ export async function requirePerUserRateLimit(
 export function assertAppCheck(context: functions.https.CallableContext): void {
   if (!context.app) {
     throw new functions.https.HttpsError("failed-precondition", "app check required");
-  }
-}
-
-/**
- * @deprecated In-memory rate limiter. Resets on cold start — do not use for
- * money/abuse paths. Kept only so unreferenced call-sites still compile;
- * all critical paths must use `requirePerUserRateLimit`.
- */
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-export function checkRateLimit(
-  userId: string,
-  action: string,
-  maxRequests: number = 10,
-  windowMs: number = 60000 // 1 minute
-): void {
-  const key = `${userId}:${action}`;
-  const now = Date.now();
-  const limit = rateLimitMap.get(key);
-
-  if (!limit || now > limit.resetAt) {
-    // Reset or create new limit
-    rateLimitMap.set(key, {
-      count: 1,
-      resetAt: now + windowMs,
-    });
-    return;
-  }
-
-  if (limit.count >= maxRequests) {
-    throw new functions.https.HttpsError(
-      "resource-exhausted",
-      `Too many requests. Please try again later.`
-    );
-  }
-
-  limit.count++;
-}
-
-/**
- * Clean up expired rate limit entries (call periodically)
- */
-export function cleanupRateLimits(): void {
-  const now = Date.now();
-  for (const [key, limit] of rateLimitMap.entries()) {
-    if (now > limit.resetAt) {
-      rateLimitMap.delete(key);
-    }
   }
 }

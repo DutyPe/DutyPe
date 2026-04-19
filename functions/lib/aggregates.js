@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onApplicationHired = exports.onRatingCreated = void 0;
+exports.onApplicationCreatedIncrementApplicationCount = exports.onApplicationHired = exports.onRatingCreated = void 0;
 /**
  * Aggregate maintainers — Cloud Functions triggers that keep the
  * client-forbidden aggregate fields (rating, totalRatings, totalJobs,
@@ -86,6 +86,31 @@ exports.onApplicationHired = functions.firestore
         safeIncrement(db.doc(`worker_profiles/${workerId}`), { totalJobs: FIELD.increment(1) }),
         safeIncrement(db.doc(`employer_profiles/${employerId}`), { totalHires: FIELD.increment(1) }),
     ]);
+});
+/**
+ * Keep per-job application counters in sync for employer views.
+ * This runs on application create and updates `job_details/{jobId}.applicationCount`.
+ */
+exports.onApplicationCreatedIncrementApplicationCount = functions.firestore
+    .document("applications/{applicationId}")
+    .onCreate(async (snap) => {
+    var _a;
+    const data = snap.data() || {};
+    const jobId = String((_a = data.jobId) !== null && _a !== void 0 ? _a : "");
+    if (!jobId) {
+        functions.logger.warn("onApplicationCreatedIncrementApplicationCount: missing jobId", { id: snap.id });
+        return;
+    }
+    try {
+        await db.doc(`job_details/${jobId}`).set({ applicationCount: FIELD.increment(1) }, { merge: true });
+    }
+    catch (e) {
+        functions.logger.error("onApplicationCreatedIncrementApplicationCount failed", {
+            id: snap.id,
+            jobId,
+            err: e === null || e === void 0 ? void 0 : e.message,
+        });
+    }
 });
 async function safeIncrement(ref, updates) {
     try {

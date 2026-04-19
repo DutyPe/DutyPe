@@ -399,7 +399,14 @@ private fun OtpLoginScreen(
                                         return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            Timber.w("📱 Login pre-check unavailable, continuing with OTP flow")
+                                            isCheckingPhone = false
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            Timber.w("📱 Login blocked - Phone pre-check unavailable: $fullPhoneNumber")
+                                            return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.EXISTS -> Unit
                                     }
@@ -411,7 +418,11 @@ private fun OtpLoginScreen(
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
                                     Timber.e(e, "📱 Error in phone check")
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    Toast.makeText(
+                                        context,
+                                        if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
                         },

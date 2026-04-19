@@ -11,7 +11,7 @@
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { requirePerUserRateLimit, assertAppCheck } from "./validation";
+import { assertAppCheck } from "./validation";
 
 const db = admin.firestore();
 const SIGNED_URL_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -22,10 +22,6 @@ export const getCoverLetterSignedUrl = functions.https.onCall(async (data, conte
   }
   assertAppCheck(context);
   const employerUid = context.auth.uid;
-
-  await requirePerUserRateLimit(employerUid, "getCoverLetterSignedUrl", {
-    perMinute: 20, perHour: 200, perDay: 1000,
-  });
 
   const applicationId = String(data?.applicationId ?? "").trim();
   if (!applicationId || applicationId.length > 200 || !applicationId.includes("_")) {

@@ -275,7 +275,6 @@ Never more than one or two docs. Keep the read budget trivial.
 ## 2.16 Collections to challenge / retire
 
 - `announcements` — used? [AnnouncementService.kt](../../app/src/main/java/com/example/dutype/services/AnnouncementService.kt) opens a snapshot listener at L72. If product is not actively pushing announcements, the listener is pure cost. Gate behind an `app_config.announcements.enabled` flag or delete the collection + listener.
-- `_rate_limits` — CF-internal; rules correctly deny. Confirm the sweep worker (noted in CF work) actually deletes old docs.
 - `employer_landing` / `worker_landing` — CF returns structured payloads; confirm no client writes ever reach these paths (rules should block if written).
 
 ---

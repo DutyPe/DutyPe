@@ -106,16 +106,12 @@ fun JobApplicationCard(
     onCardClick: (JobApplication) -> Unit,
     onWithdrawClick: ((JobApplication) -> Unit)? = null,
     onRateClick: ((JobApplication) -> Unit)? = null,
-    onStartWorkClick: ((JobApplication) -> Unit)? = null,
     hasAlreadyRated: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // Can withdraw only if status is PENDING or UNDER_REVIEW
     val canWithdraw = application.status == ApplicationStatus.APPLIED || 
                       application.status == ApplicationStatus.SHORTLISTED
-    
-    // Can start work only if status is ACCEPTED
-    val canStartWork = application.status == ApplicationStatus.HIRED && onStartWorkClick != null
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.HIRED && !hasAlreadyRated && onRateClick != null
@@ -233,24 +229,6 @@ fun JobApplicationCard(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Start Work button - only show if accepted
-                        if (canStartWork) {
-                            Button(
-                                onClick = { onStartWorkClick?.invoke(application) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF10B981)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "🔐 Start Work",
-                                    style = AppTypography.buttonSmall.copy(
-                                        color = Color.White
-                                    )
-                                )
-                            }
-                        }
-                        
                         // Withdraw button - only show if can withdraw
                         if (canWithdraw && onWithdrawClick != null) {
                             Button(

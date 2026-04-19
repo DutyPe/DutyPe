@@ -487,6 +487,33 @@ fun MainNavGraph(
                 notificationPermissionManager = notificationPermissionManager
             )
         }
+
+        // Root-level job detail destination for app-link/deep-link handling.
+        // Deep links are processed on MainNavGraph's navController, so this route
+        // must exist here in addition to WorkerNavGraph.
+        composable(
+            route = Routes.JOB_DETAIL,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+            deepLinks = listOf(
+                androidx.navigation.navDeepLink {
+                    uriPattern = "dutype://job/{jobId}"
+                },
+                androidx.navigation.navDeepLink {
+                    uriPattern = "https://dutype.in/jobs/{jobId}"
+                }
+            )
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            Timber.i("🔗 MainNavGraph: JobDescriptionScreen opened with jobId: $jobId")
+            val firestoreJobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            com.example.dutype.worker.screens.JobDescriptionScreen(
+                jobId = jobId,
+                navController = navController,
+                onStatusBarColorChange = onStatusBarColorChange,
+                adManager = firestoreJobViewModel.adManager
+            )
+        }
+
         composable(Routes.EMPLOYER_HOME) {
             EmployerMainScreen(
                 rootNavController = navController,

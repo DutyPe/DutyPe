@@ -158,6 +158,9 @@ fun WorkerProfileDetailsScreen(
                     onSuccess = { data ->
                         fullName = data["fullName"] as? String ?: fullName
                         phoneNumber = data["phone"] as? String ?: phoneNumber
+                        dateOfBirth = data["dateOfBirth"] as? String ?: dateOfBirth
+                        gender = data["gender"] as? String ?: gender
+                        experience = data["experience"] as? String ?: experience
                         profileImageUrl = data["profileImageUrl"] as? String
 
                         // skills from worker_profiles — displayed as comma-separated skills
@@ -417,7 +420,11 @@ fun WorkerProfileDetailsScreen(
                                 if (currentUser != null) {
                                     val workerProfileData = mapOf(
                                         "fullName" to fullName,
-                                        "phone" to phoneNumber
+                                        "phone" to phoneNumber,
+                                        "dateOfBirth" to dateOfBirth,
+                                        "gender" to gender,
+                                        "skills" to skills,
+                                        "experience" to experience
                                     )
                                     profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
                                     Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()

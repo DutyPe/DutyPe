@@ -76,18 +76,27 @@ service cloud.firestore {
       // Full profile update (name, image, location, referral linking).
       // Immutable: userId, phone, createdAt. Forbidden from client: isVerified, isActive, ratings, counters.
       allow update: if isSelf(userId) &&
-        request.resource.data.keys().hasOnly([
-          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
-          'location', 'geohash', 'fcmToken',
-          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId'
-        ]) &&
         request.resource.data.keys().hasAll([
           'userId', 'phone', 'fullName', 'roles', 'activeRole',
           'createdAt', 'lastActiveAt'
         ]) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'location', 'geohash', 'fcmToken',
+          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId',
+          'isVerified', 'isActive'
+        ]) &&
         request.resource.data.userId == userId &&
-        request.resource.data.phone == resource.data.phone &&
-        request.resource.data.createdAt == resource.data.createdAt &&
+        (!('userId' in resource.data) || request.resource.data.userId == resource.data.userId) &&
+        (!('phone' in resource.data) || request.resource.data.phone == resource.data.phone) &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+        // Legacy cleanup tolerance: client may omit legacy trust fields, but may not set/change them.
+        (!('isVerified' in request.resource.data) ||
+          (('isVerified' in resource.data) && request.resource.data.isVerified == resource.data.isVerified)) &&
+        (!('isActive' in request.resource.data) ||
+          (('isActive' in resource.data) && request.resource.data.isActive == resource.data.isActive)) &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20 &&
         request.resource.data.fullName is string &&
         request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120 &&
         validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
@@ -112,21 +121,27 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'jobTypes', 'skills', 'isAvailable', 'lastActiveAt'
+          'userId', 'jobTypes', 'skills', 'dateOfBirth', 'gender', 'experience', 'isAvailable', 'lastActiveAt'
         ]) &&
         request.resource.data.keys().hasAll(['userId', 'isAvailable', 'lastActiveAt']) &&
         request.resource.data.userId == userId &&
         (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 20)) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
+        (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
+        (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
         request.resource.data.isAvailable is bool &&
         request.resource.data.lastActiveAt is timestamp;
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'jobTypes', 'skills', 'isAvailable', 'lastActiveAt'
+          'jobTypes', 'skills', 'dateOfBirth', 'gender', 'experience', 'isAvailable', 'lastActiveAt'
         ]) &&
         (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 20)) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
+        (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
+        (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
         (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
         (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
 
@@ -169,7 +184,7 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'title', 'jobType',
-          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -190,6 +205,7 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
+        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
@@ -199,7 +215,7 @@ service cloud.firestore {
         resource.data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'title', 'jobType',
-          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
           'urgency', 'status', 'createdAt', 'expiresAt'
         ]) &&
         request.resource.data.employerId == resource.data.employerId &&
@@ -212,6 +228,7 @@ service cloud.firestore {
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
+        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         request.resource.data.expiresAt is timestamp;
@@ -226,12 +243,12 @@ service cloud.firestore {
       allow list: if false;
 
       allow create: if isSignedIn() &&
-        exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
-        get(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'description', 'contactNumber', 'whatsappNumber',
           'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
-          'vacancies', 'benefits'
+          'vacancies', 'benefits', 'applicationCount'
         ]) &&
         request.resource.data.keys().hasAll([
           'description', 'contactNumber', 'vacancies', 'benefits'
@@ -244,6 +261,7 @@ service cloud.firestore {
         request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000 &&
         request.resource.data.benefits is list &&
         request.resource.data.benefits.size() <= 20 &&
+        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
         (!('whatsappNumber' in request.resource.data) || (request.resource.data.whatsappNumber is string && request.resource.data.whatsappNumber.size() <= 20)) &&
         (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
         (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
@@ -256,12 +274,13 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'description', 'contactNumber', 'whatsappNumber',
           'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
-          'vacancies', 'benefits'
+          'vacancies', 'benefits', 'applicationCount'
         ]) &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
         (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000)) &&
-        (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20));
+        (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
+        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0));
 
       allow delete: if isSignedIn() &&
         exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
@@ -269,15 +288,20 @@ service cloud.firestore {
     }
 
     // ── applications ──────────────────────────────────────────────────
-    // Deterministic doc id: {jobId}_{workerId}. No resource==null bypass.
+    // Deterministic doc id: {jobId}_{workerId}.
     match /applications/{applicationId} {
+      function appDocOwnedByCaller() {
+        return applicationId.matches('^.+_' + request.auth.uid + '$');
+      }
+
       allow get: if isSignedIn() &&
-        resource != null &&
-        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+        (
+          (resource != null && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid)) ||
+          (resource == null && appDocOwnedByCaller())
+        );
 
       allow list: if isSignedIn() &&
-        resource.data.workerId == request.auth.uid ||
-        resource.data.employerId == request.auth.uid;
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
@@ -331,10 +355,19 @@ service cloud.firestore {
     // Deterministic doc id: {jobId}_{fromUserId}. One rating per (job, author).
     // Must be tied to a HIRED application between from↔to on that job.
     match /ratings/{ratingId} {
+      function ratingIdOwnedByCaller() {
+        return ratingId.matches('^.+_' + request.auth.uid + '$');
+      }
+
       allow get: if isSignedIn() &&
+        (
+          (resource != null &&
+            (resource.data.fromUserId == request.auth.uid || resource.data.toUserId == request.auth.uid)) ||
+          (resource == null && ratingIdOwnedByCaller())
+        );
+      allow list: if isSignedIn() &&
         (resource.data.fromUserId == request.auth.uid ||
          resource.data.toUserId == request.auth.uid);
-      allow list: if false; // aggregated reads via CF only
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'createdAt']) &&
@@ -370,7 +403,15 @@ service cloud.firestore {
     // ── job_reports ───────────────────────────────────────────────────
     // Deterministic doc id: {reporterId}_{jobId}. One report per (user, job).
     match /job_reports/{reportId} {
-      allow get: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+      function reportIdOwnedByCaller() {
+        return reportId.matches('^' + request.auth.uid + '_.+$');
+      }
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && resource.data.reporterId == request.auth.uid) ||
+          (resource == null && reportIdOwnedByCaller())
+        );
       allow list: if false;
 
       allow create: if isSignedIn() &&
@@ -398,7 +439,8 @@ service cloud.firestore {
     match /referrals/{referralId} {
       allow get: if isSignedIn() &&
         (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
-      allow list: if false; // use getReferralHistory callable
+      allow list: if isSignedIn() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
@@ -467,11 +509,6 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
     }
 
-    // ── _rate_limits (CF-only; backs transactional rate limiter) ──────
-    match /_rate_limits/{doc} {
-      allow read, write: if false;
-    }
-
     // ── app_config ────────────────────────────────────────────────────
     // Public read (clients listen to e.g. /app_config/referral for dynamic
     // reward amounts). Writes are CF/admin-only via Admin SDK.
@@ -486,3 +523,4 @@ service cloud.firestore {
       allow read, write: if false;
     }
   }
+}

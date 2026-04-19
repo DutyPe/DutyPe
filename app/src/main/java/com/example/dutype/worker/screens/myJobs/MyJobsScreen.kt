@@ -405,9 +405,6 @@ fun MyJobsScreen(
                                                 applicationToRate = app
                                                 showRatingSheet = true
                                             },
-                                            onStartWorkClick = { app ->
-                                                // Work-start verification has been removed; no-op.
-                                            },
                                             hasAlreadyRated = application.id in ratedApplicationIds
                                         )
                                     }
@@ -512,10 +509,21 @@ fun MyJobsScreen(
                     result.onSuccess { ratingResult ->
                         if (ratingResult.success) {
                             ratedApplicationIds = ratedApplicationIds + app.id
+                            showRatingSheet = false
+                            applicationToRate = null
                         }
+                        android.widget.Toast.makeText(
+                            cardContext,
+                            ratingResult.message,
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }.onFailure { error ->
+                        android.widget.Toast.makeText(
+                            cardContext,
+                            error.message ?: "Unable to submit rating right now",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                     }
-                    showRatingSheet = false
-                    applicationToRate = null
                 }
             }
         }

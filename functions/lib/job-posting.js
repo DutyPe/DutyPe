@@ -77,8 +77,6 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
     }
     (0, validation_1.assertAppCheck)(context);
     const uid = context.auth.uid;
-    // Rate-limit per employer: 10/min, 60/hour, 200/day.
-    await (0, validation_1.requirePerUserRateLimit)(uid, "createJob", { perMinute: 10, perHour: 60, perDay: 200 });
     const _a = (data !== null && data !== void 0 ? data : {}), { idempotencyKey } = _a, rest = __rest(_a, ["idempotencyKey"]);
     if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 64) {
         throw new functions.https.HttpsError("invalid-argument", "idempotencyKey required (8..64 chars)");

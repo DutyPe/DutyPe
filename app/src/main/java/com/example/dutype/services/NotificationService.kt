@@ -16,9 +16,13 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
@@ -44,6 +48,9 @@ class NotificationService @Inject constructor(
     companion object {
         // Cloud cleanup should delete notification docs once this 30-day retention window passes.
         private const val NOTIFICATION_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
+        // Firestore rules enforce CF-only creates on /notifications.
+        private const val CLIENT_NOTIFICATION_WRITES_ENABLED = false
+        private const val SELF_NOTIFICATION_PERSIST_TIMEOUT_MS = 2_500L
     }
     
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -688,14 +695,6 @@ class NotificationService @Inject constructor(
             "createdAt" to com.google.firebase.Timestamp(java.util.Date(notificationWithRecipient.createdAt))
         )
         
-        firestore.collection(notificationsCollection)
-            .document(notificationWithRecipient.id)
-            .set(firestorePayload)
-            .await()
-        
-        Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
-        Timber.d("Deep link included in notification data: $deepLink")
-
         // Show local notification immediately for the current user (self-notifications such as
         // profile complete, job posted, job paused, worker hired confirmation, etc.)
         // Cross-user notifications (employer ← new application, worker ← status update) are
@@ -703,6 +702,56 @@ class NotificationService @Inject constructor(
         val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
         if (currentUserId != null && recipientId == currentUserId) {
             showLocalNotification(notificationWithRecipient)
+        }
+
+        if (!CLIENT_NOTIFICATION_WRITES_ENABLED) {
+            if (currentUserId != null && recipientId == currentUserId) {
+                persistSelfNotificationInBackground(notificationWithRecipient)
+            } else {
+                Timber.d("Skipping client notification write (CF-only rules): recipient=%s type=%s", recipientId, notification.type)
+            }
+            return
+        }
+
+        firestore.collection(notificationsCollection)
+            .document(notificationWithRecipient.id)
+            .set(firestorePayload)
+            .await()
+
+        Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
+        Timber.d("Deep link included in notification data: $deepLink")
+    }
+
+    private fun persistSelfNotificationInBackground(notification: NotificationData) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val callablePayload = hashMapOf<String, Any>(
+                    "notificationId" to notification.id,
+                    "title" to notification.title,
+                    "message" to notification.message,
+                    "type" to notification.type.name,
+                    "data" to notification.data,
+                    "targetRole" to notification.targetRole,
+                    "expiresAt" to notification.expiresAt
+                )
+
+                val callableResult = withTimeoutOrNull(SELF_NOTIFICATION_PERSIST_TIMEOUT_MS) {
+                    com.google.firebase.functions.FirebaseFunctions
+                        .getInstance()
+                        .getHttpsCallable("persistSelfNotification")
+                        .call(callablePayload)
+                        .await()
+                }
+
+                if (callableResult == null) {
+                    Timber.w("NotificationService: persistSelfNotification timed out for %s", notification.id)
+                    return@launch
+                }
+
+                Timber.d("NotificationService: self-notification persisted via callable: %s", notification.id)
+            } catch (e: Exception) {
+                Timber.w(e, "NotificationService: failed to persist self-notification via callable")
+            }
         }
     }
     
@@ -890,7 +939,7 @@ class NotificationService @Inject constructor(
                 id = doc.id,
                 recipientId = data["recipientId"]?.toString() ?: "",
                 title = data["title"]?.toString() ?: "",
-                message = data["message"]?.toString() ?: "",
+                message = (data["message"] ?: data["body"])?.toString() ?: "",
                 type = type,
                 targetRole = effectiveRole,
                 data = notificationDataMap,

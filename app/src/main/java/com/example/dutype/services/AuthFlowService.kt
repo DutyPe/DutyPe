@@ -1,6 +1,5 @@
 package com.example.dutype.services
 
-import com.example.dutype.models.generateReferralCode
 import com.example.dutype.models.normalizeReferralCode
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.Timestamp
@@ -8,10 +7,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
-import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.Transaction
+import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +21,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthFlowService @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions
 ) {
 
     companion object {
@@ -143,8 +146,7 @@ class AuthFlowService @Inject constructor(
                 val isExistingCompleteUser =
                     !(existingData["phone"] as? String).isNullOrBlank() &&
                     !(existingData["fullName"] as? String).isNullOrBlank() &&
-                    existingRoles.isNotEmpty() &&
-                    existingReferralCode.isNotBlank()
+                    existingRoles.isNotEmpty()
 
                 if (existingUser.exists() && isExistingCompleteUser && alreadyHasRequestedRole) {
                     throw IllegalStateException("Account already exists")
@@ -154,8 +156,7 @@ class AuthFlowService @Inject constructor(
                     throw IllegalStateException("Referral code can only be used on your first registration")
                 }
 
-                val ownReferralCode = existingReferralCode.ifBlank { reserveUniqueReferralCode(transaction) }
-                val shouldCreateReferralCodeDoc = existingReferralCode.isBlank()
+                val ownReferralCode = existingReferralCode
                 val now = Timestamp.now()
                 val referrerUserId = referrerSnapshot?.getString("userId").orEmpty()
                 val resolvedFullName = (existingData["fullName"] as? String)?.trim()
@@ -171,12 +172,13 @@ class AuthFlowService @Inject constructor(
                     "fullName" to resolvedFullName,
                     "roles" to mergedRoles,
                     "activeRole" to role,
-                    "isVerified" to ((existingData["isVerified"] as? Boolean) ?: false),
-                    "isActive" to ((existingData["isActive"] as? Boolean) ?: true),
-                    "referralCode" to ownReferralCode,
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
                     "lastActiveAt" to now
                 )
+
+                if (ownReferralCode.isNotBlank()) {
+                    userData["referralCode"] = ownReferralCode
+                }
 
                 if (normalizedReferralCode != null && referrerUserId.isNotBlank()) {
                     userData["referredByCode"] = normalizedReferralCode
@@ -209,25 +211,17 @@ class AuthFlowService @Inject constructor(
 
                 // Overwrite with canonical shape to drop legacy keys that can block strict-rule updates.
                 transaction.set(userRef, userData)
-                if (shouldCreateReferralCodeDoc) {
-                    transaction.set(
-                        firestore.collection(COLLECTION_REFERRAL_CODES).document(ownReferralCode),
-                        linkedMapOf<String, Any>(
-                            "code" to ownReferralCode,
-                            "userId" to currentUser.uid,
-                            "userRole" to role,
-                            "userName" to resolvedFullName,
-                            "isActive" to true,
-                            "createdAt" to now
-                        )
-                    )
-                }
 
                 // Referral reward attachment is handled by Cloud Function applyReferralCode
                 // from the registration flow, with profile-setup fallback for retries.
 
                 RegistrationResolution(userData, ownReferralCode)
             }.await()
+
+            queueOwnReferralCodeEnsure(
+                userRole = role,
+                userName = (resolution.userData["fullName"] as? String)?.trim().orEmpty().ifBlank { trimmedName }
+            )
 
             Result.success(resolution)
         } catch (e: Exception) {
@@ -315,13 +309,49 @@ class AuthFlowService @Inject constructor(
         return normalized
     }
 
-    private fun reserveUniqueReferralCode(transaction: Transaction): String {
-        repeat(10) {
-            val candidate = generateReferralCode()
-            if (!transaction.get(firestore.collection(COLLECTION_REFERRAL_CODES).document(candidate)).exists()) {
-                return candidate
+    private fun queueOwnReferralCodeEnsure(
+        userRole: String,
+        userName: String
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val ensuredCode = withTimeoutOrNull(2_500L) {
+                ensureOwnReferralCode(userRole, userName)
+            }
+
+            if (ensuredCode.isNullOrBlank()) {
+                Timber.d("AuthFlowService: referral code ensure deferred or timed out")
+            } else {
+                Timber.d("AuthFlowService: referral code ensured asynchronously")
             }
         }
-        throw IllegalStateException("Unable to reserve a unique referral code")
+    }
+
+    private suspend fun ensureOwnReferralCode(
+        userRole: String,
+        userName: String
+    ): String {
+        return try {
+            val payload = hashMapOf<String, Any>(
+                "userRole" to userRole,
+                "userName" to userName
+            )
+
+            val result = functions
+                .getHttpsCallable("ensureUserReferralCode")
+                .call(payload)
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            val isSuccess = response["success"] as? Boolean ?: false
+            if (!isSuccess) {
+                return ""
+            }
+
+            normalizeReferralCode(response["referralCode"]?.toString().orEmpty())
+        } catch (e: Exception) {
+            Timber.w(e, "AuthFlowService: ensureUserReferralCode failed")
+            ""
+        }
     }
 }
