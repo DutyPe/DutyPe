@@ -602,7 +602,11 @@ fun EmployerProfileScreen(
                         // )
                         // EmployerMenuDivider()
                         
-                        // Role Management - Dual Role Support
+                        // ── ROLE-SWITCH FLAT MENU ── (commented out per product decision Apr 2026)
+                        // The dual-role switch entry has been hidden from the employer profile menu.
+                        // Switching is still available through the role-switch dialog from other entry
+                        // points. To re-enable, uncomment the block below.
+                        /*
                         if (currentUserId.isNotEmpty()) {
                             val roleManagementViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
                             val currentUser by roleManagementViewModel.currentUser.collectAsState()
@@ -673,6 +677,8 @@ fun EmployerProfileScreen(
                                 )
                             }
                         }
+                        */
+                        // ── END role-switch flat menu (commented) ──
                         
                         // About - Available without login
                         ProfileMenuItem(
