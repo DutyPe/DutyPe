@@ -10,6 +10,11 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -45,6 +50,48 @@ class AuthFlowService @Inject constructor(
         val shouldRouteToProfileSetup: Boolean,
         val roleForFcm: String
     )
+
+    /**
+     * Live snapshot of `users/{uid}` keyed to the currently-authenticated user.
+     * Emits null when signed out or when the doc is missing. Use this as the
+     * single source of truth for `activeRole`, `roles[]`, and `workerProfileScore`
+     * instead of navigation arguments — a role switch from another device or
+     * an admin tool will propagate to every screen within one snapshot tick.
+     */
+    fun observeCurrentUser(): Flow<Map<String, Any>?> = callbackFlow {
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            trySend(null)
+            close()
+            return@callbackFlow
+        }
+        val registration = firestore.collection(COLLECTION_USERS).document(uid)
+            .addSnapshotListener { snap, err ->
+                if (err != null) {
+                    Timber.w(err, "AuthFlowService.observeCurrentUser listener failed")
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                trySend(snap?.data)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Emits the user's active role derived from the live `users/{uid}` doc.
+     * Falls back to the first entry of `roles[]` when `activeRole` is absent.
+     */
+    fun observeActiveRole(): Flow<String?> = observeCurrentUser()
+        .map { data ->
+            if (data == null) return@map null
+            val active = (data["activeRole"] as? String)?.uppercase()?.takeIf { it.isNotBlank() }
+            if (active != null) return@map active
+            val roles = (data["roles"] as? List<*>)
+                ?.mapNotNull { it?.toString()?.uppercase() }
+                .orEmpty()
+            roles.firstOrNull()
+        }
+        .distinctUntilChanged()
 
     private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
         val normalizedCode = normalizeReferralCode(rawCode)

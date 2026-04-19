@@ -90,6 +90,14 @@ service cloud.firestore {
         (!('userId' in resource.data) || request.resource.data.userId == resource.data.userId) &&
         (!('phone' in resource.data) || request.resource.data.phone == resource.data.phone) &&
         (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
+        // SECURITY: roles[] is append-only on the client. Removing a role (privilege loss) or
+        // adding a role outside the dual-role set must go through an admin Cloud Function.
+        // The rule allows arrayUnion-style adds (new set is a superset of the old set) but
+        // forbids any removal.
+        (!('roles' in request.resource.data) ||
+          (request.resource.data.roles is list &&
+           request.resource.data.roles.toSet().hasAll(
+             resource.data.get('roles', []).toSet()))) &&
         // Legacy cleanup tolerance: client may omit legacy trust fields, but may not set/change them.
         (!('isVerified' in request.resource.data) ||
           (('isVerified' in resource.data) && request.resource.data.isVerified == resource.data.isVerified)) &&
@@ -115,6 +123,10 @@ service cloud.firestore {
     // ── worker_profiles ───────────────────────────────────────────────
     // Profile-owned fields only. Aggregates (rating, totalRatings, totalJobs) are CF-only.
     // List is closed — clients must use the `searchWorkers` callable to discover workers.
+    // NOTE: Employer-side reads of an applicant's worker_profile are intentionally NOT
+    // granted here. Rules cannot iterate the applications collection to verify the caller
+    // employs this worker. Use a callable CF (`getWorkerProfileForEmployer({jobId, workerId})`)
+    // that asserts `exists(applications/{jobId}_{workerId})` && employerId == auth.uid.
     match /worker_profiles/{userId} {
       allow get: if isSelf(userId);
       allow list: if false;
@@ -315,11 +327,32 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
         get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
 
-      // Only status can change. Worker may withdraw (→ 'rejected') or employer may progress.
+      // STATE MACHINE: only status can change, and only along legal transitions.
+      //   applied      → shortlisted | rejected | hired   (employer)
+      //   applied      → rejected (worker withdraw)
+      //   shortlisted  → rejected | hired                  (employer)
+      //   shortlisted  → rejected (worker withdraw)
+      //   hired        → (terminal, immutable)
+      //   rejected     → (terminal, immutable)
+      // This blocks illegal moves like hired→rejected and worker self-promoting to hired.
       allow update: if isSignedIn() &&
-        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-        request.resource.data.status in ['applied', 'shortlisted', 'rejected', 'hired'];
+        resource.data.status in ['applied', 'shortlisted'] &&
+        (
+          (
+            resource.data.workerId == request.auth.uid &&
+            request.resource.data.status == 'rejected'
+          ) ||
+          (
+            resource.data.employerId == request.auth.uid &&
+            (
+              (resource.data.status == 'applied' &&
+                 request.resource.data.status in ['shortlisted', 'rejected', 'hired']) ||
+              (resource.data.status == 'shortlisted' &&
+                 request.resource.data.status in ['rejected', 'hired'])
+            )
+          )
+        );
 
       allow delete: if false;
     }

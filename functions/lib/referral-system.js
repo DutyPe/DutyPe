@@ -37,6 +37,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
 const app_config_1 = require("./app-config");
+const idempotency_1 = require("./idempotency");
 const db = admin.firestore();
 // ============================================
 // REFERRAL SYSTEM CONSTANTS
@@ -576,10 +577,15 @@ async function generateUniqueReferralCode(userName) {
 // ============================================
 // Triggered when new user applies a referral code during signup
 // Creates PENDING referral record
-exports.applyReferralCode = functions.https.onCall(async (data, context) => {
+exports.applyReferralCode = functions
+    .runWith({ enforceAppCheck: true, consumeAppCheckToken: true })
+    .https.onCall(async (data, context) => {
     var _a;
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+    }
+    if (!context.app) {
+        throw new functions.https.HttpsError("failed-precondition", "app check required");
     }
     const newUserId = context.auth.uid;
     try {
@@ -596,6 +602,10 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
     catch (error) {
         throw new functions.https.HttpsError("invalid-argument", error.message);
     }
+    // Idempotency: required key from client. Replays within TTL return cached result.
+    const idem = await (0, idempotency_1.withIdempotency)(newUserId, "applyReferralCode", typeof (data === null || data === void 0 ? void 0 : data.idempotencyKey) === "string" ? data.idempotencyKey : undefined);
+    if (idem.hit)
+        return idem.result;
     const requestedCode = normalizeReferralCodeInput(data.referralCode || "");
     const newUserRole = getStringValue(data.userRole, "WORKER").toUpperCase();
     const newUserName = getStringValue(data.userName, "");
@@ -795,6 +805,7 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 message: fraudResult.needsReview ? "Referral applied and flagged for review" : "Referral applied successfully"
             };
         });
+        await idem.record(result);
         return result;
     }
     catch (error) {

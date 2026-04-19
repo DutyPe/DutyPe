@@ -168,30 +168,23 @@ class ProfileCompletionService @Inject constructor(
             
             // Optional display field
             if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
-            
-            // If worker profile is temporarily inaccessible but identity fields are present,
-            // avoid false-negative blocking of job application flow.
-            if (workerData.isEmpty() && completion >= 60) {
-                completion = maxOf(completion, 80)
+
+            // SECURITY FIX: Do NOT inflate completion to 80% when worker_profiles is missing/unreadable.
+            // The previous fallback let unverified users bypass the apply-gate by triggering a
+            // PERMISSION_DENIED on worker_profiles. The apply-gate must reflect actual stored data.
+            if (workerData.isEmpty()) {
+                Timber.w("⚠️ ProfileCompletionService - worker_profiles empty/unreadable for $userId; reporting users-only score")
             }
 
             val finalCompletion = completion.coerceAtMost(100)
             Timber.d("🔍 ProfileCompletionService - Final completion percentage: $finalCompletion%")
             finalCompletion
             } catch (e: Exception) {
-            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Timber.w("Profile completion read denied for userId=%s; falling back to auth data", userId)
-                val fallback = buildBasicUserFallback(userId)
-                calculateWorkerProfileCompletion(
-                    fullName = fallback["fullName"] as? String ?: "",
-                    phone = fallback["phone"] as? String ?: "",
-                    skills = "",
-                    profileImageUrl = null
-                )
-            } else {
-                Timber.e(e, "❌ ProfileCompletionService - Error calculating completion: ${e.message}")
-                0
-            }
+            // SECURITY FIX: All failure paths return 0% so the apply-gate / post-gate refuses
+            // to let unverified users in. Auth-only fallback is intentionally removed — it
+            // overstated completion when worker_profiles couldn't be read.
+            Timber.e(e, "❌ ProfileCompletionService - Error calculating completion (returning 0): ${e.message}")
+            0
         }
     }
 
