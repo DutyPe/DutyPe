@@ -143,6 +143,7 @@ fun JobCard(
         isClosed = isClosed,
         isSaved = localIsSaved,
         riskLevel = AIScamDetector.RiskLevel.SAFE,
+        jobImageUrl = job.jobImageUrl,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -172,6 +173,7 @@ private fun JobCardInternal(
     isClosed: Boolean,
     isSaved: Boolean,
     riskLevel: AIScamDetector.RiskLevel,
+    jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -235,7 +237,7 @@ private fun JobCardInternal(
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
-                        jobImageUrl = null,
+                        jobImageUrl = jobImageUrl,
                         jobTitle = title,
                         modifier = Modifier.size(44.dp)
                     )

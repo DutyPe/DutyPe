@@ -183,9 +183,16 @@ fun JobDescriptionScreen(
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
 
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    // Guest mode - replaced legacy bottom sheet with direct navigation to the
+    // dedicated login screen so the user gets the full sign-in experience.
+    // pendingAction is retained as a hint for analytics/back-stack continuity
+    // even though it is no longer used to dispatch a follow-up action.
     var pendingAction by remember { mutableStateOf<String?>(null) } // "apply", "call", "message", "whatsapp"
+
+    val launchLogin: (String) -> Unit = { action ->
+        pendingAction = action
+        navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+    }
 
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
@@ -337,8 +344,7 @@ fun JobDescriptionScreen(
                         IconButton(
                             onClick = {
                                 if (currentUser == null) {
-                                    pendingAction = "save"
-                                    showLoginBottomSheet = true
+                                    launchLogin("save")
                                 } else {
                                     if (isSaved) {
                                         savedJobsViewModel.unsaveJob(resolvedJobId)
@@ -438,8 +444,7 @@ fun JobDescriptionScreen(
                         }
                     },
                     onLoginRequired = { action ->
-                        pendingAction = action
-                        showLoginBottomSheet = true
+                        launchLogin(action)
                     }
                 )
             }
@@ -473,95 +478,6 @@ fun JobDescriptionScreen(
             }
         )
     }
-    
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = { 
-            showLoginBottomSheet = false
-            pendingAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingAction) {
-                "apply" -> {
-                    // Navigate to JobApplicationScreen for review before submitting
-                    navController.navigate(Routes.jobApplicationRoute(jobId))
-                }
-                "save" -> {
-                    // Save the job after login
-                    job?.let { currentJob ->
-                        scope.launch {
-                            try {
-                                savedJobsViewModel.saveJob(currentJob.id.ifBlank { currentJob.jobId })
-                                snackbarMessage = "Job saved!"
-                                showSnackbar = true
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error saving job after login")
-                            }
-                        }
-                    }
-                }
-                "call" -> {
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
-                            data = android.net.Uri.parse("tel:$phone") 
-                        }
-                        try { context.startActivity(intent) } catch (e: Exception) {}
-                    }
-                }
-                "message" -> {
-                    // Chat feature removed - default to call
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
-                            data = android.net.Uri.parse("tel:$phone") 
-                        }
-                        try { context.startActivity(intent) } catch (e: Exception) {}
-                    }
-                }
-                "whatsapp" -> {
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        com.example.dutype.components.openWhatsAppApply(
-                            context = context,
-                            phoneNumber = phone,
-                            jobTitle = job?.title ?: "",
-                            companyName = job?.companyName ?: "",
-                            salary = job?.let { j ->
-                                val str = if (j.salary == j.salary.toLong().toDouble()) j.salary.toLong().toString() else j.salary.toString()
-                                val period = when (j.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
-                                "₹$str/$period"
-                            } ?: "",
-                            location = job?.addressText ?: ""
-                        )
-                    }
-                }
-            }
-            pendingAction = null
-        },
-        onProfileSetupRequired = {
-            // For job application - navigate to profile setup with return route to job application
-            showLoginBottomSheet = false
-            android.widget.Toast.makeText(context, "Please complete your profile to apply", android.widget.Toast.LENGTH_SHORT).show()
-            // Navigate to profile setup with return route to job application screen
-            navController.navigate(Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId)))
-            pendingAction = null
-        },
-        requiresProfileCheck = pendingAction == "apply", // Only check profile for job applications
-        role = com.example.dutype.models.UserRole.WORKER,
-        title = stringResource(R.string.login_to_continue),
-        subtitle = when (pendingAction) {
-            "apply" -> "Login to apply for this job"
-            "save" -> "Login to save this job"
-            "call" -> "Login to call the employer"
-            "message" -> "Login to message the employer"
-            "whatsapp" -> "Login to contact via WhatsApp"
-            else -> "Please login to continue"
-        }
-    )
 }
 
 @Composable

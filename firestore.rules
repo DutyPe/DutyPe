@@ -244,7 +244,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt', 'expiresAt'
+          'urgency', 'status', 'createdAt', 'expiresAt', 'jobImageUrl'
         ]) &&
         request.resource.data.keys().hasAll([
           'employerId', 'companyName', 'title', 'jobType',
@@ -268,14 +268,15 @@ service cloud.firestore {
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
-        request.resource.data.expiresAt is timestamp;
+        request.resource.data.expiresAt is timestamp &&
+        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1000));
 
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'employerId', 'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt', 'expiresAt'
+          'urgency', 'status', 'createdAt', 'expiresAt', 'jobImageUrl'
         ]) &&
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.createdAt == resource.data.createdAt &&
@@ -290,7 +291,8 @@ service cloud.firestore {
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
-        request.resource.data.expiresAt is timestamp;
+        request.resource.data.expiresAt is timestamp &&
+        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1000));
 
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
     }

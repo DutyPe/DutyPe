@@ -84,6 +84,7 @@ fun AnalyticsScreen(navController: NavController) {
 
     // Load applications data when screen loads
     LaunchedEffect(Unit) {
+        viewModel.loadMyJobs()
         applicationViewModel.loadEmployerApplications()
     }
 

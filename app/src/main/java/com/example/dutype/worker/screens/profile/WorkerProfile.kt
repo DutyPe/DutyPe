@@ -143,10 +143,13 @@ fun WorkerProfileScreen(
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
-    var pendingMenuAction by remember { mutableStateOf<String?>(null) }
+
+    // Guest mode helper: show toast prompting login when an unauthenticated
+    // user taps a flat menu entry. Replaces the legacy login bottom sheet so
+    // the profile screen surfaces lightweight feedback only.
+    val showLoginToast: (String) -> Unit = { message ->
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+    }
 
     // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
     // Full profile data loads only in profile details screen
@@ -468,8 +471,7 @@ fun WorkerProfileScreen(
                             if (isLoggedIn) {
                                 rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
                             } else {
-                                pendingMenuAction = "profile"
-                                showLoginBottomSheet = true
+                                showLoginToast(context.getString(R.string.login_to_view_profile))
                             }
                         }
                         .padding(16.dp),
@@ -504,8 +506,7 @@ fun WorkerProfileScreen(
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
                                             } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
+                                                showLoginToast(context.getString(R.string.login_to_view_profile))
                                             }
                                         }
                                 ) {
@@ -525,8 +526,7 @@ fun WorkerProfileScreen(
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
                                             } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
+                                                showLoginToast(context.getString(R.string.login_to_view_profile))
                                             }
                                         }
                                 ) {
@@ -548,8 +548,7 @@ fun WorkerProfileScreen(
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
                                             } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
+                                                showLoginToast(context.getString(R.string.login_to_view_profile))
                                             }
                                         },
                                     contentAlignment = Alignment.Center
@@ -697,8 +696,7 @@ fun WorkerProfileScreen(
                         title = stringResource(R.string.my_applications),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
-                                pendingMenuAction = "applications"
-                                showLoginBottomSheet = true
+                                showLoginToast(context.getString(R.string.login_to_view_applications))
                             } else {
                                 localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) 
                             }
@@ -712,8 +710,7 @@ fun WorkerProfileScreen(
                         title = stringResource(R.string.my_earnings),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
-                                pendingMenuAction = "earnings"
-                                showLoginBottomSheet = true
+                                showLoginToast(context.getString(R.string.login_to_view_earnings))
                             } else {
                                 localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) 
                             }
@@ -769,8 +766,7 @@ fun WorkerProfileScreen(
                             if (currentUserId.isNotEmpty()) {
                                 localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
                             } else {
-                                pendingMenuAction = "refer_earn"
-                                showLoginBottomSheet = true
+                                showLoginToast(context.getString(R.string.login_to_refer_earn))
                             }
                         }
                     )
@@ -1038,37 +1034,6 @@ fun WorkerProfileScreen(
             onDismiss = { showLanguageBottomSheet = false }
         )
     }
-    
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = { 
-            showLoginBottomSheet = false
-            pendingMenuAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingMenuAction) {
-                "profile" -> rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
-                "applications" -> localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
-                "earnings" -> localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
-                "visiting_card" -> localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD)
-                "refer_earn" -> localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
-            }
-            pendingMenuAction = null
-        },
-        role = com.example.dutype.models.UserRole.WORKER,
-        title = stringResource(R.string.login_required),
-        subtitle = when (pendingMenuAction) {
-            "profile" -> stringResource(R.string.login_to_view_profile)
-            "applications" -> stringResource(R.string.login_to_view_applications)
-            "earnings" -> stringResource(R.string.login_to_view_earnings)
-            "visiting_card" -> stringResource(R.string.login_to_create_visiting_card)
-            "refer_earn" -> stringResource(R.string.login_to_refer_earn)
-            else -> stringResource(R.string.login_to_access_feature)
-        }
-    )
 }
 
 

@@ -90,10 +90,13 @@ fun EmployerProfileScreen(
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    
-    // Guest mode - Login bottom sheet state
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
-    var pendingMenuAction by remember { mutableStateOf<String?>(null) }
+
+    // Guest mode helper: show toast prompting login when an unauthenticated
+    // user taps a flat menu entry. Replaces the legacy login bottom sheet so
+    // the profile screen surfaces lightweight feedback only.
+    val showLoginToast: (String) -> Unit = { message ->
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+    }
 
     // LIGHTWEIGHT: Load only basic profile info using metadata
     LaunchedEffect(Unit) {
@@ -278,8 +281,7 @@ fun EmployerProfileScreen(
                                         localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                                             ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                                     } else {
-                                        pendingMenuAction = "profile"
-                                        showLoginBottomSheet = true
+                                        showLoginToast(context.getString(R.string.login_to_view_profile))
                                     }
                                 }
                                 .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -296,8 +298,7 @@ fun EmployerProfileScreen(
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
                                             } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
+                                                showLoginToast(context.getString(R.string.login_to_view_profile))
                                             }
                                         },
                                     contentAlignment = Alignment.Center
@@ -475,8 +476,7 @@ fun EmployerProfileScreen(
                             title = stringResource(R.string.my_job_posts),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "job_posts"
-                                    showLoginBottomSheet = true
+                                    showLoginToast(context.getString(R.string.login_to_access_feature))
                                 } else {
                                     try {
                                         // Use localNavController if available, otherwise rootNavController
@@ -504,8 +504,7 @@ fun EmployerProfileScreen(
                             title = stringResource(R.string.work_locations),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "locations"
-                                    showLoginBottomSheet = true
+                                    showLoginToast(context.getString(R.string.login_to_access_feature))
                                 } else {
                                     localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
                                         ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
@@ -542,8 +541,7 @@ fun EmployerProfileScreen(
                             title = stringResource(R.string.refer_earn),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "refer_earn"
-                                    showLoginBottomSheet = true
+                                    showLoginToast(context.getString(R.string.login_to_refer_earn))
                                 } else {
                                     localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) 
                                         ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
@@ -765,39 +763,6 @@ fun EmployerProfileScreen(
             onDismiss = { showLanguageBottomSheet = false }
         )
     }
-    
-    // Guest Mode - Login Bottom Sheet
-    com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = { 
-            showLoginBottomSheet = false
-            pendingMenuAction = null
-        },
-        onLoginSuccess = {
-            showLoginBottomSheet = false
-            // Execute the pending action after successful login
-            when (pendingMenuAction) {
-                "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                // "trust_badges" -> localNavController?.navigate(Routes.EMPLOYER_TRUST_BADGES) ?: rootNavController.navigate(Routes.EMPLOYER_TRUST_BADGES)
-                "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
-                "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
-                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
-                "visiting_card" -> localNavController?.navigate(Routes.EMPLOYER_VISITING_CARD) ?: rootNavController.navigate(Routes.EMPLOYER_VISITING_CARD)
-            }
-            pendingMenuAction = null
-        },
-        role = com.example.dutype.models.UserRole.EMPLOYER,
-        title = stringResource(R.string.login_required),
-        subtitle = when (pendingMenuAction) {
-            "profile" -> "Login to view and edit your company profile"
-            // "trust_badges" -> "Login to view your trust badges"
-            "job_posts" -> "Login to view your job posts"
-            "locations" -> "Login to manage work locations"
-            "refer_earn" -> "Login to refer friends and earn rewards"
-            "visiting_card" -> "Login to view your digital visiting card"
-            else -> "Please login to access this feature"
-        }
-    )
 }
 
 // ═══════════════════════════════════════════════════════════════
