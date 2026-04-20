@@ -339,7 +339,7 @@ export function MarketingIndex({ tree }: { tree: MarketingTreeNode[] }) {
 
 
 // ============================================================
-// MarketingFullView � renders EVERY file inline on landing page
+// MarketingFullView - renders EVERY file inline on landing page
 // ============================================================
 function slugifyAnchor(parts: string[]): string {
   return parts.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
@@ -347,19 +347,19 @@ function slugifyAnchor(parts: string[]): string {
 
 function sectionIcon(name: string): string {
   const map: Record<string, string> = {
-    assets: "??",
-    campaigns: "??",
-    inputs: "??",
-    outputs: "??",
-    playbooks: "??",
-    research: "??",
-    brand: "??",
-    channels: "??",
-    "go-to-market": "??",
-    growth: "??",
-    marketing: "??",
+    assets: "\ud83c\udfa8",
+    campaigns: "\ud83d\udce3",
+    inputs: "\ud83d\udce5",
+    outputs: "\ud83d\udce4",
+    playbooks: "\ud83d\udcd8",
+    research: "\ud83d\udd2c",
+    brand: "\ud83e\udea3",
+    channels: "\ud83d\udce1",
+    "go-to-market": "\ud83d\ude80",
+    growth: "\ud83c\udf31",
+    marketing: "\ud83d\udce2",
   };
-  return map[name.toLowerCase()] ?? "??";
+  return map[name.toLowerCase()] ?? "\ud83d\udcc1";
 }
 
 function FileBlock({ file }: { file: Extract<MarketingLoadedNode, { kind: "file" }> }) {
@@ -411,7 +411,7 @@ function DirSection({
         <span>{dir.name}</span>
         <small>
           {files.length > 0 && `${files.length} doc${files.length === 1 ? "" : "s"}`}
-          {files.length > 0 && subdirs.length > 0 && " � "}
+          {files.length > 0 && subdirs.length > 0 && " \u00b7 "}
           {subdirs.length > 0 && `${subdirs.length} subfolder${subdirs.length === 1 ? "" : "s"}`}
         </small>
       </Heading>
@@ -448,7 +448,7 @@ function buildToc(nodes: MarketingLoadedNode[]): ReactNode {
 }
 
 /**
- * MarketingFullView � landing page that renders EVERY markdown/CSV doc
+ * MarketingFullView - landing page that renders EVERY markdown/CSV doc
  * inline so the user can scroll through assets, campaigns, inputs, outputs,
  * playbooks, research, brand, channels, go-to-market, etc., all visually
  * on a single screen.
