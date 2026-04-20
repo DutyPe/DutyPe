@@ -111,6 +111,8 @@ export async function GET(request: NextRequest) {
         roles: normalized.roles,
         referralCode: normalized.referralCode,
         createdAt: normalized.joinedAt,
+        isBanned: rawDoc.isBanned === true,
+        isVerified: rawDoc.isVerified === true,
         hasUserDoc: userDocsById.has(userId),
         hasAuthUser: authUsersById.has(userId)
       };
@@ -128,6 +130,9 @@ type UpdateUserBody = {
   newRole?: string;
   fullName?: string;
   phone?: string;
+  isBanned?: boolean;
+  banReason?: string;
+  isVerified?: boolean;
 };
 
 export async function PATCH(request: NextRequest) {
@@ -148,6 +153,9 @@ export async function PATCH(request: NextRequest) {
   const newRole = body.newRole?.trim().toUpperCase();
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : undefined;
   const phone = typeof body.phone === "string" ? body.phone.trim() : undefined;
+  const isBanned = typeof body.isBanned === "boolean" ? body.isBanned : undefined;
+  const isVerified = typeof body.isVerified === "boolean" ? body.isVerified : undefined;
+  const banReason = typeof body.banReason === "string" ? body.banReason.trim() : undefined;
 
   if (!userId) {
     return NextResponse.json({ error: "Invalid userId." }, { status: 400 });
@@ -158,7 +166,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
   }
 
-  if (!hasRoleUpdate && fullName === undefined && phone === undefined) {
+  if (
+    !hasRoleUpdate &&
+    fullName === undefined &&
+    phone === undefined &&
+    isBanned === undefined &&
+    isVerified === undefined
+  ) {
     return NextResponse.json({ error: "No updatable fields were provided." }, { status: 400 });
   }
 
@@ -190,8 +204,28 @@ export async function PATCH(request: NextRequest) {
       payload.phone = phone;
     }
 
+    if (isBanned !== undefined) {
+      payload.isBanned = isBanned;
+      payload.bannedAt = isBanned ? new Date() : null;
+      if (isBanned && banReason) payload.banReason = banReason;
+      if (!isBanned) payload.banReason = null;
+    }
+
+    if (isVerified !== undefined) {
+      payload.isVerified = isVerified;
+      payload.verifiedAt = isVerified ? new Date() : null;
+    }
+
     if (Object.keys(payload).length > 0) {
       await ref.set(payload, { merge: true });
+    }
+
+    if (isBanned !== undefined) {
+      try {
+        await auth.updateUser(userId, { disabled: isBanned });
+      } catch {
+        // Best-effort: doc update is the source of truth.
+      }
     }
 
     if (fullName !== undefined) {

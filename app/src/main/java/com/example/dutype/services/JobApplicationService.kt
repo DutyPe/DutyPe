@@ -37,7 +37,7 @@ import javax.inject.Singleton
  * Handles all job application operations with Firestore
  * 
  * REFACTORED: Now receives FirebaseFirestore via constructor injection
- * ENTERPRISE: Integrated with ErrorHandler, ResilienceManager, and RateLimiter
+ * ENTERPRISE: Integrated with ErrorHandler, ResilienceManager
  * 
  * @author DutyPe Engineering Team
  * @since 2.0.0
@@ -51,8 +51,7 @@ class JobApplicationService @Inject constructor(
     private val profileCompletionService: ProfileCompletionService,
     private val applicationStateManager: ApplicationStateManager,
     private val metadataManager: com.example.dutype.metadata.MetadataManager,
-    private val errorHandler: com.example.dutype.core.error.ErrorHandler,
-    private val rateLimiter: com.example.dutype.core.resilience.RateLimiter
+    private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) {
     
     private val applicationsCollection = "applications"
@@ -337,24 +336,6 @@ class JobApplicationService @Inject constructor(
     ): Result<JobApplication> {
         return try {
             Timber.d("=��� JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
-            
-            // ENTERPRISE: Rate limiting - 10 applications per minute per user
-            val rateLimitConfig = com.example.dutype.core.resilience.RateLimitConfig(
-                maxTokens = 10,
-                refillRate = 10,
-                refillPeriodMs = 60_000L // 1 minute
-            )
-            
-            val allowed = rateLimiter.checkRateLimit(
-                endpoint = "apply_for_job",
-                userId = userId,
-                config = rateLimitConfig
-            )
-            
-            if (!allowed) {
-                Timber.w("G��n+� JobApplicationService.applyForJob - Rate limit exceeded for user: $userId")
-                return Result.failure(Exception("Too many applications. Please wait a moment and try again."))
-            }
             
             // PERFORMANCE FIX: Use batch pre-check instead of sequential calls
             val preCheck = preApplicationCheck(jobId, userId)

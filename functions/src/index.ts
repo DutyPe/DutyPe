@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { validateString, validateMessage, validateEnum, validateUserId, assertAppCheck } from "./validation";
+import { getUserLanguage, tTitle, tBody, SUPPORTED_LOCALES, normalizeLocale, localizedTopic } from "./notification-i18n";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -18,21 +19,6 @@ export * from './employer-landing';
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// ============================================
-// RATE LIMITING CONSTANTS (P0 FIX #2)
-// ============================================
-const RATE_LIMITS = {
-  FREE_USER: {
-    JOBS_PER_HOUR: 2,
-    JOBS_PER_DAY: 5,
-  },
-  PAID_USER: {
-    JOBS_PER_HOUR: 10,
-    JOBS_PER_DAY: 50,
-  },
-};
-
-const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 // Topic constants (must match Android app)
@@ -71,97 +57,6 @@ function sanitizeNotificationDataMap(rawData: unknown): Record<string, string> {
   return cleanData;
 }
 
-// ============================================
-// P0 FIX #2: RATE LIMITING FOR JOB POSTS
-// ============================================
-// Prevents bots from spamming thousands of jobs
-// Free users: 2 jobs/hour, 5 jobs/day
-// Paid users: 10 jobs/hour, 50 jobs/day
-
-/**
- * Rate Limiter - Triggered when a new job is created
- * Checks if user has exceeded their posting limit
- * If exceeded: Deletes job, flags user, sends alert
- */
-export const enforceJobRateLimit = functions.firestore
-  .document("jobmetadata/{jobId}")
-  .onCreate(async (snapshot, context) => {
-    const job = snapshot.data();
-    const jobId = context.params.jobId;
-    const employerId = job.employerId;
-
-    if (!employerId) {
-      functions.logger.warn(`Job ${jobId} has no employerId, skipping rate limit`);
-      return null;
-    }
-
-    functions.logger.info(`🛡️ RATE LIMIT: Checking job ${jobId} by employer ${employerId}`);
-
-    try {
-      const now = Date.now();
-      const oneHourAgo = now - ONE_HOUR_MS;
-      const oneDayAgo = now - ONE_DAY_MS;
-      const oneHourAgoTs = admin.firestore.Timestamp.fromMillis(oneHourAgo);
-      const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
-
-      // Check if user is paid (default to free limits - subscriptions collection removed)
-      const isPaidUser = false;
-      const limits = RATE_LIMITS.FREE_USER;
-
-      functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} is ${isPaidUser ? "PAID" : "FREE"}`);
-
-      // Count jobs posted in last hour
-      const hourlyJobsSnapshot = await db.collection("jobmetadata")
-        .where("employerId", "==", employerId)
-        .where("createdAt", ">", oneHourAgoTs)
-        .get();
-
-      const jobsInHour = hourlyJobsSnapshot.size;
-
-      // Count jobs posted in last day
-      const dailyJobsSnapshot = await db.collection("jobmetadata")
-        .where("employerId", "==", employerId)
-        .where("createdAt", ">", oneDayAgoTs)
-        .get();
-
-      const jobsInDay = dailyJobsSnapshot.size;
-
-      functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} - Jobs in hour: ${jobsInHour}/${limits.JOBS_PER_HOUR}, Jobs in day: ${jobsInDay}/${limits.JOBS_PER_DAY}`);
-
-      // Check hourly limit
-      if (jobsInHour > limits.JOBS_PER_HOUR) {
-        functions.logger.warn(`🛡️ RATE LIMIT: ⛔ HOURLY LIMIT EXCEEDED for ${employerId}`);
-        
-        // Delete the job
-        await snapshot.ref.delete();
-        
-        functions.logger.warn(`🛡️ RATE LIMIT: Hourly violation logged for ${employerId}`);
-
-        return { deleted: true, reason: "HOURLY_LIMIT_EXCEEDED" };
-      }
-
-      // Check daily limit
-      if (jobsInDay > limits.JOBS_PER_DAY) {
-        functions.logger.warn(`🛡️ RATE LIMIT: ⛔ DAILY LIMIT EXCEEDED for ${employerId}`);
-        
-        // Delete the job
-        await snapshot.ref.delete();
-        
-        functions.logger.warn(`🛡️ RATE LIMIT: Daily violation logged for ${employerId}`);
-
-        return { deleted: true, reason: "DAILY_LIMIT_EXCEEDED" };
-      }
-
-      functions.logger.info(`🛡️ RATE LIMIT: ✅ Job ${jobId} passed rate limit check`);
-      return { deleted: false };
-
-    } catch (error) {
-      functions.logger.error(`🛡️ RATE LIMIT: Error checking rate limit for ${employerId}:`, error);
-      // On error, allow the job (fail open) but log for investigation
-      return null;
-    }
-  });
-
 /**
  * Send broadcast notification to all users or specific role
  * Triggered when a document is created in "broadcast_notifications" collection
@@ -181,8 +76,8 @@ export const sendBroadcastNotification = functions.firestore
 
     functions.logger.info(`Processing broadcast notification: ${notificationId}`, notification);
 
-    const title = notification.title || "DutyPe";
-    const message = notification.message || "";
+    const fallbackTitle = notification.title || "DutyPe";
+    const fallbackMessage = notification.message || "";
     const topic = notification.topic || TOPIC_ALL_USERS;
     const type = notification.type || "broadcast";
 
@@ -197,43 +92,65 @@ export const sendBroadcastNotification = functions.firestore
       return null;
     }
 
+    // Translations map: { en: { title, message }, te: { title, message } }.
+    // When provided, fan out to per-language topics so each device receives its locale.
+    const translations = (notification.translations && typeof notification.translations === "object")
+      ? notification.translations as Record<string, { title?: string; message?: string }>
+      : null;
+
     try {
-      // Build the FCM message for topic
-      const topicMessage: admin.messaging.Message = {
-        topic: topic,
-        data: {
-          notificationId: notificationId,
-          title: title,
-          message: message,
-          body: message,
-          type: type,
-          click_action: "FLUTTER_NOTIFICATION_CLICK",
-        },
-        android: {
-          priority: "high",
-          notification: {
-            title: title,
-            body: message,
-            icon: "ic_notification",
-            color: "#3B82F6",
-            sound: "default",
-            clickAction: "OPEN_ACTIVITY",
+      const sendToOne = async (sendTopic: string, sendTitle: string, sendMessage: string) => {
+        const topicMessage: admin.messaging.Message = {
+          topic: sendTopic,
+          data: {
+            notificationId: notificationId,
+            title: sendTitle,
+            message: sendMessage,
+            body: sendMessage,
+            type: type,
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
           },
-        },
+          android: {
+            priority: "high",
+            notification: {
+              title: sendTitle,
+              body: sendMessage,
+              icon: "ic_notification",
+              color: "#3B82F6",
+              sound: "default",
+              clickAction: "OPEN_ACTIVITY",
+            },
+          },
+        };
+        return messaging.send(topicMessage);
       };
 
-      // Send to topic
-      const response = await messaging.send(topicMessage);
-      functions.logger.info(`Broadcast notification sent to topic ${topic}: ${response}`);
+      const responses: Record<string, string> = {};
+
+      if (translations) {
+        for (const lang of SUPPORTED_LOCALES) {
+          const t = translations[lang];
+          const localizedTitle = (t?.title && t.title.trim()) || fallbackTitle;
+          const localizedMessage = (t?.message && t.message.trim()) || fallbackMessage;
+          const langTopic = localizedTopic(topic, lang);
+          const resp = await sendToOne(langTopic, localizedTitle, localizedMessage);
+          responses[lang] = resp;
+          functions.logger.info(`Broadcast (${lang}) sent to ${langTopic}: ${resp}`);
+        }
+      } else {
+        const resp = await sendToOne(topic, fallbackTitle, fallbackMessage);
+        responses["default"] = resp;
+        functions.logger.info(`Broadcast notification sent to topic ${topic}: ${resp}`);
+      }
 
       // Update document with sent status
       await snapshot.ref.update({
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
-        fcmMessageId: response,
+        fcmMessageIds: responses,
         status: "sent",
       });
 
-      return response;
+      return responses;
     } catch (error) {
       functions.logger.error("Error sending broadcast notification:", error);
       
@@ -411,6 +328,23 @@ export const sendPushNotification = functions.firestore
 
       const fcmToken = userData.fcmToken;
 
+      // Localization: if the doc carries a templateId + params, render in the
+      // recipient's preferred language. Otherwise fall back to the literal
+      // title/message that producers wrote (which themselves should already be
+      // localized — see notification-fanout.ts and referral-system.ts).
+      let effectiveTitle = notification.title || "DutyPe";
+      let effectiveMessage = notification.message || "";
+      let effectiveLocale = normalizeLocale(notification.locale);
+      const templateId = typeof notification.templateId === "string" ? notification.templateId : "";
+      if (templateId) {
+        effectiveLocale = await getUserLanguage(db, recipientId);
+        const params = (notification.params && typeof notification.params === "object")
+          ? notification.params as Record<string, string | number>
+          : undefined;
+        effectiveTitle = tTitle(templateId, effectiveLocale, params);
+        effectiveMessage = tBody(templateId, effectiveLocale, params);
+      }
+
       // Extract deep link from notification data
       const deepLink = notification.data?.deepLink || "";
       
@@ -434,12 +368,13 @@ export const sendPushNotification = functions.firestore
         token: fcmToken,
         data: {
           notificationId: notificationId,
-          title: notification.title || "DutyPe",
-          message: notification.message || "",
-          body: notification.message || "",
+          title: effectiveTitle,
+          message: effectiveMessage,
+          body: effectiveMessage,
           type: notificationType,
           deepLink: deepLink,
           channel: channelId,
+          locale: effectiveLocale,
         },
         android: {
           priority: "high",
@@ -450,12 +385,18 @@ export const sendPushNotification = functions.firestore
       const response = await messaging.send(message);
       functions.logger.info(`📬 FCM: ✅ Notification sent successfully: ${response}`);
 
-      // Update notification document with sent status
-      await snapshot.ref.update({
+      // Update notification document with sent status (and resolved copy for inbox)
+      const updatePayload: Record<string, unknown> = {
         processing: false,
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
         fcmMessageId: response,
-      });
+        locale: effectiveLocale,
+      };
+      if (templateId) {
+        updatePayload.title = effectiveTitle;
+        updatePayload.message = effectiveMessage;
+      }
+      await snapshot.ref.update(updatePayload);
 
       return response;
     } catch (error) {
@@ -714,11 +655,13 @@ export const detectDuplicateJob = functions.firestore
         });
         
         // Create in-app notification instead of using legacy moderation queue collection.
+        const modLocale = await getUserLanguage(db, employerId);
         await db.collection("notifications").add({
           recipientId: employerId,
-          title: "Job Under Review",
-          message: `Your job \"${job.title}\" needs manual review due to duplicate signals.`,
+          title: tTitle("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
+          message: tBody("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
           type: "MODERATION_REVIEW_REQUIRED",
+          locale: modLocale,
           data: {
             jobId: jobId,
             fraudScore: fraudScore,
@@ -953,11 +896,13 @@ export const processJobReport = functions.firestore
 
         // Notify employer instead of creating legacy moderation queue documents.
         if (jobData?.employerId) {
+          const hideLocale = await getUserLanguage(db, jobData.employerId);
           await db.collection("notifications").add({
             recipientId: jobData.employerId,
-            title: "Job Hidden for Review",
-            message: `Your job \"${jobData.title}\" has been hidden due to community reports.`,
+            title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
+            message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
             type: "JOB_HIDDEN",
+            locale: hideLocale,
             data: {
               jobId: jobId,
               reportCount: currentReportCount,

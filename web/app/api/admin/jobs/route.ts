@@ -1,31 +1,71 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+import { encodeGeohash, hasValidCoordinates } from "@/lib/firebase/geohash";
 
 export const runtime = "nodejs";
+
+const VALID_URGENCY = new Set(["LOW", "MEDIUM", "HIGH"]);
+const VALID_SALARY_TYPE = new Set(["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"]);
+const VALID_GENDER = new Set(["Any", "Male", "Female"]);
 
 function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
 }
 
+function extractCityFromAddress(address: string): string {
+  if (!address) return "";
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length >= 2) return parts[parts.length - 2];
+  return parts[0];
+}
+
+function parseBenefits(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return input.map((i) => String(i).trim()).filter(Boolean).slice(0, 20);
+  }
+  if (typeof input === "string") {
+    return input.split(/[,\n]/).map((p) => p.trim()).filter(Boolean).slice(0, 20);
+  }
+  return [];
+}
+
 export async function GET(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
+  if (unauthorized) return unauthorized;
 
   try {
     const db = getFirebaseAdminDb();
-    const snapshot = await db.collection("jobmetadata").orderBy("createdAt", "desc").limit(500).get();
+    const snapshot = await db
+      .collection("jobmetadata")
+      .orderBy("createdAt", "desc")
+      .limit(500)
+      .get();
+
+    const ids = snapshot.docs.map((d) => d.id);
+    const detailsById = new Map<string, Record<string, unknown>>();
+
+    for (let i = 0; i < ids.length; i += 30) {
+      const chunk = ids.slice(i, i + 30);
+      if (chunk.length === 0) continue;
+      const refs = chunk.map((id) => db.collection("job_details").doc(id));
+      const detailsSnap = await db.getAll(...refs);
+      detailsSnap.forEach((doc) => {
+        if (doc.exists) detailsById.set(doc.id, asRecord(doc.data()));
+      });
+    }
 
     const jobs = snapshot.docs.map((item) => {
       const data = asRecord(item.data());
       const status = typeof data.status === "string" && data.status.trim() ? data.status : "open";
-
+      const details = detailsById.get(item.id) ?? {};
       return {
         id: item.id,
         ...data,
+        ...details,
         status,
         isActive: status.toLowerCase() === "open"
       };
@@ -41,26 +81,31 @@ export async function GET(request: NextRequest) {
 type CreateJobBody = {
   title?: string;
   companyName?: string;
-  location?: string;
+  jobType?: string;
+  salary?: number | string;
+  salaryType?: string;
+  addressText?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  urgency?: string;
   description?: string;
-  category?: string;
-  payAmount?: string;
-  payType?: string;
-  shift?: string;
-  vacancies?: number;
-  requirements?: string;
-  contactPhone?: string;
-  contactEmail?: string;
+  contactNumber?: string;
+  whatsappNumber?: string;
+  gender?: string;
+  experienceRequired?: string;
+  shiftTiming?: string;
+  workingHours?: string;
+  vacancies?: number | string;
+  benefits?: string[] | string;
+  expiresInDays?: number;
+  employerId?: string;
 };
 
 export async function POST(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
+  if (unauthorized) return unauthorized;
 
   let body: CreateJobBody;
-
   try {
     body = (await request.json()) as CreateJobBody;
   } catch {
@@ -69,40 +114,108 @@ export async function POST(request: NextRequest) {
 
   const title = body.title?.trim() ?? "";
   const companyName = body.companyName?.trim() ?? "";
-  const location = body.location?.trim() ?? "";
+  const jobType = (body.jobType?.trim() || "OTHER").toUpperCase();
+  const addressText = body.addressText?.trim() ?? "";
+  const description = body.description?.trim() ?? "";
+  const contactNumber = body.contactNumber?.trim() ?? "";
+  const whatsappNumber = body.whatsappNumber?.trim() || undefined;
+  const workingHours = body.workingHours?.trim() || undefined;
+  const shiftTiming = body.shiftTiming?.trim() || "Flexible";
+  const experienceRequired = body.experienceRequired?.trim() || "No Experience Required";
 
-  if (!title || !companyName || !location) {
+  const salary = Number(body.salary ?? 0);
+  const salaryTypeRaw = (body.salaryType?.trim() || "DAILY").toUpperCase();
+  const salaryType = VALID_SALARY_TYPE.has(salaryTypeRaw) ? salaryTypeRaw : "DAILY";
+
+  const urgencyRaw = (body.urgency?.trim() || "MEDIUM").toUpperCase();
+  const urgency = VALID_URGENCY.has(urgencyRaw) ? urgencyRaw : "MEDIUM";
+
+  const genderRaw = body.gender?.trim() || "Any";
+  const gender = VALID_GENDER.has(genderRaw) ? genderRaw : "Any";
+
+  const latitude = Number(body.latitude);
+  const longitude = Number(body.longitude);
+
+  const vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
+  const benefits = parseBenefits(body.benefits);
+  const expiresInDays = Math.max(1, Math.min(60, Number(body.expiresInDays) || 15));
+  const employerId = body.employerId?.trim() || "admin";
+
+  if (!title || title.length < 3 || title.length > 120) {
+    return NextResponse.json({ error: "Title must be 3-120 characters." }, { status: 400 });
+  }
+  if (!companyName) return NextResponse.json({ error: "Company name is required." }, { status: 400 });
+  if (!description) return NextResponse.json({ error: "Description is required." }, { status: 400 });
+  if (!contactNumber) return NextResponse.json({ error: "Contact number is required." }, { status: 400 });
+  if (!addressText) return NextResponse.json({ error: "Address is required." }, { status: 400 });
+  if (!Number.isFinite(salary) || salary <= 0 || salary > 10000000) {
+    return NextResponse.json({ error: "Salary must be > 0 and <= 10,000,000." }, { status: 400 });
+  }
+  if (!hasValidCoordinates(latitude, longitude)) {
     return NextResponse.json(
-      { error: "Title, companyName and location are required." },
+      { error: "Latitude and longitude are required (use the geocode helper or paste real coordinates)." },
       { status: 400 }
     );
   }
 
   try {
     const db = getFirebaseAdminDb();
-    const created = await db.collection("jobmetadata").add({
-      title,
-      companyName,
-      location,
-      description: body.description?.trim() ?? "",
-      category: body.category?.trim() || "Other",
-      payAmount: body.payAmount?.trim() ?? "",
-      payType: body.payType?.trim() || "Monthly",
-      shift: body.shift?.trim() || "Day Shift",
-      vacancies: Number(body.vacancies) || 1,
-      requirements: body.requirements?.trim() ?? "",
-      contactPhone: body.contactPhone?.trim() ?? "",
-      contactEmail: body.contactEmail?.trim() ?? "",
-      status: "open",
-      isActive: true,
-      applicationCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      postedBy: "admin",
-      source: "admin-console"
-    });
+    const jobRef = db.collection("jobmetadata").doc();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000);
+    const geohash = encodeGeohash(latitude, longitude, 6);
+    const companyCity = extractCityFromAddress(addressText);
 
-    return NextResponse.json({ ok: true, jobId: created.id });
+    // Ensure the employer_profiles/{employerId} doc exists so worker-side
+    // EmployerProfileCache + JobListing display companyName/isVerified properly.
+    // Idempotent: merge:true only writes the doc if absent or fills missing fields.
+    await db.collection("employer_profiles").doc(employerId).set(
+      {
+        userId: employerId,
+        companyName,
+        isVerified: true,
+        lastActiveAt: Timestamp.fromDate(now)
+      },
+      { merge: true }
+    );
+
+    const cardData: Record<string, unknown> = {
+      employerId,
+      companyName,
+      title,
+      jobType,
+      salary,
+      salaryType,
+      location: { lat: latitude, lng: longitude },
+      geohash,
+      addressText,
+      companyCity,
+      urgency,
+      status: "open",
+      isVerified: true,
+      createdAt: Timestamp.fromDate(now),
+      expiresAt: Timestamp.fromDate(expiresAt)
+    };
+
+    const detailsData: Record<string, unknown> = {
+      description,
+      contactNumber,
+      gender,
+      experienceRequired,
+      shiftTiming,
+      vacancies,
+      benefits,
+      applicationCount: 0
+    };
+    if (whatsappNumber) detailsData.whatsappNumber = whatsappNumber;
+    if (workingHours) detailsData.workingHours = workingHours;
+
+    const batch = db.batch();
+    batch.set(jobRef, cardData);
+    batch.set(db.collection("job_details").doc(jobRef.id), detailsData);
+    await batch.commit();
+
+    return NextResponse.json({ ok: true, jobId: jobRef.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create job.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -113,23 +226,30 @@ type UpdateJobBody = {
   jobId?: string;
   title?: string;
   companyName?: string;
-  location?: string;
-  payAmount?: string;
-  vacancies?: number;
-  description?: string;
-  category?: string;
-  shift?: string;
+  jobType?: string;
+  salary?: number | string;
+  salaryType?: string;
+  addressText?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  urgency?: string;
   status?: string;
+  description?: string;
+  contactNumber?: string;
+  whatsappNumber?: string;
+  gender?: string;
+  experienceRequired?: string;
+  shiftTiming?: string;
+  workingHours?: string;
+  vacancies?: number | string;
+  benefits?: string[] | string;
 };
 
 export async function PATCH(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
+  if (unauthorized) return unauthorized;
 
   let body: UpdateJobBody;
-
   try {
     body = (await request.json()) as UpdateJobBody;
   } catch {
@@ -137,31 +257,71 @@ export async function PATCH(request: NextRequest) {
   }
 
   const jobId = body.jobId?.trim();
-  if (!jobId) {
-    return NextResponse.json({ error: "Missing jobId." }, { status: 400 });
+  if (!jobId) return NextResponse.json({ error: "Missing jobId." }, { status: 400 });
+
+  const cardPayload: Record<string, unknown> = {};
+  const detailsPayload: Record<string, unknown> = {};
+
+  if (body.title !== undefined) cardPayload.title = String(body.title).trim();
+  if (body.companyName !== undefined) cardPayload.companyName = String(body.companyName).trim();
+  if (body.jobType !== undefined) cardPayload.jobType = String(body.jobType).trim().toUpperCase();
+  if (body.salary !== undefined) {
+    const n = Number(body.salary);
+    if (Number.isFinite(n) && n >= 0) cardPayload.salary = n;
+  }
+  if (body.salaryType !== undefined) {
+    const v = String(body.salaryType).trim().toUpperCase();
+    if (VALID_SALARY_TYPE.has(v)) cardPayload.salaryType = v;
+  }
+  if (body.addressText !== undefined) {
+    const a = String(body.addressText).trim();
+    cardPayload.addressText = a;
+    cardPayload.companyCity = extractCityFromAddress(a);
+  }
+  if (body.latitude !== undefined && body.longitude !== undefined) {
+    const lat = Number(body.latitude);
+    const lng = Number(body.longitude);
+    if (hasValidCoordinates(lat, lng)) {
+      cardPayload.location = { lat, lng };
+      cardPayload.geohash = encodeGeohash(lat, lng, 6);
+    }
+  }
+  if (body.urgency !== undefined) {
+    const v = String(body.urgency).trim().toUpperCase();
+    if (VALID_URGENCY.has(v)) cardPayload.urgency = v;
+  }
+  if (body.status !== undefined) {
+    const v = String(body.status).trim().toLowerCase();
+    cardPayload.status = ["open", "closed", "expired"].includes(v) ? v : "open";
   }
 
-  const payload: Record<string, unknown> = {
-    updatedAt: new Date()
-  };
-
-  if (body.title !== undefined) payload.title = String(body.title).trim();
-  if (body.companyName !== undefined) payload.companyName = String(body.companyName).trim();
-  if (body.location !== undefined) payload.location = String(body.location).trim();
-  if (body.payAmount !== undefined) payload.payAmount = String(body.payAmount).trim();
-  if (body.vacancies !== undefined) payload.vacancies = Number(body.vacancies) || 0;
-  if (body.description !== undefined) payload.description = String(body.description).trim();
-  if (body.category !== undefined) payload.category = String(body.category).trim();
-  if (body.shift !== undefined) payload.shift = String(body.shift).trim();
-  if (body.status !== undefined) {
-    const normalizedStatus = String(body.status).trim().toLowerCase() === "open" ? "open" : "closed";
-    payload.status = normalizedStatus;
-    payload.isActive = normalizedStatus === "open";
+  if (body.description !== undefined) detailsPayload.description = String(body.description).trim();
+  if (body.contactNumber !== undefined) detailsPayload.contactNumber = String(body.contactNumber).trim();
+  if (body.whatsappNumber !== undefined) detailsPayload.whatsappNumber = String(body.whatsappNumber).trim();
+  if (body.workingHours !== undefined) detailsPayload.workingHours = String(body.workingHours).trim();
+  if (body.shiftTiming !== undefined) detailsPayload.shiftTiming = String(body.shiftTiming).trim();
+  if (body.experienceRequired !== undefined) detailsPayload.experienceRequired = String(body.experienceRequired).trim();
+  if (body.gender !== undefined) {
+    const v = String(body.gender).trim();
+    detailsPayload.gender = VALID_GENDER.has(v) ? v : "Any";
+  }
+  if (body.vacancies !== undefined) {
+    detailsPayload.vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
+  }
+  if (body.benefits !== undefined) {
+    detailsPayload.benefits = parseBenefits(body.benefits);
   }
 
   try {
     const db = getFirebaseAdminDb();
-    await db.collection("jobmetadata").doc(jobId).set(payload, { merge: true });
+    const batch = db.batch();
+    if (Object.keys(cardPayload).length > 0) {
+      batch.set(db.collection("jobmetadata").doc(jobId), cardPayload, { merge: true });
+    }
+    if (Object.keys(detailsPayload).length > 0) {
+      batch.set(db.collection("job_details").doc(jobId), detailsPayload, { merge: true });
+    }
+    await batch.commit();
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update job.";
@@ -169,18 +329,13 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-type DeleteJobBody = {
-  jobId?: string;
-};
+type DeleteJobBody = { jobId?: string };
 
 export async function DELETE(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
+  if (unauthorized) return unauthorized;
 
   let body: DeleteJobBody;
-
   try {
     body = (await request.json()) as DeleteJobBody;
   } catch {
@@ -188,13 +343,14 @@ export async function DELETE(request: NextRequest) {
   }
 
   const jobId = body.jobId?.trim();
-  if (!jobId) {
-    return NextResponse.json({ error: "Missing jobId." }, { status: 400 });
-  }
+  if (!jobId) return NextResponse.json({ error: "Missing jobId." }, { status: 400 });
 
   try {
     const db = getFirebaseAdminDb();
-    await db.collection("jobmetadata").doc(jobId).delete();
+    const batch = db.batch();
+    batch.delete(db.collection("jobmetadata").doc(jobId));
+    batch.delete(db.collection("job_details").doc(jobId));
+    await batch.commit();
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to delete job.";

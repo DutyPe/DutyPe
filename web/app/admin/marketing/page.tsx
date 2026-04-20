@@ -1,31 +1,120 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { CsvTable, MarkdownView } from "@/components/marketing-shell";
 
+const MARKETING_SECTIONS = [
+  { id: "growth-assets", icon: "🎨", title: "Assets", count: 11, desc: "Pamphlets, posters, one-pagers, screenshots." },
+  { id: "growth-campaigns", icon: "📣", title: "Campaigns", count: 7, desc: "Field visits, partnerships, reactivation runs." },
+  { id: "growth-inputs", icon: "📥", title: "Inputs", count: 12, desc: "ICP, pricing, competitors, founder notes." },
+  { id: "growth-outputs", icon: "📤", title: "Outputs", count: 11, desc: "Strategy decks, KPI specs, channel plans." },
+  { id: "growth-playbooks", icon: "📘", title: "Playbooks", count: 11, desc: "RWA, naka, onboarding, press, partnerships." },
+  { id: "growth-research", icon: "🔬", title: "Research", count: 5, desc: "Market briefs, competitor teardowns, interviews." },
+  { id: "marketing-brand", icon: "🪣", title: "Brand", count: 4, desc: "Foundation, voice, visual identity, taglines." },
+  { id: "marketing-channels", icon: "📡", title: "Channels", count: 7, desc: "WhatsApp, Play Store, LinkedIn, press, paid." },
+  { id: "marketing-go-to-market", icon: "🚀", title: "Go To Market", count: 6, desc: "Positioning, ICP, city launch, seasonal calendar." }
+];
+
 export default function MarketingLandingPage() {
+  const [search, setSearch] = useState("");
+  const [matchCount, setMatchCount] = useState<number | null>(null);
+
+  // Lightweight client-side search: hide non-matching <details> blocks.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const term = search.trim().toLowerCase();
+    const items = document.querySelectorAll<HTMLDetailsElement>(".marketing-full-file");
+    let visible = 0;
+    items.forEach((el) => {
+      if (!term) {
+        el.style.display = "";
+        el.open = false;
+        visible += 1;
+        return;
+      }
+      const text = (el.textContent ?? "").toLowerCase();
+      if (text.includes(term)) {
+        el.style.display = "";
+        el.open = true;
+        visible += 1;
+      } else {
+        el.style.display = "none";
+      }
+    });
+    setMatchCount(term ? visible : null);
+  }, [search]);
+
+  const totalDocs = useMemo(
+    () => MARKETING_SECTIONS.reduce((sum, s) => sum + s.count, 0),
+    []
+  );
+
   return (
     <div className="marketing-landing">
-      <header className="marketing-topbar">
-        <div>
-          <h1>Marketing & Growth</h1>
-          <p>Every campaign, asset, input, output, playbook, channel, brand, go-to-market and research document.</p>
+      <header className="marketing-hero">
+        <div className="marketing-hero-content">
+          <h1>Marketing & Growth Hub</h1>
+          <p>
+            Every campaign, asset, input, output, playbook, channel, brand,
+            go-to-market and research document — all in one searchable place.
+          </p>
+          <div className="marketing-hero-stats">
+            <div className="marketing-hero-stat">
+              <strong>{totalDocs}</strong>
+              <span>Documents</span>
+            </div>
+            <div className="marketing-hero-stat">
+              <strong>9</strong>
+              <span>Categories</span>
+            </div>
+            <div className="marketing-hero-stat">
+              <strong>2</strong>
+              <span>Top-level groups</span>
+            </div>
+          </div>
         </div>
       </header>
 
+      <div className="marketing-search-bar">
+        <span className="search-icon">🔍</span>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search across pamphlets, playbooks, research, channels…"
+        />
+        {matchCount !== null ? (
+          <span className="search-count">{matchCount} match{matchCount === 1 ? "" : "es"}</span>
+        ) : (
+          <span className="search-count">{totalDocs} docs</span>
+        )}
+      </div>
+
+      <div className="marketing-section-cards">
+        {MARKETING_SECTIONS.map((section) => (
+          <a key={section.id} href={`#${section.id}`} className="marketing-section-card">
+            <div className="icon">{section.icon}</div>
+            <div className="meta">
+              <strong>{section.title} <span style={{ color: "#94a3b8", fontWeight: 500 }}>· {section.count}</span></strong>
+              <span>{section.desc}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+
       <div className="marketing-full">
         <aside className="marketing-full-toc">
-          <h3>On this page</h3>
-          <small>76 documents · 9 sections</small>
+          <h3>Jump to section</h3>
+          <small>{totalDocs} documents · 9 sections</small>
           <ul>
-            <li><a href="#growth-assets">🎨 Assets</a></li>
-            <li><a href="#growth-campaigns">📣 Campaigns</a></li>
-            <li><a href="#growth-inputs">📥 Inputs</a></li>
-            <li><a href="#growth-outputs">📤 Outputs</a></li>
-            <li><a href="#growth-playbooks">📘 Playbooks</a></li>
-            <li><a href="#growth-research">🔬 Research</a></li>
-            <li><a href="#marketing-brand">🪣 Brand</a></li>
-            <li><a href="#marketing-channels">📡 Channels</a></li>
-            <li><a href="#marketing-go-to-market">🚀 Go To Market</a></li>
+            {MARKETING_SECTIONS.map((s) => (
+              <li key={s.id}>
+                <a href={`#${s.id}`}>
+                  <span>{s.icon}</span>
+                  <span>{s.title}</span>
+                </a>
+              </li>
+            ))}
           </ul>
         </aside>
 
@@ -44,7 +133,7 @@ export default function MarketingLandingPage() {
             <small>11 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/readme">Readme</a></span>
@@ -91,7 +180,7 @@ export default function MarketingLandingPage() {
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/investor-one-pager">Investor One Pager</a></span>
@@ -176,7 +265,7 @@ DutyPe matches blue-collar workers (cooks, maids, helpers, drivers) with househo
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/pamphlet-telugu">Pamphlet Telugu</a></span>
@@ -260,7 +349,7 @@ Print 200 of each variant in week-1. Tally installs by variant in \`growth/campa
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/pg-owner-one-pager">Pg Owner One Pager</a></span>
@@ -329,7 +418,7 @@ DutyPe · dutype.in · KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/play-store-listing">Play Store Listing</a></span>
@@ -477,7 +566,7 @@ WhatsApp +91 91217 06236
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/press-one-pager">Press One Pager</a></span>
@@ -559,7 +648,7 @@ publication on receipt.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/push-copy">Push Copy</a></span>
@@ -608,7 +697,7 @@ Notification strings should mirror this file in \`app/src/main/res/values-te/str
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/rwa-one-pager">Rwa One Pager</a></span>
@@ -695,7 +784,7 @@ KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/society-poster">Society Poster</a></span>
@@ -744,7 +833,7 @@ DutyPe · dutype.in · KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/whatsapp-templates">Whatsapp Templates</a></span>
@@ -937,7 +1026,7 @@ If something went wrong last time, reply and I'll personally fix it.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/assets/play-store-screenshots/readme">Readme</a></span>
@@ -994,7 +1083,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
             <small>7 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/readme">Readme</a></span>
@@ -1033,7 +1122,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/content-log">Content Log</a></span>
@@ -1043,7 +1132,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/experiments">Experiments</a></span>
@@ -1053,7 +1142,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/field-visits">Field Visits</a></span>
@@ -1063,7 +1152,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/outbound">Outbound</a></span>
@@ -1073,7 +1162,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/partnerships">Partnerships</a></span>
@@ -1083,7 +1172,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📊</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/campaigns/reactivation">Reactivation</a></span>
@@ -1103,7 +1192,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
             <small>11 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/app-features">App Features</a></span>
@@ -1153,7 +1242,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/app-store-links">App Store Links</a></span>
@@ -1180,7 +1269,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/competitors">Competitors</a></span>
@@ -1227,7 +1316,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/current-metrics">Current Metrics</a></span>
@@ -1283,7 +1372,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/founder-notes">Founder Notes</a></span>
@@ -1328,7 +1417,7 @@ See [growth/outputs/app_store_growth_plan.md](../../outputs/app_store_growth_pla
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/icp">Icp</a></span>
@@ -1375,7 +1464,7 @@ Tiered. Start with the easiest two.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/landing-page-copy">Landing Page Copy</a></span>
@@ -1412,7 +1501,7 @@ Tiered. Start with the easiest two.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/pricing">Pricing</a></span>
@@ -1441,7 +1530,7 @@ Tiered. Start with the easiest two.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/product-brief">Product Brief</a></span>
@@ -1489,7 +1578,7 @@ Tiered. Start with the easiest two.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/reviews/readme">Readme</a></span>
@@ -1512,7 +1601,7 @@ We use these in:
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/inputs/screenshots/readme">Readme</a></span>
@@ -1543,7 +1632,7 @@ These are referenced by:
             <small>11 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/app-store-growth-plan">App Store Growth Plan</a></span>
@@ -1815,7 +1904,7 @@ Track weekly in Play Console:
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/channel-prioritization">Channel Prioritization</a></span>
@@ -1984,7 +2073,7 @@ Is supply density (workers/pincode) ≥ 100 in target pincode?
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/content-plan-90-days">Content Plan 90 Days</a></span>
@@ -2203,7 +2292,7 @@ Founder reviews the log every Friday. **Kill any content format that fails to pr
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/growth-experiments-backlog">Growth Experiments Backlog</a></span>
@@ -2451,7 +2540,7 @@ EXP-XX  Name
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/ideal-customer-profiles">Ideal Customer Profiles</a></span>
@@ -2609,7 +2698,7 @@ Profile completed ≥ 80 % AND applied to ≥ 1 job within 7 days of install.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/kpi-dashboard-spec">Kpi Dashboard Spec</a></span>
@@ -2815,7 +2904,7 @@ These manual numbers are *more reliable* than any auto-pipeline at this stage. D
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/landing-page-recommendations">Landing Page Recommendations</a></span>
@@ -3067,7 +3156,7 @@ A dedicated page that the employer-side pre-launch sequence links to. It must an
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/master-growth-strategy">Master Growth Strategy</a></span>
@@ -3256,7 +3345,7 @@ Explicit "stop the company forever" trigger (founder must agree to look at this 
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/outbound-sequences">Outbound Sequences</a></span>
@@ -3658,7 +3747,7 @@ Triggered 5 days after employer marks job "filled" via QR.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/weekly-execution-plan">Weekly Execution Plan</a></span>
@@ -3868,7 +3957,7 @@ If less time available → cut LinkedIn first, then outbound, never field.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/outputs/what-not-to-do">What Not To Do</a></span>
@@ -4036,7 +4125,7 @@ If yes to any → that's the only thing to fix the next week.
             <small>11 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/readme">Readme</a></span>
@@ -4068,7 +4157,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/aso-release">Aso Release</a></span>
@@ -4128,7 +4217,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/employer-onboarding">Employer Onboarding</a></span>
@@ -4187,7 +4276,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/friday-review">Friday Review</a></span>
@@ -4248,7 +4337,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/naka">Naka</a></span>
@@ -4309,7 +4398,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/ngo-pilot">Ngo Pilot</a></span>
@@ -4380,7 +4469,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/outbound-whatsapp">Outbound Whatsapp</a></span>
@@ -4438,7 +4527,7 @@ If yes to any → that's the only thing to fix the next week.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/partnership-legal">Partnership Legal</a></span>
@@ -4527,7 +4616,7 @@ DutyPe ____________________     Partner ____________________
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/press-pitch">Press Pitch</a></span>
@@ -4600,7 +4689,7 @@ DutyPe · dutype.in · <phone>
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/rwa">Rwa</a></span>
@@ -4671,7 +4760,7 @@ Capture in \`growth/campaigns/partnerships.csv\` with \`partner_type=RWA\`.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/playbooks/worker-onboarding">Worker Onboarding</a></span>
@@ -4755,7 +4844,7 @@ If organic (Play Store install):
             <small>5 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/research/readme">Readme</a></span>
@@ -4779,7 +4868,7 @@ If organic (Play Store install):
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/research/competitor-teardown">Competitor Teardown</a></span>
@@ -4915,7 +5004,7 @@ Add findings to this doc dated; do not overwrite history.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/research/hyderabad-market-brief">Hyderabad Market Brief</a></span>
@@ -5023,7 +5112,7 @@ Recommended order if all gates met: Vijayawada → Visakhapatnam → Bangalore.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/research/interview-notes-template">Interview Notes Template</a></span>
@@ -5100,7 +5189,7 @@ Recommended order if all gates met: Vijayawada → Visakhapatnam → Bangalore.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/growth/research/interviews/readme">Readme</a></span>
@@ -5147,7 +5236,7 @@ Use [interview_notes_template.md](../interview_notes_template.md).
             <small>2 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/readme">Readme</a></span>
@@ -5184,7 +5273,7 @@ Use [interview_notes_template.md](../interview_notes_template.md).
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/seo-quick-start">Seo Quick Start</a></span>
@@ -5279,7 +5368,7 @@ Check Google Search Console daily for:
             <small>4 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/brand/foundation">Foundation</a></span>
@@ -5327,7 +5416,7 @@ A hyperlocal hiring app for blue-collar and household work in India. Telugu-firs
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/brand/taglines">Taglines</a></span>
@@ -5374,7 +5463,7 @@ Use as the locked-in lockup with the wordmark on A4+ collateral.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/brand/visual-identity">Visual Identity</a></span>
@@ -5453,7 +5542,7 @@ Do not use any other colours in marketing assets without designer + founder sign
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/brand/voice-and-tone">Voice And Tone</a></span>
@@ -5551,7 +5640,7 @@ Never use:
             <small>8 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/readme">Readme</a></span>
@@ -5591,7 +5680,7 @@ Never use:
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/founder-linkedin">Founder Linkedin</a></span>
@@ -5654,7 +5743,7 @@ Never use:
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/paid-media">Paid Media</a></span>
@@ -5706,7 +5795,7 @@ Until any of those is true: **OFF**.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/play-store">Play Store</a></span>
@@ -5758,7 +5847,7 @@ Until any of those is true: **OFF**.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/press">Press</a></span>
@@ -5803,7 +5892,7 @@ Until any of those is true: **OFF**.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/telugu-shorts">Telugu Shorts</a></span>
@@ -5874,7 +5963,7 @@ Until any of those is true: **OFF**.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/website">Website</a></span>
@@ -5939,7 +6028,7 @@ Don't add new top-level routes without founder + engineer agreement.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/channels/whatsapp">Whatsapp</a></span>
@@ -6011,7 +6100,7 @@ Don't add new top-level routes without founder + engineer agreement.
             <small>6 docs</small>
           </h3>
           <div className="marketing-full-files">
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/readme">Readme</a></span>
@@ -6036,7 +6125,7 @@ Don't add new top-level routes without founder + engineer agreement.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/category-launch-kit">Category Launch Kit</a></span>
@@ -6098,7 +6187,7 @@ If less → category-N is wrong for this city wedge OR our channel mix doesn't r
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/city-launch-kit">City Launch Kit</a></span>
@@ -6165,7 +6254,7 @@ Mirror of city-1 day-90 success criteria.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/icp-messaging">Icp Messaging</a></span>
@@ -6257,7 +6346,7 @@ Voice: peer-to-peer, mission-aligned, never salesy.
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/positioning">Positioning</a></span>
@@ -6327,7 +6416,7 @@ Standard response (memorise):
 `} />
               </div>
             </details>
-            <details className="marketing-full-file" open>
+            <details className="marketing-full-file">
               <summary>
                 <span className="marketing-full-file-icon">📄</span>
                 <span className="marketing-full-file-title"><a href="/admin/marketing/marketing/go-to-market/seasonal-calendar">Seasonal Calendar</a></span>

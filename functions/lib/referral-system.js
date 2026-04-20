@@ -37,7 +37,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
 const app_config_1 = require("./app-config");
-const idempotency_1 = require("./idempotency");
+const notification_i18n_1 = require("./notification-i18n");
 const db = admin.firestore();
 // ============================================
 // REFERRAL SYSTEM CONSTANTS
@@ -55,7 +55,7 @@ const REFERRAL_CONFIG = {
         15: 150,
         25: 250,
         50: 500,
-        100: 1000 // 100 referrals = â‚¹1000 bonus
+        100: 1000 // 100 referrals = ₹1000 bonus
     },
     // Withdrawal milestones (can withdraw at these counts)
     WITHDRAWAL_MILESTONES: [5, 10, 15],
@@ -577,15 +577,10 @@ async function generateUniqueReferralCode(userName) {
 // ============================================
 // Triggered when new user applies a referral code during signup
 // Creates PENDING referral record
-exports.applyReferralCode = functions
-    .runWith({ enforceAppCheck: true, consumeAppCheckToken: true })
-    .https.onCall(async (data, context) => {
+exports.applyReferralCode = functions.https.onCall(async (data, context) => {
     var _a;
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-    }
-    if (!context.app) {
-        throw new functions.https.HttpsError("failed-precondition", "app check required");
     }
     const newUserId = context.auth.uid;
     try {
@@ -602,10 +597,6 @@ exports.applyReferralCode = functions
     catch (error) {
         throw new functions.https.HttpsError("invalid-argument", error.message);
     }
-    // Idempotency: required key from client. Replays within TTL return cached result.
-    const idem = await (0, idempotency_1.withIdempotency)(newUserId, "applyReferralCode", typeof (data === null || data === void 0 ? void 0 : data.idempotencyKey) === "string" ? data.idempotencyKey : undefined);
-    if (idem.hit)
-        return idem.result;
     const requestedCode = normalizeReferralCodeInput(data.referralCode || "");
     const newUserRole = getStringValue(data.userRole, "WORKER").toUpperCase();
     const newUserName = getStringValue(data.userName, "");
@@ -774,12 +765,17 @@ exports.applyReferralCode = functions
                 amount: referredUserReward,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
+            const referrerLocale = await (0, notification_i18n_1.getUserLanguage)(db, latestReferrerUserId);
+            const referredLocale = await (0, notification_i18n_1.getUserLanguage)(db, newUserId);
+            const referrerTemplateId = milestoneBonus > 0 ? "REFERRAL_REWARD_WITH_BONUS" : "REFERRAL_REWARD_BASIC";
+            const referrerName2 = newUserName || "Someone";
             const referrerNotifRef = db.collection("notifications").doc();
             transaction.set(referrerNotifRef, {
                 recipientId: latestReferrerUserId,
-                title: "Referral Successful",
-                message: (newUserName || "Someone") + " joined using your code. You earned Rs." + totalReferrerReward + (milestoneBonus > 0 ? " including Rs." + milestoneBonus + " milestone bonus" : "") + ".",
+                title: (0, notification_i18n_1.tTitle)(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
+                message: (0, notification_i18n_1.tBody)(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
                 type: "REFERRAL_REWARD",
+                locale: referrerLocale,
                 data: { referralId, amount: totalReferrerReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -787,9 +783,10 @@ exports.applyReferralCode = functions
             const referredNotifRef = db.collection("notifications").doc();
             transaction.set(referredNotifRef, {
                 recipientId: newUserId,
-                title: "Welcome Bonus",
-                message: "You earned Rs." + referredUserReward + " for joining with a referral code.",
+                title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
+                message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
                 type: "SIGNUP_BONUS",
+                locale: referredLocale,
                 data: { amount: referredUserReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -805,7 +802,6 @@ exports.applyReferralCode = functions
                 message: fraudResult.needsReview ? "Referral applied and flagged for review" : "Referral applied successfully"
             };
         });
-        await idem.record(result);
         return result;
     }
     catch (error) {
@@ -831,7 +827,7 @@ exports.onReferredUserProfileComplete = functions.firestore
     if (beforeIsComplete || !afterIsComplete) {
         return null;
     }
-    functions.logger.info(`ðŸŽ REFERRAL: Checking pending referral for user ${referredUserId}`);
+    functions.logger.info(`🎁 REFERRAL: Checking pending referral for user ${referredUserId}`);
     try {
         // Find pending referral for this user
         const pendingReferrals = await db.collection("referrals")
@@ -840,7 +836,7 @@ exports.onReferredUserProfileComplete = functions.firestore
             .limit(1)
             .get();
         if (pendingReferrals.empty) {
-            functions.logger.info(`ðŸŽ REFERRAL: No pending referral for user ${referredUserId}`);
+            functions.logger.info(`🎁 REFERRAL: No pending referral for user ${referredUserId}`);
             return null;
         }
         const referralDoc = pendingReferrals.docs[0];
@@ -850,7 +846,7 @@ exports.onReferredUserProfileComplete = functions.firestore
         // Check if expired
         const expiresAt = ((_a = referral.expiresAt) === null || _a === void 0 ? void 0 : _a.toMillis()) || 0;
         if (Date.now() > expiresAt) {
-            functions.logger.info(`ðŸŽ REFERRAL: Referral ${referralId} expired`);
+            functions.logger.info(`🎁 REFERRAL: Referral ${referralId} expired`);
             // Mark as expired
             await db.collection("referrals").doc(referralId).update({
                 status: "EXPIRED",
@@ -982,12 +978,17 @@ exports.onReferredUserProfileComplete = functions.firestore
             return ((_a = data.data) === null || _a === void 0 ? void 0 : _a.referralId) === referralId;
         });
         if (!notificationExists) {
+            const referrerLocale2 = await (0, notification_i18n_1.getUserLanguage)(db, referrerUserId);
+            const referredLocale2 = await (0, notification_i18n_1.getUserLanguage)(db, referredUserId);
+            const referrerTemplateId2 = milestoneBonus > 0 ? "REFERRAL_REWARD_WITH_BONUS" : "REFERRAL_REWARD_BASIC";
+            const referrerName3 = referral.referredUserName || "Someone";
             const referrerNotifRef = db.collection("notifications").doc();
             batch.set(referrerNotifRef, {
                 recipientId: referrerUserId,
-                title: "ðŸŽ‰ Referral Successful!",
-                message: `${referral.referredUserName || "Someone"} joined using your code! You earned â‚¹${totalReferrerReward}${milestoneBonus > 0 ? ` (includes â‚¹${milestoneBonus} milestone bonus!)` : ""}`,
+                title: (0, notification_i18n_1.tTitle)(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
+                message: (0, notification_i18n_1.tBody)(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
                 type: "REFERRAL_REWARD",
+                locale: referrerLocale2,
                 data: { referralId, amount: totalReferrerReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -995,20 +996,21 @@ exports.onReferredUserProfileComplete = functions.firestore
             const referredNotifRef = db.collection("notifications").doc();
             batch.set(referredNotifRef, {
                 recipientId: referredUserId,
-                title: "ðŸŽ Welcome Bonus!",
-                message: `You earned â‚¹${referredUserReward} for joining with a referral code!`,
+                title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
+                message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
                 type: "SIGNUP_BONUS",
+                locale: referredLocale2,
                 data: { amount: referredUserReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
             });
-            functions.logger.info(`ðŸŽ REFERRAL: Creating notifications for referral ${referralId}`);
+            functions.logger.info(`REFERRAL: Creating notifications for referral ${referralId}`);
         }
         else {
-            functions.logger.info(`ðŸŽ REFERRAL: Notifications already exist for referral ${referralId}, skipping`);
+            functions.logger.info(`🎁 REFERRAL: Notifications already exist for referral ${referralId}, skipping`);
         }
         await batch.commit();
-        functions.logger.info(`ðŸŽ REFERRAL: âœ… Completed! Referrer ${referrerUserId} earned â‚¹${totalReferrerReward}, Referred ${referredUserId} earned â‚¹${referredUserReward}`);
+        functions.logger.info(`🎁 REFERRAL: ✅ Completed! Referrer ${referrerUserId} earned ₹${totalReferrerReward}, Referred ${referredUserId} earned ₹${referredUserReward}`);
         return {
             status: "COMPLETED",
             referrerReward: totalReferrerReward,
@@ -1018,7 +1020,7 @@ exports.onReferredUserProfileComplete = functions.firestore
         };
     }
     catch (error) {
-        functions.logger.error(`ðŸŽ REFERRAL: Error completing referral:`, error);
+        functions.logger.error(`🎁 REFERRAL: Error completing referral:`, error);
         return null;
     }
 });
@@ -1029,7 +1031,7 @@ exports.onReferredUserProfileComplete = functions.firestore
 exports.expirePendingReferrals = functions.pubsub
     .schedule("every 6 hours")
     .onRun(async (context) => {
-    functions.logger.info("ðŸŽ REFERRAL: Running expiry cleanup");
+    functions.logger.info("🎁 REFERRAL: Running expiry cleanup");
     try {
         const now = new Date();
         // Find expired pending referrals
@@ -1039,10 +1041,10 @@ exports.expirePendingReferrals = functions.pubsub
             .limit(500) // Process in batches
             .get();
         if (expiredReferrals.empty) {
-            functions.logger.info("ðŸŽ REFERRAL: No expired referrals found");
+            functions.logger.info("🎁 REFERRAL: No expired referrals found");
             return null;
         }
-        functions.logger.info(`ðŸŽ REFERRAL: Found ${expiredReferrals.size} expired referrals`);
+        functions.logger.info(`🎁 REFERRAL: Found ${expiredReferrals.size} expired referrals`);
         // Group by referrer for batch updates
         const referrerUpdates = {};
         const batch = db.batch();
@@ -1076,11 +1078,11 @@ exports.expirePendingReferrals = functions.pubsub
             }, { merge: true });
         }
         await batch.commit();
-        functions.logger.info(`ðŸŽ REFERRAL: âœ… Expired ${expiredReferrals.size} referrals`);
+        functions.logger.info(`🎁 REFERRAL: ✅ Expired ${expiredReferrals.size} referrals`);
         return { expiredCount: expiredReferrals.size };
     }
     catch (error) {
-        functions.logger.error("ðŸŽ REFERRAL: Error in expiry cleanup:", error);
+        functions.logger.error("🎁 REFERRAL: Error in expiry cleanup:", error);
         return null;
     }
 });

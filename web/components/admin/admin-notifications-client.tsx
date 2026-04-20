@@ -28,6 +28,7 @@ type NotificationFormState = {
   targetRole: TargetRole;
   sendPush: boolean;
   deepLink: string;
+  recipientIds: string;
 };
 
 const presetDefaults: Record<NotificationPreset, Pick<NotificationFormState, "title" | "message" | "sendPush" | "deepLink">> = {
@@ -68,7 +69,8 @@ const initialForm: NotificationFormState = {
   preset: "APP_UPDATE",
   ...presetDefaults.APP_UPDATE,
   targetRole: "ALL",
-  deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app"
+  deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app",
+  recipientIds: ""
 };
 
 function formatAudience(targetRole: TargetRole) {
@@ -132,6 +134,11 @@ export function AdminNotificationsClient() {
     setError(null);
 
     try {
+      const recipientIds = form.recipientIds
+        .split(/[\s,;\n]+/)
+        .map((id) => id.trim())
+        .filter(Boolean);
+
       const response = await adminApiFetch("/api/admin/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,7 +148,8 @@ export function AdminNotificationsClient() {
           message: form.message.trim(),
           targetRole: form.targetRole,
           sendPush: form.sendPush,
-          deepLink: form.deepLink.trim() || undefined
+          deepLink: form.deepLink.trim() || undefined,
+          recipientIds: recipientIds.length > 0 ? recipientIds : undefined
         })
       });
 
@@ -240,6 +248,16 @@ export function AdminNotificationsClient() {
               <option value="yes">Yes, send FCM too</option>
               <option value="no">No, inbox only</option>
             </select>
+          </label>
+
+          <label className="editor-form-wide">
+            <span>Specific user IDs (optional, overrides audience)</span>
+            <textarea
+              value={form.recipientIds}
+              onChange={(event) => setForm((current) => ({ ...current, recipientIds: event.target.value }))}
+              placeholder="Paste comma- or newline-separated user IDs to send to specific users only."
+              rows={3}
+            />
           </label>
 
           <div className="editor-form-actions">

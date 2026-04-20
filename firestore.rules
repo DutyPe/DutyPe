@@ -74,7 +74,7 @@ service cloud.firestore {
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
-          'location', 'geohash', 'fcmToken',
+          'location', 'geohash', 'fcmToken', 'language',
           'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -96,17 +96,21 @@ service cloud.firestore {
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('language' in request.resource.data) ||
+          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
       // Lightweight activity/role/token update (high-frequency path).
       allow update: if isSelf(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt', 'activeRole', 'fcmToken']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt', 'activeRole', 'fcmToken', 'language']) &&
         (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp) &&
         (!('activeRole' in request.resource.data) ||
           (request.resource.data.activeRole is string &&
            request.resource.data.roles is list &&
            request.resource.data.roles.toSet().hasAny([request.resource.data.activeRole]))) &&
-        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string);
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
+        (!('language' in request.resource.data) ||
+          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
       // Full profile update (name, image, location, referral linking).
       // Immutable: userId, phone, createdAt. Forbidden from client: isVerified, isActive, ratings, counters.
@@ -117,7 +121,7 @@ service cloud.firestore {
         ]) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
-          'location', 'geohash', 'fcmToken',
+          'location', 'geohash', 'fcmToken', 'language',
           'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId',
           'isVerified', 'isActive'
         ]) &&
@@ -150,7 +154,9 @@ service cloud.firestore {
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('language' in request.resource.data) ||
+          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
       allow delete: if false;
     }

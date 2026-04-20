@@ -5573,3 +5573,235 @@ button.product-chip {
 .marketing-full-file-title a:hover {
   text-decoration: underline;
 }
+
+/* ============================================================
+   Admin form chips (post-job benefits, etc.)
+   ============================================================ */
+.admin-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+.admin-chip {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.admin-chip:hover { background: #e5e7eb; }
+.admin-chip.active {
+  background: #eef2ff;
+  border-color: #6366f1;
+  color: #4338ca;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Marketing UI v2 — hero, sticky sidebar, search, modern cards
+   ============================================================ */
+.marketing-hero {
+  position: relative;
+  margin-bottom: 24px;
+  padding: 36px 40px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+  color: #fff;
+  overflow: hidden;
+}
+.marketing-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 60%);
+  pointer-events: none;
+}
+.marketing-hero-content { position: relative; z-index: 1; }
+.marketing-hero h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.marketing-hero p {
+  margin: 0 0 18px;
+  font-size: 1rem;
+  opacity: 0.9;
+  max-width: 720px;
+  line-height: 1.55;
+}
+.marketing-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.marketing-hero-stat {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.marketing-hero-stat strong {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.marketing-hero-stat span {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.marketing-search-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 8px 14px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.04);
+}
+.marketing-search-bar input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 0.95rem;
+  padding: 6px 0;
+  color: #0f172a;
+}
+.marketing-search-bar input::placeholder { color: #94a3b8; }
+.marketing-search-bar .search-icon {
+  font-size: 1.05rem;
+  opacity: 0.55;
+}
+.marketing-search-bar .search-count {
+  font-size: 0.78rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.marketing-section-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.marketing-section-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #0f172a;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.marketing-section-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15,23,42,0.08);
+  border-color: #c7d2fe;
+}
+.marketing-section-card .icon {
+  font-size: 1.6rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #eef2ff, #fdf4ff);
+  flex-shrink: 0;
+}
+.marketing-section-card .meta strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.marketing-section-card .meta span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.marketing-full-toc {
+  background: linear-gradient(180deg, #ffffff 0%, #fafafe 100%);
+  border-color: #e0e7ff;
+}
+.marketing-full-toc h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4338ca;
+  font-weight: 700;
+}
+.marketing-full-toc a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.marketing-full-toc a:hover {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.marketing-full-depth-0 > .marketing-full-heading {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-top: 24px;
+  background: linear-gradient(90deg, #4f46e5, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.marketing-full-depth-1 > .marketing-full-heading {
+  background: #fff;
+  border: 1px solid #e0e7ff;
+  border-left: 4px solid #6366f1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  margin-top: 16px;
+}
+.marketing-full-depth-1 > .marketing-full-heading small {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.marketing-full-file {
+  border-color: #e5e7eb;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.marketing-full-file:hover { border-color: #c7d2fe; }
+.marketing-full-file > summary {
+  background: linear-gradient(90deg, #f8fafc, #f1f5f9);
+}
+.marketing-full-file[open] > summary {
+  background: linear-gradient(90deg, #eef2ff, #fdf4ff);
+}

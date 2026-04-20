@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 
 export const runtime = "nodejs";
+
+const VALID_TYPE = new Set(["INFO", "SUCCESS", "WARNING", "ERROR", "FEATURE", "PROMOTION"]);
+const VALID_PRIORITY = new Set(["LOW", "MEDIUM", "NORMAL", "HIGH", "URGENT"]);
+
+function normalizeTargetRoleForStorage(value: unknown): string | null {
+  const candidate = String(value ?? "").trim().toUpperCase();
+  if (candidate === "WORKER" || candidate === "EMPLOYER") {
+    return candidate.toLowerCase();
+  }
+  return null;
+}
 
 function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
@@ -39,7 +51,13 @@ type CreateAnnouncementBody = {
   title?: string;
   message?: string;
   type?: string;
+  priority?: string;
   targetRole?: string;
+  imageUrl?: string;
+  deepLink?: string;
+  actionText?: string;
+  isDismissible?: boolean;
+  expiresInDays?: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -65,15 +83,40 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
+    const now = new Date();
+    const expiresInDays = Math.max(1, Math.min(365, Number(body.expiresInDays) || 30));
+    const endDateValue = new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000);
+
+    const typeRaw = (body.type?.trim() || "INFO").toUpperCase();
+    const announcementType = VALID_TYPE.has(typeRaw) ? typeRaw : "INFO";
+
+    const priorityRaw = (body.priority?.trim() || "NORMAL").toUpperCase();
+    const announcementPriority = VALID_PRIORITY.has(priorityRaw) ? priorityRaw : "NORMAL";
+
+    const targetRole = normalizeTargetRoleForStorage(body.targetRole);
+    const imageUrl = body.imageUrl?.trim() || "";
+    const deepLink = body.deepLink?.trim() || "";
+    const actionText = body.actionText?.trim() || (deepLink ? "View" : "");
+    const isDismissible = body.isDismissible !== false;
+
     const created = await db.collection("announcements").add({
       title,
       message,
-      type: body.type?.trim() || "INFO",
-      targetRole: body.targetRole?.trim() || "ALL",
+      type: announcementType,
+      priority: announcementPriority,
+      targetRole,
+      imageUrl,
+      actionText,
+      actionRoute: deepLink,
+      deepLink,
+      isDismissible,
       isActive: true,
-      priority: 1,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdBy: "admin",
+      startDate: Timestamp.fromDate(now),
+      endDate: Timestamp.fromDate(endDateValue),
+      createdAt: Timestamp.fromDate(now),
+      updatedAt: Timestamp.fromDate(now),
+      expiresAt: Timestamp.fromDate(endDateValue)
     });
 
     return NextResponse.json({ ok: true, announcementId: created.id });

@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.cleanupExpiredNotifications = exports.notifyNewApplication = exports.guestEngagementEvening = exports.guestEngagementAfternoon = exports.guestEngagementMorning = exports.notifyApplicationStatusUpdate = exports.reEngageInactiveEmployers = exports.reEngageInactiveWorkers = exports.smartEngagementEvening = exports.smartEngagementAfternoon = exports.smartEngagementMorning = exports.remindWorkersPendingApplications = exports.checkPendingApplications = exports.checkExpiringJobs = exports.checkBirthdays = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const notification_i18n_1 = require("./notification-i18n");
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -223,37 +224,8 @@ function currentTimeOfDay() {
         return 'afternoon';
     return 'evening';
 }
-const WORKER_SMART_ENGAGEMENT_MESSAGES = [
-    // Jobs & Opportunities
-    { title: '🎯 Fresh jobs matching your skills', body: 'New openings nearby — apply early for the best chance.', deepLink: 'dutype://jobs' },
-    { title: '💼 Employers are actively hiring today', body: 'Don\'t miss out — check the latest openings now.', deepLink: 'dutype://jobs' },
-    { title: '📍 Jobs within 5 km of you', body: 'Walk-in interviews available near your location.', deepLink: 'dutype://jobs' },
-    { title: '🔥 Urgent hire — apply before it fills up', body: 'Some jobs posted today are closing fast.', deepLink: 'dutype://jobs' },
-    { title: '🌟 New companies just joined DutyPe', body: 'Check their open positions before others do.', deepLink: 'dutype://jobs' },
-    // Profile & Activity
-    { title: '⚡ One quick action can change your day', body: 'Update your skills or apply to a job to stay visible.', deepLink: 'dutype://profile' },
-    { title: '📈 Small steps, big opportunities', body: 'Keep your profile active — employers notice consistency.', deepLink: 'dutype://profile' },
-    { title: '🏆 Stand out from other applicants', body: 'Complete your profile to rank higher in search results.', deepLink: 'dutype://profile' },
-    // Motivation
-    { title: '💪 Your next job could be one tap away', body: 'Open DutyPe and see what\'s new for you.', deepLink: 'dutype://jobs' },
-    { title: '🎉 Good morning! Ready to find work?', body: 'Fresh daily and hourly jobs waiting for you.', deepLink: 'dutype://jobs', timeOfDay: 'morning' },
-    { title: '🌅 Evening check — any interviews coming up?', body: 'Review your applications and prepare for tomorrow.', deepLink: 'dutype://my-jobs', timeOfDay: 'evening' },
-    { title: '📱 You have unread updates', body: 'An employer may have responded to your application.', deepLink: 'dutype://notifications' },
-];
-const EMPLOYER_SMART_ENGAGEMENT_MESSAGES = [
-    // Applications
-    { title: '👀 Candidates waiting for your review', body: 'Review applications now — don\'t lose top talent.', deepLink: 'dutype://applications' },
-    { title: '📬 New applications on your job post', body: 'Workers have applied — check their profiles today.', deepLink: 'dutype://applications' },
-    { title: '⏰ Don\'t keep applicants waiting', body: 'Quick responses improve your hiring success rate.', deepLink: 'dutype://applications' },
-    // Job Posting
-    { title: '🚀 Refresh your job post for more visibility', body: 'Updated posts get 3x more applications.', deepLink: 'dutype://post-job' },
-    { title: '📊 Your job post performance', body: 'See how many workers viewed and applied today.', deepLink: 'dutype://employer/home' },
-    { title: '💡 Tip: Add salary range to attract more workers', body: 'Posts with clear pay get 50% more applications.', deepLink: 'dutype://post-job' },
-    // Hiring
-    { title: '🏆 Hire faster with DutyPe', body: 'Take one hiring action today to keep momentum.', deepLink: 'dutype://employer/home' },
-    { title: '📞 Have you contacted your shortlisted candidates?', body: 'Quick follow-up prevents candidate drop-off.', deepLink: 'dutype://applications' },
-    { title: '✅ Great employers respond within 24 hours', body: 'Stay on top of your applications to build trust.', deepLink: 'dutype://applications' },
-];
+// Smart-engagement template pools (titles + bodies + deep links per language)
+// live in `notification-i18n.ts` as SE_WORKER_POOL / SE_EMPLOYER_POOL.
 async function sendRoleSpecificSmartEngagement(slot) {
     if (isQuietHours()) {
         console.log('🧠 Smart engagement: quiet hours - skipping');
@@ -288,20 +260,24 @@ async function sendRoleSpecificSmartEngagement(slot) {
         if (!allowed) {
             continue;
         }
-        const fullPool = role === 'WORKER' ? WORKER_SMART_ENGAGEMENT_MESSAGES : EMPLOYER_SMART_ENGAGEMENT_MESSAGES;
+        const fullPool = role === 'WORKER' ? notification_i18n_1.SE_WORKER_POOL : notification_i18n_1.SE_EMPLOYER_POOL;
         // Filter by time-of-day so e.g. "Good morning" never fires at 8 PM.
         const tod = currentTimeOfDay();
         const pool = fullPool.filter((m) => !m.timeOfDay || m.timeOfDay === tod);
         const messageIndex = (simpleHash(userId) + dayOfMonth + slot) % pool.length;
-        const message = pool[messageIndex];
+        const picked = pool[messageIndex];
+        const locale = await (0, notification_i18n_1.getUserLanguage)(admin.firestore(), userId);
+        const title = (0, notification_i18n_1.tTitle)(picked.id, locale);
+        const body = (0, notification_i18n_1.tBody)(picked.id, locale);
         const sent = await sendFCMNotification(userId, {
-            title: message.title,
-            body: message.body,
+            title,
+            body,
             data: {
                 type: 'SMART_ENGAGEMENT',
                 role,
                 slot: slot.toString(),
-                deepLink: message.deepLink,
+                deepLink: picked.deepLink,
+                locale,
             },
             priority: 'normal',
             channel: 'medium_priority',
@@ -362,14 +338,16 @@ exports.checkBirthdays = functions.pubsub
                 // Check if we can send notification
                 if (await canSendNotification(userId, 'birthday', 24 * 60 * 60 * 1000)) {
                     const userName = fullName.split(' ')[0] || fullName;
+                    const locale = await (0, notification_i18n_1.getUserLanguage)(admin.firestore(), userId);
                     const sent = await sendFCMNotification(userId, {
-                        title: `ðŸŽ‚ Happy Birthday, ${userName}! ðŸŽ‰`,
-                        body: 'Wishing you a wonderful birthday filled with joy and success! May this year bring you amazing opportunities. - Team DutyPe',
+                        title: (0, notification_i18n_1.tTitle)('BIRTHDAY', locale, { name: userName }),
+                        body: (0, notification_i18n_1.tBody)('BIRTHDAY', locale, { name: userName }),
                         data: {
                             type: 'BIRTHDAY',
                             userName: userName,
                             action: 'birthday_wish',
-                            deepLink: 'dutype://profile'
+                            deepLink: 'dutype://profile',
+                            locale,
                         },
                         priority: 'high',
                         channel: 'high_priority'
@@ -917,65 +895,56 @@ exports.notifyApplicationStatusUpdate = functions.firestore
  *
  * Messages rotate: jobs-waiting → fresh-openings → complete-profile
  * Quiet hours (10 PM – 8 AM) are respected.
+ *
+ * Templates and the rotation pool now live in `notification-i18n.ts`
+ * (SE_GUEST_POOL) so each language gets its own topic + copy.
  */
-const GUEST_MESSAGES = [
-    // Morning vibes
-    { title: '💼 New jobs near you are waiting!', body: 'Login to apply in one tap — don\'t miss out.', timeOfDay: 'morning' },
-    { title: '🌅 Good morning! Fresh jobs just posted', body: 'Sign in to see openings near your location.', timeOfDay: 'morning' },
-    { title: '🎯 Your skills are in demand today', body: 'Create your profile and get matched instantly.', timeOfDay: 'morning' },
-    // Afternoon urgency
-    { title: '🔥 Jobs filling up fast today', body: 'Sign in and apply before they\'re gone.', timeOfDay: 'afternoon' },
-    { title: '⚡ Employers are hiring RIGHT NOW', body: 'One-tap apply — login to get started.', timeOfDay: 'afternoon' },
-    { title: '📍 Walk-in interviews near you', body: 'Sign in to see which companies are hiring today.', timeOfDay: 'afternoon' },
-    // Evening motivation
-    { title: '🔓 Complete your profile, unlock matches', body: 'Personalised job recommendations are waiting — sign in now.', timeOfDay: 'evening' },
-    { title: '🌟 Tomorrow could be your first day at work', body: 'Sign in tonight, apply, and get hired tomorrow.', timeOfDay: 'evening' },
-    { title: '💪 Thousands found jobs on DutyPe', body: 'Join them — create your profile in under 2 minutes.', timeOfDay: 'evening' },
-];
 async function sendGuestEngagementTopicMessage() {
     if (isQuietHours()) {
         console.log('👥 Guest engagement: quiet hours — skipping');
         return;
     }
     const hour = new Date().getHours();
-    // Rotate messages using day-of-year + time slot for daily variety
-    // Morning (08) → slot 0, Afternoon (13) → slot 1, Evening (19) → slot 2
-    let slot = 0;
-    if (hour >= 12 && hour < 17)
-        slot = 1;
-    else if (hour >= 17)
-        slot = 2;
-    // Filter messages to the matching time-of-day so "Good morning" never fires
-    // in the afternoon or evening.
-    const tod = slot === 0 ? 'morning' : slot === 1 ? 'afternoon' : 'evening';
-    const pool = GUEST_MESSAGES.filter((m) => m.timeOfDay === tod);
-    // Day-of-year offset ensures different message each day
+    const tod = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+    const pool = notification_i18n_1.SE_GUEST_POOL.filter((m) => m.timeOfDay === tod);
+    if (pool.length === 0) {
+        console.log('👥 Guest engagement: no templates for time-of-day', tod);
+        return;
+    }
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
-    const messageIndex = dayOfYear % pool.length;
-    const { title, body } = pool[messageIndex];
-    try {
-        await admin.messaging().send({
-            topic: 'guest_users',
-            notification: { title, body },
-            data: {
-                type: 'GUEST_ENGAGEMENT',
-                deepLink: 'dutype://login',
-                channel: 'medium_priority',
-            },
-            android: {
-                priority: 'normal',
-                notification: {
-                    channelId: 'medium_priority',
-                    clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+    const picked = pool[dayOfYear % pool.length];
+    // Fan out to per-language topics so devices that already chose Telugu get
+    // the Telugu copy and devices on English get the English copy. Android
+    // subscribes to `guest_users_${lang}` in addition to the legacy plain topic.
+    for (const lang of notification_i18n_1.SUPPORTED_LOCALES) {
+        const title = (0, notification_i18n_1.tTitle)(picked.id, lang);
+        const body = (0, notification_i18n_1.tBody)(picked.id, lang);
+        const topic = (0, notification_i18n_1.localizedTopic)('guest_users', lang);
+        try {
+            await admin.messaging().send({
+                topic,
+                notification: { title, body },
+                data: {
+                    type: 'GUEST_ENGAGEMENT',
+                    deepLink: 'dutype://login',
+                    channel: 'medium_priority',
+                    locale: lang,
                 },
-            },
-        });
-        console.log(`✅ Guest engagement topic message sent: "${title}"`);
-    }
-    catch (error) {
-        console.error('❌ Failed to send guest engagement topic message:', error);
+                android: {
+                    priority: 'normal',
+                    notification: {
+                        channelId: 'medium_priority',
+                        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+                    },
+                },
+            });
+            console.log(`✅ Guest engagement (${lang}) sent to ${topic}: "${title}"`);
+        }
+        catch (error) {
+            console.error(`❌ Failed to send guest engagement to ${topic}:`, error);
+        }
     }
 }
 /**

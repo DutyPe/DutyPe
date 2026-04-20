@@ -14,10 +14,11 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.deleteAccount = exports.setNotificationBuckets = exports.unregisterFcmToken = exports.registerFcmToken = exports.runBackfillSnapshots = exports.runBackfillWorkerProfileScores = exports.runBackfillPhoneIndex = exports.onJobMetadataUpdate = exports.onEmployerProfileWrite = exports.onUserIdentityUpdate = exports.onWorkerProfileWrite = exports.submitApplication = exports.switchActiveRole = exports.addRole = exports.completeRegistration = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
+const notification_i18n_1 = require("./notification-i18n");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // ============================================
@@ -30,42 +31,8 @@ __exportStar(require("./referral-system"), exports);
 __exportStar(require("./job-landing"), exports);
 __exportStar(require("./worker-landing"), exports);
 __exportStar(require("./employer-landing"), exports);
-var auth_callables_1 = require("./auth-callables");
-Object.defineProperty(exports, "completeRegistration", { enumerable: true, get: function () { return auth_callables_1.completeRegistration; } });
-Object.defineProperty(exports, "addRole", { enumerable: true, get: function () { return auth_callables_1.addRole; } });
-Object.defineProperty(exports, "switchActiveRole", { enumerable: true, get: function () { return auth_callables_1.switchActiveRole; } });
-Object.defineProperty(exports, "submitApplication", { enumerable: true, get: function () { return auth_callables_1.submitApplication; } });
-var snapshots_1 = require("./snapshots");
-Object.defineProperty(exports, "onWorkerProfileWrite", { enumerable: true, get: function () { return snapshots_1.onWorkerProfileWrite; } });
-Object.defineProperty(exports, "onUserIdentityUpdate", { enumerable: true, get: function () { return snapshots_1.onUserIdentityUpdate; } });
-Object.defineProperty(exports, "onEmployerProfileWrite", { enumerable: true, get: function () { return snapshots_1.onEmployerProfileWrite; } });
-Object.defineProperty(exports, "onJobMetadataUpdate", { enumerable: true, get: function () { return snapshots_1.onJobMetadataUpdate; } });
-var backfills_1 = require("./backfills");
-Object.defineProperty(exports, "runBackfillPhoneIndex", { enumerable: true, get: function () { return backfills_1.runBackfillPhoneIndex; } });
-Object.defineProperty(exports, "runBackfillWorkerProfileScores", { enumerable: true, get: function () { return backfills_1.runBackfillWorkerProfileScores; } });
-Object.defineProperty(exports, "runBackfillSnapshots", { enumerable: true, get: function () { return backfills_1.runBackfillSnapshots; } });
-var fcm_tokens_1 = require("./fcm-tokens");
-Object.defineProperty(exports, "registerFcmToken", { enumerable: true, get: function () { return fcm_tokens_1.registerFcmToken; } });
-Object.defineProperty(exports, "unregisterFcmToken", { enumerable: true, get: function () { return fcm_tokens_1.unregisterFcmToken; } });
-Object.defineProperty(exports, "setNotificationBuckets", { enumerable: true, get: function () { return fcm_tokens_1.setNotificationBuckets; } });
-var account_deletion_1 = require("./account-deletion");
-Object.defineProperty(exports, "deleteAccount", { enumerable: true, get: function () { return account_deletion_1.deleteAccount; } });
 const db = admin.firestore();
 const messaging = admin.messaging();
-// ============================================
-// RATE LIMITING CONSTANTS (P0 FIX #2)
-// ============================================
-const RATE_LIMITS = {
-    FREE_USER: {
-        JOBS_PER_HOUR: 2,
-        JOBS_PER_DAY: 5,
-    },
-    PAID_USER: {
-        JOBS_PER_HOUR: 10,
-        JOBS_PER_DAY: 50,
-    },
-};
-const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Topic constants (must match Android app)
 const TOPIC_ALL_USERS = "all_users";
@@ -98,76 +65,6 @@ function sanitizeNotificationDataMap(rawData) {
     }
     return cleanData;
 }
-// ============================================
-// P0 FIX #2: RATE LIMITING FOR JOB POSTS
-// ============================================
-// Prevents bots from spamming thousands of jobs
-// Free users: 2 jobs/hour, 5 jobs/day
-// Paid users: 10 jobs/hour, 50 jobs/day
-/**
- * Rate Limiter - Triggered when a new job is created
- * Checks if user has exceeded their posting limit
- * If exceeded: Deletes job, flags user, sends alert
- */
-exports.enforceJobRateLimit = functions.firestore
-    .document("jobmetadata/{jobId}")
-    .onCreate(async (snapshot, context) => {
-    const job = snapshot.data();
-    const jobId = context.params.jobId;
-    const employerId = job.employerId;
-    if (!employerId) {
-        functions.logger.warn(`Job ${jobId} has no employerId, skipping rate limit`);
-        return null;
-    }
-    functions.logger.info(`🛡️ RATE LIMIT: Checking job ${jobId} by employer ${employerId}`);
-    try {
-        const now = Date.now();
-        const oneHourAgo = now - ONE_HOUR_MS;
-        const oneDayAgo = now - ONE_DAY_MS;
-        const oneHourAgoTs = admin.firestore.Timestamp.fromMillis(oneHourAgo);
-        const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
-        // Check if user is paid (default to free limits - subscriptions collection removed)
-        const isPaidUser = false;
-        const limits = RATE_LIMITS.FREE_USER;
-        functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} is ${isPaidUser ? "PAID" : "FREE"}`);
-        // Count jobs posted in last hour
-        const hourlyJobsSnapshot = await db.collection("jobmetadata")
-            .where("employerId", "==", employerId)
-            .where("createdAt", ">", oneHourAgoTs)
-            .get();
-        const jobsInHour = hourlyJobsSnapshot.size;
-        // Count jobs posted in last day
-        const dailyJobsSnapshot = await db.collection("jobmetadata")
-            .where("employerId", "==", employerId)
-            .where("createdAt", ">", oneDayAgoTs)
-            .get();
-        const jobsInDay = dailyJobsSnapshot.size;
-        functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} - Jobs in hour: ${jobsInHour}/${limits.JOBS_PER_HOUR}, Jobs in day: ${jobsInDay}/${limits.JOBS_PER_DAY}`);
-        // Check hourly limit
-        if (jobsInHour > limits.JOBS_PER_HOUR) {
-            functions.logger.warn(`🛡️ RATE LIMIT: ⛔ HOURLY LIMIT EXCEEDED for ${employerId}`);
-            // Delete the job
-            await snapshot.ref.delete();
-            functions.logger.warn(`🛡️ RATE LIMIT: Hourly violation logged for ${employerId}`);
-            return { deleted: true, reason: "HOURLY_LIMIT_EXCEEDED" };
-        }
-        // Check daily limit
-        if (jobsInDay > limits.JOBS_PER_DAY) {
-            functions.logger.warn(`🛡️ RATE LIMIT: ⛔ DAILY LIMIT EXCEEDED for ${employerId}`);
-            // Delete the job
-            await snapshot.ref.delete();
-            functions.logger.warn(`🛡️ RATE LIMIT: Daily violation logged for ${employerId}`);
-            return { deleted: true, reason: "DAILY_LIMIT_EXCEEDED" };
-        }
-        functions.logger.info(`🛡️ RATE LIMIT: ✅ Job ${jobId} passed rate limit check`);
-        return { deleted: false };
-    }
-    catch (error) {
-        functions.logger.error(`🛡️ RATE LIMIT: Error checking rate limit for ${employerId}:`, error);
-        // On error, allow the job (fail open) but log for investigation
-        return null;
-    }
-});
 /**
  * Send broadcast notification to all users or specific role
  * Triggered when a document is created in "broadcast_notifications" collection
@@ -185,8 +82,8 @@ exports.sendBroadcastNotification = functions.firestore
     const notification = snapshot.data();
     const notificationId = context.params.notificationId;
     functions.logger.info(`Processing broadcast notification: ${notificationId}`, notification);
-    const title = notification.title || "DutyPe";
-    const message = notification.message || "";
+    const fallbackTitle = notification.title || "DutyPe";
+    const fallbackMessage = notification.message || "";
     const topic = notification.topic || TOPIC_ALL_USERS;
     const type = notification.type || "broadcast";
     // Validate topic
@@ -199,40 +96,61 @@ exports.sendBroadcastNotification = functions.firestore
         });
         return null;
     }
+    // Translations map: { en: { title, message }, te: { title, message } }.
+    // When provided, fan out to per-language topics so each device receives its locale.
+    const translations = (notification.translations && typeof notification.translations === "object")
+        ? notification.translations
+        : null;
     try {
-        // Build the FCM message for topic
-        const topicMessage = {
-            topic: topic,
-            data: {
-                notificationId: notificationId,
-                title: title,
-                message: message,
-                body: message,
-                type: type,
-                click_action: "FLUTTER_NOTIFICATION_CLICK",
-            },
-            android: {
-                priority: "high",
-                notification: {
-                    title: title,
-                    body: message,
-                    icon: "ic_notification",
-                    color: "#3B82F6",
-                    sound: "default",
-                    clickAction: "OPEN_ACTIVITY",
+        const sendToOne = async (sendTopic, sendTitle, sendMessage) => {
+            const topicMessage = {
+                topic: sendTopic,
+                data: {
+                    notificationId: notificationId,
+                    title: sendTitle,
+                    message: sendMessage,
+                    body: sendMessage,
+                    type: type,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
                 },
-            },
+                android: {
+                    priority: "high",
+                    notification: {
+                        title: sendTitle,
+                        body: sendMessage,
+                        icon: "ic_notification",
+                        color: "#3B82F6",
+                        sound: "default",
+                        clickAction: "OPEN_ACTIVITY",
+                    },
+                },
+            };
+            return messaging.send(topicMessage);
         };
-        // Send to topic
-        const response = await messaging.send(topicMessage);
-        functions.logger.info(`Broadcast notification sent to topic ${topic}: ${response}`);
+        const responses = {};
+        if (translations) {
+            for (const lang of notification_i18n_1.SUPPORTED_LOCALES) {
+                const t = translations[lang];
+                const localizedTitle = ((t === null || t === void 0 ? void 0 : t.title) && t.title.trim()) || fallbackTitle;
+                const localizedMessage = ((t === null || t === void 0 ? void 0 : t.message) && t.message.trim()) || fallbackMessage;
+                const langTopic = (0, notification_i18n_1.localizedTopic)(topic, lang);
+                const resp = await sendToOne(langTopic, localizedTitle, localizedMessage);
+                responses[lang] = resp;
+                functions.logger.info(`Broadcast (${lang}) sent to ${langTopic}: ${resp}`);
+            }
+        }
+        else {
+            const resp = await sendToOne(topic, fallbackTitle, fallbackMessage);
+            responses["default"] = resp;
+            functions.logger.info(`Broadcast notification sent to topic ${topic}: ${resp}`);
+        }
         // Update document with sent status
         await snapshot.ref.update({
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
-            fcmMessageId: response,
+            fcmMessageIds: responses,
             status: "sent",
         });
-        return response;
+        return responses;
     }
     catch (error) {
         functions.logger.error("Error sending broadcast notification:", error);
@@ -383,6 +301,22 @@ exports.sendPushNotification = functions.firestore
             return null;
         }
         const fcmToken = userData.fcmToken;
+        // Localization: if the doc carries a templateId + params, render in the
+        // recipient's preferred language. Otherwise fall back to the literal
+        // title/message that producers wrote (which themselves should already be
+        // localized — see notification-fanout.ts and referral-system.ts).
+        let effectiveTitle = notification.title || "DutyPe";
+        let effectiveMessage = notification.message || "";
+        let effectiveLocale = (0, notification_i18n_1.normalizeLocale)(notification.locale);
+        const templateId = typeof notification.templateId === "string" ? notification.templateId : "";
+        if (templateId) {
+            effectiveLocale = await (0, notification_i18n_1.getUserLanguage)(db, recipientId);
+            const params = (notification.params && typeof notification.params === "object")
+                ? notification.params
+                : undefined;
+            effectiveTitle = (0, notification_i18n_1.tTitle)(templateId, effectiveLocale, params);
+            effectiveMessage = (0, notification_i18n_1.tBody)(templateId, effectiveLocale, params);
+        }
         // Extract deep link from notification data
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Map notification type to Android channel ID
@@ -405,12 +339,13 @@ exports.sendPushNotification = functions.firestore
             token: fcmToken,
             data: {
                 notificationId: notificationId,
-                title: notification.title || "DutyPe",
-                message: notification.message || "",
-                body: notification.message || "",
+                title: effectiveTitle,
+                message: effectiveMessage,
+                body: effectiveMessage,
                 type: notificationType,
                 deepLink: deepLink,
                 channel: channelId,
+                locale: effectiveLocale,
             },
             android: {
                 priority: "high",
@@ -419,12 +354,18 @@ exports.sendPushNotification = functions.firestore
         // Send the notification
         const response = await messaging.send(message);
         functions.logger.info(`📬 FCM: ✅ Notification sent successfully: ${response}`);
-        // Update notification document with sent status
-        await snapshot.ref.update({
+        // Update notification document with sent status (and resolved copy for inbox)
+        const updatePayload = {
             processing: false,
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
             fcmMessageId: response,
-        });
+            locale: effectiveLocale,
+        };
+        if (templateId) {
+            updatePayload.title = effectiveTitle;
+            updatePayload.message = effectiveMessage;
+        }
+        await snapshot.ref.update(updatePayload);
         return response;
     }
     catch (error) {
@@ -629,11 +570,13 @@ exports.detectDuplicateJob = functions.firestore
                 fraudScore: fraudScore,
             });
             // Create in-app notification instead of using legacy moderation queue collection.
+            const modLocale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
             await db.collection("notifications").add({
                 recipientId: employerId,
-                title: "Job Under Review",
-                message: `Your job \"${job.title}\" needs manual review due to duplicate signals.`,
+                title: (0, notification_i18n_1.tTitle)("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
+                message: (0, notification_i18n_1.tBody)("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
                 type: "MODERATION_REVIEW_REQUIRED",
+                locale: modLocale,
                 data: {
                     jobId: jobId,
                     fraudScore: fraudScore,
@@ -831,11 +774,13 @@ exports.processJobReport = functions.firestore
             jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
             // Notify employer instead of creating legacy moderation queue documents.
             if (jobData === null || jobData === void 0 ? void 0 : jobData.employerId) {
+                const hideLocale = await (0, notification_i18n_1.getUserLanguage)(db, jobData.employerId);
                 await db.collection("notifications").add({
                     recipientId: jobData.employerId,
-                    title: "Job Hidden for Review",
-                    message: `Your job \"${jobData.title}\" has been hidden due to community reports.`,
+                    title: (0, notification_i18n_1.tTitle)("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
+                    message: (0, notification_i18n_1.tBody)("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
                     type: "JOB_HIDDEN",
+                    locale: hideLocale,
                     data: {
                         jobId: jobId,
                         reportCount: currentReportCount,

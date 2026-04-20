@@ -6,11 +6,12 @@
  *   • application status transitions (shortlisted / hired / rejected) → notify worker
  *   • new application created → notify employer
  *
- * Notifications are short-lived (auto-cleaned by scheduled-notifications
- * cleanup), so we keep the payload minimal.
+ * Localisation: every notification respects `users/{uid}.language`. When the
+ * recipient has no stored language, English is used.
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { getUserLanguage, tTitle, tBody, SupportedLocale } from "./notification-i18n";
 
 const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
@@ -21,6 +22,7 @@ interface NotificationPayload {
   body: string;
   type: string;
   relatedId?: string;
+  locale: SupportedLocale;
 }
 
 async function createNotification(n: NotificationPayload): Promise<void> {
@@ -30,14 +32,21 @@ async function createNotification(n: NotificationPayload): Promise<void> {
     recipientId: n.recipientId,
     title: n.title,
     body: n.body,
+    message: n.body,
     type: n.type,
     relatedId: n.relatedId ?? null,
+    locale: n.locale,
     isRead: false,
     createdAt: FIELD.serverTimestamp(),
   });
 }
 
-async function sendFcmToUser(userId: string, title: string, body: string, data: Record<string, string>): Promise<void> {
+async function sendFcmToUser(
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, string>
+): Promise<void> {
   try {
     const userSnap = await db.doc(`users/${userId}`).get();
     const token = userSnap.exists ? String(userSnap.get("fcmToken") ?? "") : "";
@@ -53,9 +62,6 @@ async function sendFcmToUser(userId: string, title: string, body: string, data: 
   }
 }
 
-/**
- * Notify the worker whenever their application changes status.
- */
 export const onApplicationStatusChanged = functions.firestore
   .document("applications/{applicationId}")
   .onUpdate(async (change) => {
@@ -69,26 +75,29 @@ export const onApplicationStatusChanged = functions.firestore
     const jobId = String(after.jobId ?? "");
     if (!workerId) return;
 
-    const title =
-      next === "hired" ? "You're hired! 🎉" :
-      next === "shortlisted" ? "You've been shortlisted" :
-      next === "rejected" ? "Application update" :
-      "Application update";
-    const body =
-      next === "hired" ? "An employer has accepted your application." :
-      next === "shortlisted" ? "An employer is reviewing your application." :
-      next === "rejected" ? "Your application wasn't selected this time." :
-      `Status: ${next}`;
+    const locale = await getUserLanguage(db, workerId);
+
+    const templateId =
+      next === "hired" ? "APPLICATION_HIRED" :
+      next === "shortlisted" ? "APPLICATION_SHORTLISTED" :
+      next === "rejected" ? "APPLICATION_REJECTED" :
+      "APPLICATION_STATUS_OTHER";
+
+    const params = templateId === "APPLICATION_STATUS_OTHER" ? { status: next } : undefined;
+    const title = tTitle(templateId, locale, params);
+    const body = tBody(templateId, locale, params);
 
     await Promise.all([
-      createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", relatedId: jobId }),
-      sendFcmToUser(workerId, title, body, { type: "APPLICATION_STATUS", jobId, applicationId: change.after.id }),
+      createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", relatedId: jobId, locale }),
+      sendFcmToUser(workerId, title, body, {
+        type: "APPLICATION_STATUS",
+        jobId,
+        applicationId: change.after.id,
+        locale,
+      }),
     ]);
   });
 
-/**
- * Notify the employer whenever a new application lands on their job.
- */
 export const onApplicationCreated = functions.firestore
   .document("applications/{applicationId}")
   .onCreate(async (snap) => {
@@ -97,11 +106,17 @@ export const onApplicationCreated = functions.firestore
     const jobId = String(data.jobId ?? "");
     if (!employerId) return;
 
-    const title = "New application received";
-    const body = "A worker has applied to your job posting.";
+    const locale = await getUserLanguage(db, employerId);
+    const title = tTitle("NEW_APPLICATION_RECEIVED", locale);
+    const body = tBody("NEW_APPLICATION_RECEIVED", locale);
 
     await Promise.all([
-      createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", relatedId: jobId }),
-      sendFcmToUser(employerId, title, body, { type: "NEW_APPLICATION", jobId, applicationId: snap.id }),
+      createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", relatedId: jobId, locale }),
+      sendFcmToUser(employerId, title, body, {
+        type: "NEW_APPLICATION",
+        jobId,
+        applicationId: snap.id,
+        locale,
+      }),
     ]);
   });

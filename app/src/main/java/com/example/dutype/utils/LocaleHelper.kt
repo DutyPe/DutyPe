@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.messaging.FirebaseMessaging
 import java.util.Locale
 
 /**
@@ -36,13 +39,54 @@ object LocaleHelper {
     }
     
     /**
-     * Save the selected language preference
+     * Save the selected language preference.
+     *
+     * Also writes the language to the user's Firestore profile (best-effort,
+     * fire-and-forget) so server-side notification fan-out can localise pushes,
+     * and re-subscribes the device to the matching language-specific FCM topics
+     * so admin broadcasts deliver the right copy.
      */
     fun saveLanguage(context: Context, language: String) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         val normalized = if (language == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else language
+        val previous = prefs.getString(KEY_LANGUAGE, null)
+            ?.let { if (it == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else it }
         prefs.edit().putString(KEY_LANGUAGE, normalized).apply()
+
+        if (previous == normalized) return
+
+        // Best-effort sync to Firestore so cloud functions can read users/{uid}.language.
+        // Silent failure is acceptable — local SharedPreferences remains the source of truth
+        // for the UI; server-side localization just falls back to English.
+        runCatching {
+            FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(uid)
+                    .update("language", normalized)
+            }
+        }
+
+        // Resubscribe FCM topics to the new language so admin broadcasts to e.g.
+        // workers_te / employers_te / all_users_te / app_updates_te are delivered.
+        runCatching {
+            val messaging = FirebaseMessaging.getInstance()
+            if (previous != null) {
+                FCM_BASE_TOPICS.forEach { base ->
+                    messaging.unsubscribeFromTopic("${base}_$previous")
+                }
+            }
+            FCM_BASE_TOPICS.forEach { base ->
+                messaging.subscribeToTopic("${base}_$normalized")
+            }
+        }
     }
+
+    /**
+     * Base topic names that have language-suffixed variants (e.g. workers_te).
+     * Mirrors the broadcast topics used by the admin notifications API.
+     */
+    private val FCM_BASE_TOPICS = listOf("all_users", "workers", "employers", "app_updates", "guest_users")
     
     /**
      * Set the app locale and return the updated context

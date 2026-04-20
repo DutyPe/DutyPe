@@ -19,6 +19,8 @@ type UserRow = {
   roles?: string[];
   referralCode?: string;
   referral_code?: string;
+  isBanned?: boolean;
+  isVerified?: boolean;
   createdAt?: unknown;
   updatedAt?: unknown;
   lastLoginAt?: unknown;
@@ -160,6 +162,41 @@ export function AdminUsersClient() {
       setError(roleError instanceof Error ? roleError.message : "Failed to update user.");
     } finally {
       setPendingSaveId(null);
+    }
+  }
+
+  async function handleToggleBan(user: UserRow) {
+    const next = !user.isBanned;
+    const reason = next ? window.prompt("Reason (optional):") || "" : "";
+    try {
+      const response = await adminApiFetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, isBanned: next, banReason: reason })
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed.");
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isBanned: next } : u)));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update user.");
+    }
+  }
+
+  async function handleToggleVerify(user: UserRow) {
+    const next = !user.isVerified;
+    try {
+      const response = await adminApiFetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, isVerified: next })
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed.");
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isVerified: next } : u)));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update user.");
     }
   }
 
@@ -306,6 +343,21 @@ export function AdminUsersClient() {
                       disabled={pendingSaveId === user.id}
                     >
                       {pendingSaveId === user.id ? "..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      className="table-action"
+                      onClick={() => void handleToggleVerify(user)}
+                      title={user.isVerified ? "Remove verified badge" : "Mark as verified"}
+                    >
+                      {user.isVerified ? "Unverify" : "Verify"}
+                    </button>
+                    <button
+                      type="button"
+                      className={user.isBanned ? "table-action" : "table-action danger"}
+                      onClick={() => void handleToggleBan(user)}
+                    >
+                      {user.isBanned ? "Unban" : "Ban"}
                     </button>
                     <button
                       type="button"

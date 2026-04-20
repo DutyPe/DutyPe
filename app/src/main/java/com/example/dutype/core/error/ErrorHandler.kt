@@ -133,7 +133,6 @@ class ErrorHandler @Inject constructor(
             is DutyPeError.AuthError -> Timber.e(logMessage)
             is DutyPeError.ValidationError -> Timber.d(logMessage)
             is DutyPeError.BusinessError -> Timber.i(logMessage)
-            is DutyPeError.RateLimitError -> Timber.w(logMessage)
             is DutyPeError.FirestoreError -> Timber.e(logMessage)
             is DutyPeError.SystemError -> Timber.e(logMessage)
         }
@@ -165,7 +164,6 @@ class ErrorHandler @Inject constructor(
                 is DutyPeError.AuthError -> error.cause ?: Exception(error.message)
                 is DutyPeError.ValidationError -> error.cause ?: Exception(error.message)
                 is DutyPeError.BusinessError -> error.cause ?: Exception(error.message)
-                is DutyPeError.RateLimitError -> error.cause ?: Exception(error.message)
                 is DutyPeError.FirestoreError -> error.cause ?: Exception(error.message)
                 is DutyPeError.SystemError -> error.cause ?: Exception(error.message)
             }

@@ -281,9 +281,10 @@ object AppModule {
     @Singleton
     fun provideFCMTokenManager(
         firestore: FirebaseFirestore,
-        auth: FirebaseAuth
+        auth: FirebaseAuth,
+        @ApplicationContext appContext: android.content.Context
     ): FCMTokenManager {
-        return FCMTokenManager(firestore, auth)
+        return FCMTokenManager(firestore, auth, appContext)
     }
 
     @Provides
@@ -384,8 +385,7 @@ object AppModule {
         profileCompletionService: ProfileCompletionService,
         applicationStateManager: ApplicationStateManager,
         metadataManager: MetadataManager,
-        errorHandler: com.example.dutype.core.error.ErrorHandler,
-        rateLimiter: com.example.dutype.core.resilience.RateLimiter
+        errorHandler: com.example.dutype.core.error.ErrorHandler
     ): JobApplicationService {
         return JobApplicationService(
             firestore,
@@ -395,8 +395,7 @@ object AppModule {
             profileCompletionService,
             applicationStateManager,
             metadataManager,
-            errorHandler,
-            rateLimiter
+            errorHandler
         )
     }
 
@@ -704,16 +703,6 @@ object AppModule {
     // ==========================================
     // P1: ENTERPRISE CACHING
     // ==========================================
-
-    // ==========================================
-    // P1: API RATE LIMITING
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideRateLimiter(): com.example.dutype.core.resilience.RateLimiter {
-        return com.example.dutype.core.resilience.RateLimiter()
-    }
 
     // ==========================================
     // P1: AUTH SESSION MANAGEMENT

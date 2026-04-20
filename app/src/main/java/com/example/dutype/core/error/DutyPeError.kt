@@ -123,23 +123,6 @@ sealed class DutyPeError {
     }
     
     /**
-     * Rate limit errors (too many requests)
-     */
-    data class RateLimitError(
-        override val message: String,
-        val retryAfterSeconds: Long,
-        val cause: Throwable? = null
-    ) : DutyPeError() {
-        override val userMessage: String = 
-            "Too many requests. Please wait ${retryAfterSeconds} seconds before trying again."
-        override val isRetryable: Boolean = true
-        override val shouldLogout: Boolean = false
-        override val errorCode: String = "RATE_LIMIT"
-        
-        fun toException(): Exception = Exception(userMessage, cause)
-    }
-    
-    /**
      * Firestore-specific errors
      */
     data class FirestoreError(

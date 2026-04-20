@@ -181,9 +181,11 @@ class MainActivity : ComponentActivity() {
         if (FirebaseAuth.getInstance().currentUser == null) {
             // Unauthenticated: subscribe to re-engagement FCM topic + schedule local nudge.
             fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+            fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
         } else {
             // Authenticated: unsubscribe from guest topic + cancel any pending nudges.
             fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+            fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
             com.example.dutype.workers.GuestEngagementWorker.cancelAll(this)
         }
 

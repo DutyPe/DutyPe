@@ -41,7 +41,6 @@ class ObservabilityManager @Inject constructor(
                     is DutyPeError.AuthError -> Exception("Auth Error: ${error.message}")
                     is DutyPeError.ValidationError -> Exception("Validation Error: ${error.message}")
                     is DutyPeError.BusinessError -> Exception("Business Error: ${error.message}")
-                    is DutyPeError.RateLimitError -> Exception("Rate Limit: ${error.message}")
                     is DutyPeError.FirestoreError -> Exception("Firestore Error: ${error.message}")
                     is DutyPeError.SystemError -> Exception("System Error: ${error.message}")
                 }

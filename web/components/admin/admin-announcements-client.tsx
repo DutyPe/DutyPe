@@ -11,6 +11,9 @@ type AnnouncementRow = {
   type?: string;
   targetRole?: string;
   isActive?: boolean;
+  imageUrl?: string;
+  deepLink?: string;
+  expiresAt?: unknown;
   createdAt?: unknown;
 };
 
@@ -18,7 +21,12 @@ const initialForm = {
   title: "",
   message: "",
   type: "INFO",
-  targetRole: "ALL"
+  priority: "NORMAL",
+  targetRole: "ALL",
+  imageUrl: "",
+  deepLink: "",
+  actionText: "",
+  expiresInDays: "30"
 };
 
 export function AdminAnnouncementsClient() {
@@ -68,7 +76,12 @@ export function AdminAnnouncementsClient() {
             title: form.title.trim(),
             message: form.message.trim(),
             type: form.type,
-            targetRole: form.targetRole
+            priority: form.priority,
+            targetRole: form.targetRole,
+            imageUrl: form.imageUrl.trim() || undefined,
+            deepLink: form.deepLink.trim() || undefined,
+            actionText: form.actionText.trim() || undefined,
+            expiresInDays: Number(form.expiresInDays) || 30
           })
         });
 
@@ -181,9 +194,23 @@ export function AdminAnnouncementsClient() {
               onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
             >
               <option value="INFO">INFO</option>
-              <option value="WARNING">WARNING</option>
               <option value="SUCCESS">SUCCESS</option>
+              <option value="WARNING">WARNING</option>
               <option value="ERROR">ERROR</option>
+              <option value="FEATURE">FEATURE</option>
+              <option value="PROMOTION">PROMOTION</option>
+            </select>
+          </label>
+          <label>
+            <span>Priority</span>
+            <select
+              value={form.priority}
+              onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
+            >
+              <option value="LOW">LOW</option>
+              <option value="NORMAL">NORMAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="URGENT">URGENT</option>
             </select>
           </label>
           <label>
@@ -196,6 +223,40 @@ export function AdminAnnouncementsClient() {
               <option value="WORKER">WORKER</option>
               <option value="EMPLOYER">EMPLOYER</option>
             </select>
+          </label>
+          <label>
+            <span>Image URL (optional)</span>
+            <input
+              value={form.imageUrl}
+              onChange={(event) => setForm((current) => ({ ...current, imageUrl: event.target.value }))}
+              placeholder="https://…"
+            />
+          </label>
+          <label>
+            <span>Deep link (optional)</span>
+            <input
+              value={form.deepLink}
+              onChange={(event) => setForm((current) => ({ ...current, deepLink: event.target.value }))}
+              placeholder="dutype://referrals"
+            />
+          </label>
+          <label>
+            <span>Action button text (optional)</span>
+            <input
+              value={form.actionText}
+              onChange={(event) => setForm((current) => ({ ...current, actionText: event.target.value }))}
+              placeholder="View"
+            />
+          </label>
+          <label>
+            <span>Expires in (days)</span>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={form.expiresInDays}
+              onChange={(event) => setForm((current) => ({ ...current, expiresInDays: event.target.value }))}
+            />
           </label>
           <div className="editor-form-actions">
             <button type="submit" className="button" disabled={submitting}>

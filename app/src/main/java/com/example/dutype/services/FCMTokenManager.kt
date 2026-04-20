@@ -1,9 +1,12 @@
 package com.example.dutype.services
 
+import android.content.Context
+import com.example.dutype.utils.LocaleHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,7 +25,8 @@ import javax.inject.Singleton
 @Singleton
 class FCMTokenManager @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    @ApplicationContext private val appContext: Context
 ) {
     
     companion object {
@@ -52,8 +56,9 @@ class FCMTokenManager @Inject constructor(
             
             saveTokenToFirestore(userId, token)
             
-            // Subscribe to all_users topic by default
+            // Subscribe to all_users topic by default (legacy + language-specific).
             subscribeToTopic(TOPIC_ALL_USERS)
+            subscribeToLanguageTopic(TOPIC_ALL_USERS)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
             
             Result.success(token)
@@ -93,27 +98,51 @@ class FCMTokenManager @Inject constructor(
     }
     
     /**
-     * Subscribe to topics based on user role
+     * Subscribe to topics based on user role.
+     *
+     * Subscribes to both the legacy plain topic (for backward compatibility
+     * with broadcasts that don't supply translations) and the language-suffixed
+     * topic (e.g. `workers_te`) so localized broadcasts deliver the right copy.
      */
     fun subscribeToRoleTopics(role: String) {
         // Subscribe to all users topic
         subscribeToTopic(TOPIC_ALL_USERS)
         subscribeToTopic(TOPIC_APP_UPDATES)
+        subscribeToLanguageTopic(TOPIC_ALL_USERS)
+        subscribeToLanguageTopic(TOPIC_APP_UPDATES)
         
         // Subscribe to role-specific topic
         when (role.uppercase()) {
             "WORKER" -> {
                 subscribeToTopic(TOPIC_WORKERS)
+                subscribeToLanguageTopic(TOPIC_WORKERS)
                 unsubscribeFromTopic(TOPIC_EMPLOYERS) // Ensure not subscribed to wrong topic
+                unsubscribeFromLanguageTopic(TOPIC_EMPLOYERS)
                 Timber.i("FCMTokenManager: Subscribed to WORKER topics")
             }
             "EMPLOYER" -> {
                 subscribeToTopic(TOPIC_EMPLOYERS)
+                subscribeToLanguageTopic(TOPIC_EMPLOYERS)
                 unsubscribeFromTopic(TOPIC_WORKERS) // Ensure not subscribed to wrong topic
+                unsubscribeFromLanguageTopic(TOPIC_WORKERS)
                 Timber.i("FCMTokenManager: Subscribed to EMPLOYER topics")
             }
         }
     }
+
+    private fun subscribeToLanguageTopic(baseTopic: String) {
+        val lang = LocaleHelper.getLanguage(appContext)
+        subscribeToTopic("${baseTopic}_$lang")
+    }
+
+    private fun unsubscribeFromLanguageTopic(baseTopic: String) {
+        val lang = LocaleHelper.getLanguage(appContext)
+        unsubscribeFromTopic("${baseTopic}_$lang")
+    }
+
+    /** Public wrappers used by call sites that subscribe outside this class. */
+    fun subscribeToLanguageTopicPublic(baseTopic: String) = subscribeToLanguageTopic(baseTopic)
+    fun unsubscribeFromLanguageTopicPublic(baseTopic: String) = unsubscribeFromLanguageTopic(baseTopic)
     
     /**
      * Save FCM token to Firestore for the user
