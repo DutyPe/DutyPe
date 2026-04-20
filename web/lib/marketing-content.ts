@@ -98,3 +98,68 @@ export function resolveMarketingFile(slug: string[]): string | null {
 export function readMarketingFile(absPath: string): string {
   return fs.readFileSync(absPath, "utf8");
 }
+
+/**
+ * A "loaded" tree where every file node also carries its full text content.
+ * Used by the /admin/marketing landing page so it can render every doc
+ * inline without requiring per-file navigation.
+ */
+export type MarketingLoadedNode =
+  | {
+      kind: "dir";
+      name: string;
+      slug: string[];
+      children: MarketingLoadedNode[];
+    }
+  | {
+      kind: "file";
+      name: string;
+      slug: string[];
+      ext: ".md" | ".csv" | string;
+      sizeBytes: number;
+      content: string;
+    };
+
+function loadDir(absDir: string, slugPrefix: string[]): MarketingLoadedNode[] {
+  if (!fs.existsSync(absDir)) return [];
+  const entries = fs
+    .readdirSync(absDir, { withFileTypes: true })
+    .filter((e) => !e.name.startsWith("."))
+    .sort((a, b) => {
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  const nodes: MarketingLoadedNode[] = [];
+  for (const entry of entries) {
+    const slug = [...slugPrefix, entry.name];
+    const abs = path.join(absDir, entry.name);
+    if (entry.isDirectory()) {
+      const children = loadDir(abs, slug);
+      if (children.length === 0) continue;
+      nodes.push({ kind: "dir", name: entry.name, slug, children });
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!ALLOWED_EXTS.has(ext)) continue;
+      const stat = fs.statSync(abs);
+      let content = "";
+      try {
+        content = fs.readFileSync(abs, "utf8");
+      } catch {
+        content = "";
+      }
+      nodes.push({
+        kind: "file",
+        name: entry.name,
+        slug,
+        ext,
+        sizeBytes: stat.size,
+        content,
+      });
+    }
+  }
+  return nodes;
+}
+
+export function getMarketingTreeWithContent(): MarketingLoadedNode[] {
+  return loadDir(MARKETING_CONTENT_ROOT, []);
+}

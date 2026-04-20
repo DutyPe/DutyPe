@@ -6,7 +6,7 @@ import { ReactNode, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import type { MarketingTreeNode } from "@/lib/marketing-content";
+import type { MarketingTreeNode, MarketingLoadedNode } from "@/lib/marketing-content";
 
 function fileEmoji(ext: string): string {
   if (ext === ".csv") return "📊";
@@ -333,6 +333,161 @@ export function MarketingIndex({ tree }: { tree: MarketingTreeNode[] }) {
       {others.map((node) =>
         node.kind === "dir" ? sectionFor(node.name, node) : null
       )}
+    </div>
+  );
+}
+
+
+// ============================================================
+// MarketingFullView � renders EVERY file inline on landing page
+// ============================================================
+function slugifyAnchor(parts: string[]): string {
+  return parts.join("-").toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+}
+
+function sectionIcon(name: string): string {
+  const map: Record<string, string> = {
+    assets: "??",
+    campaigns: "??",
+    inputs: "??",
+    outputs: "??",
+    playbooks: "??",
+    research: "??",
+    brand: "??",
+    channels: "??",
+    "go-to-market": "??",
+    growth: "??",
+    marketing: "??",
+  };
+  return map[name.toLowerCase()] ?? "??";
+}
+
+function FileBlock({ file }: { file: Extract<MarketingLoadedNode, { kind: "file" }> }) {
+  const id = slugifyAnchor(file.slug);
+  const title = file.name.replace(/\.(md|csv)$/i, "");
+  return (
+    <details id={id} className="marketing-full-file" open>
+      <summary>
+        <span className="marketing-full-file-icon">{fileEmoji(file.ext)}</span>
+        <span className="marketing-full-file-title">{title}</span>
+        <span className="marketing-full-file-path">/{file.slug.join("/")}</span>
+      </summary>
+      <div className="marketing-full-file-body">
+        {file.ext === ".csv" ? (
+          <CsvTable csv={file.content} />
+        ) : (
+          <MarkdownView source={file.content} />
+        )}
+      </div>
+    </details>
+  );
+}
+
+function DirSection({
+  dir,
+  depth,
+}: {
+  dir: Extract<MarketingLoadedNode, { kind: "dir" }>;
+  depth: number;
+}) {
+  const subdirs = dir.children.filter(
+    (c): c is Extract<MarketingLoadedNode, { kind: "dir" }> => c.kind === "dir"
+  );
+  const files = dir.children.filter(
+    (c): c is Extract<MarketingLoadedNode, { kind: "file" }> => c.kind === "file"
+  );
+  const id = slugifyAnchor(dir.slug);
+  const Heading = (depth === 0 ? "h2" : depth === 1 ? "h3" : "h4") as
+    | "h2"
+    | "h3"
+    | "h4";
+  return (
+    <section
+      id={id}
+      className={`marketing-full-section marketing-full-depth-${depth}`}
+    >
+      <Heading className="marketing-full-heading">
+        <span>{sectionIcon(dir.name)}</span>
+        <span>{dir.name}</span>
+        <small>
+          {files.length > 0 && `${files.length} doc${files.length === 1 ? "" : "s"}`}
+          {files.length > 0 && subdirs.length > 0 && " � "}
+          {subdirs.length > 0 && `${subdirs.length} subfolder${subdirs.length === 1 ? "" : "s"}`}
+        </small>
+      </Heading>
+      {files.length > 0 && (
+        <div className="marketing-full-files">
+          {files.map((f) => (
+            <FileBlock key={f.slug.join("/")} file={f} />
+          ))}
+        </div>
+      )}
+      {subdirs.map((sub) => (
+        <DirSection key={sub.slug.join("/")} dir={sub} depth={depth + 1} />
+      ))}
+    </section>
+  );
+}
+
+function buildToc(nodes: MarketingLoadedNode[]): ReactNode {
+  return (
+    <ul>
+      {nodes.map((n) => {
+        if (n.kind !== "dir") return null;
+        return (
+          <li key={n.slug.join("/")}>
+            <a href={`#${slugifyAnchor(n.slug)}`}>
+              {sectionIcon(n.name)} {n.name}
+            </a>
+            {n.children.some((c) => c.kind === "dir") && buildToc(n.children)}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * MarketingFullView � landing page that renders EVERY markdown/CSV doc
+ * inline so the user can scroll through assets, campaigns, inputs, outputs,
+ * playbooks, research, brand, channels, go-to-market, etc., all visually
+ * on a single screen.
+ */
+export function MarketingFullView({ tree }: { tree: MarketingLoadedNode[] }) {
+  const totals = useMemo(() => {
+    let files = 0;
+    let dirs = 0;
+    const walk = (ns: MarketingLoadedNode[]) => {
+      for (const n of ns) {
+        if (n.kind === "file") files++;
+        else {
+          dirs++;
+          walk(n.children);
+        }
+      }
+    };
+    walk(tree);
+    return { files, dirs };
+  }, [tree]);
+
+  return (
+    <div className="marketing-full">
+      <aside className="marketing-full-toc">
+        <h3>On this page</h3>
+        <small>
+          {totals.files} documents � {totals.dirs} folders
+        </small>
+        {buildToc(tree)}
+      </aside>
+      <div className="marketing-full-stream">
+        {tree.map((node) =>
+          node.kind === "dir" ? (
+            <DirSection key={node.slug.join("/")} dir={node} depth={0} />
+          ) : (
+            <FileBlock key={node.slug.join("/")} file={node} />
+          )
+        )}
+      </div>
     </div>
   );
 }

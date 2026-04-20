@@ -1,9 +1,10 @@
 import path from "node:path";
 
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
-import { CsvTable, MarketingShell, MarkdownView, MarketingIndex } from "@/components/marketing-shell";
+import { CsvTable, MarketingShell, MarkdownView, MarketingFullView } from "@/components/marketing-shell";
 import {
   getMarketingTree,
+  getMarketingTreeWithContent,
   readMarketingFile,
   resolveMarketingFile
 } from "@/lib/marketing-content";
@@ -19,14 +20,15 @@ export default function MarketingDocPage({
   const slug = params.slug ?? [];
 
   if (slug.length === 0) {
+    const loaded = getMarketingTreeWithContent();
     return (
       <AdminAuthGate>
         <MarketingShell
           tree={tree}
           title="Marketing & Growth"
-          description="Browse the consolidated marketing playbooks, growth strategy outputs, campaigns, research, and brand assets that used to live in /growth and /marketing."
+          description="Every campaign, asset, input, output, playbook, channel, brand, go-to-market and research document — all rendered inline. Use the table of contents on the right to jump around."
         >
-          <MarketingIndex tree={tree} />
+          <MarketingFullView tree={loaded} />
         </MarketingShell>
       </AdminAuthGate>
     );

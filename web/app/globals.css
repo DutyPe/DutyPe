@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #e8e6df;
   --surface: rgba(255, 255, 255, 0.82);
   --surface-strong: rgba(255, 255, 255, 0.92);
@@ -2371,7 +2371,7 @@ button.product-chip {
   align-items: start;
 }
 
-/* ── Enhanced detail-list with check bullets ── */
+/* â”€â”€ Enhanced detail-list with check bullets â”€â”€ */
 
 .detail-list-enhanced li {
   position: relative;
@@ -2379,7 +2379,7 @@ button.product-chip {
 }
 
 .detail-list-enhanced li::before {
-  content: "✓";
+  content: "âœ“";
   position: absolute;
   left: 12px;
   top: 16px;
@@ -2395,7 +2395,7 @@ button.product-chip {
   color: var(--accent);
 }
 
-/* ── Enhanced hero-panel with left accent ── */
+/* â”€â”€ Enhanced hero-panel with left accent â”€â”€ */
 
 .hero-panel-enhanced {
   border-left: 4px solid var(--accent);
@@ -2405,7 +2405,7 @@ button.product-chip {
   font-size: 1.25rem;
 }
 
-/* ── Enhanced FAQ items as expandable details ── */
+/* â”€â”€ Enhanced FAQ items as expandable details â”€â”€ */
 
 .faq-item-enhanced {
   cursor: pointer;
@@ -2440,7 +2440,7 @@ button.product-chip {
 }
 
 .faq-item-enhanced[open] summary::after {
-  content: "−";
+  content: "âˆ’";
   background: rgba(0, 0, 0, 0.1);
   transform: rotate(180deg);
 }
@@ -2451,7 +2451,7 @@ button.product-chip {
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* ── Detail-panel accent strip ── */
+/* â”€â”€ Detail-panel accent strip â”€â”€ */
 
 .detail-panel .card-kicker {
   display: inline-block;
@@ -3843,7 +3843,7 @@ button.product-chip {
   }
 }
 
-/* ── Very small screens ── */
+/* â”€â”€ Very small screens â”€â”€ */
 
 @media (max-width: 400px) {
   .page-wrap {
@@ -3884,7 +3884,7 @@ button.product-chip {
 }
 
 /* ===================================================================
-   ADMIN PANEL — Full dashboard layout
+   ADMIN PANEL â€” Full dashboard layout
    =================================================================== */
 
 .admin-layout {
@@ -4723,7 +4723,7 @@ button.product-chip {
   font-size: 0.86rem;
 }
 
-/* ––– Mobile responsive for admin ––– */
+/* â€“â€“â€“ Mobile responsive for admin â€“â€“â€“ */
 @media (max-width: 900px) {
   .admin-sidebar {
     transform: translateX(-100%);
@@ -5364,4 +5364,148 @@ button.product-chip {
 }
 .marketing-index-card li a:hover {
   background: #eef2ff;
+}
+
+/* ============================================================
+   Marketing FullView (everything inline on landing)
+   ============================================================ */
+.marketing-full {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .marketing-full { grid-template-columns: minmax(0, 1fr); }
+  .marketing-full-toc { display: none; }
+}
+.marketing-full-toc {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e7e7ee;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.82rem;
+  order: 2;
+}
+.marketing-full-toc h3 {
+  margin: 0 0 2px;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+}
+.marketing-full-toc small {
+  color: #888;
+  display: block;
+  margin-bottom: 10px;
+}
+.marketing-full-toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.marketing-full-toc ul ul {
+  padding-left: 14px;
+  margin-top: 2px;
+  border-left: 1px solid #eee;
+}
+.marketing-full-toc li { margin: 2px 0; }
+.marketing-full-toc a {
+  display: block;
+  color: #4338ca;
+  text-decoration: none;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+.marketing-full-toc a:hover { background: #eef2ff; }
+
+.marketing-full-stream {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.marketing-full-section {
+  scroll-margin-top: 12px;
+}
+.marketing-full-depth-0 > .marketing-full-heading {
+  font-size: 1.4rem;
+  border-bottom: 3px solid #6366f1;
+  padding-bottom: 8px;
+}
+.marketing-full-depth-1 > .marketing-full-heading {
+  font-size: 1.1rem;
+  color: #4338ca;
+  margin-top: 18px;
+}
+.marketing-full-depth-2 > .marketing-full-heading {
+  font-size: 0.95rem;
+  color: #555;
+}
+.marketing-full-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  text-transform: capitalize;
+}
+.marketing-full-heading small {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #888;
+  text-transform: none;
+  margin-left: auto;
+}
+
+.marketing-full-files {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.marketing-full-file {
+  background: #fff;
+  border: 1px solid #e7e7ee;
+  border-radius: 10px;
+  overflow: hidden;
+  scroll-margin-top: 12px;
+}
+.marketing-full-file > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8f8fb;
+  border-bottom: 1px solid #e7e7ee;
+  user-select: none;
+}
+.marketing-full-file > summary::-webkit-details-marker { display: none; }
+.marketing-full-file:not([open]) > summary { border-bottom: none; }
+.marketing-full-file-icon { font-size: 1rem; }
+.marketing-full-file-title {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 0.9rem;
+}
+.marketing-full-file-path {
+  margin-left: auto;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  color: #999;
+}
+.marketing-full-file-body {
+  padding: 14px 18px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.marketing-full-file-body .marketing-doc-md {
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
