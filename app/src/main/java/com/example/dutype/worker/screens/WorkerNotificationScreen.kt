@@ -167,7 +167,7 @@ fun WorkerNotificationScreen(
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
-                            text = "Failed to load notifications",
+                            text = stringResource(R.string.notif_failed_load),
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 color = Color.Black
                             )
@@ -179,7 +179,7 @@ fun WorkerNotificationScreen(
                             )
                         ) {
                             Text(
-                                "Retry", 
+                                stringResource(R.string.notif_retry), 
                                 color = Color(0xFF374151),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = Color(0xFF374151)
@@ -223,14 +223,14 @@ fun WorkerNotificationScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = "No notifications yet",
+                                    text = stringResource(R.string.notif_no_notifications),
                                     style = MaterialTheme.typography.headlineSmall.copy(
                                         color = Color.Black,
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
                                 Text(
-                                    text = "You'll see application updates, interview schedules, and job recommendations here.",
+                                    text = stringResource(R.string.notif_worker_empty_desc),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = Color.Black
                                     ),
@@ -301,9 +301,9 @@ fun WorkerNotificationScreen(
 private fun GuestWorkerNotificationPreview() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val previewItems = listOf(
-        Pair("🔥 27 workers applied in your area in the last hour", "Login to unlock instant apply before these jobs close."),
-        Pair("💡 Your profile is 3x more likely to get shortlisted", "Complete your profile and start receiving better matches."),
-        Pair("⏳ Early applications get faster responses", "Open top jobs and apply in one tap after login.")
+        Pair(stringResource(R.string.notif_worker_preview_1_title), stringResource(R.string.notif_worker_preview_1_desc)),
+        Pair(stringResource(R.string.notif_worker_preview_2_title), stringResource(R.string.notif_worker_preview_2_desc)),
+        Pair(stringResource(R.string.notif_worker_preview_3_title), stringResource(R.string.notif_worker_preview_3_desc))
     )
 
     Column(
@@ -314,14 +314,14 @@ private fun GuestWorkerNotificationPreview() {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Preview Notifications",
+            text = stringResource(R.string.notif_preview_title),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF111827)
             )
         )
         Text(
-            text = "These are the alerts you'll receive after login.",
+            text = stringResource(R.string.notif_worker_preview_desc),
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
         )
 
@@ -332,7 +332,7 @@ private fun GuestWorkerNotificationPreview() {
                     .clickable {
                         Toast.makeText(
                             context,
-                            "Login or Register to unlock real notifications and track your applications.",
+                            context.getString(R.string.notif_worker_login_toast),
                             Toast.LENGTH_SHORT
                         ).show()
                     },
@@ -393,13 +393,13 @@ fun SwipeToDeleteNotificationItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.notif_delete),
                         color = Color.White,
                         fontWeight = FontWeight.Medium
                     )
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.notif_delete),
                         tint = Color.White
                     )
                 }
@@ -513,7 +513,7 @@ fun NotificationItemContent(
                 if (!notification.isRead) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "← Swipe to delete",
+                        text = stringResource(R.string.notif_swipe_to_delete),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFFBDBDBD),
                         fontSize = 10.sp

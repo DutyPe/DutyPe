@@ -246,7 +246,14 @@ fun JobMapScreen(
                                 // Pulsing indicator
                                 PulsingDot(color = availableGreen, size = 8.dp)
                                 Text(
-                                    text = "${jobsWithCoordinates.size} ${stringResource(R.string.jobs_within)} ${selectedDistanceFilter.label}",
+                                    text = "${jobsWithCoordinates.size} ${stringResource(R.string.jobs_within)} ${when(selectedDistanceFilter) {
+                                        DistanceFilter.WALKING_500M -> stringResource(R.string.map_500m)
+                                        DistanceFilter.WALKING_1KM -> stringResource(R.string.map_1km)
+                                        DistanceFilter.CYCLING_2KM -> stringResource(R.string.map_2km)
+                                        DistanceFilter.NEARBY_5KM -> stringResource(R.string.map_5km)
+                                        DistanceFilter.WITHIN_10KM -> stringResource(R.string.map_10km)
+                                        DistanceFilter.ALL -> stringResource(R.string.map_all)
+                                    }}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color(0xFF6B7280)
                                 )
@@ -488,7 +495,14 @@ fun JobMapScreen(
                     Text("🔍", fontSize = 48.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = stringResource(R.string.no_jobs_within_distance, selectedDistanceFilter.label),
+                        text = stringResource(R.string.no_jobs_within_distance, when(selectedDistanceFilter) {
+                            DistanceFilter.WALKING_500M -> stringResource(R.string.map_500m)
+                            DistanceFilter.WALKING_1KM -> stringResource(R.string.map_1km)
+                            DistanceFilter.CYCLING_2KM -> stringResource(R.string.map_2km)
+                            DistanceFilter.NEARBY_5KM -> stringResource(R.string.map_5km)
+                            DistanceFilter.WITHIN_10KM -> stringResource(R.string.map_10km)
+                            DistanceFilter.ALL -> stringResource(R.string.map_all)
+                        }),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
@@ -598,7 +612,14 @@ private fun DistanceFilterChip(
         ) {
             Text(filter.icon, fontSize = 14.sp)
             Text(
-                text = filter.label,
+                text = when(filter) {
+                    DistanceFilter.WALKING_500M -> stringResource(R.string.map_500m)
+                    DistanceFilter.WALKING_1KM -> stringResource(R.string.map_1km)
+                    DistanceFilter.CYCLING_2KM -> stringResource(R.string.map_2km)
+                    DistanceFilter.NEARBY_5KM -> stringResource(R.string.map_5km)
+                    DistanceFilter.WITHIN_10KM -> stringResource(R.string.map_10km)
+                    DistanceFilter.ALL -> stringResource(R.string.map_all)
+                },
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = if (isSelected) Color.White else Color(0xFF475569)
@@ -639,13 +660,16 @@ private fun EnhancedJobMapCard(
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     
     // Format salary display from schema fields
-    val salaryDisplay = remember(job.salary, job.salaryType) {
+    val perHour = stringResource(R.string.map_per_hour)
+    val perMonth = stringResource(R.string.map_per_month)
+    val perDay = stringResource(R.string.map_per_day)
+    val salaryDisplay = remember(job.salary, job.salaryType, perHour, perMonth, perDay) {
         val amount = if (job.salary == job.salary.toLong().toDouble())
             job.salary.toLong().toString() else job.salary.toString()
         val period = when (job.salaryType.uppercase()) {
-            "HOURLY" -> "/hour"
-            "MONTHLY" -> "/month"
-            else -> "/day"
+            "HOURLY" -> perHour
+            "MONTHLY" -> perMonth
+            else -> perDay
         }
         "₹$amount$period"
     }
@@ -674,7 +698,7 @@ private fun EnhancedJobMapCard(
                         ) {
                             PulsingDot(color = urgentRed, size = 8.dp)
                             Text(
-                                text = "URGENT - Hiring Today!",
+                                text = stringResource(R.string.map_urgent_hiring),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = urgentRed
@@ -687,7 +711,7 @@ private fun EnhancedJobMapCard(
                         color = successGreen.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = "✓ Available",
+                            text = stringResource(R.string.map_available),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
@@ -740,7 +764,7 @@ private fun EnhancedJobMapCard(
                 job.distance?.let { dist ->
                     InfoChip(
                         icon = if (dist < 1) "🚶" else "📍",
-                        text = if (dist < 1) "${(dist * 1000).toInt()}m away" else "${"%.1f".format(dist)}km away",
+                        text = if (dist < 1) stringResource(R.string.map_meters_away, (dist * 1000).toInt()) else stringResource(R.string.map_km_away, "%.1f".format(dist)),
                         backgroundColor = Color(0xFFF0F9FF),
                         textColor = Color(0xFF0369A1)
                     )

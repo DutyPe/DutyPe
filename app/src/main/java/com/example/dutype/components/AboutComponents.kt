@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Hero block at the top of an About screen — colored badge + title + tagline.
@@ -180,7 +182,7 @@ fun AboutFooter(version: String) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Made with \u2764\uFE0F in Bharat",
+            text = stringResource(R.string.about_made_in_bharat),
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFF6B7280),
                 fontWeight = FontWeight.Medium
@@ -189,7 +191,7 @@ fun AboutFooter(version: String) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Version $version",
+            text = stringResource(R.string.about_version_format, version),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = Color(0xFF9CA3AF)
             ),

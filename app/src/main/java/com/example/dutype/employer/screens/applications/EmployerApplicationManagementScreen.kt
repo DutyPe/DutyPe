@@ -129,7 +129,7 @@ fun EmployerApplicationManagementScreen(
                     },
                     onFailure = { error ->
                         isProcessingPayment = false
-                        Toast.makeText(context, "Payment failed: $error", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.payment_failed_error, error), Toast.LENGTH_SHORT).show()
                     }
                 )
             }
@@ -676,7 +676,7 @@ private fun ApplicationCard(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Unlock Contact",
+                                    text = stringResource(R.string.unlock_contact),
                                     style = AppTypography.caption.copy(
                                         color = Color(0xFFD97706),
                                         fontWeight = FontWeight.SemiBold
@@ -873,7 +873,7 @@ private fun ContactUnlockDialog(
         },
         title = {
             Text(
-                text = "Unlock Contact",
+                text = stringResource(R.string.unlock_contact),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1F2937)
@@ -885,7 +885,7 @@ private fun ContactUnlockDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Unlock ${application.workerName}'s contact details to reach out directly.",
+                    text = stringResource(R.string.unlock_worker_contact_desc, application.workerName),
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                 )
                 
@@ -903,7 +903,7 @@ private fun ContactUnlockDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Unlock Price",
+                            text = stringResource(R.string.unlock_price),
                             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                         )
                         Text(
@@ -920,9 +920,9 @@ private fun ContactUnlockDialog(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    UnlockBenefitItem("📞 Get phone number instantly")
-                    UnlockBenefitItem("💬 Direct communication")
-                    UnlockBenefitItem("⚡ Faster hiring process")
+                    UnlockBenefitItem(stringResource(R.string.benefit_phone_number))
+                    UnlockBenefitItem(stringResource(R.string.benefit_direct_communication))
+                    UnlockBenefitItem(stringResource(R.string.benefit_faster_hiring))
                 }
             }
         },
@@ -948,7 +948,7 @@ private fun ContactUnlockDialog(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Pay ₹$unlockPrice & Unlock")
+                    Text(stringResource(R.string.pay_and_unlock, unlockPrice))
                 }
             }
         },

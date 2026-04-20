@@ -176,7 +176,7 @@ fun EmployerReferEarnScreen(
                             
                             // Title
                             Text(
-                                text = "Complete Your Profile",
+                                text = stringResource(R.string.refer_complete_profile_title),
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1F2937)
@@ -188,7 +188,7 @@ fun EmployerReferEarnScreen(
                             
                             // Description
                             Text(
-                                text = "To generate your personalized referral code and start earning rewards, please complete your company profile first.",
+                                text = stringResource(R.string.refer_employer_complete_profile_desc),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     color = Color(0xFF6B7280),
                                     lineHeight = 24.sp
@@ -216,7 +216,7 @@ fun EmployerReferEarnScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    "Complete Profile",
+                                    stringResource(R.string.refer_complete_profile_button),
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -252,28 +252,25 @@ fun EmployerReferEarnScreen(
                                 onCopyClick = {
                                     copyTextToClipboard(
                                         context = context,
-                                        label = "Referral Code",
+                                        label = context.getString(R.string.refer_code_clipboard_label),
                                         text = uiState.stats?.referralCode.orEmpty()
                                     )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
-                                    val shareText = """
-Join DutyPe for hiring!
-
-Use my referral code: $code
-
-Download DutyPe: $playStoreUrl
-
-Find reliable workers for your business and earn Rs.${referralConfig.signupBonus.toInt()} bonus!
-                                    """.trimIndent()
+                                    val shareText = context.getString(
+                                        R.string.refer_employer_share_text,
+                                        code,
+                                        playStoreUrl,
+                                        referralConfig.signupBonus.toInt()
+                                    )
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                     }
-                                    context.startActivity(Intent.createChooser(intent, "Share Referral Code"))
+                                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.refer_share_chooser_title)))
 
                                     val activity = context as? Activity
                                     if (activity != null) {
@@ -409,7 +406,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(tierName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = tierColor))
-                Text("$successfulReferrals successful referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.refer_successful_referrals_count, successfulReferrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
         }
     }
@@ -534,8 +531,8 @@ private fun FreeJobPostingsCard(freePostings: Int, expiryDate: Long) {
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.free_job_postings), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF4338CA)))
-                Text("$freePostings posts available", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6366F1)))
-                Text("Expires: $expiryStr", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF818CF8)))
+                Text(stringResource(R.string.refer_free_posts_available, freePostings), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6366F1)))
+                Text(stringResource(R.string.refer_expires_date, expiryStr), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF818CF8)))
             }
         }
     }
@@ -576,13 +573,13 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
             )
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("$successfulReferrals / $nextMilestone referrals", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+                Text(stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
                 Column(horizontalAlignment = Alignment.End) {
                     if (bonus > 0) {
-                        Text("Rs.${bonus.toInt()} bonus", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
+                        Text(stringResource(R.string.refer_bonus_amount, bonus.toInt()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
                     if (freePostings > 0) {
-                        Text("$freePostings free posts", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
+                        Text(stringResource(R.string.refer_free_posts_count, freePostings), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937)))
                     }
                 }
             }
@@ -597,10 +594,10 @@ private fun EmployerHowItWorksCard() {
             Text(stringResource(R.string.how_it_works), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val steps = listOf(
-                "Share your referral code with employers or workers",
-                "They sign up using your code",
-                "You earn Rs.25 and they earn Rs.25 instantly",
-                "Reach milestones for bonus cash and free job posts"
+                stringResource(R.string.refer_employer_step_1),
+                stringResource(R.string.refer_step_2),
+                stringResource(R.string.refer_step_3),
+                stringResource(R.string.refer_employer_step_4)
             )
             steps.forEachIndexed { index, step ->
                 Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(vertical = 8.dp)) {
@@ -626,14 +623,14 @@ private fun EmployerRewardsCard() {
             Text(stringResource(R.string.rewards_milestones), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)))
             Spacer(Modifier.height(16.dp))
             val rewards = listOf(
-                "You earn Rs.25 for every successful referral",
-                "Your friend gets an instant Rs.25 signup bonus",
-                "5 referrals: Rs.50 bonus + 5 free job posts",
-                "10 referrals: Rs.100 bonus + 10 free job posts",
-                "15 referrals: Rs.150 milestone bonus",
-                "25 referrals: Rs.250 bonus + 25 free job posts",
-                "50 referrals: Rs.500 milestone bonus",
-                "100 referrals: Rs.1000 milestone bonus"
+                stringResource(R.string.refer_reward_per_referral),
+                stringResource(R.string.refer_reward_friend_bonus),
+                stringResource(R.string.refer_reward_5_employer),
+                stringResource(R.string.refer_reward_10_employer),
+                stringResource(R.string.refer_reward_15),
+                stringResource(R.string.refer_reward_25_employer),
+                stringResource(R.string.refer_reward_50),
+                stringResource(R.string.refer_reward_100)
             )
             rewards.forEach { text ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 6.dp)) {
@@ -659,16 +656,16 @@ private fun EmployerRedemptionInstructionsCard() {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "Withdrawals open once your available balance reaches Rs.50.",
+                text = stringResource(R.string.refer_withdrawal_threshold_info),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(12.dp))
 
             val steps = listOf(
-                "Tap the Withdraw button on this screen",
-                "Enter the amount and your UPI ID",
-                "Submit the request for payout review",
-                "Your referral wallet balance updates immediately after the request"
+                stringResource(R.string.refer_redeem_step_1),
+                stringResource(R.string.refer_redeem_step_2),
+                stringResource(R.string.refer_redeem_step_3),
+                stringResource(R.string.refer_redeem_step_4)
             )
 
             steps.forEachIndexed { index, step ->
@@ -687,7 +684,7 @@ private fun EmployerRedemptionInstructionsCard() {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Minimum withdrawal: Rs.50",
+                text = stringResource(R.string.refer_min_withdrawal_info),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1F2937)
@@ -729,6 +726,7 @@ private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerReferralHistoryItem(referral: Referral) {
+    val context = LocalContext.current
     val dateStr = remember(referral.createdAt) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(referral.createdAt))
     }
@@ -742,12 +740,12 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
             ""
         } else {
             buildList {
-                add("You: Rs.${String.format("%.0f", referral.rewardAmount)}")
+                add(context.getString(R.string.refer_you_earned, String.format("%.0f", referral.rewardAmount)))
                 if (referral.bonusAmount > 0) {
-                    add("Milestone: Rs.${String.format("%.0f", referral.bonusAmount)}")
+                    add(context.getString(R.string.refer_milestone_earned, String.format("%.0f", referral.bonusAmount)))
                 }
                 if (referral.referredUserReward > 0) {
-                    add("Signup bonus: Rs.${String.format("%.0f", referral.referredUserReward)}")
+                    add(context.getString(R.string.refer_signup_bonus_earned, String.format("%.0f", referral.referredUserReward)))
                 }
             }.joinToString(" | ")
         }
@@ -780,9 +778,9 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
             Text(
                 when (referral.status) {
                     ReferralStatus.COMPLETED -> "Rs.${String.format("%.0f", referral.getTotalReferrerReward())}"
-                    ReferralStatus.PENDING -> "Pending"
-                    ReferralStatus.EXPIRED -> "Expired"
-                    else -> "Cancelled"
+                    ReferralStatus.PENDING -> context.getString(R.string.refer_status_pending)
+                    ReferralStatus.EXPIRED -> context.getString(R.string.refer_status_expired)
+                    else -> context.getString(R.string.refer_status_cancelled)
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
@@ -795,6 +793,7 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
 
 @Composable
 private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Double, onDismiss: () -> Unit, onWithdraw: (Double, String) -> Unit) {
+    val context = LocalContext.current
     var amount by remember { mutableStateOf(availableBalance.toString()) }
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -804,11 +803,11 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Available: Rs.${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
+                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(value = amount, onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(stringResource(R.string.amount_rs)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value = upiId, onValueChange = { upiId = it }, label = { Text(stringResource(R.string.upi_id)) }, placeholder = { Text("yourname@upi") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = upiId, onValueChange = { upiId = it }, label = { Text(stringResource(R.string.upi_id)) }, placeholder = { Text(stringResource(R.string.refer_upi_placeholder)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(error!!, color = Color(0xFFEF4444), style = MaterialTheme.typography.bodySmall)
@@ -820,10 +819,10 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < minWithdrawal -> error = "Minimum withdrawal is Rs.${minWithdrawal.toInt()}"
-                        amountValue > availableBalance -> error = "Insufficient balance"
-                        upiId.isBlank() -> error = "Enter UPI ID"
-                        !upiId.contains("@") -> error = "Invalid UPI ID format"
+                        amountValue < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
+                        amountValue > availableBalance -> error = context.getString(R.string.refer_error_insufficient_balance)
+                        upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
+                        !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
                         else -> onWithdraw(amountValue, upiId)
                     }
                 },
@@ -923,14 +922,14 @@ private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("${story.userName} from ${story.city}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF92400E)), modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.refer_performer_from_city, story.userName, story.city), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF92400E)), modifier = Modifier.weight(1f))
                     Text("Rs.${story.totalEarnings.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
                 }
             }
             
             if (stories.size > 3) {
                 Spacer(Modifier.height(8.dp))
-                Text("+${stories.size - 3} more top performers", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+                Text(stringResource(R.string.refer_more_top_performers, stories.size - 3), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
             }
         }
     }
@@ -949,11 +948,11 @@ private fun EmployerLegalDisclaimerCard() {
             
             Spacer(Modifier.height(12.dp))
             
-            Text("Ã¢â‚¬Â¢ This is a legitimate referral program, not a pyramid scheme", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text("Ã¢â‚¬Â¢ Referral rewards are taxable income under Indian tax laws", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text("Ã¢â‚¬Â¢ KYC required for withdrawals > Ã¢â€šÂ¹10,000/year", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text("Ã¢â‚¬Â¢ PAN card mandatory for withdrawals > Ã¢â€šÂ¹50,000/year", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text("Ã¢â‚¬Â¢ Fraudulent activity will result in account suspension", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_not_pyramid), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_taxable), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_kyc), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_pan), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_fraud), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
             
             Spacer(Modifier.height(8.dp))
             

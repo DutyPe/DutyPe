@@ -67,7 +67,7 @@ fun EmployerAboutScreen(
                 icon = "\uD83C\uDFAF"
             ) {
                 AboutParagraph(
-                    text = "To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce \u2014 so you can focus on growing your business."
+                    text = stringResource(R.string.about_employer_mission)
                 )
             }
 
@@ -77,7 +77,7 @@ fun EmployerAboutScreen(
                 icon = "\uD83D\uDD2D"
             ) {
                 AboutParagraph(
-                    text = "To become the leading platform for on-demand employment in India, where businesses thrive with the right talent and workers find meaningful opportunities."
+                    text = stringResource(R.string.about_employer_vision)
                 )
             }
 
@@ -86,14 +86,14 @@ fun EmployerAboutScreen(
                 accentColor = Color(0xFF2563EB),
                 icon = "\u2728"
             ) {
-                AboutBullet("Post jobs in minutes", accent)
-                AboutBullet("Access a large talent pool", accent)
-                AboutBullet("GPS-based attendance tracking", accent)
-                AboutBullet("Verified worker profiles", accent)
-                AboutBullet("Flexible hiring options", accent)
-                AboutBullet("Real-time application alerts", accent)
-                AboutBullet("Manage multiple postings", accent)
-                AboutBullet("Track worker performance", accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_post_jobs), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_talent_pool), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_gps_attendance), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_verified_workers), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_flexible_hiring), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_realtime_alerts), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_manage_postings), accent)
+                AboutBullet(stringResource(R.string.about_emp_feat_track_performance), accent)
             }
 
             AboutSectionCard(
@@ -101,13 +101,13 @@ fun EmployerAboutScreen(
                 accentColor = Color(0xFFEF4444),
                 icon = "\uD83D\uDC65"
             ) {
-                AboutBullet("Delivery Personnel", Color(0xFFEF4444))
-                AboutBullet("Kitchen & Cooking Staff", Color(0xFFEF4444))
-                AboutBullet("Housekeeping & Cleaning", Color(0xFFEF4444))
-                AboutBullet("Shop Assistants & Retail", Color(0xFFEF4444))
-                AboutBullet("Childcare & Eldercare", Color(0xFFEF4444))
-                AboutBullet("Maintenance Workers", Color(0xFFEF4444))
-                AboutBullet("Event & Catering Staff", Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_delivery), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_kitchen), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_housekeeping), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_shop), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_childcare), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_maintenance_w), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_event), Color(0xFFEF4444))
             }
 
             AboutSectionCard(
@@ -115,11 +115,11 @@ fun EmployerAboutScreen(
                 accentColor = Color(0xFF8B5CF6),
                 icon = "\uD83D\uDC8E"
             ) {
-                AboutBullet("Quick hiring process", Color(0xFF8B5CF6))
-                AboutBullet("Verified worker database", Color(0xFF8B5CF6))
-                AboutBullet("Cost-effective solutions", Color(0xFF8B5CF6))
-                AboutBullet("24/7 platform access", Color(0xFF8B5CF6))
-                AboutBullet("Dedicated support team", Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_emp_why_quick_hiring), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_emp_why_verified_db), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_emp_why_cost_effective), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_emp_why_24_7), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_emp_why_support), Color(0xFF8B5CF6))
             }
 
             AboutSectionCard(
@@ -127,10 +127,10 @@ fun EmployerAboutScreen(
                 accentColor = Color(0xFF0EA5E9),
                 icon = "\uD83E\uDD1D"
             ) {
-                AboutBullet("Efficiency in hiring", Color(0xFF0EA5E9))
-                AboutBullet("Reliability you can trust", Color(0xFF0EA5E9))
-                AboutBullet("Transparency in all dealings", Color(0xFF0EA5E9))
-                AboutBullet("Empowerment for businesses", Color(0xFF0EA5E9))
+                AboutBullet(stringResource(R.string.about_emp_val_efficiency), Color(0xFF0EA5E9))
+                AboutBullet(stringResource(R.string.about_emp_val_reliability), Color(0xFF0EA5E9))
+                AboutBullet(stringResource(R.string.about_emp_val_transparency), Color(0xFF0EA5E9))
+                AboutBullet(stringResource(R.string.about_emp_val_empowerment), Color(0xFF0EA5E9))
             }
 
             Spacer(modifier = Modifier.height(8.dp))

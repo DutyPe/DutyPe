@@ -690,7 +690,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Payment Details",
+                                text = stringResource(R.string.payment_details),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1F2937),

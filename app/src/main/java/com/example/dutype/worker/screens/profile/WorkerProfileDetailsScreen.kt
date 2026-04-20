@@ -117,23 +117,23 @@ fun WorkerProfileDetailsScreen(
                                 profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
                                 
                                 // Show success toast
-                                Toast.makeText(context, "Profile photo updated successfully!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.profile_photo_updated), Toast.LENGTH_SHORT).show()
                             },
                             onFailure = { exception ->
                                 Timber.e(exception, "📸 WORKER PROFILE DETAILS: ❌ Failed to upload profile image")
                                 profileImageUri = null
-                                Toast.makeText(context, "Failed to upload photo. Please try again.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.profile_photo_upload_failed), Toast.LENGTH_SHORT).show()
                             }
                         )
                     } else {
                         Timber.w("📸 WORKER PROFILE DETAILS: No current user - cannot upload")
                         profileImageUri = null
-                        Toast.makeText(context, "Please login to upload photo", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.profile_login_to_upload), Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "📸 WORKER PROFILE DETAILS: ❌ Error uploading profile image")
                     profileImageUri = null
-                    Toast.makeText(context, "Error uploading photo", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.profile_photo_upload_error), Toast.LENGTH_SHORT).show()
                 } finally {
                     isUploadingImage = false
                 }
@@ -233,7 +233,7 @@ fun WorkerProfileDetailsScreen(
                         }
                         
                         Text(
-                            text = "Profile Details",
+                            text = stringResource(R.string.profile_details_title),
                             style = AppTypography.screenTitle,
                             color = WorkerColors.TextPrimary,
                             modifier = Modifier.weight(1f)
@@ -326,7 +326,7 @@ fun WorkerProfileDetailsScreen(
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = if (workerTotalRatings > 0) "★ ${"%.1f".format(workerRating)}  •  $workerTotalRatings review${if (workerTotalRatings != 1) "s" else ""}"
-                                            else "No ratings yet",
+                                            else stringResource(R.string.profile_no_ratings),
                                             style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                                         )
                                     }
@@ -429,12 +429,12 @@ fun WorkerProfileDetailsScreen(
                                         "experience" to experience
                                     )
                                     profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                                    Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.profile_saved), Toast.LENGTH_SHORT).show()
                                 }
                                 isEditMode = false
                             } catch (e: Exception) {
                                 Timber.e(e, "Error saving profile")
-                                Toast.makeText(context, "Failed to save profile", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.profile_save_failed), Toast.LENGTH_SHORT).show()
                             } finally {
                                 isSaving = false
                             }
@@ -549,13 +549,13 @@ private fun ProfileImageSection(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = if (fullName.isNotBlank()) fullName else "Add Your Name",
+            text = if (fullName.isNotBlank()) fullName else stringResource(R.string.profile_add_your_name),
             style = AppTypography.pageTitle,
             color = if (fullName.isNotBlank()) WorkerColors.TextPrimary else WorkerColors.TextSecondary
         )
         
         Text(
-            text = "Tap photo to change",
+            text = stringResource(R.string.profile_tap_photo_change),
             style = AppTypography.caption,
             color = WorkerColors.TextSecondary
         )
@@ -641,7 +641,7 @@ private fun ProfileFieldDisplay(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = value.ifBlank { "Not provided" },
+            text = value.ifBlank { stringResource(R.string.profile_not_provided) },
             style = AppTypography.bodyMedium,
             color = if (value.isNotBlank()) WorkerColors.TextPrimary else WorkerColors.TextSecondary
         )
@@ -898,7 +898,7 @@ private fun EditModeButtons(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.cancel),
                     style = AppTypography.buttonMedium
                 )
             }
@@ -920,7 +920,7 @@ private fun EditModeButtons(
                     )
                 } else {
                     Text(
-                        text = "Save",
+                        text = stringResource(R.string.save),
                         style = AppTypography.buttonMedium,
                         color = Color.White
                     )

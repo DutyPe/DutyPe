@@ -257,7 +257,7 @@ export function MarketingIndex({ tree }: { tree: MarketingTreeNode[] }) {
         <section className="marketing-index-section" key={rootName}>
           <h2>{rootName}</h2>
           <p className="marketing-index-empty">
-            (no content found in <code>{rootName}/</code>)
+            (no content found for {rootName})
           </p>
         </section>
       );
@@ -324,8 +324,8 @@ export function MarketingIndex({ tree }: { tree: MarketingTreeNode[] }) {
   return (
     <div className="marketing-index">
       <p className="marketing-index-intro">
-        Everything from the original repo-root <code>/growth</code> and{" "}
-        <code>/marketing</code> folders. Pick any document below or use the
+        All campaigns, assets, inputs, outputs, playbooks, channels, brand,
+        go-to-market and research documents. Pick any document below or use the
         sidebar tree.
       </p>
       {sectionFor("growth", growthDir)}
@@ -370,7 +370,6 @@ function FileBlock({ file }: { file: Extract<MarketingLoadedNode, { kind: "file"
       <summary>
         <span className="marketing-full-file-icon">{fileEmoji(file.ext)}</span>
         <span className="marketing-full-file-title">{title}</span>
-        <span className="marketing-full-file-path">/{file.slug.join("/")}</span>
       </summary>
       <div className="marketing-full-file-body">
         {file.ext === ".csv" ? (

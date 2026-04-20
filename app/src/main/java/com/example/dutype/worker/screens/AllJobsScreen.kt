@@ -449,7 +449,7 @@ private fun JobsList(
                             )
                         } else {
                             Text(
-                                text = "Loading more jobs...",
+                                text = stringResource(R.string.jobs_loading_more),
                                 style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
                             )
                         }
@@ -526,11 +526,11 @@ private fun ErrorState(
                 )
             }
             Text(
-                text = "Something went wrong",
+                text = stringResource(R.string.jobs_something_went_wrong),
                 style = AppTypography.emptyStateTitle.copy(color = Color(0xFF374151))
             )
             Text(
-                text = error ?: "Unable to load jobs. Please try again.",
+                text = error ?: stringResource(R.string.jobs_unable_to_load),
                 style = AppTypography.emptyStateSubtitle.copy(
                     color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center
@@ -621,7 +621,7 @@ private fun JobFilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Filter Jobs",
+                    text = stringResource(R.string.jobs_filter_title),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1F2937)
@@ -643,7 +643,7 @@ private fun JobFilterBottomSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Sort, salary, distance, experience and work type",
+                text = stringResource(R.string.jobs_filter_subtitle),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
             )
             
@@ -651,7 +651,7 @@ private fun JobFilterBottomSheet(
             
             // Sort By
             Text(
-                text = "Sort By",
+                text = stringResource(R.string.jobs_sort_by),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF374151)
@@ -660,7 +660,7 @@ private fun JobFilterBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Pay Type",
+                    text = stringResource(R.string.jobs_pay_type),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF374151)
@@ -685,7 +685,7 @@ private fun JobFilterBottomSheet(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Work Type",
+                    text = stringResource(R.string.post_job_work_type),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF374151)
@@ -727,7 +727,7 @@ private fun JobFilterBottomSheet(
             
             // Salary Range
             Text(
-                text = "Salary Range",
+                text = stringResource(R.string.jobs_salary_range),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF374151)
@@ -763,7 +763,7 @@ private fun JobFilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Maximum Distance",
+                    text = stringResource(R.string.jobs_max_distance),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF374151)
@@ -803,7 +803,7 @@ private fun JobFilterBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
             if (maxDistance != null) {
                 Text(
-                    text = "Fine-tune: ${maxDistance!!.toInt()} km",
+                    text = stringResource(R.string.jobs_fine_tune_distance, maxDistance!!.toInt()),
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
                 )
                 Slider(
@@ -819,7 +819,7 @@ private fun JobFilterBottomSheet(
                 )
             } else {
                 Text(
-                    text = "Showing all jobs regardless of distance",
+                    text = stringResource(R.string.jobs_showing_all),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF6B7280),
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -831,7 +831,7 @@ private fun JobFilterBottomSheet(
             
             // Experience Level
             Text(
-                text = "Experience Level",
+                text = stringResource(R.string.jobs_experience_level),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF374151)
@@ -877,7 +877,7 @@ private fun JobFilterBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "Apply Filters",
+                    text = stringResource(R.string.jobs_apply_filters),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp
                 )

@@ -59,54 +59,54 @@ fun EmployerSupportScreen(
     val userGuideItems = listOf(
         GuideItem(
             title = stringResource(R.string.getting_started),
-            content = "1. Complete your employer profile with company details\n2. Add your company logo and description\n3. Verify your phone number for security\n4. You're ready to post jobs!"
+            content = stringResource(R.string.employer_guide_getting_started_content)
         ),
         GuideItem(
             title = stringResource(R.string.posting_a_job),
-            content = "1. Tap the '+' button on Home screen\n2. Fill in job title, category, and description\n3. Set salary range and work location\n4. Add job requirements and benefits\n5. Review and post your job"
+            content = stringResource(R.string.employer_guide_posting_job_content)
         ),
         GuideItem(
             title = stringResource(R.string.managing_applications),
-            content = "1. Go to 'My Jobs' to see all your postings\n2. Tap on a job to view applications\n3. Review applicant profiles and experience\n4. Shortlist or reject candidates\n5. Contact selected candidates directly"
+            content = stringResource(R.string.employer_guide_managing_apps_content)
         ),
         GuideItem(
             title = stringResource(R.string.verifying_work_completion),
-            content = "1. Generate a QR code for the job\n2. Worker scans QR to start work\n3. After work completion, verify the work\n4. Worker scans QR again to mark complete\n5. Rate the worker's performance"
+            content = stringResource(R.string.employer_guide_verifying_work_content)
         ),
         GuideItem(
             title = stringResource(R.string.building_trust_score),
-            content = "• Complete your profile 100%\n• Post detailed job descriptions\n• Respond to applications promptly\n• Verify work completion properly\n• Maintain good ratings from workers"
+            content = stringResource(R.string.employer_guide_trust_score_content)
         ),
         GuideItem(
             title = stringResource(R.string.best_practices),
-            content = "• Write clear job descriptions\n• Set realistic salary expectations\n• Respond to applicants within 24 hours\n• Provide accurate work location\n• Give fair ratings to workers\n• Keep your profile updated"
+            content = stringResource(R.string.employer_guide_best_practices_content)
         )
     )
     
     val faqItems = listOf(
         FaqItem(
-            question = "How do I post a job?",
-            answer = "Go to the Home screen and tap the '+' button or navigate to 'Post Job' from the bottom navigation. Fill in the job details including title, description, salary, and location, then tap 'Post Job'."
+            question = stringResource(R.string.employer_faq_post_job_question),
+            answer = stringResource(R.string.employer_faq_post_job_answer)
         ),
         FaqItem(
-            question = "How do I view applications?",
-            answer = "From your dashboard, tap on any posted job to see its applications. You can also go to 'My Jobs' and select a job to view all applicants."
+            question = stringResource(R.string.employer_faq_view_apps_question),
+            answer = stringResource(R.string.employer_faq_view_apps_answer)
         ),
         FaqItem(
-            question = "How do I contact an applicant?",
-            answer = "Open the applicant's profile from the applications list. You can view their details and contact information to reach out directly."
+            question = stringResource(R.string.employer_faq_contact_applicant_question),
+            answer = stringResource(R.string.employer_faq_contact_applicant_answer)
         ),
         FaqItem(
-            question = "How do I edit or delete a job posting?",
-            answer = "Go to 'My Jobs', find the job you want to modify, and tap on it. You'll see options to edit the job details or pause/delete the posting."
+            question = stringResource(R.string.employer_faq_edit_job_question),
+            answer = stringResource(R.string.employer_faq_edit_job_answer)
         ),
         FaqItem(
-            question = "What payment methods are accepted?",
-            answer = "We currently support UPI, credit/debit cards, and net banking for any premium features or promoted job listings."
+            question = stringResource(R.string.employer_faq_payment_methods_question),
+            answer = stringResource(R.string.employer_faq_payment_methods_answer)
         ),
         FaqItem(
-            question = "How do I switch to worker mode?",
-            answer = "Go to your Profile screen and toggle the 'Switch to Worker' option. This allows you to browse and apply for jobs as a worker."
+            question = stringResource(R.string.employer_faq_switch_worker_question),
+            answer = stringResource(R.string.employer_faq_switch_worker_answer)
         )
     )
 
@@ -151,7 +151,7 @@ fun EmployerSupportScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "How can we help you?",
+                        text = stringResource(R.string.employer_help_title),
                         style = AppTypography.pageTitle.copy(
                             color = Color(0xFF1F2937)
                         ),
@@ -160,7 +160,7 @@ fun EmployerSupportScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "We're here to assist you with any questions",
+                        text = stringResource(R.string.employer_help_subtitle),
                         style = AppTypography.bodyMedium.copy(
                             color = Color(0xFF6B7280)
                         ),
@@ -184,7 +184,7 @@ fun EmployerSupportScreen(
                     bg = Color(0xFFDCFCE7),
                     tint = Color(0xFF16A34A)
                 ) {
-                    val msg = "Hello DutyPe Team! I am an employer on DutyPe and I need help with the app."
+                    val msg = context.getString(R.string.whatsapp_employer_message)
                     val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
@@ -196,7 +196,7 @@ fun EmployerSupportScreen(
                     tint = EmployerSecondaryBlue
                 ) {
                     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
-                    intent.putExtra(Intent.EXTRA_SUBJECT, "Employer Support")
+                    intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_employer_support))
                     context.startActivity(Intent.createChooser(intent, "Send Email"))
                 }
                 EmployerQuickActionTile(
@@ -208,7 +208,7 @@ fun EmployerSupportScreen(
                 ) {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
                         data = Uri.parse("mailto:dutypein@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, "Bug Report - Employer App")
+                        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_bug_report_employer))
                     }
                     context.startActivity(intent)
                 }
@@ -253,7 +253,7 @@ fun EmployerSupportScreen(
             // User Guide Section
             if (filteredGuides.isNotEmpty()) {
             Text(
-                text = "User Guide",
+                text = stringResource(R.string.employer_user_guide_header),
                 style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
@@ -291,7 +291,7 @@ fun EmployerSupportScreen(
             // FAQ Section
             if (filteredFaqs.isNotEmpty()) {
             Text(
-                text = "Frequently Asked Questions",
+                text = stringResource(R.string.employer_faq_header),
                 style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
@@ -347,12 +347,12 @@ fun EmployerSupportScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "No matching topics",
+                            stringResource(R.string.no_matching_topics),
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            "Try a different keyword or message us on WhatsApp.",
+                            stringResource(R.string.no_matching_topics_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF64748B)
                         )
@@ -363,7 +363,7 @@ fun EmployerSupportScreen(
             
             // Quick Links
             Text(
-                text = "Quick Links",
+                text = stringResource(R.string.employer_quick_links_header),
                 style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),
@@ -383,7 +383,7 @@ fun EmployerSupportScreen(
                         onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:dutypein@gmail.com")
-                                putExtra(Intent.EXTRA_SUBJECT, "Bug Report - Employer App")
+                                putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_bug_report_employer))
                             }
                             context.startActivity(intent)
                         }
@@ -395,7 +395,7 @@ fun EmployerSupportScreen(
                         onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:dutypein@gmail.com")
-                                putExtra(Intent.EXTRA_SUBJECT, "Feedback - Employer App")
+                                putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_feedback_employer))
                             }
                             context.startActivity(intent)
                         }
@@ -407,7 +407,7 @@ fun EmployerSupportScreen(
             
             // Legal & Policies
             Text(
-                text = "Legal & Policies",
+                text = stringResource(R.string.employer_legal_header),
                 style = AppTypography.sectionHeader.copy(
                     color = Color(0xFF1F2937)
                 ),

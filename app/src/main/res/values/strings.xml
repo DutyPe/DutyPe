@@ -1,8 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">DutyPe</string>
     <string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
-    
-    <!-- Common -->
     <string name="loading">Loading...</string>
     <string name="error">Error</string>
     <string name="retry">Retry</string>
@@ -23,8 +22,6 @@
     <string name="continue_text">Continue</string>
     <string name="skip">Skip</string>
     <string name="close">Close</string>
-    
-    <!-- Auth -->
     <string name="login">Login</string>
     <string name="signup">Sign Up</string>
     <string name="logout">Logout</string>
@@ -33,8 +30,6 @@
     <string name="verify">Verify</string>
     <string name="resend_otp">Resend OTP</string>
     <string name="google_signin">Sign in with Google</string>
-    
-    <!-- Role Selection -->
     <string name="select_role">Select Your Role</string>
     <string name="how_can_we_help">How can we help\nyou today?</string>
     <string name="i_want_job">I want a Job</string>
@@ -43,8 +38,6 @@
     <string name="employer">Employer</string>
     <string name="find_jobs_earn">Find jobs &amp; earn</string>
     <string name="hire_skilled_workers">Hire skilled workers</string>
-    
-    <!-- Home Screen -->
     <string name="jobs_near_you">Jobs Near You</string>
     <string name="all_jobs">All Jobs</string>
     <string name="hourly">Hourly</string>
@@ -60,8 +53,6 @@
     <string name="recommended">Recommended</string>
     <string name="recent_jobs">Recent Jobs</string>
     <string name="trending_jobs">Trending Jobs</string>
-    
-    <!-- Job Categories -->
     <string name="category_cook">Cook</string>
     <string name="category_maid">Maid</string>
     <string name="category_driver">Driver</string>
@@ -76,8 +67,6 @@
     <string name="category_caretaker">Caretaker</string>
     <string name="category_helper">Helper</string>
     <string name="category_other">Other</string>
-    
-    <!-- Job Details -->
     <string name="job_details">Job Details</string>
     <string name="salary">Salary</string>
     <string name="location">Location</string>
@@ -98,8 +87,6 @@
     <string name="per_hour">/hour</string>
     <string name="per_day">/day</string>
     <string name="per_month">/month</string>
-    
-    <!-- Profile -->
     <string name="profile">Profile</string>
     <string name="my_profile">My Profile</string>
     <string name="edit_profile">Edit Profile</string>
@@ -119,8 +106,6 @@
     <string name="education">Education</string>
     <string name="documents">Documents</string>
     <string name="verification">Verification</string>
-    
-    <!-- Applications -->
     <string name="my_applications">My Applications</string>
     <string name="applied">Applied</string>
     <string name="pending">Pending</string>
@@ -130,8 +115,6 @@
     <string name="in_progress">In Progress</string>
     <string name="application_status">Application Status</string>
     <string name="withdraw_application">Withdraw Application</string>
-    
-    <!-- Employer -->
     <string name="post_job">Post Job</string>
     <string name="my_jobs">My Jobs</string>
     <string name="view_applicants">View Applicants</string>
@@ -144,22 +127,16 @@
     <string name="total_applicants">Total Applicants</string>
     <string name="shortlisted">Shortlisted</string>
     <string name="hired">Hired</string>
-    
-    <!-- Notifications -->
     <string name="notifications">Notifications</string>
     <string name="no_notifications">No notifications</string>
     <string name="mark_all_read">Mark all as read</string>
     <string name="new_application">New Application</string>
     <string name="application_update">Application Update</string>
-    
-    <!-- Chat -->
     <string name="messages">Messages</string>
     <string name="chat">Chat</string>
     <string name="type_message">Type a message...</string>
     <string name="send">Send</string>
     <string name="no_messages">No messages yet</string>
-    
-    <!-- Settings -->
     <string name="settings">Settings</string>
     <string name="language">Language</string>
     <string name="change_language">Change Language</string>
@@ -171,47 +148,33 @@
     <string name="rate_app">Rate App</string>
     <string name="share_app">Share App</string>
     <string name="version">Version</string>
-    
-    <!-- Map -->
     <string name="map_view">Map View</string>
     <string name="jobs_on_map">Jobs on Map</string>
     <string name="your_location">Your Location</string>
     <string name="enable_location">Enable Location</string>
     <string name="getting_location">Getting your location...</string>
-    
-    <!-- Distance -->
     <string name="km_away">km away</string>
     <string name="m_away">m away</string>
     <string name="nearby">Nearby</string>
-    
-    <!-- Earnings -->
     <string name="my_earnings">My Earnings</string>
     <string name="total_earned">Total Earned</string>
     <string name="this_month">This Month</string>
     <string name="this_week">This Week</string>
     <string name="today">Today</string>
-    
-    <!-- Subscription -->
     <string name="subscription">Subscription</string>
     <string name="upgrade">Upgrade</string>
     <string name="free_plan">Free Plan</string>
     <string name="pro_plan">Pro Plan</string>
     <string name="premium_features">Premium Features</string>
-    
-    <!-- Errors -->
     <string name="something_went_wrong">Something went wrong</string>
     <string name="no_internet">No internet connection</string>
     <string name="try_again">Try again</string>
     <string name="no_jobs_found">No jobs found</string>
     <string name="session_expired">Session expired. Please login again.</string>
-    
-    <!-- Success Messages -->
     <string name="application_submitted">Application submitted!</string>
     <string name="job_posted">Job posted!</string>
     <string name="profile_updated">Profile updated!</string>
     <string name="saved_successfully">Saved successfully!</string>
-    
-    <!-- Bottom Navigation -->
     <string name="bottom_nav_jobs">Jobs</string>
     <string name="bottom_nav_my_jobs">My Jobs</string>
     <string name="bottom_nav_home">Home</string>
@@ -220,8 +183,6 @@
     <string name="bottom_nav_chat">Chat</string>
     <string name="bottom_nav_categories">Categories</string>
     <string name="bottom_nav_account">Account</string>
-    
-    <!-- Onboarding -->
     <string name="onboarding_title_1">Fast Trusted Service</string>
     <string name="onboarding_desc_1">Connect instantly with verified professionals for all your service needs.</string>
     <string name="onboarding_title_2">Real-time Tracking</string>
@@ -229,17 +190,11 @@
     <string name="onboarding_title_3">Hyper-local Jobs</string>
     <string name="onboarding_desc_3">Find opportunities nearby or hire local talent quickly and efficiently.</string>
     <string name="get_started">Get Started</string>
-    
-    <!-- Language Selection -->
     <string name="choose_language">Choose Your Language</string>
     <string name="select_preferred_language">Select your preferred language</string>
     <string name="change_later_in_settings">You can change this later in Settings</string>
-    
-    <!-- Location -->
     <string name="select_your_location">Select Your Location</string>
     <string name="tap_to_get_location">Tap to get location</string>
-    
-    <!-- Home Screen Additional -->
     <string name="recommended_jobs_near_you">Recommended Jobs Near You</string>
     <string name="jobs_for_you">Jobs For You</string>
     <string name="jobs_fits_for_you">Jobs Fits For You</string>
@@ -249,8 +204,6 @@
     <string name="jobs_coming_soon_message">We\'re working to bring you the best opportunities. Check back soon!</string>
     <string name="applied_to_all_jobs">You\'ve Applied to All Jobs!</string>
     <string name="applied_to_all_jobs_message">Great job! Check back soon for new opportunities.</string>
-    
-    <!-- My Jobs Screen -->
     <string name="applied_jobs">Applied Jobs</string>
     <string name="saved_jobs">Saved Jobs</string>
     <string name="no_applications_yet">No Applications Yet</string>
@@ -262,8 +215,6 @@
     <string name="withdraw">Withdraw</string>
     <string name="withdraw_application_title">Withdraw Application?</string>
     <string name="withdraw_application_message">Are you sure you want to withdraw your application? This action cannot be undone.</string>
-    
-    <!-- Job Description Screen -->
     <string name="payment_protected">Payment protected by</string>
     <string name="distance_unavailable">Distance unavailable</string>
     <string name="less_than_50m">less than 50m away</string>
@@ -272,14 +223,10 @@
     <string name="landmark">Landmark</string>
     <string name="whatsapp">WhatsApp</string>
     <string name="under_review">Under Review</string>
-    
-    <!-- Map Screen -->
     <string name="fetching_jobs">Fetching jobs...</string>
     <string name="loading_map">Loading map...</string>
     <string name="no_jobs_in_area">No jobs in this area</string>
     <string name="zoom_in_to_see_jobs">Zoom in to see jobs</string>
-    
-    <!-- Profile Screen -->
     <string name="account_settings">Account Settings</string>
     <string name="app_settings">App Settings</string>
     <string name="support">Support</string>
@@ -287,16 +234,12 @@
     <string name="delete_account">Delete Account</string>
     <string name="sign_out">Sign Out</string>
     <string name="are_you_sure_logout">Are you sure you want to logout?</string>
-    
-    <!-- Employer Dashboard -->
     <string name="dashboard">Dashboard</string>
     <string name="manage_jobs">Manage Jobs</string>
     <string name="applications_received">Applications Received</string>
     <string name="new_applicants">New Applicants</string>
     <string name="no_active_jobs">No Active Jobs</string>
     <string name="post_your_first_job">Post your first job to start hiring</string>
-    
-    <!-- DutyPe Promise -->
     <string name="dutype_promise">DutyPe Promise</string>
     <string name="your_safety_priority">Your safety is our priority</string>
     <string name="trusted">Trusted</string>
@@ -308,8 +251,6 @@
     <string name="on_time_payments">On-time payments</string>
     <string name="support_24_7">24/7 Support</string>
     <string name="always_here_to_help">Always here to help</string>
-    
-    <!-- Additional Profile Strings -->
     <string name="work_and_activity">Work &amp; Activity</string>
     <string name="help_and_info">Help &amp; Info</string>
     <string name="track_income_payments">Track your income &amp; payments</string>
@@ -320,8 +261,6 @@
     <string name="my_visiting_card">My Visiting Card</string>
     <string name="share_on_whatsapp_get_jobs">Share on WhatsApp &amp; get more jobs! 🚀</string>
     <string name="refer">Refer</string>
-    
-    <!-- Employer Profile -->
     <string name="business_and_jobs">Business &amp; Jobs</string>
     <string name="trust_badges">Trust Badges</string>
     <string name="view_verification_status">View your verification status</string>
@@ -332,8 +271,6 @@
     <string name="help_and_support">Help &amp; FAQs</string>
     <string name="more_settings">More Settings</string>
     <string name="your_company">Your Company</string>
-    
-    <!-- Map Screen Loading -->
     <string name="fetching_your_location">Fetching your location...</string>
     <string name="loading_nearby_jobs">Loading nearby jobs...</string>
     <string name="jobs_within">jobs within</string>
@@ -346,8 +283,6 @@
     <string name="vacancy">vacancy</string>
     <string name="available">Available</string>
     <string name="urgent_hiring_today">URGENT - Hiring Today!</string>
-    
-    <!-- Search -->
     <string name="search_jobs_companies">Search jobs, companies, locations...</string>
     <string name="no_results_found">No results found</string>
     <string name="no_jobs_match">No jobs match \"%s\"</string>
@@ -356,12 +291,8 @@
     <string name="job_singular">job</string>
     <string name="jobs_plural">jobs</string>
     <string name="saved_lowercase">saved</string>
-    
-    <!-- Profile Information -->
     <string name="profile_information">Profile Information</string>
     <string name="account_management">Account Management</string>
-    
-    <!-- Profile Setup -->
     <string name="personal_information">Personal Information</string>
     <string name="tell_us_about_yourself">Tell us about yourself</string>
     <string name="additional_details">Additional Details</string>
@@ -376,8 +307,6 @@
     <string name="tap_photo_to_change">Tap photo to change</string>
     <string name="tell_us_about_company">Tell us about your company</string>
     <string name="your_profile_is_complete">Your profile is complete!</string>
-    
-    <!-- Application Status -->
     <string name="status_pending">Pending</string>
     <string name="status_accepted">Accepted</string>
     <string name="status_rejected">Rejected</string>
@@ -386,43 +315,27 @@
     <string name="status_under_review">Under Review</string>
     <string name="status_hired">Hired</string>
     <string name="status_withdrawn">Withdrawn</string>
-    
-    <!-- Job Card Actions -->
     <string name="view_details">View Details</string>
     <string name="rate_employer">Rate Employer</string>
     <string name="start_work">Start Work</string>
     <string name="weeks_ago">weeks ago</string>
     <string name="already_rated">Already Rated</string>
     <string name="call">Call</string>
-    
-    <!-- Company Information -->
     <string name="company_information">Company Information</string>
     <string name="industry_required">Industry *</string>
-    
-    <!-- Profile Completion -->
     <string name="complete">Complete</string>
     <string name="complete_your_profile">Complete Your Profile</string>
     <string name="fields_missing">fields missing</string>
     <string name="missing_fields">Missing Fields</string>
-    
-    <!-- Time Ago -->
     <string name="just_now">Just now</string>
     <string name="minutes_ago">minutes ago</string>
     <string name="hours_ago">hours ago</string>
     <string name="days_ago">days ago</string>
     <string name="months_ago">months ago</string>
-    
-    <!-- Distance Format -->
     <string name="km_away_format">%.1f km away</string>
     <string name="m_away_format">%d m away</string>
-    
-    <!-- Salary -->
     <string name="negotiable">Negotiable</string>
-    
-    <!-- Logout -->
     <string name="logout_confirmation">Are you sure you want to logout?</string>
-    
-    <!-- Job Safety / AI Scam Detection -->
     <string name="job_safety_verified">Verified Safe</string>
     <string name="job_safety_looks_good">Looks Good</string>
     <string name="job_safety_caution">Proceed with Caution</string>
@@ -431,16 +344,12 @@
     <string name="job_safety_ai_analysis">AI Safety Analysis</string>
     <string name="job_safety_learn_more">Learn more about job safety →</string>
     <string name="job_safety_risk_score">Risk Score</string>
-    
-    <!-- Offline / Connectivity -->
     <string name="offline_message">You\'re offline. Check your internet connection.</string>
     <string name="offline_message_compact">No internet connection</string>
     <string name="offline_message_inline">Connect to internet to see latest updates</string>
     <string name="connecting">Connecting...</string>
     <string name="connected">Connected</string>
     <string name="reconnecting">Reconnecting...</string>
-    
-    <!-- Dialog & Button Actions -->
     <string name="change_language_title">Change Language</string>
     <string name="change_language_message">App will restart to apply the new language</string>
     <string name="yes_change">Yes, Change</string>
@@ -458,8 +367,6 @@
     <string name="withdraw_button">Withdraw</string>
     <string name="notes_optional">Notes (Optional)</string>
     <string name="edit_button">Edit</string>
-    
-    <!-- Job Posting Form Labels -->
     <string name="select_job_title">Select Job Title</string>
     <string name="tap_to_select_job_title">Tap to select a job title</string>
     <string name="enter_job_title">Enter Job Title</string>
@@ -474,8 +381,6 @@
     <string name="landmark_placeholder">e.g., Near Big Temple, Opposite Metro Station</string>
     <string name="post_a_job">Post a Job</string>
     <string name="ai_protected_posting">AI-Protected Posting</string>
-    
-    <!-- Additional UI Text -->
     <string name="notification_not_found">Notification not found</string>
     <string name="go_back">Go Back</string>
     <string name="delete_notification">Delete Notification</string>
@@ -525,17 +430,9 @@
     <string name="gender_label">Gender</string>
     <string name="generate_new_code">Generate New Code</string>
     <string name="done_button">Done</string>
-
-    <!-- ========================================================== -->
-    <!-- Telugu localization batch (Apr 2026)                       -->
-    <!-- ========================================================== -->
-
-    <!-- Common -->
     <string name="dismiss">Dismiss</string>
     <string name="role_worker">Worker</string>
     <string name="role_employer">Employer</string>
-
-    <!-- Role switch -->
     <string name="switch_to_role_title">Switch to %1$s?</string>
     <string name="switch_role_body">You are switching from %1$s to %2$s mode. Your active role will change and you will see the %2$s dashboard.</string>
     <string name="yes_switch">Yes, Switch</string>
@@ -544,11 +441,7 @@
     <string name="switching_roles">Switching roles\u2026</string>
     <string name="active_label">Active</string>
     <string name="tap_to_switch_role">Tap to switch</string>
-
-    <!-- Home -->
     <string name="view_analytics">View Analytics</string>
-
-    <!-- Profile / forms shared -->
     <string name="full_name_required">Full Name *</string>
     <string name="enter_full_name">Enter your full name</string>
     <string name="email_address_verified">Email Address (Verified)</string>
@@ -558,8 +451,6 @@
     <string name="phone_number_required">Phone Number *</string>
     <string name="enter_10_digit_phone">Enter 10-digit phone number</string>
     <string name="select_experience_level">Select your experience level</string>
-
-    <!-- Employer onboarding -->
     <string name="company_name_required">Company Name *</string>
     <string name="enter_company_name">Enter your company name</string>
     <string name="company_size_label">Company Size</string>
@@ -569,9 +460,6 @@
     <string name="contact_email_optional">Contact Email (Optional)</string>
     <string name="enter_email_address">Enter email address</string>
     <string name="select_date_of_birth">Select your date of birth</string>
-
-    <!-- Validation -->
-    <!-- Batch 2: Refer & Earn, Support, Edit/Post Job -->
     <string name="copy_button">Copy</string>
     <string name="share_button">Share</string>
     <string name="code_copied">Code copied!</string>
@@ -591,8 +479,6 @@
     <string name="top_performers">Top Performers</string>
     <string name="important_information">Important Information</string>
     <string name="terms_rbi_consent">By participating, you agree to our Terms &amp; Conditions and RBI guidelines.</string>
-
-    <!-- Support -->
     <string name="email_support">Email Support</string>
     <string name="whatsapp_support">WhatsApp Support</string>
     <string name="whatsapp_support_subtitle">Message us on WhatsApp</string>
@@ -604,8 +490,6 @@
     <string name="describe_problem">Describe the problem</string>
     <string name="submit_report">Submit Report</string>
     <string name="tutorial">Tutorial</string>
-
-    <!-- Edit/Post job -->
     <string name="updating">Updating...</string>
     <string name="update_job">Update Job</string>
     <string name="amount">Amount</string>
@@ -629,7 +513,6 @@
     <string name="enter_number_of_positions">Enter number of positions</string>
     <string name="max_50_vacancies_hint">Maximum 50 vacancies allowed for hyper-local jobs</string>
     <string name="your_name">Your Name</string>
-    <!-- Batch 3: misc remaining screens -->
     <string name="contact">Contact</string>
     <string name="shortlist">Shortlist</string>
     <string name="reject">Reject</string>
@@ -655,7 +538,6 @@
     <string name="applications">Applications</string>
     <string name="near_label">Near: </string>
     <string name="education_example_hint">Eg: 10th pass + 2 years</string>
-    <!-- Batch 4: support topics, profile/company details, analytics, about, settings, earnings -->
     <string name="getting_started">Getting Started</string>
     <string name="finding_jobs_faster">Finding Jobs Faster</string>
     <string name="applying_work_start">Applying &amp; Work Start</string>
@@ -746,7 +628,6 @@
     <string name="shift_label">Shift</string>
     <string name="about_us">About Us</string>
     <string name="login_required">Login Required</string>
-    <!-- Batch 5: misc UI screens & FAQ -->
     <string name="faq_why_not_seeing_jobs">Why am I not seeing enough jobs?</string>
     <string name="faq_track_application">How do I track my application status?</string>
     <string name="faq_contact_support">How do I contact support?</string>
@@ -781,19 +662,16 @@
     <string name="apply_for_job">Apply for Job</string>
     <string name="notification_label">Notification</string>
     <string name="dutype_tagline">Your all-in-one solution for finding the best local talent, on-demand.</string>
-    <!-- Tabs -->
     <string name="tab_timeline">Timeline</string>
     <string name="tab_active">Active</string>
     <string name="tab_expired">Expired</string>
     <string name="tab_all_jobs">All Jobs</string>
     <string name="tab_completed">Completed</string>
     <string name="tab_all_history">All History</string>
-    <!-- Post job step indicator -->
     <string name="step_role">Role</string>
     <string name="step_pay_place">Pay &amp; Place</string>
     <string name="step_people">People</string>
     <string name="step_review">Review</string>
-    <!-- Days short -->
     <string name="day_mon">Mon</string>
     <string name="day_tue">Tue</string>
     <string name="day_wed">Wed</string>
@@ -805,4 +683,357 @@
     <string name="step_pay_location">Pay &amp; Location</string>
     <string name="step_contact_info">Contact Info</string>
     <string name="step_review_post">Review &amp; Post</string>
+    <string name="about_worker_subtitle">Your gateway to reliable local jobs — daily, hourly, full-time.</string>
+    <string name="about_worker_mission">To empower workers by providing easy access to local job opportunities. Everyone deserves a chance to earn, grow, and succeed without complicated applications or lengthy processes.</string>
+    <string name="about_worker_vision">To become India’s most trusted platform for local employment, where every worker can find meaningful work that fits their skills, schedule, and location.</string>
+    <string name="about_feat_quick_apply">Quick one-tap job applications</string>
+    <string name="about_feat_jobs_near">Jobs near your location</string>
+    <string name="about_feat_realtime_notif">Real-time job notifications</string>
+    <string name="about_feat_save_jobs">Save jobs for later</string>
+    <string name="about_feat_track_apps">Track your applications</string>
+    <string name="about_feat_build_profile">Build your work profile</string>
+    <string name="about_cat_delivery">Delivery &amp;amp; Logistics</string>
+    <string name="about_cat_food">Food Service &amp;amp; Cooking</string>
+    <string name="about_cat_housekeeping">Housekeeping &amp;amp; Cleaning</string>
+    <string name="about_cat_shop">Shop &amp;amp; Retail Help</string>
+    <string name="about_cat_childcare">Childcare &amp;amp; Eldercare</string>
+    <string name="about_cat_maintenance">Maintenance &amp;amp; Repairs</string>
+    <string name="about_why_no_resume">No resume required</string>
+    <string name="about_why_verified_employers">Verified employers</string>
+    <string name="about_why_transparent_pay">Transparent pay information</string>
+    <string name="about_why_flexible_work">Flexible work options</string>
+    <string name="about_why_safe_platform">Safe and secure platform</string>
+    <string name="about_employer_mission">To empower businesses by providing a seamless, efficient, and reliable platform to connect with a flexible workforce — so you can focus on growing your business.</string>
+    <string name="about_employer_vision">To become the leading platform for on-demand employment in India, where businesses thrive with the right talent and workers find meaningful opportunities.</string>
+    <string name="about_emp_feat_post_jobs">Post jobs in minutes</string>
+    <string name="about_emp_feat_talent_pool">Access a large talent pool</string>
+    <string name="about_emp_feat_gps_attendance">GPS-based attendance tracking</string>
+    <string name="about_emp_feat_verified_workers">Verified worker profiles</string>
+    <string name="about_emp_feat_flexible_hiring">Flexible hiring options</string>
+    <string name="about_emp_feat_realtime_alerts">Real-time application alerts</string>
+    <string name="about_emp_feat_manage_postings">Manage multiple postings</string>
+    <string name="about_emp_feat_track_performance">Track worker performance</string>
+    <string name="about_emp_cat_delivery">Delivery Personnel</string>
+    <string name="about_emp_cat_kitchen">Kitchen &amp;amp; Cooking Staff</string>
+    <string name="about_emp_cat_housekeeping">Housekeeping &amp;amp; Cleaning</string>
+    <string name="about_emp_cat_shop">Shop Assistants &amp;amp; Retail</string>
+    <string name="about_emp_cat_childcare">Childcare &amp;amp; Eldercare</string>
+    <string name="about_emp_cat_maintenance_w">Maintenance Workers</string>
+    <string name="about_emp_cat_event">Event &amp;amp; Catering Staff</string>
+    <string name="about_emp_why_quick_hiring">Quick hiring process</string>
+    <string name="about_emp_why_verified_db">Verified worker database</string>
+    <string name="about_emp_why_cost_effective">Cost-effective solutions</string>
+    <string name="about_emp_why_24_7">24/7 platform access</string>
+    <string name="about_emp_why_support">Dedicated support team</string>
+    <string name="about_emp_val_efficiency">Efficiency in hiring</string>
+    <string name="about_emp_val_reliability">Reliability you can trust</string>
+    <string name="about_emp_val_transparency">Transparency in all dealings</string>
+    <string name="about_emp_val_empowerment">Empowerment for businesses</string>
+    <string name="about_made_in_bharat">Made with ❤️ in Bharat</string>
+    <string name="about_version_format">Version %1$s</string>
+    <string name="contact_us_need_help">Need Help?</string>
+    <string name="contact_us_subtitle">We\'re here to help. Choose how you\'d like to reach us.</string>
+    <string name="email_subject_support_request">DutyPe Support Request</string>
+    <string name="help_hero_title">How can we help?</string>
+    <string name="help_hero_subtitle">Search guides, browse FAQs, or chat with us directly.</string>
+    <string name="guide_getting_started_content">1. Complete your worker profile with skills and location\n2. Keep your phone and profile photo updated\n3. Turn on notifications to avoid missing jobs</string>
+    <string name="guide_finding_jobs_content">1. Use category tabs and filters\n2. Keep location access on for nearby jobs\n3. Save jobs to revisit quickly</string>
+    <string name="guide_applying_work_content">1. Open job details and apply\n2. Track status in My Jobs\n3. Use QR verification when starting work</string>
+    <string name="guide_building_reputation_content">1. Complete jobs on time\n2. Keep communication professional\n3. Maintain high ratings and profile completeness</string>
+    <string name="guide_getting_paid_content">1. Confirm pay terms before starting\n2. Use the in-app QR to mark work start &amp;amp; finish\n3. Never share OTP/UPI PIN with anyone</string>
+    <string name="faq_not_seeing_jobs_answer">Enable location permissions, set the correct city, and check different tabs (Hourly/Daily/Part-time).</string>
+    <string name="faq_track_application_answer">Open My Jobs or Applied Jobs. You can see pending, shortlisted, accepted, or rejected status there.</string>
+    <string name="faq_contact_support_answer">Tap WhatsApp Support above, or use Contact Us to reach us by email. Include screenshots for faster help.</string>
+    <string name="faq_improve_trust_answer">Complete profile details, keep work history accurate, and collect good ratings from completed jobs.</string>
+    <string name="faq_personal_data_safe_answer">Your contact details are only shared with employers after you apply. We never sell your data.</string>
+    <string name="faq_cant_apply_answer">Check your internet connection, restart the app, and ensure your profile is complete. If the issue stays, report it from below.</string>
+    <string name="whatsapp_worker_message">Hello DutyPe Team! I am a worker on DutyPe and I need help with the app.</string>
+    <string name="email_subject_worker_support">Worker Support</string>
+    <string name="no_matching_topics">No matching topics</string>
+    <string name="no_matching_topics_hint">Try a different keyword or message us on WhatsApp.</string>
+    <string name="tutorial_getting_started_title">Getting Started with DutyPe</string>
+    <string name="tutorial_step1_title">Create Your Profile</string>
+    <string name="tutorial_step1_desc">Sign up with your phone number and complete your profile with your skills and experience.</string>
+    <string name="tutorial_step2_title">Browse Jobs</string>
+    <string name="tutorial_step2_desc">Search for jobs near you by category, location, or keyword.</string>
+    <string name="tutorial_step3_title">Apply with One Tap</string>
+    <string name="tutorial_step3_desc">Found a job you like? Apply instantly or contact the employer via WhatsApp.</string>
+    <string name="tutorial_step4_title">Stay Safe</string>
+    <string name="tutorial_step4_desc">We use AI to detect scam jobs and protect you — look for safety badges!</string>
+    <string name="tutorial_step5_title">Build Your Reputation</string>
+    <string name="tutorial_step5_desc">Complete jobs, earn ratings, and unlock trust badges.</string>
+    <string name="employer_help_title">How can we help you?</string>
+    <string name="employer_help_subtitle">We\'re here to assist you with any questions</string>
+    <string name="employer_guide_getting_started_content">1. Complete your employer profile with company details\n2. Add your company logo and description\n3. Verify your phone number for security\n4. You\'re ready to post jobs!</string>
+    <string name="employer_guide_posting_job_content">1. Tap the \'+\' button on Home screen\n2. Fill in job title, category, and description\n3. Set salary range and work location\n4. Add job requirements and benefits\n5. Review and post your job</string>
+    <string name="employer_guide_managing_apps_content">1. Go to \'My Jobs\' to see all your postings\n2. Tap on a job to view applications\n3. Review applicant profiles and experience\n4. Shortlist or reject candidates\n5. Contact selected candidates directly</string>
+    <string name="employer_guide_verifying_work_content">1. Generate a QR code for the job\n2. Worker scans QR to start work\n3. After work completion, verify the work\n4. Worker scans QR again to mark complete\n5. Rate the worker\'s performance</string>
+    <string name="employer_guide_trust_score_content">• Complete your profile 100%\n• Post detailed job descriptions\n• Respond to applications promptly\n• Verify work completion properly\n• Maintain good ratings from workers</string>
+    <string name="employer_guide_best_practices_content">• Write clear job descriptions\n• Set realistic salary expectations\n• Respond to applicants within 24 hours\n• Provide accurate work location\n• Give fair ratings to workers\n• Keep your profile updated</string>
+    <string name="employer_faq_post_job_question">How do I post a job?</string>
+    <string name="employer_faq_post_job_answer">Go to the Home screen and tap the \'+\' button or navigate to \'Post Job\' from the bottom navigation. Fill in the job details including title, description, salary, and location, then tap \'Post Job\'.</string>
+    <string name="employer_faq_view_apps_question">How do I view applications?</string>
+    <string name="employer_faq_view_apps_answer">From your dashboard, tap on any posted job to see its applications. You can also go to \'My Jobs\' and select a job to view all applicants.</string>
+    <string name="employer_faq_contact_applicant_question">How do I contact an applicant?</string>
+    <string name="employer_faq_contact_applicant_answer">Open the applicant\'s profile from the applications list. You can view their details and contact information to reach out directly.</string>
+    <string name="employer_faq_edit_job_question">How do I edit or delete a job posting?</string>
+    <string name="employer_faq_edit_job_answer">Go to \'My Jobs\', find the job you want to modify, and tap on it. You\'ll see options to edit the job details or pause/delete the posting.</string>
+    <string name="employer_faq_payment_methods_question">What payment methods are accepted?</string>
+    <string name="employer_faq_payment_methods_answer">We currently support UPI, credit/debit cards, and net banking for any premium features or promoted job listings.</string>
+    <string name="employer_faq_switch_worker_question">How do I switch to worker mode?</string>
+    <string name="employer_faq_switch_worker_answer">Go to your Profile screen and toggle the \'Switch to Worker\' option. This allows you to browse and apply for jobs as a worker.</string>
+    <string name="whatsapp_employer_message">Hello DutyPe Team! I am an employer on DutyPe and I need help with the app.</string>
+    <string name="email_subject_employer_support">Employer Support</string>
+    <string name="email_subject_bug_report_employer">Bug Report - Employer App</string>
+    <string name="email_subject_feedback_employer">Feedback - Employer App</string>
+    <string name="employer_user_guide_header">User Guide</string>
+    <string name="employer_faq_header">Frequently Asked Questions</string>
+    <string name="employer_quick_links_header">Quick Links</string>
+    <string name="employer_legal_header">Legal &amp;amp; Policies</string>
+    <string name="refer_complete_profile_title">Complete Your Profile</string>
+    <string name="refer_complete_profile_button">Complete Profile</string>
+    <string name="refer_code_clipboard_label">Referral Code</string>
+    <string name="refer_share_chooser_title">Share Referral Code</string>
+    <string name="refer_successful_referrals_count">%1$d successful referrals</string>
+    <string name="refer_milestone_progress">%1$d / %2$d referrals</string>
+    <string name="refer_bonus_amount">Rs.%1$d bonus</string>
+    <string name="refer_free_posts_count">%1$d free posts</string>
+    <string name="refer_free_posts_available">%1$d posts available</string>
+    <string name="refer_expires_date">Expires: %1$s</string>
+    <string name="refer_step_2">They sign up using your code</string>
+    <string name="refer_step_3">You earn Rs.25 and they earn Rs.25 instantly</string>
+    <string name="refer_reward_per_referral">You earn Rs.25 for every successful referral</string>
+    <string name="refer_reward_friend_bonus">Your friend gets an instant Rs.25 signup bonus</string>
+    <string name="refer_reward_15">15 referrals: Rs.150 milestone bonus</string>
+    <string name="refer_reward_50">50 referrals: Rs.500 milestone bonus</string>
+    <string name="refer_reward_100">100 referrals: Rs.1000 milestone bonus</string>
+    <string name="refer_withdrawal_threshold_info">Withdrawals open once your available balance reaches Rs.50.</string>
+    <string name="refer_redeem_step_1">Tap the Withdraw button on this screen</string>
+    <string name="refer_redeem_step_2">Enter the amount and your UPI ID</string>
+    <string name="refer_redeem_step_3">Submit the request for payout review</string>
+    <string name="refer_redeem_step_4">Your referral wallet balance updates immediately after the request</string>
+    <string name="refer_min_withdrawal_info">Minimum withdrawal: Rs.50</string>
+    <string name="refer_you_earned">You: Rs.%1$s</string>
+    <string name="refer_milestone_earned">Milestone: Rs.%1$s</string>
+    <string name="refer_status_pending">Pending</string>
+    <string name="refer_status_expired">Expired</string>
+    <string name="refer_status_cancelled">Cancelled</string>
+    <string name="refer_available_balance">Available: Rs.%1$d</string>
+    <string name="refer_upi_placeholder">yourname@upi</string>
+    <string name="refer_error_min_withdrawal">Minimum withdrawal is Rs.%1$d</string>
+    <string name="refer_error_insufficient_balance">Insufficient balance</string>
+    <string name="refer_error_enter_upi">Enter UPI ID</string>
+    <string name="refer_error_invalid_upi">Invalid UPI ID format</string>
+    <string name="refer_performer_from_city">%1$s from %2$s</string>
+    <string name="refer_more_top_performers">+%1$d more top performers</string>
+    <string name="refer_legal_not_pyramid">\u2022 This is a legitimate referral program, not a pyramid scheme</string>
+    <string name="refer_legal_taxable">\u2022 Referral rewards are taxable income under Indian tax laws</string>
+    <string name="refer_legal_kyc">\u2022 KYC required for withdrawals &gt; \u20B910,000/year</string>
+    <string name="refer_legal_pan">\u2022 PAN card mandatory for withdrawals &gt; \u20B950,000/year</string>
+    <string name="refer_legal_fraud">\u2022 Fraudulent activity will result in account suspension</string>
+    <string name="refer_employer_complete_profile_desc">To generate your personalized referral code and start earning rewards, please complete your company profile first.</string>
+    <string name="refer_employer_share_text">Join DutyPe for hiring!\n\nUse my referral code: %1$s\n\nDownload DutyPe: %2$s\n\nFind reliable workers for your business and earn Rs.%3$d bonus!</string>
+    <string name="refer_employer_step_1">Share your referral code with employers or workers</string>
+    <string name="refer_employer_step_4">Reach milestones for bonus cash and free job posts</string>
+    <string name="refer_reward_5_employer">5 referrals: Rs.50 bonus + 5 free job posts</string>
+    <string name="refer_reward_10_employer">10 referrals: Rs.100 bonus + 10 free job posts</string>
+    <string name="refer_reward_25_employer">25 referrals: Rs.250 bonus + 25 free job posts</string>
+    <string name="refer_signup_bonus_earned">Signup bonus: Rs.%1$s</string>
+    <string name="refer_worker_complete_profile_desc">To generate your personalized referral code and start earning rewards, please complete your profile first.</string>
+    <string name="refer_worker_share_text">Join DutyPe and start earning!\n\nUse my referral code: %1$s\n\nDownload: %2$s\n\nFind local jobs near you and earn Rs.%3$d bonus!</string>
+    <string name="refer_worker_step_1">Share your referral code with friends</string>
+    <string name="refer_worker_step_4">Hit milestones to unlock extra bonus rewards</string>
+    <string name="refer_reward_5_worker">5 referrals: Rs.50 milestone bonus</string>
+    <string name="refer_reward_10_worker">10 referrals: Rs.100 milestone bonus</string>
+    <string name="refer_reward_25_worker">25 referrals: Rs.250 milestone bonus</string>
+    <string name="refer_friend_bonus_earned">Friend bonus: Rs.%1$s</string>
+    <string name="refer_share_friend_bonus">Share this code \u2192 friend gets \u20B9%1$d bonus!</string>
+    <string name="refer_default_user_name">User</string>
+<string name="recent_transactions">Recent Transactions</string>
+    <string name="total_earnings_label">Total Earnings</string>
+    <string name="pending_label">Pending</string>
+    <string name="weekly_earnings">Weekly Earnings</string>
+    <string name="period_this_week">This Week</string>
+    <string name="period_this_month">This Month</string>
+    <string name="period_last_month">Last Month</string>
+    <string name="period_3_months">3 Months</string>
+    <string name="period_all_time">All Time</string>
+    <string name="status_paid">Paid</string>
+    <string name="status_failed">Failed</string>
+    <string name="login_to_view_profile">Login to view and edit your profile</string>
+    <string name="login_to_view_applications">Login to view your job applications</string>
+    <string name="login_to_view_earnings">Login to view your earnings</string>
+    <string name="login_to_create_visiting_card">Login to create your digital visiting card</string>
+    <string name="login_to_refer_earn">Login to refer friends and earn rewards</string>
+    <string name="login_to_access_feature">Please login to access this feature</string>
+    <string name="contact_unlocked">Contact unlocked! ✅</string>
+    <string name="payment_failed_error">Payment failed: %1$s</string>
+    <string name="unlock_contact">Unlock Contact</string>
+    <string name="unlock_worker_contact_desc">Unlock %1$s\'s contact details to reach out directly.</string>
+    <string name="unlock_price">Unlock Price</string>
+    <string name="benefit_phone_number">📞 Get phone number instantly</string>
+    <string name="benefit_direct_communication">💬 Direct communication</string>
+    <string name="benefit_faster_hiring">⚡ Faster hiring process</string>
+    <string name="pay_and_unlock">Pay ₹%1$d &amp;amp; Unlock</string>
+    <string name="payment_details">Payment Details</string>
+<string name="history_no_work_history">No work history yet</string>
+    <string name="history_complete_jobs_timeline">Complete jobs to build your work timeline</string>
+    <string name="history_no_completed_jobs">No completed jobs</string>
+    <string name="history_completed_appear_here">Completed jobs will appear here</string>
+    <string name="history_no_applications_yet">No applications yet</string>
+    <string name="history_applications_appear_here">Your job applications will appear here</string>
+    <string name="history_no_applications">No applications</string>
+    <string name="history_your_applications_here">Your applications will appear here</string>
+    <string name="history_applied_time">Applied %1$s</string>
+    <string name="history_failed_load_jobs">Failed to load jobs</string>
+    <string name="history_view_applications">View applications</string>
+    <string name="history_expired">Expired</string>
+    <string name="history_expires_today">Expires today</string>
+    <string name="history_1_day_left">1 day left</string>
+    <string name="history_days_left">%1$d days left</string>
+    <string name="history_no_job_posting">No job posting history</string>
+    <string name="history_start_posting_timeline">Start posting jobs to build your timeline</string>
+    <string name="history_no_active_jobs">No active jobs</string>
+    <string name="history_active_postings_here">Your active job postings will appear here</string>
+    <string name="history_no_expired_jobs">No expired jobs</string>
+    <string name="history_expired_postings_here">Expired job postings will appear here</string>
+    <string name="history_no_jobs_posted">No jobs posted yet</string>
+    <string name="history_start_posting_here">Start posting jobs to see them here</string>
+    <string name="history_no_jobs">No jobs</string>
+    <string name="history_postings_appear_here">Your job postings will appear here</string>
+    <string name="history_posted_date">Posted %1$s</string>
+    <string name="history_status_paused">Paused</string>
+    <string name="history_status_active">Active</string>
+    <string name="notif_failed_load">Failed to load notifications</string>
+    <string name="notif_retry">Retry</string>
+    <string name="notif_no_notifications">No notifications yet</string>
+    <string name="notif_worker_empty_desc">You\'ll see application updates, interview schedules, and job recommendations here.</string>
+    <string name="notif_preview_title">Preview Notifications</string>
+    <string name="notif_worker_preview_desc">These are the alerts you\'ll receive after login.</string>
+    <string name="notif_worker_preview_1_title">🔥 27 workers applied in your area in the last hour</string>
+    <string name="notif_worker_preview_1_desc">Login to unlock instant apply before these jobs close.</string>
+    <string name="notif_worker_preview_2_title">💡 Your profile is 3x more likely to get shortlisted</string>
+    <string name="notif_worker_preview_2_desc">Complete your profile and start receiving better matches.</string>
+    <string name="notif_worker_preview_3_title">⏳ Early applications get faster responses</string>
+    <string name="notif_worker_preview_3_desc">Open top jobs and apply in one tap after login.</string>
+    <string name="notif_worker_login_toast">Login or Register to unlock real notifications and track your applications.</string>
+    <string name="notif_delete">Delete</string>
+    <string name="notif_swipe_to_delete">← Swipe to delete</string>
+    <string name="notif_employer_empty_desc">You\'ll see job applications, job status updates, and other important updates here.</string>
+    <string name="notif_employer_preview_desc">Sign in to get live hiring alerts.</string>
+    <string name="notif_employer_preview_1_title">📥 5 new candidates viewed your job today</string>
+    <string name="notif_employer_preview_1_desc">Review profiles before they get hired elsewhere.</string>
+    <string name="notif_employer_preview_2_title">⚡ Fast responders hire 2x quicker</string>
+    <string name="notif_employer_preview_2_desc">Open applications and reply in minutes, not hours.</string>
+    <string name="notif_employer_preview_3_title">🎯 One small update can increase quality applications</string>
+    <string name="notif_employer_preview_3_desc">Refresh your post and attract better-fit workers.</string>
+    <string name="notif_employer_login_toast">Sign in to view notifications</string>
+    <string name="notif_not_found">Notification not found</string>
+    <string name="notif_job_label">Job: %1$s</string>
+    <string name="notif_action_view_applications">View My Applications</string>
+    <string name="notif_action_view_job_details">View Job Details</string>
+    <string name="notif_action_browse_jobs">Browse Jobs</string>
+    <string name="notif_type_application_update">Application Update</string>
+    <string name="notif_type_shortlisted">Shortlisted</string>
+    <string name="notif_type_interview">Interview</string>
+    <string name="notif_type_message">Message</string>
+    <string name="notif_type_new_job">New Job</string>
+    <string name="notif_type_recommended">Recommended</string>
+    <string name="notif_type_job_posted">Job Posted</string>
+    <string name="notif_type_job_update">Job Update</string>
+    <string name="notif_type_system">System</string>
+    <string name="notif_type_notification">Notification</string>
+    <string name="post_job_success">Job posted successfully!</string>
+    <string name="post_job_error">Error posting job: %1$s</string>
+    <string name="post_job_checklist_title_desc">Add a clear title and description</string>
+    <string name="post_job_checklist_pay_location">Set pay and work location</string>
+    <string name="post_job_checklist_contact">Add contact details</string>
+    <string name="post_job_checklist_pin_location">Pin the exact job location</string>
+    <string name="post_job_location_mismatch_title">Location Mismatch Detected</string>
+    <string name="post_job_location_mismatch_desc">Your current location is %1$s km away from the job location.</string>
+    <string name="post_job_location_mismatch_info">🛡️ This check helps prevent remote scam centers from posting fake local jobs.</string>
+    <string name="post_job_location_confirm">Are you sure you want to post this job?</string>
+    <string name="post_job_blocked_title">Job Posting Blocked</string>
+    <string name="post_job_blocked_info">🛡️ DutyPe is for local, in-person jobs only.</string>
+    <string name="post_job_blocked_desc">Work-from-home, online jobs, and data entry jobs are not allowed to protect workers from scams.</string>
+    <string name="post_job_pay_too_low">Pay Rate Too Low</string>
+    <string name="post_job_pay_too_high">Pay Rate Too High</string>
+    <string name="post_job_market_rate">📊 Market Rate for %1$s:</string>
+    <string name="post_job_skeptical_pay">You can still post this job, but workers may be skeptical of %1$s pay rates.</string>
+    <string name="post_job_complete_profile_title">Complete Your Profile</string>
+    <string name="post_job_complete_profile_desc">You need to complete your profile before posting jobs.</string>
+    <string name="post_job_profile_progress">Profile: %1$d%% complete (need 80%%)</string>
+    <string name="post_job_missing_fields">Missing: %1$s</string>
+    <string name="post_job_image_uploaded">Image uploaded successfully!</string>
+    <string name="post_job_image_upload_failed">Failed to upload image: %1$s</string>
+    <string name="post_job_schedule_urgency">Work Schedule &amp;amp; Urgency</string>
+    <string name="post_job_worker_preview">Worker-facing preview</string>
+    <string name="post_job_ready_percent">%1$d%% ready</string>
+    <string name="post_job_launch_checklist">Launch Checklist</string>
+    <string name="post_job_step_of">Step %1$d of %2$d</string>
+    <string name="post_job_title_label">Job Title</string>
+    <string name="post_job_select_position">Select the position you\'re hiring for</string>
+    <string name="post_job_local_only_warning">Only local, in-person jobs allowed. No online or WFH jobs.</string>
+    <string name="post_job_category_label">Category: %1$s</string>
+    <string name="post_job_custom_category">Custom: %1$s</string>
+    <string name="post_job_work_type">Work Type</string>
+    <string name="post_job_work_type_desc">Full-time, part-time or flexible?</string>
+    <string name="post_job_how_much_pay">How much will you pay?</string>
+    <string name="post_job_market_rate_for">Market rate for %1$s:</string>
+    <string name="post_job_work_location">Work Location</string>
+    <string name="post_job_requirements">Job Requirements</string>
+    <string name="post_job_looking_for">Who are you looking for?</string>
+    <string name="post_job_gender_preference">Gender Preference</string>
+    <string name="post_job_perks_benefits">Perks &amp;amp; Benefits</string>
+    <string name="post_job_attract_candidates">Attract more candidates</string>
+    <string name="post_job_selected_count">%1$d selected</string>
+    <string name="post_job_add_own_perk">Add your own perk</string>
+    <string name="post_job_perk_placeholder">Type any extra benefit (e.g. Gym membership, Festival bonus)</string>
+    <string name="jobs_loading_more">Loading more jobs...</string>
+    <string name="jobs_something_went_wrong">Something went wrong</string>
+    <string name="jobs_unable_to_load">Unable to load jobs. Please try again.</string>
+    <string name="jobs_filter_title">Filter Jobs</string>
+    <string name="jobs_filter_subtitle">Sort, salary, distance, experience and work type</string>
+    <string name="jobs_sort_by">Sort By</string>
+    <string name="jobs_pay_type">Pay Type</string>
+    <string name="jobs_salary_range">Salary Range</string>
+    <string name="jobs_max_distance">Maximum Distance</string>
+    <string name="jobs_fine_tune_distance">Fine-tune: %1$d km</string>
+    <string name="jobs_showing_all">Showing all jobs regardless of distance</string>
+    <string name="jobs_experience_level">Experience Level</string>
+    <string name="jobs_apply_filters">Apply Filters</string>
+    <string name="map_500m">500m</string>
+    <string name="map_1km">1km</string>
+    <string name="map_2km">2km</string>
+    <string name="map_5km">5km</string>
+    <string name="map_10km">10km</string>
+    <string name="map_all">All</string>
+    <string name="map_urgent_hiring">URGENT - Hiring Today!</string>
+    <string name="map_available">✓ Available</string>
+    <string name="map_per_hour">/hour</string>
+    <string name="map_per_month">/month</string>
+    <string name="map_per_day">/day</string>
+    <string name="map_meters_away">%1$dm away</string>
+    <string name="map_km_away">%1$s km away</string>
+    <string name="profile_tap_add_name">Tap to add your name</string>
+    <string name="profile_set_up_profile">Set up your profile</string>
+    <string name="profile_tap_add_details">Tap to add your details</string>
+    <string name="profile_login_signup">Log in / Sign up</string>
+    <string name="profile_view_update_data">View and update your profile data</string>
+    <string name="profile_my_activity">My Activity</string>
+    <string name="profile_rewards">Rewards</string>
+    <string name="profile_badge_new">New</string>
+    <string name="profile_others">Others</string>
+    <string name="profile_edit_profile">Edit Profile</string>
+    <string name="profile_photo_updated">Profile photo updated successfully!</string>
+    <string name="profile_photo_upload_failed">Failed to upload photo. Please try again.</string>
+    <string name="profile_login_to_upload">Please login to upload photo</string>
+    <string name="profile_photo_upload_error">Error uploading photo</string>
+    <string name="profile_details_title">Profile Details</string>
+    <string name="profile_no_ratings">No ratings yet</string>
+    <string name="profile_saved">Profile saved successfully!</string>
+    <string name="profile_save_failed">Failed to save profile</string>
+    <string name="profile_add_your_name">Add Your Name</string>
+    <string name="profile_tap_photo_change">Tap photo to change</string>
+    <string name="profile_not_provided">Not provided</string>
 </resources>

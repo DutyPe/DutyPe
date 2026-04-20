@@ -142,7 +142,7 @@ fun EmployerNotificationScreen(
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
-                            text = "Failed to load notifications",
+                            text = stringResource(R.string.notif_failed_load),
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.Gray
                         )
@@ -189,13 +189,13 @@ fun EmployerNotificationScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = "No notifications yet",
+                                    text = stringResource(R.string.notif_no_notifications),
                                     style = MaterialTheme.typography.headlineSmall,
                                     color = Color(0xFF1F2937),
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "You'll see job applications, job status updates, and other important updates here.",
+                                    text = stringResource(R.string.notif_employer_empty_desc),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xFF6B7280),
                                     modifier = Modifier.padding(horizontal = 40.dp),
@@ -266,9 +266,9 @@ private fun GuestEmployerNotificationPreview(
 ) {
     val context = LocalContext.current
     val previewItems = listOf(
-        Pair("📥 5 new candidates viewed your job today", "Review profiles before they get hired elsewhere."),
-        Pair("⚡ Fast responders hire 2x quicker", "Open applications and reply in minutes, not hours."),
-        Pair("🎯 One small update can increase quality applications", "Refresh your post and attract better-fit workers.")
+        Pair(stringResource(R.string.notif_employer_preview_1_title), stringResource(R.string.notif_employer_preview_1_desc)),
+        Pair(stringResource(R.string.notif_employer_preview_2_title), stringResource(R.string.notif_employer_preview_2_desc)),
+        Pair(stringResource(R.string.notif_employer_preview_3_title), stringResource(R.string.notif_employer_preview_3_desc))
     )
 
     Column(
@@ -279,14 +279,14 @@ private fun GuestEmployerNotificationPreview(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Preview Notifications",
+            text = stringResource(R.string.notif_preview_title),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1F2937)
             )
         )
         Text(
-            text = "Sign in to get live hiring alerts.",
+            text = stringResource(R.string.notif_employer_preview_desc),
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
         )
 
@@ -295,7 +295,7 @@ private fun GuestEmployerNotificationPreview(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        Toast.makeText(context, "Sign in to view notifications", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.notif_employer_login_toast), Toast.LENGTH_SHORT).show()
                     },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
@@ -353,13 +353,13 @@ fun EmployerSwipeToDeleteNotificationItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Delete",
+                        text = stringResource(R.string.notif_delete),
                         color = Color.White,
                         fontWeight = FontWeight.Medium
                     )
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.notif_delete),
                         tint = Color.White
                     )
                 }
@@ -469,7 +469,7 @@ fun EmployerNotificationItemContent(
                 if (!notification.isRead) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "← Swipe to delete",
+                        text = stringResource(R.string.notif_swipe_to_delete),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFFBDBDBD),
                         fontSize = 10.sp

@@ -57,7 +57,7 @@ fun WorkerAboutScreen(
         ) {
             AboutHero(
                 title = stringResource(R.string.welcome_to_dutype),
-                subtitle = "Your gateway to reliable local jobs \u2014 daily, hourly, full-time.",
+                subtitle = stringResource(R.string.about_worker_subtitle),
                 accentColor = accent,
                 badgeEmoji = "\uD83D\uDC4B"
             )
@@ -68,7 +68,7 @@ fun WorkerAboutScreen(
                 icon = "\uD83C\uDFAF"
             ) {
                 AboutParagraph(
-                    text = "To empower workers by providing easy access to local job opportunities. Everyone deserves a chance to earn, grow, and succeed without complicated applications or lengthy processes."
+                    text = stringResource(R.string.about_worker_mission)
                 )
             }
 
@@ -78,7 +78,7 @@ fun WorkerAboutScreen(
                 icon = "\uD83D\uDD2D"
             ) {
                 AboutParagraph(
-                    text = "To become India\u2019s most trusted platform for local employment, where every worker can find meaningful work that fits their skills, schedule, and location."
+                    text = stringResource(R.string.about_worker_vision)
                 )
             }
 
@@ -87,12 +87,12 @@ fun WorkerAboutScreen(
                 accentColor = Color(0xFF2563EB),
                 icon = "\u2728"
             ) {
-                AboutBullet("Quick one-tap job applications", accent)
-                AboutBullet("Jobs near your location", accent)
-                AboutBullet("Real-time job notifications", accent)
-                AboutBullet("Save jobs for later", accent)
-                AboutBullet("Track your applications", accent)
-                AboutBullet("Build your work profile", accent)
+                AboutBullet(stringResource(R.string.about_feat_quick_apply), accent)
+                AboutBullet(stringResource(R.string.about_feat_jobs_near), accent)
+                AboutBullet(stringResource(R.string.about_feat_realtime_notif), accent)
+                AboutBullet(stringResource(R.string.about_feat_save_jobs), accent)
+                AboutBullet(stringResource(R.string.about_feat_track_apps), accent)
+                AboutBullet(stringResource(R.string.about_feat_build_profile), accent)
             }
 
             AboutSectionCard(
@@ -100,12 +100,12 @@ fun WorkerAboutScreen(
                 accentColor = Color(0xFFEF4444),
                 icon = "\uD83D\uDEE0\uFE0F"
             ) {
-                AboutBullet("Delivery & Logistics", Color(0xFFEF4444))
-                AboutBullet("Food Service & Cooking", Color(0xFFEF4444))
-                AboutBullet("Housekeeping & Cleaning", Color(0xFFEF4444))
-                AboutBullet("Shop & Retail Help", Color(0xFFEF4444))
-                AboutBullet("Childcare & Eldercare", Color(0xFFEF4444))
-                AboutBullet("Maintenance & Repairs", Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_delivery), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_food), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_housekeeping), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_shop), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_childcare), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_maintenance), Color(0xFFEF4444))
             }
 
             AboutSectionCard(
@@ -113,11 +113,11 @@ fun WorkerAboutScreen(
                 accentColor = Color(0xFF8B5CF6),
                 icon = "\uD83D\uDC8E"
             ) {
-                AboutBullet("No resume required", Color(0xFF8B5CF6))
-                AboutBullet("Verified employers", Color(0xFF8B5CF6))
-                AboutBullet("Transparent pay information", Color(0xFF8B5CF6))
-                AboutBullet("Flexible work options", Color(0xFF8B5CF6))
-                AboutBullet("Safe and secure platform", Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_why_no_resume), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_why_verified_employers), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_why_transparent_pay), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_why_flexible_work), Color(0xFF8B5CF6))
+                AboutBullet(stringResource(R.string.about_why_safe_platform), Color(0xFF8B5CF6))
             }
 
             Spacer(modifier = Modifier.height(8.dp))

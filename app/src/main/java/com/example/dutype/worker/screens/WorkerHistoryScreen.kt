@@ -368,10 +368,10 @@ private fun TimelineJobCard(
 @Composable
 private fun EmptyHistoryState(selectedTab: Int) {
     val (message, subMessage, icon) = when (selectedTab) {
-        0 -> Triple("No work history yet", "Complete jobs to build your work timeline", Icons.Default.Timeline)
-        1 -> Triple("No completed jobs", "Completed jobs will appear here", Icons.Default.CheckCircle)
-        2 -> Triple("No applications yet", "Your job applications will appear here", Icons.Default.History)
-        else -> Triple("No applications", "Your applications will appear here", Icons.Default.History)
+        0 -> Triple(stringResource(R.string.history_no_work_history), stringResource(R.string.history_complete_jobs_timeline), Icons.Default.Timeline)
+        1 -> Triple(stringResource(R.string.history_no_completed_jobs), stringResource(R.string.history_completed_appear_here), Icons.Default.CheckCircle)
+        2 -> Triple(stringResource(R.string.history_no_applications_yet), stringResource(R.string.history_applications_appear_here), Icons.Default.History)
+        else -> Triple(stringResource(R.string.history_no_applications), stringResource(R.string.history_your_applications_here), Icons.Default.History)
     }
     
     Box(
@@ -480,7 +480,7 @@ private fun HistoryApplicationCard(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Applied ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
+                text = stringResource(R.string.history_applied_time, DateTimeUtils.formatRelativeTime(application.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )

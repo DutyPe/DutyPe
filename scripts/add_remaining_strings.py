@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+"""Add work history, notification, post job, all jobs, map, and profile strings."""
+import xml.etree.ElementTree as ET
+import os
+
+BASE = os.path.join(os.path.dirname(__file__), '..', 'app', 'src', 'main', 'res')
+
+EN_STRINGS = [
+    # === WORK HISTORY - Worker ===
+    ("history_no_work_history", "No work history yet"),
+    ("history_complete_jobs_timeline", "Complete jobs to build your work timeline"),
+    ("history_no_completed_jobs", "No completed jobs"),
+    ("history_completed_appear_here", "Completed jobs will appear here"),
+    ("history_no_applications_yet", "No applications yet"),
+    ("history_applications_appear_here", "Your job applications will appear here"),
+    ("history_no_applications", "No applications"),
+    ("history_your_applications_here", "Your applications will appear here"),
+    ("history_applied_time", "Applied %1$s"),
+
+    # === WORK HISTORY - Employer ===
+    ("history_failed_load_jobs", "Failed to load jobs"),
+    ("history_view_applications", "View applications"),
+    ("history_expired", "Expired"),
+    ("history_expires_today", "Expires today"),
+    ("history_1_day_left", "1 day left"),
+    ("history_days_left", "%1$d days left"),
+    ("history_no_job_posting", "No job posting history"),
+    ("history_start_posting_timeline", "Start posting jobs to build your timeline"),
+    ("history_no_active_jobs", "No active jobs"),
+    ("history_active_postings_here", "Your active job postings will appear here"),
+    ("history_no_expired_jobs", "No expired jobs"),
+    ("history_expired_postings_here", "Expired job postings will appear here"),
+    ("history_no_jobs_posted", "No jobs posted yet"),
+    ("history_start_posting_here", "Start posting jobs to see them here"),
+    ("history_no_jobs", "No jobs"),
+    ("history_postings_appear_here", "Your job postings will appear here"),
+    ("history_posted_date", "Posted %1$s"),
+    ("history_status_paused", "Paused"),
+    ("history_status_active", "Active"),
+
+    # === NOTIFICATIONS - Worker ===
+    ("notif_failed_load", "Failed to load notifications"),
+    ("notif_retry", "Retry"),
+    ("notif_no_notifications", "No notifications yet"),
+    ("notif_worker_empty_desc", "You\\'ll see application updates, interview schedules, and job recommendations here."),
+    ("notif_preview_title", "Preview Notifications"),
+    ("notif_worker_preview_desc", "These are the alerts you\\'ll receive after login."),
+    ("notif_worker_preview_1_title", "\U0001F525 27 workers applied in your area in the last hour"),
+    ("notif_worker_preview_1_desc", "Login to unlock instant apply before these jobs close."),
+    ("notif_worker_preview_2_title", "\U0001F4A1 Your profile is 3x more likely to get shortlisted"),
+    ("notif_worker_preview_2_desc", "Complete your profile and start receiving better matches."),
+    ("notif_worker_preview_3_title", "\u23F3 Early applications get faster responses"),
+    ("notif_worker_preview_3_desc", "Open top jobs and apply in one tap after login."),
+    ("notif_worker_login_toast", "Login or Register to unlock real notifications and track your applications."),
+    ("notif_delete", "Delete"),
+    ("notif_swipe_to_delete", "\u2190 Swipe to delete"),
+
+    # === NOTIFICATIONS - Employer ===
+    ("notif_employer_empty_desc", "You\\'ll see job applications, job status updates, and other important updates here."),
+    ("notif_employer_preview_desc", "Sign in to get live hiring alerts."),
+    ("notif_employer_preview_1_title", "\U0001F4E5 5 new candidates viewed your job today"),
+    ("notif_employer_preview_1_desc", "Review profiles before they get hired elsewhere."),
+    ("notif_employer_preview_2_title", "\u26A1 Fast responders hire 2x quicker"),
+    ("notif_employer_preview_2_desc", "Open applications and reply in minutes, not hours."),
+    ("notif_employer_preview_3_title", "\U0001F3AF One small update can increase quality applications"),
+    ("notif_employer_preview_3_desc", "Refresh your post and attract better-fit workers."),
+    ("notif_employer_login_toast", "Sign in to view notifications"),
+
+    # === NOTIFICATION DETAIL ===
+    ("notif_not_found", "Notification not found"),
+    ("notif_job_label", "Job: %1$s"),
+    ("notif_action_view_applications", "View My Applications"),
+    ("notif_action_view_job_details", "View Job Details"),
+    ("notif_action_browse_jobs", "Browse Jobs"),
+    ("notif_type_application_update", "Application Update"),
+    ("notif_type_shortlisted", "Shortlisted"),
+    ("notif_type_interview", "Interview"),
+    ("notif_type_message", "Message"),
+    ("notif_type_new_job", "New Job"),
+    ("notif_type_recommended", "Recommended"),
+    ("notif_type_job_posted", "Job Posted"),
+    ("notif_type_job_update", "Job Update"),
+    ("notif_type_system", "System"),
+    ("notif_type_notification", "Notification"),
+
+    # === POST JOB SCREEN ===
+    ("post_job_success", "Job posted successfully!"),
+    ("post_job_error", "Error posting job: %1$s"),
+    ("post_job_checklist_title_desc", "Add a clear title and description"),
+    ("post_job_checklist_pay_location", "Set pay and work location"),
+    ("post_job_checklist_contact", "Add contact details"),
+    ("post_job_checklist_pin_location", "Pin the exact job location"),
+    ("post_job_location_mismatch_title", "Location Mismatch Detected"),
+    ("post_job_location_mismatch_desc", "Your current location is %1$s km away from the job location."),
+    ("post_job_location_mismatch_info", "\U0001F6E1\uFE0F This check helps prevent remote scam centers from posting fake local jobs."),
+    ("post_job_location_confirm", "Are you sure you want to post this job?"),
+    ("post_job_blocked_title", "Job Posting Blocked"),
+    ("post_job_blocked_info", "\U0001F6E1\uFE0F DutyPe is for local, in-person jobs only."),
+    ("post_job_blocked_desc", "Work-from-home, online jobs, and data entry jobs are not allowed to protect workers from scams."),
+    ("post_job_pay_too_low", "Pay Rate Too Low"),
+    ("post_job_pay_too_high", "Pay Rate Too High"),
+    ("post_job_market_rate", "\U0001F4CA Market Rate for %1$s:"),
+    ("post_job_skeptical_pay", "You can still post this job, but workers may be skeptical of %1$s pay rates."),
+    ("post_job_complete_profile_title", "Complete Your Profile"),
+    ("post_job_complete_profile_desc", "You need to complete your profile before posting jobs."),
+    ("post_job_profile_progress", "Profile: %1$d%% complete (need 80%%)"),
+    ("post_job_missing_fields", "Missing: %1$s"),
+    ("post_job_image_uploaded", "Image uploaded successfully!"),
+    ("post_job_image_upload_failed", "Failed to upload image: %1$s"),
+    ("post_job_schedule_urgency", "Work Schedule &amp; Urgency"),
+    ("post_job_worker_preview", "Worker-facing preview"),
+    ("post_job_ready_percent", "%1$d%% ready"),
+    ("post_job_launch_checklist", "Launch Checklist"),
+    ("post_job_step_of", "Step %1$d of %2$d"),
+    ("post_job_title_label", "Job Title"),
+    ("post_job_select_position", "Select the position you\\'re hiring for"),
+    ("post_job_local_only_warning", "Only local, in-person jobs allowed. No online or WFH jobs."),
+    ("post_job_category_label", "Category: %1$s"),
+    ("post_job_custom_category", "Custom: %1$s"),
+    ("post_job_work_type", "Work Type"),
+    ("post_job_work_type_desc", "Full-time, part-time or flexible?"),
+    ("post_job_how_much_pay", "How much will you pay?"),
+    ("post_job_market_rate_for", "Market rate for %1$s:"),
+    ("post_job_work_location", "Work Location"),
+    ("post_job_requirements", "Job Requirements"),
+    ("post_job_looking_for", "Who are you looking for?"),
+    ("post_job_gender_preference", "Gender Preference"),
+    ("post_job_perks_benefits", "Perks &amp; Benefits"),
+    ("post_job_attract_candidates", "Attract more candidates"),
+    ("post_job_selected_count", "%1$d selected"),
+    ("post_job_add_own_perk", "Add your own perk"),
+    ("post_job_perk_placeholder", "Type any extra benefit (e.g. Gym membership, Festival bonus)"),
+
+    # === ALL JOBS SCREEN ===
+    ("jobs_loading_more", "Loading more jobs..."),
+    ("jobs_something_went_wrong", "Something went wrong"),
+    ("jobs_unable_to_load", "Unable to load jobs. Please try again."),
+    ("jobs_filter_title", "Filter Jobs"),
+    ("jobs_filter_subtitle", "Sort, salary, distance, experience and work type"),
+    ("jobs_sort_by", "Sort By"),
+    ("jobs_pay_type", "Pay Type"),
+    ("jobs_salary_range", "Salary Range"),
+    ("jobs_max_distance", "Maximum Distance"),
+    ("jobs_fine_tune_distance", "Fine-tune: %1$d km"),
+    ("jobs_showing_all", "Showing all jobs regardless of distance"),
+    ("jobs_experience_level", "Experience Level"),
+    ("jobs_apply_filters", "Apply Filters"),
+
+    # === JOB MAP SCREEN ===
+    ("map_500m", "500m"),
+    ("map_1km", "1km"),
+    ("map_2km", "2km"),
+    ("map_5km", "5km"),
+    ("map_10km", "10km"),
+    ("map_all", "All"),
+    ("map_urgent_hiring", "URGENT - Hiring Today!"),
+    ("map_available", "\u2713 Available"),
+    ("map_per_hour", "/hour"),
+    ("map_per_month", "/month"),
+    ("map_per_day", "/day"),
+    ("map_meters_away", "%1$dm away"),
+    ("map_km_away", "%1$s km away"),
+
+    # === WORKER PROFILE ===
+    ("profile_tap_add_name", "Tap to add your name"),
+    ("profile_set_up_profile", "Set up your profile"),
+    ("profile_tap_add_details", "Tap to add your details"),
+    ("profile_login_signup", "Log in / Sign up"),
+    ("profile_view_update_data", "View and update your profile data"),
+    ("profile_my_activity", "My Activity"),
+    ("profile_rewards", "Rewards"),
+    ("profile_badge_new", "New"),
+    ("profile_others", "Others"),
+    ("profile_edit_profile", "Edit Profile"),
+
+    # === WORKER PROFILE DETAILS ===
+    ("profile_photo_updated", "Profile photo updated successfully!"),
+    ("profile_photo_upload_failed", "Failed to upload photo. Please try again."),
+    ("profile_login_to_upload", "Please login to upload photo"),
+    ("profile_photo_upload_error", "Error uploading photo"),
+    ("profile_details_title", "Profile Details"),
+    ("profile_no_ratings", "No ratings yet"),
+    ("profile_saved", "Profile saved successfully!"),
+    ("profile_save_failed", "Failed to save profile"),
+    ("profile_add_your_name", "Add Your Name"),
+    ("profile_tap_photo_change", "Tap photo to change"),
+    ("profile_not_provided", "Not provided"),
+]
+
+TE_STRINGS = [
+    # === WORK HISTORY - Worker ===
+    ("history_no_work_history", "\u0c2a\u0c28\u0c3f \u0c1a\u0c30\u0c3f\u0c24\u0c4d\u0c30 \u0c07\u0c02\u0c15\u0c3e \u0c32\u0c47\u0c26\u0c41"),
+    ("history_complete_jobs_timeline", "\u0c2e\u0c40 \u0c2a\u0c28\u0c3f \u0c1f\u0c48\u0c2e\u0c4d\u200c\u0c32\u0c48\u0c28\u0c4d \u0c28\u0c3f\u0c30\u0c4d\u0c2e\u0c3f\u0c02\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("history_no_completed_jobs", "\u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c38\u0c3f\u0c28 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_completed_appear_here", "\u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c38\u0c3f\u0c28 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_no_applications_yet", "\u0c07\u0c02\u0c15\u0c3e \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_applications_appear_here", "\u0c2e\u0c40 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_no_applications", "\u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_your_applications_here", "\u0c2e\u0c40 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_applied_time", "%1$s \u0c15\u0c41 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41 \u0c1a\u0c47\u0c36\u0c3e\u0c30\u0c41"),
+
+    # === WORK HISTORY - Employer ===
+    ("history_failed_load_jobs", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c32\u0c4b\u0c21\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f"),
+    ("history_view_applications", "\u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c28\u0c41 \u0c1a\u0c42\u0c21\u0c02\u0c21\u0c3f"),
+    ("history_expired", "\u0c17\u0c21\u0c41\u0c35\u0c41 \u0c2e\u0c41\u0c17\u0c3f\u0c38\u0c3f\u0c02\u0c26\u0c3f"),
+    ("history_expires_today", "\u0c08\u0c30\u0c4b\u0c1c\u0c41 \u0c17\u0c21\u0c41\u0c35\u0c41 \u0c2e\u0c41\u0c17\u0c41\u0c38\u0c4d\u0c24\u0c41\u0c02\u0c26\u0c3f"),
+    ("history_1_day_left", "1 \u0c30\u0c4b\u0c1c\u0c41 \u0c2e\u0c3f\u0c17\u0c3f\u0c32\u0c3f \u0c09\u0c02\u0c26\u0c3f"),
+    ("history_days_left", "%1$d \u0c30\u0c4b\u0c1c\u0c41\u0c32\u0c41 \u0c2e\u0c3f\u0c17\u0c3f\u0c32\u0c3f \u0c09\u0c28\u0c4d\u0c28\u0c3e\u0c2f\u0c3f"),
+    ("history_no_job_posting", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c3f\u0c02\u0c17\u0c4d \u0c1a\u0c30\u0c3f\u0c24\u0c4d\u0c30 \u0c32\u0c47\u0c26\u0c41"),
+    ("history_start_posting_timeline", "\u0c2e\u0c40 \u0c1f\u0c48\u0c2e\u0c4d\u200c\u0c32\u0c48\u0c28\u0c4d \u0c28\u0c3f\u0c30\u0c4d\u0c2e\u0c3f\u0c02\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c2a\u0c4d\u0c30\u0c3e\u0c30\u0c02\u0c2d\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f"),
+    ("history_no_active_jobs", "\u0c2f\u0c3e\u0c15\u0c4d\u0c1f\u0c3f\u0c35\u0c4d \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_active_postings_here", "\u0c2e\u0c40 \u0c2f\u0c3e\u0c15\u0c4d\u0c1f\u0c3f\u0c35\u0c4d \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c3f\u0c02\u0c17\u0c4d\u200c\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_no_expired_jobs", "\u0c17\u0c21\u0c41\u0c35\u0c41 \u0c2e\u0c41\u0c17\u0c3f\u0c38\u0c3f\u0c28 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_expired_postings_here", "\u0c17\u0c21\u0c41\u0c35\u0c41 \u0c2e\u0c41\u0c17\u0c3f\u0c38\u0c3f\u0c28 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c3f\u0c02\u0c17\u0c4d\u200c\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_no_jobs_posted", "\u0c07\u0c02\u0c15\u0c3e \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c32\u0c47\u0c26\u0c41"),
+    ("history_start_posting_here", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c2a\u0c4d\u0c30\u0c3e\u0c30\u0c02\u0c2d\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f"),
+    ("history_no_jobs", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("history_postings_appear_here", "\u0c2e\u0c40 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c3f\u0c02\u0c17\u0c4d\u200c\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("history_posted_date", "%1$s \u0c28 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("history_status_paused", "\u0c2a\u0c3e\u0c1c\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("history_status_active", "\u0c2f\u0c3e\u0c15\u0c4d\u0c1f\u0c3f\u0c35\u0c4d"),
+
+    # === NOTIFICATIONS - Worker ===
+    ("notif_failed_load", "\u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d\u200c\u0c32\u0c28\u0c41 \u0c32\u0c4b\u0c21\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f"),
+    ("notif_retry", "\u0c2e\u0c33\u0c4d\u0c33\u0c40 \u0c2a\u0c4d\u0c30\u0c2f\u0c24\u0c4d\u0c28\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f"),
+    ("notif_no_notifications", "\u0c07\u0c02\u0c15\u0c3e \u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d\u200c\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("notif_worker_empty_desc", "\u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d\u200c\u0c32\u0c41, \u0c07\u0c02\u0c1f\u0c30\u0c4d\u0c35\u0c4d\u0c2f\u0c42 \u0c37\u0c46\u0c21\u0c4d\u0c2f\u0c42\u0c32\u0c4d\u200c\u0c32\u0c41, \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c38\u0c3f\u0c2b\u0c3e\u0c30\u0c38\u0c41\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c1a\u0c42\u0c38\u0c4d\u0c24\u0c3e\u0c30\u0c41."),
+    ("notif_preview_title", "\u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d\u200c\u0c32 \u0c2a\u0c4d\u0c30\u0c3f\u0c35\u0c4d\u0c2f\u0c42"),
+    ("notif_worker_preview_desc", "\u0c32\u0c3e\u0c17\u0c3f\u0c28\u0c4d \u0c24\u0c30\u0c4d\u0c35\u0c3e\u0c24 \u0c2e\u0c40\u0c30\u0c41 \u0c05\u0c02\u0c26\u0c41\u0c15\u0c41\u0c28\u0c47 \u0c05\u0c32\u0c30\u0c4d\u0c1f\u0c4d\u200c\u0c32\u0c41 \u0c07\u0c35\u0c3f."),
+    ("notif_worker_preview_1_title", "\U0001F525 \u0c17\u0c24 \u0c17\u0c02\u0c1f\u0c32\u0c4b 27 \u0c2e\u0c02\u0c26\u0c3f \u0c15\u0c3e\u0c30\u0c4d\u0c2e\u0c3f\u0c15\u0c41\u0c32\u0c41 \u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c3e\u0c02\u0c24\u0c02\u0c32\u0c4b \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41 \u0c1a\u0c47\u0c36\u0c3e\u0c30\u0c41"),
+    ("notif_worker_preview_1_desc", "\u0c08 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c2e\u0c42\u0c38\u0c41\u0c15\u0c41\u0c28\u0c47 \u0c2e\u0c41\u0c02\u0c26\u0c41 \u0c07\u0c28\u0c4d\u200c\u0c38\u0c4d\u0c1f\u0c02\u0c1f\u0c4d \u0c05\u0c2a\u0c4d\u0c32\u0c48 \u0c05\u0c28\u0c4d\u200c\u0c32\u0c3e\u0c15\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c32\u0c3e\u0c17\u0c3f\u0c28\u0c4d \u0c05\u0c35\u0c4d\u0c35\u0c02\u0c21\u0c3f."),
+    ("notif_worker_preview_2_title", "\U0001F4A1 \u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c37\u0c3e\u0c30\u0c4d\u0c1f\u0c4d\u200c\u0c32\u0c3f\u0c38\u0c4d\u0c1f\u0c4d \u0c05\u0c2f\u0c4d\u0c2f\u0c47 \u0c05\u0c35\u0c15\u0c3e\u0c36\u0c02 3 \u0c30\u0c46\u0c1f\u0c4d\u0c32\u0c41 \u0c0e\u0c15\u0c4d\u0c15\u0c41\u0c35"),
+    ("notif_worker_preview_2_desc", "\u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c38\u0c3f \u0c2e\u0c46\u0c30\u0c41\u0c17\u0c48\u0c28 \u0c2e\u0c4d\u0c2f\u0c3e\u0c1a\u0c4d\u200c\u0c32\u0c41 \u0c05\u0c02\u0c26\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f."),
+    ("notif_worker_preview_3_title", "\u23F3 \u0c2e\u0c41\u0c02\u0c26\u0c41\u0c17\u0c3e \u0c1a\u0c47\u0c38\u0c3f\u0c28 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c15\u0c41 \u0c35\u0c47\u0c17\u0c02\u0c17\u0c3e \u0c38\u0c4d\u0c2a\u0c02\u0c26\u0c28\u0c32\u0c41 \u0c35\u0c38\u0c4d\u0c24\u0c3e\u0c2f\u0c3f"),
+    ("notif_worker_preview_3_desc", "\u0c1f\u0c3e\u0c2a\u0c4d \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c1a\u0c42\u0c38\u0c3f \u0c32\u0c3e\u0c17\u0c3f\u0c28\u0c4d \u0c24\u0c30\u0c4d\u0c35\u0c3e\u0c24 \u0c12\u0c15 \u0c1f\u0c4d\u0c2f\u0c3e\u0c2a\u0c4d\u200c\u0c32\u0c4b \u0c05\u0c2a\u0c4d\u0c32\u0c48 \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f."),
+    ("notif_worker_login_toast", "\u0c28\u0c3f\u0c1c\u0c2e\u0c48\u0c28 \u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d\u200c\u0c32\u0c28\u0c41 \u0c05\u0c28\u0c4d\u200c\u0c32\u0c3e\u0c15\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c32\u0c3e\u0c17\u0c3f\u0c28\u0c4d \u0c32\u0c47\u0c26\u0c3e \u0c30\u0c3f\u0c1c\u0c3f\u0c38\u0c4d\u0c1f\u0c30\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f."),
+    ("notif_delete", "\u0c24\u0c4a\u0c32\u0c17\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f"),
+    ("notif_swipe_to_delete", "\u2190 \u0c24\u0c4a\u0c32\u0c17\u0c3f\u0c02\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c38\u0c4d\u0c35\u0c48\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+
+    # === NOTIFICATIONS - Employer ===
+    ("notif_employer_empty_desc", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c41, \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c38\u0c4d\u0c25\u0c3f\u0c24\u0c3f \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d\u200c\u0c32\u0c41, \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c07\u0c24\u0c30 \u0c2e\u0c41\u0c16\u0c4d\u0c2f\u0c2e\u0c48\u0c28 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d\u200c\u0c32\u0c41 \u0c07\u0c15\u0c4d\u0c15\u0c21 \u0c1a\u0c42\u0c38\u0c4d\u0c24\u0c3e\u0c30\u0c41."),
+    ("notif_employer_preview_desc", "\u0c32\u0c48\u0c35\u0c4d \u0c39\u0c48\u0c30\u0c3f\u0c02\u0c17\u0c4d \u0c05\u0c32\u0c30\u0c4d\u0c1f\u0c4d\u200c\u0c32\u0c41 \u0c2a\u0c4a\u0c02\u0c26\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c38\u0c48\u0c28\u0c4d \u0c07\u0c28\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f."),
+    ("notif_employer_preview_1_title", "\U0001F4E5 5 \u0c15\u0c4a\u0c24\u0c4d\u0c24 \u0c05\u0c2d\u0c4d\u0c2f\u0c30\u0c4d\u0c25\u0c41\u0c32\u0c41 \u0c08\u0c30\u0c4b\u0c1c\u0c41 \u0c2e\u0c40 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c28\u0c4d\u0c28\u0c3f \u0c1a\u0c42\u0c36\u0c3e\u0c30\u0c41"),
+    ("notif_employer_preview_1_desc", "\u0c35\u0c3e\u0c30\u0c41 \u0c35\u0c47\u0c30\u0c47 \u0c1a\u0c4b\u0c1f \u0c39\u0c48\u0c30\u0c4d \u0c05\u0c2f\u0c4d\u0c2f\u0c47 \u0c2e\u0c41\u0c02\u0c26\u0c41 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d\u200c\u0c32\u0c41 \u0c38\u0c2e\u0c40\u0c15\u0c4d\u0c37\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f."),
+    ("notif_employer_preview_2_title", "\u26A1 \u0c35\u0c47\u0c17\u0c02\u0c17\u0c3e \u0c38\u0c4d\u0c2a\u0c02\u0c26\u0c3f\u0c02\u0c1a\u0c47\u0c35\u0c3e\u0c30\u0c41 2 \u0c30\u0c46\u0c1f\u0c4d\u0c32\u0c41 \u0c35\u0c47\u0c17\u0c02\u0c17\u0c3e \u0c39\u0c48\u0c30\u0c4d \u0c1a\u0c47\u0c38\u0c4d\u0c24\u0c3e\u0c30\u0c41"),
+    ("notif_employer_preview_2_desc", "\u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c28\u0c41 \u0c24\u0c46\u0c30\u0c3f\u0c1a\u0c3f \u0c17\u0c02\u0c1f\u0c32\u0c4d\u0c32\u0c4b \u0c15\u0c3e\u0c15\u0c41\u0c02\u0c21\u0c3e \u0c28\u0c3f\u0c2e\u0c3f\u0c37\u0c3e\u0c32\u0c32\u0c4b \u0c30\u0c3f\u0c2a\u0c4d\u0c32\u0c48 \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f."),
+    ("notif_employer_preview_3_title", "\U0001F3AF \u0c12\u0c15 \u0c1a\u0c3f\u0c28\u0c4d\u0c28 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d \u0c28\u0c3e\u0c23\u0c4d\u0c2f\u0c2e\u0c48\u0c28 \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c28\u0c41 \u0c2a\u0c46\u0c02\u0c1a\u0c41\u0c24\u0c41\u0c02\u0c26\u0c3f"),
+    ("notif_employer_preview_3_desc", "\u0c2e\u0c40 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c30\u0c3f\u0c2b\u0c4d\u0c30\u0c46\u0c37\u0c4d \u0c1a\u0c47\u0c38\u0c3f \u0c2e\u0c46\u0c30\u0c41\u0c17\u0c48\u0c28 \u0c15\u0c3e\u0c30\u0c4d\u0c2e\u0c3f\u0c15\u0c41\u0c32\u0c28\u0c41 \u0c06\u0c15\u0c30\u0c4d\u0c37\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f."),
+    ("notif_employer_login_toast", "\u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d\u200c\u0c32\u0c41 \u0c1a\u0c42\u0c21\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c38\u0c48\u0c28\u0c4d \u0c07\u0c28\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+
+    # === NOTIFICATION DETAIL ===
+    ("notif_not_found", "\u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d \u0c15\u0c28\u0c41\u0c17\u0c4a\u0c28\u0c2c\u0c21\u0c32\u0c47\u0c26\u0c41"),
+    ("notif_job_label", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02: %1$s"),
+    ("notif_action_view_applications", "\u0c28\u0c3e \u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41\u0c32\u0c28\u0c41 \u0c1a\u0c42\u0c21\u0c02\u0c21\u0c3f"),
+    ("notif_action_view_job_details", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c35\u0c3f\u0c35\u0c30\u0c3e\u0c32\u0c41 \u0c1a\u0c42\u0c21\u0c02\u0c21\u0c3f"),
+    ("notif_action_browse_jobs", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c1a\u0c42\u0c21\u0c02\u0c21\u0c3f"),
+    ("notif_type_application_update", "\u0c26\u0c30\u0c16\u0c3e\u0c38\u0c4d\u0c24\u0c41 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d"),
+    ("notif_type_shortlisted", "\u0c37\u0c3e\u0c30\u0c4d\u0c1f\u0c4d\u200c\u0c32\u0c3f\u0c38\u0c4d\u0c1f\u0c4d"),
+    ("notif_type_interview", "\u0c07\u0c02\u0c1f\u0c30\u0c4d\u0c35\u0c4d\u0c2f\u0c42"),
+    ("notif_type_message", "\u0c38\u0c02\u0c26\u0c47\u0c36\u0c02"),
+    ("notif_type_new_job", "\u0c15\u0c4a\u0c24\u0c4d\u0c24 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02"),
+    ("notif_type_recommended", "\u0c38\u0c3f\u0c2b\u0c3e\u0c30\u0c38\u0c41 \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("notif_type_job_posted", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("notif_type_job_update", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d"),
+    ("notif_type_system", "\u0c38\u0c3f\u0c38\u0c4d\u0c1f\u0c2e\u0c4d"),
+    ("notif_type_notification", "\u0c28\u0c4b\u0c1f\u0c3f\u0c2b\u0c3f\u0c15\u0c47\u0c37\u0c28\u0c4d"),
+
+    # === POST JOB SCREEN ===
+    ("post_job_success", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c35\u0c3f\u0c1c\u0c2f\u0c35\u0c02\u0c24\u0c02\u0c17\u0c3e \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f!"),
+    ("post_job_error", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c02 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02\u0c32\u0c4b \u0c32\u0c4b\u0c2a\u0c02: %1$s"),
+    ("post_job_checklist_title_desc", "\u0c38\u0c4d\u0c2a\u0c37\u0c4d\u0c1f\u0c2e\u0c48\u0c28 \u0c36\u0c40\u0c30\u0c4d\u0c37\u0c3f\u0c15 \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c35\u0c3f\u0c35\u0c30\u0c23 \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c02\u0c21\u0c3f"),
+    ("post_job_checklist_pay_location", "\u0c1c\u0c40\u0c24\u0c02 \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c2a\u0c28\u0c3f \u0c38\u0c4d\u0c25\u0c32\u0c02 \u0c38\u0c46\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("post_job_checklist_contact", "\u0c38\u0c02\u0c2a\u0c4d\u0c30\u0c26\u0c3f\u0c02\u0c2a\u0c41 \u0c35\u0c3f\u0c35\u0c30\u0c3e\u0c32\u0c41 \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c02\u0c21\u0c3f"),
+    ("post_job_checklist_pin_location", "\u0c16\u0c1a\u0c4d\u0c1a\u0c3f\u0c24\u0c2e\u0c48\u0c28 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c38\u0c4d\u0c25\u0c32\u0c3e\u0c28\u0c4d\u0c28\u0c3f \u0c2a\u0c3f\u0c28\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("post_job_location_mismatch_title", "\u0c38\u0c4d\u0c25\u0c32 \u0c05\u0c38\u0c02\u0c17\u0c24\u0c24 \u0c17\u0c41\u0c30\u0c4d\u0c24\u0c3f\u0c02\u0c1a\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("post_job_location_mismatch_desc", "\u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c38\u0c4d\u0c24\u0c41\u0c24 \u0c38\u0c4d\u0c25\u0c32\u0c02 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c38\u0c4d\u0c25\u0c32\u0c02 \u0c28\u0c41\u0c02\u0c21\u0c3f %1$s \u0c15\u0c3f.\u0c2e\u0c40 \u0c26\u0c42\u0c30\u0c02\u0c32\u0c4b \u0c09\u0c02\u0c26\u0c3f."),
+    ("post_job_location_mismatch_info", "\U0001F6E1\uFE0F \u0c08 \u0c1a\u0c46\u0c15\u0c4d \u0c30\u0c3f\u0c2e\u0c4b\u0c1f\u0c4d \u0c38\u0c4d\u0c15\u0c4d\u0c2f\u0c3e\u0c2e\u0c4d \u0c38\u0c46\u0c02\u0c1f\u0c30\u0c4d\u200c\u0c32\u0c41 \u0c28\u0c15\u0c3f\u0c32\u0c40 \u0c38\u0c4d\u0c25\u0c3e\u0c28\u0c3f\u0c15 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c15\u0c41\u0c02\u0c21\u0c3e \u0c28\u0c3f\u0c30\u0c4b\u0c27\u0c3f\u0c38\u0c4d\u0c24\u0c41\u0c02\u0c26\u0c3f."),
+    ("post_job_location_confirm", "\u0c2e\u0c40\u0c30\u0c41 \u0c08 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c28\u0c4d\u0c28\u0c3f \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c3e\u0c32\u0c28\u0c41\u0c15\u0c41\u0c02\u0c1f\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c30\u0c3e?"),
+    ("post_job_blocked_title", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c3f\u0c02\u0c17\u0c4d \u0c28\u0c3f\u0c30\u0c4d\u0c2c\u0c02\u0c27\u0c3f\u0c02\u0c1a\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f"),
+    ("post_job_blocked_info", "\U0001F6E1\uFE0F DutyPe \u0c38\u0c4d\u0c25\u0c3e\u0c28\u0c3f\u0c15, \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c17\u0c24 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32 \u0c15\u0c4b\u0c38\u0c02 \u0c2e\u0c3e\u0c24\u0c4d\u0c30\u0c2e\u0c47."),
+    ("post_job_blocked_desc", "\u0c15\u0c3e\u0c30\u0c4d\u0c2e\u0c3f\u0c15\u0c41\u0c32\u0c28\u0c41 \u0c38\u0c4d\u0c15\u0c4d\u0c2f\u0c3e\u0c2e\u0c4d\u200c\u0c32 \u0c28\u0c41\u0c02\u0c21\u0c3f \u0c30\u0c15\u0c4d\u0c37\u0c3f\u0c02\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c07\u0c02\u0c1f\u0c3f \u0c28\u0c41\u0c02\u0c21\u0c3f \u0c2a\u0c28\u0c3f, \u0c06\u0c28\u0c4d\u200c\u0c32\u0c48\u0c28\u0c4d \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41, \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c21\u0c47\u0c1f\u0c3e \u0c0e\u0c02\u0c1f\u0c4d\u0c30\u0c40 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c05\u0c28\u0c41\u0c2e\u0c24\u0c3f\u0c02\u0c1a\u0c2c\u0c21\u0c35\u0c41."),
+    ("post_job_pay_too_low", "\u0c1c\u0c40\u0c24\u0c02 \u0c1a\u0c3e\u0c32\u0c3e \u0c24\u0c15\u0c4d\u0c15\u0c41\u0c35"),
+    ("post_job_pay_too_high", "\u0c1c\u0c40\u0c24\u0c02 \u0c1a\u0c3e\u0c32\u0c3e \u0c0e\u0c15\u0c4d\u0c15\u0c41\u0c35"),
+    ("post_job_market_rate", "\U0001F4CA %1$s \u0c15\u0c4b\u0c38\u0c02 \u0c2e\u0c3e\u0c30\u0c4d\u0c15\u0c46\u0c1f\u0c4d \u0c30\u0c47\u0c1f\u0c41:"),
+    ("post_job_skeptical_pay", "\u0c2e\u0c40\u0c30\u0c41 \u0c08 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c28\u0c4d\u0c28\u0c3f \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c35\u0c1a\u0c4d\u0c1a\u0c41, \u0c15\u0c3e\u0c28\u0c40 \u0c15\u0c3e\u0c30\u0c4d\u0c2e\u0c3f\u0c15\u0c41\u0c32\u0c41 %1$s \u0c1c\u0c40\u0c24\u0c02 \u0c30\u0c47\u0c1f\u0c4d\u200c\u0c32 \u0c17\u0c41\u0c30\u0c3f\u0c02\u0c1a\u0c3f \u0c05\u0c28\u0c41\u0c2e\u0c3e\u0c28\u0c02\u0c17\u0c3e \u0c09\u0c02\u0c21\u0c35\u0c1a\u0c4d\u0c1a\u0c41."),
+    ("post_job_complete_profile_title", "\u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("post_job_complete_profile_desc", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2a\u0c4b\u0c38\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c2e\u0c41\u0c02\u0c26\u0c41 \u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f \u0c1a\u0c47\u0c2f\u0c3e\u0c32\u0c3f."),
+    ("post_job_profile_progress", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d: %1$d%% \u0c2a\u0c42\u0c30\u0c4d\u0c24\u0c3f (80%% \u0c05\u0c35\u0c38\u0c30\u0c02)"),
+    ("post_job_missing_fields", "\u0c2e\u0c3f\u0c38\u0c4d\u0c38\u0c3f\u0c02\u0c17\u0c4d: %1$s"),
+    ("post_job_image_uploaded", "\u0c1a\u0c3f\u0c24\u0c4d\u0c30\u0c02 \u0c35\u0c3f\u0c1c\u0c2f\u0c35\u0c02\u0c24\u0c02\u0c17\u0c3e \u0c05\u0c2a\u0c4d\u200c\u0c32\u0c4b\u0c21\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f!"),
+    ("post_job_image_upload_failed", "\u0c1a\u0c3f\u0c24\u0c4d\u0c30\u0c02 \u0c05\u0c2a\u0c4d\u200c\u0c32\u0c4b\u0c21\u0c4d \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f: %1$s"),
+    ("post_job_schedule_urgency", "\u0c2a\u0c28\u0c3f \u0c37\u0c46\u0c21\u0c4d\u0c2f\u0c42\u0c32\u0c4d &amp; \u0c05\u0c30\u0c4d\u0c1c\u0c46\u0c28\u0c4d\u0c38\u0c40"),
+    ("post_job_worker_preview", "\u0c15\u0c3e\u0c30\u0c4d\u0c2e\u0c3f\u0c15\u0c41\u0c21\u0c3f\u0c15\u0c3f \u0c15\u0c28\u0c3f\u0c2a\u0c3f\u0c02\u0c1a\u0c47 \u0c2a\u0c4d\u0c30\u0c3f\u0c35\u0c4d\u0c2f\u0c42"),
+    ("post_job_ready_percent", "%1$d%% \u0c38\u0c3f\u0c26\u0c4d\u0c27\u0c02"),
+    ("post_job_launch_checklist", "\u0c32\u0c3e\u0c02\u0c1a\u0c4d \u0c1a\u0c46\u0c15\u0c4d\u200c\u0c32\u0c3f\u0c38\u0c4d\u0c1f\u0c4d"),
+    ("post_job_step_of", "\u0c38\u0c4d\u0c1f\u0c46\u0c2a\u0c4d %1$d / %2$d"),
+    ("post_job_title_label", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c36\u0c40\u0c30\u0c4d\u0c37\u0c3f\u0c15"),
+    ("post_job_select_position", "\u0c2e\u0c40\u0c30\u0c41 \u0c28\u0c3f\u0c2f\u0c2e\u0c3f\u0c02\u0c1a\u0c47 \u0c2a\u0c26\u0c35\u0c3f\u0c28\u0c3f \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c02\u0c21\u0c3f"),
+    ("post_job_local_only_warning", "\u0c38\u0c4d\u0c25\u0c3e\u0c28\u0c3f\u0c15, \u0c35\u0c4d\u0c2f\u0c15\u0c4d\u0c24\u0c3f\u0c17\u0c24 \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c2e\u0c3e\u0c24\u0c4d\u0c30\u0c2e\u0c47. \u0c06\u0c28\u0c4d\u200c\u0c32\u0c48\u0c28\u0c4d \u0c32\u0c47\u0c26\u0c3e WFH \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41."),
+    ("post_job_category_label", "\u0c15\u0c4d\u0c2f\u0c3e\u0c1f\u0c17\u0c30\u0c40: %1$s"),
+    ("post_job_custom_category", "\u0c15\u0c38\u0c4d\u0c1f\u0c2e\u0c4d: %1$s"),
+    ("post_job_work_type", "\u0c2a\u0c28\u0c3f \u0c30\u0c15\u0c02"),
+    ("post_job_work_type_desc", "\u0c2b\u0c41\u0c32\u0c4d-\u0c1f\u0c48\u0c2e\u0c4d, \u0c2a\u0c3e\u0c30\u0c4d\u0c1f\u0c4d-\u0c1f\u0c48\u0c2e\u0c4d \u0c32\u0c47\u0c26\u0c3e \u0c2b\u0c4d\u0c32\u0c46\u0c15\u0c4d\u0c38\u0c3f\u0c2c\u0c41\u0c32\u0c4d?"),
+    ("post_job_how_much_pay", "\u0c2e\u0c40\u0c30\u0c41 \u0c0e\u0c02\u0c24 \u0c1a\u0c46\u0c32\u0c4d\u0c32\u0c3f\u0c38\u0c4d\u0c24\u0c3e\u0c30\u0c41?"),
+    ("post_job_market_rate_for", "%1$s \u0c15\u0c4b\u0c38\u0c02 \u0c2e\u0c3e\u0c30\u0c4d\u0c15\u0c46\u0c1f\u0c4d \u0c30\u0c47\u0c1f\u0c41:"),
+    ("post_job_work_location", "\u0c2a\u0c28\u0c3f \u0c38\u0c4d\u0c25\u0c32\u0c02"),
+    ("post_job_requirements", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17 \u0c05\u0c35\u0c38\u0c30\u0c3e\u0c32\u0c41"),
+    ("post_job_looking_for", "\u0c2e\u0c40\u0c30\u0c41 \u0c0e\u0c35\u0c30\u0c3f \u0c15\u0c4b\u0c38\u0c02 \u0c1a\u0c42\u0c38\u0c4d\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c30\u0c41?"),
+    ("post_job_gender_preference", "\u0c32\u0c3f\u0c02\u0c17 \u0c2a\u0c4d\u0c30\u0c3e\u0c27\u0c3e\u0c28\u0c4d\u0c2f\u0c24"),
+    ("post_job_perks_benefits", "\u0c2a\u0c30\u0c4d\u0c15\u0c4d\u0c38\u0c4d &amp; \u0c2a\u0c4d\u0c30\u0c2f\u0c4b\u0c1c\u0c28\u0c3e\u0c32\u0c41"),
+    ("post_job_attract_candidates", "\u0c2e\u0c30\u0c3f\u0c28\u0c4d\u0c28\u0c3f \u0c2e\u0c02\u0c26\u0c3f \u0c05\u0c2d\u0c4d\u0c2f\u0c30\u0c4d\u0c25\u0c41\u0c32\u0c28\u0c41 \u0c06\u0c15\u0c30\u0c4d\u0c37\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f"),
+    ("post_job_selected_count", "%1$d \u0c0e\u0c02\u0c1a\u0c41\u0c15\u0c4b\u0c2c\u0c21\u0c4d\u0c21\u0c3e\u0c2f\u0c3f"),
+    ("post_job_add_own_perk", "\u0c2e\u0c40 \u0c38\u0c4d\u0c35\u0c02\u0c24 \u0c2a\u0c30\u0c4d\u0c15\u0c4d \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c02\u0c21\u0c3f"),
+    ("post_job_perk_placeholder", "\u0c0e\u0c1f\u0c41\u0c35\u0c02\u0c1f\u0c3f \u0c05\u0c26\u0c28\u0c2a\u0c41 \u0c2a\u0c4d\u0c30\u0c2f\u0c4b\u0c1c\u0c28\u0c02 \u0c1f\u0c48\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f (\u0c09\u0c26\u0c3e. \u0c1c\u0c3f\u0c2e\u0c4d \u0c38\u0c2d\u0c4d\u0c2f\u0c24\u0c4d\u0c35\u0c02, \u0c2a\u0c02\u0c21\u0c17 \u0c2c\u0c4b\u0c28\u0c38\u0c4d)"),
+
+    # === ALL JOBS SCREEN ===
+    ("jobs_loading_more", "\u0c2e\u0c30\u0c3f\u0c28\u0c4d\u0c28\u0c3f \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c41 \u0c32\u0c4b\u0c21\u0c4d \u0c05\u0c35\u0c41\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c2f\u0c3f..."),
+    ("jobs_something_went_wrong", "\u0c0f\u0c26\u0c4b \u0c24\u0c2a\u0c4d\u0c2a\u0c41 \u0c1c\u0c30\u0c3f\u0c17\u0c3f\u0c02\u0c26\u0c3f"),
+    ("jobs_unable_to_load", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c32\u0c4b\u0c21\u0c4d \u0c1a\u0c47\u0c2f\u0c32\u0c47\u0c15\u0c2a\u0c4b\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c02. \u0c26\u0c2f\u0c1a\u0c47\u0c38\u0c3f \u0c2e\u0c33\u0c4d\u0c33\u0c40 \u0c2a\u0c4d\u0c30\u0c2f\u0c24\u0c4d\u0c28\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f."),
+    ("jobs_filter_title", "\u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c2b\u0c3f\u0c32\u0c4d\u0c1f\u0c30\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("jobs_filter_subtitle", "\u0c38\u0c3e\u0c30\u0c4d\u0c1f\u0c4d, \u0c1c\u0c40\u0c24\u0c02, \u0c26\u0c42\u0c30\u0c02, \u0c05\u0c28\u0c41\u0c2d\u0c35\u0c02 \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c2a\u0c28\u0c3f \u0c30\u0c15\u0c02"),
+    ("jobs_sort_by", "\u0c26\u0c40\u0c28\u0c3f \u0c2a\u0c4d\u0c30\u0c15\u0c3e\u0c30\u0c02 \u0c38\u0c3e\u0c30\u0c4d\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("jobs_pay_type", "\u0c1c\u0c40\u0c24\u0c02 \u0c30\u0c15\u0c02"),
+    ("jobs_salary_range", "\u0c1c\u0c40\u0c24\u0c02 \u0c36\u0c4d\u0c30\u0c47\u0c23\u0c3f"),
+    ("jobs_max_distance", "\u0c17\u0c30\u0c3f\u0c37\u0c4d\u0c1f \u0c26\u0c42\u0c30\u0c02"),
+    ("jobs_fine_tune_distance", "\u0c2b\u0c48\u0c28\u0c4d-\u0c1f\u0c4d\u0c2f\u0c42\u0c28\u0c4d: %1$d \u0c15\u0c3f.\u0c2e\u0c40"),
+    ("jobs_showing_all", "\u0c26\u0c42\u0c30\u0c02\u0c24\u0c4b \u0c38\u0c02\u0c2c\u0c02\u0c27\u0c02 \u0c32\u0c47\u0c15\u0c41\u0c02\u0c21\u0c3e \u0c05\u0c28\u0c4d\u0c28\u0c3f \u0c09\u0c26\u0c4d\u0c2f\u0c4b\u0c17\u0c3e\u0c32\u0c28\u0c41 \u0c1a\u0c42\u0c2a\u0c3f\u0c38\u0c4d\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c02"),
+    ("jobs_experience_level", "\u0c05\u0c28\u0c41\u0c2d\u0c35 \u0c38\u0c4d\u0c25\u0c3e\u0c2f\u0c3f"),
+    ("jobs_apply_filters", "\u0c2b\u0c3f\u0c32\u0c4d\u0c1f\u0c30\u0c4d\u200c\u0c32\u0c41 \u0c05\u0c2a\u0c4d\u0c32\u0c48 \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+
+    # === JOB MAP SCREEN ===
+    ("map_500m", "500\u0c2e\u0c40"),
+    ("map_1km", "1\u0c15\u0c3f.\u0c2e\u0c40"),
+    ("map_2km", "2\u0c15\u0c3f.\u0c2e\u0c40"),
+    ("map_5km", "5\u0c15\u0c3f.\u0c2e\u0c40"),
+    ("map_10km", "10\u0c15\u0c3f.\u0c2e\u0c40"),
+    ("map_all", "\u0c05\u0c28\u0c4d\u0c28\u0c40"),
+    ("map_urgent_hiring", "\u0c05\u0c30\u0c4d\u0c1c\u0c46\u0c02\u0c1f\u0c4d - \u0c08\u0c30\u0c4b\u0c1c\u0c41 \u0c28\u0c3f\u0c2f\u0c2e\u0c3f\u0c38\u0c4d\u0c24\u0c41\u0c28\u0c4d\u0c28\u0c3e\u0c02!"),
+    ("map_available", "\u2713 \u0c05\u0c02\u0c26\u0c41\u0c2c\u0c3e\u0c1f\u0c41\u0c32\u0c4b \u0c09\u0c02\u0c26\u0c3f"),
+    ("map_per_hour", "/\u0c17\u0c02\u0c1f"),
+    ("map_per_month", "/\u0c28\u0c46\u0c32"),
+    ("map_per_day", "/\u0c30\u0c4b\u0c1c\u0c41"),
+    ("map_meters_away", "%1$d\u0c2e\u0c40 \u0c26\u0c42\u0c30\u0c02\u0c32\u0c4b"),
+    ("map_km_away", "%1$s \u0c15\u0c3f.\u0c2e\u0c40 \u0c26\u0c42\u0c30\u0c02\u0c32\u0c4b"),
+
+    # === WORKER PROFILE ===
+    ("profile_tap_add_name", "\u0c2e\u0c40 \u0c2a\u0c47\u0c30\u0c41 \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c1f\u0c4d\u0c2f\u0c3e\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("profile_set_up_profile", "\u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c38\u0c46\u0c1f\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("profile_tap_add_details", "\u0c2e\u0c40 \u0c35\u0c3f\u0c35\u0c30\u0c3e\u0c32\u0c41 \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c1f\u0c4d\u0c2f\u0c3e\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("profile_login_signup", "\u0c32\u0c3e\u0c17\u0c4d \u0c07\u0c28\u0c4d / \u0c38\u0c48\u0c28\u0c4d \u0c05\u0c2a\u0c4d"),
+    ("profile_view_update_data", "\u0c2e\u0c40 \u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c21\u0c47\u0c1f\u0c3e\u0c28\u0c41 \u0c1a\u0c42\u0c21\u0c02\u0c21\u0c3f \u0c2e\u0c30\u0c3f\u0c2f\u0c41 \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("profile_my_activity", "\u0c28\u0c3e \u0c15\u0c3e\u0c30\u0c4d\u0c2f\u0c15\u0c32\u0c3e\u0c2a\u0c02"),
+    ("profile_rewards", "\u0c30\u0c3f\u0c35\u0c3e\u0c30\u0c4d\u0c21\u0c4d\u200c\u0c32\u0c41"),
+    ("profile_badge_new", "\u0c15\u0c4a\u0c24\u0c4d\u0c24"),
+    ("profile_others", "\u0c07\u0c24\u0c30\u0c41\u0c32\u0c41"),
+    ("profile_edit_profile", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c0e\u0c21\u0c3f\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+
+    # === WORKER PROFILE DETAILS ===
+    ("profile_photo_updated", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c2b\u0c4b\u0c1f\u0c4b \u0c35\u0c3f\u0c1c\u0c2f\u0c35\u0c02\u0c24\u0c02\u0c17\u0c3e \u0c05\u0c2a\u0c4d\u200c\u0c21\u0c47\u0c1f\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f!"),
+    ("profile_photo_upload_failed", "\u0c2b\u0c4b\u0c1f\u0c4b \u0c05\u0c2a\u0c4d\u200c\u0c32\u0c4b\u0c21\u0c4d \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f. \u0c26\u0c2f\u0c1a\u0c47\u0c38\u0c3f \u0c2e\u0c33\u0c4d\u0c33\u0c40 \u0c2a\u0c4d\u0c30\u0c2f\u0c24\u0c4d\u0c28\u0c3f\u0c02\u0c1a\u0c02\u0c21\u0c3f."),
+    ("profile_login_to_upload", "\u0c2b\u0c4b\u0c1f\u0c4b \u0c05\u0c2a\u0c4d\u200c\u0c32\u0c4b\u0c21\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c26\u0c2f\u0c1a\u0c47\u0c38\u0c3f \u0c32\u0c3e\u0c17\u0c3f\u0c28\u0c4d \u0c05\u0c35\u0c4d\u0c35\u0c02\u0c21\u0c3f"),
+    ("profile_photo_upload_error", "\u0c2b\u0c4b\u0c1f\u0c4b \u0c05\u0c2a\u0c4d\u200c\u0c32\u0c4b\u0c21\u0c4d\u0c32\u0c4b \u0c32\u0c4b\u0c2a\u0c02"),
+    ("profile_details_title", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c35\u0c3f\u0c35\u0c30\u0c3e\u0c32\u0c41"),
+    ("profile_no_ratings", "\u0c07\u0c02\u0c15\u0c3e \u0c30\u0c47\u0c1f\u0c3f\u0c02\u0c17\u0c4d\u200c\u0c32\u0c41 \u0c32\u0c47\u0c35\u0c41"),
+    ("profile_saved", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c35\u0c3f\u0c1c\u0c2f\u0c35\u0c02\u0c24\u0c02\u0c17\u0c3e \u0c38\u0c47\u0c35\u0c4d \u0c1a\u0c47\u0c2f\u0c2c\u0c21\u0c3f\u0c02\u0c26\u0c3f!"),
+    ("profile_save_failed", "\u0c2a\u0c4d\u0c30\u0c4a\u0c2b\u0c48\u0c32\u0c4d \u0c38\u0c47\u0c35\u0c4d \u0c1a\u0c47\u0c2f\u0c21\u0c02 \u0c35\u0c3f\u0c2b\u0c32\u0c2e\u0c48\u0c02\u0c26\u0c3f"),
+    ("profile_add_your_name", "\u0c2e\u0c40 \u0c2a\u0c47\u0c30\u0c41 \u0c1a\u0c47\u0c30\u0c4d\u0c1a\u0c02\u0c21\u0c3f"),
+    ("profile_tap_photo_change", "\u0c2e\u0c3e\u0c30\u0c4d\u0c1a\u0c21\u0c3e\u0c28\u0c3f\u0c15\u0c3f \u0c2b\u0c4b\u0c1f\u0c4b\u0c28\u0c41 \u0c1f\u0c4d\u0c2f\u0c3e\u0c2a\u0c4d \u0c1a\u0c47\u0c2f\u0c02\u0c21\u0c3f"),
+    ("profile_not_provided", "\u0c05\u0c02\u0c26\u0c3f\u0c02\u0c1a\u0c32\u0c47\u0c26\u0c41"),
+]
+
+
+def add_strings(xml_path, strings):
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    existing = {elem.get('name') for elem in root.findall('string')}
+    added = 0
+    for name, value in strings:
+        if name not in existing:
+            el = ET.SubElement(root, 'string', attrib={'name': name})
+            el.text = value
+            el.tail = '\n    '
+            added += 1
+    if added > 0:
+        last = list(root)[-1]
+        last.tail = '\n'
+        tree.write(xml_path, encoding='utf-8', xml_declaration=True)
+    return added
+
+
+en_path = os.path.join(BASE, 'values', 'strings.xml')
+te_path = os.path.join(BASE, 'values-te', 'strings.xml')
+
+en_added = add_strings(en_path, EN_STRINGS)
+print(f"Added {en_added} English strings")
+
+te_added = add_strings(te_path, TE_STRINGS)
+print(f"Added {te_added} Telugu strings")

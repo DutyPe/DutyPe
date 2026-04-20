@@ -5509,3 +5509,67 @@ button.product-chip {
   font-size: 0.9rem;
   line-height: 1.55;
 }
+
+/* Single document page & landing page wrapper */
+.marketing-page-single {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+}
+.marketing-page-single h1 {
+  font-size: 1.4rem;
+  margin: 0 0 16px;
+  color: #1a1a1a;
+}
+.marketing-landing {
+  background: #f7f7fb;
+  min-height: 100vh;
+  color: #1a1a1a;
+}
+.marketing-landing > .marketing-topbar {
+  padding: 18px 28px;
+  background: #fff;
+  border-bottom: 1px solid #e7e7ee;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.marketing-landing > .marketing-topbar h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.marketing-landing > .marketing-topbar p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #6f6f7e;
+}
+.marketing-landing > .marketing-full {
+  padding: 24px 28px 60px;
+}
+.marketing-section-links {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.marketing-section-links li {
+  margin: 6px 0;
+}
+.marketing-section-links a {
+  color: #4338ca;
+  text-decoration: none;
+  font-size: 0.92rem;
+  padding: 6px 10px;
+  display: inline-block;
+  border-radius: 6px;
+}
+.marketing-section-links a:hover {
+  background: #eef2ff;
+}
+.marketing-full-file-title a {
+  color: inherit;
+  text-decoration: none;
+}
+.marketing-full-file-title a:hover {
+  text-decoration: underline;
+}

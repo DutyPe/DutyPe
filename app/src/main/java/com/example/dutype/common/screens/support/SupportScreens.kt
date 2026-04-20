@@ -51,12 +51,12 @@ fun ContactUsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "Need Help?",
+                stringResource(R.string.contact_us_need_help),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "We're here to help. Choose how you'd like to reach us.",
+                stringResource(R.string.contact_us_subtitle),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -64,7 +64,7 @@ fun ContactUsScreen(
             ElevatedCard(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com"))
-                    intent.putExtra(Intent.EXTRA_SUBJECT, "DutyPe Support Request")
+                    intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_support_request))
                     context.startActivity(Intent.createChooser(intent, "Send Email"))
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -128,27 +128,27 @@ fun HelpMainScreen(
         HelpExpandableItem(
             icon = Icons.Default.RocketLaunch,
             title = stringResource(R.string.getting_started),
-            content = "1. Complete your worker profile with skills and location\n2. Keep your phone and profile photo updated\n3. Turn on notifications to avoid missing jobs"
+            content = stringResource(R.string.guide_getting_started_content)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Search,
             title = stringResource(R.string.finding_jobs_faster),
-            content = "1. Use category tabs and filters\n2. Keep location access on for nearby jobs\n3. Save jobs to revisit quickly"
+            content = stringResource(R.string.guide_finding_jobs_content)
         ),
         HelpExpandableItem(
             icon = Icons.Default.WorkOutline,
             title = stringResource(R.string.applying_work_start),
-            content = "1. Open job details and apply\n2. Track status in My Jobs\n3. Use QR verification when starting work"
+            content = stringResource(R.string.guide_applying_work_content)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Star,
             title = stringResource(R.string.building_reputation),
-            content = "1. Complete jobs on time\n2. Keep communication professional\n3. Maintain high ratings and profile completeness"
+            content = stringResource(R.string.guide_building_reputation_content)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Payments,
             title = stringResource(R.string.getting_paid_safely),
-            content = "1. Confirm pay terms before starting\n2. Use the in-app QR to mark work start & finish\n3. Never share OTP/UPI PIN with anyone"
+            content = stringResource(R.string.guide_getting_paid_content)
         )
     )
 
@@ -156,32 +156,32 @@ fun HelpMainScreen(
         HelpExpandableItem(
             icon = Icons.Default.HelpOutline,
             title = stringResource(R.string.faq_why_not_seeing_jobs),
-            content = "Enable location permissions, set the correct city, and check different tabs (Hourly/Daily/Part-time)."
+            content = stringResource(R.string.faq_not_seeing_jobs_answer)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Assignment,
             title = stringResource(R.string.faq_track_application),
-            content = "Open My Jobs or Applied Jobs. You can see pending, shortlisted, accepted, or rejected status there."
+            content = stringResource(R.string.faq_track_application_answer)
         ),
         HelpExpandableItem(
             icon = Icons.Default.SupportAgent,
             title = stringResource(R.string.faq_contact_support),
-            content = "Tap WhatsApp Support above, or use Contact Us to reach us by email. Include screenshots for faster help."
+            content = stringResource(R.string.faq_contact_support_answer)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Verified,
             title = stringResource(R.string.faq_improve_trust),
-            content = "Complete profile details, keep work history accurate, and collect good ratings from completed jobs."
+            content = stringResource(R.string.faq_improve_trust_answer)
         ),
         HelpExpandableItem(
             icon = Icons.Default.Security,
             title = stringResource(R.string.faq_personal_data_safe),
-            content = "Your contact details are only shared with employers after you apply. We never sell your data."
+            content = stringResource(R.string.faq_personal_data_safe_answer)
         ),
         HelpExpandableItem(
             icon = Icons.Default.MoneyOff,
             title = stringResource(R.string.faq_cant_apply),
-            content = "Check your internet connection, restart the app, and ensure your profile is complete. If the issue stays, report it from below."
+            content = stringResource(R.string.faq_cant_apply_answer)
         )
     )
 
@@ -244,13 +244,13 @@ fun HelpMainScreen(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "How can we help?",
+                            stringResource(R.string.help_hero_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = ink
                         )
                         Text(
-                            "Search guides, browse FAQs, or chat with us directly.",
+                            stringResource(R.string.help_hero_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = muted
                         )
@@ -294,7 +294,7 @@ fun HelpMainScreen(
                     bg = androidx.compose.ui.graphics.Color(0xFFDCFCE7),
                     tint = androidx.compose.ui.graphics.Color(0xFF16A34A)
                 ) {
-                    val msg = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
+                    val msg = context.getString(R.string.whatsapp_worker_message)
                     val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
@@ -306,7 +306,7 @@ fun HelpMainScreen(
                     tint = accent
                 ) {
                     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
-                    intent.putExtra(Intent.EXTRA_SUBJECT, "Worker Support")
+                    intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_worker_support))
                     context.startActivity(Intent.createChooser(intent, "Send Email"))
                 }
                 QuickActionTile(
@@ -394,12 +394,12 @@ fun HelpMainScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "No matching topics",
+                            stringResource(R.string.no_matching_topics),
                             fontWeight = FontWeight.SemiBold,
                             color = ink
                         )
                         Text(
-                            "Try a different keyword or message us on WhatsApp.",
+                            stringResource(R.string.no_matching_topics_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = muted
                         )
@@ -623,16 +623,16 @@ fun TutorialScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "Getting Started with DutyPe",
+                stringResource(R.string.tutorial_getting_started_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
 
-            TutorialStep("1", "Create Your Profile", "Sign up with your phone number and complete your profile with your skills and experience.")
-            TutorialStep("2", "Browse Jobs", "Search for jobs near you by category, location, or keyword.")
-            TutorialStep("3", "Apply with One Tap", "Found a job you like? Apply instantly or contact the employer via WhatsApp.")
-            TutorialStep("4", "Stay Safe", "We use AI to detect scam jobs and protect you — look for safety badges!")
-            TutorialStep("5", "Build Your Reputation", "Complete jobs, earn ratings, and unlock trust badges.")
+            TutorialStep("1", stringResource(R.string.tutorial_step1_title), stringResource(R.string.tutorial_step1_desc))
+            TutorialStep("2", stringResource(R.string.tutorial_step2_title), stringResource(R.string.tutorial_step2_desc))
+            TutorialStep("3", stringResource(R.string.tutorial_step3_title), stringResource(R.string.tutorial_step3_desc))
+            TutorialStep("4", stringResource(R.string.tutorial_step4_title), stringResource(R.string.tutorial_step4_desc))
+            TutorialStep("5", stringResource(R.string.tutorial_step5_title), stringResource(R.string.tutorial_step5_desc))
         }
     }
 }

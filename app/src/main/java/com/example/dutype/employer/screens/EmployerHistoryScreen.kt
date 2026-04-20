@@ -168,7 +168,7 @@ fun EmployerHistoryScreen(
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
-                            text = uiState.error ?: "Failed to load jobs",
+                            text = uiState.error ?: stringResource(R.string.history_failed_load_jobs),
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color(0xFF6B7280),
                             textAlign = TextAlign.Center
@@ -440,7 +440,7 @@ private fun TimelineJobCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Stats row
+                    // Stats row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -458,7 +458,7 @@ private fun TimelineJobCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "View applications",
+                            text = stringResource(R.string.history_view_applications),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF3B82F6)
@@ -471,10 +471,10 @@ private fun TimelineJobCard(
                     val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
                     Text(
                         text = when {
-                            isExpired -> "Expired"
-                            daysLeft == 0 -> "Expires today"
-                            daysLeft == 1 -> "1 day left"
-                            else -> "$daysLeft days left"
+                            isExpired -> stringResource(R.string.history_expired)
+                            daysLeft == 0 -> stringResource(R.string.history_expires_today)
+                            daysLeft == 1 -> stringResource(R.string.history_1_day_left)
+                            else -> stringResource(R.string.history_days_left, daysLeft)
                         },
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = if (isExpired) Color(0xFFEF4444) 
@@ -492,11 +492,11 @@ private fun TimelineJobCard(
 @Composable
 private fun EmptyHistoryState(selectedTab: Int) {
     val (message, subMessage, icon) = when (selectedTab) {
-        0 -> Triple("No job posting history", "Start posting jobs to build your timeline", Icons.Default.Timeline)
-        1 -> Triple("No active jobs", "Your active job postings will appear here", Icons.Default.CheckCircle)
-        2 -> Triple("No expired jobs", "Expired job postings will appear here", Icons.Default.EventBusy)
-        3 -> Triple("No jobs posted yet", "Start posting jobs to see them here", Icons.Default.WorkHistory)
-        else -> Triple("No jobs", "Your job postings will appear here", Icons.Default.WorkHistory)
+        0 -> Triple(stringResource(R.string.history_no_job_posting), stringResource(R.string.history_start_posting_timeline), Icons.Default.Timeline)
+        1 -> Triple(stringResource(R.string.history_no_active_jobs), stringResource(R.string.history_active_postings_here), Icons.Default.CheckCircle)
+        2 -> Triple(stringResource(R.string.history_no_expired_jobs), stringResource(R.string.history_expired_postings_here), Icons.Default.EventBusy)
+        3 -> Triple(stringResource(R.string.history_no_jobs_posted), stringResource(R.string.history_start_posting_here), Icons.Default.WorkHistory)
+        else -> Triple(stringResource(R.string.history_no_jobs), stringResource(R.string.history_postings_appear_here), Icons.Default.WorkHistory)
     }
     
     Box(
@@ -633,7 +633,7 @@ private fun HistoryJobCard(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "View applications",
+                        text = stringResource(R.string.history_view_applications),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF3B82F6)
@@ -646,10 +646,10 @@ private fun HistoryJobCard(
                 val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
                 Text(
                     text = when {
-                        isExpired -> "Expired"
-                        daysLeft == 0 -> "Expires today"
-                        daysLeft == 1 -> "1 day left"
-                        else -> "$daysLeft days left"
+                        isExpired -> stringResource(R.string.history_expired)
+                        daysLeft == 0 -> stringResource(R.string.history_expires_today)
+                        daysLeft == 1 -> stringResource(R.string.history_1_day_left)
+                        else -> stringResource(R.string.history_days_left, daysLeft)
                     },
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = if (isExpired) Color(0xFFEF4444) 
@@ -663,7 +663,7 @@ private fun HistoryJobCard(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Posted ${formatDate(job.createdAt)}",
+                text = stringResource(R.string.history_posted_date, formatDate(job.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF9CA3AF)
                 )
@@ -678,9 +678,9 @@ private fun JobStatusBadge(
     isExpired: Boolean
 ) {
     val (color, text, icon) = when {
-        isExpired -> Triple(Color(0xFFEF4444), "Expired", Icons.Default.EventBusy)
-        !isActive -> Triple(Color(0xFF6B7280), "Paused", Icons.Default.Pause)
-        else -> Triple(Color(0xFF10B981), "Active", Icons.Default.CheckCircle)
+        isExpired -> Triple(Color(0xFFEF4444), stringResource(R.string.history_expired), Icons.Default.EventBusy)
+        !isActive -> Triple(Color(0xFF6B7280), stringResource(R.string.history_status_paused), Icons.Default.Pause)
+        else -> Triple(Color(0xFF10B981), stringResource(R.string.history_status_active), Icons.Default.CheckCircle)
     }
     
     Surface(

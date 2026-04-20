@@ -604,7 +604,7 @@ fun WorkerProfileScreen(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Tap to add your name",
+                                        text = stringResource(R.string.profile_tap_add_name),
                                         style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
                                             color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
                                         )
@@ -612,14 +612,14 @@ fun WorkerProfileScreen(
                                 } else {
                                     // Fallback if no phone available (shouldn't happen for logged in users)
                                     Text(
-                                        text = "Set up your profile",
+                                        text = stringResource(R.string.profile_set_up_profile),
                                         style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
                                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                         )
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Tap to add your details",
+                                        text = stringResource(R.string.profile_tap_add_details),
                                         style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
                                             color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
                                         )
@@ -640,7 +640,7 @@ fun WorkerProfileScreen(
                                 modifier = Modifier.height(38.dp)
                             ) {
                                 Text(
-                                    text = "Log in / Sign up",
+                                    text = stringResource(R.string.profile_login_signup),
                                     style = com.example.dutype.ui.theme.AppTypography.buttonMedium.copy(
                                         color = Color.White
                                     )
@@ -648,7 +648,7 @@ fun WorkerProfileScreen(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "View and update your profile data",
+                                text = stringResource(R.string.profile_view_update_data),
                                 style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
                                     color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
                                 )
@@ -685,7 +685,7 @@ fun WorkerProfileScreen(
                 Column {
                     // Section Header
                     Text(
-                        text = "My Activity",
+                        text = stringResource(R.string.profile_my_activity),
                         style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         ),
@@ -753,7 +753,7 @@ fun WorkerProfileScreen(
             ) {
                 Column {
                     Text(
-                        text = "Rewards",
+                        text = stringResource(R.string.profile_rewards),
                         style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         ),
@@ -763,7 +763,7 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.CardGiftcard,
                         title = stringResource(R.string.refer_earn),
-                        badgeText = "New",
+                        badgeText = stringResource(R.string.profile_badge_new),
                         onClick = { 
                             // Refer & Earn requires login
                             if (currentUserId.isNotEmpty()) {
@@ -794,7 +794,7 @@ fun WorkerProfileScreen(
             ) {
                 Column {
                     Text(
-                        text = "Others",
+                        text = stringResource(R.string.profile_others),
                         style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         ),
@@ -1061,12 +1061,12 @@ fun WorkerProfileScreen(
         role = com.example.dutype.models.UserRole.WORKER,
         title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
-            "profile" -> "Login to view and edit your profile"
-            "applications" -> "Login to view your job applications"
-            "earnings" -> "Login to view your earnings"
-            "visiting_card" -> "Login to create your digital visiting card"
-            "refer_earn" -> "Login to refer friends and earn rewards"
-            else -> "Please login to access this feature"
+            "profile" -> stringResource(R.string.login_to_view_profile)
+            "applications" -> stringResource(R.string.login_to_view_applications)
+            "earnings" -> stringResource(R.string.login_to_view_earnings)
+            "visiting_card" -> stringResource(R.string.login_to_create_visiting_card)
+            "refer_earn" -> stringResource(R.string.login_to_refer_earn)
+            else -> stringResource(R.string.login_to_access_feature)
         }
     )
 }
@@ -1114,7 +1114,7 @@ private fun ModernEditDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Edit Profile",
+                        text = stringResource(R.string.profile_edit_profile),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1F2937)

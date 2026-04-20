@@ -69,7 +69,7 @@ fun NotificationDetailScreen(
                         modifier = Modifier.size(64.dp)
                     )
                     Text(
-                        text = "Notification not found",
+                        text = stringResource(R.string.notif_not_found),
                         style = MaterialTheme.typography.bodyLarge,
                         color = Color(0xFF6B7280)
                     )
@@ -160,7 +160,7 @@ fun NotificationDetailScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Job: $jobTitle",
+                                text = stringResource(R.string.notif_job_label, jobTitle),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFF374151)
                             )
@@ -186,7 +186,15 @@ fun NotificationDetailScreen(
                     ) {
                         Icon(actionButton.icon, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = actionButton.label, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = when (actionButton.label) {
+                                "VIEW_APPLICATIONS" -> stringResource(R.string.notif_action_view_applications)
+                                "VIEW_JOB_DETAILS" -> stringResource(R.string.notif_action_view_job_details)
+                                "BROWSE_JOBS" -> stringResource(R.string.notif_action_browse_jobs)
+                                else -> actionButton.label
+                            },
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
                 
@@ -223,14 +231,14 @@ private fun getActionButton(notification: Notification): ActionButtonData? {
     return when (notification.type) {
         NotificationType.APPLICATION_STATUS_UPDATE,
         NotificationType.SHORTLISTED,
-        NotificationType.REJECTED -> ActionButtonData("View My Applications", Icons.Default.Work, "my_jobs")
+        NotificationType.REJECTED -> ActionButtonData("VIEW_APPLICATIONS", Icons.Default.Work, "my_jobs")
         NotificationType.JOB_POSTED,
         NotificationType.NEW_JOB_ALERT,
         NotificationType.JOB_RECOMMENDATION -> {
-            if (!jobId.isNullOrEmpty()) ActionButtonData("View Job Details", Icons.Default.Visibility, "job_detail")
-            else ActionButtonData("Browse Jobs", Icons.Default.Search, "all_jobs")
+            if (!jobId.isNullOrEmpty()) ActionButtonData("VIEW_JOB_DETAILS", Icons.Default.Visibility, "job_detail")
+            else ActionButtonData("BROWSE_JOBS", Icons.Default.Search, "all_jobs")
         }
-        NotificationType.JOB_PAUSED -> ActionButtonData("View My Applications", Icons.Default.Work, "my_jobs")
+        NotificationType.JOB_PAUSED -> ActionButtonData("VIEW_APPLICATIONS", Icons.Default.Work, "my_jobs")
         else -> null
     }
 }
@@ -267,19 +275,20 @@ private fun getNotificationDetailColor(type: NotificationType): Color {
     }
 }
 
+@Composable
 private fun getNotificationTypeLabel(type: NotificationType): String {
     return when (type) {
-        NotificationType.APPLICATION_STATUS_UPDATE -> "Application Update"
-        NotificationType.SHORTLISTED -> "Shortlisted"
-        NotificationType.REJECTED -> "Application Update"
-        NotificationType.INTERVIEW_SCHEDULED -> "Interview"
-        NotificationType.EMPLOYER_MESSAGE -> "Message"
-        NotificationType.NEW_JOB_ALERT -> "New Job"
-        NotificationType.JOB_RECOMMENDATION -> "Recommended"
-        NotificationType.JOB_POSTED -> "Job Posted"
-        NotificationType.JOB_PAUSED -> "Job Update"
-        NotificationType.SYSTEM_UPDATE -> "System"
-        else -> "Notification"
+        NotificationType.APPLICATION_STATUS_UPDATE -> stringResource(R.string.notif_type_application_update)
+        NotificationType.SHORTLISTED -> stringResource(R.string.notif_type_shortlisted)
+        NotificationType.REJECTED -> stringResource(R.string.notif_type_application_update)
+        NotificationType.INTERVIEW_SCHEDULED -> stringResource(R.string.notif_type_interview)
+        NotificationType.EMPLOYER_MESSAGE -> stringResource(R.string.notif_type_message)
+        NotificationType.NEW_JOB_ALERT -> stringResource(R.string.notif_type_new_job)
+        NotificationType.JOB_RECOMMENDATION -> stringResource(R.string.notif_type_recommended)
+        NotificationType.JOB_POSTED -> stringResource(R.string.notif_type_job_posted)
+        NotificationType.JOB_PAUSED -> stringResource(R.string.notif_type_job_update)
+        NotificationType.SYSTEM_UPDATE -> stringResource(R.string.notif_type_system)
+        else -> stringResource(R.string.notif_type_notification)
     }
 }
 

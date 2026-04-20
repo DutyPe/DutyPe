@@ -1,8 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">డ్యూటీపే</string>
-    
-    <!-- Common -->
     <string name="loading">లోడ్ అవుతోంది...</string>
     <string name="error">లోపం</string>
     <string name="retry">మళ్ళీ ప్రయత్నించండి</string>
@@ -20,11 +18,9 @@
     <string name="yes">అవును</string>
     <string name="no">వద్దు</string>
     <string name="ok">సరే</string>
-    <string name="continue_text">కొనసాగించు</string> 
+    <string name="continue_text">కొనసాగించు</string>
     <string name="skip">దాటవేయి</string>
     <string name="close">మూసివేయి</string>
-    
-    <!-- Auth -->
     <string name="login">లాగిన్</string>
     <string name="signup">సైన్ అప్</string>
     <string name="logout">లాగ్ అవుట్</string>
@@ -33,8 +29,6 @@
     <string name="verify">ధృవీకరించండి</string>
     <string name="resend_otp">OTP మళ్ళీ పంపండి</string>
     <string name="google_signin">Google తో లాగిన్</string>
-    
-    <!-- Role Selection -->
     <string name="select_role">మీ పాత్రను ఎంచుకోండి</string>
     <string name="how_can_we_help">ఈ రోజు మీకు ఎలా\nసహాయం చేయగలం?</string>
     <string name="i_want_job">నాకు ఉద్యోగం కావాలి</string>
@@ -43,8 +37,6 @@
     <string name="employer">యజమాని</string>
     <string name="find_jobs_earn">ఉద్యోగాలు కనుగొని డబ్బు సంపాదించండి</string>
     <string name="hire_skilled_workers">నైపుణ్యం గల కార్మికులను నియమించండి</string>
-
-    <!-- Home Screen -->
     <string name="jobs_near_you">మీ సమీపంలో ఉద్యోగాలు</string>
     <string name="all_jobs">అన్ని ఉద్యోగాలు</string>
     <string name="hourly">గంటకు</string>
@@ -60,8 +52,6 @@
     <string name="recommended">సిఫార్సు చేయబడినవి</string>
     <string name="recent_jobs">ఇటీవలి ఉద్యోగాలు</string>
     <string name="trending_jobs">ట్రెండింగ్ ఉద్యోగాలు</string>
-    
-    <!-- Job Categories -->
     <string name="category_cook">వంటవాడు</string>
     <string name="category_maid">పనిమనిషి</string>
     <string name="category_driver">డ్రైవర్</string>
@@ -76,8 +66,6 @@
     <string name="category_caretaker">సంరక్షకుడు</string>
     <string name="category_helper">సహాయకుడు</string>
     <string name="category_other">ఇతర</string>
-    
-    <!-- Job Details -->
     <string name="job_details">ఉద్యోగ వివరాలు</string>
     <string name="salary">జీతం</string>
     <string name="location">స్థానం</string>
@@ -98,8 +86,6 @@
     <string name="per_hour">/గంట</string>
     <string name="per_day">/రోజు</string>
     <string name="per_month">/నెల</string>
-    
-    <!-- Profile -->
     <string name="profile">ప్రొఫైల్</string>
     <string name="my_profile">నా ప్రొఫైల్</string>
     <string name="edit_profile">ప్రొఫైల్ మార్చండి</string>
@@ -119,8 +105,6 @@
     <string name="education">విద్య</string>
     <string name="documents">పత్రాలు</string>
     <string name="verification">ధృవీకరణ</string>
-
-    <!-- Applications -->
     <string name="my_applications">నా దరఖాస్తులు</string>
     <string name="applied">దరఖాస్తు చేసారు</string>
     <string name="pending">పెండింగ్</string>
@@ -130,8 +114,6 @@
     <string name="in_progress">ప్రగతిలో ఉంది</string>
     <string name="application_status">దరఖాస్తు స్థితి</string>
     <string name="withdraw_application">దరఖాస్తు ఉపసంహరించుకోండి</string>
-    
-    <!-- Employer -->
     <string name="post_job">ఉద్యోగం పోస్ట్ చేయండి</string>
     <string name="my_jobs">నా ఉద్యోగాలు</string>
     <string name="view_applicants">దరఖాస్తుదారులను చూడండి</string>
@@ -144,22 +126,16 @@
     <string name="total_applicants">మొత్తం దరఖాస్తుదారులు</string>
     <string name="shortlisted">షార్ట్‌లిస్ట్ చేయబడినవి</string>
     <string name="hired">నియమించబడినవి</string>
-    
-    <!-- Notifications -->
     <string name="notifications">నోటిఫికేషన్లు</string>
     <string name="no_notifications">నోటిఫికేషన్లు లేవు</string>
     <string name="mark_all_read">అన్నీ చదివినట్లు గుర్తించండి</string>
     <string name="new_application">కొత్త దరఖాస్తు</string>
     <string name="application_update">దరఖాస్తు అప్‌డేట్</string>
-    
-    <!-- Chat -->
     <string name="messages">సందేశాలు</string>
     <string name="chat">చాట్</string>
     <string name="type_message">సందేశం టైప్ చేయండి...</string>
     <string name="send">పంపండి</string>
     <string name="no_messages">సందేశాలు లేవు</string>
-    
-    <!-- Settings -->
     <string name="settings">సెట్టింగ్‌లు</string>
     <string name="language">భాష</string>
     <string name="change_language">భాష మార్చండి</string>
@@ -171,47 +147,33 @@
     <string name="rate_app">యాప్‌ను రేట్ చేయండి</string>
     <string name="share_app">యాప్ షేర్ చేయండి</string>
     <string name="version">వెర్షన్</string>
-    
-    <!-- Map -->
     <string name="map_view">మ్యాప్</string>
     <string name="jobs_on_map">మ్యాప్‌లో ఉద్యోగాలు</string>
     <string name="your_location">మీ స్థానం</string>
     <string name="enable_location">స్థానం ఎనేబుల్ చేయండి</string>
     <string name="getting_location">స్థానం పొందుతోంది...</string>
-    
-    <!-- Distance -->
     <string name="km_away">కి.మీ దూరంలో</string>
     <string name="m_away">మీ దూరంలో</string>
     <string name="nearby">సమీపంలో</string>
-    
-    <!-- Earnings -->
     <string name="my_earnings">నా సంపాదన</string>
     <string name="total_earned">మొత్తం సంపాదన</string>
     <string name="this_month">ఈ నెల</string>
     <string name="this_week">ఈ వారం</string>
     <string name="today">ఈ రోజు</string>
-    
-    <!-- Subscription -->
     <string name="subscription">సబ్‌స్క్రిప్షన్</string>
     <string name="upgrade">అప్‌గ్రేడ్ చేయండి</string>
     <string name="free_plan">ఉచిత ప్లాన్</string>
     <string name="pro_plan">ప్రో ప్లాన్</string>
     <string name="premium_features">ప్రీమియం ఫీచర్లు</string>
-
-    <!-- Errors -->
     <string name="something_went_wrong">ఏదో తప్పు జరిగింది</string>
     <string name="no_internet">ఇంటర్నెట్ కనెక్షన్ లేదు</string>
     <string name="try_again">మళ్ళీ ప్రయత్నించండి</string>
     <string name="no_jobs_found">ఉద్యోగాలు కనుగొనబడలేదు</string>
     <string name="session_expired">సెషన్ ముగిసింది. దయచేసి మళ్ళీ లాగిన్ అవ్వండి.</string>
-    
-    <!-- Success Messages -->
     <string name="application_submitted">దరఖాస్తు సమర్పించబడింది!</string>
     <string name="job_posted">ఉద్యోగం పోస్ట్ చేయబడింది!</string>
     <string name="profile_updated">ప్రొఫైల్ అప్‌డేట్ చేయబడింది!</string>
     <string name="saved_successfully">విజయవంతంగా సేవ్ చేయబడింది!</string>
-    
-    <!-- Bottom Navigation -->
     <string name="bottom_nav_jobs">ఉద్యోగాలు</string>
     <string name="bottom_nav_my_jobs">నా ఉద్యోగాలు</string>
     <string name="bottom_nav_home">హోమ్</string>
@@ -220,8 +182,6 @@
     <string name="bottom_nav_chat">చాట్</string>
     <string name="bottom_nav_categories">వర్గాలు</string>
     <string name="bottom_nav_account">ఖాతా</string>
-    
-    <!-- Onboarding -->
     <string name="onboarding_title_1">వేగవంతమైన విశ్వసనీయ సేవ</string>
     <string name="onboarding_desc_1">మీ అన్ని సేవా అవసరాలకు ధృవీకరించబడిన నిపుణులతో తక్షణమే కనెక్ట్ అవ్వండి.</string>
     <string name="onboarding_title_2">రియల్-టైమ్ ట్రాకింగ్</string>
@@ -229,17 +189,11 @@
     <string name="onboarding_title_3">హైపర్-లోకల్ ఉద్యోగాలు</string>
     <string name="onboarding_desc_3">సమీపంలో అవకాశాలను కనుగొనండి లేదా స్థానిక ప్రతిభను త్వరగా నియమించండి.</string>
     <string name="get_started">ప్రారంభించండి</string>
-    
-    <!-- Language Selection -->
     <string name="choose_language">మీ భాషను ఎంచుకోండి</string>
     <string name="select_preferred_language">మీకు ఇష్టమైన భాషను ఎంచుకోండి</string>
     <string name="change_later_in_settings">మీరు దీన్ని తర్వాత సెట్టింగ్స్‌లో మార్చవచ్చు</string>
-    
-    <!-- Location -->
     <string name="select_your_location">మీ స్థానాన్ని ఎంచుకోండి</string>
     <string name="tap_to_get_location">స్థానం పొందడానికి నొక్కండి</string>
-    
-    <!-- Home Screen Additional -->
     <string name="recommended_jobs_near_you">మీ సమీపంలో సిఫార్సు చేయబడిన ఉద్యోగాలు</string>
     <string name="jobs_for_you">మీ కోసం ఉద్యోగాలు</string>
     <string name="jobs_fits_for_you">మీకు సరిపోయే ఉద్యోగాలు</string>
@@ -249,8 +203,6 @@
     <string name="jobs_coming_soon_message">మీకు ఉత్తమ అవకాశాలను అందించడానికి మేము పని చేస్తున్నాము. త్వరలో తిరిగి చూడండి!</string>
     <string name="applied_to_all_jobs">మీరు అన్ని ఉద్యోగాలకు దరఖాస్తు చేసారు!</string>
     <string name="applied_to_all_jobs_message">అద్భుతం! కొత్త అవకాశాల కోసం త్వరలో తిరిగి చూడండి.</string>
-    
-    <!-- My Jobs Screen -->
     <string name="applied_jobs">దరఖాస్తు చేసిన ఉద్యోగాలు</string>
     <string name="saved_jobs">సేవ్ చేసిన ఉద్యోగాలు</string>
     <string name="no_applications_yet">ఇంకా దరఖాస్తులు లేవు</string>
@@ -262,8 +214,6 @@
     <string name="withdraw">ఉపసంహరించు</string>
     <string name="withdraw_application_title">దరఖాస్తు ఉపసంహరించాలా?</string>
     <string name="withdraw_application_message">మీరు మీ దరఖాస్తును ఉపసంహరించుకోవాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయలేరు.</string>
-    
-    <!-- Job Description Screen -->
     <string name="payment_protected">చెల్లింపు రక్షించబడింది</string>
     <string name="distance_unavailable">దూరం అందుబాటులో లేదు</string>
     <string name="less_than_50m">50మీ కంటే తక్కువ దూరంలో</string>
@@ -272,8 +222,6 @@
     <string name="landmark">ల్యాండ్‌మార్క్</string>
     <string name="whatsapp">WhatsApp</string>
     <string name="under_review">సమీక్షలో ఉంది</string>
-    
-    <!-- Map Screen -->
     <string name="fetching_jobs">ఉద్యోగాలు పొందుతోంది...</string>
     <string name="loading_map">మ్యాప్ లోడ్ అవుతోంది...</string>
     <string name="no_jobs_in_area">ఈ ప్రాంతంలో ఉద్యోగాలు లేవు</string>
@@ -290,8 +238,6 @@
     <string name="vacancy">ఖాళీ</string>
     <string name="available">అందుబాటులో ఉంది</string>
     <string name="urgent_hiring_today">అత్యవసరం - ఈ రోజు నియమిస్తున్నారు!</string>
-    
-    <!-- Profile Screen -->
     <string name="account_settings">ఖాతా సెట్టింగ్‌లు</string>
     <string name="app_settings">యాప్ సెట్టింగ్‌లు</string>
     <string name="support">సహాయం</string>
@@ -314,16 +260,12 @@
     <string name="complete">పూర్తి చేయండి</string>
     <string name="missing_fields">మిస్ అయిన ఫీల్డ్‌లు:</string>
     <string name="your_profile_is_complete">మీ ప్రొఫైల్ %d%% పూర్తయింది.</string>
-    
-    <!-- Employer Dashboard -->
     <string name="dashboard">డాష్‌బోర్డ్</string>
     <string name="manage_jobs">ఉద్యోగాలు నిర్వహించండి</string>
     <string name="applications_received">అందుకున్న దరఖాస్తులు</string>
     <string name="new_applicants">కొత్త దరఖాస్తుదారులు</string>
     <string name="no_active_jobs">యాక్టివ్ ఉద్యోగాలు లేవు</string>
     <string name="post_your_first_job">నియమించడం ప్రారంభించడానికి మీ మొదటి ఉద్యోగం పోస్ట్ చేయండి</string>
-    
-    <!-- DutyPe Promise -->
     <string name="dutype_promise">DutyPe వాగ్దానం</string>
     <string name="your_safety_priority">మీ భద్రత మా ప్రాధాన్యత</string>
     <string name="trusted">విశ్వసనీయం</string>
@@ -335,8 +277,6 @@
     <string name="on_time_payments">సమయానికి చెల్లింపులు</string>
     <string name="support_24_7">24/7 సహాయం</string>
     <string name="always_here_to_help">ఎల్లప్పుడూ సహాయం చేయడానికి ఇక్కడ ఉన్నాము</string>
-    
-    <!-- Employer Profile -->
     <string name="business_and_jobs">వ్యాపారం &amp; ఉద్యోగాలు</string>
     <string name="trust_badges">ట్రస్ట్ బ్యాడ్జ్‌లు</string>
     <string name="view_verification_status">మీ ధృవీకరణ స్థితిని చూడండి</string>
@@ -347,8 +287,6 @@
     <string name="help_and_support">సహాయం &amp; తరచుగా అడిగే ప్రశ్నలు</string>
     <string name="more_settings">మరిన్ని సెట్టింగ్‌లు</string>
     <string name="your_company">మీ కంపెనీ</string>
-    
-    <!-- Profile Setup -->
     <string name="personal_information">వ్యక్తిగత సమాచారం</string>
     <string name="tell_us_about_yourself">మీ గురించి చెప్పండి</string>
     <string name="additional_details">అదనపు వివరాలు</string>
@@ -363,8 +301,6 @@
     <string name="company_information">కంపెనీ సమాచారం</string>
     <string name="tell_us_about_company">మీ కంపెనీ గురించి చెప్పండి</string>
     <string name="industry_required">పరిశ్రమ * (వర్తించే అన్నింటిని ఎంచుకోండి)</string>
-    
-    <!-- Application Status -->
     <string name="status_pending">పెండింగ్</string>
     <string name="status_accepted">ఆమోదించబడింది</string>
     <string name="status_rejected">తిరస్కరించబడింది</string>
@@ -373,35 +309,23 @@
     <string name="status_under_review">సమీక్షలో ఉంది</string>
     <string name="status_hired">నియమించబడింది</string>
     <string name="status_withdrawn">ఉపసంహరించబడింది</string>
-    
-    <!-- Job Card Actions -->
     <string name="call">కాల్ చేయండి</string>
     <string name="view_details">వివరాలు చూడండి</string>
     <string name="rate_employer">యజమానిని రేట్ చేయండి</string>
     <string name="start_work">పని ప్రారంభించండి</string>
     <string name="already_rated">ఇప్పటికే రేట్ చేసారు</string>
-    
-    <!-- Search -->
     <string name="search_jobs_companies">ఉద్యోగాలు, కంపెనీలు, స్థానాలు వెతకండి...</string>
     <string name="no_results_found">ఫలితాలు కనుగొనబడలేదు</string>
     <string name="no_jobs_match">"%s" కు సరిపోయే ఉద్యోగాలు లేవు</string>
-    
-    <!-- Time Ago -->
     <string name="just_now">ఇప్పుడే</string>
     <string name="minutes_ago">%d నిమిషాల క్రితం</string>
     <string name="hours_ago">%d గంటల క్రితం</string>
     <string name="days_ago">%d రోజుల క్రితం</string>
     <string name="weeks_ago">%d వారాల క్రితం</string>
     <string name="months_ago">%d నెలల క్రితం</string>
-    
-    <!-- Negotiable -->
     <string name="negotiable">చర్చించదగినది</string>
-    
-    <!-- Distance -->
     <string name="m_away_format">%d మీ దూరంలో</string>
     <string name="km_away_format">%.1f కి.మీ దూరంలో</string>
-    
-    <!-- Additional strings -->
     <string name="track_income_payments">మీ ఆదాయం &amp; చెల్లింపులను ట్రాక్ చేయండి</string>
     <string name="chat_with_employers">యజమానులతో చాట్ చేయండి</string>
     <string name="security_legal">భద్రత &amp; చట్టపరమైన</string>
@@ -411,8 +335,6 @@
     <string name="job_singular">ఉద్యోగం</string>
     <string name="jobs_plural">ఉద్యోగాలు</string>
     <string name="saved_lowercase">సేవ్ చేయబడింది</string>
-    
-    <!-- Job Safety / AI Scam Detection -->
     <string name="job_safety_verified">ధృవీకరించబడిన సురక్షితం</string>
     <string name="job_safety_looks_good">బాగుంది</string>
     <string name="job_safety_caution">జాగ్రత్తగా ముందుకు సాగండి</string>
@@ -421,16 +343,12 @@
     <string name="job_safety_ai_analysis">AI భద్రతా విశ్లేషణ</string>
     <string name="job_safety_learn_more">ఉద్యోగ భద్రత గురించి మరింత తెలుసుకోండి →</string>
     <string name="job_safety_risk_score">ప్రమాద స్కోర్</string>
-    
-    <!-- Offline / Connectivity -->
     <string name="offline_message">మీరు ఆఫ్‌లైన్‌లో ఉన్నారు. మీ ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేయండి.</string>
     <string name="offline_message_compact">ఇంటర్నెట్ కనెక్షన్ లేదు</string>
     <string name="offline_message_inline">తాజా అప్‌డేట్‌లను చూడటానికి ఇంటర్నెట్‌కు కనెక్ట్ అవ్వండి</string>
     <string name="connecting">కనెక్ట్ అవుతోంది...</string>
     <string name="connected">కనెక్ట్ అయింది</string>
     <string name="reconnecting">మళ్ళీ కనెక్ట్ అవుతోంది...</string>
-    
-    <!-- Dialog & Button Actions -->
     <string name="change_language_title">భాష మార్చండి</string>
     <string name="change_language_message">కొత్త భాషను వర్తింపజేయడానికి యాప్ రీస్టార్ట్ అవుతుంది</string>
     <string name="yes_change">అవును, మార్చండి</string>
@@ -448,8 +366,6 @@
     <string name="withdraw_button">ఉపసంహరించు</string>
     <string name="notes_optional">గమనికలు (ఐచ్ఛికం)</string>
     <string name="edit_button">సవరించు</string>
-    
-    <!-- Job Posting Form Labels -->
     <string name="select_job_title">ఉద్యోగ శీర్షిక ఎంచుకోండి</string>
     <string name="tap_to_select_job_title">ఉద్యోగ శీర్షిక ఎంచుకోవడానికి నొక్కండి</string>
     <string name="enter_job_title">ఉద్యోగ శీర్షిక నమోదు చేయండి</string>
@@ -463,8 +379,6 @@
     <string name="landmark_placeholder">ఉదా., పెద్ద గుడి దగ్గర, మెట్రో స్టేషన్ ఎదురుగా</string>
     <string name="post_a_job">ఉద్యోగం పోస్ట్ చేయండి</string>
     <string name="ai_protected_posting">AI-రక్షిత పోస్టింగ్</string>
-    
-    <!-- Additional UI Text -->
     <string name="notification_not_found">నోటిఫికేషన్ కనుగొనబడలేదు</string>
     <string name="go_back">వెనుకకు వెళ్ళు</string>
     <string name="delete_notification">నోటిఫికేషన్ తొలగించు</string>
@@ -514,17 +428,9 @@
     <string name="gender_label">లింగం</string>
     <string name="generate_new_code">కొత్త కోడ్ రూపొందించు</string>
     <string name="done_button">పూర్తయింది</string>
-
-    <!-- ========================================================== -->
-    <!-- Telugu localization batch (Apr 2026)                       -->
-    <!-- ========================================================== -->
-
-    <!-- Common -->
     <string name="dismiss">తొలగించు</string>
     <string name="role_worker">వర్కర్</string>
     <string name="role_employer">ఎంప్లాయర్</string>
-
-    <!-- Role switch -->
     <string name="switch_to_role_title">%1$s‌కి మారాలా?</string>
     <string name="switch_role_body">మీరు %1$s నుండి %2$s మోడ్‌కి మారుతున్నారు. మీ యాక్టివ్ పాత్ర మారుతుంది మరియు మీరు %2$s డ్యాష్‌బోర్డ్‌ను చూస్తారు.</string>
     <string name="yes_switch">అవును, మార్చు</string>
@@ -533,11 +439,7 @@
     <string name="switching_roles">పాత్రలను మారుస్తోంది…</string>
     <string name="active_label">యాక్టివ్</string>
     <string name="tap_to_switch_role">మార్చేందుకు నొక్కండి</string>
-
-    <!-- Home -->
     <string name="view_analytics">విశ్లేషణలను చూడండి</string>
-
-    <!-- Profile / forms shared -->
     <string name="full_name_required">పూర్తి పేరు *</string>
     <string name="enter_full_name">మీ పూర్తి పేరును నమోదు చేయండి</string>
     <string name="email_address_verified">ఇమెయిల్ చిరునామా (ధృవీకరించబడింది)</string>
@@ -547,8 +449,6 @@
     <string name="phone_number_required">ఫోన్ నంబర్ *</string>
     <string name="enter_10_digit_phone">10-అంకెల ఫోన్ నంబర్ నమోదు చేయండి</string>
     <string name="select_experience_level">మీ అనుభవ స్థాయిని ఎంచుకోండి</string>
-
-    <!-- Employer onboarding -->
     <string name="company_name_required">కంపెనీ పేరు *</string>
     <string name="enter_company_name">మీ కంపెనీ పేరును నమోదు చేయండి</string>
     <string name="company_size_label">కంపెనీ పరిమాణం</string>
@@ -558,11 +458,7 @@
     <string name="contact_email_optional">సంప్రదింపు ఇమెయిల్ (ఐచ్ఛికం)</string>
     <string name="enter_email_address">ఇమెయిల్ చిరునామాను నమోదు చేయండి</string>
     <string name="select_date_of_birth">మీ పుట్టిన తేదీని ఎంచుకోండి</string>
-
-    <!-- Validation -->
     <string name="valid_job_location_required">చెల్లుబాటు అయ్యే ఉద్యోగ స్థానం అవసరం</string>
-
-    <!-- Batch 2: Refer & Earn, Support, Edit/Post Job -->
     <string name="copy_button">కాపీ</string>
     <string name="share_button">షేర్</string>
     <string name="code_copied">కోడ్ కాపీ చేయబడింది!</string>
@@ -582,8 +478,6 @@
     <string name="top_performers">అగ్ర పనితీరు</string>
     <string name="important_information">ముఖ్యమైన సమాచారం</string>
     <string name="terms_rbi_consent">పాల్గొనడం ద్వారా, మీరు మా నిబంధనలు, షరతులు మరియు RBI మార్గదర్శకాలకు అంగీకరిస్తున్నారు.</string>
-
-    <!-- Support -->
     <string name="email_support">ఇమెయిల్ సపోర్ట్</string>
     <string name="whatsapp_support">వాట్సాప్ సపోర్ట్</string>
     <string name="whatsapp_support_subtitle">మాకు వాట్సాప్‌లో సందేశం పంపండి</string>
@@ -595,8 +489,6 @@
     <string name="describe_problem">సమస్యను వివరించండి</string>
     <string name="submit_report">నివేదికను సమర్పించు</string>
     <string name="tutorial">ట్యుటోరియల్</string>
-
-    <!-- Edit/Post job -->
     <string name="updating">అప్‌డేట్ అవుతోంది...</string>
     <string name="update_job">ఉద్యోగాన్ని అప్‌డేట్ చేయండి</string>
     <string name="amount">మొత్తం</string>
@@ -620,7 +512,6 @@
     <string name="enter_number_of_positions">పదవుల సంఖ్యను నమోదు చేయండి</string>
     <string name="max_50_vacancies_hint">హైపర్-లోకల్ ఉద్యోగాలకు గరిష్టంగా 50 ఖాళీలు అనుమతించబడతాయి</string>
     <string name="your_name">మీ పేరు</string>
-    <!-- Batch 3: misc remaining screens -->
     <string name="contact">సంప్రదించండి</string>
     <string name="shortlist">షార్ట్‌లిస్ట్</string>
     <string name="reject">తిరస్కరించు</string>
@@ -646,7 +537,6 @@
     <string name="applications">దరఖాస్తులు</string>
     <string name="near_label">సమీపంలో: </string>
     <string name="education_example_hint">ఉదా: 10వ తరగతి + 2 సంవత్సరాలు</string>
-    <!-- Batch 4: support topics, profile/company details, analytics, about, settings, earnings -->
     <string name="getting_started">ప్రారంభించడం</string>
     <string name="finding_jobs_faster">ఉద్యోగాలను వేగంగా కనుగొనడం</string>
     <string name="applying_work_start">దరఖాస్తు మరియు పని ప్రారంభం</string>
@@ -737,7 +627,6 @@
     <string name="shift_label">షిఫ్ట్</string>
     <string name="about_us">మా గురించి</string>
     <string name="login_required">లాగిన్ అవసరం</string>
-    <!-- Batch 5: misc UI screens & FAQ -->
     <string name="faq_why_not_seeing_jobs">నాకు తగినన్ని ఉద్యోగాలు ఎందుకు కనిపించడం లేదు?</string>
     <string name="faq_track_application">నా దరఖాస్తు స్థితిని ఎలా ట్రాక్ చేయాలి?</string>
     <string name="faq_contact_support">మద్దతును ఎలా సంప్రదించాలి?</string>
@@ -772,19 +661,16 @@
     <string name="apply_for_job">ఉద్యోగానికి దరఖాస్తు చేయండి</string>
     <string name="notification_label">నోటిఫికేషన్</string>
     <string name="dutype_tagline">డిమాండ్‌పై ఉత్తమ స్థానిక ప్రతిభను కనుగొనడానికి మీ ఆల్-ఇన్-వన్ పరిష్కారం.</string>
-    <!-- Tabs -->
     <string name="tab_timeline">టైమ్‌లైన్</string>
     <string name="tab_active">యాక్టివ్</string>
     <string name="tab_expired">గడువు ముగిసింది</string>
     <string name="tab_all_jobs">అన్ని ఉద్యోగాలు</string>
     <string name="tab_completed">పూర్తయింది</string>
     <string name="tab_all_history">మొత్తం చరిత్ర</string>
-    <!-- Post job step indicator -->
     <string name="step_role">పాత్ర</string>
     <string name="step_pay_place">చెల్లింపు మరియు ప్రదేశం</string>
     <string name="step_people">వ్యక్తులు</string>
     <string name="step_review">సమీక్ష</string>
-    <!-- Days short -->
     <string name="day_mon">సోమ</string>
     <string name="day_tue">మంగళ</string>
     <string name="day_wed">బుధ</string>
@@ -796,4 +682,357 @@
     <string name="step_pay_location">చెల్లింపు మరియు ప్రదేశం</string>
     <string name="step_contact_info">సంప్రదింపు సమాచారం</string>
     <string name="step_review_post">సమీక్ష మరియు పోస్ట్</string>
+    <string name="about_worker_subtitle">నమ్మకమైన స్థానిక ఉద్యోగాలకు మీ గేట్‌వే — రోజువారీ, గంటల వారీ, పూర్తి-సమయం.</string>
+    <string name="about_worker_mission">కష్టమైన దరఖాస్తులు లేదా సుదీర్ఘ ప్రక్రియలు లేకుండా స్థానిక ఉద్యోగ అవకాశాలకు సులభమైన ప్రాప్యతను అందించడం ద్వారా కార్మికులను శక్తిమంతం చేయడం. ప్రతి ఒక్కరూ సంపాదించడానికి, పెరగడానికి మరియు విజయం సాధించడానికి అర్హులు.</string>
+    <string name="about_worker_vision">ప్రతి కార్మికుడు తమ నైపుణ్యాలకు, షెడ్యూల్‌కు మరియు ప్రాంతానికి సరిపోయే అర్థవంతమైన పనిని కనుగొనే స్థానిక ఉపాధికి భారతదేశంలో అత్యంత నమ్మకమైన వేదికగా మారడం.</string>
+    <string name="about_feat_quick_apply">ఒక్క ట్యాప్‌తో త్వరిత ఉద్యోగ దరఖాస్తులు</string>
+    <string name="about_feat_jobs_near">మీ ప్రాంతంలో ఉద్యోగాలు</string>
+    <string name="about_feat_realtime_notif">రియల్-టైమ్ ఉద్యోగ నోటిఫికేషన్లు</string>
+    <string name="about_feat_save_jobs">ఉద్యోగాలను తర్వాత కోసం సేవ్ చేయండి</string>
+    <string name="about_feat_track_apps">మీ దరఖాస్తులను ట్రాక్ చేయండి</string>
+    <string name="about_feat_build_profile">మీ పని ప్రొఫైల్‌ను రూపొందించుకోండి</string>
+    <string name="about_cat_delivery">డెలివరీ &amp; లాజిస్టిక్స్</string>
+    <string name="about_cat_food">ఆహార సేవ &amp; వంట</string>
+    <string name="about_cat_housekeeping">గృహ నిర్వహణ &amp; శుభ్రం</string>
+    <string name="about_cat_shop">షాపు &amp; రిటైల్ సహాయం</string>
+    <string name="about_cat_childcare">పిల్లల &amp; వృద్ధుల సంరక్షణ</string>
+    <string name="about_cat_maintenance">నిర్వహణ &amp; మరమ్మతులు</string>
+    <string name="about_why_no_resume">రెజ్యూమ్ అవసరం లేదు</string>
+    <string name="about_why_verified_employers">ధృవీకరించిన యజమానులు</string>
+    <string name="about_why_transparent_pay">పారదర్శకమైన చెల్లింపు సమాచారం</string>
+    <string name="about_why_flexible_work">వినమ్రమైన పని ఎంపికలు</string>
+    <string name="about_why_safe_platform">సురక్షితమైన వేదిక</string>
+    <string name="about_employer_mission">వ్యాపారాలను వృద్ధి చేసుకోవడానికి వినమ్రమైన శ్రమశక్తితో అనుసంధానం చేయడానికి సులభమైన, సమర్ధవంతమైన మరియు నమ్మకమైన వేదికను అందించడం ద్వారా వ్యాపారాలను శక్తిమంతం చేయడం.</string>
+    <string name="about_employer_vision">సరైన ప్రతిభ మరియు కార్మికులకు అర్థవంతమైన అవకాశాలు దొరికే భారతదేశంలో అండమాండ్ ఉపాధికి అగ్రగణ్య వేదికగా మారడం.</string>
+    <string name="about_emp_feat_post_jobs">నిమిషాలలో ఉద్యోగాలను పోస్ట్ చేయండి</string>
+    <string name="about_emp_feat_talent_pool">పెద్ద ప్రతిభ పూల్‌కు ప్రాప్యత</string>
+    <string name="about_emp_feat_gps_attendance">GPS-ఆధారిత హాజరీ ట్రాకింగ్</string>
+    <string name="about_emp_feat_verified_workers">ధృవీకరించిన కార్మిక ప్రొఫైల్‌లు</string>
+    <string name="about_emp_feat_flexible_hiring">వినమ్రమైన నేమకం ఎంపికలు</string>
+    <string name="about_emp_feat_realtime_alerts">రియల్-టైమ్ దరఖాస్తు అలర్ట్‌లు</string>
+    <string name="about_emp_feat_manage_postings">అనేక పోస్టింగ్‌లను నిర్వహించండి</string>
+    <string name="about_emp_feat_track_performance">కార్మిక పనితీరును ట్రాక్ చేయండి</string>
+    <string name="about_emp_cat_delivery">డెలివరీ సిబ్బంది</string>
+    <string name="about_emp_cat_kitchen">వంటగది &amp; వంట సిబ్బంది</string>
+    <string name="about_emp_cat_housekeeping">గృహ నిర్వహణ &amp; శుభ్రం</string>
+    <string name="about_emp_cat_shop">షాపు సహాయకులు &amp; రిటైల్</string>
+    <string name="about_emp_cat_childcare">పిల్లల &amp; వృద్ధుల సంరక్షణ</string>
+    <string name="about_emp_cat_maintenance_w">నిర్వహణ కార్మికులు</string>
+    <string name="about_emp_cat_event">ఈవెంట్ &amp; కేటరింగ్ సిబ్బంది</string>
+    <string name="about_emp_why_quick_hiring">త్వరిత నేమకం ప్రక్రియ</string>
+    <string name="about_emp_why_verified_db">ధృవీకరించిన కార్మిక డేటాబేస్</string>
+    <string name="about_emp_why_cost_effective">ఖర్చు-సమర్థమైన పరిష్కారాలు</string>
+    <string name="about_emp_why_24_7">24/7 వేదిక ప్రాప్యత</string>
+    <string name="about_emp_why_support">అంకిత సపోర్ట్ జట్టు</string>
+    <string name="about_emp_val_efficiency">నేమకంలో సామర్థ్యం</string>
+    <string name="about_emp_val_reliability">నమ్మదగిన నమ్మకత్వం</string>
+    <string name="about_emp_val_transparency">అన్ని వ్యవహారాలలో పారదర్శకత</string>
+    <string name="about_emp_val_empowerment">వ్యాపారాలకు శక్తినివ్వడం</string>
+    <string name="about_made_in_bharat">భారత్‌లో ❤️తో తయారు చేశాం</string>
+    <string name="about_version_format">వెర్షన్ %1$s</string>
+    <string name="contact_us_need_help">సహాయం కావాలా?</string>
+    <string name="contact_us_subtitle">మేము మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాము. మీరు ఎలా సంప్రదించాలనుకుంటున్నారో ఎంచుకోండి.</string>
+    <string name="email_subject_support_request">DutyPe సపోర్ట్ అభ్యర్థన</string>
+    <string name="help_hero_title">మేము ఎలా సహాయం చేయగలం?</string>
+    <string name="help_hero_subtitle">గైడ్‌లు వెతకండి, FAQలు చూడండి, లేదా నేరుగా మాతో చాట్ చేయండి.</string>
+    <string name="guide_getting_started_content">1. మీ కార్మిక ప్రొఫైల్‌ను నైపుణ్యాలు మరియు ప్రాంతంతో పూర్తి చేయండి\n2. మీ ఫోన్ మరియు ప్రొఫైల్ ఫోటోను అప్‌డేట్ చేయండి\n3. ఉద్యోగాలు మిస్ కాకుండా నోటిఫికేషన్‌లు ఆన్ చేయండి</string>
+    <string name="guide_finding_jobs_content">1. క్యాటగరీ ట్యాబ్‌లు మరియు ఫిల్టర్‌లు ఉపయోగించండి\n2. సమీపంలోని ఉద్యోగాల కోసం లొకేషన్ ఆక్సెస్ ఆన్ ఉంచండి\n3. ఉద్యోగాలను త్వరగా చూడడానికి సేవ్ చేయండి</string>
+    <string name="guide_applying_work_content">1. ఉద్యోగ వివరాలు చూసి దరఖాస్తు చేయండి\n2. నా ఉద్యోగాల్లో స్థితిని ట్రాక్ చేయండి\n3. పని ప్రారంభించేటప్పుడు QR ధృవీకరణ ఉపయోగించండి</string>
+    <string name="guide_building_reputation_content">1. ఉద్యోగాలను సమయానికి పూర్తి చేయండి\n2. వృత్తిపరమైన సంవహనం ఉంచండి\n3. అధిక రేటింగ్‌లు మరియు ప్రొఫైల్ పూర్తిని కాపాడండి</string>
+    <string name="guide_getting_paid_content">1. ప్రారంభించడానికి ముందు చెల్లింపు నిబంధనలను నిర్ధారించండి\n2. పని ప్రారంభం &amp; ముగింపును గుర్తించడానికి యాప్‌లోని QR ఉపయోగించండి\n3. OTP/UPI PIN ఎవరికీ షేర్ చేయకండి</string>
+    <string name="faq_not_seeing_jobs_answer">లొకేషన్ అనుమతులను ఎనేబుల్ చేయండి, సరైన నగరాన్ని సెట్ చేయండి, మరియు వేర్వేరు ట్యాబ్‌లు (గంటల వారీ/రోజువారీ/పార్ట్-టైమ్) చూడండి.</string>
+    <string name="faq_track_application_answer">నా ఉద్యోగాలు లేదా దరఖాస్తు చేసిన ఉద్యోగాలు తెరవండి. పెండింగ్, షార్ట్‌లిస్ట్, ఆమోదించబడిన లేదా తిరస్కరించబడిన స్థితిని అక్కడ చూడవచ్చు.</string>
+    <string name="faq_contact_support_answer">పైన ఉన్న WhatsApp సపోర్ట్ ట్యాప్ చేయండి, లేదా ఈమెయిల్ ద్వారా మాకు సంప్రదించండి. త్వరిత సహాయం కోసం స్క్రీన్‌షాట్‌లు చేర్చండి.</string>
+    <string name="faq_improve_trust_answer">ప్రొఫైల్ వివరాలను పూర్తి చేయండి, పని చరిత్రను సరిగ్గా ఉంచండి, మరియు పూర్తి చేసిన ఉద్యోగాల నుండి మంచి రేటింగ్‌లు సంపాదించండి.</string>
+    <string name="faq_personal_data_safe_answer">మీరు దరఖాస్తు చేసిన తర్వాత మాత్రమే మీ సంప్రదింపు వివరాలు యజమానులతో పంచుకోబడతాయి. మేము మీ డేటాను ఎప్పుడూ అమ్మం.</string>
+    <string name="faq_cant_apply_answer">మీ ఇంటర్నెట్ కనెక్షన్‌ను చెక్ చేయండి, యాప్‌ను రీస్టార్ట్ చేయండి, మరియు మీ ప్రొఫైల్ పూర్తిగా ఉందా నిర్ధారించండి. సమస్య కొనసాగితే, క్రింద నుండి రిపోర్ట్ చేయండి.</string>
+    <string name="whatsapp_worker_message">నమస్కారం DutyPe జట్టు! నేను DutyPeలో కార్మికుడిని మరియు నాకు యాప్‌తో సహాయం కావాలి.</string>
+    <string name="email_subject_worker_support">కార్మిక సపోర్ట్</string>
+    <string name="no_matching_topics">సరిపోయే అంశాలు లేవు</string>
+    <string name="no_matching_topics_hint">వేరే కీవర్డ్ ప్రయత్నించండి లేదా WhatsAppలో మెసేజ్ చేయండి.</string>
+    <string name="tutorial_getting_started_title">DutyPeతో ప్రారంభించడం</string>
+    <string name="tutorial_step1_title">మీ ప్రొఫైల్ సృష్టించండి</string>
+    <string name="tutorial_step1_desc">మీ ఫోన్ నంబర్‌తో సైన్ అప్ చేసి మీ నైపుణ్యాలు మరియు అనుభవంతో ప్రొఫైల్‌ను పూర్తి చేయండి.</string>
+    <string name="tutorial_step2_title">ఉద్యోగాలను బ్రౌజ్ చేయండి</string>
+    <string name="tutorial_step2_desc">క్యాటగరీ, ప్రాంతం, లేదా కీవర్డ్ ద్వారా మీ సమీపంలో ఉద్యోగాలను వెతకండి.</string>
+    <string name="tutorial_step3_title">ఒక్క ట్యాప్‌తో దరఖాస్తు చేయండి</string>
+    <string name="tutorial_step3_desc">ఉద్యోగం నచ్చిందా? వెంటనే దరఖాస్తు చేయండి లేదా WhatsApp ద్వారా యజమానిని సంప్రదించండి.</string>
+    <string name="tutorial_step4_title">సురక్షితంగా ఉండండి</string>
+    <string name="tutorial_step4_desc">స్క్యామ్ ఉద్యోగాలను గుర్తించి మిమ్మల్ని రక్షించడానికి మేము AI ఉపయోగిస్తాము — భద్రతా బ్యాజ్‌లను చూడండి!</string>
+    <string name="tutorial_step5_title">మీ ఖ్యాతిని నిర్మించండి</string>
+    <string name="tutorial_step5_desc">ఉద్యోగాలను పూర్తి చేయండి, రేటింగ్‌లు సంపాదించండి, మరియు నమ్మక బ్యాజ్‌లను అన్‌లాక్ చేయండి.</string>
+    <string name="employer_help_title">మేము మీకు ఎలా సహాయం చేయగలం?</string>
+    <string name="employer_help_subtitle">ఎటువంటి ప్రశ్నలకైనా మేము మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాము</string>
+    <string name="employer_guide_getting_started_content">1. కంపెనీ వివరాలతో మీ యజమాని ప్రొఫైల్‌ను పూర్తి చేయండి\n2. మీ కంపెనీ లోగో మరియు వివరణ చేర్చండి\n3. భద్రత కోసం మీ ఫోన్ నంబర్‌ను ధృవీకరించండి\n4. మీరు ఉద్యోగాలను పోస్ట్ చేయడానికి సిద్ధం!</string>
+    <string name="employer_guide_posting_job_content">1. హోమ్ స్క్రీన్‌లో \'+\' బటన్ ట్యాప్ చేయండి\n2. ఉద్యోగ శీర్షిక, క్యాటగరీ, మరియు వివరణ నింపండి\n3. జీతం శ్రేణి మరియు పని స్థలం సెట్ చేయండి\n4. ఉద్యోగ అవసరాలు మరియు ప్రయోజనాలు చేర్చండి\n5. సమీక్షించి మీ ఉద్యోగాన్ని పోస్ట్ చేయండి</string>
+    <string name="employer_guide_managing_apps_content">1. మీ అన్ని పోస్టింగ్‌లను చూడడానికి \'నా ఉద్యోగాలు\'కు వెళ్ళండి\n2. దరఖాస్తులను చూడడానికి ఉద్యోగంపై ట్యాప్ చేయండి\n3. దరఖాస్తుదారుల ప్రొఫైల్‌లు మరియు అనుభవం సమీక్షించండి\n4. అభ్యర్థులను షార్ట్‌లిస్ట్ లేదా తిరస్కరించండి\n5. ఎంపిక చేసిన అభ్యర్థులను నేరుగా సంప్రదించండి</string>
+    <string name="employer_guide_verifying_work_content">1. ఉద్యోగం కోసం QR కోడ్ జెనరేట్ చేయండి\n2. పని ప్రారంభించడానికి కార్మికుడు QR స్క్యాన్ చేస్తారు\n3. పని పూర్తయిన తర్వాత పనిని ధృవీకరించండి\n4. పూర్తినట్టు గుర్తించడానికి కార్మికుడు మళ్ళీ QR స్క్యాన్ చేస్తారు\n5. కార్మికుడి పనితీరును రేట్ చేయండి</string>
+    <string name="employer_guide_trust_score_content">• మీ ప్రొఫైల్‌ను 100% పూర్తి చేయండి\n• వివరమైన ఉద్యోగ వివరణలు పోస్ట్ చేయండి\n• దరఖాస్తులకు త్వరితంగా స్పందించండి\n• పని పూర్తిని సరిగ్గా ధృవీకరించండి\n• కార్మికుల నుండి మంచి రేటింగ్‌లను కాపాడండి</string>
+    <string name="employer_guide_best_practices_content">• స్పష్టమైన ఉద్యోగ వివరణలు రాయండి\n• వాస్తవికమైన జీతం అంచనాలను సెట్ చేయండి\n• 24 గంటల్లోపు దరఖాస్తుదారులకు స్పందించండి\n• ఖచ్చితమైన పని స్థలం అందించండి\n• కార్మికులకు న్యాయమైన రేటింగ్‌లు ఇవ్వండి\n• మీ ప్రొఫైల్‌ను అప్‌డేట్ చేస్తూ ఉండండి</string>
+    <string name="employer_faq_post_job_question">ఉద్యోగాన్ని ఎలా పోస్ట్ చేయాలి?</string>
+    <string name="employer_faq_post_job_answer">హోమ్ స్క్రీన్‌కు వెళ్ళి \'+\' బటన్ ట్యాప్ చేయండి లేదా క్రింది న్యావిగేషన్ నుండి \'ఉద్యోగం పోస్ట్ చేయండి\'కు వెళ్ళండి. శీర్షిక, వివరణ, జీతం, మరియు ప్రాంతం సహా ఉద్యోగ వివరాలు నింపండి, తర్వాత \'ఉద్యోగం పోస్ట్ చేయండి\' ట్యాప్ చేయండి.</string>
+    <string name="employer_faq_view_apps_question">దరఖాస్తులను ఎలా చూడాలి?</string>
+    <string name="employer_faq_view_apps_answer">మీ డ్యాష్‌బోర్డ్ నుండి, పోస్ట్ చేసిన ఎటువంటి ఉద్యోగంపైనా ట్యాప్ చేసి దాని దరఖాస్తులను చూడండి. మీరు \'నా ఉద్యోగాలు\'కు వెళ్ళి అన్ని దరఖాస్తుదారులను చూడడానికి ఉద్యోగాన్ని ఎంచుకోవచ్చు.</string>
+    <string name="employer_faq_contact_applicant_question">దరఖాస్తుదారుని ఎలా సంప్రదించాలి?</string>
+    <string name="employer_faq_contact_applicant_answer">దరఖాస్తుల జాబితా నుండి దరఖాస్తుదారుడి ప్రొఫైల్‌ను తెరవండి. మీరు వారి వివరాలు మరియు సంప్రదింపు సమాచారాన్ని చూడి నేరుగా సంప్రదించవచ్చు.</string>
+    <string name="employer_faq_edit_job_question">ఉద్యోగ పోస్టింగ్‌ను ఎలా ఎడిట్ లేదా డిలీట్ చేయాలి?</string>
+    <string name="employer_faq_edit_job_answer">నా ఉద్యోగాలుకు వెళ్ళండి, మార్చాలనుకునే ఉద్యోగాన్ని కనుగొని ట్యాప్ చేయండి. ఉద్యోగ వివరాలను ఎడిట్ చేయడానికి లేదా పాజ్/డిలీట్ చేయడానికి ఎంపికలు కనిపిస్తాయి.</string>
+    <string name="employer_faq_payment_methods_question">ఎటువంటి చెల్లింపు పద్ధతులు అంగీకరిస్తారు?</string>
+    <string name="employer_faq_payment_methods_answer">ప్రీమియం ఫీచర్లు లేదా ప్రోమోటెడ్ ఉద్యోగ జాబితాల కోసం ప్రస్తుతం UPI, క్రెడిట్/డెబిట్ కార్డులు, మరియు నెట్ బ్యాంకింగ్ సపోర్ట్ చేస్తున్నాం.</string>
+    <string name="employer_faq_switch_worker_question">కార్మిక మోడ్‌కు ఎలా మారాలి?</string>
+    <string name="employer_faq_switch_worker_answer">మీ ప్రొఫైల్ స్క్రీన్‌కు వెళ్ళి \'కార్మికుడిగా మారండి\' ఎంపికను టాగిల్ చేయండి. ఇది మీరు కార్మికుడిగా ఉద్యోగాలను బ్రౌజ్ చేసి దరఖాస్తు చేయడానికి అనుమతిస్తుంది.</string>
+    <string name="whatsapp_employer_message">నమస్కారం DutyPe జట్టు! నేను DutyPeలో యజమానిని మరియు నాకు యాప్‌తో సహాయం కావాలి.</string>
+    <string name="email_subject_employer_support">యజమాని సపోర్ట్</string>
+    <string name="email_subject_bug_report_employer">బగ్ రిపోర్ట్ - యజమాని యాప్</string>
+    <string name="email_subject_feedback_employer">ఫీడ్‌బ్యాక్ - యజమాని యాప్</string>
+    <string name="employer_user_guide_header">వాడకుని గైడ్</string>
+    <string name="employer_faq_header">తరచుగా అడిగే ప్రశ్నలు</string>
+    <string name="employer_quick_links_header">త్వరిత లింక్‌లు</string>
+    <string name="employer_legal_header">చట్టపరమైన &amp; విధానాలు</string>
+    <string name="refer_complete_profile_title">మీ ప్రొఫైల్‌ను పూర్తి చేయండి</string>
+    <string name="refer_complete_profile_button">ప్రొఫైల్ పూర్తి చేయండి</string>
+    <string name="refer_code_clipboard_label">రెఫరల్ కోడ్</string>
+    <string name="refer_share_chooser_title">రెఫరల్ కోడ్ షేర్ చేయండి</string>
+    <string name="refer_successful_referrals_count">%1$d విజయవంతమైన రెఫరల్‌లు</string>
+    <string name="refer_milestone_progress">%1$d / %2$d రెఫరల్‌లు</string>
+    <string name="refer_bonus_amount">Rs.%1$d బోనస్</string>
+    <string name="refer_free_posts_count">%1$d ఉచిత పోస్ట్‌లు</string>
+    <string name="refer_free_posts_available">%1$d పోస్ట్‌లు అందుబాటులో ఉన్నాయి</string>
+    <string name="refer_expires_date">గడువు: %1$s</string>
+    <string name="refer_step_2">వారు మీ కోడ్ ఉపయోగించి సైన్ అప్ చేస్తారు</string>
+    <string name="refer_step_3">మీరు Rs.25 మరియు వారు Rs.25 వెంటనే సంపాదిస్తారు</string>
+    <string name="refer_reward_per_referral">ప్రతి విజయవంతమైన రెఫరల్‌కు మీరు Rs.25 సంపాదిస్తారు</string>
+    <string name="refer_reward_friend_bonus">మీ స్నేహితుడికి Rs.25 సైన్ అప్ బోనస్ వెంటనే వస్తుంది</string>
+    <string name="refer_reward_15">15 రెఫరల్‌లు: Rs.150 మైలురాయి బోనస్</string>
+    <string name="refer_reward_50">50 రెఫరల్‌లు: Rs.500 మైలురాయి బోనస్</string>
+    <string name="refer_reward_100">100 రెఫరల్‌లు: Rs.1000 మైలురాయి బోనస్</string>
+    <string name="refer_withdrawal_threshold_info">మీ అందుబాటులో ఉన్న బ్యాలెన్స్ Rs.50కు చేరిన తర్వాత ఉపసంహరణలు తెరుచుకుంటాయి.</string>
+    <string name="refer_redeem_step_1">ఈ స్క్రీన్‌లో ఉపసంహరించు బటన్ ట్యాప్ చేయండి</string>
+    <string name="refer_redeem_step_2">మొత్తం మరియు మీ UPI ID నమోదు చేయండి</string>
+    <string name="refer_redeem_step_3">చెల్లింపు సమీక్ష కోసం అభ్యర్థనను సమర్పించండి</string>
+    <string name="refer_redeem_step_4">అభ్యర్థన తర్వాత మీ రెఫరల్ వాలెట్ బ్యాలెన్స్ వెంటనే అప్‌డేట్ అవుతుంది</string>
+    <string name="refer_min_withdrawal_info">కనీస ఉపసంహరణ: Rs.50</string>
+    <string name="refer_you_earned">మీరు: Rs.%1$s</string>
+    <string name="refer_milestone_earned">మైలురాయి: Rs.%1$s</string>
+    <string name="refer_status_pending">పెండింగ్</string>
+    <string name="refer_status_expired">గడువు ముగిసింది</string>
+    <string name="refer_status_cancelled">రద్దు చేయబడింది</string>
+    <string name="refer_available_balance">అందుబాటులో: Rs.%1$d</string>
+    <string name="refer_upi_placeholder">yourname@upi</string>
+    <string name="refer_error_min_withdrawal">కనీస ఉపసంహరణ Rs.%1$d</string>
+    <string name="refer_error_insufficient_balance">సరిపడని బ్యాలెన్స్</string>
+    <string name="refer_error_enter_upi">UPI ID నమోదు చేయండి</string>
+    <string name="refer_error_invalid_upi">చెల్లని UPI ID ఫార్మాట్</string>
+    <string name="refer_performer_from_city">%1$s నుండి %2$s</string>
+    <string name="refer_more_top_performers">+%1$d మరిన్ని టాప్ పర్ఫార్మర్‌లు</string>
+    <string name="refer_legal_not_pyramid">• ఇది చట్టబద్ధమైన రెఫరల్ ప్రోగ్రామ్, పిరమిడ్ స్కీమ్ కాదు</string>
+    <string name="refer_legal_taxable">• రెఫరల్ రివార్డ్‌లు భారత పన్ను చట్టాల ప్రకారం పన్ను విధించదగిన ఆదాయం</string>
+    <string name="refer_legal_kyc">• ₹10,000/సంవత్సరం కంటే ఎక్కువ ఉపసంహరణలకు KYC అవసరం</string>
+    <string name="refer_legal_pan">• ₹50,000/సంవత్సరం కంటే ఎక్కువ ఉపసంహరణలకు PAN కార్డ్ తప్పనిసరి</string>
+    <string name="refer_legal_fraud">• మోసపూరిత కార్యకలాపం ఖాతా నిలుపుదలకు దారి తీస్తుంది</string>
+    <string name="refer_employer_complete_profile_desc">మీ వ్యక్తిగత రెఫరల్ కోడ్‌ను జెనరేట్ చేయడానికి మరియు రివార్డ్‌లు సంపాదించడం ప్రారంభించడానికి, దయచేసి ముందుగా మీ కంపెనీ ప్రొఫైల్‌ను పూర్తి చేయండి.</string>
+    <string name="refer_employer_share_text">నేమకాల కోసం DutyPeలో చేరండి!\n\nనా రెఫరల్ కోడ్ ఉపయోగించండి: %1$s\n\nDutyPe డౌన్‌లోడ్: %2$s\n\nమీ వ్యాపారం కోసం నమ్మకమైన కార్మికులను కనుగొనండి మరియు Rs.%3$d బోనస్ సంపాదించండి!</string>
+    <string name="refer_employer_step_1">మీ రెఫరల్ కోడ్‌ను యజమానులు లేదా కార్మికులతో షేర్ చేయండి</string>
+    <string name="refer_employer_step_4">బోనస్ నగదు మరియు ఉచిత ఉద్యోగ పోస్ట్‌ల కోసం మైలురాయిలను చేరుకోండి</string>
+    <string name="refer_reward_5_employer">5 రెఫరల్‌లు: Rs.50 బోనస్ + 5 ఉచిత ఉద్యోగ పోస్ట్‌లు</string>
+    <string name="refer_reward_10_employer">10 రెఫరల్‌లు: Rs.100 బోనస్ + 10 ఉచిత ఉద్యోగ పోస్ట్‌లు</string>
+    <string name="refer_reward_25_employer">25 రెఫరల్‌లు: Rs.250 బోనస్ + 25 ఉచిత ఉద్యోగ పోస్ట్‌లు</string>
+    <string name="refer_signup_bonus_earned">సైన్ అప్ బోనస్: Rs.%1$s</string>
+    <string name="refer_worker_complete_profile_desc">మీ వ్యక్తిగత రెఫరల్ కోడ్‌ను జెనరేట్ చేయడానికి మరియు రివార్డ్‌లు సంపాదించడం ప్రారంభించడానికి, దయచేసి ముందుగా మీ ప్రొఫైల్‌ను పూర్తి చేయండి.</string>
+    <string name="refer_worker_share_text">DutyPeలో చేరి సంపాదించడం ప్రారంభించండి!\n\nనా రెఫరల్ కోడ్ ఉపయోగించండి: %1$s\n\nడౌన్‌లోడ్: %2$s\n\nమీ సమీపంలో స్థానిక ఉద్యోగాలను కనుగొనండి మరియు Rs.%3$d బోనస్ సంపాదించండి!</string>
+    <string name="refer_worker_step_1">మీ రెఫరల్ కోడ్‌ను స్నేహితులతో షేర్ చేయండి</string>
+    <string name="refer_worker_step_4">అదనపు బోనస్ రివార్డ్‌లను అన్‌లాక్ చేయడానికి మైలురాయిలను చేరుకోండి</string>
+    <string name="refer_reward_5_worker">5 రెఫరల్‌లు: Rs.50 మైలురాయి బోనస్</string>
+    <string name="refer_reward_10_worker">10 రెఫరల్‌లు: Rs.100 మైలురాయి బోనస్</string>
+    <string name="refer_reward_25_worker">25 రెఫరల్‌లు: Rs.250 మైలురాయి బోనస్</string>
+    <string name="refer_friend_bonus_earned">స్నేహితుడి బోనస్: Rs.%1$s</string>
+    <string name="refer_share_friend_bonus">ఈ కోడ్ షేర్ చేయండి → స్నేహితుడికి ₹%1$d బోనస్!</string>
+    <string name="refer_default_user_name">వాడకం</string>
+<string name="recent_transactions">ఇటీవల లావదేవీలు</string>
+    <string name="total_earnings_label">మొత్తం సంపాదన</string>
+    <string name="pending_label">పెండింగ్</string>
+    <string name="weekly_earnings">వారపు సంపాదన</string>
+    <string name="period_this_week">ఈ వారం</string>
+    <string name="period_this_month">ఈ నెల</string>
+    <string name="period_last_month">గత నెల</string>
+    <string name="period_3_months">3 నెలలు</string>
+    <string name="period_all_time">అన్ని సమయాలు</string>
+    <string name="status_paid">చెల్లించబడింది</string>
+    <string name="status_failed">విఫలమైంది</string>
+    <string name="login_to_view_profile">మీ ప్రొఫైల్‌ను చూడడానికి మరియు ఎడిట్ చేయడానికి లాగిన్ అవ్వండి</string>
+    <string name="login_to_view_applications">మీ ఉద్యోగ దరఖాస్తులను చూడడానికి లాగిన్ అవ్వండి</string>
+    <string name="login_to_view_earnings">మీ సంపాదనను చూడడానికి లాగిన్ అవ్వండి</string>
+    <string name="login_to_create_visiting_card">మీ డిజిటల్ విజిటింగ్ కార్డ్ రూపొందించడానికి లాగిన్ అవ్వండి</string>
+    <string name="login_to_refer_earn">స్నేహితులను రిఫర్ చేసి రివార్డ్‌లు సంపాదించడానికి లాగిన్ అవ్వండి</string>
+    <string name="login_to_access_feature">ఈ ఫీచర్‌ను యాక్సెస్ చేయడానికి దయచేసి లాగిన్ అవ్వండి</string>
+    <string name="contact_unlocked">సంప్రదింపు అన్‌లాక్ చేయబడింది! ✅</string>
+    <string name="payment_failed_error">చెల్లింపు విఫలమైంది: %1$s</string>
+    <string name="unlock_contact">సంప్రదింపు అన్‌లాక్ చేయండి</string>
+    <string name="unlock_worker_contact_desc">%1$s సంప్రదింపు వివరాలను నేరుగా సంప్రదించడానికి అన్‌లాక్ చేయండి.</string>
+    <string name="unlock_price">అన్‌లాక్ ధర</string>
+    <string name="benefit_phone_number">📞 ఫోన్ నంబర్ వెంటనే పొందండి</string>
+    <string name="benefit_direct_communication">💬 నేరుగా సంభాషణ</string>
+    <string name="benefit_faster_hiring">⚡ వేగవంతమైన నియామక ప్రక్రియ</string>
+    <string name="pay_and_unlock">₹%1$d చెల్లించి అన్‌లాక్ చేయండి</string>
+    <string name="payment_details">చెల్లింపు వివరాలు</string>
+<string name="history_no_work_history">పని చరిత్ర ఇంకా లేదు</string>
+    <string name="history_complete_jobs_timeline">మీ పని టైమ్‌లైన్ నిర్మించడానికి ఉద్యోగాలను పూర్తి చేయండి</string>
+    <string name="history_no_completed_jobs">పూర్తి చేసిన ఉద్యోగాలు లేవు</string>
+    <string name="history_completed_appear_here">పూర్తి చేసిన ఉద్యోగాలు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_no_applications_yet">ఇంకా దరఖాస్తులు లేవు</string>
+    <string name="history_applications_appear_here">మీ ఉద్యోగ దరఖాస్తులు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_no_applications">దరఖాస్తులు లేవు</string>
+    <string name="history_your_applications_here">మీ దరఖాస్తులు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_applied_time">%1$s కు దరఖాస్తు చేశారు</string>
+    <string name="history_failed_load_jobs">ఉద్యోగాలను లోడ్ చేయడం విఫలమైంది</string>
+    <string name="history_view_applications">దరఖాస్తులను చూడండి</string>
+    <string name="history_expired">గడువు ముగిసింది</string>
+    <string name="history_expires_today">ఈరోజు గడువు ముగుస్తుంది</string>
+    <string name="history_1_day_left">1 రోజు మిగిలి ఉంది</string>
+    <string name="history_days_left">%1$d రోజులు మిగిలి ఉన్నాయి</string>
+    <string name="history_no_job_posting">ఉద్యోగ పోస్టింగ్ చరిత్ర లేదు</string>
+    <string name="history_start_posting_timeline">మీ టైమ్‌లైన్ నిర్మించడానికి ఉద్యోగాలను పోస్ట్ చేయడం ప్రారంభించండి</string>
+    <string name="history_no_active_jobs">యాక్టివ్ ఉద్యోగాలు లేవు</string>
+    <string name="history_active_postings_here">మీ యాక్టివ్ ఉద్యోగ పోస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_no_expired_jobs">గడువు ముగిసిన ఉద్యోగాలు లేవు</string>
+    <string name="history_expired_postings_here">గడువు ముగిసిన ఉద్యోగ పోస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_no_jobs_posted">ఇంకా ఉద్యోగాలు పోస్ట్ చేయలేదు</string>
+    <string name="history_start_posting_here">ఉద్యోగాలను పోస్ట్ చేయడం ప్రారంభించండి</string>
+    <string name="history_no_jobs">ఉద్యోగాలు లేవు</string>
+    <string name="history_postings_appear_here">మీ ఉద్యోగ పోస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి</string>
+    <string name="history_posted_date">%1$s న పోస్ట్ చేయబడింది</string>
+    <string name="history_status_paused">పాజ్ చేయబడింది</string>
+    <string name="history_status_active">యాక్టివ్</string>
+    <string name="notif_failed_load">నోటిఫికేషన్‌లను లోడ్ చేయడం విఫలమైంది</string>
+    <string name="notif_retry">మళ్ళీ ప్రయత్నించండి</string>
+    <string name="notif_no_notifications">ఇంకా నోటిఫికేషన్‌లు లేవు</string>
+    <string name="notif_worker_empty_desc">దరఖాస్తు అప్‌డేట్‌లు, ఇంటర్వ్యూ షెడ్యూల్‌లు, మరియు ఉద్యోగ సిఫారసులు ఇక్కడ చూస్తారు.</string>
+    <string name="notif_preview_title">నోటిఫికేషన్‌ల ప్రివ్యూ</string>
+    <string name="notif_worker_preview_desc">లాగిన్ తర్వాత మీరు అందుకునే అలర్ట్‌లు ఇవి.</string>
+    <string name="notif_worker_preview_1_title">🔥 గత గంటలో 27 మంది కార్మికులు మీ ప్రాంతంలో దరఖాస్తు చేశారు</string>
+    <string name="notif_worker_preview_1_desc">ఈ ఉద్యోగాలు మూసుకునే ముందు ఇన్‌స్టంట్ అప్లై అన్‌లాక్ చేయడానికి లాగిన్ అవ్వండి.</string>
+    <string name="notif_worker_preview_2_title">💡 మీ ప్రొఫైల్ షార్ట్‌లిస్ట్ అయ్యే అవకాశం 3 రెట్లు ఎక్కువ</string>
+    <string name="notif_worker_preview_2_desc">మీ ప్రొఫైల్ పూర్తి చేసి మెరుగైన మ్యాచ్‌లు అందుకోండి.</string>
+    <string name="notif_worker_preview_3_title">⏳ ముందుగా చేసిన దరఖాస్తులకు వేగంగా స్పందనలు వస్తాయి</string>
+    <string name="notif_worker_preview_3_desc">టాప్ ఉద్యోగాలను చూసి లాగిన్ తర్వాత ఒక ట్యాప్‌లో అప్లై చేయండి.</string>
+    <string name="notif_worker_login_toast">నిజమైన నోటిఫికేషన్‌లను అన్‌లాక్ చేయడానికి లాగిన్ లేదా రిజిస్టర్ చేయండి.</string>
+    <string name="notif_delete">తొలగించండి</string>
+    <string name="notif_swipe_to_delete">← తొలగించడానికి స్వైప్ చేయండి</string>
+    <string name="notif_employer_empty_desc">ఉద్యోగ దరఖాస్తులు, ఉద్యోగ స్థితి అప్‌డేట్‌లు, మరియు ఇతర ముఖ్యమైన అప్‌డేట్‌లు ఇక్కడ చూస్తారు.</string>
+    <string name="notif_employer_preview_desc">లైవ్ హైరింగ్ అలర్ట్‌లు పొందడానికి సైన్ ఇన్ చేయండి.</string>
+    <string name="notif_employer_preview_1_title">📥 5 కొత్త అభ్యర్థులు ఈరోజు మీ ఉద్యోగాన్ని చూశారు</string>
+    <string name="notif_employer_preview_1_desc">వారు వేరే చోట హైర్ అయ్యే ముందు ప్రొఫైల్‌లు సమీక్షించండి.</string>
+    <string name="notif_employer_preview_2_title">⚡ వేగంగా స్పందించేవారు 2 రెట్లు వేగంగా హైర్ చేస్తారు</string>
+    <string name="notif_employer_preview_2_desc">దరఖాస్తులను తెరిచి గంటల్లో కాకుండా నిమిషాలలో రిప్లై చేయండి.</string>
+    <string name="notif_employer_preview_3_title">🎯 ఒక చిన్న అప్‌డేట్ నాణ్యమైన దరఖాస్తులను పెంచుతుంది</string>
+    <string name="notif_employer_preview_3_desc">మీ పోస్ట్ రిఫ్రెష్ చేసి మెరుగైన కార్మికులను ఆకర్షించండి.</string>
+    <string name="notif_employer_login_toast">నోటిఫికేషన్‌లు చూడడానికి సైన్ ఇన్ చేయండి</string>
+    <string name="notif_not_found">నోటిఫికేషన్ కనుగొనబడలేదు</string>
+    <string name="notif_job_label">ఉద్యోగం: %1$s</string>
+    <string name="notif_action_view_applications">నా దరఖాస్తులను చూడండి</string>
+    <string name="notif_action_view_job_details">ఉద్యోగ వివరాలు చూడండి</string>
+    <string name="notif_action_browse_jobs">ఉద్యోగాలను చూడండి</string>
+    <string name="notif_type_application_update">దరఖాస్తు అప్‌డేట్</string>
+    <string name="notif_type_shortlisted">షార్ట్‌లిస్ట్</string>
+    <string name="notif_type_interview">ఇంటర్వ్యూ</string>
+    <string name="notif_type_message">సందేశం</string>
+    <string name="notif_type_new_job">కొత్త ఉద్యోగం</string>
+    <string name="notif_type_recommended">సిఫారసు చేయబడింది</string>
+    <string name="notif_type_job_posted">ఉద్యోగం పోస్ట్ చేయబడింది</string>
+    <string name="notif_type_job_update">ఉద్యోగ అప్‌డేట్</string>
+    <string name="notif_type_system">సిస్టమ్</string>
+    <string name="notif_type_notification">నోటిఫికేషన్</string>
+    <string name="post_job_success">ఉద్యోగం విజయవంతంగా పోస్ట్ చేయబడింది!</string>
+    <string name="post_job_error">ఉద్యోగం పోస్ట్ చేయడంలో లోపం: %1$s</string>
+    <string name="post_job_checklist_title_desc">స్పష్టమైన శీర్షిక మరియు వివరణ చేర్చండి</string>
+    <string name="post_job_checklist_pay_location">జీతం మరియు పని స్థలం సెట్ చేయండి</string>
+    <string name="post_job_checklist_contact">సంప్రదింపు వివరాలు చేర్చండి</string>
+    <string name="post_job_checklist_pin_location">ఖచ్చితమైన ఉద్యోగ స్థలాన్ని పిన్ చేయండి</string>
+    <string name="post_job_location_mismatch_title">స్థల అసంగతత గుర్తించబడింది</string>
+    <string name="post_job_location_mismatch_desc">మీ ప్రస్తుత స్థలం ఉద్యోగ స్థలం నుండి %1$s కి.మీ దూరంలో ఉంది.</string>
+    <string name="post_job_location_mismatch_info">🛡️ ఈ చెక్ రిమోట్ స్క్యామ్ సెంటర్‌లు నకిలీ స్థానిక ఉద్యోగాలను పోస్ట్ చేయకుండా నిరోధిస్తుంది.</string>
+    <string name="post_job_location_confirm">మీరు ఈ ఉద్యోగాన్ని పోస్ట్ చేయాలనుకుంటున్నారా?</string>
+    <string name="post_job_blocked_title">ఉద్యోగ పోస్టింగ్ నిర్బంధించబడింది</string>
+    <string name="post_job_blocked_info">🛡️ DutyPe స్థానిక, వ్యక్తిగత ఉద్యోగాల కోసం మాత్రమే.</string>
+    <string name="post_job_blocked_desc">కార్మికులను స్క్యామ్‌ల నుండి రక్షించడానికి ఇంటి నుండి పని, ఆన్‌లైన్ ఉద్యోగాలు, మరియు డేటా ఎంట్రీ ఉద్యోగాలు అనుమతించబడవు.</string>
+    <string name="post_job_pay_too_low">జీతం చాలా తక్కువ</string>
+    <string name="post_job_pay_too_high">జీతం చాలా ఎక్కువ</string>
+    <string name="post_job_market_rate">📊 %1$s కోసం మార్కెట్ రేటు:</string>
+    <string name="post_job_skeptical_pay">మీరు ఈ ఉద్యోగాన్ని పోస్ట్ చేయవచ్చు, కానీ కార్మికులు %1$s జీతం రేట్‌ల గురించి అనుమానంగా ఉండవచ్చు.</string>
+    <string name="post_job_complete_profile_title">మీ ప్రొఫైల్ పూర్తి చేయండి</string>
+    <string name="post_job_complete_profile_desc">ఉద్యోగాలను పోస్ట్ చేయడానికి ముందు మీ ప్రొఫైల్ పూర్తి చేయాలి.</string>
+    <string name="post_job_profile_progress">ప్రొఫైల్: %1$d%% పూర్తి (80%% అవసరం)</string>
+    <string name="post_job_missing_fields">మిస్సింగ్: %1$s</string>
+    <string name="post_job_image_uploaded">చిత్రం విజయవంతంగా అప్‌లోడ్ చేయబడింది!</string>
+    <string name="post_job_image_upload_failed">చిత్రం అప్‌లోడ్ విఫలమైంది: %1$s</string>
+    <string name="post_job_schedule_urgency">పని షెడ్యూల్ &amp;amp; అర్జెన్సీ</string>
+    <string name="post_job_worker_preview">కార్మికుడికి కనిపించే ప్రివ్యూ</string>
+    <string name="post_job_ready_percent">%1$d%% సిద్ధం</string>
+    <string name="post_job_launch_checklist">లాంచ్ చెక్‌లిస్ట్</string>
+    <string name="post_job_step_of">స్టెప్ %1$d / %2$d</string>
+    <string name="post_job_title_label">ఉద్యోగ శీర్షిక</string>
+    <string name="post_job_select_position">మీరు నియమించే పదవిని ఎంచుకోండి</string>
+    <string name="post_job_local_only_warning">స్థానిక, వ్యక్తిగత ఉద్యోగాలు మాత్రమే. ఆన్‌లైన్ లేదా WFH ఉద్యోగాలు లేవు.</string>
+    <string name="post_job_category_label">క్యాటగరీ: %1$s</string>
+    <string name="post_job_custom_category">కస్టమ్: %1$s</string>
+    <string name="post_job_work_type">పని రకం</string>
+    <string name="post_job_work_type_desc">ఫుల్-టైమ్, పార్ట్-టైమ్ లేదా ఫ్లెక్సిబుల్?</string>
+    <string name="post_job_how_much_pay">మీరు ఎంత చెల్లిస్తారు?</string>
+    <string name="post_job_market_rate_for">%1$s కోసం మార్కెట్ రేటు:</string>
+    <string name="post_job_work_location">పని స్థలం</string>
+    <string name="post_job_requirements">ఉద్యోగ అవసరాలు</string>
+    <string name="post_job_looking_for">మీరు ఎవరి కోసం చూస్తున్నారు?</string>
+    <string name="post_job_gender_preference">లింగ ప్రాధాన్యత</string>
+    <string name="post_job_perks_benefits">పర్క్స్ &amp;amp; ప్రయోజనాలు</string>
+    <string name="post_job_attract_candidates">మరిన్ని మంది అభ్యర్థులను ఆకర్షించండి</string>
+    <string name="post_job_selected_count">%1$d ఎంచుకోబడ్డాయి</string>
+    <string name="post_job_add_own_perk">మీ స్వంత పర్క్ చేర్చండి</string>
+    <string name="post_job_perk_placeholder">ఎటువంటి అదనపు ప్రయోజనం టైప్ చేయండి (ఉదా. జిమ్ సభ్యత్వం, పండగ బోనస్)</string>
+    <string name="jobs_loading_more">మరిన్ని ఉద్యోగాలు లోడ్ అవుతున్నాయి...</string>
+    <string name="jobs_something_went_wrong">ఏదో తప్పు జరిగింది</string>
+    <string name="jobs_unable_to_load">ఉద్యోగాలను లోడ్ చేయలేకపోతున్నాం. దయచేసి మళ్ళీ ప్రయత్నించండి.</string>
+    <string name="jobs_filter_title">ఉద్యోగాలను ఫిల్టర్ చేయండి</string>
+    <string name="jobs_filter_subtitle">సార్ట్, జీతం, దూరం, అనుభవం మరియు పని రకం</string>
+    <string name="jobs_sort_by">దీని ప్రకారం సార్ట్ చేయండి</string>
+    <string name="jobs_pay_type">జీతం రకం</string>
+    <string name="jobs_salary_range">జీతం శ్రేణి</string>
+    <string name="jobs_max_distance">గరిష్ట దూరం</string>
+    <string name="jobs_fine_tune_distance">ఫైన్-ట్యూన్: %1$d కి.మీ</string>
+    <string name="jobs_showing_all">దూరంతో సంబంధం లేకుండా అన్ని ఉద్యోగాలను చూపిస్తున్నాం</string>
+    <string name="jobs_experience_level">అనుభవ స్థాయి</string>
+    <string name="jobs_apply_filters">ఫిల్టర్‌లు అప్లై చేయండి</string>
+    <string name="map_500m">500మీ</string>
+    <string name="map_1km">1కి.మీ</string>
+    <string name="map_2km">2కి.మీ</string>
+    <string name="map_5km">5కి.మీ</string>
+    <string name="map_10km">10కి.మీ</string>
+    <string name="map_all">అన్నీ</string>
+    <string name="map_urgent_hiring">అర్జెంట్ - ఈరోజు నియమిస్తున్నాం!</string>
+    <string name="map_available">✓ అందుబాటులో ఉంది</string>
+    <string name="map_per_hour">/గంట</string>
+    <string name="map_per_month">/నెల</string>
+    <string name="map_per_day">/రోజు</string>
+    <string name="map_meters_away">%1$dమీ దూరంలో</string>
+    <string name="map_km_away">%1$s కి.మీ దూరంలో</string>
+    <string name="profile_tap_add_name">మీ పేరు చేర్చడానికి ట్యాప్ చేయండి</string>
+    <string name="profile_set_up_profile">మీ ప్రొఫైల్ సెటప్ చేయండి</string>
+    <string name="profile_tap_add_details">మీ వివరాలు చేర్చడానికి ట్యాప్ చేయండి</string>
+    <string name="profile_login_signup">లాగ్ ఇన్ / సైన్ అప్</string>
+    <string name="profile_view_update_data">మీ ప్రొఫైల్ డేటాను చూడండి మరియు అప్‌డేట్ చేయండి</string>
+    <string name="profile_my_activity">నా కార్యకలాపం</string>
+    <string name="profile_rewards">రివార్డ్‌లు</string>
+    <string name="profile_badge_new">కొత్త</string>
+    <string name="profile_others">ఇతరులు</string>
+    <string name="profile_edit_profile">ప్రొఫైల్ ఎడిట్ చేయండి</string>
+    <string name="profile_photo_updated">ప్రొఫైల్ ఫోటో విజయవంతంగా అప్‌డేట్ చేయబడింది!</string>
+    <string name="profile_photo_upload_failed">ఫోటో అప్‌లోడ్ విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి.</string>
+    <string name="profile_login_to_upload">ఫోటో అప్‌లోడ్ చేయడానికి దయచేసి లాగిన్ అవ్వండి</string>
+    <string name="profile_photo_upload_error">ఫోటో అప్‌లోడ్లో లోపం</string>
+    <string name="profile_details_title">ప్రొఫైల్ వివరాలు</string>
+    <string name="profile_no_ratings">ఇంకా రేటింగ్‌లు లేవు</string>
+    <string name="profile_saved">ప్రొఫైల్ విజయవంతంగా సేవ్ చేయబడింది!</string>
+    <string name="profile_save_failed">ప్రొఫైల్ సేవ్ చేయడం విఫలమైంది</string>
+    <string name="profile_add_your_name">మీ పేరు చేర్చండి</string>
+    <string name="profile_tap_photo_change">మార్చడానికి ఫోటోను ట్యాప్ చేయండి</string>
+    <string name="profile_not_provided">అందించలేదు</string>
 </resources>

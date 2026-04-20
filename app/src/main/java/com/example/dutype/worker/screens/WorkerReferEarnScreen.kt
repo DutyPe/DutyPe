@@ -137,7 +137,7 @@ fun WorkerReferEarnScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = uiState.error ?: "Something went wrong",
+                            text = uiState.error ?: stringResource(R.string.something_went_wrong),
                             color = Color(0xFF6B7280)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -190,7 +190,7 @@ fun WorkerReferEarnScreen(
                             
                             // Title
                             Text(
-                                text = "Complete Your Profile",
+                                text = stringResource(R.string.refer_complete_profile_title),
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1F2937)
@@ -202,7 +202,7 @@ fun WorkerReferEarnScreen(
                             
                             // Description
                             Text(
-                                text = "To generate your personalized referral code and start earning rewards, please complete your profile first.",
+                                text = stringResource(R.string.refer_worker_complete_profile_desc),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     color = Color(0xFF6B7280),
                                     lineHeight = 24.sp
@@ -230,7 +230,7 @@ fun WorkerReferEarnScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    "Complete Profile",
+                                    stringResource(R.string.refer_complete_profile_button),
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -271,28 +271,20 @@ fun WorkerReferEarnScreen(
                                 onCopyClick = {
                                     copyTextToClipboard(
                                         context = context,
-                                        label = "Referral Code",
+                                        label = context.getString(R.string.refer_code_clipboard_label),
                                         text = uiState.stats?.referralCode.orEmpty()
                                     )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
-                                    val shareText = """
-Join DutyPe and start earning!
-
-Use my referral code: $code
-
-Download: $playStoreUrl
-
-Find local jobs near you and earn Rs.${referralConfig.signupBonus.toInt()} bonus!
-                                    """.trimIndent()
+                                    val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, referralConfig.signupBonus.toInt())
                                     
                                     val intent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, shareText)
                                     }
-                                    context.startActivity(Intent.createChooser(intent, "Share Referral"))
+                                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.refer_share_chooser_title)))
 
                                     val activity = context as? Activity
                                     if (activity != null) {
@@ -383,7 +375,7 @@ Find local jobs near you and earn Rs.${referralConfig.signupBonus.toInt()} bonus
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Code copied!",
+                        text = stringResource(R.string.code_copied),
                         color = Color.White,
                         fontWeight = FontWeight.Medium
                     )
@@ -464,7 +456,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
                     )
                 )
                 Text(
-                    text = "$successfulReferrals successful referrals",
+                    text = stringResource(R.string.refer_successful_referrals_count, successfulReferrals),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color(0xFF6B7280)
                     )
@@ -513,7 +505,7 @@ private fun ReferralCodeSection(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Your Referral Code",
+                text = stringResource(R.string.your_referral_code),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF6B7280)
@@ -544,7 +536,7 @@ private fun ReferralCodeSection(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Share this code → friend gets ₹${signupBonus.toInt()} bonus!",
+                text = stringResource(R.string.refer_share_friend_bonus, signupBonus.toInt()),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF6B7280)
                 ),
@@ -601,7 +593,7 @@ private fun StatsGrid(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Your Stats",
+                text = stringResource(R.string.your_stats),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1F2937)
@@ -660,7 +652,7 @@ private fun WithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) 
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Available to Withdraw",
+                    text = stringResource(R.string.available_to_withdraw),
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                 )
                 Text(
@@ -695,7 +687,7 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) 
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Text(
-                text = "Next Milestone",
+                text = stringResource(R.string.next_milestone),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(12.dp))
@@ -711,12 +703,12 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) 
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "$successfulReferrals / $nextMilestone referrals",
+                    text = stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone),
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563))
                 )
                 if (bonus > 0) {
                     Text(
-                        text = "Rs.${bonus.toInt()} bonus",
+                        text = stringResource(R.string.refer_bonus_amount, bonus.toInt()),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1F2937)
@@ -738,16 +730,16 @@ private fun HowItWorksSection() {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "How It Works",
+                text = stringResource(R.string.how_it_works),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
 
             val steps = listOf(
-                "Share your referral code with friends",
-                "They sign up using your code",
-                "You earn Rs.25 and they earn Rs.25 instantly",
-                "Hit milestones to unlock extra bonus rewards"
+                stringResource(R.string.refer_worker_step_1),
+                stringResource(R.string.refer_step_2),
+                stringResource(R.string.refer_step_3),
+                stringResource(R.string.refer_worker_step_4)
             )
 
             steps.forEachIndexed { index, step ->
@@ -777,20 +769,20 @@ private fun RewardsSection() {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Rewards & Milestones",
+                text = stringResource(R.string.rewards_milestones),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
 
             val rewards = listOf(
-                "You earn Rs.25 for every successful referral",
-                "Your friend gets an instant Rs.25 signup bonus",
-                "5 referrals: Rs.50 milestone bonus",
-                "10 referrals: Rs.100 milestone bonus",
-                "15 referrals: Rs.150 milestone bonus",
-                "25 referrals: Rs.250 milestone bonus",
-                "50 referrals: Rs.500 milestone bonus",
-                "100 referrals: Rs.1000 milestone bonus"
+                stringResource(R.string.refer_reward_per_referral),
+                stringResource(R.string.refer_reward_friend_bonus),
+                stringResource(R.string.refer_reward_5_worker),
+                stringResource(R.string.refer_reward_10_worker),
+                stringResource(R.string.refer_reward_15),
+                stringResource(R.string.refer_reward_25_worker),
+                stringResource(R.string.refer_reward_50),
+                stringResource(R.string.refer_reward_100)
             )
 
             rewards.forEach { text ->
@@ -819,22 +811,22 @@ private fun RedemptionInstructionsSection() {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "How to Redeem",
+                text = stringResource(R.string.how_to_redeem),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "Withdrawals open once your available balance reaches Rs.50.",
+                text = stringResource(R.string.refer_withdrawal_threshold_info),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(12.dp))
 
             val steps = listOf(
-                "Tap the Withdraw button on this screen",
-                "Enter the amount and your UPI ID",
-                "Submit the request for payout review",
-                "Your referral wallet balance updates immediately after the request"
+                stringResource(R.string.refer_redeem_step_1),
+                stringResource(R.string.refer_redeem_step_2),
+                stringResource(R.string.refer_redeem_step_3),
+                stringResource(R.string.refer_redeem_step_4)
             )
 
             steps.forEachIndexed { index, step ->
@@ -853,7 +845,7 @@ private fun RedemptionInstructionsSection() {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Minimum withdrawal: Rs.50",
+                text = stringResource(R.string.refer_min_withdrawal_info),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1F2937)
@@ -874,7 +866,7 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Recent Referrals",
+                text = stringResource(R.string.recent_referrals),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(16.dp))
@@ -905,6 +897,7 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun ReferralHistoryItem(referral: Referral) {
+    val context = LocalContext.current
     val dateStr = remember(referral.createdAt) {
         java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
             .format(java.util.Date(referral.createdAt))
@@ -919,12 +912,12 @@ private fun ReferralHistoryItem(referral: Referral) {
             ""
         } else {
             buildList {
-                add("You: Rs.${String.format("%.0f", referral.rewardAmount)}")
+                add(context.getString(R.string.refer_you_earned, String.format("%.0f", referral.rewardAmount)))
                 if (referral.bonusAmount > 0) {
-                    add("Milestone: Rs.${String.format("%.0f", referral.bonusAmount)}")
+                    add(context.getString(R.string.refer_milestone_earned, String.format("%.0f", referral.bonusAmount)))
                 }
                 if (referral.referredUserReward > 0) {
-                    add("Friend bonus: Rs.${String.format("%.0f", referral.referredUserReward)}")
+                    add(context.getString(R.string.refer_friend_bonus_earned, String.format("%.0f", referral.referredUserReward)))
                 }
             }.joinToString(" | ")
         }
@@ -944,7 +937,7 @@ private fun ReferralHistoryItem(referral: Referral) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                referral.referredUserName.ifBlank { "User" },
+                referral.referredUserName.ifBlank { context.getString(R.string.refer_default_user_name) },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF1F2937)
@@ -963,9 +956,9 @@ private fun ReferralHistoryItem(referral: Referral) {
             Text(
                 when (referral.status) {
                     ReferralStatus.COMPLETED -> "Rs.${String.format("%.0f", referral.getTotalReferrerReward())}"
-                    ReferralStatus.PENDING -> "Pending"
-                    ReferralStatus.EXPIRED -> "Expired"
-                    else -> "Cancelled"
+                    ReferralStatus.PENDING -> context.getString(R.string.refer_status_pending)
+                    ReferralStatus.EXPIRED -> context.getString(R.string.refer_status_expired)
+                    else -> context.getString(R.string.refer_status_cancelled)
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
@@ -983,6 +976,7 @@ private fun WithdrawDialog(
     onDismiss: () -> Unit,
     onWithdraw: (Double, String) -> Unit
 ) {
+    val context = LocalContext.current
     var amount by remember { mutableStateOf(availableBalance.toString()) }
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -992,7 +986,7 @@ private fun WithdrawDialog(
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Available: Rs.${availableBalance.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
+                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = amount,
@@ -1006,7 +1000,7 @@ private fun WithdrawDialog(
                     value = upiId,
                     onValueChange = { upiId = it },
                     label = { Text(stringResource(R.string.upi_id)) },
-                    placeholder = { Text("yourname@upi") },
+                    placeholder = { Text(stringResource(R.string.refer_upi_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -1021,10 +1015,10 @@ private fun WithdrawDialog(
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < minWithdrawal -> error = "Minimum withdrawal is Rs.${minWithdrawal.toInt()}"
-                        amountValue > availableBalance -> error = "Insufficient balance"
-                        upiId.isBlank() -> error = "Enter UPI ID"
-                        !upiId.contains("@") -> error = "Invalid UPI ID format"
+                        amountValue < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
+                        amountValue > availableBalance -> error = context.getString(R.string.refer_error_insufficient_balance)
+                        upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
+                        !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
                         else -> onWithdraw(amountValue, upiId)
                     }
                 },
@@ -1069,7 +1063,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Performance Analytics",
+                    text = stringResource(R.string.performance_analytics),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1F2937)
@@ -1188,7 +1182,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Top Performers",
+                    text = stringResource(R.string.top_performers),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF92400E)
@@ -1213,7 +1207,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "${story.userName} from ${story.city}",
+                        stringResource(R.string.refer_performer_from_city, story.userName, story.city),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF92400E)
@@ -1233,7 +1227,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
             if (stories.size > 3) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "+${stories.size - 3} more top performers",
+                    stringResource(R.string.refer_more_top_performers, stories.size - 3),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFFA16207),
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -1274,27 +1268,27 @@ private fun LegalDisclaimerCard() {
             Spacer(Modifier.height(12.dp))
             
             Text(
-                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ This is a legitimate referral program, not a pyramid scheme",
+                text = stringResource(R.string.refer_legal_not_pyramid),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Referral rewards are taxable income under Indian tax laws",
+                text = stringResource(R.string.refer_legal_taxable),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ KYC required for withdrawals > ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹10,000/year",
+                text = stringResource(R.string.refer_legal_kyc),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ PAN card mandatory for withdrawals > ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹50,000/year",
+                text = stringResource(R.string.refer_legal_pan),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
-                text = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Fraudulent activity will result in account suspension",
+                text = stringResource(R.string.refer_legal_fraud),
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -1302,7 +1296,7 @@ private fun LegalDisclaimerCard() {
             Spacer(Modifier.height(8.dp))
             
             Text(
-                text = "By participating, you agree to our Terms & Conditions and RBI guidelines.",
+                text = stringResource(R.string.terms_rbi_consent),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFFA16207),
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic

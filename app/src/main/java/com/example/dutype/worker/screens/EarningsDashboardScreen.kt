@@ -125,14 +125,14 @@ fun EarningsDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Recent Transactions",
+                        text = stringResource(R.string.recent_transactions),
                         style = AppTypography.sectionHeader.copy(
                             color = WorkerColors.TextPrimary
                         )
                     )
                     TextButton(onClick = { /* View all */ }) {
                         Text(
-                            "View All", 
+                            stringResource(R.string.view_all), 
                             style = AppTypography.buttonSmall.copy(
                                 color = WorkerColors.Info
                             )
@@ -189,7 +189,7 @@ private fun TotalEarningsCard(
                 ) {
                     Column {
                         Text(
-                            text = "Total Earnings",
+                            text = stringResource(R.string.total_earnings_label),
                             style = AppTypography.bodyMedium.copy(
                                 color = Color.White.copy(alpha = 0.7f)
                             )
@@ -236,7 +236,7 @@ private fun TotalEarningsCard(
                     // Pending Amount
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Pending",
+                            text = stringResource(R.string.pending_label),
                             style = AppTypography.bodySmall.copy(
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -286,7 +286,13 @@ private fun PeriodFilterRow(
                 onClick = { onPeriodSelected(period) },
                 label = { 
                     Text(
-                        period.displayName,
+                        when(period) {
+                            EarningsPeriod.THIS_WEEK -> stringResource(R.string.period_this_week)
+                            EarningsPeriod.THIS_MONTH -> stringResource(R.string.period_this_month)
+                            EarningsPeriod.LAST_MONTH -> stringResource(R.string.period_last_month)
+                            EarningsPeriod.LAST_3_MONTHS -> stringResource(R.string.period_3_months)
+                            EarningsPeriod.ALL_TIME -> stringResource(R.string.period_all_time)
+                        },
                         style = AppTypography.labelMedium
                     ) 
                 },
@@ -416,7 +422,7 @@ private fun EarningsChartCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Weekly Earnings",
+                text = stringResource(R.string.weekly_earnings),
                 style = AppTypography.sectionHeader.copy(
                     color = WorkerColors.TextPrimary
                 )
@@ -559,7 +565,11 @@ private fun TransactionCard(
                     )
                 )
                 Text(
-                    text = transaction.status.displayName,
+                    text = when(transaction.status) {
+                        PaymentStatus.PAID -> stringResource(R.string.status_paid)
+                        PaymentStatus.PENDING -> stringResource(R.string.status_pending)
+                        PaymentStatus.FAILED -> stringResource(R.string.status_failed)
+                    },
                     style = AppTypography.caption.copy(
                         color = WorkerColors.TextSecondary
                     )

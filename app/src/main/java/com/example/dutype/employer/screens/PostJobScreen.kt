@@ -614,7 +614,7 @@ fun PostJobScreen(
             
             if (success) {
                 Timber.i("📝 JOB POSTING DEBUG: ✅ Job posted successfully!")
-                Toast.makeText(context, "Job posted successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
                 
                 // Trigger in-app review after successful job posting
                 context.findActivity()?.let { activity ->
@@ -632,7 +632,7 @@ fun PostJobScreen(
                 }
             } else {
                 Timber.e("📝 JOB POSTING DEBUG: ❌ Job posting failed: $message")
-                Toast.makeText(context, "Error posting job: $message", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -775,7 +775,7 @@ fun PostJobScreen(
                 Timber.e(e, "📝 JOB POSTING DEBUG: Error in submitJob")
                 // SENIOR FIX: ViewModel state resets automatically on error; only reset UI flags
                 isCheckingProfile = false
-                Toast.makeText(context, "Error posting job: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.post_job_error, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -799,10 +799,10 @@ fun PostJobScreen(
         locationPinned
     ).count { it }
     val missingStudioItems = buildList {
-        if (!basicsReady) add("Add a clear title and description")
-        if (!compensationReady) add("Set pay and work location")
-        if (!requirementsReady) add("Add contact details")
-        if (!locationPinned) add("Pin the exact job location")
+        if (!basicsReady) add(stringResource(R.string.post_job_checklist_title_desc))
+        if (!compensationReady) add(stringResource(R.string.post_job_checklist_pay_location))
+        if (!requirementsReady) add(stringResource(R.string.post_job_checklist_contact))
+        if (!locationPinned) add(stringResource(R.string.post_job_checklist_pin_location))
     }
     val publishEnabled = !employerJobUiState.isCreatingJob &&
         !isSubmittingJob &&
@@ -847,7 +847,7 @@ fun PostJobScreen(
             },
             title = {
                 Text(
-                    text = "Location Mismatch Detected",
+                    text = stringResource(R.string.post_job_location_mismatch_title),
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFDC2626)
                 )
@@ -855,7 +855,7 @@ fun PostJobScreen(
             text = {
                 Column {
                     Text(
-                        text = "Your current location is ${String.format("%.1f", locationDistanceKm)} km away from the job location.",
+                        text = stringResource(R.string.post_job_location_mismatch_desc, String.format("%.1f", locationDistanceKm)),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -864,7 +864,7 @@ fun PostJobScreen(
                         color = Color(0xFFFEF2F2)
                     ) {
                         Text(
-                            text = "🛡️ This check helps prevent remote scam centers from posting fake local jobs.",
+                            text = stringResource(R.string.post_job_location_mismatch_info),
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF991B1B)
@@ -872,7 +872,7 @@ fun PostJobScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Are you sure you want to post this job?",
+                        text = stringResource(R.string.post_job_location_confirm),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -917,7 +917,7 @@ fun PostJobScreen(
             },
             title = {
                 Text(
-                    text = "Job Posting Blocked",
+                    text = stringResource(R.string.post_job_blocked_title),
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFDC2626)
                 )
@@ -935,14 +935,14 @@ fun PostJobScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "\uD83D\uDEE1\uFE0F DutyPe is for local, in-person jobs only.",
+                                text = stringResource(R.string.post_job_blocked_info),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF991B1B)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Work-from-home, online jobs, and data entry jobs are not allowed to protect workers from scams.",
+                                text = stringResource(R.string.post_job_blocked_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF991B1B)
                             )
@@ -972,7 +972,7 @@ fun PostJobScreen(
             },
             title = {
                 Text(
-                    text = if (payRateValidationResult!!.isTooLow) "Pay Rate Too Low" else "Pay Rate Too High",
+                    text = if (payRateValidationResult!!.isTooLow) stringResource(R.string.post_job_pay_too_low) else stringResource(R.string.post_job_pay_too_high),
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF59E0B)
                 )
@@ -990,7 +990,7 @@ fun PostJobScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "\uD83D\uDCCA Market Rate for ${category.displayName}:",
+                                text = stringResource(R.string.post_job_market_rate, category.displayName),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF92400E)
@@ -1006,7 +1006,7 @@ fun PostJobScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "You can still post this job, but workers may be skeptical of ${if (payRateValidationResult!!.isTooLow) "low" else "unusually high"} pay rates.",
+                        text = stringResource(R.string.post_job_skeptical_pay, if (payRateValidationResult!!.isTooLow) "low" else "unusually high"),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -1051,7 +1051,7 @@ fun PostJobScreen(
             },
             title = {
                 Text(
-                    "Complete Your Profile",
+                    stringResource(R.string.post_job_complete_profile_title),
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
@@ -1061,18 +1061,18 @@ fun PostJobScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "You need to complete your profile before posting jobs.",
+                        stringResource(R.string.post_job_complete_profile_desc),
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Profile: ${profileCheckResult!!.completionPercentage}% complete (need 80%)",
+                        stringResource(R.string.post_job_profile_progress, profileCheckResult!!.completionPercentage),
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFFFF9800),
                         textAlign = TextAlign.Center
                     )
                     if (profileCheckResult!!.missingFields.isNotEmpty()) {
                         Text(
-                            "Missing: ${profileCheckResult!!.missingFields.take(3).joinToString(", ")}${if (profileCheckResult!!.missingFields.size > 3) "..." else ""}",
+                            stringResource(R.string.post_job_missing_fields, profileCheckResult!!.missingFields.take(3).joinToString(", ") + if (profileCheckResult!!.missingFields.size > 3) "..." else ""),
                             fontSize = 14.sp,
                             color = Color.Gray,
                             textAlign = TextAlign.Center
@@ -1233,11 +1233,11 @@ fun PostJobScreen(
                                                             is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
                                                                 jobImageUrl = uploadResult.downloadUrl
                                                                 Timber.d("📸 JOB IMAGE: ✅ Upload successful!")
-                                                                Toast.makeText(context, "Image uploaded successfully!", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
                                                             }
                                                             is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
                                                                 Timber.e(uploadResult.exception, "📸 JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
-                                                                Toast.makeText(context, "Failed to upload image: ${uploadResult.error}", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
                                                                 jobImageUri = null
                                                                 jobImageUrl = ""
                                                             }
@@ -1247,7 +1247,7 @@ fun PostJobScreen(
                                                     }
                                                 } catch (e: Exception) {
                                                     Timber.e(e, "📸 JOB IMAGE: ❌ Upload failed")
-                                                    Toast.makeText(context, "Failed to upload image: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                                     jobImageUri = null
                                                     jobImageUrl = ""
                                                 } finally {
@@ -1376,7 +1376,7 @@ fun PostJobScreen(
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
-                                                    text = "Work Schedule & Urgency",
+                                                    text = stringResource(R.string.post_job_schedule_urgency),
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFF1E293B)
@@ -1568,7 +1568,7 @@ private fun PostJobHeroCard(
                         color = Color.White.copy(alpha = 0.14f)
                     ) {
                         Text(
-                            text = "Worker-facing preview",
+                            text = stringResource(R.string.post_job_worker_preview),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
@@ -1581,7 +1581,7 @@ private fun PostJobHeroCard(
                         color = Color.White.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = "$readinessPercent% ready",
+                            text = stringResource(R.string.post_job_ready_percent, readinessPercent),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
@@ -1740,7 +1740,7 @@ private fun PostJobChecklistPanel(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Launch Checklist",
+                        text = stringResource(R.string.post_job_launch_checklist),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
@@ -1880,7 +1880,7 @@ private fun PostJobStepperHeader(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Step $currentStep of $totalSteps",
+                    text = stringResource(R.string.post_job_step_of, currentStep, totalSteps),
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = Color(0xFF64748B),
                         fontWeight = FontWeight.SemiBold
@@ -2397,7 +2397,7 @@ fun EnhancedJobTitleSection(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Job Title",
+                            text = stringResource(R.string.post_job_title_label),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -2411,7 +2411,7 @@ fun EnhancedJobTitleSection(
                         )
                     }
                     Text(
-                        text = "Select the position you're hiring for",
+                        text = stringResource(R.string.post_job_select_position),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -2433,7 +2433,7 @@ fun EnhancedJobTitleSection(
                     Text("\uD83D\uDEE1\uFE0F", fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Only local, in-person jobs allowed. No online or WFH jobs.",
+                        text = stringResource(R.string.post_job_local_only_warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF92400E)
                     )
@@ -2575,7 +2575,7 @@ fun EnhancedJobTitleSection(
                         Text(category.icon, fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Category: ${category.displayName}",
+                            text = stringResource(R.string.post_job_category_label, category.displayName),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = primaryBlue
@@ -2595,7 +2595,7 @@ fun EnhancedJobTitleSection(
                         Text("\u2705", fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Custom: $customCategory",
+                            text = stringResource(R.string.post_job_custom_category, customCategory),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF10B981)
@@ -2633,13 +2633,13 @@ fun WorkTypeSelection(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Work Type",
+                        text = stringResource(R.string.post_job_work_type),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Full-time, part-time or flexible?",
+                        text = stringResource(R.string.post_job_work_type_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -2713,7 +2713,7 @@ fun EnhancedPaymentSection(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Payment Details",
+                            text = stringResource(R.string.payment_details),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -2727,7 +2727,7 @@ fun EnhancedPaymentSection(
                         )
                     }
                     Text(
-                        text = "How much will you pay?",
+                        text = stringResource(R.string.post_job_how_much_pay),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -2754,7 +2754,7 @@ fun EnhancedPaymentSection(
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "Market rate for ${category.displayName}:",
+                            text = stringResource(R.string.post_job_market_rate_for, category.displayName),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF065F46)
                         )
@@ -2900,7 +2900,7 @@ fun EnhancedLocationSection(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Work Location",
+                            text = stringResource(R.string.post_job_work_location),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -3171,13 +3171,13 @@ fun RequirementsSection(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Job Requirements",
+                        text = stringResource(R.string.post_job_requirements),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Who are you looking for?",
+                        text = stringResource(R.string.post_job_looking_for),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -3214,7 +3214,7 @@ fun RequirementsSection(
             
             // Gender Preference
             Text(
-                text = "Gender Preference",
+                text = stringResource(R.string.post_job_gender_preference),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF475569)
@@ -3417,13 +3417,13 @@ fun PerksSelectionSection(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Perks & Benefits",
+                            text = stringResource(R.string.post_job_perks_benefits),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
                         )
                         Text(
-                            text = "Attract more candidates",
+                            text = stringResource(R.string.post_job_attract_candidates),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF6B7280)
                         )
@@ -3437,7 +3437,7 @@ fun PerksSelectionSection(
                         color = Color(0xFF10B981)
                     ) {
                         Text(
-                            text = "$totalCount selected",
+                            text = stringResource(R.string.post_job_selected_count, totalCount),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
@@ -3459,13 +3459,13 @@ fun PerksSelectionSection(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Add your own perk",
+                text = stringResource(R.string.post_job_add_own_perk),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF0F172A)
             )
             Text(
-                text = "Type any extra benefit (e.g. Gym membership, Festival bonus)",
+                text = stringResource(R.string.post_job_perk_placeholder),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF6B7280)
             )
