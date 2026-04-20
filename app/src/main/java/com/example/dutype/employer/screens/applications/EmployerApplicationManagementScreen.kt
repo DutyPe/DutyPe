@@ -388,22 +388,22 @@ private fun ApplicationStatsSummary(stats: com.example.dutype.models.Application
         ) {
             StatsSummaryItem(
                 value = stats.totalApplications.toString(),
-                label = "Total",
+                label = stringResource(R.string.total_label),
                 color = Color(0xFF3B82F6)
             )
             StatsSummaryItem(
                 value = stats.appliedApplications.toString(),
-                label = "Applied",
+                label = stringResource(R.string.applied),
                 color = Color(0xFFF59E0B)
             )
             StatsSummaryItem(
                 value = stats.shortlistedApplications.toString(),
-                label = "Shortlisted",
+                label = stringResource(R.string.shortlisted),
                 color = Color(0xFF8B5CF6)
             )
             StatsSummaryItem(
                 value = stats.hiredApplications.toString(),
-                label = "Hired",
+                label = stringResource(R.string.hired),
                 color = Color(0xFF10B981)
             )
         }

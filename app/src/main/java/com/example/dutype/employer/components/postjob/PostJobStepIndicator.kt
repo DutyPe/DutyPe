@@ -14,9 +14,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dutype.app.R
 
 /**
  * P2 PERFORMANCE FIX: Extracted StepProgressIndicator composable
@@ -34,7 +36,12 @@ fun PostJobStepIndicator(
     primaryColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val stepLabels = listOf("Job Details", "Pay & Location", "Contact Info", "Review & Post")
+    val stepLabels = listOf(
+        stringResource(R.string.step_job_details),
+        stringResource(R.string.step_pay_location),
+        stringResource(R.string.step_contact_info),
+        stringResource(R.string.step_review_post)
+    )
     val stepDescriptions = listOf(
         "Title, category & description",
         "Salary, work hours & address",

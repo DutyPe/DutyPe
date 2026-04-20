@@ -452,7 +452,7 @@ fun EmployerProfileScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "My Activity")
+                        SectionHeader(title = stringResource(R.string.my_activity))
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         // ProfileMenuItem(
@@ -533,13 +533,13 @@ fun EmployerProfileScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Rewards")
+                        SectionHeader(title = stringResource(R.string.rewards))
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         // Refer & Earn
                         ProfileMenuItem(
                             icon = Icons.Outlined.CardGiftcard,
-                            title = "Refer & Earn",
+                            title = stringResource(R.string.refer_earn),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "refer_earn"
@@ -571,13 +571,13 @@ fun EmployerProfileScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Others")
+                        SectionHeader(title = stringResource(R.string.others))
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         // Help & FAQs - First item
                         ProfileMenuItem(
                             icon = Icons.Outlined.Phone,
-                            title = "Help & FAQs",
+                            title = stringResource(R.string.help_faqs),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HELP) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
@@ -787,7 +787,7 @@ fun EmployerProfileScreen(
             pendingMenuAction = null
         },
         role = com.example.dutype.models.UserRole.EMPLOYER,
-        title = "Login Required",
+        title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
             "profile" -> "Login to view and edit your company profile"
             // "trust_badges" -> "Login to view your trust badges"

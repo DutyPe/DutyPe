@@ -44,6 +44,8 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +58,11 @@ fun WorkerHistoryScreen(
     val currentUser = FirebaseAuth.getInstance().currentUser
     
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Timeline", "Completed", "All History")
+    val tabs = listOf(
+        stringResource(R.string.tab_timeline),
+        stringResource(R.string.tab_completed),
+        stringResource(R.string.tab_all_history)
+    )
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
@@ -90,7 +96,7 @@ fun WorkerHistoryScreen(
     ) {
         // Common Header
         CommonHeader(
-            title = "Work History",
+            title = stringResource(R.string.work_history),
             navController = navController
         )
         

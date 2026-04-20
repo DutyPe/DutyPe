@@ -110,7 +110,7 @@ fun EmployerReferEarnScreen(
     ) {
         CommonHeader(
             title = stringResource(R.string.refer_earn),
-            subtitle = "Invite employers & earn rewards",
+            subtitle = stringResource(R.string.invite_employers_earn),
             onBackClick = { navController.popBackStack() },
             backgroundColor = Color.White
             // Removed: QR Code icon button from actions
@@ -127,7 +127,7 @@ fun EmployerReferEarnScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.Error, null, tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                         Spacer(Modifier.height(16.dp))
-                        Text(uiState.error ?: "Something went wrong", color = Color(0xFF6B7280))
+                        Text(uiState.error ?: stringResource(R.string.something_went_wrong), color = Color(0xFF6B7280))
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = { viewModel.loadReferralData() }) { Text(stringResource(R.string.retry)) }
                     }
@@ -766,7 +766,7 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(referral.referredUserName.ifBlank { "Employer" }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1F2937)))
+            Text(referral.referredUserName.ifBlank { stringResource(R.string.employer_label) }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1F2937)))
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
             if (rewardBreakdown.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))

@@ -48,6 +48,8 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Job Application Screen - Review and Submit Application
@@ -188,7 +190,7 @@ fun JobApplicationScreen(
     ) {
         // Header
         CommonHeader(
-            title = "Apply for Job",
+            title = stringResource(R.string.apply_for_job),
             onBackClick = { navController.popBackStack() },
             backgroundColor = WorkerColors.CardBackground
         )

@@ -327,8 +327,8 @@ private fun PostedJobsErrorCard(
 private fun PostedJobsEmptyState(onPostJob: () -> Unit) {
     EmptyActionState(
         icon = Icons.Default.Work,
-        title = "No Jobs Posted Yet",
-        subtitle = "Start building your team by posting your first job opportunity",
+        title = stringResource(R.string.no_jobs_posted_yet),
+        subtitle = stringResource(R.string.start_building_team),
         actionLabel = stringResource(R.string.post_your_first_job),
         onAction = onPostJob
     )

@@ -27,6 +27,8 @@ import com.example.dutype.models.parseTrustTier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -401,19 +403,19 @@ private fun CurrentBadgeCard(
                 StatItem(
                     icon = Icons.Default.Work,
                     value = completedJobsCount.toString(),
-                    label = "Jobs Done",
+                    label = stringResource(R.string.jobs_done),
                     color = Color(tierInfo.color)
                 )
                 StatItem(
                     icon = Icons.Default.Star,
                     value = if (averageRating > 0) String.format("%.1f", averageRating) else "-",
-                    label = "Rating",
+                    label = stringResource(R.string.rating_label),
                     color = Color(tierInfo.color)
                 )
                 StatItem(
                     icon = Icons.Default.Verified,
                     value = if (isGstVerified) "Yes" else "No",
-                    label = "GST",
+                    label = stringResource(R.string.gst),
                     color = Color(tierInfo.color)
                 )
             }

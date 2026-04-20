@@ -40,6 +40,8 @@ import com.example.dutype.viewmodels.CategoriesViewModel
 import com.example.dutype.worker.components.JobCard
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Categories Screen - Blinkit/Zepto style category browser
@@ -131,7 +133,7 @@ fun CategoriesScreen(
         
         // Header
         CommonHeader(
-                title = "All Categories",
+                title = stringResource(R.string.all_categories),
                 onBackClick = { navController.popBackStack() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground

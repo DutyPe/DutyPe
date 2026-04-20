@@ -61,19 +61,19 @@ fun JobSafetyBadge(
             backgroundColor = Color(0xFFFEF3C7) // Amber background
             textColor = Color(0xFFD97706) // Amber text
             icon = Icons.Default.Warning
-            label = "Caution"
+            label = stringResource(R.string.caution)
         }
         AIScamDetector.RiskLevel.HIGH -> {
             backgroundColor = Color(0xFFFEE2E2) // Red background
             textColor = Color(0xFFDC2626) // Red text
             icon = Icons.Default.Error
-            label = "High Risk"
+            label = stringResource(R.string.high_risk)
         }
         AIScamDetector.RiskLevel.CRITICAL -> {
             backgroundColor = Color(0xFFFEE2E2) // Red background
             textColor = Color(0xFF991B1B) // Dark red text
             icon = Icons.Default.Dangerous
-            label = "Scam Alert"
+            label = stringResource(R.string.scam_alert)
         }
         else -> return
     }

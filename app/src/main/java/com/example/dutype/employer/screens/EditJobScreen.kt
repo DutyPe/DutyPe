@@ -807,8 +807,8 @@ fun EditJobScreen(
                                 Timber.d("📍 EditJob: Location selected - $address at ($lat, $lng)")
                             },
                             locationService = locationService,
-                            label = "Work Location",
-                            placeholder = "Search location or use GPS",
+                            label = stringResource(R.string.work_location),
+                            placeholder = stringResource(R.string.search_location_or_gps),
                             showCurrentLocationButton = true,
                             onCurrentLocationClick = {
                                 if (locationService.hasLocationPermission()) {

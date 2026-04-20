@@ -42,6 +42,8 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Employer Company Details screen.
@@ -221,7 +223,7 @@ fun EmployerCompanyDetailsScreen(
                             )
                         }
                         Text(
-                            text = "Company Details",
+                            text = stringResource(R.string.company_details_section),
                             style = AppTypography.screenTitle,
                             color = EmployerColors.TextPrimary,
                             modifier = Modifier.weight(1f)
@@ -314,12 +316,12 @@ fun EmployerCompanyDetailsScreen(
                             )
                         } else {
                             CompanyInfoCard(
-                                title = "Basic Information",
+                                title = stringResource(R.string.basic_information),
                                 items = listOf(
-                                    "Company Name" to companyName,
-                                    "Contact Email" to contactEmail,
-                                    "Contact Phone" to contactPhone,
-                                    "Business Address" to businessAddress
+                                    stringResource(R.string.company_name) to companyName,
+                                    stringResource(R.string.contact_email) to contactEmail,
+                                    stringResource(R.string.contact_phone) to contactPhone,
+                                    stringResource(R.string.business_address) to businessAddress
                                 )
                             )
                         }
@@ -342,10 +344,10 @@ fun EmployerCompanyDetailsScreen(
                             )
                         } else {
                             CompanyInfoCard(
-                                title = "Company Details",
+                                title = stringResource(R.string.company_details_section),
                                 items = listOf(
-                                    "Industry" to industry,
-                                    "Company Size" to companySize
+                                    stringResource(R.string.industry) to industry,
+                                    stringResource(R.string.company_size) to companySize
                                 )
                             )
                         }
@@ -400,7 +402,7 @@ fun EmployerCompanyDetailsScreen(
 
     com.example.dutype.components.UserReviewsBottomSheet(
         isVisible = showReviewsSheet,
-        title = "Employer Ratings & Reviews",
+        title = stringResource(R.string.employer_ratings_reviews),
         averageRating = employerRating,
         totalRatings = employerTotalRatings,
         reviews = employerReviews,
@@ -668,38 +670,38 @@ private fun EditableBasicInfoCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Basic Information",
+                text = stringResource(R.string.basic_information),
                 style = AppTypography.sectionHeader,
                 color = EmployerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
             CompanyTextField(
-                label = "Company Name",
+                label = stringResource(R.string.company_name),
                 value = companyName,
                 onValueChange = onCompanyNameChange,
-                placeholder = "Enter your company name"
+                placeholder = stringResource(R.string.enter_company_name)
             )
             CompanyTextField(
-                label = "Contact Email",
+                label = stringResource(R.string.contact_email),
                 value = contactEmail,
                 onValueChange = onContactEmailChange,
                 placeholder = "name@company.com",
                 keyboardType = KeyboardType.Email
             )
             CompanyTextField(
-                label = "Contact Phone",
+                label = stringResource(R.string.contact_phone),
                 value = contactPhone,
                 onValueChange = onContactPhoneChange,
-                placeholder = "Login phone number",
+                placeholder = stringResource(R.string.login_phone_number),
                 keyboardType = KeyboardType.Phone,
                 enabled = false
             )
             CompanyTextField(
-                label = "Business Address",
+                label = stringResource(R.string.business_address),
                 value = businessAddress,
                 onValueChange = onBusinessAddressChange,
-                placeholder = "Enter business address",
+                placeholder = stringResource(R.string.enter_business_address),
                 singleLine = false,
                 minLines = 2
             )
@@ -725,20 +727,20 @@ private fun EditableCompanyDetailsCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Company Details",
+                text = stringResource(R.string.company_details_section),
                 style = AppTypography.sectionHeader,
                 color = EmployerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
             CompanyTextField(
-                label = "Industry",
+                label = stringResource(R.string.industry),
                 value = industry,
                 onValueChange = onIndustryChange,
                 placeholder = "e.g. Hospitality, Retail, IT services"
             )
             CompanyTextField(
-                label = "Company Size",
+                label = stringResource(R.string.company_size),
                 value = companySize,
                 onValueChange = onCompanySizeChange,
                 placeholder = "e.g. 1-10, 11-50, 51-200"
@@ -848,7 +850,7 @@ private fun CompanyTextField(
             } else null
         )
 
-        if (!enabled && label == "Contact Phone") {
+        if (!enabled && label == stringResource(R.string.contact_phone)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Phone number cannot be changed (from login)",

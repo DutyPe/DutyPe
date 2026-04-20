@@ -27,6 +27,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import java.net.URL
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Urgency colors for pulsing markers
 private val UrgentRed = Color(0xFFEF4444)
@@ -277,7 +279,7 @@ fun EnhancedGoogleMapView(
             
             Marker(
                 state = MarkerState(position = userPosition),
-                title = "You are here",
+                title = stringResource(R.string.you_are_here),
                 icon = createUserLocationMarker(),
                 anchor = Offset(0.5f, 0.5f),
                 zIndex = 100f

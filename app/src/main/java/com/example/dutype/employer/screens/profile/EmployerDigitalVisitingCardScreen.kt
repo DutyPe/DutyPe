@@ -35,6 +35,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Premium colors for the visiting card
 private val CardBackgroundColor = Color.White
@@ -128,7 +130,7 @@ fun EmployerDigitalVisitingCardScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "My Business Card",
+            title = stringResource(R.string.my_business_card),
             onBackClick = { navController.popBackStack() },
             backgroundColor = EmployerColors.CardBackground
         )
@@ -374,7 +376,7 @@ fun EmployerDigitalVisitingCardScreen(
 
         com.example.dutype.components.UserReviewsBottomSheet(
             isVisible = showReviewsSheet,
-            title = "Employer Ratings & Reviews",
+            title = stringResource(R.string.employer_ratings_reviews),
             averageRating = companyRating,
             totalRatings = totalRatings,
             reviews = employerReviews,

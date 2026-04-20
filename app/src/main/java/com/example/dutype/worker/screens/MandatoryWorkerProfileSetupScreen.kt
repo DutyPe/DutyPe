@@ -1337,8 +1337,8 @@ private fun AdditionalDetailsStep(
                     onAddressChange(selectedAddress)
                 },
                 locationService = locationService,
-                label = "Address",
-                placeholder = "Search or enter your address",
+                label = stringResource(R.string.address_label),
+                placeholder = stringResource(R.string.search_or_enter_address_w),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
                     unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),

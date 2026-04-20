@@ -73,6 +73,8 @@ import com.example.dutype.worker.viewmodels.WorkerNotificationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,7 +133,7 @@ fun WorkerNotificationScreen(
     ) {
         // Use CommonHeader - NO subtitle showing unread count
         com.example.dutype.components.CommonHeader(
-            title = "Notifications",
+            title = stringResource(R.string.notifications),
             onBackClick = onBackClick,
             backgroundColor = WorkerColors.CardBackground
         )

@@ -49,6 +49,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import timber.log.Timber
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +111,7 @@ fun EmployerNotificationScreen(
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         com.example.dutype.components.CommonHeader(
-            title = "Notifications",
+            title = stringResource(R.string.notifications),
             onBackClick = onBackClick,
             backgroundColor = Color.White,
             titleColor = Color(0xFF1F2937)
@@ -148,7 +150,7 @@ fun EmployerNotificationScreen(
                             onClick = { viewModel.loadNotifications() },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
                         ) {
-                            Text("Retry", color = Color.White)
+                            Text(stringResource(R.string.retry), color = Color.White)
                         }
                     }
                 }

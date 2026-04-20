@@ -199,7 +199,7 @@ fun ProfessionalWorkerProfileViewScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             CommonHeader(
-                title = "Worker Profile",
+                title = stringResource(R.string.worker_profile_label),
                 onBackClick = { navController.popBackStack() },
                 backgroundColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
             )

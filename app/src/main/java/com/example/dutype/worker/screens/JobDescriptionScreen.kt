@@ -326,7 +326,7 @@ fun JobDescriptionScreen(
 
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
-                title = "Job Details",
+                title = stringResource(R.string.job_details),
                 onBackClick = { handleBackNavigation() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground,
@@ -552,7 +552,7 @@ fun JobDescriptionScreen(
         },
         requiresProfileCheck = pendingAction == "apply", // Only check profile for job applications
         role = com.example.dutype.models.UserRole.WORKER,
-        title = "Login to Continue",
+        title = stringResource(R.string.login_to_continue),
         subtitle = when (pendingAction) {
             "apply" -> "Login to apply for this job"
             "save" -> "Login to save this job"

@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * CENTRALIZED EMPTY STATE COMPONENTS
@@ -216,10 +218,10 @@ fun EmptySearchState(
         modifier = modifier,
         containerColor = containerColor,
         icon = Icons.Default.SearchOff,
-        title = "No results found",
+        title = stringResource(R.string.no_results_found),
         subtitle = "No jobs match \"$searchQuery\"\nTry different keywords or clear the search.",
         actionButton = EmptyStateAction(
-            label = "Clear Search",
+            label = stringResource(R.string.clear_search),
             onClick = onClearSearch
         )
     )

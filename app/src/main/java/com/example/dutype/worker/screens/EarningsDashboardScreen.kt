@@ -36,6 +36,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.example.dutype.components.EmptyListState
 import com.example.dutype.components.EmptyStateAction
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 /**
  * Earnings Dashboard Screen
@@ -65,7 +67,7 @@ fun EarningsDashboardScreen(
     ) {
         // CommonHeader with back button
         CommonHeader(
-            title = "Earnings",
+            title = stringResource(R.string.earnings_title),
             navController = navController,
             showBackButton = true,
             backgroundColor = WorkerColors.CardBackground,
@@ -251,7 +253,7 @@ private fun TotalEarningsCard(
                     // Completed Jobs
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Jobs Done",
+                            text = stringResource(R.string.jobs_done),
                             style = AppTypography.bodySmall.copy(
                                 color = Color.White.copy(alpha = 0.6f)
                             )
@@ -314,14 +316,14 @@ private fun StatsGrid(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.CheckCircle,
             iconColor = WorkerColors.Success,
-            label = "Jobs Done",
+            label = stringResource(R.string.jobs_done),
             value = "$completedJobs"
         )
         StatCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.TrendingUp,
             iconColor = WorkerColors.Info,
-            label = "Avg/Job",
+            label = stringResource(R.string.avg_per_job),
             value = formatCurrency(avgEarningPerJob)
         )
     }
@@ -336,14 +338,14 @@ private fun StatsGrid(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Schedule,
             iconColor = WorkerColors.Warning,
-            label = "On-Time Pay",
+            label = stringResource(R.string.on_time_pay),
             value = "$onTimePayments%"
         )
         StatCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.AccessTime,
             iconColor = WorkerColors.Primary,
-            label = "Hours",
+            label = stringResource(R.string.hours),
             value = "${totalHoursWorked}h"
         )
     }
@@ -431,7 +433,15 @@ private fun EarningsChartCard(
                 verticalAlignment = Alignment.Bottom
             ) {
                 val maxEarning = weeklyEarnings.maxOrNull() ?: 1.0
-                val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                val days = listOf(
+                    stringResource(R.string.day_mon),
+                    stringResource(R.string.day_tue),
+                    stringResource(R.string.day_wed),
+                    stringResource(R.string.day_thu),
+                    stringResource(R.string.day_fri),
+                    stringResource(R.string.day_sat),
+                    stringResource(R.string.day_sun)
+                )
                 
                 weeklyEarnings.forEachIndexed { index, earning ->
                     val heightFraction = if (maxEarning > 0) (earning / maxEarning).toFloat() else 0f
@@ -563,10 +573,10 @@ private fun TransactionCard(
 private fun EmptyTransactionsCard() {
     EmptyListState(
         icon = Icons.Default.Receipt,
-        title = "No Transactions Yet",
-        subtitle = "Complete jobs to see your earnings here",
+        title = stringResource(R.string.no_transactions_yet),
+        subtitle = stringResource(R.string.complete_jobs_see_earnings),
         actionButton = EmptyStateAction(
-            label = "Browse Jobs",
+            label = stringResource(R.string.browse_jobs),
             icon = Icons.Default.Search,
             onClick = { /* Navigation handled by parent */ }
         )

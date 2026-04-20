@@ -172,7 +172,7 @@ fun EmployerAddressManagementScreen(
     ) {
         // Common Header
         CommonHeader(
-            title = "Manage Addresses",
+            title = stringResource(R.string.manage_addresses),
             navController = navController
         )
         
@@ -477,10 +477,10 @@ fun EmployerAddressManagementScreen(
                 // Empty state - no saved addresses
                 EmptyListState(
                     icon = Icons.Default.LocationOff,
-                    title = "No Saved Addresses",
-                    subtitle = "Add your office locations to manage work locations",
+                    title = stringResource(R.string.no_saved_addresses),
+                    subtitle = stringResource(R.string.add_office_locations),
                     actionButton = EmptyStateAction(
-                        label = "Add Address",
+                        label = stringResource(R.string.add_address),
                         icon = Icons.Default.Add,
                         onClick = { /* Form is above, user can scroll up or fill it */ }
                     )

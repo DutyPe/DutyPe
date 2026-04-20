@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -56,27 +58,27 @@ fun EmployerSupportScreen(
     
     val userGuideItems = listOf(
         GuideItem(
-            title = "Getting Started",
+            title = stringResource(R.string.getting_started),
             content = "1. Complete your employer profile with company details\n2. Add your company logo and description\n3. Verify your phone number for security\n4. You're ready to post jobs!"
         ),
         GuideItem(
-            title = "Posting a Job",
+            title = stringResource(R.string.posting_a_job),
             content = "1. Tap the '+' button on Home screen\n2. Fill in job title, category, and description\n3. Set salary range and work location\n4. Add job requirements and benefits\n5. Review and post your job"
         ),
         GuideItem(
-            title = "Managing Applications",
+            title = stringResource(R.string.managing_applications),
             content = "1. Go to 'My Jobs' to see all your postings\n2. Tap on a job to view applications\n3. Review applicant profiles and experience\n4. Shortlist or reject candidates\n5. Contact selected candidates directly"
         ),
         GuideItem(
-            title = "Verifying Work Completion",
+            title = stringResource(R.string.verifying_work_completion),
             content = "1. Generate a QR code for the job\n2. Worker scans QR to start work\n3. After work completion, verify the work\n4. Worker scans QR again to mark complete\n5. Rate the worker's performance"
         ),
         GuideItem(
-            title = "Building Trust Score",
+            title = stringResource(R.string.building_trust_score),
             content = "• Complete your profile 100%\n• Post detailed job descriptions\n• Respond to applications promptly\n• Verify work completion properly\n• Maintain good ratings from workers"
         ),
         GuideItem(
-            title = "Best Practices",
+            title = stringResource(R.string.best_practices),
             content = "• Write clear job descriptions\n• Set realistic salary expectations\n• Respond to applicants within 24 hours\n• Provide accurate work location\n• Give fair ratings to workers\n• Keep your profile updated"
         )
     )
@@ -115,7 +117,7 @@ fun EmployerSupportScreen(
     ) {
         // Common Header component
         CommonHeader(
-            title = "Help & FAQs",
+            title = stringResource(R.string.help_faqs),
             navController = navController
         )
         
@@ -178,7 +180,7 @@ fun EmployerSupportScreen(
                 EmployerQuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Phone,
-                    label = "WhatsApp",
+                    label = stringResource(R.string.whatsapp_label),
                     bg = Color(0xFFDCFCE7),
                     tint = Color(0xFF16A34A)
                 ) {
@@ -189,7 +191,7 @@ fun EmployerSupportScreen(
                 EmployerQuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Email,
-                    label = "Email",
+                    label = stringResource(R.string.email_label),
                     bg = EmployerLightBlue,
                     tint = EmployerSecondaryBlue
                 ) {
@@ -200,7 +202,7 @@ fun EmployerSupportScreen(
                 EmployerQuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.BugReport,
-                    label = "Report",
+                    label = stringResource(R.string.report),
                     bg = Color(0xFFFFE4E6),
                     tint = Color(0xFFE11D48)
                 ) {
@@ -219,7 +221,7 @@ fun EmployerSupportScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search help topics") },
+                placeholder = { Text(stringResource(R.string.search_help_topics)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -377,7 +379,7 @@ fun EmployerSupportScreen(
                 Column {
                     QuickLinkItem(
                         icon = Icons.Default.BugReport,
-                        title = "Report a Problem",
+                        title = stringResource(R.string.report_a_problem),
                         onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:dutypein@gmail.com")
@@ -389,7 +391,7 @@ fun EmployerSupportScreen(
                     HorizontalDivider(color = Color(0xFFE5E7EB))
                     QuickLinkItem(
                         icon = Icons.Default.Feedback,
-                        title = "Send Feedback",
+                        title = stringResource(R.string.send_feedback),
                         onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:dutypein@gmail.com")
@@ -421,7 +423,7 @@ fun EmployerSupportScreen(
                 Column {
                     QuickLinkItem(
                         icon = Icons.AutoMirrored.Filled.ContactSupport,
-                        title = "Contact Us",
+                        title = stringResource(R.string.contact_us),
                         onClick = { navController.navigate(com.example.dutype.navigation.Routes.CONTACT_US) }
                     )
                 }

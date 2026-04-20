@@ -255,7 +255,12 @@ fun PostJobScreen(
 
     // Stepper state: 1=Job Details, 2=Pay & Location, 3=People & Schedule, 4=Review
     var currentStep by remember { mutableStateOf(1) }
-    val stepLabels = listOf("Role", "Pay & Place", "People", "Review")
+    val stepLabels = listOf(
+        stringResource(R.string.step_role),
+        stringResource(R.string.step_pay_place),
+        stringResource(R.string.step_people),
+        stringResource(R.string.step_review)
+    )
 
     // When the step changes, scroll the canvas to the top so the new step
     // header is in view immediately.
@@ -1144,7 +1149,7 @@ fun PostJobScreen(
                 com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 
                 CommonHeader(
-                    title = "Post a job",
+                    title = stringResource(R.string.post_a_job),
                     navController = navController,
                     backgroundColor = Color.Transparent,
                     titleColor = Color(0xFF0F172A)
@@ -1173,8 +1178,8 @@ fun PostJobScreen(
                     if (currentStep == 1) item {
                         StudioGroupCard(
                             stepNumber = 1,
-                            title = "Tell us about the role",
-                            subtitle = "Job title, work type, description and a photo",
+                            title = stringResource(R.string.tell_us_about_role),
+                            subtitle = stringResource(R.string.job_title_work_type_desc),
                             icon = "\uD83D\uDCDD",
                             accentColor = Color(0xFF2563EB)
                         ) {
@@ -1265,8 +1270,8 @@ fun PostJobScreen(
                     if (currentStep == 2) item {
                         StudioGroupCard(
                             stepNumber = 2,
-                            title = "Pay & where to work",
-                            subtitle = "Set the pay and pin the work location",
+                            title = stringResource(R.string.pay_where_work),
+                            subtitle = stringResource(R.string.set_pay_pin_location),
                             icon = "\uD83D\uDCB0",
                             accentColor = Color(0xFF059669)
                         ) {
@@ -1327,8 +1332,8 @@ fun PostJobScreen(
                     if (currentStep == 3) item {
                         StudioGroupCard(
                             stepNumber = 3,
-                            title = "Who you want & extras",
-                            subtitle = "Vacancies, requirements, schedule and perks",
+                            title = stringResource(R.string.who_you_want_extras),
+                            subtitle = stringResource(R.string.vacancies_requirements_schedule),
                             icon = "\uD83D\uDC65",
                             accentColor = Color(0xFFD946EF)
                         ) {
@@ -1452,8 +1457,8 @@ fun PostJobScreen(
         },
         requiresProfileCheck = true, // Check profile completion for job posting
         role = com.example.dutype.models.UserRole.EMPLOYER,
-        title = "Login to Post Job",
-        subtitle = "Please login to publish your job posting and reach thousands of workers"
+        title = stringResource(R.string.login_to_post_job),
+        subtitle = stringResource(R.string.login_publish_job_subtitle)
     )
 }
 
@@ -1609,15 +1614,15 @@ private fun PostJobHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     HeroSignalPill(
-                        title = "Pay",
+                        title = stringResource(R.string.pay_label),
                         value = if (payAmount.isBlank()) "Set salary" else "₹$payAmount ${payType.displayName}"
                     )
                     HeroSignalPill(
-                        title = "Type",
+                        title = stringResource(R.string.type_label),
                         value = workType.ifBlank { "Choose work type" }
                     )
                     HeroSignalPill(
-                        title = "Area",
+                        title = stringResource(R.string.area_label),
                         value = location.ifBlank { "Add work location" }
                     )
                 }
@@ -1680,25 +1685,25 @@ private fun PostJobSignalStrip(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         StudioSignalCard(
-            title = "Essentials",
+            title = stringResource(R.string.essentials),
             value = "$readinessCount / 4",
             caption = "Critical publish checks complete",
             tint = Color(0xFF2563EB)
         )
         StudioSignalCard(
-            title = "Trust Tier",
+            title = stringResource(R.string.trust_tier),
             value = employerTrustTier.replace('_', ' '),
             caption = "Employer reputation visible to workers",
             tint = Color(0xFFFF8A3D)
         )
         StudioSignalCard(
-            title = "Map Pin",
+            title = stringResource(R.string.map_pin),
             value = if (hasValidJobCoordinates) "Verified" else "Missing",
             caption = if (hasValidJobCoordinates) "Exact work area captured" else "Set a precise local pin",
             tint = Color(0xFF059669)
         )
         StudioSignalCard(
-            title = "Visual",
+            title = stringResource(R.string.visual),
             value = if (hasImage) "Live" else "Optional",
             caption = "Job poster / image state",
             tint = Color(0xFF7C3AED)
@@ -3183,7 +3188,7 @@ fun RequirementsSection(
             
             // Experience Level
             RequirementChipSection(
-                title = "Experience Required",
+                title = stringResource(R.string.experience_required),
                 icon = "💼",
                 options = experienceLevels,
                 selectedOption = experienceLevel,
@@ -3197,7 +3202,7 @@ fun RequirementsSection(
             
             // Age Range
             RequirementChipSection(
-                title = "Preferred Age Range",
+                title = stringResource(R.string.preferred_age_range),
                 icon = "👤",
                 options = ageRanges,
                 selectedOption = ageRange,

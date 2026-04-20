@@ -54,6 +54,8 @@ import com.example.dutype.employer.models.JobStats
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,7 +94,7 @@ fun AnalyticsScreen(navController: NavController) {
     ) {
         // Common Header
         CommonHeader(
-            title = "Analytics Dashboard",
+            title = stringResource(R.string.analytics_dashboard),
             navController = navController
         )
         
@@ -150,14 +152,14 @@ fun OverviewStatsSection(
         // First row
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
-                title = "Active Jobs",
+                title = stringResource(R.string.active_jobs),
                 value = activeJobs.toString(),
                 icon = Icons.Default.Work,
                 color = Color(0xFF10B981),
                 modifier = Modifier.weight(1f)
             )
             StatCard(
-                title = "Paused Jobs",
+                title = stringResource(R.string.paused_jobs),
                 value = pausedJobs.toString(),
                 icon = Icons.Default.Pause,
                 color = Color(0xFFF59E0B),
@@ -168,14 +170,14 @@ fun OverviewStatsSection(
         // Second row
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
-                title = "Today's Posts",
+                title = stringResource(R.string.todays_posts),
                 value = jobStats.todayJobs.toString(),
                 icon = Icons.Default.CalendarToday,
                 color = Color(0xFF3B82F6),
                 modifier = Modifier.weight(1f)
             )
             StatCard(
-                title = "Total Jobs",
+                title = stringResource(R.string.total_jobs),
                 value = jobStats.totalJobs.toString(),
                 icon = Icons.Default.Analytics,
                 color = Color(0xFF8B5CF6),
@@ -211,22 +213,22 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ApplicationStatItem(
-                    label = "Total",
+                    label = stringResource(R.string.total_label),
                     value = appStats.totalApplications.toString(),
                     color = Color(0xFF3B82F6)
                 )
                 ApplicationStatItem(
-                    label = "Applied",
+                    label = stringResource(R.string.applied),
                     value = appStats.appliedApplications.toString(),
                     color = Color(0xFFF59E0B)
                 )
                 ApplicationStatItem(
-                    label = "Shortlisted",
+                    label = stringResource(R.string.shortlisted),
                     value = appStats.shortlistedApplications.toString(),
                     color = Color(0xFF8B5CF6)
                 )
                 ApplicationStatItem(
-                    label = "Hired",
+                    label = stringResource(R.string.hired),
                     value = appStats.hiredApplications.toString(),
                     color = Color(0xFF10B981)
                 )

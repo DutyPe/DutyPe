@@ -23,6 +23,8 @@ import com.example.dutype.components.AboutParagraph
 import com.example.dutype.components.AboutSectionCard
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.WorkerColors
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @Composable
 fun WorkerAboutScreen(
@@ -41,7 +43,7 @@ fun WorkerAboutScreen(
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
         CommonHeader(
-            title = "About Us",
+            title = stringResource(R.string.about_us),
             navController = navController,
             backgroundColor = WorkerColors.CardBackground
         )
@@ -54,14 +56,14 @@ fun WorkerAboutScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             AboutHero(
-                title = "Welcome to DutyPe",
+                title = stringResource(R.string.welcome_to_dutype),
                 subtitle = "Your gateway to reliable local jobs \u2014 daily, hourly, full-time.",
                 accentColor = accent,
                 badgeEmoji = "\uD83D\uDC4B"
             )
 
             AboutSectionCard(
-                title = "Our Mission",
+                title = stringResource(R.string.our_mission),
                 accentColor = Color(0xFF10B981),
                 icon = "\uD83C\uDFAF"
             ) {
@@ -71,7 +73,7 @@ fun WorkerAboutScreen(
             }
 
             AboutSectionCard(
-                title = "Our Vision",
+                title = stringResource(R.string.our_vision),
                 accentColor = Color(0xFFF59E0B),
                 icon = "\uD83D\uDD2D"
             ) {
@@ -81,7 +83,7 @@ fun WorkerAboutScreen(
             }
 
             AboutSectionCard(
-                title = "Key Features",
+                title = stringResource(R.string.key_features),
                 accentColor = Color(0xFF2563EB),
                 icon = "\u2728"
             ) {
@@ -94,7 +96,7 @@ fun WorkerAboutScreen(
             }
 
             AboutSectionCard(
-                title = "Job Categories",
+                title = stringResource(R.string.job_categories),
                 accentColor = Color(0xFFEF4444),
                 icon = "\uD83D\uDEE0\uFE0F"
             ) {
@@ -107,7 +109,7 @@ fun WorkerAboutScreen(
             }
 
             AboutSectionCard(
-                title = "Why Choose DutyPe?",
+                title = stringResource(R.string.why_choose_dutype),
                 accentColor = Color(0xFF8B5CF6),
                 icon = "\uD83D\uDC8E"
             ) {

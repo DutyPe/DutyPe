@@ -49,6 +49,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import timber.log.Timber
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 private data class EmployerPublicJobPreview(
     val id: String,
@@ -126,7 +128,7 @@ fun EmployerPublicProfileScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "Employer Profile",
+            title = stringResource(R.string.employer_profile),
             onBackClick = { navController.popBackStack() },
             backgroundColor = EmployerColors.CardBackground
         )
@@ -212,11 +214,11 @@ fun EmployerPublicProfileScreen(
                                     horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
                                     EmployerProfileMetric(
-                                        label = "Jobs Listed",
+                                        label = stringResource(R.string.jobs_listed),
                                         value = jobs.size.toString()
                                     )
                                     EmployerProfileMetric(
-                                        label = "Open Jobs",
+                                        label = stringResource(R.string.open_jobs),
                                         value = openJobs.toString()
                                     )
                                 }

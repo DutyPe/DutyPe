@@ -308,7 +308,7 @@ internal fun ErrorContent(
                         modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Try Again")
+                    Text(stringResource(R.string.try_again))
                 }
             }
         }
@@ -915,22 +915,22 @@ internal fun DutyPePromiseCarousel() {
             PromiseItemWithIcon(
                 icon = Icons.Default.CheckCircle,
                 title = "100% Free",
-                subtitle = "No charges",
+                subtitle = stringResource(R.string.no_charges),
                 iconColor = Color(0xFF10B981),
                 textColor = Color(0xFF111827)
             )
             
             PromiseItemWithIcon(
                 icon = Icons.Default.Verified,
-                title = "Verified",
-                subtitle = "Safe jobs",
+                title = stringResource(R.string.verified_label),
+                subtitle = stringResource(R.string.safe_jobs),
                 iconColor = Color(0xFF3B82F6),
                 textColor = Color(0xFF111827)
             )
             
             PromiseItemWithIcon(
                 icon = Icons.Default.Headset,
-                title = "Support",
+                title = stringResource(R.string.support),
                 subtitle = "24/7 help",
                 iconColor = Color(0xFFF59E0B),
                 textColor = Color(0xFF111827)

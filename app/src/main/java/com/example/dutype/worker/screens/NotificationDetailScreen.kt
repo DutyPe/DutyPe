@@ -49,7 +49,7 @@ fun NotificationDetailScreen(
         modifier = Modifier.fillMaxSize().background(Color.White)
     ) {
         com.example.dutype.components.CommonHeader(
-            title = "Notification",
+            title = stringResource(R.string.notification_label),
             onBackClick = onBackClick
         )
 

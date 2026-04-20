@@ -207,8 +207,8 @@ fun ManualLocationScreen(navController: NavController) {
         ) {
             // Common Header for consistency
             CommonHeader(
-                title = "Select Location",
-                subtitle = "Choose your preferred location",
+                title = stringResource(R.string.select_location),
+                subtitle = stringResource(R.string.choose_preferred_location),
                 onBackClick = { navController.popBackStack() },
                 backgroundColor = Color.White
             )
@@ -232,7 +232,7 @@ fun ManualLocationScreen(navController: NavController) {
                         ReusableSearchBar(
                             query = searchText,
                             onQueryChange = { searchText = it },
-                            placeholder = "Search for area, street, city...",
+                            placeholder = stringResource(R.string.search_area_street_city),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

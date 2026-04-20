@@ -48,6 +48,8 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Premium colors for the visiting card - White theme for consistency
 private val CardBackgroundColor = Color.White
@@ -170,7 +172,7 @@ fun DigitalVisitingCardScreen(
             .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "My Visiting Card",
+            title = stringResource(R.string.my_visiting_card),
             onBackClick = { navController.popBackStack() },
             backgroundColor = WorkerColors.CardBackground
         )
@@ -445,7 +447,7 @@ fun DigitalVisitingCardScreen(
 
         com.example.dutype.components.UserReviewsBottomSheet(
             isVisible = showReviewsSheet,
-            title = "Worker Ratings & Reviews",
+            title = stringResource(R.string.worker_ratings_reviews),
             averageRating = rating,
             totalRatings = totalRatings,
             reviews = workerReviews,

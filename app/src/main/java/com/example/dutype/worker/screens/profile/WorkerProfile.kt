@@ -384,7 +384,7 @@ fun WorkerProfileScreen(
             
             // Header using CommonHeader (no back button for profile)
             com.example.dutype.components.CommonHeader( 
-                title = "Profile",
+                title = stringResource(R.string.profile),
                 showBackButton = false,
                 backgroundColor = Color.Transparent,
                 titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
@@ -694,7 +694,7 @@ fun WorkerProfileScreen(
                     
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Description,
-                        title = "My Applications",
+                        title = stringResource(R.string.my_applications),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "applications"
@@ -709,7 +709,7 @@ fun WorkerProfileScreen(
 
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Star,
-                        title = "My Earnings",
+                        title = stringResource(R.string.my_earnings),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "earnings"
@@ -762,7 +762,7 @@ fun WorkerProfileScreen(
                     
                     MeeshoMenuItem(
                         icon = Icons.Outlined.CardGiftcard,
-                        title = "Refer & Earn",
+                        title = stringResource(R.string.refer_earn),
                         badgeText = "New",
                         onClick = { 
                             // Refer & Earn requires login
@@ -804,7 +804,7 @@ fun WorkerProfileScreen(
                     // Help & FAQs - First item
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Phone,
-                        title = "Help & FAQs",
+                        title = stringResource(R.string.help_faqs),
                         onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                     )
                     
@@ -824,7 +824,7 @@ fun WorkerProfileScreen(
                         // Show switch role for all logged-in users
                         MeeshoMenuItem(
                             icon = Icons.Outlined.SwapHoriz,
-                            title = "Switch to Employer",
+                            title = stringResource(R.string.switch_to_employer),
                             onClick = {
                                 if (currentUser != null && currentUser!!.isDualRole()) {
                                     // Already has employer role enabled — switch directly
@@ -896,7 +896,7 @@ fun WorkerProfileScreen(
                     // About Us - Available without login
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Info,
-                        title = "About Us",
+                        title = stringResource(R.string.about_us),
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
                     
@@ -930,7 +930,7 @@ fun WorkerProfileScreen(
                 ) {
                     MeeshoMenuItem(
                         icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                        title = "Log Out",
+                        title = stringResource(R.string.log_out),
                         isDestructive = true,
                         onClick = { showLogoutDialog = true }
                     )
@@ -1059,7 +1059,7 @@ fun WorkerProfileScreen(
             pendingMenuAction = null
         },
         role = com.example.dutype.models.UserRole.WORKER,
-        title = "Login Required",
+        title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
             "profile" -> "Login to view and edit your profile"
             "applications" -> "Login to view your job applications"

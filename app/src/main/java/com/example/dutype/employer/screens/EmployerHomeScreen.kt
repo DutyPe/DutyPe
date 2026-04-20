@@ -1280,7 +1280,7 @@ fun ApplicationAnalyticsSection(
             ) {
                 // Active Jobs
                 AnalyticsItem(
-                    label = "Active Jobs",
+                    label = stringResource(R.string.active_jobs),
                     value = activeJobs.toString(),
                     icon = Icons.Default.Work,
                     color = Color(0xFF10B981),
@@ -1288,7 +1288,7 @@ fun ApplicationAnalyticsSection(
                 )
                 // Paused Jobs
                 AnalyticsItem(
-                    label = "Paused Jobs",
+                    label = stringResource(R.string.paused_jobs),
                     value = pausedJobs.toString(),
                     icon = Icons.Default.Pause,
                     color = Color(0xFFF59E0B),

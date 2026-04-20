@@ -26,6 +26,8 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @Composable
 fun EmployerMoreSettingsScreen(
@@ -53,7 +55,7 @@ fun EmployerMoreSettingsScreen(
     ) {
         // Common Header
         CommonHeader(
-            title = "More Settings",
+            title = stringResource(R.string.more_settings),
             navController = navController
         )
         
@@ -72,18 +74,18 @@ fun EmployerMoreSettingsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "About")
+                        SectionHeader(title = stringResource(R.string.about))
                         Spacer(modifier = Modifier.height(4.dp))
                         
                         SettingsMenuItem(
                             icon = Icons.Default.Info,
-                            title = "About DutyPe",
+                            title = stringResource(R.string.about_dutype),
                             onClick = { navController.navigate(Routes.EMPLOYER_ABOUT) }
                         )
                         
                         SettingsMenuItem(
                             icon = Icons.Default.Feedback,
-                            title = "Send Feedback",
+                            title = stringResource(R.string.send_feedback),
                             onClick = { showFeedbackSheet = true }
                         )
                     }
@@ -100,12 +102,12 @@ fun EmployerMoreSettingsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = "Legal & Support")
+                        SectionHeader(title = stringResource(R.string.legal_support))
                         Spacer(modifier = Modifier.height(3.dp))
                         
                         SettingsMenuItem(
                             icon = Icons.Default.Description,
-                            title = "View Legal Pages on Web",
+                            title = stringResource(R.string.view_legal_pages_web),
                             onClick = { 
                                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://dutype.in"))
                                 context.startActivity(intent)
@@ -127,7 +129,7 @@ fun EmployerMoreSettingsScreen(
                     Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp)) {
                         SettingsMenuItem(
                             icon = Icons.Default.ExitToApp,
-                            title = "Log Out",
+                            title = stringResource(R.string.log_out),
                             onClick = { showLogoutDialog = true },
                             isDestructive = true
                         )

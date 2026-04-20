@@ -66,6 +66,8 @@ import com.example.dutype.utils.DateTimeUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 // Helper functions for status display
 private fun getStatusIcon(status: ApplicationStatus): String {
@@ -378,14 +380,14 @@ private fun ApplicationTimeline(
     val steps = listOf(
         TimelineStepData(
             stepNumber = 1,
-            label = "Applied",
+            label = stringResource(R.string.applied),
             statusText = "Completed",
             isCompleted = true,
             isCurrent = false
         ),
         TimelineStepData(
             stepNumber = 2,
-            label = "Shortlisted",
+            label = stringResource(R.string.shortlisted),
             statusText = when (status) {
                 ApplicationStatus.APPLIED -> "Pending"
                 ApplicationStatus.SHORTLISTED -> "In Progress"

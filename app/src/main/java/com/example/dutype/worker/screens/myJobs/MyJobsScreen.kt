@@ -284,7 +284,7 @@ fun MyJobsScreen(
                             item {
                                 FilterChip(
                                     onClick = { selectedStatusFilter = null },
-                                    label = { Text("All") },
+                                    label = { Text(stringResource(R.string.all_label)) },
                                     selected = selectedStatusFilter == null,
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = Color(0xFF1F2937).copy(alpha = 0.1f),

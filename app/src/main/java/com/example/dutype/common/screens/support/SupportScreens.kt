@@ -127,27 +127,27 @@ fun HelpMainScreen(
     val guideItems = listOf(
         HelpExpandableItem(
             icon = Icons.Default.RocketLaunch,
-            title = "Getting Started",
+            title = stringResource(R.string.getting_started),
             content = "1. Complete your worker profile with skills and location\n2. Keep your phone and profile photo updated\n3. Turn on notifications to avoid missing jobs"
         ),
         HelpExpandableItem(
             icon = Icons.Default.Search,
-            title = "Finding Jobs Faster",
+            title = stringResource(R.string.finding_jobs_faster),
             content = "1. Use category tabs and filters\n2. Keep location access on for nearby jobs\n3. Save jobs to revisit quickly"
         ),
         HelpExpandableItem(
             icon = Icons.Default.WorkOutline,
-            title = "Applying & Work Start",
+            title = stringResource(R.string.applying_work_start),
             content = "1. Open job details and apply\n2. Track status in My Jobs\n3. Use QR verification when starting work"
         ),
         HelpExpandableItem(
             icon = Icons.Default.Star,
-            title = "Building Reputation",
+            title = stringResource(R.string.building_reputation),
             content = "1. Complete jobs on time\n2. Keep communication professional\n3. Maintain high ratings and profile completeness"
         ),
         HelpExpandableItem(
             icon = Icons.Default.Payments,
-            title = "Getting Paid Safely",
+            title = stringResource(R.string.getting_paid_safely),
             content = "1. Confirm pay terms before starting\n2. Use the in-app QR to mark work start & finish\n3. Never share OTP/UPI PIN with anyone"
         )
     )
@@ -155,32 +155,32 @@ fun HelpMainScreen(
     val faqItems = listOf(
         HelpExpandableItem(
             icon = Icons.Default.HelpOutline,
-            title = "Why am I not seeing enough jobs?",
+            title = stringResource(R.string.faq_why_not_seeing_jobs),
             content = "Enable location permissions, set the correct city, and check different tabs (Hourly/Daily/Part-time)."
         ),
         HelpExpandableItem(
             icon = Icons.Default.Assignment,
-            title = "How do I track my application status?",
+            title = stringResource(R.string.faq_track_application),
             content = "Open My Jobs or Applied Jobs. You can see pending, shortlisted, accepted, or rejected status there."
         ),
         HelpExpandableItem(
             icon = Icons.Default.SupportAgent,
-            title = "How do I contact support?",
+            title = stringResource(R.string.faq_contact_support),
             content = "Tap WhatsApp Support above, or use Contact Us to reach us by email. Include screenshots for faster help."
         ),
         HelpExpandableItem(
             icon = Icons.Default.Verified,
-            title = "How do I improve trust and visibility?",
+            title = stringResource(R.string.faq_improve_trust),
             content = "Complete profile details, keep work history accurate, and collect good ratings from completed jobs."
         ),
         HelpExpandableItem(
             icon = Icons.Default.Security,
-            title = "Is my personal data safe?",
+            title = stringResource(R.string.faq_personal_data_safe),
             content = "Your contact details are only shared with employers after you apply. We never sell your data."
         ),
         HelpExpandableItem(
             icon = Icons.Default.MoneyOff,
-            title = "Why can't I apply / something looks blocked?",
+            title = stringResource(R.string.faq_cant_apply),
             content = "Check your internet connection, restart the app, and ensure your profile is complete. If the issue stays, report it from below."
         )
     )
@@ -199,7 +199,7 @@ fun HelpMainScreen(
             .background(androidx.compose.ui.graphics.Color(0xFFF8FAFC))
     ) {
         CommonHeader(
-            title = "Help & FAQs",
+            title = stringResource(R.string.help_faqs),
             navController = navController
         )
 
@@ -290,7 +290,7 @@ fun HelpMainScreen(
                 QuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Phone,
-                    label = "WhatsApp",
+                    label = stringResource(R.string.whatsapp_label),
                     bg = androidx.compose.ui.graphics.Color(0xFFDCFCE7),
                     tint = androidx.compose.ui.graphics.Color(0xFF16A34A)
                 ) {
@@ -301,7 +301,7 @@ fun HelpMainScreen(
                 QuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Email,
-                    label = "Email",
+                    label = stringResource(R.string.email_label),
                     bg = accentSoft,
                     tint = accent
                 ) {
@@ -312,7 +312,7 @@ fun HelpMainScreen(
                 QuickActionTile(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.BugReport,
-                    label = "Report",
+                    label = stringResource(R.string.report),
                     bg = androidx.compose.ui.graphics.Color(0xFFFFE4E6),
                     tint = androidx.compose.ui.graphics.Color(0xFFE11D48)
                 ) {
@@ -322,7 +322,7 @@ fun HelpMainScreen(
 
             // Worker Guide
             if (filteredGuides.isNotEmpty()) {
-                SectionLabel(title = "Worker Guide", count = filteredGuides.size, accent = accent)
+                SectionLabel(title = stringResource(R.string.worker_guide), count = filteredGuides.size, accent = accent)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
@@ -349,7 +349,7 @@ fun HelpMainScreen(
 
             // FAQs
             if (filteredFaqs.isNotEmpty()) {
-                SectionLabel(title = "Frequently Asked", count = filteredFaqs.size, accent = accent)
+                SectionLabel(title = stringResource(R.string.frequently_asked), count = filteredFaqs.size, accent = accent)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),

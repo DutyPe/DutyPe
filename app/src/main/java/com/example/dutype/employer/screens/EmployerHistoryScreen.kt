@@ -49,7 +49,12 @@ fun EmployerHistoryScreen(
     val uiState by employerJobViewModel.uiState.collectAsStateWithLifecycle()
     
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Timeline", "Active", "Expired", "All Jobs")
+    val tabs = listOf(
+        stringResource(R.string.tab_timeline),
+        stringResource(R.string.tab_active),
+        stringResource(R.string.tab_expired),
+        stringResource(R.string.tab_all_jobs)
+    )
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
@@ -104,7 +109,7 @@ fun EmployerHistoryScreen(
     ) {
         // Common Header
         CommonHeader(
-            title = "Job Posting History",
+            title = stringResource(R.string.job_posting_history),
             navController = navController
         )
         

@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.*
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @Composable
 fun JobSummaryCard(
@@ -107,22 +109,22 @@ fun JobSummaryCard(
                     ) {
                         SummaryDetailRow(
                             icon = "💰",
-                            label = "Pay",
+                            label = stringResource(R.string.pay_label),
                             value = "₹${payAmount.ifBlank { "---" }} ${payType.displayName}"
                         )
                         SummaryDetailRow(
                             icon = "📍",
-                            label = "Location",
+                            label = stringResource(R.string.location),
                             value = location.ifBlank { "Not set" }
                         )
                         SummaryDetailRow(
                             icon = "👥",
-                            label = "Positions",
+                            label = stringResource(R.string.positions_label),
                             value = "${vacancies.ifBlank { "1" }} opening(s)"
                         )
                         SummaryDetailRow(
                             icon = "⏰",
-                            label = "Shift",
+                            label = stringResource(R.string.shift_label),
                             value = shiftTiming.displayName
                         )
                     }

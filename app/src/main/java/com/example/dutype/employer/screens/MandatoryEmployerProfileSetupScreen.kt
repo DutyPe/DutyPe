@@ -1348,8 +1348,8 @@ private fun ContactDetailsStep(
                     onBusinessAddressChange(selectedAddress)
                 },
                 locationService = locationService,
-                label = "Business Address",
-                placeholder = "Search or enter your work location",
+                label = stringResource(R.string.business_address),
+                placeholder = stringResource(R.string.search_or_enter_work_location),
                 maxLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),

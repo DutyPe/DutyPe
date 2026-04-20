@@ -45,6 +45,8 @@ import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -316,7 +318,7 @@ fun WorkerProfileDetailsScreen(
                                 ) {
                                     androidx.compose.foundation.layout.Column {
                                         Text(
-                                            text = "My Ratings & Reviews",
+                                            text = stringResource(R.string.my_ratings_reviews),
                                             style = MaterialTheme.typography.titleSmall.copy(
                                                 color = WorkerColors.TextPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                             )
@@ -360,12 +362,12 @@ fun WorkerProfileDetailsScreen(
                             )
                         } else {
                             ProfileInfoCard(
-                                title = "Personal Information",
+                                title = stringResource(R.string.personal_information),
                                 items = listOf(
-                                    "Full Name" to fullName,
-                                    "Phone Number" to phoneNumber,
-                                    "Date of Birth" to dateOfBirth,
-                                    "Gender" to gender
+                                    stringResource(R.string.full_name) to fullName,
+                                    stringResource(R.string.phone_number) to phoneNumber,
+                                    stringResource(R.string.date_of_birth) to dateOfBirth,
+                                    stringResource(R.string.gender) to gender
                                 )
                             )
                         }
@@ -388,10 +390,10 @@ fun WorkerProfileDetailsScreen(
                             )
                         } else {
                             ProfileInfoCard(
-                                title = "Professional Information",
+                                title = stringResource(R.string.professional_information),
                                 items = listOf(
-                                    "Skills" to skills,
-                                    "Experience" to experience
+                                    stringResource(R.string.skills) to skills,
+                                    stringResource(R.string.experience) to experience
                                 )
                             )
                         }
@@ -445,7 +447,7 @@ fun WorkerProfileDetailsScreen(
 
     com.example.dutype.components.UserReviewsBottomSheet(
         isVisible = showReviewsSheet,
-        title = "My Ratings & Reviews",
+        title = stringResource(R.string.my_ratings_reviews),
         averageRating = workerRating,
         totalRatings = workerTotalRatings,
         reviews = workerReviews,
@@ -669,40 +671,40 @@ private fun EditablePersonalInfoCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Personal Information",
+                text = stringResource(R.string.personal_information),
                 style = AppTypography.sectionHeader,
                 color = WorkerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
             ProfileTextField(
-                label = "Full Name",
+                label = stringResource(R.string.full_name),
                 value = fullName,
                 onValueChange = onFullNameChange,
-                placeholder = "Enter your full name"
+                placeholder = stringResource(R.string.enter_full_name)
             )
             
             ProfileTextField(
-                label = "Phone Number",
+                label = stringResource(R.string.phone_number),
                 value = phoneNumber,
                 onValueChange = onPhoneNumberChange,
-                placeholder = "Enter your phone number",
+                placeholder = stringResource(R.string.enter_phone_number),
                 keyboardType = KeyboardType.Phone,
                 enabled = false
             )
             
             ProfileTextField(
-                label = "Date of Birth",
+                label = stringResource(R.string.date_of_birth),
                 value = dateOfBirth,
                 onValueChange = onDateOfBirthChange,
-                placeholder = "DD/MM/YYYY"
+                placeholder = stringResource(R.string.dd_mm_yyyy)
             )
             
             ProfileTextField(
-                label = "Gender",
+                label = stringResource(R.string.gender),
                 value = gender,
                 onValueChange = onGenderChange,
-                placeholder = "Enter your gender"
+                placeholder = stringResource(R.string.enter_gender)
             )
         }
     }
@@ -727,26 +729,26 @@ private fun EditableProfessionalInfoCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Professional Information",
+                text = stringResource(R.string.professional_information),
                 style = AppTypography.sectionHeader,
                 color = WorkerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
             
             ProfileTextField(
-                label = "Skills",
+                label = stringResource(R.string.skills),
                 value = skills,
                 onValueChange = onSkillsChange,
-                placeholder = "Enter your skills (comma separated)",
+                placeholder = stringResource(R.string.enter_skills_comma),
                 singleLine = false,
                 minLines = 2
             )
             
             ProfileTextField(
-                label = "Experience",
+                label = stringResource(R.string.experience),
                 value = experience,
                 onValueChange = onExperienceChange,
-                placeholder = "Describe your work experience",
+                placeholder = stringResource(R.string.describe_experience),
                 singleLine = false,
                 minLines = 3
             )
@@ -856,7 +858,7 @@ private fun ProfileTextField(
         )
         
         // Helper text for disabled phone field
-        if (!enabled && label == "Phone Number") {
+        if (!enabled && label == stringResource(R.string.phone_number)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Phone number cannot be changed (from login)",

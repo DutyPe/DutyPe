@@ -196,7 +196,7 @@ fun AllJobsScreen(
                     ReusableSearchBar(
                         query = searchQuery,
                         onQueryChange = { viewModel.setSearchQuery(it) },
-                        placeholder = "Search jobs, companies...",
+                        placeholder = stringResource(R.string.search_jobs_companies),
                         height = 48,
                         backgroundColor = Color(0xFFF1F5F9),
                         borderColor = Color.Transparent,
@@ -548,7 +548,7 @@ private fun ErrorState(
                     modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Try Again")
+                Text(stringResource(R.string.try_again))
             }
         }
     }
