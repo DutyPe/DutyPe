@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
-import { CsvTable, MarketingShell, MarkdownView } from "@/components/marketing-shell";
+import { CsvTable, MarketingShell, MarkdownView, MarketingIndex } from "@/components/marketing-shell";
 import {
   getMarketingTree,
   readMarketingFile,
@@ -26,15 +26,7 @@ export default function MarketingDocPage({
           title="Marketing & Growth"
           description="Browse the consolidated marketing playbooks, growth strategy outputs, campaigns, research, and brand assets that used to live in /growth and /marketing."
         >
-          <div className="marketing-empty">
-            <h2>Pick a document from the sidebar</h2>
-            <p>
-              Everything from the original repo-root <code>/growth</code> and{" "}
-              <code>/marketing</code> folders has been moved here so it ships
-              with the admin console. Markdown files render as plain text;{" "}
-              <code>.csv</code> files render as searchable tables.
-            </p>
-          </div>
+          <MarketingIndex tree={tree} />
         </MarketingShell>
       </AdminAuthGate>
     );

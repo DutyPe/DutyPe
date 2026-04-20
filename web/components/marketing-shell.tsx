@@ -238,3 +238,101 @@ export function MarkdownView({ source }: { source: string }) {
     </article>
   );
 }
+
+/**
+ * Landing index for /admin/marketing — surfaces every section and its docs
+ * as clickable cards so users can see at a glance what playbooks, strategies,
+ * campaigns, and assets live under /growth and /marketing.
+ */
+export function MarketingIndex({ tree }: { tree: MarketingTreeNode[] }) {
+  const fileHref = (node: MarketingTreeNode) =>
+    `/admin/marketing/${node.slug.map(encodeURIComponent).join("/")}`;
+
+  const sectionFor = (
+    rootName: string,
+    rootDir: MarketingTreeNode | undefined
+  ) => {
+    if (!rootDir || rootDir.kind !== "dir") {
+      return (
+        <section className="marketing-index-section" key={rootName}>
+          <h2>{rootName}</h2>
+          <p className="marketing-index-empty">
+            (no content found in <code>{rootName}/</code>)
+          </p>
+        </section>
+      );
+    }
+    const subdirs = rootDir.children.filter(
+      (c): c is Extract<MarketingTreeNode, { kind: "dir" }> => c.kind === "dir"
+    );
+    const looseFiles = rootDir.children.filter(
+      (c): c is Extract<MarketingTreeNode, { kind: "file" }> => c.kind === "file"
+    );
+
+    return (
+      <section className="marketing-index-section" key={rootName}>
+        <h2>📁 {rootDir.name}</h2>
+        <div className="marketing-index-groups">
+          {subdirs.map((sub) => {
+            const fileChildren = sub.children.filter(
+              (c): c is Extract<MarketingTreeNode, { kind: "file" }> =>
+                c.kind === "file"
+            );
+            return (
+              <div className="marketing-index-card" key={sub.slug.join("/")}>
+                <h3>📂 {sub.name}</h3>
+                <small>{fileChildren.length} document{fileChildren.length === 1 ? "" : "s"}</small>
+                <ul>
+                  {fileChildren.map((file) => (
+                    <li key={file.slug.join("/")}>
+                      <Link href={fileHref(file)}>
+                        <span>{fileEmoji(file.ext)}</span>
+                        <span>{file.name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+          {looseFiles.length > 0 && (
+            <div className="marketing-index-card">
+              <h3>📄 Top-level docs</h3>
+              <ul>
+                {looseFiles.map((file) => (
+                  <li key={file.slug.join("/")}>
+                    <Link href={fileHref(file)}>
+                      <span>{fileEmoji(file.ext)}</span>
+                      <span>{file.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  const growthDir = tree.find((n) => n.kind === "dir" && n.name === "growth");
+  const marketingDir = tree.find((n) => n.kind === "dir" && n.name === "marketing");
+  const others = tree.filter(
+    (n) => !(n.kind === "dir" && (n.name === "growth" || n.name === "marketing"))
+  );
+
+  return (
+    <div className="marketing-index">
+      <p className="marketing-index-intro">
+        Everything from the original repo-root <code>/growth</code> and{" "}
+        <code>/marketing</code> folders. Pick any document below or use the
+        sidebar tree.
+      </p>
+      {sectionFor("growth", growthDir)}
+      {sectionFor("marketing", marketingDir)}
+      {others.map((node) =>
+        node.kind === "dir" ? sectionFor(node.name, node) : null
+      )}
+    </div>
+  );
+}
