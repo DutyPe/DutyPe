@@ -883,23 +883,22 @@ private fun JobDetailsContent(
                     
                     // Payment Cycle
                     JobDetailRow(Icons.Filled.CalendarToday, Color(0xFFF472B6), "Payment Cycle:", paymentCycle)
-                    
-                    // Show category if available
-                    val category = job.getCategory()
-                    if (category.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        JobDetailRow(Icons.Filled.Category, Color(0xFF6366F1), "Category:", category)
-                    }
+
+                    // Category row removed — redundant with the Job Type row above.
 
                     if (job.vacancies > 0) {
                         Spacer(modifier = Modifier.height(10.dp))
                         JobDetailRow(Icons.Default.People, Color(0xFF8B5CF6), "Vacancies:", job.vacancies.toString())
                     }
 
-                    if (job.gender.isNotBlank() && !job.gender.equals("Any", ignoreCase = true)) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        JobDetailRow(Icons.Default.Person, Color(0xFFEC4899), "Gender:", job.gender)
-                    }
+                    // Always show gender so workers can see preference even when it's "Any".
+                    Spacer(modifier = Modifier.height(10.dp))
+                    JobDetailRow(
+                        Icons.Default.Person,
+                        Color(0xFFEC4899),
+                        "Gender:",
+                        job.gender.ifBlank { "Any" }
+                    )
                     
                     /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
                     // These fields should be fetched from employer profile if needed in the future

@@ -8,17 +8,37 @@ type JobRow = {
   id: string;
   title?: string;
   companyName?: string;
-  location?: string;
+  // Stored geo on the card doc is { lat, lng } — NEVER render it as a child.
+  location?: { lat?: number; lng?: number } | string;
+  addressText?: string;
+  companyCity?: string;
   payAmount?: number | string;
+  salary?: number | string;
   payType?: string;
+  salaryType?: string;
   vacancies?: number;
   status?: string;
   isActive?: boolean;
   applicationCount?: number;
   description?: string;
   category?: string;
+  jobType?: string;
   shift?: string;
+  shiftTiming?: string;
 };
+
+function renderLocation(job: JobRow): string {
+  if (job.addressText && job.addressText.trim()) return job.addressText;
+  if (job.companyCity && job.companyCity.trim()) return job.companyCity;
+  if (typeof job.location === "string" && job.location.trim()) return job.location;
+  if (job.location && typeof job.location === "object") {
+    const { lat, lng } = job.location;
+    if (typeof lat === "number" && typeof lng === "number") {
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+  }
+  return "N/A";
+}
 
 type EditingJob = {
   id: string;
@@ -143,12 +163,12 @@ export function AdminJobsClient() {
       id: job.id,
       title: job.title ?? "",
       companyName: job.companyName ?? "",
-      location: job.location ?? "",
-      payAmount: String(job.payAmount ?? ""),
+      location: renderLocation(job) === "N/A" ? "" : renderLocation(job),
+      payAmount: String(job.payAmount ?? job.salary ?? ""),
       vacancies: String(job.vacancies ?? ""),
       description: job.description ?? "",
-      category: job.category ?? "",
-      shift: job.shift ?? "",
+      category: job.category ?? job.jobType ?? "",
+      shift: job.shift ?? job.shiftTiming ?? "",
       isActive: (job.status ?? (job.isActive ? "open" : "closed")) === "open"
     });
   }
@@ -196,7 +216,7 @@ export function AdminJobsClient() {
         (j) =>
           (j.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
           (j.companyName ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (j.location ?? "").toLowerCase().includes(searchTerm.toLowerCase())
+          renderLocation(j).toLowerCase().includes(searchTerm.toLowerCase())
       )
     : jobs;
 
@@ -339,8 +359,8 @@ export function AdminJobsClient() {
                 <tr key={job.id}>
                   <td><strong>{job.title ?? "N/A"}</strong></td>
                   <td>{job.companyName ?? "N/A"}</td>
-                  <td>{job.location ?? "N/A"}</td>
-                  <td>{formatCurrencyRange(job.payAmount, job.payType)}</td>
+                  <td>{renderLocation(job)}</td>
+                  <td>{formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)}</td>
                   <td>{job.vacancies ?? 0}</td>
                   <td>
                     <button

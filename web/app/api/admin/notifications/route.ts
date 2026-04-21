@@ -146,16 +146,21 @@ function resolveNotificationType(preset: NotificationPreset) {
   return preset === "GENERAL" ? "GENERAL" : "SYSTEM_UPDATE";
 }
 
-async function fetchRecipients(targetRole: TargetRole) {
+async function fetchRecipients(
+  targetRole: TargetRole
+): Promise<{ recipients: string[]; diagnostics: Record<string, number> }> {
   const db = getFirebaseAdminDb();
   const auth = getFirebaseAdminAuth();
 
-  const usersSnapshot = await db.collection("users").limit(5000).get();
-  const firestoreUsers = usersSnapshot.docs.map((item) => ({ id: item.id, data: asRecord(item.data()) }));
+  // Stream all users (no 5k cap) so audiences with many docs aren't truncated.
+  const usersSnapshot = await db.collection("users").get();
+  const firestoreUsers = usersSnapshot.docs.map((item) => ({
+    id: item.id,
+    data: asRecord(item.data())
+  }));
 
   const authIds = new Set<string>();
   let pageToken: string | undefined;
-
   do {
     const page = await auth.listUsers(1000, pageToken);
     page.users.forEach((entry) => authIds.add(entry.uid));
@@ -163,18 +168,45 @@ async function fetchRecipients(targetRole: TargetRole) {
   } while (pageToken);
 
   const recipients = new Set<string>();
+  const diagnostics: Record<string, number> = {
+    firestoreUsers: firestoreUsers.length,
+    authUsers: authIds.size,
+    matchedByRoleField: 0,
+    matchedByProfileCollection: 0
+  };
 
   if (targetRole === "ALL") {
     firestoreUsers.forEach((recipient) => recipients.add(recipient.id));
     authIds.forEach((recipientId) => recipients.add(recipientId));
-    return Array.from(recipients);
+    return { recipients: Array.from(recipients), diagnostics };
   }
 
+  // 1) Match users whose Firestore doc carries the right role field.
   firestoreUsers
     .filter((recipient) => recipientsMatchAudience(recipient.data, targetRole))
-    .forEach((recipient) => recipients.add(recipient.id));
+    .forEach((recipient) => {
+      recipients.add(recipient.id);
+      diagnostics.matchedByRoleField += 1;
+    });
 
-  return Array.from(recipients);
+  // 2) Fallback / supplement: anyone with a matching profile doc is also in
+  //    the audience even if their `users/{uid}` row is missing the role field
+  //    (common after the dual-role -> single-role migration).
+  const profileCollection = targetRole === "WORKER" ? "worker_profiles" : "employer_profiles";
+  const profileSnapshot = await db.collection(profileCollection).select("userId").get();
+  profileSnapshot.docs.forEach((doc) => {
+    const data = asRecord(doc.data());
+    const userId = typeof data.userId === "string" && data.userId.trim()
+      ? data.userId.trim()
+      : doc.id;
+    if (!userId) return;
+    if (!recipients.has(userId)) {
+      diagnostics.matchedByProfileCollection += 1;
+    }
+    recipients.add(userId);
+  });
+
+  return { recipients: Array.from(recipients), diagnostics };
 }
 
 async function createNotificationDocs(params: {
@@ -427,12 +459,27 @@ export async function POST(request: NextRequest) {
     const explicitIds = Array.isArray(body.recipientIds)
       ? body.recipientIds.map((id) => String(id).trim()).filter(Boolean)
       : [];
-    const recipients = explicitIds.length > 0
-      ? Array.from(new Set(explicitIds))
-      : await fetchRecipients(targetRole);
+    let recipients: string[];
+    let diagnostics: Record<string, number> | null = null;
+    if (explicitIds.length > 0) {
+      recipients = Array.from(new Set(explicitIds));
+    } else {
+      const result = await fetchRecipients(targetRole);
+      recipients = result.recipients;
+      diagnostics = result.diagnostics;
+    }
 
     if (recipients.length === 0) {
-      return NextResponse.json({ error: "No matching users were found for this audience." }, { status: 400 });
+      const detail = diagnostics
+        ? ` Scanned ${diagnostics.firestoreUsers} user docs and ${diagnostics.authUsers} auth users; ${diagnostics.matchedByRoleField} matched by role field, ${diagnostics.matchedByProfileCollection} matched by profile collection.`
+        : "";
+      return NextResponse.json(
+        {
+          error: `No matching users were found for audience "${targetRole}".${detail}`,
+          diagnostics
+        },
+        { status: 400 }
+      );
     }
 
     const pushTopic = resolvePushTopic(preset, targetRole);

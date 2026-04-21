@@ -128,6 +128,41 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
+/**
+ * Maps free-form job titles (typed by the employer) to a likely [JobCategory]
+ * using simple keyword matching. Returns null when nothing recognisable is in
+ * the title so we don't silently overwrite the employer's pick.
+ *
+ * Order matters — more specific keywords come first.
+ */
+private fun inferCategoryFromTitle(title: String): JobCategory? {
+    val t = title.lowercase().trim()
+    if (t.length < 3) return null
+    val rules: List<Pair<List<String>, JobCategory>> = listOf(
+        listOf("delivery", "courier", "rider", "swiggy", "zomato", "dunzo", "parcel") to JobCategory.DELIVERY,
+        listOf("driver", "chauffeur", "uber", "ola", "cab", "taxi", "truck") to JobCategory.DRIVER,
+        listOf("cook", "chef", "kitchen", "tandoor", "biryani") to JobCategory.COOK,
+        listOf("waiter", "server", "steward") to JobCategory.WAITER,
+        listOf("maid", "house help", "housekeep", "babysit", "nanny", "ayah") to JobCategory.MAID,
+        listOf("security", "guard", "watchman", "bouncer") to JobCategory.SECURITY,
+        listOf("electrician", "wiring", "electrical") to JobCategory.ELECTRICIAN,
+        listOf("plumber", "plumbing", "pipe") to JobCategory.PLUMBER,
+        listOf("painter", "painting") to JobCategory.PAINTER,
+        listOf("carpenter", "woodwork") to JobCategory.CARPENTER,
+        listOf("gardener", "garden", "landscap", "horticult") to JobCategory.GARDENER,
+        listOf("caretaker", "care taker", "caregiver") to JobCategory.CARETAKER,
+        listOf("receptionist", "front desk") to JobCategory.RECEPTIONIST,
+        listOf("cashier", "billing") to JobCategory.CASHIER,
+        listOf("packer", "packing", "loader") to JobCategory.PACKER,
+        listOf("cleaner", "cleaning", "janitor", "sweeper") to JobCategory.MAID,
+        listOf("helper", "assistant", "labour", "labor") to JobCategory.HELPER
+    )
+    for ((words, category) in rules) {
+        if (words.any { t.contains(it) }) return category
+    }
+    return null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostJobScreen(
@@ -180,6 +215,10 @@ fun PostJobScreen(
     var contactNumber by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(JobCategory.COOK) }
     var customCategory by remember { mutableStateOf("") }
+    // Track whether the employer hand-picked a category. Auto-detection from
+    // the title only runs while this stays false so we never clobber an
+    // explicit choice.
+    var categoryManuallySet by remember { mutableStateOf(false) }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     var urgency by remember { mutableStateOf(JobUrgency.FLEXIBLE) }
     var vacancies by remember { mutableStateOf("") }
@@ -266,6 +305,17 @@ fun PostJobScreen(
     // header is in view immediately.
     LaunchedEffect(currentStep) {
         listState.animateScrollToItem(0)
+    }
+
+    // Auto-detect the job category from a free-form title (e.g. "Need a
+    // delivery boy in Madhapur" -> DELIVERY). Skipped once the employer has
+    // explicitly chosen a category from the dropdown.
+    LaunchedEffect(title, categoryManuallySet) {
+        if (categoryManuallySet) return@LaunchedEffect
+        val inferred = inferCategoryFromTitle(title)
+        if (inferred != null && inferred != category) {
+            category = inferred
+        }
     }
 
     // P2 FIX: Auto-save draft on field changes (debounced 2 seconds)
@@ -1192,7 +1242,10 @@ fun PostJobScreen(
                                         title = title,
                                         onTitleChange = { title = it },
                                         category = category,
-                                        onCategoryChange = { category = it },
+                                        onCategoryChange = {
+                                            category = it
+                                            categoryManuallySet = true
+                                        },
                                         customCategory = customCategory,
                                         onCustomCategoryChange = { customCategory = it }
                                     )

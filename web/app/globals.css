@@ -5601,6 +5601,42 @@ button.product-chip {
   font-weight: 600;
 }
 
+/* Address autocomplete dropdown for admin post-job */
+.admin-autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.admin-autocomplete-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  cursor: pointer;
+}
+.admin-autocomplete-item:hover { background: #f3f4f6; }
+.admin-autocomplete-empty {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 /* ============================================================
    Marketing UI v2 — hero, sticky sidebar, search, modern cards
    ============================================================ */

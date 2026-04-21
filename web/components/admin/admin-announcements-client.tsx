@@ -17,7 +17,115 @@ type AnnouncementRow = {
   createdAt?: unknown;
 };
 
+// Pre-built templates so admins don't have to retype standard announcement copy.
+// Picking a template auto-fills title, message, type, targetRole, and the
+// matching deeplink — every field stays editable afterwards.
+type AnnouncementTemplate = {
+  id: string;
+  label: string;
+  title: string;
+  message: string;
+  type: string;
+  targetRole: string;
+  deepLink: string;
+  actionText: string;
+};
+
+const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
+  {
+    id: "custom",
+    label: "✏️ Custom (write your own)",
+    title: "",
+    message: "",
+    type: "INFO",
+    targetRole: "ALL",
+    deepLink: "",
+    actionText: ""
+  },
+  {
+    id: "new_jobs_nearby",
+    label: "📍 New jobs available nearby",
+    title: "New jobs near you!",
+    message: "We just added fresh jobs in your area. Check them out before they fill up.",
+    type: "INFO",
+    targetRole: "WORKER",
+    deepLink: "dutype://jobs",
+    actionText: "View jobs"
+  },
+  {
+    id: "complete_profile",
+    label: "👤 Complete your profile",
+    title: "Finish your profile to get hired",
+    message: "Workers with complete profiles get 3× more job calls. Add your skills and photo now.",
+    type: "WARNING",
+    targetRole: "WORKER",
+    deepLink: "dutype://profile",
+    actionText: "Complete profile"
+  },
+  {
+    id: "referral_boost",
+    label: "🎁 Referral bonus week",
+    title: "Earn ₹100 per referral this week",
+    message: "Invite your friends to DutyPe and earn cash for every signup that gets verified.",
+    type: "PROMOTION",
+    targetRole: "ALL",
+    deepLink: "dutype://referrals",
+    actionText: "Invite friends"
+  },
+  {
+    id: "post_job_reminder",
+    label: "📝 Post your first job",
+    title: "Hire workers in minutes",
+    message: "Post your first job free and get applications from verified workers near you.",
+    type: "FEATURE",
+    targetRole: "EMPLOYER",
+    deepLink: "dutype://post-job",
+    actionText: "Post a job"
+  },
+  {
+    id: "verify_employer",
+    label: "✅ Verify your business",
+    title: "Get the verified badge",
+    message: "Verified employers receive 2× more applications. Submit your business documents now.",
+    type: "INFO",
+    targetRole: "EMPLOYER",
+    deepLink: "dutype://employer/verification",
+    actionText: "Verify now"
+  },
+  {
+    id: "app_update",
+    label: "🚀 New app version available",
+    title: "Update DutyPe for the latest features",
+    message: "We've shipped a faster experience and bug fixes. Update from the Play Store now.",
+    type: "FEATURE",
+    targetRole: "ALL",
+    deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app",
+    actionText: "Update"
+  },
+  {
+    id: "maintenance",
+    label: "🛠 Scheduled maintenance",
+    title: "Scheduled maintenance tonight",
+    message: "DutyPe will be briefly unavailable tonight from 1 AM to 2 AM IST while we ship upgrades.",
+    type: "WARNING",
+    targetRole: "ALL",
+    deepLink: "",
+    actionText: ""
+  },
+  {
+    id: "support",
+    label: "💬 Need help? Contact support",
+    title: "We're here to help",
+    message: "Tap below to chat with our support team if you have any questions.",
+    type: "INFO",
+    targetRole: "ALL",
+    deepLink: "dutype://support",
+    actionText: "Contact support"
+  }
+];
+
 const initialForm = {
+  templateId: "custom",
   title: "",
   message: "",
   type: "INFO",
@@ -168,11 +276,45 @@ export function AdminAnnouncementsClient() {
         </div>
 
         <form className="editor-form" onSubmit={handleSubmit}>
+          <label className="editor-form-wide">
+            <span>Template (auto-fills the fields below)</span>
+            <select
+              value={form.templateId}
+              onChange={(event) => {
+                const templateId = event.target.value;
+                const template = ANNOUNCEMENT_TEMPLATES.find((t) => t.id === templateId);
+                if (!template) {
+                  setForm((current) => ({ ...current, templateId }));
+                  return;
+                }
+                if (template.id === "custom") {
+                  setForm((current) => ({ ...current, templateId }));
+                  return;
+                }
+                setForm((current) => ({
+                  ...current,
+                  templateId,
+                  title: template.title,
+                  message: template.message,
+                  type: template.type,
+                  targetRole: template.targetRole,
+                  deepLink: template.deepLink,
+                  actionText: template.actionText
+                }));
+              }}
+            >
+              {ANNOUNCEMENT_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             <span>Title</span>
             <input
               value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) => setForm((current) => ({ ...current, templateId: "custom", title: event.target.value }))}
               placeholder="Referral boost week"
               required
             />

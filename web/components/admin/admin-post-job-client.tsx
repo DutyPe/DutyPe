@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 
@@ -27,6 +27,44 @@ const JOB_TYPES: { value: string; label: string }[] = [
   { value: "SALES", label: "Sales" },
   { value: "OTHER", label: "Other" }
 ];
+
+// Keyword → category. First match wins. Ordering matters (specific before generic).
+const CATEGORY_KEYWORDS: Array<{ category: string; words: string[] }> = [
+  { category: "DELIVERY", words: ["delivery", "courier", "rider", "swiggy", "zomato", "dunzo", "shipment", "parcel"] },
+  { category: "DRIVER", words: ["driver", "chauffeur", "uber", "ola", "cab", "taxi", "auto driver", "truck"] },
+  { category: "COOK", words: ["cook", "chef", "kitchen", "tandoor", "biryani", "cuisine"] },
+  { category: "MAID", words: ["maid", "house help", "housekeep", "babysit", "nanny", "ayah"] },
+  { category: "WAREHOUSE", words: ["warehouse", "stock", "loader", "packer", "godown", "inventory"] },
+  { category: "SECURITY", words: ["security", "guard", "watchman", "bouncer"] },
+  { category: "ELECTRICIAN", words: ["electrician", "wiring", "electrical"] },
+  { category: "PLUMBER", words: ["plumber", "plumbing", "pipe"] },
+  { category: "CARPENTER", words: ["carpenter", "woodwork", "furniture maker"] },
+  { category: "PAINTER", words: ["painter", "painting"] },
+  { category: "GARDENER", words: ["gardener", "garden", "landscap", "horticult"] },
+  { category: "CLEANER", words: ["cleaner", "cleaning", "janitor", "sweeper", "housekeeper"] },
+  { category: "OFFICE_BOY", words: ["office boy", "office assistant", "peon"] },
+  { category: "RECEPTIONIST", words: ["receptionist", "front desk"] },
+  { category: "DATA_ENTRY", words: ["data entry", "typing", "computer operator"] },
+  { category: "TELECALLER", words: ["telecaller", "tele caller", "call center", "callcenter", "bpo"] },
+  { category: "SALES", words: ["sales", "salesman", "sales executive", "marketing", "field sales"] },
+  { category: "HELPER", words: ["helper", "assistant", "labour", "labor", "worker"] }
+];
+
+function detectCategoryFromTitle(title: string): string | null {
+  const t = title.toLowerCase();
+  for (const { category, words } of CATEGORY_KEYWORDS) {
+    for (const w of words) {
+      if (t.includes(w)) return category;
+    }
+  }
+  return null;
+}
+
+type LocationSuggestion = {
+  display_name: string;
+  lat: string;
+  lon: string;
+};
 
 const SALARY_TYPES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"];
 const SHIFTS = ["Flexible", "Day Shift", "Night Shift", "Rotational", "Morning", "Evening"];
@@ -81,9 +119,70 @@ export function AdminPostJobClient() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState(initialForm);
+  const [jobTypeManuallySet, setJobTypeManuallySet] = useState(false);
+  const [showCoordOverride, setShowCoordOverride] = useState(false);
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Auto-detect category from title (only until the admin manually picks a category).
+  useEffect(() => {
+    if (jobTypeManuallySet) return;
+    const detected = detectCategoryFromTitle(form.title);
+    if (detected && detected !== form.jobType) {
+      setForm((prev) => ({ ...prev, jobType: detected }));
+    }
+  }, [form.title, form.jobType, jobTypeManuallySet]);
+
+  // Debounced address autocomplete via Nominatim. Picking a suggestion
+  // fills lat/lng instantly so admins don't have to wait for a separate geocode.
+  useEffect(() => {
+    const query = form.addressText.trim();
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (query.length < 3) {
+      setSuggestions([]);
+      setSearchingLocation(false);
+      return;
+    }
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        if (abortRef.current) abortRef.current.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        setSearchingLocation(true);
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&countrycodes=in&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: { "Accept-Language": "en" }
+        });
+        const results = (await response.json()) as LocationSuggestion[];
+        setSuggestions(Array.isArray(results) ? results.slice(0, 5) : []);
+      } catch {
+        // Aborted or failed — keep silent; admin can still type lat/lng manually.
+      } finally {
+        setSearchingLocation(false);
+      }
+    }, 350);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [form.addressText]);
+
+  function pickSuggestion(item: LocationSuggestion) {
+    setForm((prev) => ({
+      ...prev,
+      addressText: item.display_name,
+      latitude: item.lat,
+      longitude: item.lon
+    }));
+    setSuggestions([]);
+    setShowSuggestions(false);
   }
 
   function toggleBenefit(value: string) {
@@ -195,6 +294,8 @@ export function AdminPostJobClient() {
 
       setSuccess(payload.jobId ?? "Job posted.");
       setForm(initialForm);
+      setJobTypeManuallySet(false);
+      setShowCoordOverride(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to post job.");
     } finally {
@@ -233,8 +334,14 @@ export function AdminPostJobClient() {
             <input value={form.companyName} onChange={(e) => update("companyName", e.target.value)} placeholder="e.g. Sai Comforts PG" required />
           </label>
           <label className="admin-field">
-            <span>Job category *</span>
-            <select value={form.jobType} onChange={(e) => update("jobType", e.target.value)}>
+            <span>Job category * (auto-detected from title — override anytime)</span>
+            <select
+              value={form.jobType}
+              onChange={(e) => {
+                setJobTypeManuallySet(true);
+                update("jobType", e.target.value);
+              }}
+            >
               {JOB_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </label>
@@ -269,15 +376,24 @@ export function AdminPostJobClient() {
             <input value={form.workingHours} onChange={(e) => update("workingHours", e.target.value)} placeholder="e.g. 9 AM – 6 PM" />
           </label>
           <label className="admin-field">
-            <span>Urgency</span>
-            <select value={form.urgency} onChange={(e) => update("urgency", e.target.value)}>
-              {URGENCY.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </label>
-          <label className="admin-field">
             <span>Expires in (days)</span>
             <input type="number" min={1} max={60} value={form.expiresInDays} onChange={(e) => update("expiresInDays", e.target.value)} />
           </label>
+        </div>
+        <div className="admin-field">
+          <span>Urgency</span>
+          <div className="admin-chip-row">
+            {URGENCY.map((u) => (
+              <button
+                type="button"
+                key={u}
+                className={`admin-chip ${form.urgency === u ? "active" : ""}`}
+                onClick={() => update("urgency", u)}
+              >
+                {u === "LOW" ? "🟢 Low" : u === "MEDIUM" ? "🟡 Medium" : "🔴 High"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -322,26 +438,77 @@ export function AdminPostJobClient() {
 
       <div className="admin-form-section">
         <h3>4. Location *</h3>
-        <label className="admin-field">
-          <span>Address</span>
-          <input value={form.addressText} onChange={(e) => update("addressText", e.target.value)} placeholder="e.g. Plot 14, Hitech City Main Rd, Madhapur, Hyderabad" required />
+        <label className="admin-field" style={{ position: "relative" }}>
+          <span>Address (start typing — we’ll find the spot for you)</span>
+          <input
+            value={form.addressText}
+            onChange={(e) => {
+              update("addressText", e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => {
+              // Delay so a click on a suggestion still registers.
+              setTimeout(() => setShowSuggestions(false), 200);
+            }}
+            placeholder="e.g. Plot 14, Hitech City Main Rd, Madhapur, Hyderabad"
+            autoComplete="off"
+            required
+          />
+          {showSuggestions && (suggestions.length > 0 || searchingLocation) && (
+            <ul className="admin-autocomplete-list">
+              {searchingLocation && suggestions.length === 0 && (
+                <li className="admin-autocomplete-empty">Searching…</li>
+              )}
+              {suggestions.map((item) => (
+                <li key={`${item.lat},${item.lon}`}>
+                  <button
+                    type="button"
+                    className="admin-autocomplete-item"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      pickSuggestion(item);
+                    }}
+                  >
+                    📍 {item.display_name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {form.latitude && form.longitude && !showCoordOverride && (
+            <small style={{ marginTop: 6, opacity: 0.7 }}>
+              ✓ Coordinates resolved: {Number(form.latitude).toFixed(5)}, {Number(form.longitude).toFixed(5)}
+            </small>
+          )}
         </label>
-        <div className="admin-form-grid">
-          <label className="admin-field">
-            <span>Latitude *</span>
-            <input value={form.latitude} onChange={(e) => update("latitude", e.target.value)} placeholder="17.4504" required />
-          </label>
-          <label className="admin-field">
-            <span>Longitude *</span>
-            <input value={form.longitude} onChange={(e) => update("longitude", e.target.value)} placeholder="78.3823" required />
-          </label>
-          <div className="admin-field">
-            <span>&nbsp;</span>
-            <button type="button" className="button ghost" onClick={handleGeocode} disabled={geocoding}>
-              {geocoding ? "Geocoding..." : "📍 Geocode address"}
-            </button>
-          </div>
+        <div className="admin-form-actions" style={{ gap: 8 }}>
+          <button
+            type="button"
+            className="button ghost"
+            onClick={() => setShowCoordOverride((v) => !v)}
+          >
+            {showCoordOverride ? "Hide manual coordinates" : "Override coordinates manually"}
+          </button>
         </div>
+        {showCoordOverride && (
+          <div className="admin-form-grid">
+            <label className="admin-field">
+              <span>Latitude *</span>
+              <input value={form.latitude} onChange={(e) => update("latitude", e.target.value)} placeholder="17.4504" required />
+            </label>
+            <label className="admin-field">
+              <span>Longitude *</span>
+              <input value={form.longitude} onChange={(e) => update("longitude", e.target.value)} placeholder="78.3823" required />
+            </label>
+            <div className="admin-field">
+              <span>&nbsp;</span>
+              <button type="button" className="button ghost" onClick={handleGeocode} disabled={geocoding}>
+                {geocoding ? "Geocoding…" : "📍 Re-geocode address"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="admin-form-section">
