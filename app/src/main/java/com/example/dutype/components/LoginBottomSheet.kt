@@ -145,6 +145,7 @@ fun LoginBottomSheet(
     role: UserRole = UserRole.WORKER,
     title: String = "Login Required",
     subtitle: String = "Please login to continue with this action",
+    navController: NavController? = null, // Used as fallback to auto-route new registrations to profile setup
     otpViewModel: OtpViewModel = hiltViewModel(),
     profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
@@ -158,6 +159,7 @@ fun LoginBottomSheet(
     val isPNVSupported by otpViewModel.isPNVSupported.collectAsState()  
     
     var phoneNumber by remember { mutableStateOf("") }
+    var registerName by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var isCheckingProfile by remember { mutableStateOf(false) }
@@ -208,9 +210,11 @@ fun LoginBottomSheet(
                     val loginResult = otpViewModel.completeLogin(role)
                     loginResult.fold(
                         onSuccess = { outcome ->
+                            // Persist the name captured in the bottom-sheet registration form
+                            // so the profile setup screen can pre-fill it for new users.
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
                                 email = "",
-                                name = "",
+                                name = registerName.trim(),
                                 role = role
                             )
 
@@ -223,6 +227,20 @@ fun LoginBottomSheet(
 
                             if (shouldGoToProfileSetup) {
                                 onProfileSetupRequired.invoke()
+                            } else if (
+                                outcome.destination == OtpViewModel.PostOtpDestination.PROFILE_SETUP &&
+                                navController != null
+                            ) {
+                                // New registrations must always finish profile setup before reaching the home screen.
+                                val target = when (role) {
+                                    UserRole.EMPLOYER -> Routes.EMPLOYER_PROFILE_SETUP
+                                    else -> Routes.PROFILE_SETUP
+                                }
+                                navController.navigate(target) {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                                onDismiss()
                             } else {
                                 onLoginSuccess()
                             }
@@ -448,6 +466,8 @@ fun LoginBottomSheet(
                         },
                         phoneNumber = phoneNumber,
                         onPhoneNumberChange = { phoneNumber = it },
+                        registerName = registerName,
+                        onRegisterNameChange = { registerName = it },
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
@@ -480,7 +500,15 @@ fun LoginBottomSheet(
                         },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
-                            scope.launch {
+                            // In registration mode, name is mandatory — mirror the EnhancedLoginScreen contract.
+                            if (isRegistrationMode && registerName.trim().length < 2) {
+                                Toast.makeText(
+                                    context,
+                                    if (isTelugu) "దయచేసి మీ పూర్తి పేరు నమోదు చేయండి." else "Please enter your full name to register.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                scope.launch {
                                 try {
                                     isCheckingPhone = true
                                     
@@ -559,6 +587,7 @@ fun LoginBottomSheet(
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
+                            }
                         }
                     )
                 } else {
@@ -589,6 +618,8 @@ private fun PhoneInputContent(
     subtitle: String,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
+    registerName: String,
+    onRegisterNameChange: (String) -> Unit,
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
@@ -742,7 +773,43 @@ private fun PhoneInputContent(
         }
         
         Spacer(modifier = Modifier.height(12.dp))
-        
+
+        // FULL NAME — only required when registering a new account
+        if (isRegistrationMode) {
+            OutlinedTextField(
+                value = registerName,
+                onValueChange = { onRegisterNameChange(it.take(60)) },
+                placeholder = {
+                    Text(
+                        if (isTelugu) "మీ పూర్తి పేరు" else "Full name",
+                        style = AppTypography.bodyLarge.copy(
+                            color = WorkerColors.TextTertiary,
+                            fontSize = 16.sp
+                        )
+                    )
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = WorkerColors.Info,
+                    unfocusedBorderColor = WorkerColors.Border,
+                    cursorColor = WorkerColors.Info,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = WorkerColors.CardBackground
+                ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                ),
+                textStyle = AppTypography.bodyLarge.copy(fontSize = 16.sp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         // REFERRAL CODE SECTION - Only show in Registration mode
         if (isRegistrationMode && !hasAlreadyUsedReferral) {
             // Referral code toggle

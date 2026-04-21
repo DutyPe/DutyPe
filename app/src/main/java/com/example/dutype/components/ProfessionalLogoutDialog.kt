@@ -235,14 +235,21 @@ private fun performLogout(
             profileCompletionViewModel.resetProfileSetupState()
             Timber.d("✅ Profile setup state reset via ViewModel")
             
-            // Step 3: Navigate to role selection screen with cleared back stack
-            // Using SELECT_ROLE allows user to choose their role again
+            // Step 3: Navigate to the role-specific home screen so the user
+            // stays in the same surface (Worker stays in worker home, Employer
+            // stays in employer home) instead of being kicked back to the role
+            // selection screen.
             // P1-7: invalidate cached start destination so a stale route can't
             // be picked up by the next cold start.
             runCatching {
                 com.example.dutype.navigation.StartDestinationCache.clear(navController.context)
             }
-            navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
+            val homeRoute = when (userRole.lowercase()) {
+                "employer" -> com.example.dutype.navigation.Routes.EMPLOYER_HOME
+                "worker" -> com.example.dutype.navigation.Routes.WORKER_HOME
+                else -> com.example.dutype.navigation.Routes.SELECT_ROLE
+            }
+            navController.navigate(homeRoute) {
                 // Clear the entire navigation stack via named-root pop (Google recommended)
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 launchSingleTop = true
@@ -263,7 +270,12 @@ private fun performLogout(
             }
             
             // Always navigate away from authenticated screens
-            navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
+            val fallbackHome = when (userRole.lowercase()) {
+                "employer" -> com.example.dutype.navigation.Routes.EMPLOYER_HOME
+                "worker" -> com.example.dutype.navigation.Routes.WORKER_HOME
+                else -> com.example.dutype.navigation.Routes.SELECT_ROLE
+            }
+            navController.navigate(fallbackHome) {
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 launchSingleTop = true
             }

@@ -113,6 +113,58 @@ export const NOTIFICATION_TEMPLATES: Translations = {
     },
   },
 
+  // ── transactional reminders & re-engagement ────────────────────────
+  JOB_EXPIRY_SOON: {
+    en: {
+      title: "⏰ Job Expiring Soon",
+      body: "Your job \"{jobTitle}\" expires in {hoursLeft} hours. Renew it to keep receiving applications.",
+    },
+    te: {
+      title: "⏰ ఉద్యోగం త్వరలో గడువు ముగుస్తుంది",
+      body: "మీ \"{jobTitle}\" ఉద్యోగం {hoursLeft} గంటల్లో గడువు ముగుస్తుంది. దరఖాస్తులు రావడానికి దానిని పునరుద్ధరించండి.",
+    },
+  },
+  EMPLOYER_PENDING_APPLICATIONS: {
+    en: {
+      title: "📋 Pending Applications",
+      body: "You have {count} pending applications waiting for your review. Don't miss out on great candidates!",
+    },
+    te: {
+      title: "📋 పెండింగ్ దరఖాస్తులు",
+      body: "మీ సమీక్ష కోసం {count} దరఖాస్తులు పెండింగ్‌లో ఉన్నాయి. మంచి అభ్యర్థులను మిస్ అవ్వకండి!",
+    },
+  },
+  WORKER_PENDING_APPLICATION: {
+    en: {
+      title: "⏰ Application Still Pending",
+      body: "Your application for \"{jobTitle}\" has been pending for {daysPending} days. For faster updates, call the employer directly!",
+    },
+    te: {
+      title: "⏰ దరఖాస్తు ఇంకా పెండింగ్‌లో ఉంది",
+      body: "\"{jobTitle}\" కోసం మీ దరఖాస్తు {daysPending} రోజులుగా పెండింగ్‌లో ఉంది. వేగంగా అప్‌డేట్‌ల కోసం, యజమానిని నేరుగా కాల్ చేయండి!",
+    },
+  },
+  WORKER_RE_ENGAGEMENT: {
+    en: {
+      title: "💼 New Jobs Waiting For You!",
+      body: "Check out the latest job opportunities near you. Your next opportunity is just a tap away!",
+    },
+    te: {
+      title: "💼 కొత్త ఉద్యోగాలు మీ కోసం వేచి ఉన్నాయి!",
+      body: "మీ సమీపంలోని తాజా ఉద్యోగ అవకాశాలను చూడండి. మీ తదుపరి అవకాశం ఒక్క ట్యాప్ దూరంలో ఉంది!",
+    },
+  },
+  EMPLOYER_RE_ENGAGEMENT: {
+    en: {
+      title: "🏢 Ready to Hire?",
+      body: "Post a job and connect with thousands of qualified workers in your area. Hiring made easy!",
+    },
+    te: {
+      title: "🏢 నియమించడానికి సిద్ధంగా ఉన్నారా?",
+      body: "ఉద్యోగాన్ని పోస్ట్ చేయండి మరియు మీ ప్రాంతంలోని వేలాది నైపుణ్యం గల కార్మికులతో కనెక్ట్ అవ్వండి. సులభంగా నియామకం!",
+    },
+  },
+
   // ── scheduled smart engagement: workers ───────────────────────────
   SE_WORKER_FRESH_JOBS: {
     en: { title: "🎯 Fresh jobs matching your skills", body: "New openings nearby — apply early for the best chance." },

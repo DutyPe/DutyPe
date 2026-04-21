@@ -787,6 +787,7 @@ fun EmployerProfileScreen(
             pendingMenuAction = null
         },
         role = com.example.dutype.models.UserRole.EMPLOYER,
+        navController = rootNavController,
         title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
             "profile" -> "Login to view and edit your company profile"

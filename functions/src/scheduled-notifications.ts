@@ -595,13 +595,16 @@ export const checkPendingApplications = functions.pubsub
         
         // Check if we can send notification
         if (await canSendNotification(employerId, 'pending_applications', 12 * 60 * 60 * 1000)) {
+          const locale = await getUserLanguage(admin.firestore(), employerId);
+          const tParams = { count };
           const sent = await sendFCMNotification(employerId, {
-            title: 'ðŸ“‹ Pending Applications',
-            body: `You have ${count} pending application${count > 1 ? 's' : ''} waiting for your review. Don't miss out on great candidates!`,
+            title: tTitle('EMPLOYER_PENDING_APPLICATIONS', locale, tParams),
+            body: tBody('EMPLOYER_PENDING_APPLICATIONS', locale, tParams),
             data: {
               type: 'PENDING_APPLICATIONS',
               count: count.toString(),
-              deepLink: 'dutype://applications'
+              deepLink: 'dutype://applications',
+              locale
             },
             priority: 'normal',
             channel: 'medium_priority'
@@ -719,9 +722,11 @@ export const remindWorkersPendingApplications = functions.pubsub
         }
         
         // Send notification
+        const locale = await getUserLanguage(admin.firestore(), workerId);
+        const tParams = { jobTitle, daysPending };
         const sent = await sendFCMNotification(workerId, {
-          title: 'â° Application Still Pending',
-          body: `Your application for "${jobTitle}" has been pending for ${daysPending} day${daysPending > 1 ? 's' : ''}. For faster updates, call the employer directly!`,
+          title: tTitle('WORKER_PENDING_APPLICATION', locale, tParams),
+          body: tBody('WORKER_PENDING_APPLICATION', locale, tParams),
           data: {
             type: 'WORKER_PENDING_APPLICATION',
             jobId: jobId,
@@ -729,7 +734,8 @@ export const remindWorkersPendingApplications = functions.pubsub
             employerId: employerId,
             daysPending: daysPending.toString(),
             deepLink: `dutype://job/${jobId}`,  // Opens job description screen
-            action: 'view_job'
+            action: 'view_job',
+            locale
           },
           priority: 'normal',
           channel: 'low_priority'
@@ -853,12 +859,14 @@ export const reEngageInactiveWorkers = functions.pubsub
           (lastAppSnapshot.docs[0].data().createdAt < threeDaysAgoTs);
         
         if (shouldReEngage) {
+          const locale = await getUserLanguage(admin.firestore(), userId);
           const sent = await sendFCMNotification(userId, {
-            title: 'ðŸ’¼ New Jobs Waiting For You!',
-            body: 'Check out the latest job opportunities near you. Your next opportunity is just a tap away!',
+            title: tTitle('WORKER_RE_ENGAGEMENT', locale),
+            body: tBody('WORKER_RE_ENGAGEMENT', locale),
             data: {
               type: 'RE_ENGAGEMENT',
-              deepLink: 'dutype://jobs'
+              deepLink: 'dutype://jobs',
+              locale
             },
             priority: 'normal',
             channel: 'low_priority'
@@ -937,12 +945,14 @@ export const reEngageInactiveEmployers = functions.pubsub
           (lastJobSnapshot.docs[0].data().postedAt < fifteenDaysAgo);
         
         if (shouldReEngage) {
+          const locale = await getUserLanguage(admin.firestore(), userId);
           const sent = await sendFCMNotification(userId, {
-            title: 'ðŸ¢ Ready to Hire?',
-            body: 'Post a job and connect with thousands of qualified workers in your area. Hiring made easy!',
+            title: tTitle('EMPLOYER_RE_ENGAGEMENT', locale),
+            body: tBody('EMPLOYER_RE_ENGAGEMENT', locale),
             data: {
               type: 'RE_ENGAGEMENT',
-              deepLink: 'dutype://post-job'
+              deepLink: 'dutype://post-job',
+              locale
             },
             priority: 'normal',
             channel: 'low_priority'
@@ -987,28 +997,32 @@ export const notifyApplicationStatusUpdate = functions.firestore
     
     console.log(`ðŸ“¬ Application status changed: ${before.status} â†’ ${newStatus} for worker ${workerId}`);
     
-    // Determine notification message based on status
-    let title = '';
-    let body = '';
+    // Determine notification template based on status; localised per-recipient.
+    let templateId = '';
     let priority: 'high' | 'normal' = 'high';
-    
+
     switch (newStatus) {
       case 'ACCEPTED':
-        title = 'ðŸŽ‰ Application Accepted!';
-        body = `Great news! Your application for "${jobTitle}" has been accepted. The employer will contact you soon.`;
+      case 'hired':
+        templateId = 'APPLICATION_HIRED';
         break;
       case 'REJECTED':
-        title = 'ðŸ“‹ Application Update';
-        body = `Your application for "${jobTitle}" was not selected this time. Keep applying!`;
+      case 'rejected':
+        templateId = 'APPLICATION_REJECTED';
         priority = 'normal';
         break;
       case 'SHORTLISTED':
-        title = 'â­ You\'re Shortlisted!';
-        body = `Congratulations! You've been shortlisted for "${jobTitle}". The employer may contact you soon.`;
+      case 'shortlisted':
+        templateId = 'APPLICATION_SHORTLISTED';
         break;
       default:
         return null; // Don't notify for other status changes
     }
+
+    const locale = await getUserLanguage(admin.firestore(), workerId);
+    const tParams = { jobTitle };
+    const title = tTitle(templateId, locale, tParams);
+    const body = tBody(templateId, locale, tParams);
     
     try {
       const sent = await sendFCMNotification(workerId, {

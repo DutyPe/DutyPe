@@ -1059,6 +1059,7 @@ fun WorkerProfileScreen(
             pendingMenuAction = null
         },
         role = com.example.dutype.models.UserRole.WORKER,
+        navController = rootNavController,
         title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
             "profile" -> stringResource(R.string.login_to_view_profile)

@@ -1035,4 +1035,31 @@
     <string name="profile_add_your_name">మీ పేరు చేర్చండి</string>
     <string name="profile_tap_photo_change">మార్చడానికి ఫోటోను ట్యాప్ చేయండి</string>
     <string name="profile_not_provided">అందించలేదు</string>
+
+    <!-- Notification content (sent by app + shown locally). -->
+    <string name="notif_app_status_applied_title">దరఖాస్తు సమర్పించబడింది</string>
+    <string name="notif_app_status_applied_msg">మీ దరఖాస్తు విజయవంతంగా సమర్పించబడింది</string>
+    <string name="notif_app_status_shortlisted_title">దరఖాస్తు సమీక్షలో ఉంది</string>
+    <string name="notif_app_status_shortlisted_msg">మీ దరఖాస్తు ఇప్పుడు సమీక్షలో ఉంది</string>
+    <string name="notif_app_status_hired_title">అభినందనలు! మీరు ఎంపికయ్యారు</string>
+    <string name="notif_app_status_hired_msg">అభినందనలు! మీ దరఖాస్తు ఆమోదించబడింది</string>
+    <string name="notif_app_status_rejected_title">దరఖాస్తు నవీకరణ</string>
+    <string name="notif_app_status_rejected_msg">మీ దరఖాస్తుపై నవీకరణ</string>
+    <string name="notif_new_application_title">కొత్త దరఖాస్తు వచ్చింది</string>
+    <string name="notif_new_application_msg">ఒక కార్మికుడు కొత్త దరఖాస్తు సమర్పించారు</string>
+    <string name="notif_application_withdrawn_title">దరఖాస్తు ఉపసంహరించబడింది</string>
+    <string name="notif_application_withdrawn_msg">ఒక కార్మికుడు తన దరఖాస్తును ఉపసంహరించుకున్నారు</string>
+    <string name="notif_job_posted_title">ఉద్యోగం విజయవంతంగా పోస్ట్ అయింది! 🎉</string>
+    <string name="notif_job_posted_msg">మీ \'%1$s\' ఉద్యోగం పోస్ట్ చేయబడింది మరియు ఇప్పుడు కార్మికులకు కనిపిస్తుంది</string>
+    <string name="notif_job_paused_title">ఉద్యోగం నిలిపివేయబడింది ⏸️</string>
+    <string name="notif_job_paused_msg">మీ \'%1$s\' ఉద్యోగం నిలిపివేయబడింది మరియు ఇకపై కార్మికులకు కనిపించదు</string>
+    <string name="notif_job_activated_title">ఉద్యోగం యాక్టివేట్ చేయబడింది ▶️</string>
+    <string name="notif_job_activated_msg">మీ \'%1$s\' ఉద్యోగం యాక్టివేట్ చేయబడింది మరియు ఇప్పుడు కార్మికులకు కనిపిస్తుంది</string>
+    <string name="notif_profile_complete_title">DutyPeకి స్వాగతం! 🎉</string>
+    <string name="notif_profile_complete_employer_msg">హాయ్ %1$s! మీ ప్రొఫైల్ పూర్తయింది. ఉద్యోగాలు పోస్ట్ చేయడం ప్రారంభించండి మరియు మీ వ్యాపారానికి ఉత్తమ కార్మికులను కనుగొనండి.</string>
+    <string name="notif_profile_complete_worker_msg">హాయ్ %1$s! మీ ప్రొఫైల్ పూర్తయింది. ఉద్యోగాలను అన్వేషించడం ప్రారంభించండి మరియు మీ నైపుణ్యాలకు సరిపోయే అవకాశాలకు దరఖాస్తు చేయండి.</string>
+    <string name="notif_worker_hired_title">అభినందనలు! మీరు ఎంపికయ్యారు! 🎉</string>
+    <string name="notif_worker_hired_msg">శుభవార్త! మీరు \'%1$s\' కోసం ఎంపికయ్యారు. తదుపరి దశల కోసం యజమానిని సంప్రదించండి.</string>
+    <string name="notif_employer_hired_title">కార్మికుడు విజయవంతంగా ఎంపికయ్యారు! ✅</string>
+    <string name="notif_employer_hired_msg">మీరు \'%2$s\' కోసం %1$sని విజయవంతంగా ఎంపిక చేశారు. ప్రారంభ తేదీని సమన్వయం చేయడానికి వారిని సంప్రదించండి.</string>
 </resources>

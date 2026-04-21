@@ -1036,4 +1036,31 @@
     <string name="profile_add_your_name">Add Your Name</string>
     <string name="profile_tap_photo_change">Tap photo to change</string>
     <string name="profile_not_provided">Not provided</string>
+
+    <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
+    <string name="notif_app_status_applied_title">Application Submitted</string>
+    <string name="notif_app_status_applied_msg">Your application has been submitted successfully</string>
+    <string name="notif_app_status_shortlisted_title">Application Under Review</string>
+    <string name="notif_app_status_shortlisted_msg">Your application is now under review</string>
+    <string name="notif_app_status_hired_title">Congratulations! You\'re Hired</string>
+    <string name="notif_app_status_hired_msg">Congratulations! Your application has been accepted</string>
+    <string name="notif_app_status_rejected_title">Application Update</string>
+    <string name="notif_app_status_rejected_msg">Update on your application</string>
+    <string name="notif_new_application_title">New Application Received</string>
+    <string name="notif_new_application_msg">A worker submitted a new application</string>
+    <string name="notif_application_withdrawn_title">Application Withdrawn</string>
+    <string name="notif_application_withdrawn_msg">A worker has withdrawn their application</string>
+    <string name="notif_job_posted_title">Job Posted Successfully! 🎉</string>
+    <string name="notif_job_posted_msg">Your job \'%1$s\' has been posted and is now visible to workers</string>
+    <string name="notif_job_paused_title">Job Paused ⏸️</string>
+    <string name="notif_job_paused_msg">Your job \'%1$s\' has been paused and is no longer visible to workers</string>
+    <string name="notif_job_activated_title">Job Activated ▶️</string>
+    <string name="notif_job_activated_msg">Your job \'%1$s\' has been activated and is now visible to workers</string>
+    <string name="notif_profile_complete_title">Welcome to DutyPe! 🎉</string>
+    <string name="notif_profile_complete_employer_msg">Hi %1$s! Your profile is complete. Start posting jobs and find the best workers for your business.</string>
+    <string name="notif_profile_complete_worker_msg">Hi %1$s! Your profile is complete. Start exploring jobs and apply to opportunities that match your skills.</string>
+    <string name="notif_worker_hired_title">Congratulations! You\'re Hired! 🎉</string>
+    <string name="notif_worker_hired_msg">Great news! You\'ve been hired for \'%1$s\'. Contact the employer to discuss next steps.</string>
+    <string name="notif_employer_hired_title">Worker Hired Successfully! ✅</string>
+    <string name="notif_employer_hired_msg">You\'ve successfully hired %1$s for \'%2$s\'. Contact them to coordinate the start date.</string>
 </resources>

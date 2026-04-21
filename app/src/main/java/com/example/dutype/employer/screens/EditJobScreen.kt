@@ -203,15 +203,36 @@ fun EditJobScreen(
                 it.displayName.equals(job.getCategory(), ignoreCase = true) ||
                     it.name.equals(job.getCategory(), ignoreCase = true)
             } ?: JobCategory.OTHER
-            // shiftTiming removed from schema — default to FLEXIBLE
+            // Pay type from stored salaryType ("HOURLY"|"DAILY"|"MONTHLY")
+            payType = PayType.values().firstOrNull {
+                it.name.equals(job.salaryType, ignoreCase = true) ||
+                    it.displayName.equals(job.salaryType, ignoreCase = true)
+            } ?: PayType.DAILY
+            // shiftTiming
             shiftTiming = ShiftTiming.values().firstOrNull {
                 it.displayName.equals(job.shiftTiming, ignoreCase = true) ||
                     it.name.equals(job.shiftTiming, ignoreCase = true)
             } ?: ShiftTiming.FLEXIBLE
-            // urgency removed from optimized schema
-            // selectedPerks removed as per user request
+            // Urgency from stored "LOW"|"MEDIUM"|"HIGH"
+            urgency = when (job.urgency.uppercase()) {
+                "HIGH" -> JobUrgency.URGENT
+                "MEDIUM" -> JobUrgency.NORMAL
+                "LOW" -> JobUrgency.FLEXIBLE
+                else -> JobUrgency.values().firstOrNull {
+                    it.name.equals(job.urgency, ignoreCase = true) ||
+                        it.displayName.equals(job.urgency, ignoreCase = true)
+                } ?: JobUrgency.FLEXIBLE
+            }
+            // Perks/benefits from stored displayNames or enum names
+            selectedPerks = job.benefits.mapNotNull { stored ->
+                JobPerk.values().firstOrNull {
+                    it.displayName.equals(stored, ignoreCase = true) ||
+                        it.name.equals(stored, ignoreCase = true)
+                }
+            }.toSet()
             vacancies = job.vacancies.toString()
             employerName = job.companyName
+            Timber.d("📝 EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$shiftTiming")
         }
     }
 

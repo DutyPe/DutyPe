@@ -276,8 +276,8 @@ class NotificationService @Inject constructor(
             val notification = NotificationData(
                 id = UUID.randomUUID().toString(),
                 recipientId = employerId,
-                title = "Application Withdrawn",
-                message = "A worker has withdrawn their application",
+                title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_application_withdrawn_title),
+                message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_application_withdrawn_msg),
                 type = NotificationType.APPLICATION_STATUS,
                 data = mapOf(
                     "applicationId" to application.id,
@@ -472,19 +472,20 @@ class NotificationService @Inject constructor(
         application: JobApplication,
         newStatus: ApplicationStatus
     ): NotificationData {
-        val title = when (newStatus) {
-            ApplicationStatus.APPLIED -> "Application Submitted"
-            ApplicationStatus.SHORTLISTED -> "Application Under Review"
-            ApplicationStatus.HIRED -> "Congratulations! You're Hired"
-            ApplicationStatus.REJECTED -> "Application Update"
+        val titleRes = when (newStatus) {
+            ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_title
+            ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_title
+            ApplicationStatus.HIRED -> R.string.notif_app_status_hired_title
+            ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_title
         }
-        
-        val message = when (newStatus) {
-            ApplicationStatus.APPLIED -> "Your application has been submitted successfully"
-            ApplicationStatus.SHORTLISTED -> "Your application is now under review"
-            ApplicationStatus.HIRED -> "Congratulations! Your application has been accepted"
-            ApplicationStatus.REJECTED -> "Update on your application"
+        val msgRes = when (newStatus) {
+            ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_msg
+            ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_msg
+            ApplicationStatus.HIRED -> R.string.notif_app_status_hired_msg
+            ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_msg
         }
+        val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)
+        val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes)
         
         return NotificationData(
             id = UUID.randomUUID().toString(),
@@ -510,8 +511,8 @@ class NotificationService @Inject constructor(
         return NotificationData(
             id = UUID.randomUUID().toString(),
             recipientId = application.employerId,
-            title = "New Application Received",
-            message = "A worker submitted a new application",
+            title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_new_application_title),
+            message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_new_application_msg),
             type = NotificationType.NEW_APPLICATION,
             targetRole = "EMPLOYER",
             data = mapOf(
@@ -531,8 +532,8 @@ class NotificationService @Inject constructor(
         return NotificationData(
             id = UUID.randomUUID().toString(),
             recipientId = "", // Will be set when sending
-            title = "Job Posted Successfully! 🎉",
-            message = "Your job '$jobTitle' has been posted and is now visible to workers",
+            title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_job_posted_title),
+            message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_job_posted_msg, jobTitle),
             type = NotificationType.JOB_POSTED,
             targetRole = "EMPLOYER",
             data = mapOf(
@@ -548,11 +549,10 @@ class NotificationService @Inject constructor(
      * Create job paused notification
      */
     private fun createJobPausedNotification(jobTitle: String, isPaused: Boolean): NotificationData {
-        val title = if (isPaused) "Job Paused ⏸️" else "Job Activated ▶️"
-        val message = if (isPaused) 
-            "Your job '$jobTitle' has been paused and is no longer visible to workers"
-        else 
-            "Your job '$jobTitle' has been activated and is now visible to workers"
+        val titleRes = if (isPaused) R.string.notif_job_paused_title else R.string.notif_job_activated_title
+        val msgRes = if (isPaused) R.string.notif_job_paused_msg else R.string.notif_job_activated_msg
+        val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)
+        val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes, jobTitle)
             
         return NotificationData(
             id = UUID.randomUUID().toString(),
@@ -575,12 +575,13 @@ class NotificationService @Inject constructor(
      * Create profile complete notification (welcome message)
      */
     private fun createProfileCompleteNotification(userName: String, userRole: String): NotificationData {
-        val title = "Welcome to DutyPe! 🎉"
-        val message = if (userRole.equals("EMPLOYER", ignoreCase = true)) {
-            "Hi $userName! Your profile is complete. Start posting jobs and find the best workers for your business."
+        val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_profile_complete_title)
+        val msgRes = if (userRole.equals("EMPLOYER", ignoreCase = true)) {
+            R.string.notif_profile_complete_employer_msg
         } else {
-            "Hi $userName! Your profile is complete. Start exploring jobs and apply to opportunities that match your skills."
+            R.string.notif_profile_complete_worker_msg
         }
+        val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes, userName)
         
         val action = if (userRole.equals("EMPLOYER", ignoreCase = true)) "view_employer_home" else "view_worker_home"
         
@@ -608,8 +609,8 @@ class NotificationService @Inject constructor(
         return NotificationData(
             id = UUID.randomUUID().toString(),
             recipientId = "", // Will be set when sending
-            title = "Congratulations! You're Hired! 🎉",
-            message = "Great news! You've been hired for '$jobTitle'. Contact the employer to discuss next steps.",
+            title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_worker_hired_title),
+            message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_worker_hired_msg, jobTitle),
             type = NotificationType.WORKER_HIRED,
             targetRole = "WORKER",
             data = mapOf(
@@ -629,8 +630,8 @@ class NotificationService @Inject constructor(
         return NotificationData(
             id = UUID.randomUUID().toString(),
             recipientId = "", // Will be set when sending
-            title = "Worker Hired Successfully! ✅",
-            message = "You've successfully hired $workerName for '$jobTitle'. Contact them to coordinate the start date.",
+            title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_employer_hired_title),
+            message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, R.string.notif_employer_hired_msg, workerName, jobTitle),
             type = NotificationType.WORKER_HIRED,
             targetRole = "EMPLOYER",
             data = mapOf(

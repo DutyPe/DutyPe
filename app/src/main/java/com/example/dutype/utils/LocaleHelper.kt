@@ -119,6 +119,20 @@ object LocaleHelper {
         saveLanguage(context, language)
         return setLocale(context, language)
     }
+
+    /**
+     * Get a string resource in the user's currently selected language, regardless
+     * of the system or activity context locale. Useful for background services and
+     * notification builders where the host context may not have the right locale.
+     */
+    fun getLocalizedString(context: Context, @androidx.annotation.StringRes resId: Int, vararg formatArgs: Any): String {
+        val localized = setLocale(context.applicationContext)
+        return if (formatArgs.isEmpty()) {
+            localized.getString(resId)
+        } else {
+            localized.getString(resId, *formatArgs)
+        }
+    }
     
     /**
      * Check if current language is Telugu
