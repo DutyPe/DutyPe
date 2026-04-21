@@ -14,13 +14,9 @@ data class Announcement(
     val type: AnnouncementType = AnnouncementType.INFO,
     val priority: AnnouncementPriority = AnnouncementPriority.NORMAL,
     val targetRole: String? = null, // null = all, "worker", "employer"
-    val actionText: String? = null,
     val actionRoute: String? = null,
-    val imageUrl: String? = null,
     val expiresAt: Timestamp? = null,
-    val isDismissible: Boolean = true,
     val isActive: Boolean = true,
-    val createdBy: String? = null,
     val createdAt: Timestamp = Timestamp.now()
 )
 

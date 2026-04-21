@@ -53,10 +53,7 @@ type CreateAnnouncementBody = {
   type?: string;
   priority?: string;
   targetRole?: string;
-  imageUrl?: string;
   deepLink?: string;
-  actionText?: string;
-  isDismissible?: boolean;
   expiresInDays?: number;
 };
 
@@ -94,10 +91,7 @@ export async function POST(request: NextRequest) {
     const announcementPriority = VALID_PRIORITY.has(priorityRaw) ? priorityRaw : "NORMAL";
 
     const targetRole = normalizeTargetRoleForStorage(body.targetRole);
-    const imageUrl = body.imageUrl?.trim() || "";
     const deepLink = body.deepLink?.trim() || "";
-    const actionText = body.actionText?.trim() || (deepLink ? "View" : "");
-    const isDismissible = body.isDismissible !== false;
 
     const created = await db.collection("announcements").add({
       title,
@@ -105,12 +99,8 @@ export async function POST(request: NextRequest) {
       type: announcementType,
       priority: announcementPriority,
       targetRole,
-      imageUrl,
-      actionText,
       actionRoute: deepLink,
-      isDismissible,
       isActive: true,
-      createdBy: "admin",
       createdAt: Timestamp.fromDate(now),
       expiresAt: Timestamp.fromDate(endDateValue)
     });

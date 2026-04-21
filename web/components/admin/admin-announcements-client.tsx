@@ -11,7 +11,6 @@ type AnnouncementRow = {
   type?: string;
   targetRole?: string;
   isActive?: boolean;
-  imageUrl?: string;
   actionRoute?: string;
   expiresAt?: unknown;
   createdAt?: unknown;
@@ -28,7 +27,6 @@ type AnnouncementTemplate = {
   type: string;
   targetRole: string;
   deepLink: string;
-  actionText: string;
 };
 
 const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
@@ -39,8 +37,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "",
     type: "INFO",
     targetRole: "ALL",
-    deepLink: "",
-    actionText: ""
+    deepLink: ""
   },
   {
     id: "new_jobs_nearby",
@@ -49,8 +46,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "We just added fresh jobs in your area. Check them out before they fill up.",
     type: "INFO",
     targetRole: "WORKER",
-    deepLink: "dutype://jobs",
-    actionText: "View jobs"
+    deepLink: "dutype://jobs"
   },
   {
     id: "complete_profile",
@@ -59,8 +55,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "Workers with complete profiles get 3× more job calls. Add your skills and photo now.",
     type: "WARNING",
     targetRole: "WORKER",
-    deepLink: "dutype://profile",
-    actionText: "Complete profile"
+    deepLink: "dutype://profile"
   },
   {
     id: "referral_boost",
@@ -69,8 +64,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "Invite your friends to DutyPe and earn cash for every signup that gets verified.",
     type: "PROMOTION",
     targetRole: "ALL",
-    deepLink: "dutype://referrals",
-    actionText: "Invite friends"
+    deepLink: "dutype://referrals"
   },
   {
     id: "post_job_reminder",
@@ -79,8 +73,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "Post your first job free and get applications from verified workers near you.",
     type: "FEATURE",
     targetRole: "EMPLOYER",
-    deepLink: "dutype://post-job",
-    actionText: "Post a job"
+    deepLink: "dutype://post-job"
   },
   {
     id: "verify_employer",
@@ -89,8 +82,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "Verified employers receive 2× more applications. Submit your business documents now.",
     type: "INFO",
     targetRole: "EMPLOYER",
-    deepLink: "dutype://employer/verification",
-    actionText: "Verify now"
+    deepLink: "dutype://employer/verification"
   },
   {
     id: "app_update",
@@ -99,8 +91,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "We've shipped a faster experience and bug fixes. Update from the Play Store now.",
     type: "FEATURE",
     targetRole: "ALL",
-    deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app",
-    actionText: "Update"
+    deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app"
   },
   {
     id: "maintenance",
@@ -109,8 +100,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "DutyPe will be briefly unavailable tonight from 1 AM to 2 AM IST while we ship upgrades.",
     type: "WARNING",
     targetRole: "ALL",
-    deepLink: "",
-    actionText: ""
+    deepLink: ""
   },
   {
     id: "support",
@@ -119,8 +109,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     message: "Tap below to chat with our support team if you have any questions.",
     type: "INFO",
     targetRole: "ALL",
-    deepLink: "dutype://support",
-    actionText: "Contact support"
+    deepLink: "dutype://support"
   }
 ];
 
@@ -131,9 +120,7 @@ const initialForm = {
   type: "INFO",
   priority: "NORMAL",
   targetRole: "ALL",
-  imageUrl: "",
   deepLink: "",
-  actionText: "",
   expiresInDays: "30"
 };
 
@@ -186,9 +173,7 @@ export function AdminAnnouncementsClient() {
             type: form.type,
             priority: form.priority,
             targetRole: form.targetRole,
-            imageUrl: form.imageUrl.trim() || undefined,
             deepLink: form.deepLink.trim() || undefined,
-            actionText: form.actionText.trim() || undefined,
             expiresInDays: Number(form.expiresInDays) || 30
           })
         });
@@ -298,8 +283,7 @@ export function AdminAnnouncementsClient() {
                   message: template.message,
                   type: template.type,
                   targetRole: template.targetRole,
-                  deepLink: template.deepLink,
-                  actionText: template.actionText
+                  deepLink: template.deepLink
                 }));
               }}
             >
@@ -367,27 +351,11 @@ export function AdminAnnouncementsClient() {
             </select>
           </label>
           <label>
-            <span>Image URL (optional)</span>
-            <input
-              value={form.imageUrl}
-              onChange={(event) => setForm((current) => ({ ...current, imageUrl: event.target.value }))}
-              placeholder="https://…"
-            />
-          </label>
-          <label>
             <span>Deep link (optional)</span>
             <input
               value={form.deepLink}
               onChange={(event) => setForm((current) => ({ ...current, deepLink: event.target.value }))}
               placeholder="dutype://referrals"
-            />
-          </label>
-          <label>
-            <span>Action button text (optional)</span>
-            <input
-              value={form.actionText}
-              onChange={(event) => setForm((current) => ({ ...current, actionText: event.target.value }))}
-              placeholder="View"
             />
           </label>
           <label>

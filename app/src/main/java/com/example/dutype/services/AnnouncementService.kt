@@ -46,13 +46,9 @@ class AnnouncementService @Inject constructor(
             type = type,
             priority = priority,
             targetRole = data["targetRole"] as? String,
-            actionText = data["actionText"] as? String,
             actionRoute = data["actionRoute"] as? String,
-            imageUrl = data["imageUrl"] as? String,
-            expiresAt = data["expiresAt"] as? Timestamp ?: data["endDate"] as? Timestamp,
-            isDismissible = data["isDismissible"] as? Boolean ?: true,
+            expiresAt = data["expiresAt"] as? Timestamp,
             isActive = data["isActive"] as? Boolean ?: true,
-            createdBy = data["createdBy"] as? String,
             createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now()
         )
     }
