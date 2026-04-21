@@ -32,8 +32,6 @@ import com.example.dutype.models.JobListingSummary
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.utils.AIScamDetector
-import com.example.dutype.components.JobSafetyBadge
 
 /**
  * JobCard that accepts JobListing directly - PREFERRED
@@ -61,18 +59,6 @@ fun JobCard(
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
 
-    val safetyAnalysis = remember(job.title, job.description, job.salary) {
-        AIScamDetector.analyzeJob(
-            title = job.title,
-            description = job.description,
-            category = job.getCategory(),
-            payAmount = job.salary.toInt().toString(),
-            payType = job.salaryType,
-            location = job.addressText,
-            hasVerifiedBadge = false
-        )
-    }
-
     JobCardInternal(
         jobId = job.id,
         title = job.title,
@@ -89,7 +75,6 @@ fun JobCard(
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
-        riskLevel = safetyAnalysis.riskLevel,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -142,7 +127,6 @@ fun JobCard(
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
-        riskLevel = AIScamDetector.RiskLevel.SAFE,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -171,7 +155,6 @@ private fun JobCardInternal(
     isUrgent: Boolean,
     isClosed: Boolean,
     isSaved: Boolean,
-    riskLevel: AIScamDetector.RiskLevel,
     onSaveClick: () -> Unit,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -369,8 +352,6 @@ private fun JobCardInternal(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                JobSafetyBadge(riskLevel = riskLevel, showLabel = true)
-
                 if (jobType.isNotEmpty()) {
                     CompactChip(text = jobType, chipType = ChipType.JOB_TYPE)
                 }

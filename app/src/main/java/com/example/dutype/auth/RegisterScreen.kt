@@ -163,12 +163,6 @@ private fun RegisterContent(
     val signupBonusInt = referralConfig.signupBonus.toInt()
     val otpState by otpViewModel.otpState.collectAsState()
 
-    OtpAutoFillEffect(
-        enabled = otpState.isLoading || otpState.otpSent,
-        otpValue = otpValue,
-        onOtpReceived = { otpValue = it }
-    )
-
     BackHandler {
         if (otpState.otpSent) {
             otpViewModel.resetState()
@@ -976,18 +970,7 @@ private fun RegisterOtpSection(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(3.dp))
-
-        Text(
-            text = if (isTelugu) {
-                "SMS వచ్చిన వెంటనే కోడ్ ఇక్కడ స్వయంగా కనిపిస్తుంది"
-            } else {
-                "The code will appear here automatically when the SMS arrives."
-            },
-            style = AppTypography.caption.copy(color = WorkerColors.Info)
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         TextButton(
             onClick = onBackClick,

@@ -45,12 +45,11 @@ data class RoleColorScheme(
  * elsewhere.
  */
 val WorkerRoleColors: RoleColorScheme = RoleColorScheme(
-    // Soft cool grey with a faint lavender tint that complements the worker
-    // purple accent. Cards on top are pure white so they pop noticeably.
-    screenBackground = Color(0xFFF5F6FA),
+    // Pure white surfaces across every worker screen.
+    screenBackground = Color(0xFFFFFFFF),
     cardBackground = Color(0xFFFFFFFF),
-    secondaryBackground = Color(0xFFEEF0F6),
-    statusBar = Color(0xFFF5F6FA),
+    secondaryBackground = Color(0xFFFFFFFF),
+    statusBar = Color(0xFFFFFFFF),
     navigationBar = Color(0xFFFFFFFF),
     primary = WorkerColors.Primary,
     onPrimary = Color.White,

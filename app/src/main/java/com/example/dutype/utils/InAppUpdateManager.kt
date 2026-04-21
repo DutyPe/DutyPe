@@ -78,13 +78,6 @@ class InAppUpdateManager @Inject constructor(
         onError: (Exception) -> Unit = {}
     ) {
         try {
-            // Skip in debug builds - In-App Updates only work from Play Store
-            if (com.dutype.app.BuildConfig.DEBUG) {
-                Timber.d("🔄 IN-APP UPDATE: Skipped (debug build)")
-                onNoUpdate()
-                return
-            }
-            
             Timber.i("🔄 IN-APP UPDATE: checkForUpdate() called")
             
             // Check if we should check for updates (rate limiting)

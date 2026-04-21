@@ -108,10 +108,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dutype.app.R
 import com.example.dutype.ads.AdManager
-import com.example.dutype.components.JobSafetyCard
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
-import com.example.dutype.components.analyzeJobRisk
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.parseTrustTier
@@ -728,33 +726,6 @@ private fun JobDetailsContent(
         // }
         
         // Location Section removed from top - now in Job Details Card
-        
-        // AI Safety Analysis Card - COMMENTED OUT (employerCreatedAt and employerTrustTier removed)
-        /*
-        item {
-            // REMOVED: employerCreatedAt and employerTrustTier no longer in JobListing model
-            // Safety analysis would need to fetch employer data separately if needed
-            
-            // Analyze job for scam risk
-            val safetyAnalysis = remember(job) {
-                analyzeJobRisk(
-                    title = job.title,
-                    description = job.description,
-                    category = job.getCategory(),
-                    payAmount = job.salary.toInt().toString(),
-                    payType = job.salaryType,
-                    location = job.addressText,
-                    employerAccountAgeDays = 30, // Default value
-                    hasVerifiedBadge = true // Default value
-                )
-            }
-            
-            JobSafetyCard(
-                analysisResult = safetyAnalysis,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-        */
         
         // ACCESSIBILITY: Landmark Navigation - removed in optimization
         // if (job.landmark.isNotBlank()) {

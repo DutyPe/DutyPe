@@ -5,6 +5,12 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,6 +78,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.EaseInOutSine
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -160,18 +175,34 @@ internal fun WorkerHomeBackdropDecor(modifier: Modifier = Modifier) {
 
 
 private val WorkerEmptyHumorMessages = listOf(
-    "Even the busiest streets need a coffee break.",
-    "No jobs here yet \u2014 perfect time to plan your next move.",
-    "Quiet neighborhood today. Try a new area to spark something.",
-    "Opportunities are shy here. Let\u2019s go find them.",
-    "Empty list, big plans. Switch your zone and explore."
+    "Even the local chai stall is on a break right now.",
+    "A tumbleweed just rolled by. Let\u2019s shake things up \u2014 try a new area.",
+    "This zone is on silent mode. Switch the location and turn the volume up.",
+    "Crickets. Just crickets. Time to scout a livelier spot.",
+    "Your skills are sharper than this neighborhood deserves. Explore wider."
 )
 
 private val WorkerAppliedAllHumorMessages = listOf(
-    "You\u2019ve applied to everything in sight \u2014 superstar move!",
-    "Inbox: empty. Hustle: maxed out.",
-    "All caught up. Time to widen the net.",
-    "Local jobs: conquered. Try a fresh location."
+    "You\u2019ve applied to literally everything. Save some jobs for the rest of us.",
+    "Inbox: empty. Hustle: legendary. \uD83D\uDCAA",
+    "Local jobs: cleared. Boss-level unlocked. Try a new area.",
+    "You\u2019re moving faster than the jobs are. Widen the radius."
+)
+
+private val WorkerEmptyEmojiCast = listOf(
+    "\uD83E\uDD14",  // thinking — "hmm where are the jobs"
+    "\uD83D\uDD0D",  // searching
+    "\uD83D\uDE34",  // sleepy area
+    "\uD83E\uDD37",  // shrug
+    "\uD83C\uDF35"   // desert/empty
+)
+
+private val WorkerAppliedAllEmojiCast = listOf(
+    "\uD83C\uDF89",  // celebration
+    "\uD83D\uDE0E",  // cool
+    "\uD83D\uDCAA",  // strong
+    "\uD83D\uDE4C",  // praise
+    "\uD83D\uDE80"   // rocket
 )
 
 @Composable
@@ -201,6 +232,10 @@ fun EmptyJobsState(
             verticalArrangement = Arrangement.spacedBy(0.dp),
             modifier = Modifier.padding(horizontal = 32.dp)
         ) {
+            JobHuntingIllustration(isAppliedAllVariant = isAppliedAllVariant)
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
                 text = if (isAppliedAllVariant) "You are on top of it!" else "No jobs $locationLabel",
                 style = MaterialTheme.typography.titleLarge.copy(
@@ -220,31 +255,140 @@ fun EmptyJobsState(
                 ),
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(24.dp))
+/**
+ * Animated empty-state illustration: a soft pulsing gradient blob, a cycling
+ * cast of expressive emoji that bob and tilt, and orbiting sparkles.
+ *
+ * Pure Compose, zero dependencies, runs offline at 60fps.
+ */
+@Composable
+private fun JobHuntingIllustration(
+    isAppliedAllVariant: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "empty-state")
 
-            // Primary CTA - compact change-location button.
-            Button(
-                onClick = { navController?.navigate(Routes.MANUAL_LOCATION_ROUTE) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+    // Gentle vertical bob for the emoji
+    val bob by transition.animateFloat(
+        initialValue = -6f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1800, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bob"
+    )
+    // Subtle tilt
+    val tilt by transition.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "tilt"
+    )
+    // Backdrop pulse
+    val pulse by transition.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    // Orbit angle for sparkles
+    val orbit by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbit"
+    )
+
+    // Cycle through expressive emojis every ~2.4s for the comedy reveal.
+    val cast = if (isAppliedAllVariant) WorkerAppliedAllEmojiCast else WorkerEmptyEmojiCast
+    var castIndex by remember(isAppliedAllVariant) { mutableStateOf(0) }
+    LaunchedEffect(isAppliedAllVariant) {
+        while (true) {
+            kotlinx.coroutines.delay(2400)
+            castIndex = (castIndex + 1) % cast.size
+        }
+    }
+    val currentEmoji = cast[castIndex]
+
+    val accent = if (isAppliedAllVariant) Color(0xFF10B981) else Color(0xFF6366F1)
+    val accentSoft = accent.copy(alpha = 0.18f)
+    val accentFaint = accent.copy(alpha = 0.08f)
+
+    Box(
+        modifier = modifier.size(180.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Soft pulsing gradient blob backdrop
+        Canvas(
+            modifier = Modifier
+                .size(160.dp)
+                .graphicsLayer {
+                    scaleX = pulse
+                    scaleY = pulse
+                }
+        ) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(accentSoft, accentFaint, Color.Transparent),
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    radius = size.minDimension / 2f
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Change Location",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                )
+            )
+        }
+
+        // Orbiting sparkle dots
+        Canvas(modifier = Modifier.size(160.dp)) {
+            val centerX = size.width / 2f
+            val centerY = size.height / 2f
+            val radius = size.minDimension * 0.42f
+            val sparkles = listOf(
+                Triple(0f, 4f, accent),
+                Triple(120f, 3f, accent.copy(alpha = 0.7f)),
+                Triple(240f, 5f, accent.copy(alpha = 0.85f))
+            )
+            sparkles.forEach { (offsetDeg, dotRadius, color) ->
+                val angleRad = Math.toRadians((orbit + offsetDeg).toDouble())
+                val x = centerX + radius * kotlin.math.cos(angleRad).toFloat()
+                val y = centerY + radius * kotlin.math.sin(angleRad).toFloat()
+                drawCircle(color = color, radius = dotRadius, center = Offset(x, y))
             }
+        }
+
+        // The emoji — cycles through a cast, bobs and tilts subtly
+        AnimatedContent(
+            targetState = currentEmoji,
+            transitionSpec = {
+                (fadeIn(tween(420)) +
+                    scaleIn(initialScale = 0.6f, animationSpec = tween(420)))
+                    .togetherWith(
+                        fadeOut(tween(220)) +
+                            scaleOut(targetScale = 1.4f, animationSpec = tween(220))
+                    )
+            },
+            label = "emoji-cast"
+        ) { emoji ->
+            Text(
+                text = emoji,
+                fontSize = 72.sp,
+                modifier = Modifier.graphicsLayer {
+                    translationY = bob
+                    rotationZ = tilt
+                }
+            )
         }
     }
 }

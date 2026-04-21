@@ -28,11 +28,75 @@ class BirthdayService @Inject constructor(
     }
     
     /**
-     * Check if today is user's birthday.
-     * dateOfBirth is not stored in the target schema — always returns null.
-     * Birthday feature is disabled until a dedicated opt-in flow is added.
+     * Check if today is the user's birthday.
+     * Reads `dateOfBirth` from `worker_profiles/{userId}` (preferred) or
+     * `employer_profiles/{userId}` and matches day+month against today.
+     *
+     * Accepted DOB formats: "DD/MM/YYYY", "DD-MM-YYYY", "YYYY-MM-DD".
      */
-    suspend fun checkIfBirthday(userId: String): BirthdayInfo? = null
+    suspend fun checkIfBirthday(userId: String): BirthdayInfo? {
+        return try {
+            val (dob, displayName) = readDobAndName(userId) ?: return null
+            val (day, month) = parseDayMonth(dob) ?: return null
+
+            val cal = Calendar.getInstance()
+            val todayDay = cal.get(Calendar.DAY_OF_MONTH)
+            val todayMonth = cal.get(Calendar.MONTH) + 1 // Calendar months are 0-based
+
+            if (day == todayDay && month == todayMonth) {
+                val firstName = displayName.trim().split(" ").firstOrNull().orEmpty()
+                BirthdayInfo(
+                    userName = firstName.ifBlank { displayName },
+                    fullName = displayName
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Birthday check failed for $userId")
+            null
+        }
+    }
+
+    private suspend fun readDobAndName(userId: String): Pair<String, String>? {
+        // Try worker profile first.
+        runCatching {
+            val workerSnap = firestore.collection("worker_profiles").document(userId).get().await()
+            if (workerSnap.exists()) {
+                val dob = (workerSnap.getString("dateOfBirth") ?: "").trim()
+                val name = (workerSnap.getString("fullName")
+                    ?: workerSnap.getString("name")
+                    ?: "").trim()
+                if (dob.isNotBlank()) return Pair(dob, name)
+            }
+        }
+        // Fall back to employer profile.
+        runCatching {
+            val empSnap = firestore.collection("employer_profiles").document(userId).get().await()
+            if (empSnap.exists()) {
+                val dob = (empSnap.getString("dateOfBirth") ?: "").trim()
+                val name = (empSnap.getString("contactPersonName")
+                    ?: empSnap.getString("fullName")
+                    ?: empSnap.getString("name")
+                    ?: "").trim()
+                if (dob.isNotBlank()) return Pair(dob, name)
+            }
+        }
+        return null
+    }
+
+    private fun parseDayMonth(dob: String): Pair<Int, Int>? {
+        val patterns = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd", "dd/MM/yy", "d/M/yyyy")
+        for (pattern in patterns) {
+            try {
+                val sdf = SimpleDateFormat(pattern, Locale.getDefault()).apply { isLenient = false }
+                val date = sdf.parse(dob) ?: continue
+                val cal = Calendar.getInstance().apply { time = date }
+                return Pair(cal.get(Calendar.DAY_OF_MONTH), cal.get(Calendar.MONTH) + 1)
+            } catch (_: Exception) { /* try next pattern */ }
+        }
+        return null
+    }
     
     /**
      * Send birthday notification to user

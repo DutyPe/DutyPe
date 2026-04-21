@@ -80,7 +80,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.dutype.auth.OtpAutoFillEffect
 import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -172,12 +171,6 @@ fun LoginBottomSheet(
     var codeValidationError by remember { mutableStateOf<String?>(null) }
     var validatedReferrerName by remember { mutableStateOf<String?>(null) }
     var hasAlreadyUsedReferral by remember { mutableStateOf(false) }
-
-    OtpAutoFillEffect(
-        enabled = otpState.isLoading || otpState.otpSent,
-        otpValue = otpValue,
-        onOtpReceived = { otpValue = it }
-    )
 
     val effectiveTitle = if (title == "Login Required") {
         if (isTelugu) "లాగిన్ అవసరం" else title
@@ -1255,17 +1248,6 @@ private fun OtpInputContent(
             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = if (isTelugu) {
-                "SMS వచ్చిన వెంటనే కోడ్ ఇక్కడ స్వయంగా కనిపిస్తుంది"
-            } else {
-                "The code will appear here automatically when the SMS arrives."
-            },
-            style = AppTypography.caption.copy(color = WorkerColors.Info)
-        )
-        
         TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 2.dp)) {
             Text(
                 if (isTelugu) "నంబర్ మార్చాలా?" else "Change number?",

@@ -90,14 +90,7 @@ class OtpViewModel @Inject constructor(
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()
             
-            // ðŸ”” START SMS RETRIEVER - Auto-read OTP without SMS permission
-            try {
-                com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
-                Timber.i("âœ… SMS Retriever started - OTP will be auto-filled")
-            } catch (e: Exception) {
-                Timber.w(e, "âš ï¸ SMS Retriever failed - user will enter OTP manually")
-            }
-            
+
             try {
                 // Get activity from context (required for PhoneAuthProvider)
                 val activity = context as? android.app.Activity
@@ -502,14 +495,7 @@ class OtpViewModel @Inject constructor(
             // Start 60-second cooldown timer
             startResendCooldown()
             
-            // ðŸ”” START SMS RETRIEVER - Auto-read OTP without SMS permission
-            try {
-                com.example.dutype.utils.SmsRetrieverHelper.startSmsRetriever(context)
-                Timber.i("âœ… SMS Retriever started for resend - OTP will be auto-filled")
-            } catch (e: Exception) {
-                Timber.w(e, "âš ï¸ SMS Retriever failed on resend - user will enter OTP manually")
-            }
-            
+
             try {
                 // Get activity from context (required for PhoneAuthProvider)
                 val activity = context as? android.app.Activity
