@@ -109,7 +109,8 @@ const initialForm = {
   vacancies: "1",
   benefits: [] as string[],
   customBenefits: "",
-  expiresInDays: "15"
+  expiresInDays: "15",
+  whatsappSameAsPhone: true
 };
 
 export function AdminPostJobClient() {
@@ -278,7 +279,7 @@ export function AdminPostJobClient() {
           urgency: form.urgency,
           description: form.description.trim(),
           contactNumber: form.contactNumber.trim(),
-          whatsappNumber: form.whatsappNumber.trim() || undefined,
+          whatsappNumber: (form.whatsappSameAsPhone ? form.contactNumber : form.whatsappNumber).trim() || undefined,
           gender: form.gender,
           experienceRequired: form.experienceRequired,
           shiftTiming: form.shiftTiming,
@@ -529,10 +530,24 @@ export function AdminPostJobClient() {
             <input type="tel" value={form.contactNumber} onChange={(e) => update("contactNumber", e.target.value)} placeholder="+91 9876543210" required />
           </label>
           <label className="admin-field">
-            <span>WhatsApp (optional)</span>
-            <input type="tel" value={form.whatsappNumber} onChange={(e) => update("whatsappNumber", e.target.value)} placeholder="+91 9876543210" />
+            <span>WhatsApp {form.whatsappSameAsPhone ? "(same as phone)" : "(optional)"}</span>
+            <input
+              type="tel"
+              value={form.whatsappSameAsPhone ? form.contactNumber : form.whatsappNumber}
+              onChange={(e) => update("whatsappNumber", e.target.value)}
+              placeholder="+91 9876543210"
+              disabled={form.whatsappSameAsPhone}
+            />
           </label>
         </div>
+        <label className="admin-field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={form.whatsappSameAsPhone}
+            onChange={(e) => update("whatsappSameAsPhone", e.target.checked)}
+          />
+          <span>WhatsApp same as phone</span>
+        </label>
       </div>
 
       <div className="admin-form-actions">

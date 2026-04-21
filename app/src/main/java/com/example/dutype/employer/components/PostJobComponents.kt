@@ -31,6 +31,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -781,7 +783,11 @@ fun ContactSection(
     contactNumber: String,
     onContactNumberChange: (String) -> Unit,
     employerName: String,
-    onEmployerNameChange: (String) -> Unit
+    onEmployerNameChange: (String) -> Unit,
+    whatsappNumber: String,
+    onWhatsappNumberChange: (String) -> Unit,
+    whatsappSameAsPhone: Boolean,
+    onWhatsappSameAsPhoneChange: (Boolean) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
 
@@ -817,7 +823,7 @@ fun ContactSection(
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Phone, 
+                        Icons.Default.Phone,
                         contentDescription = null,
                         tint = Color(0xFF6B7280)
                     )
@@ -830,6 +836,48 @@ fun ContactSection(
                 )
             )
 
+            // WhatsApp number + same-as-phone checkbox
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Checkbox(
+                    checked = whatsappSameAsPhone,
+                    onCheckedChange = onWhatsappSameAsPhoneChange,
+                    colors = CheckboxDefaults.colors(checkedColor = primaryBlue)
+                )
+                Text(
+                    text = "WhatsApp same as phone",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF1E293B)
+                )
+            }
+            if (!whatsappSameAsPhone) {
+                OutlinedTextField(
+                    value = whatsappNumber,
+                    onValueChange = onWhatsappNumberChange,
+                    label = { Text("WhatsApp number") },
+                    placeholder = { Text("+91 9876543210") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color(0xFF25D366)
+                        )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryBlue,
+                        focusedLabelColor = primaryBlue,
+                        unfocusedBorderColor = Color(0xFFE2E8F0),
+                        cursorColor = primaryBlue
+                    )
+                )
+            }
+
             OutlinedTextField(
                 value = employerName,
                 onValueChange = onEmployerNameChange,
@@ -840,7 +888,7 @@ fun ContactSection(
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Person, 
+                        Icons.Default.Person,
                         contentDescription = null,
                         tint = Color(0xFF6B7280)
                     )

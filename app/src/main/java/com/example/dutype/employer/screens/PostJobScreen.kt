@@ -213,6 +213,8 @@ fun PostJobScreen(
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
+    var whatsappNumber by remember { mutableStateOf("") }
+    var whatsappSameAsPhone by remember { mutableStateOf(true) }
     var category by remember { mutableStateOf(JobCategory.COOK) }
     var customCategory by remember { mutableStateOf("") }
     // Track whether the employer hand-picked a category. Auto-detection from
@@ -643,6 +645,7 @@ fun PostJobScreen(
             
             // Contact information
             "contactNumber" to jobPosting.contactNumber,
+            "whatsappNumber" to (if (whatsappSameAsPhone) jobPosting.contactNumber else whatsappNumber),
             "workingHours" to workType,
             
             // Job metadata — createdAt/expiresAt set by JobFirestoreService.createJob()
@@ -1463,7 +1466,11 @@ fun PostJobScreen(
                             contactNumber = contactNumber,
                             onContactNumberChange = { contactNumber = it },
                             employerName = employerName,
-                            onEmployerNameChange = { employerName = it }
+                            onEmployerNameChange = { employerName = it },
+                            whatsappNumber = whatsappNumber,
+                            onWhatsappNumberChange = { whatsappNumber = it },
+                            whatsappSameAsPhone = whatsappSameAsPhone,
+                            onWhatsappSameAsPhoneChange = { whatsappSameAsPhone = it }
                         )
                     }
 
