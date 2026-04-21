@@ -337,28 +337,47 @@ class LocationService(private val context: Context) {
 
     /**
      * Get current location with improved accuracy and error handling
-     * Uses high accuracy priority and falls back to balanced if needed
+     *
+     * Fast-path strategy (Uber/Swiggy pattern):
+     *  1. In-memory cache hit → instant
+     *  2. FusedLocationProvider.lastLocation (instant, no GPS lock) → fast
+     *  3. getCurrentLocation(BALANCED, 5s) → medium
+     *  4. tryLastKnownLocation() → fallback
      */
     suspend fun getCurrentLocation(): LocationInfo? {
         Timber.d("📍 LOCATION SERVICE: getCurrentLocation() called")
         _locationState.value = LocationState.Loading
-        
-        // Skip cache for fresh location - user wants accurate location
-        // getCachedLocation()?.let { cached ->
-        //     _locationState.value = LocationState.Success(cached)
-        //     return cached
-        // }
-        
+
+        // Fast path 1 — cache hit returns instantly.
+        getCachedLocation()?.let { cached ->
+            Timber.d("📍 LOCATION SERVICE: ⚡ cache hit")
+            _locationState.value = LocationState.Success(cached)
+            return cached
+        }
+
         if (!hasLocationPermission()) {
             Timber.w("📍 LOCATION SERVICE: No location permission")
             _locationState.value = LocationState.Error("Location permission not granted")
             return null
         }
-        
+
         if (!isLocationEnabled()) {
             Timber.w("📍 LOCATION SERVICE: Location not enabled")
             _locationState.value = LocationState.Error("Please enable location services")
             return null
+        }
+
+        // Fast path 2 — last known location is usually instant and good enough
+        // for profile-setup / job-posting screens.
+        val lastKnown = suspendCancellableCoroutine<LocationInfo?> { cont ->
+            tryLastKnownLocation { cont.resume(it) }
+        }
+        if (lastKnown != null) {
+            Timber.d("📍 LOCATION SERVICE: ⚡ last-known returned fast")
+            cachedLocation = lastKnown
+            lastLocationTime = System.currentTimeMillis()
+            _locationState.value = LocationState.Success(lastKnown)
+            return lastKnown
         }
 
         return suspendCancellableCoroutine { continuation ->
@@ -369,9 +388,9 @@ class LocationService(private val context: Context) {
             }
 
             try {
-                Timber.d("📍 LOCATION SERVICE: Requesting current location with HIGH_ACCURACY...")
+                Timber.d("📍 LOCATION SERVICE: Requesting current location with BALANCED priority...")
                 fusedLocationClient.getCurrentLocation(
-                    Priority.PRIORITY_HIGH_ACCURACY,
+                    Priority.PRIORITY_BALANCED_POWER_ACCURACY,
                     cancellationTokenSource.token
                 ).addOnSuccessListener { location ->
                     Timber.d("📍 LOCATION SERVICE: Location callback received")

@@ -108,9 +108,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-internal val WorkerHomeHeaderTopColor = Color(0xFFFFFFFF)
-internal val WorkerHomeHeaderMidColor = Color(0xFFF8FAFC)
-internal val WorkerHomeHeaderBottomColor = Color(0xFFEEF6FF)
+internal val WorkerHomeHeaderTopColor = Color(0xFF000000)
+internal val WorkerHomeHeaderMidColor = Color(0xFF000000)
+internal val WorkerHomeHeaderBottomColor = Color(0xFF000000)
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -355,9 +355,8 @@ fun WorkerHomeScreen(
         }
     }
     
-    // LAZY LOAD: Announcements - only when user scrolls to announcement section
+    // Load announcements immediately so guests and logged-in users both see them.
     LaunchedEffect(Unit) {
-        delay(2500)
         announcementViewModel.loadAnnouncements("worker")
     }
 

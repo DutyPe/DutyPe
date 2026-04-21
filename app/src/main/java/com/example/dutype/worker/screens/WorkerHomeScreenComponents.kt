@@ -1159,9 +1159,9 @@ internal fun DynamicHeader(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            // Solid card surface for the worker home header — no gradient.
+            // Solid black surface for the worker home header.
             .background(
-                color = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
+                color = Color.Black,
                 shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             )
     ) {
@@ -1181,7 +1181,7 @@ internal fun DynamicHeader(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 21.sp,
-                        color = Color(0xFF1A1A1A)
+                        color = Color.White
                     )
                 )
             }
@@ -1197,7 +1197,7 @@ internal fun DynamicHeader(
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color(0xFF1A1A1A),
+                            tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -1246,7 +1246,7 @@ internal fun DynamicHeader(
                 color = Color.Transparent,
                 border = androidx.compose.foundation.BorderStroke(
                     width = 1.dp,
-                    color = Color(0xFF1A1A1A).copy(alpha = 0.08f + (0.12f * locationBarAlpha))
+                    color = Color.White.copy(alpha = 0.18f + (0.22f * locationBarAlpha))
                 )
             ) {
                 Row(
@@ -1267,7 +1267,7 @@ internal fun DynamicHeader(
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFF92400E).copy(alpha = 0.82f + (0.18f * locationBarAlpha)),
+                                tint = Color.White.copy(alpha = 0.82f + (0.18f * locationBarAlpha)),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1279,7 +1279,7 @@ internal fun DynamicHeader(
                                 text = locationText,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF1A1A1A).copy(alpha = 0.8f + (0.2f * locationBarAlpha)),
+                                    color = Color.White.copy(alpha = 0.85f + (0.15f * locationBarAlpha)),
                                     fontSize = 14.sp
                                 ),
                                 maxLines = 1,
@@ -1296,13 +1296,13 @@ internal fun DynamicHeader(
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = Color(0xFF92400E).copy(alpha = 0.82f + (0.18f * locationBarAlpha))
+                                color = Color.White.copy(alpha = 0.82f + (0.18f * locationBarAlpha))
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.ChevronRight,
                                 contentDescription = null,
-                                tint = Color(0xFF1A1A1A).copy(alpha = 0.52f + (0.28f * locationBarAlpha)),
+                                tint = Color.White.copy(alpha = 0.6f + (0.3f * locationBarAlpha)),
                                 modifier = Modifier.size(20.dp)
                             )
                         }

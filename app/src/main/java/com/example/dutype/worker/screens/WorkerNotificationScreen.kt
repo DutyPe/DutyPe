@@ -85,7 +85,6 @@ fun WorkerNotificationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val isGuestUser = FirebaseAuth.getInstance().currentUser == null
 
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
@@ -186,54 +185,50 @@ fun WorkerNotificationScreen(
                 }
             }
             uiState.notifications.isEmpty() -> {
-                if (isGuestUser) {
-                    GuestWorkerNotificationPreview()
-                } else {
-                    // Empty state with enhanced design
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                // Empty state with enhanced design (same look for guests and signed-in users)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .background(
+                                    Color(0xFFF3F4F6),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = "No notifications",
+                                tint = Color.Black,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(24.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .background(
-                                        Color(0xFFF3F4F6),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = "No notifications",
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(48.dp)
+                            Text(
+                                text = stringResource(R.string.notif_no_notifications),
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold
                                 )
-                            }
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.notif_no_notifications),
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        color = Color.Black,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                                Text(
-                                    text = stringResource(R.string.notif_worker_empty_desc),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color.Black
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 40.dp),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            }
+                            )
+                            Text(
+                                text = stringResource(R.string.notif_worker_empty_desc),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color.Black
+                                ),
+                                modifier = Modifier.padding(horizontal = 40.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
                         }
                     }
                 }
@@ -287,68 +282,6 @@ fun WorkerNotificationScreen(
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GuestWorkerNotificationPreview() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val previewItems = listOf(
-        Pair(stringResource(R.string.notif_worker_preview_1_title), stringResource(R.string.notif_worker_preview_1_desc)),
-        Pair(stringResource(R.string.notif_worker_preview_2_title), stringResource(R.string.notif_worker_preview_2_desc)),
-        Pair(stringResource(R.string.notif_worker_preview_3_title), stringResource(R.string.notif_worker_preview_3_desc))
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.notif_preview_title),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF111827)
-            )
-        )
-        Text(
-            text = stringResource(R.string.notif_worker_preview_desc),
-            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
-        )
-
-        previewItems.forEach { item ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.notif_worker_login_toast),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = item.first,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF111827)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = item.second,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
-                    )
                 }
             }
         }

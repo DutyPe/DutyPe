@@ -281,9 +281,9 @@ fun EmployerHomeScreen(
     val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // Set status bar color once on entering this screen.
+    // Set status bar color once on entering this screen — matches the black welcome header.
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(EmployerColors.StatusBarColor)
+        onStatusBarColorChange(Color.Black)
     }
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
@@ -686,7 +686,7 @@ fun WelcomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Transparent)  // Transparent to show gradient background
+            .background(Color.Black)
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -703,7 +703,7 @@ fun WelcomeHeader(
             style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 24.sp,
-                color = WorkerColors.TextPrimary
+                color = Color.White
             ),
             modifier = Modifier.weight(1f)
         )
@@ -717,7 +717,7 @@ fun WelcomeHeader(
                 Icon(
                     imageVector = Icons.Outlined.Notifications,  // Changed to outlined like worker screen
                     contentDescription = "Notifications",
-                    tint = WorkerColors.TextPrimary,
+                    tint = Color.White,
                     modifier = Modifier.size(24.dp)  // Consistent size with worker screen
                 )
             }
