@@ -385,7 +385,6 @@ class JobFirestoreService @Inject constructor(
             // jobmetadata = card data only (~200 bytes), job_details = full data (~1KB)
 
             val cardData = linkedMapOf<String, Any>(
-                "employerId" to employerId,
                 "title" to title,
                 "companyName" to companyName,
                 "jobType" to jobType,
@@ -397,11 +396,13 @@ class JobFirestoreService @Inject constructor(
                 "contactNumber" to contactNumber,
                 "urgency" to urgency,
                 "status" to "open",
-                "createdAt" to createdAt,
-                "expiresAt" to expiresAt
+                "createdAt" to createdAt
             )
 
             val detailsData = linkedMapOf<String, Any>(
+                "employerId" to employerId,
+                "createdAt" to createdAt,
+                "expiresAt" to expiresAt,
                 "description" to description,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,

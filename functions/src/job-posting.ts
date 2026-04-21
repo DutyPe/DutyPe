@@ -102,9 +102,10 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
 
   try {
     // Idempotency + creation atomically inside one transaction.
+    // employerId + expiresAt + idempotencyKey now live in job_details (slim jobmetadata).
     const result = await db.runTransaction(async (tx) => {
       const dup = await tx.get(
-        db.collection("jobmetadata")
+        db.collection("job_details")
           .where("employerId", "==", uid)
           .where("idempotencyKey", "==", idempotencyKey)
           .limit(1)
@@ -113,9 +114,10 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
         return { jobId: dup.docs[0].id, duplicate: true as const };
       }
 
-      const ref = db.collection("jobmetadata").doc();
-      tx.set(ref, {
-        employerId: uid,                       // server-set — never trust client
+      const metaRef = db.collection("jobmetadata").doc();
+      const detailsRef = db.collection("job_details").doc(metaRef.id);
+      const createdAt = admin.firestore.FieldValue.serverTimestamp();
+      tx.set(metaRef, {
         companyName,
         title,
         jobType,
@@ -126,11 +128,15 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
         addressText,
         urgency: urgencyRaw,
         status: "open",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt,
+      });
+      tx.set(detailsRef, {
+        employerId: uid,                       // server-set — never trust client
+        createdAt,
         expiresAt,
         idempotencyKey,
       });
-      return { jobId: ref.id, duplicate: false as const };
+      return { jobId: metaRef.id, duplicate: false as const };
     });
 
     functions.logger.info(`job-posting: ${result.duplicate ? "duplicate" : "created"} ${result.jobId} by ${uid}`);
@@ -167,18 +173,20 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
     const results: { [k: string]: { status?: string; error?: string } } = {};
     for (const idRaw of jobIds) {
       const jobId = String(idRaw);
-      const snap = await db.collection("jobmetadata").doc(jobId).get();
-      if (!snap.exists) {
+      const metaSnap = await db.collection("jobmetadata").doc(jobId).get();
+      if (!metaSnap.exists) {
         results[jobId] = { error: "Job not found" };
         continue;
       }
-      const d = snap.data() || {};
-      if (d.employerId !== uid) {
+      // Ownership lives in job_details (slim jobmetadata schema).
+      const detailsSnap = await db.collection("job_details").doc(jobId).get();
+      const ownerId = detailsSnap.exists ? (detailsSnap.get("employerId") as string | undefined) : undefined;
+      if (ownerId !== uid) {
         // Ownership check — do NOT leak status of jobs you don't own.
         results[jobId] = { error: "Forbidden" };
         continue;
       }
-      results[jobId] = { status: d.status ?? "open" };
+      results[jobId] = { status: (metaSnap.get("status") as string | undefined) ?? "open" };
     }
     return { success: true, results };
   } catch (err: any) {

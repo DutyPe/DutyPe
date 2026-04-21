@@ -205,7 +205,7 @@ service cloud.firestore {
     }
 
     // ── jobmetadata ────────────────────────────────────────────────────
-    // Public card-list payload. Tiny. Everything else is in job_details.
+    // Public card-list payload. Tiny. employerId + expiresAt live in job_details.
     match /jobmetadata/{jobId} {
       allow read, write: if isAdmin();
 
@@ -213,16 +213,18 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'employerId', 'companyName', 'title', 'jobType',
+          'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt', 'expiresAt'
+          'urgency', 'status', 'createdAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'employerId', 'companyName', 'title', 'jobType',
+          'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'urgency', 'status', 'createdAt', 'expiresAt'
+          'urgency', 'status', 'createdAt'
         ]) &&
-        request.resource.data.employerId == request.auth.uid &&
+        // Ownership is enforced via the sibling job_details doc created in the same batch.
+        existsAfter(/databases/$(database)/documents/job_details/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.companyName is string &&
         request.resource.data.companyName.size() <= 120 &&
         request.resource.data.title is string &&
@@ -238,17 +240,16 @@ service cloud.firestore {
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
-        request.resource.data.createdAt is timestamp &&
-        request.resource.data.expiresAt is timestamp;
+        request.resource.data.createdAt is timestamp;
 
       allow update: if isSignedIn() &&
-        resource.data.employerId == request.auth.uid &&
+        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
-          'employerId', 'companyName', 'title', 'jobType',
+          'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt', 'expiresAt'
+          'urgency', 'status', 'createdAt'
         ]) &&
-        request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120 &&
         request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
@@ -260,14 +261,16 @@ service cloud.firestore {
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
-        request.resource.data.status in ['open', 'closed', 'expired'] &&
-        request.resource.data.expiresAt is timestamp;
+        request.resource.data.status in ['open', 'closed', 'expired'];
 
-      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      allow delete: if isSignedIn() &&
+        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid;
     }
 
     // ── job_details ────────────────────────────────────────────────────
-    // Private, auth-required. Holds ONLY fields not present in jobmetadata.
+    // Private, auth-required. Holds employerId, expiresAt and rich fields
+    // not present in the slim public jobmetadata card.
     match /job_details/{jobId} {
       allow read, write: if isAdmin();
 
@@ -275,16 +278,19 @@ service cloud.firestore {
       allow list: if false;
 
       allow create: if isSignedIn() &&
-        existsAfter(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
-        getAfter(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
+          'employerId', 'createdAt', 'expiresAt', 'idempotencyKey',
           'description', 'contactNumber', 'whatsappNumber',
           'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
           'vacancies', 'benefits', 'applicationCount'
         ]) &&
         request.resource.data.keys().hasAll([
-          'description', 'contactNumber', 'vacancies', 'benefits'
+          'employerId', 'expiresAt', 'description', 'contactNumber', 'vacancies', 'benefits'
         ]) &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.expiresAt is timestamp &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('idempotencyKey' in request.resource.data) || (request.resource.data.idempotencyKey is string && request.resource.data.idempotencyKey.size() >= 8 && request.resource.data.idempotencyKey.size() <= 64)) &&
         request.resource.data.description is string &&
         request.resource.data.description.size() <= 5000 &&
         request.resource.data.contactNumber is string &&
@@ -301,22 +307,21 @@ service cloud.firestore {
         (!('workingHours' in request.resource.data) || request.resource.data.workingHours is string);
 
       allow update: if isSignedIn() &&
-        exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
-        get(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'description', 'contactNumber', 'whatsappNumber',
           'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
-          'vacancies', 'benefits', 'applicationCount'
+          'vacancies', 'benefits', 'applicationCount', 'expiresAt'
         ]) &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
         (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000)) &&
         (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
-        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0));
+        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
+        (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
 
-      allow delete: if isSignedIn() &&
-        exists(/databases/$(database)/documents/jobmetadata/$(jobId)) &&
-        get(/databases/$(database)/documents/jobmetadata/$(jobId)).data.employerId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
     }
 
     // ── applications ──────────────────────────────────────────────────
@@ -347,7 +352,8 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
-        get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
+        exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
+        get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
 
       // STATE MACHINE: only status can change, and only along legal transitions.
       //   applied      → shortlisted | rejected | hired   (employer)

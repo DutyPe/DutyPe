@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
     );
 
     const cardData: Record<string, unknown> = {
-      employerId,
       companyName,
       title,
       jobType,
@@ -193,11 +192,13 @@ export async function POST(request: NextRequest) {
       urgency,
       status: "open",
       isVerified: true,
-      createdAt: Timestamp.fromDate(now),
-      expiresAt: Timestamp.fromDate(expiresAt)
+      createdAt: Timestamp.fromDate(now)
     };
 
     const detailsData: Record<string, unknown> = {
+      employerId,
+      createdAt: Timestamp.fromDate(now),
+      expiresAt: Timestamp.fromDate(expiresAt),
       description,
       contactNumber,
       gender,

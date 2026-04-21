@@ -527,9 +527,29 @@ export const detectDuplicateJob = functions.firestore
   .onCreate(async (snapshot, context) => {
     const job = snapshot.data();
     const jobId = context.params.jobId;
-    const employerId = job.employerId;
+
+    // employerId now lives in job_details (slim jobmetadata schema).
+    const detailsSnap = await db.collection("job_details").doc(jobId).get();
+    const employerId = (detailsSnap.exists ? detailsSnap.get("employerId") : null) as string | null;
+    if (!employerId) {
+      functions.logger.warn(`🔍 DUPLICATE CHECK: No employerId found in job_details for ${jobId}`);
+      return;
+    }
 
     functions.logger.info(`🔍 DUPLICATE CHECK: Analyzing job ${jobId}`);
+
+    // Helper: look up employerId for a set of jobIds via job_details in parallel.
+    const resolveEmployerIds = async (ids: string[]): Promise<Map<string, string>> => {
+      if (ids.length === 0) return new Map();
+      const refs = ids.map((id) => db.collection("job_details").doc(id));
+      const snaps = await db.getAll(...refs);
+      const result = new Map<string, string>();
+      for (const snap of snaps) {
+        const eid = snap.exists ? (snap.get("employerId") as string | undefined) : undefined;
+        if (eid) result.set(snap.id, eid);
+      }
+      return result;
+    };
 
     try {
       let fraudScore = 0;
@@ -546,9 +566,12 @@ export const detectDuplicateJob = functions.firestore
           .limit(10)
           .get();
 
-        const differentUserSameContact = sameContactJobs.docs.filter(
-          doc => doc.data().employerId !== employerId && doc.id !== jobId
-        );
+        const candidateIds = sameContactJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+        const employerMap = await resolveEmployerIds(candidateIds);
+        const differentUserSameContact = candidateIds.filter((id) => {
+          const eid = employerMap.get(id);
+          return eid && eid !== employerId;
+        });
 
         if (differentUserSameContact.length > 0) {
           fraudScore += 50;
@@ -558,18 +581,33 @@ export const detectDuplicateJob = functions.firestore
       }
 
       // CHECK 2: Similar description (>70% match)
-      const recentJobs = await db.collection("jobmetadata")
+      const recentJobsSnap = await db.collection("jobmetadata")
         .where("createdAt", ">", twentyFourHoursAgoTs)
-        .where("employerId", "!=", employerId)
         .limit(50)
         .get();
 
-      for (const recentJob of recentJobs.docs) {
+      const recentIds = recentJobsSnap.docs.map((d) => d.id).filter((id) => id !== jobId);
+      const recentEmployerMap = await resolveEmployerIds(recentIds);
+      const recentDetailsMap = new Map<string, FirebaseFirestore.DocumentData>();
+      {
+        const detailRefs = recentIds.map((id) => db.collection("job_details").doc(id));
+        if (detailRefs.length > 0) {
+          const detailSnaps = await db.getAll(...detailRefs);
+          for (const ds of detailSnaps) {
+            if (ds.exists) recentDetailsMap.set(ds.id, ds.data() || {});
+          }
+        }
+      }
+
+      for (const recentJob of recentJobsSnap.docs) {
         if (recentJob.id === jobId) continue;
-        
+        const otherEmployerId = recentEmployerMap.get(recentJob.id);
+        if (!otherEmployerId || otherEmployerId === employerId) continue;
+
+        const otherDescription = recentDetailsMap.get(recentJob.id)?.description || "";
         const similarity = calculateTextSimilarity(
           job.description || "",
-          recentJob.data().description || ""
+          otherDescription
         );
 
         if (similarity > 0.7) {
@@ -599,10 +637,15 @@ export const detectDuplicateJob = functions.firestore
           .limit(20)
           .get();
 
+        const titleCandidateIds = sameTitleJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+        const titleEmployerMap = await resolveEmployerIds(titleCandidateIds);
+
         for (const sameTitleJob of sameTitleJobs.docs) {
           if (sameTitleJob.id === jobId) continue;
           const otherJob = sameTitleJob.data();
-          
+          const otherEmployerId = titleEmployerMap.get(sameTitleJob.id);
+          if (!otherEmployerId) continue;
+
           const otherLat = typeof otherJob.latitude === "number"
             ? otherJob.latitude
             : typeof otherJob.location?.lat === "number"
@@ -619,8 +662,8 @@ export const detectDuplicateJob = functions.firestore
             const latDiff = Math.abs(jobLat - otherLat);
             const lngDiff = Math.abs(jobLng - otherLng);
             const isNearby = latDiff < 0.01 && lngDiff < 0.01; // ~1km
-            
-            if (isNearby && otherJob.employerId !== employerId) {
+
+            if (isNearby && otherEmployerId !== employerId) {
               fraudScore += 30;
               signals.push("SAME_TITLE_SAME_AREA");
               functions.logger.warn(`🔍 DUPLICATE: Same title "${job.title}" in same area`);
@@ -922,13 +965,18 @@ export const processJobReport = functions.firestore
         jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
 
         // Notify employer instead of creating legacy moderation queue documents.
-        if (jobData?.employerId) {
-          const hideLocale = await getUserLanguage(db, jobData.employerId);
-          const hideRecipient = await getUserDisplayName(db, jobData.employerId);
+        // employerId now lives in job_details (slim jobmetadata schema).
+        const detailsSnapForReport = await db.collection("job_details").doc(jobId).get();
+        const reportEmployerId = detailsSnapForReport.exists
+          ? (detailsSnapForReport.get("employerId") as string | undefined)
+          : undefined;
+        if (reportEmployerId) {
+          const hideLocale = await getUserLanguage(db, reportEmployerId);
+          const hideRecipient = await getUserDisplayName(db, reportEmployerId);
           await db.collection("notifications").add({
-            recipientId: jobData.employerId,
-            title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title, recipient: hideRecipient }),
-            message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title, recipient: hideRecipient }),
+            recipientId: reportEmployerId,
+            title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData?.title ?? "", recipient: hideRecipient }),
+            message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData?.title ?? "", recipient: hideRecipient }),
             type: "JOB_HIDDEN",
             locale: hideLocale,
             data: {

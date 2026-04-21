@@ -459,25 +459,31 @@ export const checkExpiringJobs = functions.pubsub
     const tomorrow = now + (24 * 60 * 60 * 1000);
     
     try {
-      // Query jobs expiring in 24 hours
-      const jobsSnapshot = await admin.firestore()
-        .collection('jobmetadata')
-        .where('status', '==', 'open')
+      // Query job_details (employerId + expiresAt now live there).
+      const detailsSnapshot = await admin.firestore()
+        .collection('job_details')
         .where('expiresAt', '<', tomorrow)
         .where('expiresAt', '>', now)
         .limit(100)
         .get();
       
-      console.log(`â° Found ${jobsSnapshot.size} jobs expiring in 24 hours`);
+      console.log(`â° Found ${detailsSnapshot.size} job_details expiring in 24 hours`);
       
       let sentCount = 0;
       
-      for (const doc of jobsSnapshot.docs) {
-        const job = doc.data();
-        const jobId = doc.id;
-        const employerId = job.employerId;
+      for (const detailsDoc of detailsSnapshot.docs) {
+        const details = detailsDoc.data();
+        const jobId = detailsDoc.id;
+        const employerId = details.employerId;
+        const expiresAt = details.expiresAt;
         
         if (!employerId) continue;
+        
+        // Fetch jobmetadata to verify status == 'open' and get title.
+        const metaDoc = await admin.firestore().collection('jobmetadata').doc(jobId).get();
+        if (!metaDoc.exists) continue;
+        const job = metaDoc.data() || {};
+        if (job.status !== 'open') continue;
         
         // Get employer user document to check active role
         const employerDoc = await admin.firestore()
@@ -497,7 +503,7 @@ export const checkExpiringJobs = functions.pubsub
         
         // Check if we can send notification
         if (await canSendNotification(employerId, 'job_expiry', 24 * 60 * 60 * 1000)) {
-          const hoursLeft = Math.floor((job.expiresAt - now) / (1000 * 60 * 60));
+          const hoursLeft = Math.floor((expiresAt - now) / (1000 * 60 * 60));
           const locale = await getUserLanguage(admin.firestore(), employerId);
           const recipient = await getUserDisplayName(admin.firestore(), employerId);
           const tParams = { jobTitle: job.title, hoursLeft, recipient };
@@ -940,16 +946,16 @@ export const reEngageInactiveEmployers = functions.pubsub
           continue;
         }
         
-        // Check last job post
+        // Check last job post (employerId now lives in job_details).
         const lastJobSnapshot = await admin.firestore()
-          .collection('jobmetadata')
+          .collection('job_details')
           .where('employerId', '==', userId)
-          .orderBy('postedAt', 'desc')
+          .orderBy('createdAt', 'desc')
           .limit(1)
           .get();
-        
-        const shouldReEngage = lastJobSnapshot.empty || 
-          (lastJobSnapshot.docs[0].data().postedAt < fifteenDaysAgo);
+
+        const shouldReEngage = lastJobSnapshot.empty ||
+          (lastJobSnapshot.docs[0].data().createdAt < fifteenDaysAgo);
         
         if (shouldReEngage) {
           const locale = await getUserLanguage(admin.firestore(), userId);
