@@ -468,6 +468,7 @@ fun LoginBottomSheet(
                         onPhoneNumberChange = { phoneNumber = it },
                         registerName = registerName,
                         onRegisterNameChange = { registerName = it },
+                        role = role,
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
@@ -504,7 +505,11 @@ fun LoginBottomSheet(
                             if (isRegistrationMode && registerName.trim().length < 2) {
                                 Toast.makeText(
                                     context,
-                                    if (isTelugu) "దయచేసి మీ పూర్తి పేరు నమోదు చేయండి." else "Please enter your full name to register.",
+                                    if (role == UserRole.EMPLOYER) {
+                                        if (isTelugu) "దయచేసి మీ కంపెనీ పేరును నమోదు చేయండి." else "Please enter your company name to register."
+                                    } else {
+                                        if (isTelugu) "దయచేసి మీ పూర్తి పేరు నమోదు చేయండి." else "Please enter your full name to register."
+                                    },
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
@@ -620,6 +625,7 @@ private fun PhoneInputContent(
     onPhoneNumberChange: (String) -> Unit,
     registerName: String,
     onRegisterNameChange: (String) -> Unit,
+    role: UserRole,
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
@@ -774,14 +780,18 @@ private fun PhoneInputContent(
         
         Spacer(modifier = Modifier.height(12.dp))
 
-        // FULL NAME — only required when registering a new account
+        // Registration name — full name for workers, company name for employers
         if (isRegistrationMode) {
             OutlinedTextField(
                 value = registerName,
                 onValueChange = { onRegisterNameChange(it.take(60)) },
                 placeholder = {
                     Text(
-                        if (isTelugu) "మీ పూర్తి పేరు" else "Full name",
+                        if (role == UserRole.EMPLOYER) {
+                            if (isTelugu) "మీ కంపెనీ పేరు" else "Company name"
+                        } else {
+                            if (isTelugu) "మీ పూర్తి పేరు" else "Full name"
+                        },
                         style = AppTypography.bodyLarge.copy(
                             color = WorkerColors.TextTertiary,
                             fontSize = 16.sp

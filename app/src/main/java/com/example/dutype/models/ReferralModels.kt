@@ -164,6 +164,15 @@ data class WithdrawalRequest(
     }
 }
 
+@Keep
+@Immutable
+data class ReferrerInfo(
+    val referredByCode: String = "",
+    val referredByUserId: String = "",
+    val referrerName: String = "",
+    val referrerRole: String = ""
+)
+
 enum class WithdrawalStatus {
     PENDING,
     PROCESSING,
@@ -183,7 +192,7 @@ enum class PaymentMethod {
 object ReferralRewards {
     const val REWARD_PER_REFERRAL = 25.0
     const val SIGNUP_BONUS = 25.0
-    const val MIN_WITHDRAWAL_AMOUNT = 50.0
+    const val MIN_WITHDRAWAL_AMOUNT = 100.0
     
     val MILESTONES = mapOf(
         5 to 50.0,
@@ -194,8 +203,8 @@ object ReferralRewards {
         100 to 1000.0
     )
     
-    fun canWithdraw(successfulReferrals: Int): Boolean =
-        successfulReferrals >= 15 || successfulReferrals in listOf(5, 10, 15)
+    fun canWithdraw(availableBalance: Double, minWithdrawal: Double = MIN_WITHDRAWAL_AMOUNT): Boolean =
+        availableBalance >= minWithdrawal
     
     fun getTierDisplayName(tier: ReferralTier): String = when (tier) {
         ReferralTier.BRONZE -> "Bronze"

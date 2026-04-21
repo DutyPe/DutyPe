@@ -46,7 +46,7 @@ const REFERRAL_CONFIG = {
   // Reward amounts (in INR)
   REWARD_PER_REFERRAL: 25,           // ₹25 per successful referral
   SIGNUP_BONUS: 25,                   // ₹25 for new user who uses code
-  MIN_WITHDRAWAL: 50,                 // Minimum ₹50 to withdraw
+  MIN_WITHDRAWAL: 100,                // Minimum ₹100 to withdraw
   MAX_WITHDRAWAL_PER_DAY: 1000,       // Max ₹1000 per day
   
   // Milestone bonuses
@@ -58,9 +58,6 @@ const REFERRAL_CONFIG = {
     50: 500,  // 50 referrals = ₹500 bonus
     100: 1000 // 100 referrals = ₹1000 bonus
   } as { [key: number]: number },
-  
-  // Withdrawal milestones (can withdraw at these counts)
-  WITHDRAWAL_MILESTONES: [5, 10, 15],
   
   // Employer free job postings
   EMPLOYER_FREE_POSTINGS: {
@@ -154,11 +151,10 @@ function getNextMilestone(successfulReferrals: number): number {
 }
 
 /**
- * Check if user can withdraw based on referral count
+ * Check if user can withdraw based on available balance
  */
-function canWithdraw(successfulReferrals: number): boolean {
-  return successfulReferrals >= 15 || 
-         REFERRAL_CONFIG.WITHDRAWAL_MILESTONES.includes(successfulReferrals);
+function canWithdraw(availableBalance: number, minWithdrawal: number): boolean {
+  return availableBalance >= minWithdrawal;
 }
 
 /**
@@ -809,13 +805,15 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       }
 
       const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
+      const currentAvailableBalance = getNumberValue(referrerStats.availableBalance);
       const newSuccessfulCount = currentSuccessful + 1;
       const referrerReward = cfg.rewardPerReferral;
       const referredUserReward = cfg.signupBonus;
       const milestoneBonus = getMilestoneBonus(newSuccessfulCount);
       const totalReferrerReward = referrerReward + milestoneBonus;
       const newTier = calculateTier(newSuccessfulCount);
-      const newCanWithdraw = canWithdraw(newSuccessfulCount);
+      const newAvailableBalance = currentAvailableBalance + totalReferrerReward;
+      const newCanWithdraw = canWithdraw(newAvailableBalance, cfg.minWithdrawal);
       const newNextMilestone = getNextMilestone(newSuccessfulCount);
       const referrerRole = getStringValue(referrerUserData.activeRole, "WORKER");
       const referrerName = getStringValue(
@@ -1044,6 +1042,7 @@ export const onReferredUserProfileComplete = functions.firestore
       const referrerUserData = referrerUserDoc.data() || {};
       const referrerStats = getCombinedReferralStats(referrerUserData, referrerStatsDoc.data() || {});
       const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
+      const currentAvailableBalance = getNumberValue(referrerStats.availableBalance);
       const newSuccessfulCount = currentSuccessful + 1;
 
       // Calculate rewards
@@ -1055,7 +1054,8 @@ export const onReferredUserProfileComplete = functions.firestore
 
       // Calculate new tier and withdrawal eligibility
       const newTier = calculateTier(newSuccessfulCount);
-      const newCanWithdraw = canWithdraw(newSuccessfulCount);
+      const newAvailableBalance = currentAvailableBalance + totalReferrerReward;
+      const newCanWithdraw = canWithdraw(newAvailableBalance, cfg2.minWithdrawal);
       const newNextMilestone = getNextMilestone(newSuccessfulCount);
 
       // Calculate employer free postings
@@ -1335,6 +1335,7 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
   }
 
   const cfg = await getReferralConfig();
+  const minWithdrawal = Math.max(cfg.minWithdrawal, 100);
   const amount = parseFloat(data.amount);
   const paymentMethod = data.paymentMethod || "UPI";
   const upiId = data.upiId;
@@ -1360,20 +1361,22 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       const userData = userDoc.data() || {};
       const stats = getCombinedReferralStats(userData, legacyStatsDoc.data() || {});
       const availableBalance = getNumberValue(stats.availableBalance);
-      const successfulReferrals = getNumberValue(stats.successfulReferrals);
-      const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(successfulReferrals));
+      const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(availableBalance, minWithdrawal));
 
       if (getBooleanValue(stats.isBlocked)) {
         return { success: false as const, error: "Your account is blocked from withdrawals" };
       }
       if (!canUserWithdraw) {
-        return { success: false as const, error: "You need at least 5 successful referrals to withdraw" };
+        return { success: false as const, error: "You need at least Rs." + minWithdrawal + " available to withdraw" };
       }
-      if (amount < cfg.minWithdrawal) {
-        return { success: false as const, error: "Minimum withdrawal is Rs." + cfg.minWithdrawal };
+      if (amount < minWithdrawal) {
+        return { success: false as const, error: "Minimum withdrawal is Rs." + minWithdrawal };
       }
       if (amount > availableBalance) {
         return { success: false as const, error: "Insufficient balance. Available: Rs." + availableBalance };
+      }
+      if (Math.abs(amount - availableBalance) > 0.01) {
+        return { success: false as const, error: "Withdraw the full available balance to empty your wallet" };
       }
 
       const today = new Date();

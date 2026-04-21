@@ -6,7 +6,7 @@
  * Shape (all numbers in INR unless stated):
  *   rewardPerReferral:  number   // default 25
  *   signupBonus:        number   // default 25
- *   minWithdrawal:      number   // default 50
+ *   minWithdrawal:      number   // default 100
  *   maxWithdrawalPerDay:number   // default 1000
  *   milestones:         { [count:string]: number }
  *   withdrawalMilestones: number[]
@@ -28,7 +28,7 @@ export interface ReferralConfig {
 export const DEFAULT_REFERRAL_CONFIG: ReferralConfig = {
   rewardPerReferral: 25,
   signupBonus: 25,
-  minWithdrawal: 50,
+  minWithdrawal: 100,
   maxWithdrawalPerDay: 1000,
   milestones: { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 },
   withdrawalMilestones: [5, 10, 15],
@@ -47,7 +47,7 @@ export async function getReferralConfig(): Promise<ReferralConfig> {
     const merged: ReferralConfig = {
       rewardPerReferral: num(data.rewardPerReferral, DEFAULT_REFERRAL_CONFIG.rewardPerReferral),
       signupBonus: num(data.signupBonus, DEFAULT_REFERRAL_CONFIG.signupBonus),
-      minWithdrawal: num(data.minWithdrawal, DEFAULT_REFERRAL_CONFIG.minWithdrawal),
+      minWithdrawal: Math.max(num(data.minWithdrawal, DEFAULT_REFERRAL_CONFIG.minWithdrawal), 100),
       maxWithdrawalPerDay: num(data.maxWithdrawalPerDay, DEFAULT_REFERRAL_CONFIG.maxWithdrawalPerDay),
       milestones: (data.milestones && typeof data.milestones === "object")
         ? data.milestones as Record<string, number>

@@ -39,6 +39,9 @@ class ReferralViewModel @Inject constructor(
     
     private val _successStories = MutableStateFlow<List<ReferralSuccessStory>>(emptyList())
     val successStories: StateFlow<List<ReferralSuccessStory>> = _successStories.asStateFlow()
+
+    private val _referrerInfo = MutableStateFlow(ReferrerInfo())
+    val referrerInfo: StateFlow<ReferrerInfo> = _referrerInfo.asStateFlow()
     
     /**
      * Load referral data for current user.
@@ -51,6 +54,8 @@ class ReferralViewModel @Inject constructor(
      */
     fun loadReferralData() {
         ensureRealtimeObservers()
+        loadWithdrawalHistory()
+        loadReferrerInfo()
     }
 
     fun refreshReferralStats() {
@@ -80,6 +85,31 @@ class ReferralViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
+            }
+        }
+    }
+
+    private fun loadWithdrawalHistory() {
+        viewModelScope.launch {
+            try {
+                val history = referralService.getWithdrawalHistory()
+                _uiState.value = _uiState.value.copy(withdrawalHistory = history)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load withdrawal history")
+            }
+        }
+    }
+
+    private fun loadReferrerInfo() {
+        viewModelScope.launch {
+            try {
+                val result = referralService.getCurrentUserReferrerInfo()
+                result.fold(
+                    onSuccess = { info -> _referrerInfo.value = info },
+                    onFailure = { e -> Timber.e(e, "Failed to load referrer info") }
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading referrer info")
             }
         }
     }
@@ -135,11 +165,12 @@ class ReferralViewModel @Inject constructor(
     /**
      * Request withdrawal
      */
-    fun requestWithdrawal(amount: Double, upiId: String) {
+    fun requestWithdrawal(upiId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessingWithdrawal = true, withdrawalError = null)
             
             try {
+                val amount = _uiState.value.stats?.availableBalance ?: 0.0
                 val result = referralService.requestWithdrawal(
                     amount = amount,
                     paymentMethod = PaymentMethod.UPI,
@@ -267,6 +298,7 @@ data class ReferralUiState(
     val error: String? = null,
     val stats: ReferralStats? = null,
     val referralHistory: List<Referral> = emptyList(),
+    val withdrawalHistory: List<WithdrawalRequest> = emptyList(),
     val leaderboard: List<ReferralStats> = emptyList(),
     val isLoadingLeaderboard: Boolean = false,
     val isProcessingWithdrawal: Boolean = false,

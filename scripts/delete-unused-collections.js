@@ -1,18 +1,24 @@
 const admin = require('firebase-admin');
-const path = require('path');
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
 
 // Initialize Firebase Admin
-// This will use Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS env var
+// Use the same service-account resolution strategy as other maintenance scripts.
 if (!admin.apps.length) {
   try {
-    // Try to initialize with default credentials
-    admin.initializeApp({
-      projectId: 'dutype-860ac'
-    });
-    console.log('✅ Firebase Admin initialized with project: dutype-860ac');
+    try {
+      const serviceAccount = loadServiceAccount();
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.project_id || 'dutype-860ac'
+      });
+      console.log(`✅ Firebase Admin initialized with service account project: ${serviceAccount.project_id || 'dutype-860ac'}`);
+    } catch (serviceAccountError) {
+      admin.initializeApp({ projectId: 'dutype-860ac' });
+      console.log('✅ Firebase Admin initialized with default credentials for project: dutype-860ac');
+    }
   } catch (error) {
     console.error('❌ Failed to initialize Firebase Admin:', error.message);
-    console.log('\n💡 To fix this, run: firebase login');
+    console.log('\n💡 To fix this, set FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH / FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON or configure Application Default Credentials');
     process.exit(1);
   }
 }
@@ -22,13 +28,14 @@ const db = admin.firestore();
 /**
  * COLLECTIONS TO DELETE (NOT USED IN CODEBASE):
  * 
- * 1. rate_limits - NOT USED (no code references)
- * 2. payment_transactions - NOT USED (no code references)
- * 3. broadcast_notifications - NOT USED (no code references)
- * 4. moderation_queue - NOT USED (no code references)
- * 5. activity_logs - NOT USED (no code references)
- * 6. suspicious_ips - NOT USED (no code references)
- * 7. subscription_usage - NOT USED (no code references)
+ * 1. _rate_limits - NOT USED (legacy internal rate-limit collection)
+ * 2. rate_limits - NOT USED (legacy alias)
+ * 3. payment_transactions - NOT USED (no code references)
+ * 4. broadcast_notifications - NOT USED (no code references)
+ * 5. moderation_queue - NOT USED (no code references)
+ * 6. activity_logs - NOT USED (no code references)
+ * 7. suspicious_ips - NOT USED (no code references)
+ * 8. subscription_usage - NOT USED (no code references)
  * 
  * COLLECTIONS TO KEEP (ACTIVELY USED):
  * - blacklists - USED in BlacklistService.kt
@@ -44,6 +51,7 @@ const db = admin.firestore();
  */
 
 const COLLECTIONS_TO_DELETE = [
+  '_rate_limits',
   'rate_limits',
   'payment_transactions',
   'broadcast_notifications',

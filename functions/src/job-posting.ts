@@ -5,7 +5,6 @@
  *   • Strict field whitelist mirroring firestore.rules /jobmetadata schema.
  *   • employerId is ALWAYS derived from context.auth.uid (never client-supplied).
  *   • Idempotency check + creation run inside one transaction — no race doubles.
- *   • Per-caller rate limiting (Firestore-backed) on write paths.
  *   • batchUpdateVacancyStatus only returns status for jobs the caller owns.
  */
 

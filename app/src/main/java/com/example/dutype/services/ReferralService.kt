@@ -186,6 +186,53 @@ class ReferralService @Inject constructor(
         )
     }
 
+    suspend fun getCurrentUserReferrerInfo(): Result<ReferrerInfo> {
+        val userId = auth.currentUser?.uid ?: return Result.success(ReferrerInfo())
+
+        return try {
+            val userDoc = firestore.collection(COLLECTION_USERS)
+                .document(userId)
+                .get()
+                .await()
+
+            val referredByCode = normalizeReferralCode(userDoc.getString("referredByCode") ?: "")
+            val referredByUserId = userDoc.getString("referredByUserId") ?: ""
+            var referrerName = ""
+            var referrerRole = ""
+
+            if (referredByUserId.isNotBlank()) {
+                val referrerDoc = firestore.collection(COLLECTION_USERS)
+                    .document(referredByUserId)
+                    .get()
+                    .await()
+                if (referrerDoc.exists()) {
+                    referrerName = referrerDoc.getString("fullName") ?: referrerDoc.getString("companyName") ?: ""
+                    referrerRole = referrerDoc.getString("activeRole") ?: ""
+                }
+            }
+
+            if (referrerName.isBlank() && referredByCode.isNotBlank()) {
+                val codeDoc = findReferralCodeDocument(referredByCode)
+                if (codeDoc != null && codeDoc.exists()) {
+                    referrerName = codeDoc.getString("userName") ?: ""
+                    referrerRole = codeDoc.getString("userRole") ?: referrerRole
+                }
+            }
+
+            Result.success(
+                ReferrerInfo(
+                    referredByCode = referredByCode,
+                    referredByUserId = referredByUserId,
+                    referrerName = referrerName,
+                    referrerRole = referrerRole
+                )
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "🎁 REFERRAL: Error getting referrer info")
+            Result.failure(e)
+        }
+    }
+
     // ============================================
     // REAL-TIME STATS LISTENER
     // ============================================

@@ -59,6 +59,7 @@ fun WorkerReferEarnScreen(
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by viewModel.referralConfig.collectAsStateWithLifecycle()
+    val referrerInfo by viewModel.referrerInfo.collectAsStateWithLifecycle()
     
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
@@ -295,6 +296,16 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
+                    // Who referred you
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(450, 100)) + slideInVertically(tween(450, 100))
+                        ) {
+                            ReferrerInfoCard(referrerInfo = referrerInfo)
+                        }
+                    }
+
                     // Stats Grid
                     item {
                         AnimatedVisibility(
@@ -311,7 +322,7 @@ fun WorkerReferEarnScreen(
                     }
                     
                     // Withdraw Button
-                    if ((uiState.stats?.canWithdraw == true) && (uiState.stats?.availableBalance ?: 0.0) >= referralConfig.minWithdrawal) {
+                    if ((uiState.stats?.availableBalance ?: 0.0) >= ReferralRewards.MIN_WITHDRAWAL_AMOUNT) {
                         item {
                             AnimatedVisibility(
                                 visible = isVisible,
@@ -322,6 +333,16 @@ fun WorkerReferEarnScreen(
                                     onWithdrawClick = { showWithdrawDialog = true }
                                 )
                             }
+                        }
+                    }
+
+                    // Withdrawal History
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(800, 400)) + slideInVertically(tween(800, 400))
+                        ) {
+                            WithdrawalHistorySection(withdrawals = uiState.withdrawalHistory)
                         }
                     }
 
@@ -388,10 +409,9 @@ fun WorkerReferEarnScreen(
     if (showWithdrawDialog) {
         WithdrawDialog(
             availableBalance = uiState.stats?.availableBalance ?: 0.0,
-            minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
-            onWithdraw = { amount, upiId ->
-                viewModel.requestWithdrawal(amount, upiId)
+            onWithdraw = { upiId ->
+                viewModel.requestWithdrawal(upiId)
                 showWithdrawDialog = false
             }
         )
@@ -969,15 +989,108 @@ private fun ReferralHistoryItem(referral: Referral) {
     }
 }
 
+@SuppressLint("DefaultLocale")
+@Composable
+private fun WithdrawalHistorySection(withdrawals: List<WithdrawalRequest>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.withdrawal_history),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
+            )
+            Spacer(Modifier.height(16.dp))
+
+            if (withdrawals.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.no_withdrawals_yet),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                )
+            } else {
+                withdrawals.take(5).forEachIndexed { index, withdrawal ->
+                    WithdrawalHistoryItem(withdrawal)
+                    if (index < withdrawals.size - 1 && index < 4) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE5E7EB))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
+    val dateStr = remember(withdrawal.createdAt) {
+        java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            .format(java.util.Date(withdrawal.createdAt))
+    }
+
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.AccountBalanceWallet,
+            contentDescription = null,
+            tint = Color(0xFF1F2937),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Rs.${String.format("%.0f", withdrawal.amount)}",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF1F2937))
+            )
+            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+        }
+        Text(
+            text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(java.util.Locale.getDefault()) },
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
+        )
+    }
+}
+
+@Composable
+private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
+    if (referrerInfo.referredByCode.isBlank() && referrerInfo.referredByUserId.isBlank()) {
+        return
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.who_referred_you),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = referrerInfo.referrerName.ifBlank { stringResource(R.string.referred_by_unknown) },
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
+            )
+            if (referrerInfo.referredByCode.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Code: ${referrerInfo.referredByCode}",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun WithdrawDialog(
     availableBalance: Double,
-    minWithdrawal: Double,
     onDismiss: () -> Unit,
-    onWithdraw: (Double, String) -> Unit
+    onWithdraw: (String) -> Unit
 ) {
     val context = LocalContext.current
-    var amount by remember { mutableStateOf(availableBalance.toString()) }
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     
@@ -989,20 +1102,17 @@ private fun WithdrawDialog(
                 Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text(stringResource(R.string.amount_rs)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
                     value = upiId,
                     onValueChange = { upiId = it },
                     label = { Text(stringResource(R.string.upi_id)) },
                     placeholder = { Text(stringResource(R.string.refer_upi_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.refer_withdraw_full_balance_note),
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
                 )
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
@@ -1013,13 +1123,11 @@ private fun WithdrawDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amountValue = amount.toDoubleOrNull() ?: 0.0
                     when {
-                        amountValue < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
-                        amountValue > availableBalance -> error = context.getString(R.string.refer_error_insufficient_balance)
                         upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
                         !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
-                        else -> onWithdraw(amountValue, upiId)
+                        availableBalance < ReferralRewards.MIN_WITHDRAWAL_AMOUNT -> error = context.getString(R.string.refer_error_min_withdrawal, ReferralRewards.MIN_WITHDRAWAL_AMOUNT.toInt())
+                        else -> onWithdraw(upiId)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))

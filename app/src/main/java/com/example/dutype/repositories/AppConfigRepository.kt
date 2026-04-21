@@ -22,7 +22,7 @@ import javax.inject.Singleton
 data class ReferralConfig(
     val rewardPerReferral: Double = 25.0,
     val signupBonus: Double = 25.0,
-    val minWithdrawal: Double = 50.0,
+    val minWithdrawal: Double = 100.0,
     val maxWithdrawalPerDay: Double = 1000.0,
     val milestones: Map<Int, Double> = mapOf(
         5 to 50.0, 10 to 100.0, 15 to 150.0,
@@ -62,7 +62,7 @@ class AppConfigRepository @Inject constructor(
                 ReferralConfig(
                     rewardPerReferral = (data["rewardPerReferral"] as? Number)?.toDouble() ?: 25.0,
                     signupBonus = (data["signupBonus"] as? Number)?.toDouble() ?: 25.0,
-                    minWithdrawal = (data["minWithdrawal"] as? Number)?.toDouble() ?: 50.0,
+                    minWithdrawal = ((data["minWithdrawal"] as? Number)?.toDouble() ?: 100.0).coerceAtLeast(100.0),
                     maxWithdrawalPerDay = (data["maxWithdrawalPerDay"] as? Number)?.toDouble() ?: 1000.0,
                     milestones = milestoneMap.ifEmpty { ReferralConfig().milestones },
                     withdrawalMilestones = withdrawalList.ifEmpty { ReferralConfig().withdrawalMilestones }
