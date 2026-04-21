@@ -91,32 +91,9 @@ fun OnboardingScreen(navController: NavController) {
         FirstTimeLanguageSelection(
             selectedLanguage = LocaleHelper.getLanguage(context),
             onLanguageSelected = { lang ->
-                // Persist the selection so SharedPreferences-backed lookups
-                // (LocaleHelper.getLanguage) and downstream FCM topic
-                // subscriptions both reflect the new choice.
-                LocaleHelper.saveLanguage(context, lang)
                 LocaleHelper.setLocale(context, lang)
                 markLanguageAsSelected(context)
-
-                // Compose only re-resolves stringResource() values when the
-                // configuration changes. attachBaseContext applied the prior
-                // locale at activity creation, so the simplest reliable way
-                // to re-render every screen (including the upcoming
-                // onboarding pages) in the freshly selected language is to
-                // restart MainActivity. This mirrors the behaviour used by
-                // LanguageSelectionBottomSheet for in-app changes.
-                val activity = context as? android.app.Activity
-                if (activity != null) {
-                    val intent = android.content.Intent(context, com.example.dutype.MainActivity::class.java)
-                    intent.addFlags(
-                        android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
-                        android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    )
-                    context.startActivity(intent)
-                    activity.finish()
-                } else {
-                    showLanguageSelection = false
-                }
+                showLanguageSelection = false
             }
         )
     } else {

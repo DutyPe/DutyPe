@@ -247,13 +247,8 @@ fun PostJobScreen(
     var locationDistanceKm by remember { mutableStateOf(0.0) }
     var pendingJobSubmission by remember { mutableStateOf(false) } // Flag to proceed after warning
     
-    // Guest mode helper: route unauthenticated employers to the dedicated
-    // login screen instead of the legacy bottom sheet so the experience is
-    // identical to the rest of the auth flow.
-    val launchEmployerLogin: () -> Unit = {
-        val navToUse = rootNavController ?: navController
-        navToUse.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
-    }
+    // Guest mode - Login bottom sheet state for job posting
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
     
     // LazyList state for the single-canvas studio layout
     val listState = rememberLazyListState()
@@ -602,9 +597,6 @@ fun PostJobScreen(
             
             // Job metadata — createdAt/expiresAt set by JobFirestoreService.createJob()
             "urgency" to normalizedUrgency,
-
-            // Optional employer-uploaded image
-            "jobImageUrl" to jobImageUrl,
             
             // System fields
             "employerId" to (employerId ?: "")
@@ -652,8 +644,8 @@ fun PostJobScreen(
         // STEP 1: Check if user is logged in
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            Timber.d("📝 JOB POSTING DEBUG: User not logged in, navigating to login screen")
-            launchEmployerLogin()
+            Timber.d("📝 JOB POSTING DEBUG: User not logged in, showing login sheet")
+            showLoginBottomSheet = true
             return
         }
         
@@ -837,7 +829,7 @@ fun PostJobScreen(
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            launchEmployerLogin()
+            showLoginBottomSheet = true
         } else {
             submitJob(0.0, 0.0)
         }
@@ -1444,6 +1436,30 @@ fun PostJobScreen(
             }
         }
     }
+    
+    // Guest Mode - Login Bottom Sheet for job posting with profile check
+    com.example.dutype.components.LoginBottomSheet(
+        isVisible = showLoginBottomSheet,
+        onDismiss = { showLoginBottomSheet = false },
+        onLoginSuccess = {
+            showLoginBottomSheet = false
+            // After successful login, submit the job (which will check profile completion)
+            submitJob(0.0, 0.0)
+        },
+        onProfileSetupRequired = {
+            showLoginBottomSheet = false
+            val navToUse = rootNavController ?: navController
+            navToUse.navigate(
+                Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
+            ) {
+                launchSingleTop = true
+            }
+        },
+        requiresProfileCheck = true, // Check profile completion for job posting
+        role = com.example.dutype.models.UserRole.EMPLOYER,
+        title = stringResource(R.string.login_to_post_job),
+        subtitle = stringResource(R.string.login_publish_job_subtitle)
+    )
 }
 
 @Composable

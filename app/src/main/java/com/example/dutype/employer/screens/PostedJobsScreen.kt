@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +44,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
-import com.example.dutype.components.CommonHeader
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.employer.models.JobPostingModel
@@ -60,11 +58,6 @@ fun PostedJobsScreen(
     viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    // Load posted jobs the first time this screen is shown
-    LaunchedEffect(Unit) {
-        viewModel.loadMyJobs()
-    }
     
     // Convert JobListing to JobPostingModel for EmployerJobCard compatibility
     val postedJobs = uiState.myJobs.map { job ->
@@ -100,28 +93,6 @@ fun PostedJobsScreen(
     Column(
         modifier = Modifier.fillMaxSize() // No outer padding
     ) {
-        CommonHeader(
-            title = stringResource(R.string.my_job_posts),
-            navController = navController,
-            actions = {
-                IconButton(
-                    onClick = { viewModel.refreshMyJobs() },
-                    enabled = !isRefreshing
-                ) {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
-                    }
-                }
-            }
-        )
 
         if (isLoading && postedJobs.isEmpty()) {
             PostedJobsLoadingContent()
@@ -136,6 +107,15 @@ fun PostedJobsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
+                // Header section with job count and refresh
+                item {
+                    JobsHeaderSection(
+                        totalJobs = postedJobs.size,
+                        onRefresh = { viewModel.refreshMyJobs() },
+                        isRefreshing = isRefreshing
+                    )
+                }
+
                 // Error handling
                 error?.let { errorMessage ->
                     item {
@@ -196,6 +176,59 @@ $jobDeepLink
                             showActions = true
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JobsHeaderSection(
+    totalJobs: Int,
+    onRefresh: () -> Unit,
+    isRefreshing: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "My Job Postings",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "$totalJobs total jobs posted",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+            
+            IconButton(
+                onClick = onRefresh,
+                enabled = !isRefreshing
+            ) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

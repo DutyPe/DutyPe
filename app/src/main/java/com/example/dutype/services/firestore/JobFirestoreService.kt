@@ -186,8 +186,7 @@ class JobFirestoreService @Inject constructor(
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
             "companyCity" to companyCity,
-            "addressText" to addressDisplay,  // Full address for job card display
-            "jobImageUrl" to normalizeString(data["jobImageUrl"])
+            "addressText" to addressDisplay  // Full address for job card display
         )
     }
 
@@ -241,8 +240,7 @@ class JobFirestoreService @Inject constructor(
             "jobType" to coreJobType,
             "vacancies" to coreVacancies,
             "benefits" to coreBenefits,
-            "companyCity" to coreCompanyCity,
-            "jobImageUrl" to normalizeString(coreData["jobImageUrl"])
+            "companyCity" to coreCompanyCity
         )
 
         val coreWhatsappNumber = normalizeString(coreData["whatsappNumber"])
@@ -343,7 +341,6 @@ class JobFirestoreService @Inject constructor(
             val benefits = parseBenefits(jobData["benefits"])
             val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
-            val jobImageUrl = normalizeString(jobData["jobImageUrl"])
             val companyCity = extractCityFromAddress(addressText)
 
             val providedLocation = jobData["location"] as? Map<*, *>
@@ -404,9 +401,6 @@ class JobFirestoreService @Inject constructor(
                 "createdAt" to createdAt,
                 "expiresAt" to expiresAt
             )
-            if (jobImageUrl.isNotBlank()) {
-                cardData["jobImageUrl"] = jobImageUrl
-            }
 
             val detailsData = linkedMapOf<String, Any>(
                 "description" to description,
@@ -804,9 +798,6 @@ class JobFirestoreService @Inject constructor(
                 val v = normalizeString(data["addressText"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Address is required"))
                 cardUpdates["addressText"] = v
-            }
-            if (data.containsKey("jobImageUrl")) {
-                cardUpdates["jobImageUrl"] = normalizeString(data["jobImageUrl"])
             }
 
             // Details-only fields (must match firestore.rules for job_details).

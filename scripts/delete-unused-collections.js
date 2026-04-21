@@ -45,7 +45,6 @@ const db = admin.firestore();
 
 const COLLECTIONS_TO_DELETE = [
   'rate_limits',
-  '_rate_limits',
   'payment_transactions',
   'broadcast_notifications',
   'moderation_queue',

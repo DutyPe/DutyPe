@@ -151,12 +151,6 @@ class FCMTokenManager @Inject constructor(
         try {
             val tokenData = mapOf(
                 "fcmToken" to token,
-                // Persist the locally-selected app language so server-side
-                // notification fan-out (functions/notification-fanout) can
-                // localise pushes for users who chose a non-default language
-                // before authenticating (e.g. picked Telugu during the
-                // first-time onboarding language selector).
-                "language" to LocaleHelper.getLanguage(appContext),
                 "lastActiveAt" to Timestamp.now()
             )
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
@@ -177,9 +171,6 @@ class FCMTokenManager @Inject constructor(
         try {
             val tokenData = mapOf(
                 "fcmToken" to token,
-                // Mirror saveTokenToFirestore() so the language preference is
-                // refreshed any time we re-register with a role context.
-                "language" to LocaleHelper.getLanguage(appContext),
                 "lastActiveAt" to Timestamp.now()
             )
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)

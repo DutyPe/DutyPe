@@ -195,11 +195,6 @@ fun EditJobScreen(
             locationLatitude = job.lat
             locationLongitude = job.lng
             Timber.d("📍 EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
-            // Pay type — map back from stored enum name
-            payType = PayType.values().firstOrNull {
-                it.name.equals(job.salaryType, ignoreCase = true) ||
-                    it.displayName.equals(job.salaryType, ignoreCase = true)
-            } ?: PayType.DAILY
             // Convert string to enum for category - using auto-detected category
             category = JobCategory.values().firstOrNull {
                 it.displayName.equals(job.jobType, ignoreCase = true) ||
@@ -208,24 +203,13 @@ fun EditJobScreen(
                 it.displayName.equals(job.getCategory(), ignoreCase = true) ||
                     it.name.equals(job.getCategory(), ignoreCase = true)
             } ?: JobCategory.OTHER
+            // shiftTiming removed from schema — default to FLEXIBLE
             shiftTiming = ShiftTiming.values().firstOrNull {
                 it.displayName.equals(job.shiftTiming, ignoreCase = true) ||
                     it.name.equals(job.shiftTiming, ignoreCase = true)
             } ?: ShiftTiming.FLEXIBLE
-            // Urgency — map back from canonical LOW/MEDIUM/HIGH stored values
-            urgency = when (job.urgency.uppercase()) {
-                "HIGH" -> JobUrgency.URGENT
-                "MEDIUM" -> JobUrgency.NORMAL
-                "LOW" -> JobUrgency.FLEXIBLE
-                else -> JobUrgency.FLEXIBLE
-            }
-            // Selected perks — rehydrate from saved benefits list
-            selectedPerks = job.benefits.mapNotNull { name ->
-                JobPerk.values().firstOrNull {
-                    it.displayName.equals(name, ignoreCase = true) ||
-                        it.name.equals(name, ignoreCase = true)
-                }
-            }.toSet()
+            // urgency removed from optimized schema
+            // selectedPerks removed as per user request
             vacancies = job.vacancies.toString()
             employerName = job.companyName
         }
