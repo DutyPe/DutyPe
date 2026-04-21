@@ -175,7 +175,9 @@ class ReferralService @Inject constructor(
             successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0,
             totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
             availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0,
-            canWithdraw = statsMap["canWithdraw"] as? Boolean ?: false,
+            canWithdraw = ReferralRewards.canWithdraw(
+                (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0
+            ),
             currentTier = try {
                 ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
             } catch (e: Exception) {

@@ -98,11 +98,8 @@ const DEFAULT_REFERRAL_STATS: { [key: string]: any } = {
   expiredReferrals: 0,
   rejectedReferrals: 0,
   totalEarnings: 0,
-  pendingEarnings: 0,
   withdrawnAmount: 0,
   availableBalance: 0,
-  canWithdraw: false,
-  nextMilestone: 5,
   currentTier: "BRONZE",
   freeJobPostings: 0,
   freeJobPostingsExpiry: null,
@@ -349,7 +346,6 @@ async function ensureCanonicalReferralCodeForUser(
         }
 
         transaction.set(statsRef, {
-          userId,
           userRole: resolvedUserRole,
           userName: resolvedUserName,
           referralCode: codeToUse,
@@ -357,7 +353,6 @@ async function ensureCanonicalReferralCodeForUser(
         }, { merge: true });
 
         transaction.set(codeRef, {
-          code: codeToUse,
           userId,
           userRole: resolvedUserRole,
           userName: resolvedUserName,
@@ -848,7 +843,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       );
 
       transaction.set(referralRef, {
-        id: referralId,
         idempotencyKey,
         referrerId: latestReferrerUserId,
         referredUserId: newUserId,
@@ -857,7 +851,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         rewardAmount: referrerReward,
         bonusAmount: milestoneBonus,
         referredUserReward,
-        reward: totalReferrerReward,
         referredUserName: referredDisplayName,
         referredUserRole: newUserRole,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -865,16 +858,13 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       });
 
       transaction.set(referrerStatsRef, {
-        userId: latestReferrerUserId,
         userRole: referrerRole,
         referralCode: referrerOwnReferralCode,
         totalReferrals: admin.firestore.FieldValue.increment(1),
         successfulReferrals: newSuccessfulCount,
         totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
         availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
-        canWithdraw: newCanWithdraw,
         currentTier: newTier,
-        nextMilestone: newNextMilestone,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
         ...(referrerRole === "EMPLOYER" && freePostingsExpiry ? {
           freeJobPostings: freePostings,
@@ -883,7 +873,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       }, { merge: true });
 
       transaction.set(newUserStatsRef, {
-        userId: newUserId,
         userRole: newUserRole,
         ...(newUserOwnReferralCode ? { referralCode: newUserOwnReferralCode } : {}),
         referredByCode: referralCode,
@@ -1097,15 +1086,12 @@ export const onReferredUserProfileComplete = functions.firestore
       // 2. Update referrer's stats (canonical: referral_stats/{uid})
       const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
       const referrerStatsUpdate: { [key: string]: any } = {
-        userId: referrerUserId,
         userRole: referrerRole,
         successfulReferrals: newSuccessfulCount,
         pendingReferrals: admin.firestore.FieldValue.increment(-1),
         totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
         availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
-        canWithdraw: newCanWithdraw,
         currentTier: newTier,
-        nextMilestone: newNextMilestone,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       };
 
@@ -1126,7 +1112,6 @@ export const onReferredUserProfileComplete = functions.firestore
       // 4. Credit referred user's signup bonus (canonical: referral_stats/{uid})
       const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
       batch.set(referredStatsRef, {
-        userId: referredUserId,
         userRole: getStringValue(after.activeRole, "WORKER"),
         totalEarnings: admin.firestore.FieldValue.increment(referredUserReward),
         availableBalance: admin.firestore.FieldValue.increment(referredUserReward),
@@ -1400,8 +1385,6 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       const userRole = getStringValue(userData.activeRole, "WORKER");
 
       tx.set(withdrawalRef, {
-        id: withdrawalId,
-        userId,
         userRole,
         amount,
         status: "PENDING",
@@ -1414,7 +1397,6 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       });
 
       tx.set(legacyStatsRef, {
-        userId,
         userRole,
         availableBalance: admin.firestore.FieldValue.increment(-amount),
         withdrawnAmount: admin.firestore.FieldValue.increment(amount),

@@ -131,8 +131,23 @@ async function migrateWorkerJobTypes() {
   await stripFieldFromCollection('users', 'role');
   await stripFieldFromCollection('users', 'referralStats');
   await stripFieldFromCollection('referrals', 'referrerUserId');
+  await stripFieldFromCollection('referrals', 'id');
+  await stripFieldFromCollection('referrals', 'reward');
 
-  console.log('\n3) Migrating worker_profiles.jobTypes -> skills:');
+  console.log('\n3) Stripping redundant doc-ID mirrors:');
+  await stripFieldFromCollection('worker_profiles', 'userId');
+  await stripFieldFromCollection('worker_profiles', 'lastActiveAt');
+  await stripFieldFromCollection('employer_profiles', 'userId');
+  await stripFieldFromCollection('employer_profiles', 'lastActiveAt');
+  await stripFieldFromCollection('referral_stats', 'userId');
+  await stripFieldFromCollection('referral_stats', 'canWithdraw');
+  await stripFieldFromCollection('referral_stats', 'nextMilestone');
+  await stripFieldFromCollection('referral_stats', 'pendingEarnings');
+  await stripFieldFromCollection('referral_codes', 'code');
+  await stripFieldFromCollection('notifications', 'id');
+  await stripFieldFromCollection('notifications', 'body');
+
+  console.log('\n4) Migrating worker_profiles.jobTypes -> skills:');
   await migrateWorkerJobTypes();
 
   console.log('\nDone.');

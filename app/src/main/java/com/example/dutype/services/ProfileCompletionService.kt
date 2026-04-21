@@ -673,12 +673,12 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val workerProfile = mutableMapOf<String, Any>(
-                "userId" to currentUser.uid,
                 "skills" to skills,
-                "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true),
-                "lastActiveAt" to now
+                "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true)
                 // Notes:
-                //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via
+                //  - `userId` removed: redundant with doc ID (no readers use the body field).
+                //  - `lastActiveAt` removed: redundant with users.lastActiveAt (no readers query it here).
+                //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
                 //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
             )
             if (!dateOfBirth.isNullOrBlank()) {
@@ -771,10 +771,11 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val employerProfile = mutableMapOf<String, Any>(
-                "userId" to currentUser.uid,
-                "companyName" to companyName,
-                "lastActiveAt" to now
-                // isVerified / rating / totalRatings / totalHires are CF-only aggregates.
+                "companyName" to companyName
+                // Notes:
+                //  - `userId` removed: redundant with doc ID (no readers use the body field).
+                //  - `lastActiveAt` removed: redundant with users.lastActiveAt (no readers query it here).
+                //  - isVerified / rating / totalRatings / totalHires are CF-only aggregates.
             )
 
             val batch = firestore.batch()

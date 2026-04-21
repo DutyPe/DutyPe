@@ -196,26 +196,11 @@ export function AdminCheckAndCreateCodeClient() {
 
       await updateDoc(doc(services.db, "users", userId), {
         referralCode,
-        referralCodeCreatedAt: serverTimestamp(),
-        referralStats: {
-          totalReferrals: 0,
-          successfulReferrals: 0,
-          pendingReferrals: 0,
-          totalEarnings: 0,
-          availableBalance: 0,
-          withdrawnAmount: 0,
-          canWithdraw: false,
-          nextMilestone: 5,
-          currentTier: "BRONZE",
-          freeJobPostings: 0,
-          freeJobPostingsExpiry: null,
-          lastUpdated: serverTimestamp()
-        }
+        referralCodeCreatedAt: serverTimestamp()
       });
       push("Updated user document", "success");
 
       await setDoc(doc(services.db, "referral_codes", referralCode), {
-        code: referralCode,
         userId,
         userRole: userData.role || "WORKER",
         userName,
@@ -826,7 +811,6 @@ async function resolveReferralCode(
   push("   Creating referral_codes document...", "info");
 
   await setDoc(doc(db, "referral_codes", actualCode), {
-    code: actualCode,
     userId: userDoc.id,
     userRole: userData.role || "WORKER",
     userName: userData.name || userData.fullName || "User",
@@ -840,7 +824,6 @@ async function resolveReferralCode(
   return {
     code: actualCode,
     codeData: {
-      code: actualCode,
       userId: userDoc.id,
       userRole: userData.role || "WORKER",
       userName: userData.name || userData.fullName || "User",

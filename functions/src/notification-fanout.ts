@@ -28,10 +28,8 @@ interface NotificationPayload {
 async function createNotification(n: NotificationPayload): Promise<void> {
   const ref = db.collection("notifications").doc();
   await ref.set({
-    id: ref.id,
     recipientId: n.recipientId,
     title: n.title,
-    body: n.body,
     message: n.body,
     type: n.type,
     relatedId: n.relatedId ?? null,
