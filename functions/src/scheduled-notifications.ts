@@ -7,7 +7,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { getUserLanguage, tTitle, tBody, SE_WORKER_POOL, SE_EMPLOYER_POOL, SE_GUEST_POOL, SUPPORTED_LOCALES, localizedTopic } from './notification-i18n';
+import { getUserLanguage, getUserDisplayName, tTitle, tBody, SE_WORKER_POOL, SE_EMPLOYER_POOL, SE_GUEST_POOL, SUPPORTED_LOCALES, localizedTopic } from './notification-i18n';
 
 // ============================================
 // HELPER FUNCTIONS
@@ -498,16 +498,20 @@ export const checkExpiringJobs = functions.pubsub
         // Check if we can send notification
         if (await canSendNotification(employerId, 'job_expiry', 24 * 60 * 60 * 1000)) {
           const hoursLeft = Math.floor((job.expiresAt - now) / (1000 * 60 * 60));
-          
+          const locale = await getUserLanguage(admin.firestore(), employerId);
+          const recipient = await getUserDisplayName(admin.firestore(), employerId);
+          const tParams = { jobTitle: job.title, hoursLeft, recipient };
+
           const sent = await sendFCMNotification(employerId, {
-            title: 'â° Job Expiring Soon',
-            body: `Your job "${job.title}" expires in ${hoursLeft} hours. Renew it to keep receiving applications.`,
+            title: tTitle('JOB_EXPIRY_SOON', locale, tParams),
+            body: tBody('JOB_EXPIRY_SOON', locale, tParams),
             data: {
               type: 'JOB_EXPIRY',
               jobId: jobId,
               jobTitle: job.title,
               hoursLeft: hoursLeft.toString(),
-              deepLink: `dutype://job/${jobId}`
+              deepLink: `dutype://job/${jobId}`,
+              locale
             },
             priority: 'high',
             channel: 'high_priority'
@@ -596,7 +600,8 @@ export const checkPendingApplications = functions.pubsub
         // Check if we can send notification
         if (await canSendNotification(employerId, 'pending_applications', 12 * 60 * 60 * 1000)) {
           const locale = await getUserLanguage(admin.firestore(), employerId);
-          const tParams = { count };
+          const recipient = await getUserDisplayName(admin.firestore(), employerId);
+          const tParams = { count, recipient };
           const sent = await sendFCMNotification(employerId, {
             title: tTitle('EMPLOYER_PENDING_APPLICATIONS', locale, tParams),
             body: tBody('EMPLOYER_PENDING_APPLICATIONS', locale, tParams),
@@ -723,7 +728,8 @@ export const remindWorkersPendingApplications = functions.pubsub
         
         // Send notification
         const locale = await getUserLanguage(admin.firestore(), workerId);
-        const tParams = { jobTitle, daysPending };
+        const recipient = await getUserDisplayName(admin.firestore(), workerId);
+        const tParams = { jobTitle, daysPending, recipient };
         const sent = await sendFCMNotification(workerId, {
           title: tTitle('WORKER_PENDING_APPLICATION', locale, tParams),
           body: tBody('WORKER_PENDING_APPLICATION', locale, tParams),
@@ -860,9 +866,10 @@ export const reEngageInactiveWorkers = functions.pubsub
         
         if (shouldReEngage) {
           const locale = await getUserLanguage(admin.firestore(), userId);
+          const recipient = await getUserDisplayName(admin.firestore(), userId);
           const sent = await sendFCMNotification(userId, {
-            title: tTitle('WORKER_RE_ENGAGEMENT', locale),
-            body: tBody('WORKER_RE_ENGAGEMENT', locale),
+            title: tTitle('WORKER_RE_ENGAGEMENT', locale, { recipient }),
+            body: tBody('WORKER_RE_ENGAGEMENT', locale, { recipient }),
             data: {
               type: 'RE_ENGAGEMENT',
               deepLink: 'dutype://jobs',
@@ -946,9 +953,10 @@ export const reEngageInactiveEmployers = functions.pubsub
         
         if (shouldReEngage) {
           const locale = await getUserLanguage(admin.firestore(), userId);
+          const recipient = await getUserDisplayName(admin.firestore(), userId);
           const sent = await sendFCMNotification(userId, {
-            title: tTitle('EMPLOYER_RE_ENGAGEMENT', locale),
-            body: tBody('EMPLOYER_RE_ENGAGEMENT', locale),
+            title: tTitle('EMPLOYER_RE_ENGAGEMENT', locale, { recipient }),
+            body: tBody('EMPLOYER_RE_ENGAGEMENT', locale, { recipient }),
             data: {
               type: 'RE_ENGAGEMENT',
               deepLink: 'dutype://post-job',

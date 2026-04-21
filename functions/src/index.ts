@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { validateString, validateMessage, validateEnum, validateUserId, assertAppCheck } from "./validation";
-import { getUserLanguage, tTitle, tBody, SUPPORTED_LOCALES, normalizeLocale, localizedTopic } from "./notification-i18n";
+import { getUserLanguage, getUserDisplayName, tTitle, tBody, SUPPORTED_LOCALES, normalizeLocale, localizedTopic } from "./notification-i18n";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -656,10 +656,11 @@ export const detectDuplicateJob = functions.firestore
         
         // Create in-app notification instead of using legacy moderation queue collection.
         const modLocale = await getUserLanguage(db, employerId);
+        const modRecipient = await getUserDisplayName(db, employerId);
         await db.collection("notifications").add({
           recipientId: employerId,
-          title: tTitle("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
-          message: tBody("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
+          title: tTitle("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
+          message: tBody("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
           type: "MODERATION_REVIEW_REQUIRED",
           locale: modLocale,
           data: {
@@ -923,10 +924,11 @@ export const processJobReport = functions.firestore
         // Notify employer instead of creating legacy moderation queue documents.
         if (jobData?.employerId) {
           const hideLocale = await getUserLanguage(db, jobData.employerId);
+          const hideRecipient = await getUserDisplayName(db, jobData.employerId);
           await db.collection("notifications").add({
             recipientId: jobData.employerId,
-            title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
-            message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
+            title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title, recipient: hideRecipient }),
+            message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title, recipient: hideRecipient }),
             type: "JOB_HIDDEN",
             locale: hideLocale,
             data: {

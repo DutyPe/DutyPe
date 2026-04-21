@@ -11,7 +11,7 @@
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { getUserLanguage, tTitle, tBody, SupportedLocale } from "./notification-i18n";
+import { getUserLanguage, getUserDisplayName, tTitle, tBody, SupportedLocale } from "./notification-i18n";
 
 const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
@@ -74,6 +74,7 @@ export const onApplicationStatusChanged = functions.firestore
     if (!workerId) return;
 
     const locale = await getUserLanguage(db, workerId);
+    const recipient = await getUserDisplayName(db, workerId);
 
     const templateId =
       next === "hired" ? "APPLICATION_HIRED" :
@@ -81,7 +82,8 @@ export const onApplicationStatusChanged = functions.firestore
       next === "rejected" ? "APPLICATION_REJECTED" :
       "APPLICATION_STATUS_OTHER";
 
-    const params = templateId === "APPLICATION_STATUS_OTHER" ? { status: next } : undefined;
+    const params: Record<string, string | number> = { recipient };
+    if (templateId === "APPLICATION_STATUS_OTHER") params.status = next;
     const title = tTitle(templateId, locale, params);
     const body = tBody(templateId, locale, params);
 
@@ -102,11 +104,24 @@ export const onApplicationCreated = functions.firestore
     const data = snap.data() || {};
     const employerId = String(data.employerId ?? "");
     const jobId = String(data.jobId ?? "");
+    const workerId = String(data.workerId ?? "");
     if (!employerId) return;
 
     const locale = await getUserLanguage(db, employerId);
-    const title = tTitle("NEW_APPLICATION_RECEIVED", locale);
-    const body = tBody("NEW_APPLICATION_RECEIVED", locale);
+    const [recipient, workerName, jobSnap] = await Promise.all([
+      getUserDisplayName(db, employerId),
+      getUserDisplayName(db, workerId, "A worker"),
+      jobId ? db.doc(`jobmetadata/${jobId}`).get().catch(() => null) : Promise.resolve(null),
+    ]);
+    const jobTitle = jobSnap && jobSnap.exists ? String(jobSnap.get("title") ?? "") : "";
+
+    const params: Record<string, string | number> = {
+      recipient,
+      workerName,
+      jobTitle: jobTitle ? `"${jobTitle}"` : "",
+    };
+    const title = tTitle("NEW_APPLICATION_RECEIVED", locale, params);
+    const body = tBody("NEW_APPLICATION_RECEIVED", locale, params);
 
     await Promise.all([
       createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", relatedId: jobId, locale }),
