@@ -258,12 +258,9 @@
     <string name="security_legal">Security &amp; Legal</string>
     <string name="privacy_terms_security">Privacy, Terms, Security</string>
     <string name="log_out">Log Out</string>
-    <string name="my_visiting_card">My Visiting Card</string>
     <string name="share_on_whatsapp_get_jobs">Share on WhatsApp &amp; get more jobs! 🚀</string>
     <string name="refer">Refer</string>
     <string name="business_and_jobs">Business &amp; Jobs</string>
-    <string name="trust_badges">Trust Badges</string>
-    <string name="view_verification_status">View your verification status</string>
     <string name="manage_your_plan">Manage your plan</string>
     <string name="my_job_posts">My Job Posts</string>
     <string name="work_locations">Work Locations</string>
@@ -433,14 +430,6 @@
     <string name="dismiss">Dismiss</string>
     <string name="role_worker">Worker</string>
     <string name="role_employer">Employer</string>
-    <string name="switch_to_role_title">Switch to %1$s?</string>
-    <string name="switch_role_body">You are switching from %1$s to %2$s mode. Your active role will change and you will see the %2$s dashboard.</string>
-    <string name="yes_switch">Yes, Switch</string>
-    <string name="switch_role_title">Switch Role</string>
-    <string name="select_active_mode">Select your active mode</string>
-    <string name="switching_roles">Switching roles\u2026</string>
-    <string name="active_label">Active</string>
-    <string name="tap_to_switch_role">Tap to switch</string>
     <string name="view_analytics">View Analytics</string>
     <string name="full_name_required">Full Name *</string>
     <string name="enter_full_name">Enter your full name</string>
@@ -587,7 +576,6 @@
     <string name="todays_posts">Today\'s Posts</string>
     <string name="total_jobs">Total Jobs</string>
     <string name="total_label">Total</string>
-    <string name="switch_to_employer">Switch to Employer</string>
     <string name="welcome_to_dutype">Welcome to DutyPe</string>
     <string name="our_mission">Our Mission</string>
     <string name="our_vision">Our Vision</string>
@@ -868,7 +856,6 @@
     <string name="login_to_view_profile">Login to view and edit your profile</string>
     <string name="login_to_view_applications">Login to view your job applications</string>
     <string name="login_to_view_earnings">Login to view your earnings</string>
-    <string name="login_to_create_visiting_card">Login to create your digital visiting card</string>
     <string name="login_to_refer_earn">Login to refer friends and earn rewards</string>
     <string name="login_to_access_feature">Please login to access this feature</string>
     <string name="contact_unlocked">Contact unlocked! ✅</string>

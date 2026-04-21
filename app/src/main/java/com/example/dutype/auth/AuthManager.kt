@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -45,6 +46,14 @@ class AuthManager @Inject constructor(
     
     // Use SupervisorJob to prevent child failures from cancelling other operations
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Cancel the internal coroutine scope. Call when the singleton is being torn down
+     * (e.g. process death cleanup, integration tests). Safe to call multiple times.
+     */
+    fun shutdown() {
+        scope.cancel()
+    }
     
     companion object {
         private const val KEY_USER = "current_user"
@@ -196,44 +205,13 @@ class AuthManager @Inject constructor(
             }
             
             val userData = userDoc.data ?: return null
-            
-            // Parse roles array
-            @Suppress("UNCHECKED_CAST")
-            val rolesArray = userData["roles"] as? List<String> ?: emptyList()
-            
-            // Parse active role
-            val activeRoleStr = userData["activeRole"] as? String
-            val activeRole = try {
-                if (activeRoleStr != null) {
-                    com.example.dutype.models.UserRole.valueOf(activeRoleStr.uppercase())
-                } else {
-                    rolesArray.firstOrNull()?.let {
-                        com.example.dutype.models.UserRole.valueOf(it.uppercase())
-                    } ?: com.example.dutype.models.UserRole.WORKER
-                }
-            } catch (e: Exception) {
-                com.example.dutype.models.UserRole.WORKER
-            }
 
-            @Suppress("UNCHECKED_CAST")
-            val location = userData["location"] as? Map<String, Any>
-            
-            // Create User object
-            val user = User(
-                id = userId,
-                fullName = userData["fullName"] as? String ?: "",
-                phone = userData["phone"] as? String ?: "",
-                roles = rolesArray,
-                activeRole = activeRole,
-                profileImageUrl = userData["profileImageUrl"] as? String,
-                lat = (location?.get("lat") as? Number)?.toDouble() ?: 0.0,
-                lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
-            )
-            
+            val user = User.fromFirestoreMap(userId, userData)
+
             // Update cached user
             saveUser(user)
-            
-            Timber.d("AuthManager - User refreshed from Firestore: activeRole=${user.activeRole}")
+
+            Timber.d("AuthManager - User refreshed from Firestore: role=${user.role}")
             user
         } catch (e: Exception) {
             Timber.e(e, "AuthManager - Error refreshing user from Firestore")

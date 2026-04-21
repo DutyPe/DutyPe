@@ -62,8 +62,6 @@ fun EmployerNotificationScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val isGuestUser = FirebaseAuth.getInstance().currentUser == null
-    val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
-    val currentUser by roleViewModel.currentUser.collectAsStateWithLifecycle()
 
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
@@ -73,11 +71,11 @@ fun EmployerNotificationScreen(
         Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
     }
 
-    // Reload when role changes or dialog closes; avoid synthetic time-based keys.
-    LaunchedEffect(currentUser?.activeRole, dialogData == null) {
-        // Only load if dialog is not showing
+    // This screen is hardcoded to the EMPLOYER role via EmployerNotificationViewModel —
+    // single-role accounts mean we just load once on enter and again when the dialog closes.
+    LaunchedEffect(dialogData == null) {
         if (dialogData == null) {
-            Timber.d("🔔 EmployerNotificationScreen - Reloading notifications for role: ${currentUser?.activeRole}")
+            Timber.d("🔔 EmployerNotificationScreen - Loading employer notifications")
             viewModel.loadNotifications()
         }
     }

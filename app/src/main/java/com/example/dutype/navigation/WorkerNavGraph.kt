@@ -173,12 +173,6 @@ fun WorkerNavGraph(
             )
         }
         
-        // Worker Visiting Card
-        composable(Routes.WORKER_VISITING_CARD) {
-            com.example.dutype.worker.screens.profile.DigitalVisitingCardScreen(
-                navController = navController
-            )
-        }
        
         
         // Worker Notifications
@@ -235,27 +229,9 @@ fun WorkerNavGraph(
             )
         }
         
-        // FAQ - Opens web URL
-        composable(Routes.FAQ) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(com.example.dutype.utils.AppConstants.FAQ_URL))
-                context.startActivity(intent)
-                navController.popBackStack()
-            }
-        }
-        
         // Report Problem
         composable(Routes.REPORT) {
             com.example.dutype.common.screens.support.ReportProblemScreen(
-                navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange
-            )
-        }
-        
-        // Tutorial
-        composable(Routes.TUTORIAL) {
-            com.example.dutype.common.screens.support.TutorialScreen(
                 navController = navController,
                 onStatusBarColorChange = onStatusBarColorChange
             )

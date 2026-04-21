@@ -26,7 +26,6 @@ firebaseAuth = "24.0.1"
 firebaseAppcheckDebug = "19.0.1"
 hilt = "2.52"
 androidxFoundation = "1.10.1"
-firebasePnv = "16.0.0-beta01"
 uiTextVersion = "1.10.3"
 
 # P2-3: Jetpack Navigation 3 — stable since Nov 2025.
@@ -70,7 +69,6 @@ firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appc
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "androidxFoundation" }
-firebase-pnv = { group = "com.google.firebase", name = "firebase-pnv", version.ref = "firebasePnv" }
 androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiTextVersion" }
 
 # P2-3: Navigation 3 (stable). See note next to nav3Core above for the

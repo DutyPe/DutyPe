@@ -50,10 +50,10 @@ object DeepLinkHandler {
         } catch (e: IllegalArgumentException) {
             // Some links target nested worker routes that may not exist on the root NavController.
             val fallbackRoute = when (route) {
-                Routes.WORKER_PROFILE,
+                com.example.dutype.navigation.WorkerBottomRoutes.PROFILE,
                 Routes.WORKER_NOTIFICATIONS,
                 Routes.WORKER_ALL_JOBS,
-                Routes.WORKER_MY_JOBS -> Routes.WORKER_HOME
+                com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS -> Routes.WORKER_HOME
                 else -> null
             }
 
@@ -349,15 +349,15 @@ object DeepLinkHandler {
     
     private fun navigateToApplication(navController: NavController, applicationId: String) {
         // Fallback to worker applications list since there is no standalone application_detail route.
-        safeNavigate(navController, Routes.WORKER_MY_JOBS, "application:$applicationId")
+        safeNavigate(navController, com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS, "application:$applicationId")
     }
     
     private fun navigateToWorkerApplication(navController: NavController, applicationId: String) {
-        safeNavigate(navController, "${Routes.WORKER_MY_JOBS}?applicationId=$applicationId", "worker-application:$applicationId")
+        safeNavigate(navController, "${com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS}?applicationId=$applicationId", "worker-application:$applicationId")
     }
 
     private fun navigateToWorkerApplications(navController: NavController) {
-        safeNavigate(navController, Routes.WORKER_MY_JOBS, "worker-applications")
+        safeNavigate(navController, com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS, "worker-applications")
     }
 
     private fun navigateToWorkerJobs(navController: NavController) {
@@ -381,7 +381,7 @@ object DeepLinkHandler {
     }
     
     private fun navigateToProfile(navController: NavController) {
-        safeNavigate(navController, Routes.WORKER_PROFILE, "profile")
+        safeNavigate(navController, com.example.dutype.navigation.WorkerBottomRoutes.PROFILE, "profile")
     }
     
     private fun navigateToNotifications(navController: NavController) {

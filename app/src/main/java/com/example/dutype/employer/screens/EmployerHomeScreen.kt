@@ -438,27 +438,6 @@ fun EmployerHomeScreen(
             }
         } // Column
         
-        // Voice Job Posting FAB - Post jobs using voice commands
-        // TODO: Uncomment for future release - AI/Voice features will be released in next version
-        /*
-        FloatingActionButton(
-            onClick = {
-                navController.navigate(Routes.EMPLOYER_VOICE_POST_JOB)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 30.dp, end = 16.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White
-        ) {
-            Icon(
-                imageVector = Icons.Default.Mic,
-                contentDescription = "Voice Job Posting",
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        */
-        
         // Notification permission bottom sheet
         NotificationPermissionBottomSheet(
             isVisible = showNotificationBottomSheet,
@@ -531,7 +510,7 @@ fun DashboardContent(
                     isRefreshing = isRefreshing,
                     onViewAllClick = { 
                         // Navigate to posted jobs screen
-                        navController.navigate("employer_my_jobs")
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
                     },
                     onTabSwitch = { /* No longer needed */ },
                     onToggleJob = onToggleJob,
@@ -987,7 +966,7 @@ fun RecentJobsSection(
                         onViewApplicationsClick = { jobId ->
                             try {
                                 Timber.d("🔍 EmployerHomeScreen - View applications clicked for job ID: $jobId")
-                                navController.navigate("employer_applications_job/$jobId")
+                                navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(jobId))
                             } catch (e: Exception) {
                                 Timber.e("🔍 EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()
@@ -1262,7 +1241,7 @@ fun ApplicationAnalyticsSection(
                     )
                 )
                 TextButton(
-                    onClick = { navController.navigate("employer_applications") }
+                    onClick = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS) }
                 ) {
                     Text(
                         text = "View Applications",

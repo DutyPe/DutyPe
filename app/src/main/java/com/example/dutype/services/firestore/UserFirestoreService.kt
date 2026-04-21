@@ -1,10 +1,8 @@
 package com.example.dutype.services.firestore
 
 import com.example.dutype.models.User
-import com.example.dutype.models.UserRole
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
@@ -46,14 +44,12 @@ class UserFirestoreService @Inject constructor(
                     "phone" to user.phone,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
-                    "roles" to user.roles,
-                    "activeRole" to user.activeRole.name,
                     "location" to mapOf("lat" to user.lat, "lng" to user.lng),
                     "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng),
                     "fcmToken" to user.fcmToken,
                     "createdAt" to Timestamp(Date(user.createdAt)),
                     "lastActiveAt" to Timestamp.now()
-                )
+                ) + User.roleFieldsFor(user.role)
                 
                 userRef.set(coreUserData).await()
                 Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
@@ -77,10 +73,13 @@ class UserFirestoreService @Inject constructor(
                 Timber.d("🔍 UserFirestoreService.getUserById - Raw data: ${document.data}")
                 Timber.d("🔍 UserFirestoreService.getUserById - fullName field: ${document.getString("fullName")}")
                 
-                val user = document.toObject(User::class.java)
-                Timber.d("🔍 UserFirestoreService.getUserById - Deserialized user fullName: ${user?.fullName}")
-                
-                val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
+                val data = document.data
+                val userWithId = if (data != null) {
+                    User.fromFirestoreMap(document.id, data)
+                } else {
+                    User(id = document.id)
+                }
+                Timber.d("🔍 UserFirestoreService.getUserById - Deserialized user fullName: ${userWithId.fullName}")
                 Result.success(userWithId)
             } else {
                 Result.success(null)
@@ -89,13 +88,6 @@ class UserFirestoreService @Inject constructor(
             Timber.e("🔍 UserFirestoreService.getUserById - Error: ${e.message}")
             Result.failure(e)
         }
-    }
-    
-    /**
-     * Get user by email
-     */
-    suspend fun getUserByEmail(email: String): Result<User?> {
-        return Result.failure(UnsupportedOperationException("Email lookup is not supported in strict users schema"))
     }
     
     /**
@@ -194,129 +186,6 @@ class UserFirestoreService @Inject constructor(
         }
     }
 
-    
-    /**
-     * Get all users (for admin purposes) — PAGINATED for 5L+ scale
-     */
-    suspend fun getAllUsers(limit: Long = 50): Result<List<User>> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
-                .get()
-                .await()
-            
-            val users = query.documents.mapNotNull { it.toObject(User::class.java) }
-            Result.success(users)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get users by role — PAGINATED for 5L+ scale
-     */
-    suspend fun getUsersByRole(role: UserRole, limit: Long = 50): Result<List<User>> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .whereArrayContains("roles", role.name)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
-                .get()
-                .await()
-            
-            val users = query.documents.mapNotNull { it.toObject(User::class.java) }
-            Result.success(users)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Check if user exists by email
-     */
-    suspend fun userExistsByEmail(email: String): Result<Boolean> {
-        return Result.failure(UnsupportedOperationException("Email lookup is not supported in strict users schema"))
-    }
-    
-    /**
-     * Update user's last login time
-     */
-    suspend fun updateLastLogin(userId: String): Result<Unit> {
-        return try {
-            val updates = mapOf(
-                "lastActiveAt" to Timestamp.now()
-            )
-            firestore.collection(USERS_COLLECTION)
-                .document(userId)
-                .update(updates)
-                .await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Switch user role
-     */
-    suspend fun switchUserRole(userId: String, newRole: UserRole): Result<User> {
-        return try {
-            val updates = mapOf(
-                "activeRole" to newRole.name,
-                "lastActiveAt" to Timestamp.now()
-            )
-            
-            firestore.collection(USERS_COLLECTION)
-                .document(userId)
-                .update(updates)
-                .await()
-            
-            val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            val user = document.toObject(User::class.java)
-                ?: throw Exception("Failed to retrieve updated user")
-            
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get user count — P0 FIX: Use Firestore count() aggregation instead of downloading all docs
-     */
-    suspend fun getUserCount(): Result<Long> {
-        return try {
-            val countQuery = firestore.collection(USERS_COLLECTION)
-                .count()
-                .get(com.google.firebase.firestore.AggregateSource.SERVER)
-                .await()
-            Result.success(countQuery.count)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Search users by name or email
-     */
-    suspend fun searchUsers(query: String): Result<List<User>> {
-        return try {
-            val usersQuery = firestore.collection(USERS_COLLECTION)
-                .orderBy("fullName")
-                .startAt(query)
-                .endAt(query + "\uf8ff")
-                .limit(20)
-                .get()
-                .await()
-            
-            val users = usersQuery.documents.mapNotNull { it.toObject(User::class.java) }
-            Result.success(users)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
     /**
      * Get user summary for list views — LIGHTWEIGHT (6 fields only)
      * Use this instead of getUserById() when showing user cards/lists

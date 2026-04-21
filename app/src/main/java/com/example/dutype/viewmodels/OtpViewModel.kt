@@ -27,17 +27,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 /**
- * OtpViewModel - Handles phone authentication with Firebase PNV + SMS OTP fallback
- * 
- * FIREBASE PNV INTEGRATION:
- * - Uses Firebase Phone Number Verification (PNV) as primary method
- * - Falls back to SMS OTP if PNV not supported or fails
- * - Checks device support on initialization
- * 
- * REFACTORED:
- * - Now injects AuthManager singleton instead of creating new instance
- * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation)
- * - Initializes MetadataManager after successful authentication
+ * OtpViewModel - Handles phone authentication via SMS OTP.
+ *
+ * - Injects AuthManager singleton instead of creating a new instance.
+ * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation).
+ * - Initializes MetadataManager after successful authentication.
  */
 @HiltViewModel
 class OtpViewModel @Inject constructor(
@@ -46,17 +40,12 @@ class OtpViewModel @Inject constructor(
     private val metadataManager: MetadataManager,
     private val authFlowService: AuthFlowService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
-    private val pnvManager: com.example.dutype.auth.FirebasePNVManager,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) : ViewModel() {
 
     private val _otpState = MutableStateFlow(OtpState())
     val otpState: StateFlow<OtpState> = _otpState.asStateFlow()
-    
-    // Firebase PNV support status - exposed to UI
-    private val _isPNVSupported = MutableStateFlow(false)
-    val isPNVSupported: StateFlow<Boolean> = _isPNVSupported.asStateFlow()
-    
+
     // Resend cooldown timer - prevents spam and reduces rate limiting
     private val _resendCooldownSeconds = MutableStateFlow(0)
     val resendCooldownSeconds: StateFlow<Int> = _resendCooldownSeconds.asStateFlow()
@@ -78,128 +67,7 @@ class OtpViewModel @Inject constructor(
         val role: UserRole,
         val message: String? = null
     )
-    
-    init {
-        // Check Firebase PNV support on initialization
-        checkPNVSupport()
-    }
-    
-    /**
-     * Check if device supports Firebase PNV
-     * This is called on ViewModel initialization
-     */
-    private fun checkPNVSupport() {
-        viewModelScope.launch {
-            try {
-                val isSupported = pnvManager.checkPNVSupport()
-                _isPNVSupported.value = isSupported
-                Timber.d("ðŸ“± OtpViewModel: PNV support = $isSupported")
-            } catch (e: Exception) {
-                Timber.e(e, "ðŸ“± OtpViewModel: Error checking PNV support")
-                _isPNVSupported.value = false
-            }
-        }
-    }
-    
-    /**
-     * Verify phone number using Firebase PNV (if supported)
-     * This is the NEW recommended method by Firebase
-     * 
-     * @param context Activity context (required for consent dialog)
-     * @return true if PNV verification started, false if should fallback to SMS
-     */
-    fun verifyWithPNV(context: Context): Boolean {
-        if (!_isPNVSupported.value) {
-            Timber.d("ðŸ“± OtpViewModel: PNV not supported, will use SMS OTP")
-            return false
-        }
-        
-        val activity = context as? android.app.Activity
-        if (activity == null) {
-            Timber.w("ðŸ“± OtpViewModel: Activity context required for PNV")
-            return false
-        }
-        
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            _otpState.value = _otpState.value.copy(isLoading = true, error = null)
-            
-            try {
-                Timber.d("ðŸ“± OtpViewModel: Starting Firebase PNV verification...")
-                val result = pnvManager.verifyPhoneNumber(activity)
-                
-                if (result?.success == true && result.phoneNumber != null) {
-                    val duration = System.currentTimeMillis() - startTime
-                    performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = true)
-                    
-                    Timber.d("ðŸ“± OtpViewModel: PNV verification successful!")
-                    Timber.d("ðŸ“± OtpViewModel: Phone: ${result.phoneNumber}")
-                    
-                    // Sign in to Firebase Auth with the verified phone number
-                    val token = result.token
-                    if (token != null) {
-                        signInWithPNVToken(result.phoneNumber, token)
-                    } else {
-                        val duration = System.currentTimeMillis() - startTime
-                        performanceTracker.trackApiCall("verify_otp", duration, success = false)
-                        _otpState.value = _otpState.value.copy(
-                            isLoading = false,
-                            error = "Verification failed: No token received"
-                        )
-                    }
-                } else {
-                    val duration = System.currentTimeMillis() - startTime
-                    performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = false)
-                    
-                    Timber.w("ðŸ“± OtpViewModel: PNV verification failed: ${result?.error}")
-                    
-                    // Fallback to SMS OTP
-                    _otpState.value = _otpState.value.copy(
-                        isLoading = false,
-                        error = "Phone verification failed. Please try SMS verification."
-                    )
-                }
-            } catch (e: Exception) {
-                val duration = System.currentTimeMillis() - startTime
-                performanceTracker.trackApiCall("firebase_pnv_verify", duration, success = false)
-                
-                Timber.e(e, "ðŸ“± OtpViewModel: PNV verification exception")
-                _otpState.value = _otpState.value.copy(
-                    isLoading = false,
-                    error = "Verification failed: ${e.message}"
-                )
-            }
-        }
-        
-        return true
-    }
-    
-    /**
-     * Sign in to Firebase Auth using PNV verified phone number
-     * This creates a custom token or uses phone auth credential
-     */
-    private suspend fun signInWithPNVToken(phoneNumber: String, token: String) {
-        try {
-            Timber.d("ðŸ“± OtpViewModel: Signing in with PNV verified phone: $phoneNumber")
-            
-            // Note: Firebase PNV token needs to be exchanged for Firebase Auth token
-            // This requires backend implementation or direct Firebase Auth integration
-            // For now, we'll trigger the traditional SMS OTP flow as fallback
-            
-            Timber.w("ðŸ“± OtpViewModel: PNV token exchange not yet implemented, falling back to SMS OTP")
-            _otpState.value = _otpState.value.copy(
-                isLoading = false,
-                error = "Phone verification successful, but sign-in requires SMS OTP. Please use traditional login."
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "ðŸ“± OtpViewModel: Error signing in with PNV")
-            _otpState.value = _otpState.value.copy(
-                isLoading = false,
-                error = "Sign in failed: ${e.message}"
-            )
-        }
-    }
-    
+
     /**
      * Set the role context for FCM registration
      * Call this before starting OTP flow to ensure proper topic subscription
@@ -406,20 +274,18 @@ class OtpViewModel @Inject constructor(
                     Timber.d("OtpViewModel - Existing profile found: $hasExistingProfile")
                     Timber.d("OtpViewModel - Profile data: $existingProfileData")
                     
-                    // Create user object from Firebase data, using existing profile if available
+                    val resolvedRole = run {
+                        val raw = (existingProfileData?.get("role") as? String)
+                            ?: (existingProfileData?.get("activeRole") as? String)
+                            ?: (existingProfileData?.get("roles") as? List<*>)?.firstOrNull()?.toString()
+                            ?: pendingRole.name
+                        runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(UserRole.WORKER)
+                    }
                     val user = User(
                         id = userId,
                         fullName = existingProfileData?.get("fullName") as? String ?: "",
                         phone = existingProfileData?.get("phone") as? String ?: phoneNumber,
-                        activeRole = if (existingProfileData?.get("activeRole") != null) {
-                            try {
-                                UserRole.valueOf((existingProfileData["activeRole"] as? String)?.uppercase() ?: "WORKER")
-                            } catch (e: Exception) {
-                                UserRole.WORKER
-                            }
-                        } else {
-                            UserRole.WORKER
-                        },
+                        role = resolvedRole,
                         profileImageUrl = existingProfileData?.get("profileImageUrl") as? String
                     )
                     
@@ -445,8 +311,8 @@ class OtpViewModel @Inject constructor(
                         // Existing account: users/{uid} already exists, safe to register token now.
                         viewModelScope.launch {
                             try {
-                                val userRole = if (existingProfileData?.get("activeRole") != null) {
-                                    user.activeRole.name
+                                val userRole = if (existingProfileData?.get("role") != null || existingProfileData?.get("activeRole") != null) {
+                                    user.role.name
                                 } else {
                                     pendingRole.name
                                 }
@@ -472,7 +338,7 @@ class OtpViewModel @Inject constructor(
                         try {
                             // This updates ProfileSetupStateManager with completion status
                             // Navigation will check this flag and go to home screen
-                            val userRole = user.activeRole
+                            val userRole = user.role
                             updateProfileComplete(userId, userRole, true)
                         } catch (e: Exception) {
                             Timber.w(e, "Error marking profile as complete")
@@ -544,19 +410,19 @@ class OtpViewModel @Inject constructor(
 
     private fun cacheResolvedUser(userData: Map<String, Any>, fallbackRole: UserRole) {
         try {
-            val roles = (userData["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
-            val activeRole = try {
-                UserRole.valueOf(((userData["activeRole"] as? String) ?: fallbackRole.name).uppercase())
-            } catch (_: Exception) {
-                fallbackRole
+            val resolvedRole = run {
+                val raw = (userData["role"] as? String)
+                    ?: (userData["activeRole"] as? String)
+                    ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                    ?: fallbackRole.name
+                runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(fallbackRole)
             }
 
             val cachedUser = User(
                 id = userData["userId"] as? String ?: auth.currentUser?.uid.orEmpty(),
                 fullName = userData["fullName"] as? String ?: "",
                 phone = userData["phone"] as? String ?: auth.currentUser?.phoneNumber.orEmpty(),
-                roles = if (roles.isNotEmpty()) roles else listOf(activeRole.name),
-                activeRole = activeRole,
+                role = resolvedRole,
                 profileImageUrl = userData["profileImageUrl"] as? String
             )
 

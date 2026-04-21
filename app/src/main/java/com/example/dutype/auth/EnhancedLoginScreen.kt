@@ -228,43 +228,33 @@ private fun OtpLoginScreen(
                     }
 
                     if (existingUserData != null) {
-                        val activeRole = existingUserData["activeRole"] as? String
-                        @Suppress("UNCHECKED_CAST")
-                        val roles = (existingUserData["roles"] as? List<String>).orEmpty()
+                        val existingRoleStr = (existingUserData["role"] as? String)
+                            ?: (existingUserData["activeRole"] as? String)
+                            ?: (existingUserData["roles"] as? List<*>)?.firstOrNull()?.toString()
                         val fullName = existingUserData["fullName"] as? String
                         val phone = existingUserData["phone"] as? String
 
-                        // CRITICAL FIX: DUAL ROLE SUPPORT
-                        // Users can have multiple roles (Worker + Employer)
-                        // The 'role' parameter from navigation indicates which role they want to use for this session
-                        // ALWAYS use the 'role' parameter, NOT the database role
-                        // This ensures users navigate to the correct home screen based on where they clicked login
+                        // Single-role architecture: if the user already has a role, that's
+                        // their role for life. The `role` parameter from navigation is only
+                        // used as a fallback when the document has no role yet.
+                        val existingRole = existingRoleStr?.let {
+                            runCatching { UserRole.valueOf(it.uppercase()) }.getOrNull()
+                        }
+                        val effectiveRole = existingRole ?: role
 
-                        if (activeRole != null || roles.isNotEmpty()) {
-                            val parsedRole = try {
-                                UserRole.valueOf((activeRole ?: roles.first()).uppercase())
-                            } catch (e: Exception) {
-                                null
-                            }
+                        if (existingRole != null) {
                             val hasRequiredFields = !fullName.isNullOrBlank() && !phone.isNullOrBlank()
-
-                            if (parsedRole != null && hasRequiredFields) {
-                                // User has complete profile - navigate to home
-                                // CRITICAL: Use 'role' parameter (from navigation), NOT parsedRole (from DB)
-                                profileCompletionViewModel.updateUserRole(role)
-                                profileCompletionViewModel.markProfileComplete(role)
-                                profileCompletionViewModel.markProfileSetupAsShown(role)
+                            if (hasRequiredFields) {
+                                profileCompletionViewModel.markProfileComplete(effectiveRole)
+                                profileCompletionViewModel.markProfileSetupAsShown(effectiveRole)
                                 profileCompletionViewModel.saveUserInfoToLocalStorage(
                                     email = existingUserData["email"] as? String ?: "",
                                     name = fullName ?: "",
-                                    role = role  // Use navigation role, not DB role
+                                    role = effectiveRole
                                 )
-
-                                // CRITICAL: Navigate based on 'role' parameter, not DB role
-                                navigateToHome(role, navController)
+                                navigateToHome(effectiveRole, navController)
                             } else {
-                                // Profile incomplete - go to setup
-                                navigateToProfileSetup(role, navController)
+                                navigateToProfileSetup(effectiveRole, navController)
                             }
                         } else {
                             // No role in DB - use selected role and go to setup

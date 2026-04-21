@@ -184,23 +184,21 @@ class AuthFlowService @Inject constructor(
                 val existingUser = transaction.get(userRef)
                 val existingData = existingUser.data.orEmpty()
 
-                val existingRoles = (existingData["roles"] as? List<*>)
-                    ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
-                    .orEmpty()
-                val mergedRoles = (existingRoles + role).distinct()
+                // Single-role architecture: an existing complete account cannot
+                // register again, regardless of which role is requested. We also
+                // tolerate legacy `activeRole` / `roles[0]` for compat reads.
+                val existingRoleRaw = (existingData["role"] as? String)
+                    ?: (existingData["activeRole"] as? String)
+                    ?: (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                val existingRole = existingRoleRaw?.uppercase()
                 val existingReferralCode = (existingData["referralCode"] as? String)?.trim().orEmpty()
-                val alreadyHasRequestedRole = role in existingRoles
                 val isExistingCompleteUser =
                     !(existingData["phone"] as? String).isNullOrBlank() &&
                     !(existingData["fullName"] as? String).isNullOrBlank() &&
-                    existingRoles.isNotEmpty()
+                    !existingRole.isNullOrBlank()
 
-                if (existingUser.exists() && isExistingCompleteUser && alreadyHasRequestedRole) {
+                if (existingUser.exists() && isExistingCompleteUser) {
                     throw IllegalStateException("Account already exists")
-                }
-
-                if (existingUser.exists() && isExistingCompleteUser && !alreadyHasRequestedRole && normalizedReferralCode != null) {
-                    throw IllegalStateException("Referral code can only be used on your first registration")
                 }
 
                 val ownReferralCode = existingReferralCode
@@ -217,7 +215,9 @@ class AuthFlowService @Inject constructor(
                     "userId" to currentUser.uid,
                     "phone" to resolvedPhone,
                     "fullName" to resolvedFullName,
-                    "roles" to mergedRoles,
+                    "role" to role,
+                    // Transient compat for unmigrated CFs/admin tools.
+                    "roles" to listOf(role),
                     "activeRole" to role,
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
                     "lastActiveAt" to now
@@ -292,56 +292,49 @@ class AuthFlowService @Inject constructor(
             }
 
             val userData = userSnapshot.data.orEmpty().toMutableMap()
-            val roles = (userData["roles"] as? List<*>)?.mapNotNull { it?.toString()?.uppercase() }.orEmpty()
-            val activeRole = (userData["activeRole"] as? String)?.uppercase()
-            val roleExists = roles.contains(role)
+            // Single-role architecture: trust the existing role on the document.
+            // The requested role is only a hint used when the document does not
+            // yet exist (handled above).
+            val existingRole = ((userData["role"] as? String)
+                ?: (userData["activeRole"] as? String)
+                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                )?.uppercase()
+            val effectiveRole = existingRole ?: role
 
             val hasCoreFields =
                 !(userData["phone"] as? String).isNullOrBlank() &&
                 !(userData["fullName"] as? String).isNullOrBlank() &&
-                roles.isNotEmpty()
+                !existingRole.isNullOrBlank()
 
-            val hasRoleProfile = when {
-                !roleExists -> false
-                role == "WORKER" -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
+            val hasRoleProfile = when (effectiveRole) {
+                "WORKER" -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
                     firestore.collection(COLLECTION_WORKER_PROFILES)
                         .document(currentUser.uid)
                         .get()
                         .await()
                         .exists()
                 }
-                else -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
+                "EMPLOYER" -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
                     firestore.collection(COLLECTION_EMPLOYER_PROFILES)
                         .document(currentUser.uid)
                         .get()
                         .await()
                         .exists()
                 }
+                else -> false
             }
 
             val updates = linkedMapOf<String, Any>(
                 "lastActiveAt" to Timestamp.now()
             )
-            if (roleExists) {
-                updates["activeRole"] = role
-                userData["activeRole"] = role
-            }
-
             userRef.update(updates).await()
             userData["lastActiveAt"] = updates["lastActiveAt"] as Timestamp
-
-            val roleForFcm = when {
-                roleExists -> role
-                !activeRole.isNullOrBlank() -> activeRole
-                roles.isNotEmpty() -> roles.first()
-                else -> role
-            }
 
             Result.success(
                 LoginResolution(
                     userData = userData,
                     shouldRouteToProfileSetup = !(hasCoreFields && hasRoleProfile),
-                    roleForFcm = roleForFcm
+                    roleForFcm = effectiveRole
                 )
             )
         } catch (e: Exception) {

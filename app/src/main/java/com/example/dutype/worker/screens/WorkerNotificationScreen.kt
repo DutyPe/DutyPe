@@ -86,19 +86,15 @@ fun WorkerNotificationScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val isGuestUser = FirebaseAuth.getInstance().currentUser == null
-    val roleViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
-    val currentUser by roleViewModel.currentUser.collectAsStateWithLifecycle()
 
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
-    // CRITICAL FIX: Reload notifications when role changes
-    // Dependencies: currentUser.activeRole (role switch), dialogData (prevent BG reload during dialog)
-    // Dependencies changed: Only recompute on actual role change, not tickng timestamp
-    LaunchedEffect(currentUser?.activeRole, dialogData == null) {
-        // Only load if dialog is not showing (prevents background reload while user viewing notification)
+    // This screen is hardcoded to the WORKER role via WorkerNotificationViewModel —
+    // single-role accounts mean we just load once on enter and again when the dialog closes.
+    LaunchedEffect(dialogData == null) {
         if (dialogData == null) {
-            Timber.d("🔔 WorkerNotificationScreen - Reloading notifications for role: ${currentUser?.activeRole}")
+            Timber.d("🔔 WorkerNotificationScreen - Loading worker notifications")
             viewModel.loadNotifications()
         }
     }

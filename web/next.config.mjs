@@ -25,6 +25,19 @@ const baseConfig = {
         hostname: "lh3.googleusercontent.com"
       }
     ]
+  },
+  // Ensure /.well-known/assetlinks.json is served as application/json for
+  // Android App Links Digital Asset Links verification (dutype.in).
+  async headers() {
+    return [
+      {
+        source: "/.well-known/assetlinks.json",
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          { key: "Cache-Control", value: "public, max-age=3600" }
+        ]
+      }
+    ];
   }
 };
 

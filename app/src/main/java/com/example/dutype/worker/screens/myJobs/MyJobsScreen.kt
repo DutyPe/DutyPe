@@ -348,8 +348,8 @@ fun MyJobsScreen(
                                     onClick = {
                                         // Navigate to home tab to browse jobs
                                         runCatching {
-                                            navController.navigate(Routes.WORKER_HOME_TAB) {
-                                                popUpTo(Routes.WORKER_HOME_TAB) { inclusive = false }
+                                            navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+                                                popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
                                                 launchSingleTop = true
                                             }
                                         }.onFailure { error ->
@@ -392,7 +392,7 @@ fun MyJobsScreen(
                                             application = application,
                                             onCardClick = { app ->
                                                 navController.navigate(Routes.jobDetailRoute(app.jobId)) {
-                                                    popUpTo(Routes.WORKER_MY_JOBS) {
+                                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
                                                         inclusive = false
                                                     }
                                                 }

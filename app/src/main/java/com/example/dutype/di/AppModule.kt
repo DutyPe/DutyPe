@@ -208,24 +208,6 @@ object AppModule {
 
     // EmployerProfileCache uses @Inject constructor, so Hilt resolves it automatically.
 
-    @Provides
-    @Singleton
-    fun provideRoleCacheManager(
-        jobCacheManager: JobCacheManager,
-        employerProfileCache: com.example.dutype.cache.EmployerProfileCache
-    ): com.example.dutype.cache.RoleCacheManager {
-        return com.example.dutype.cache.RoleCacheManager(jobCacheManager, employerProfileCache)
-    }
-
-    @Provides
-    @Singleton
-    fun provideRoleSwitchManager(
-        roleCacheManager: com.example.dutype.cache.RoleCacheManager,
-        authManager: AuthManager
-    ): com.example.dutype.managers.RoleSwitchManager {
-        return com.example.dutype.managers.RoleSwitchManager(roleCacheManager, authManager)
-    }
-
     // ==========================================
     // DATA STORES
     // ==========================================

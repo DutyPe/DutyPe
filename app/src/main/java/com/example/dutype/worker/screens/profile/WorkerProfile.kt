@@ -88,7 +88,6 @@ import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.ProfileShimmer
-import com.example.dutype.components.RoleSwitchDialog
 import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.LocaleHelper
@@ -720,19 +719,6 @@ fun WorkerProfileScreen(
                         }
                     )
                     
-                    // My Visiting Card menu item commented as requested
-                    // MeeshoMenuItem(
-                    //     icon = Icons.Outlined.Badge,
-                    //     title = "My Visiting Card",
-                    //     onClick = {
-                    //         if (currentUserId.isEmpty()) {
-                    //             pendingMenuAction = "visiting_card"
-                    //             showLoginBottomSheet = true
-                    //         } else {
-                    //             localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD)
-                    //         }
-                    //     }
-                    // )
                 }
             }
         }
@@ -810,88 +796,8 @@ fun WorkerProfileScreen(
                     
                     MenuDivider()
                     
-                    // ── ROLE-SWITCH FLAT MENU ── (commented out per product decision Apr 2026)
-                    // The dual-role switch entry has been hidden from the worker profile menu.
-                    // Switching is still available through the role-switch dialog from other entry
-                    // points. To re-enable, uncomment the block below.
-                    /*
-                    if (currentUserId.isNotEmpty()) {
-                        val roleManagementViewModel: com.example.dutype.viewmodels.RoleManagementViewModel = hiltViewModel()
-                        val currentUser by roleManagementViewModel.currentUser.collectAsState()
-                        var showRoleSwitchDialog by remember { mutableStateOf(false) }
-                        var isRoleSwitching by remember { mutableStateOf(false) }
-                        
-                        // Show switch role for all logged-in users
-                        MeeshoMenuItem(
-                            icon = Icons.Outlined.SwapHoriz,
-                            title = stringResource(R.string.switch_to_employer),
-                            onClick = {
-                                if (currentUser != null && currentUser!!.isDualRole()) {
-                                    // Already has employer role enabled — switch directly
-                                    showRoleSwitchDialog = true
-                                } else {
-                                    // Single role — navigate to employer home (will trigger profile setup if needed)
-                                    showRoleSwitchDialog = true
-                                }
-                            }
-                        )
-                        
-                        MenuDivider()
-
-                        RoleSwitchDialog(
-                            showDialog = showRoleSwitchDialog,
-                            currentRole = currentUser?.activeRole ?: com.example.dutype.models.UserRole.WORKER,
-                            enabledRoles = currentUser?.getEnabledRoles() ?: listOf(com.example.dutype.models.UserRole.WORKER),
-                            isLoading = isRoleSwitching,
-                            onDismiss = { showRoleSwitchDialog = false },
-                            onSwitchRole = { targetRole ->
-                                isRoleSwitching = true
-                                val appContext = context.applicationContext as android.app.Application
-                                val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-                                    appContext,
-                                    com.example.dutype.managers.RoleSwitchManagerEntryPoint::class.java
-                                )
-                                val roleSwitchManager = entryPoint.roleSwitchManager()
-                                scope.launch {
-                                    try {
-                                        roleSwitchManager.switchRole(
-                                            context = context,
-                                            navController = rootNavController,
-                                            roleViewModel = roleManagementViewModel,
-                                            oldRole = currentUser?.activeRole ?: com.example.dutype.models.UserRole.WORKER,
-                                            newRole = targetRole,
-                                            onSuccess = {
-                                                isRoleSwitching = false
-                                                showRoleSwitchDialog = false
-                                                android.widget.Toast.makeText(
-                                                    context,
-                                                    "Switched to ${targetRole.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                                                    android.widget.Toast.LENGTH_SHORT
-                                                ).show()
-                                            },
-                                            onError = { error ->
-                                                isRoleSwitching = false
-                                                android.widget.Toast.makeText(
-                                                    context,
-                                                    "Failed to switch: $error",
-                                                    android.widget.Toast.LENGTH_LONG
-                                                ).show()
-                                            }
-                                        )
-                                    } catch (e: Exception) {
-                                        isRoleSwitching = false
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Error: ${e.message}",
-                                            android.widget.Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                }
-                            }
-                        )
-                    }
-                    */
-                    // ── END role-switch flat menu (commented) ──
+                    // ROLE-SWITCH MENU REMOVED — accounts are single-role for life.
+                    // (Phase 5 dual-role removal, see docs/role-removal/)
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
@@ -1053,7 +959,6 @@ fun WorkerProfileScreen(
                 "profile" -> rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
                 "applications" -> localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
                 "earnings" -> localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
-                "visiting_card" -> localNavController?.navigate(Routes.WORKER_VISITING_CARD) ?: rootNavController.navigate(Routes.WORKER_VISITING_CARD)
                 "refer_earn" -> localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
             }
             pendingMenuAction = null
@@ -1065,7 +970,6 @@ fun WorkerProfileScreen(
             "profile" -> stringResource(R.string.login_to_view_profile)
             "applications" -> stringResource(R.string.login_to_view_applications)
             "earnings" -> stringResource(R.string.login_to_view_earnings)
-            "visiting_card" -> stringResource(R.string.login_to_create_visiting_card)
             "refer_earn" -> stringResource(R.string.login_to_refer_earn)
             else -> stringResource(R.string.login_to_access_feature)
         }

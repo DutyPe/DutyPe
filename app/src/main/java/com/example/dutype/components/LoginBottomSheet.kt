@@ -156,7 +156,6 @@ fun LoginBottomSheet(
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
-    val isPNVSupported by otpViewModel.isPNVSupported.collectAsState()  
     
     var phoneNumber by remember { mutableStateOf("") }
     var registerName by remember { mutableStateOf("") }
@@ -486,19 +485,6 @@ fun LoginBottomSheet(
                         onValidatedReferrerNameChange = { validatedReferrerName = it },
                         hasAlreadyUsedReferral = hasAlreadyUsedReferral,
                         onHasAlreadyUsedReferralChange = { hasAlreadyUsedReferral = it },
-                        isPNVSupported = isPNVSupported,
-                        onPNVClick = {
-                            // Try Firebase PNV first
-                            val pnvStarted = otpViewModel.verifyWithPNV(context)
-                            if (!pnvStarted) {
-                                // PNV not supported, show message
-                                Toast.makeText(
-                                    context,
-                                    if (isTelugu) "తక్షణ ధృవీకరణ అందుబాటులో లేదు. దయచేసి ఫోన్ నంబర్ + OTP ఉపయోగించండి." else "Instant verification not available. Please use phone number + OTP.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
                             // In registration mode, name is mandatory — mirror the EnhancedLoginScreen contract.
@@ -643,8 +629,6 @@ private fun PhoneInputContent(
     onValidatedReferrerNameChange: (String?) -> Unit,
     hasAlreadyUsedReferral: Boolean,
     onHasAlreadyUsedReferralChange: (Boolean) -> Unit,
-    isPNVSupported: Boolean,
-    onPNVClick: () -> Unit,
     onContinueClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1069,88 +1053,6 @@ private fun PhoneInputContent(
         Spacer(modifier = Modifier.height(16.dp))
         
         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
-        
-        // Firebase PNV Button - Show when supported (instant verification)
-        if (isPNVSupported) {
-            Button(
-                onClick = {
-                    Timber.d("📱 LoginBottomSheet - Firebase PNV button clicked")
-                    onPNVClick()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF10B981),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = !otpState.isLoading && !isCheckingPhone,
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 2.dp
-                )
-            ) {
-                if (otpState.isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_secure),
-                            contentDescription = if (isTelugu) "తక్షణ ధృవీకరణ" else "Instant Verification",
-                            modifier = Modifier.size(20.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            if (isTelugu) "తక్షణ ధృవీకరణ" else "Instant Verification",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Divider with "OR"
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp)
-                        .background(WorkerColors.Border)
-                )
-                Text(
-                    text = if (isTelugu) "లేదా" else "OR",
-                    style = AppTypography.bodySmall.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(1.dp)
-                        .background(WorkerColors.Border)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-        }
         
         // Check if user already used referral code
         LaunchedEffect(phoneNumber) {

@@ -3,12 +3,10 @@ package com.example.dutype.viewmodels
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.example.dutype.services.ProfileCompletionService
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.state.ProfileSetupStateManager
 import com.example.dutype.models.UserRole
 import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import timber.log.Timber
 
@@ -23,7 +21,6 @@ import timber.log.Timber
 class ProfileCompletionViewModel @Inject constructor(
     val profileCompletionService: ProfileCompletionService,
     private val profileSetupStateManager: ProfileSetupStateManager,
-    private val jobApplicationService: JobApplicationService,
     val authManager: com.example.dutype.auth.AuthManager,
     val locationService: com.example.dutype.utils.LocationService,
     val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
@@ -31,17 +28,6 @@ class ProfileCompletionViewModel @Inject constructor(
     val locationPreferences: com.example.dutype.location.LocationPreferences,
     val metadataManager: MetadataManager
 ) : ViewModel() {
-
-    /**
-     * Get applications for a specific job
-     */
-    suspend fun getApplicationsForJob(jobId: String): Int {
-        return try {
-            jobApplicationService.getJobApplications(jobId).first().getOrNull()?.size ?: 0
-        } catch (e: Exception) {
-            0
-        }
-    }
 
     /**
      * Check if user has complete profile for their role
@@ -266,23 +252,6 @@ class ProfileCompletionViewModel @Inject constructor(
     }
 
     /**
-     * Check if user already has a profile in Firebase by email
-     */
-        suspend fun checkExistingProfileByEmail(email: String, role: UserRole): Boolean =
-            profileCompletionService.checkExistingProfileByEmail(email).getOrElse { false }
-
-        /**
-         * Load existing profile data into local state for returning users
-         */
-        suspend fun loadExistingProfileData(email: String, role: UserRole) {
-            // First try using current authenticated user's UID
-            profileCompletionService.loadExistingProfileDataByCurrentUser().getOrElse {
-                // Fallback to email-based loading if current user loading fails
-                profileCompletionService.loadExistingProfileDataByEmail(email)
-            }
-        }
-        
-        /**
          * Load existing profile data for current authenticated user
          * Returns Result with profile data map or failure
          * 
@@ -342,33 +311,6 @@ class ProfileCompletionViewModel @Inject constructor(
          */
         suspend fun clearReferralCode() =
             profileSetupStateManager.clearReferralCode()
-
-        /**
-         * Check if phone number exists with a different role
-         * Returns the existing role if found, null otherwise
-         * Used to prevent dual-role accounts
-         */
-        suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: UserRole): String? {
-            return try {
-                val result = profileCompletionService.checkPhoneExistsWithDifferentRole(phone, currentRole.name)
-                result.getOrNull()
-            } catch (e: Exception) {
-                Timber.e(e, "Error checking phone existence with different role")
-                null
-            }
-        }
-        
-        /**
-         * Save phone-role mapping to phone_roles collection
-         * Called when user completes profile setup
-         */
-        suspend fun savePhoneRole(phone: String, role: UserRole) {
-            try {
-                profileCompletionService.savePhoneRole(phone, role.name)
-            } catch (e: Exception) {
-                Timber.e(e, "Error saving phone role mapping")
-            }
-        }
         
         // ============================================
         // REFERRAL SYSTEM METHODS

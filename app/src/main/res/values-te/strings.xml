@@ -252,7 +252,6 @@
     <string name="log_out">లాగ్ అవుట్</string>
     <string name="logout_confirmation">మీరు లాగ్ అవుట్ అవ్వాలనుకుంటున్నారా? మీ ఖాతాను యాక్సెస్ చేయడానికి మీరు మళ్ళీ సైన్ ఇన్ చేయాలి.</string>
     <string name="refer">రిఫర్ చేయండి</string>
-    <string name="my_visiting_card">నా విజిటింగ్ కార్డ్</string>
     <string name="share_on_whatsapp_get_jobs">WhatsApp లో షేర్ చేసి మరిన్ని ఉద్యోగాలు పొందండి! 🚀</string>
     <string name="tap_photo_to_change">ఫోటో మార్చడానికి నొక్కండి</string>
     <string name="complete_your_profile">మీ ప్రొఫైల్ పూర్తి చేయండి</string>
@@ -278,8 +277,6 @@
     <string name="support_24_7">24/7 సహాయం</string>
     <string name="always_here_to_help">ఎల్లప్పుడూ సహాయం చేయడానికి ఇక్కడ ఉన్నాము</string>
     <string name="business_and_jobs">వ్యాపారం &amp; ఉద్యోగాలు</string>
-    <string name="trust_badges">ట్రస్ట్ బ్యాడ్జ్‌లు</string>
-    <string name="view_verification_status">మీ ధృవీకరణ స్థితిని చూడండి</string>
     <string name="manage_your_plan">మీ ప్లాన్ నిర్వహించండి</string>
     <string name="my_job_posts">నా ఉద్యోగ పోస్ట్‌లు</string>
     <string name="work_locations">పని స్థానాలు</string>
@@ -431,14 +428,6 @@
     <string name="dismiss">తొలగించు</string>
     <string name="role_worker">వర్కర్</string>
     <string name="role_employer">ఎంప్లాయర్</string>
-    <string name="switch_to_role_title">%1$s‌కి మారాలా?</string>
-    <string name="switch_role_body">మీరు %1$s నుండి %2$s మోడ్‌కి మారుతున్నారు. మీ యాక్టివ్ పాత్ర మారుతుంది మరియు మీరు %2$s డ్యాష్‌బోర్డ్‌ను చూస్తారు.</string>
-    <string name="yes_switch">అవును, మార్చు</string>
-    <string name="switch_role_title">పాత్ర మార్చు</string>
-    <string name="select_active_mode">మీ యాక్టివ్ మోడ్‌ను ఎంచుకోండి</string>
-    <string name="switching_roles">పాత్రలను మారుస్తోంది…</string>
-    <string name="active_label">యాక్టివ్</string>
-    <string name="tap_to_switch_role">మార్చేందుకు నొక్కండి</string>
     <string name="view_analytics">విశ్లేషణలను చూడండి</string>
     <string name="full_name_required">పూర్తి పేరు *</string>
     <string name="enter_full_name">మీ పూర్తి పేరును నమోదు చేయండి</string>
@@ -586,7 +575,7 @@
     <string name="todays_posts">నేటి పోస్ట్‌లు</string>
     <string name="total_jobs">మొత్తం ఉద్యోగాలు</string>
     <string name="total_label">మొత్తం</string>
-    <string name="switch_to_employer">యజమానికి మారండి</string>
+
     <string name="welcome_to_dutype">DutyPeకి స్వాగతం</string>
     <string name="our_mission">మా లక్ష్యం</string>
     <string name="our_vision">మా దృష్టి</string>
@@ -862,7 +851,6 @@
     <string name="login_to_view_profile">మీ ప్రొఫైల్‌ను చూడడానికి మరియు ఎడిట్ చేయడానికి లాగిన్ అవ్వండి</string>
     <string name="login_to_view_applications">మీ ఉద్యోగ దరఖాస్తులను చూడడానికి లాగిన్ అవ్వండి</string>
     <string name="login_to_view_earnings">మీ సంపాదనను చూడడానికి లాగిన్ అవ్వండి</string>
-    <string name="login_to_create_visiting_card">మీ డిజిటల్ విజిటింగ్ కార్డ్ రూపొందించడానికి లాగిన్ అవ్వండి</string>
     <string name="login_to_refer_earn">స్నేహితులను రిఫర్ చేసి రివార్డ్‌లు సంపాదించడానికి లాగిన్ అవ్వండి</string>
     <string name="login_to_access_feature">ఈ ఫీచర్‌ను యాక్సెస్ చేయడానికి దయచేసి లాగిన్ అవ్వండి</string>
     <string name="contact_unlocked">సంప్రదింపు అన్‌లాక్ చేయబడింది! ✅</string>

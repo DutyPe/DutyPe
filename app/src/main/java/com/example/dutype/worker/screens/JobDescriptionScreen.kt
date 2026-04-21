@@ -111,9 +111,6 @@ import com.example.dutype.ads.AdManager
 import com.example.dutype.components.JobSafetyCard
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
-import com.example.dutype.components.TrustBadge
-import com.example.dutype.components.TrustBadgeSize
-import com.example.dutype.components.TrustBadgeWithInfo
 import com.example.dutype.components.analyzeJobRisk
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
@@ -509,7 +506,12 @@ fun JobDescriptionScreen(
                         val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
                             data = android.net.Uri.parse("tel:$phone") 
                         }
-                        try { context.startActivity(intent) } catch (e: Exception) {}
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to start dialer for $phone")
+                            android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
                 "message" -> {
@@ -519,7 +521,12 @@ fun JobDescriptionScreen(
                         val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
                             data = android.net.Uri.parse("tel:$phone") 
                         }
-                        try { context.startActivity(intent) } catch (e: Exception) {}
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to start dialer for $phone")
+                            android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
                 "whatsapp" -> {
@@ -591,7 +598,12 @@ private fun BottomActionBar(
                         val phone = job.contactNumber
                         if (phone.isNotEmpty()) {
                             val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
-                            try { context.startActivity(intent) } catch (e: Exception) {}
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to start dialer for $phone")
+                                android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                         } else {
                             android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
                         }
@@ -613,7 +625,7 @@ private fun BottomActionBar(
                 Button(
                     onClick = {
                         // Navigate to My Jobs to see application status
-                        navController.navigate(Routes.WORKER_MY_JOBS)
+                        navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
                     },
                     modifier = Modifier.weight(1f).height(50.dp),
                     colors = ButtonDefaults.buttonColors(

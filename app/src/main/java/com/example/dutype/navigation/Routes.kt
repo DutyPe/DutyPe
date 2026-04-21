@@ -12,12 +12,7 @@ object Routes {
     const val EMPLOYER_COMPANY_DETAILS = "employer_company_details"
     
     // Worker Routes
-    const val WORKER_HOME_TAB = "home"
-    const val WORKER_MY_JOBS = "myjobs"
-    const val WORKER_PROFILE = "profile"
     const val WORKER_PROFILE_DETAILS = "worker_profile_details"
-    const val WORKER_VISITING_CARD = "worker_visiting_card"
-    const val EMPLOYER_VISITING_CARD = "employer_visiting_card"
     const val WORKER_ALL_JOBS = "worker_all_jobs"
     const val WORKER_CATEGORIES = "worker_categories"
     const val WORKER_CATEGORIES_FILTERED = "worker_categories/{category}"
@@ -29,8 +24,6 @@ object Routes {
     const val WORKER_NOTIFICATIONS = "worker_notifications"
     const val HELP = "help"
     const val REPORT = "report"
-    const val TUTORIAL = "tutorial"
-    const val FAQ = "faq" 
     const val ABOUT_US = "aboutUs"
     
     
@@ -41,24 +34,15 @@ object Routes {
     const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
     const val EDIT_JOB = "edit_job/{jobId}"
-    const val VIEW_APPLICANTS = "view_applicants/{jobId}"
-    const val EMPLOYER_ABOUT = "employer_about"
-    const val EMPLOYER_HELP = "employer_help"
-    const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
-    const val EMPLOYER_REFER_EARN = "employer_refer_earn"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
-    const val EMPLOYER_MORE_SETTINGS = "employer_more_settings"
-    const val EMPLOYER_MY_RATINGS = "employer_my_ratings"
-    const val EMPLOYER_TRUST_BADGES = "employer_trust_badges"
     const val CONTACT_US = "contact_us"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"
-    const val EMPLOYER_HISTORY = "employer_history"
     
     // Map-First Interface Route (Accessibility Feature)
     const val WORKER_JOB_MAP = "worker_job_map"
@@ -69,9 +53,6 @@ object Routes {
     // Worker Refer & Earn
     const val WORKER_REFER_EARN = "worker_refer_earn"
     
-    // Voice Job Posting
-    const val EMPLOYER_VOICE_POST_JOB = "employer_voice_post_job"
-    
     // Utility functions
     fun jobDetailRoute(jobId: String): String {
         return "job_detail_route/$jobId"
@@ -79,10 +60,6 @@ object Routes {
     
     fun jobApplicationRoute(jobId: String): String {
         return "job_application/$jobId"
-    }
-    
-    fun viewApplicantsRoute(jobId: String): String {
-        return "view_applicants/$jobId"
     }
     
     fun employerApplicationsJobRoute(jobId: String): String {

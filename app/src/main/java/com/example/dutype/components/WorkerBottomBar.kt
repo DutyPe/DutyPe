@@ -67,19 +67,19 @@ fun WorkerBottomBar(
     // Worker bottom bar items - Custom icons with filled/unfilled states
     val items = listOf(
         WorkerBottomBarItem(
-            route = Routes.WORKER_HOME_TAB,
+            route = com.example.dutype.navigation.WorkerBottomRoutes.HOME,
             labelResId = R.string.bottom_nav_home,
             iconResUnfilled = R.drawable.ic_home_unfilled,
             iconResFilled = R.drawable.ic_home_filled
         ),
         WorkerBottomBarItem(
-            route = Routes.WORKER_MY_JOBS,
+            route = com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS,
             labelResId = R.string.bottom_nav_my_jobs,
             iconResUnfilled = R.drawable.myjobs,
             iconResFilled = R.drawable.myjobs // Keep same for now
         ),
         WorkerBottomBarItem(
-            route = Routes.WORKER_PROFILE,
+            route = com.example.dutype.navigation.WorkerBottomRoutes.PROFILE,
             labelResId = R.string.bottom_nav_account,
             iconResUnfilled = R.drawable.ic_person_unfilled,
             iconResFilled = R.drawable.ic_person_filled

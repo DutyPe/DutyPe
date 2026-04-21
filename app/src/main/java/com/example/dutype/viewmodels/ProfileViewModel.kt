@@ -1,4 +1,4 @@
-package com.example.dutype.viewmodels
+﻿package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -154,7 +154,7 @@ class ProfileViewModel @Inject constructor(
             
             try {
                 val userId = getCurrentUserId()
-                val userRole = _uiState.value.user?.activeRole?.name ?: "WORKER"
+                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
                 
                 if (userId != null) {
                     val uri = android.net.Uri.parse(imageUri)
@@ -242,7 +242,7 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val userId = getCurrentUserId()
-                val userRole = _uiState.value.user?.activeRole?.name ?: "WORKER"
+                val userRole = _uiState.value.user?.role?.name ?: "WORKER"
                 
                 if (userId != null) {
                     val completionPercentage = profileCompletionService.getProfileCompletionPercentage(userId, userRole).getOrDefault(0)

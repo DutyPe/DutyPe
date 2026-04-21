@@ -36,19 +36,19 @@ import androidx.navigation.navDeepLink
 import com.example.dutype.components.EmployerBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.EditJobScreen
-import com.example.dutype.employer.screens.EmployerAboutScreen
+
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerHomeScreen
 import com.example.dutype.employer.screens.EmployerNotificationScreen
-import com.example.dutype.employer.screens.EmployerReferEarnScreen
-import com.example.dutype.employer.screens.EmployerSupportScreen
+
+
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.PostJobScreen
 import com.example.dutype.employer.screens.PostedJobsScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
-import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
+
 import com.example.dutype.utils.rememberScrollStateManager
 
 @Composable
@@ -72,24 +72,13 @@ fun EmployerMainScreen(
     val routesWithoutBottomBar = listOf(
         Routes.EMPLOYER_APPLICATIONS,
         Routes.EMPLOYER_APPLICATIONS_JOB,
-        Routes.EMPLOYER_ABOUT,
         Routes.CONTACT_US,
         Routes.EMPLOYER_NOTIFICATIONS,
         Routes.EMPLOYER_POST_JOB,
-        Routes.EMPLOYER_HELP,
-        Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_COMPANY_DETAILS,
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
-        Routes.EMPLOYER_HISTORY,
-        Routes.EMPLOYER_MORE_SETTINGS,
-        Routes.EMPLOYER_MY_RATINGS,
-        Routes.EMPLOYER_TRUST_BADGES, // Hide bottom bar on trust badges screen
-        Routes.EMPLOYER_VOICE_POST_JOB, // Hide bottom bar for voice job posting
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
-        Routes.EMPLOYER_VISITING_CARD, // Hide bottom bar on visiting card
-        Routes.VIEW_APPLICANTS, // Hide bottom bar on applicant management screen
-        // Routes.EMPLOYER_REFER_EARN // Commented out - will be released in v2
     )
     
     // Check if current route should hide bottom bar
@@ -188,9 +177,6 @@ fun EmployerMainScreen(
                             }
                         )
                     }
-                    composable(Routes.EMPLOYER_VOICE_POST_JOB) {
-                        com.example.dutype.employer.screens.VoiceJobPostingScreen(navController = navController)
-                    }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(
                             rootNavController = rootNavController,
@@ -223,26 +209,12 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                    composable(
-                        Routes.VIEW_APPLICANTS,
-                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
-                        EmployerApplicationManagementScreen(
-                            jobId = jobId,
-                            onApplicationClick = { application ->
-                                navController.navigate("worker_profile_view/${application.workerId}")
-                            },
-                            onBackClick = { navController.popBackStack() }
-                        )
-                    }
-                    
                     // Application Management Routes - CRITICAL MISSING ROUTES
                     composable(Routes.EMPLOYER_APPLICATIONS) {
                         EmployerApplicationManagementScreen(
                             jobId = null, // View all applications
                             onApplicationClick = { application ->
-                                navController.navigate("worker_profile_view/${application.workerId}")
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId))
                             },
                             onBackClick = { navController.popBackStack() }
                         )
@@ -256,7 +228,7 @@ fun EmployerMainScreen(
                         EmployerApplicationManagementScreen(
                             jobId = jobId, // View applications for specific job
                             onApplicationClick = { application ->
-                                navController.navigate("worker_profile_view/${application.workerId}")
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId))
                             },
                             onBackClick = { navController.popBackStack() }
                         )
@@ -283,48 +255,10 @@ fun EmployerMainScreen(
                         )
                     }
                     
-                  
-                    
-                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
-                        EmployerAddressManagementScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
                     composable(Routes.EMPLOYER_NOTIFICATIONS) {
                         EmployerNotificationScreen(
                             onBackClick = { navController.popBackStack() },
                             navController = navController
-                        )
-                    }
-                    
-                    composable(Routes.EMPLOYER_HELP) {
-                        EmployerSupportScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    composable(Routes.EMPLOYER_ABOUT) {
-                        EmployerAboutScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    composable(Routes.EMPLOYER_REFER_EARN) {
-                        EmployerReferEarnScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
                         )
                     }
                     
@@ -338,37 +272,6 @@ fun EmployerMainScreen(
                     // Contact Us Route
                     composable(Routes.CONTACT_US) {
                         com.example.dutype.common.screens.support.ContactUsScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // Employer History Route
-                    composable(Routes.EMPLOYER_HISTORY) {
-                        com.example.dutype.employer.screens.EmployerHistoryScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // Employer More Settings Route
-                    composable(Routes.EMPLOYER_MORE_SETTINGS) {
-                        com.example.dutype.employer.screens.settings.EmployerMoreSettingsScreen(
-                            navController = navController,
-                            rootNavController = rootNavController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            }
-                        )
-                    }
-                    
-                    // Employer Trust Badges Explanation Screen
-                    composable(Routes.EMPLOYER_TRUST_BADGES) {
-                        com.example.dutype.employer.screens.TrustBadgesScreen(
                             navController = navController,
                             onStatusBarColorChange = { color ->
                                 currentStatusBarColor = color
@@ -395,17 +298,6 @@ fun EmployerMainScreen(
                     // Also support the route without parameters for backward compatibility
                     composable(Routes.EMPLOYER_PROFILE_SETUP) {
                         MandatoryEmployerProfileSetupScreen(navController = navController)
-                    }
-                    
-                    // Employer Visiting Card Route
-                    composable(Routes.EMPLOYER_VISITING_CARD) {
-                        com.example.dutype.employer.screens.profile.EmployerDigitalVisitingCardScreen(
-                            navController = navController,
-                            onStatusBarColorChange = { color ->
-                                currentStatusBarColor = color
-                            },
-                            onBottomBarVisibilityChange = { /* handled by routesWithoutBottomBar */ }
-                        )
                     }
                 }
             }

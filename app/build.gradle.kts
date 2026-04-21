@@ -272,10 +272,6 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx")
     
-    // Firebase Phone Number Verification (PNV) - Recommended by Firebase
-    // Uses Android Credential Manager for secure, consent-based phone verification
-    implementation("com.google.firebase:firebase-pnv:16.0.0-beta01")
-    
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.firebase:geofire-android-common:3.2.0")
     implementation("com.google.firebase:firebase-messaging")

@@ -377,7 +377,7 @@ fun WorkerHomeScreen(
     }
 
     // P1-2: Removed `playStoreUrl` constant + `shareToWhatsApp` lambda. Both were duplicated
-    // in WorkerProfile / DigitalVisitingCardScreen / refer-earn screens (where they are actually
+    // in WorkerProfile / refer-earn screens (where they are actually
     // invoked) and were never called from WorkerHomeScreen.
 
     // P1-2: Removed unused `tabTitles`, `tabIcons`, the duplicate `coroutineScope`, and `pagerState`.

@@ -537,9 +537,11 @@ class ProfileCompletionService @Inject constructor(
     
     /**
      * Update user role - DUAL ROLE SUPPORT
-     * Adds the role to the roles array if not already present
-     * Updates activeRole to the new role
-     * This allows users to have multiple roles (Worker + Employer)
+     * Sets the user's single role.
+     *
+     * Single-role architecture: this OVERWRITES `role`, `activeRole`, and the
+     * one-element `roles` compat array. Accounts are single-role for life;
+     * call sites that previously appended a second role are no longer valid.
      */
     suspend fun updateUserRole(newRole: String): Result<Unit> {
         return try {
@@ -547,35 +549,18 @@ class ProfileCompletionService @Inject constructor(
             if (currentUser == null) {
                 return Result.failure(Exception("User not authenticated"))
             }
-            
-            // Fetch current user data to get existing roles (use cache)
-            val userData = getCachedUserDoc(currentUser.uid)
-            
-            // Get existing roles array
-            @Suppress("UNCHECKED_CAST")
-            val existingRoles = (userData?.get("roles") as? List<String>)?.toMutableList() ?: mutableListOf()
-            
-            // Add new role if not already present
-            val roleUpper = newRole.uppercase()
-            if (!existingRoles.contains(roleUpper)) {
-                existingRoles.add(roleUpper)
-                Timber.d("✅ ProfileCompletionService - Adding role $roleUpper to roles array")
-            } else {
-                Timber.d("✅ ProfileCompletionService - Role $roleUpper already exists in roles array")
-            }
-            
-            // Update both roles array and activeRole
-            val updates = mapOf(
-                "roles" to existingRoles,
-                "activeRole" to roleUpper
-            )
-            
+            val role = runCatching {
+                com.example.dutype.models.UserRole.valueOf(newRole.uppercase())
+            }.getOrDefault(com.example.dutype.models.UserRole.WORKER)
+
+            val updates = com.example.dutype.models.User.roleFieldsFor(role)
+
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid)
                 .update(updates)
                 .await()
             invalidateUserCache(currentUser.uid)
-            
-            Timber.d("✅ ProfileCompletionService - Updated roles array: $existingRoles, activeRole: $roleUpper")
+
+            Timber.d("✅ ProfileCompletionService - Set single role: ${role.name}")
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService - Error updating role: ${e.message}")
@@ -652,14 +637,6 @@ class ProfileCompletionService @Inject constructor(
                 existingUser = userRef.get().await().data.orEmpty()
             }
 
-            val existingRoles = (existingUser["roles"] as? List<*>)
-                ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
-                .orEmpty()
-            val mergedRoles = (existingRoles + "WORKER")
-                .filter { it == "WORKER" || it == "EMPLOYER" }
-                .distinct()
-                .ifEmpty { listOf("WORKER") }
-
             val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
             val existingWorker = workerRef.get().await().data.orEmpty()
             val validLocation = extractValidLocation(profileData, existingUser)
@@ -673,13 +650,13 @@ class ProfileCompletionService @Inject constructor(
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingWorker["experience"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
+            // Single-role architecture: always overwrite role to WORKER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
-                "roles" to mergedRoles,
-                "activeRole" to "WORKER",
                 "lastActiveAt" to now
             )
+            userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.WORKER))
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }
@@ -772,23 +749,15 @@ class ProfileCompletionService @Inject constructor(
                 existingUser = userRef.get().await().data.orEmpty()
             }
 
-            val existingRoles = (existingUser["roles"] as? List<*>)
-                ?.mapNotNull { it?.toString()?.trim()?.uppercase() }
-                .orEmpty()
-            val mergedRoles = (existingRoles + "EMPLOYER")
-                .filter { it == "WORKER" || it == "EMPLOYER" }
-                .distinct()
-                .ifEmpty { listOf("EMPLOYER") }
-
             val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
 
+            // Single-role architecture: always overwrite role to EMPLOYER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
-                "roles" to mergedRoles,
-                "activeRole" to "EMPLOYER",
                 "lastActiveAt" to now
             )
+            userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }
@@ -868,14 +837,6 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Check existing profile by email
-     */
-    suspend fun checkExistingProfileByEmail(email: String): Result<Boolean> {
-        Timber.w("checkExistingProfileByEmail is unsupported in strict users schema")
-        return Result.success(false)
-    }
-    
-    /**
      * Check existing profile by current authenticated user's UID
      * Returns true only if the user has a COMPLETED profile (isProfileComplete=true)
      * Returns false for new users (document exists but isProfileComplete=false)
@@ -896,12 +857,15 @@ class ProfileCompletionService @Inject constructor(
                 return Result.success(false)
             }
             
-            val roles = (userData["roles"] as? List<*>)?.mapNotNull { it?.toString() }.orEmpty()
+            val resolvedRole = (userData["role"] as? String)
+                ?: (userData["activeRole"] as? String)
+                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
+            val roleUpper = resolvedRole?.uppercase()
             val hasRequiredCore = !((userData["phone"] as? String).isNullOrBlank()) &&
                 !((userData["fullName"] as? String).isNullOrBlank())
-            val hasRoleData = when {
-                roles.contains("WORKER") -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUser.uid).get().await().exists()
-                roles.contains("EMPLOYER") -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await().exists()
+            val hasRoleData = when (roleUpper) {
+                "WORKER" -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUser.uid).get().await().exists()
+                "EMPLOYER" -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await().exists()
                 else -> false
             }
 
@@ -923,13 +887,6 @@ class ProfileCompletionService @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    /**
-     * Load existing profile data by email
-     */
-    suspend fun loadExistingProfileDataByEmail(email: String): Result<Map<String, Any?>> {
-        return Result.failure(Exception("Email lookup is unsupported in strict users schema"))
     }
 
     /**
@@ -1023,87 +980,6 @@ class ProfileCompletionService @Inject constructor(
         } catch (e: Exception) {
             emptyList()
         }
-    }
-    
-    /**
-     * Check if phone number exists with a different role
-     * DUAL-ROLE SUPPORT: Returns null to allow users to add additional roles
-     * 
-     * Architecture Pattern: Uber/Airbnb/Fiverr
-     * - Single account can have BOTH Worker and Employer roles
-     * - Users can switch between roles seamlessly
-     * - No blocking on role mismatch
-     * 
-     * This function now only checks if the phone exists, not if it has a different role.
-     * The actual role management is handled in the user document's `roles` array.
-     */
-    suspend fun checkPhoneExistsWithDifferentRole(phone: String, currentRole: String): Result<String?> {
-        return try {
-            // Use canonical PhoneNumberUtils for phone normalization
-            val cleanPhone = PhoneNumberUtils.normalizePhone(phone)
-            
-            Timber.d("📱 DUAL-ROLE: Checking phone for: $cleanPhone, requestedRole: $currentRole")
-            
-            // Check if user exists in users collection
-            val usersQuery = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .whereEqualTo("phone", cleanPhone)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (!usersQuery.isEmpty) {
-                val userDoc = usersQuery.documents.first()
-                val userData = userDoc.data ?: return Result.success(null)
-                
-                // Get user's roles array
-                @Suppress("UNCHECKED_CAST")
-                val roles = userData["roles"] as? List<String> ?: emptyList()
-                val activeRole = userData["activeRole"] as? String
-                
-                Timber.d("📱 DUAL-ROLE: User found - roles=$roles, activeRole=$activeRole")
-                
-                // Check if user already has the requested role
-                val hasRequestedRole = roles.any { it.uppercase() == currentRole.uppercase() }
-                
-                if (hasRequestedRole) {
-                    // User already has this role - allow login
-                    Timber.d("📱 DUAL-ROLE: ✅ User already has $currentRole role - allowing login")
-                    return Result.success(null)
-                } else {
-                    // User exists but doesn't have this role yet
-                    // This is OK - they can add the role later via profile settings
-                    Timber.d("📱 DUAL-ROLE: ℹ️ User exists but doesn't have $currentRole role yet")
-                    
-                    // Return the active role to inform user they need to add the role first
-                    val existingRole = activeRole ?: roles.firstOrNull()
-                    return Result.success(existingRole)
-                }
-            } else {
-                Timber.d("📱 DUAL-ROLE: No user found for $cleanPhone - new registration")
-                Result.success(null) // Phone not found - new user
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "❌ DUAL-ROLE: Error checking phone existence")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Save phone-role mapping to phone_roles collection
-     * DUAL-ROLE SUPPORT: Stores ALL roles as an array, not just one
-     * 
-     * Architecture Pattern: Uber/Airbnb/Fiverr
-     * - Stores roles as array: ["WORKER", "EMPLOYER"]
-     * - Tracks activeRole for current session
-     * - Includes device fingerprint for fraud prevention
-     * 
-     * Called when:
-     * 1. User completes initial profile setup
-     * 2. User enables additional role via profile settings
-     */
-    suspend fun savePhoneRole(phone: String, role: String): Result<Unit> {
-        Timber.d("ℹ️ DUAL-ROLE: savePhoneRole skipped in strict schema mode (phone_roles removed)")
-        return Result.success(Unit)
     }
     
     // ============================================

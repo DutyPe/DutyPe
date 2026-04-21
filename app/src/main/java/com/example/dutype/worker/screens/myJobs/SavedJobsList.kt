@@ -131,8 +131,8 @@ fun SavedJobsList(
                         onBrowse = {
                             // Navigate to home tab to browse jobs
                             runCatching {
-                                navController?.navigate(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) {
-                                    popUpTo(com.example.dutype.navigation.Routes.WORKER_HOME_TAB) { inclusive = false }
+                                navController?.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
                                     launchSingleTop = true
                                 }
                             }.onFailure { error ->

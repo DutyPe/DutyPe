@@ -291,7 +291,7 @@ fun RecentApplicationsSection(
                     )
                 )
                 TextButton(
-                    onClick = { navController.navigate("employer_applications") }
+                    onClick = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS) }
                 ) {
                     Text(
                         text = "View All",
@@ -333,7 +333,7 @@ fun RecentApplicationsSection(
                     RecentApplicationItem(
                         application = application,
                         onClick = {
-                            navController.navigate("worker_profile_view/${application.workerId}")
+                            navController.navigate(com.example.dutype.navigation.Routes.workerProfileViewRoute(application.workerId))
                         }
                     )
                 }

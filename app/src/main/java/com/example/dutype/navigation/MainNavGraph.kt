@@ -119,35 +119,32 @@ fun MainNavGraph(
                         null
                     }
 
-                    // CRITICAL FIX: Try DataStore first, fallback to Firestore if needed
-                    var userRole = profileCompletionViewModel.getUserRole()
-                    Timber.d("🚀 MainNavGraph - DataStore userRole: $userRole")
-                    
-                    // FALLBACK: If DataStore is null or returns WORKER by default, check Firestore
-                    // This handles cases where DataStore might not be synced yet
-                    if (userRole == null) {
-                        Timber.w("🚀 MainNavGraph - DataStore returned null, checking Firestore with timeout...")
-                        try {
-                            val activeRoleStr = userDoc?.getString("activeRole")
-                            Timber.d("🚀 MainNavGraph - Firestore activeRole: $activeRoleStr")
-                            
-                            if (activeRoleStr != null) {
-                                userRole = try {
-                                    com.example.dutype.models.UserRole.valueOf(activeRoleStr.uppercase())
-                                } catch (e: Exception) {
-                                    Timber.e(e, "🚀 MainNavGraph - Invalid role in Firestore: $activeRoleStr")
-                                    null
-                                }
-                                
-                                // Update DataStore with Firestore value for next time
-                                if (userRole != null) {
-                                    profileCompletionViewModel.updateUserRole(userRole)
-                                    Timber.d("🚀 MainNavGraph - Updated DataStore with Firestore role: $userRole")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "🚀 MainNavGraph - Error reading from Firestore")
+                    // Single-role architecture: trust the Firestore document as the
+                    // source of truth for the user's role. Falls back to DataStore for
+                    // pre-network UX, but Firestore wins on conflict.
+                    var userRole: com.example.dutype.models.UserRole? = null
+                    val firestoreRoleStr = userDoc?.getString("role")
+                        ?: userDoc?.getString("activeRole")
+                        ?: (userDoc?.get("roles") as? List<*>)?.firstOrNull()?.toString()
+                    if (firestoreRoleStr != null) {
+                        userRole = runCatching {
+                            com.example.dutype.models.UserRole.valueOf(firestoreRoleStr.uppercase())
+                        }.getOrElse {
+                            Timber.e(it, "🚀 MainNavGraph - Invalid role in Firestore: $firestoreRoleStr")
+                            null
                         }
+                        // Mirror to DataStore so pre-network UX is correct on next launch.
+                        if (userRole != null) {
+                            try {
+                                profileCompletionViewModel.updateUserRole(userRole)
+                            } catch (e: Exception) {
+                                Timber.w(e, "🚀 MainNavGraph - Failed to sync role to DataStore")
+                            }
+                        }
+                    }
+                    if (userRole == null) {
+                        userRole = profileCompletionViewModel.getUserRole()
+                        Timber.d("🚀 MainNavGraph - Falling back to DataStore userRole: $userRole")
                     }
                     
                     if (userRole != null) {
@@ -619,7 +616,7 @@ fun MainNavGraph(
                 jobId = null,
                 onApplicationClick = { application ->
                     // Navigate to detailed application view
-                    navController.navigate("worker_profile_view/${application.workerId}")
+                    navController.navigate(Routes.workerProfileViewRoute(application.workerId))
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -634,7 +631,7 @@ fun MainNavGraph(
             EmployerApplicationManagementScreen(
                 jobId = jobId,
                 onApplicationClick = { application ->
-                    navController.navigate("worker_profile_view/${application.workerId}")
+                    navController.navigate(Routes.workerProfileViewRoute(application.workerId))
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -701,7 +698,7 @@ fun RoleSelectionWithNavigation(
                             Timber.i("Found existing profile, loading data and navigating to home...")
                             
                             // Load existing profile data into local state
-                            profileCompletionViewModel.loadExistingProfileData(userEmail, userRole)
+                            profileCompletionViewModel.loadExistingProfileData()
                             
                             // Navigate directly to home screen
                             when (userRole) {

@@ -35,14 +35,8 @@ object FirestoreUtils {
         val existingDoc = userRef.get().await()
         val existingData = existingDoc.data.orEmpty()
 
-        @Suppress("UNCHECKED_CAST")
-        val existingRoles = (existingData["roles"] as? List<String>).orEmpty()
-        val mergedRoles = (existingRoles + roleUpper)
-            .map { it.uppercase() }
-            .filter { it == "WORKER" || it == "EMPLOYER" }
-            .distinct()
-            .ifEmpty { listOf(roleUpper) }
-
+        // Single-role architecture: ignore any legacy roles[] in the existing
+        // document and overwrite with this role only.
         val resolvedPhone = phoneNumber
             ?.takeIf { it.isNotBlank() }
             ?.let(PhoneNumberUtils::normalize)
@@ -60,7 +54,9 @@ object FirestoreUtils {
             "userId" to userId,
             "phone" to resolvedPhone,
             "fullName" to resolvedName,
-            "roles" to mergedRoles,
+            "role" to roleUpper,
+            // Transient compat for unmigrated CFs/admin tools.
+            "roles" to listOf(roleUpper),
             "activeRole" to roleUpper,
             "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now()),
             "lastActiveAt" to Timestamp.now()
@@ -181,26 +177,15 @@ object FirestoreUtils {
     suspend fun updateUserRole(userId: String, role: String) {
         try {
             val firestore = FirebaseFirestore.getInstance()
-            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
-            val userData = userDoc.data.orEmpty()
-
-            @Suppress("UNCHECKED_CAST")
-            val existingRoles = (userData["roles"] as? List<String>)?.toMutableList() ?: mutableListOf()
-
             val roleUpper = role.uppercase()
-            if (!existingRoles.contains(roleUpper)) {
-                existingRoles.add(roleUpper)
-            }
+            val updates = com.example.dutype.models.User.roleFieldsFor(
+                runCatching { com.example.dutype.models.UserRole.valueOf(roleUpper) }
+                    .getOrDefault(com.example.dutype.models.UserRole.WORKER)
+            ) + mapOf("lastActiveAt" to Timestamp.now())
 
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
-                .update(
-                    mapOf(
-                        "roles" to existingRoles,
-                        "activeRole" to roleUpper,
-                        "lastActiveAt" to Timestamp.now()
-                    )
-                )
+                .update(updates)
                 .await()
         } catch (e: Exception) {
             Timber.e(e, "Error updating user role for $userId")

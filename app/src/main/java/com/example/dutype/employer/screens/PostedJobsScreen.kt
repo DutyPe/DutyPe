@@ -133,7 +133,7 @@ fun PostedJobsScreen(
                 if (postedJobs.isEmpty() && !isLoading) {
                     item {
                         PostedJobsEmptyState(
-                            onPostJob = { navController.navigate("employer_post_job") }
+                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) }
                         )
                     }
                 } else {
@@ -144,10 +144,10 @@ fun PostedJobsScreen(
                         EmployerJobCard(
                             jobPosting = job,
                             onEditClick = { jobId ->
-                                navController.navigate("edit_job/$jobId")
+                                navController.navigate(com.example.dutype.navigation.Routes.editJobRoute(jobId))
                             },
                             onViewApplicationsClick = { jobId ->
-                                navController.navigate("employer_applications_job/$jobId")
+                                navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(jobId))
                             },
                             onToggleActiveClick = { jobId ->
                                 viewModel.toggleJobStatus(jobId)

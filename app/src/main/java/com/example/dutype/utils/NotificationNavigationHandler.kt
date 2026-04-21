@@ -260,8 +260,7 @@ object NotificationNavigationHandler {
                         type = notification.type,
                         icon = "🎁",
                         primaryAction = NotificationDialogAction("View Rewards") {
-                            val route = if (userRole == "WORKER") Routes.WORKER_REFER_EARN else Routes.EMPLOYER_REFER_EARN
-                            navController.navigate(route)
+                            if (userRole == "WORKER") navController.navigate(Routes.WORKER_REFER_EARN)
                         },
                         secondaryAction = NotificationDialogAction("Nice!") { /* dismiss */ }
                     )
