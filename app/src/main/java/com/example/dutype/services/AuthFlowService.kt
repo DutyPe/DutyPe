@@ -212,15 +212,12 @@ class AuthFlowService @Inject constructor(
                     ?: normalizedPhone
 
                 val userData = linkedMapOf<String, Any>(
-                    "userId" to currentUser.uid,
                     "phone" to resolvedPhone,
                     "fullName" to resolvedFullName,
-                    "role" to role,
                     // Transient compat for unmigrated CFs/admin tools.
                     "roles" to listOf(role),
                     "activeRole" to role,
-                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
-                    "lastActiveAt" to now
+                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now)
                 )
 
                 if (ownReferralCode.isNotBlank()) {
@@ -324,11 +321,8 @@ class AuthFlowService @Inject constructor(
                 else -> false
             }
 
-            val updates = linkedMapOf<String, Any>(
-                "lastActiveAt" to Timestamp.now()
-            )
-            userRef.update(updates).await()
-            userData["lastActiveAt"] = updates["lastActiveAt"] as Timestamp
+            // Login resolution complete — no lastActiveAt write to minimize
+            // per-login write costs at scale.
 
             Result.success(
                 LoginResolution(

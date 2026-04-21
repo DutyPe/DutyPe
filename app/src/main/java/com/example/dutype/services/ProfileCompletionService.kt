@@ -313,8 +313,7 @@ class ProfileCompletionService @Inject constructor(
                     // Use set with merge to handle case where document might not exist
                     Timber.d("📸 PROFILE IMAGE: Updating user document...")
                     val imageData = mapOf(
-                        "profileImageUrl" to downloadUrl,
-                        "lastActiveAt" to Timestamp.now()
+                        "profileImageUrl" to downloadUrl
                     )
                     firestore.collection(COLLECTION_USERS).document(userId)
                         .update(imageData)
@@ -653,8 +652,7 @@ class ProfileCompletionService @Inject constructor(
             // Single-role architecture: always overwrite role to WORKER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
-                "phone" to PhoneNumberUtils.normalize(phone),
-                "lastActiveAt" to now
+                "phone" to PhoneNumberUtils.normalize(phone)
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.WORKER))
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
@@ -758,8 +756,7 @@ class ProfileCompletionService @Inject constructor(
             // Single-role architecture: always overwrite role to EMPLOYER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
-                "phone" to PhoneNumberUtils.normalize(phone),
-                "lastActiveAt" to now
+                "phone" to PhoneNumberUtils.normalize(phone)
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }

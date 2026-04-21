@@ -249,8 +249,7 @@ fun WorkerHomeScreen(
                                                 "lat" to data.latitude,
                                                 "lng" to data.longitude
                                             ),
-                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
-                                            "lastActiveAt" to com.google.firebase.Timestamp.now()
+                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude)
                                         )
                                     ).await()
                                     Timber.d("ðŸ“ Location synced to Firestore")

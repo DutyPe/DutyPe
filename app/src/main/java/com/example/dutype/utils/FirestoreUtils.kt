@@ -51,15 +51,11 @@ object FirestoreUtils {
         }
 
         val strictUserDoc = linkedMapOf<String, Any>(
-            "userId" to userId,
             "phone" to resolvedPhone,
             "fullName" to resolvedName,
-            "role" to roleUpper,
-            // Transient compat for unmigrated CFs/admin tools.
             "roles" to listOf(roleUpper),
             "activeRole" to roleUpper,
-            "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now()),
-            "lastActiveAt" to Timestamp.now()
+            "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now())
         )
 
         val existingProfileImageUrl = existingData["profileImageUrl"] as? String
@@ -181,7 +177,7 @@ object FirestoreUtils {
             val updates = com.example.dutype.models.User.roleFieldsFor(
                 runCatching { com.example.dutype.models.UserRole.valueOf(roleUpper) }
                     .getOrDefault(com.example.dutype.models.UserRole.WORKER)
-            ) + mapOf("lastActiveAt" to Timestamp.now())
+            )
 
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
@@ -223,8 +219,7 @@ object FirestoreUtils {
                 .document(userId)
                 .update(
                     mapOf(
-                        "phone" to normalizedPhone,
-                        "lastActiveAt" to Timestamp.now()
+                        "phone" to normalizedPhone
                     )
                 )
                 .await()
@@ -245,8 +240,7 @@ object FirestoreUtils {
                 .document(userId)
                 .update(
                     mapOf(
-                        "fullName" to trimmedName,
-                        "lastActiveAt" to Timestamp.now()
+                        "fullName" to trimmedName
                     )
                 )
                 .await()

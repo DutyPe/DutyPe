@@ -48,7 +48,6 @@ class UserMetadata @Inject constructor(
         "geohash",
         "fcmToken",
         "createdAt",
-        "lastActiveAt",
         "referralCode",
         "referredByCode",
         "referredByUserId"
@@ -242,7 +241,6 @@ class UserMetadata @Inject constructor(
                     phone = phoneToUse,
                     profileImageUrl = doc.getString("profileImageUrl") ?: "",
                     createdAt = getEpochMillis(doc, "createdAt", System.currentTimeMillis()),
-                    lastActiveAt = getEpochMillis(doc, "lastActiveAt", System.currentTimeMillis()),
                     isVerified = doc.getBoolean("isVerified") ?: false
                 )
                 Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
@@ -254,7 +252,6 @@ class UserMetadata @Inject constructor(
                     phone = authPhoneNumber,
                     profileImageUrl = "",
                     createdAt = System.currentTimeMillis(),
-                    lastActiveAt = System.currentTimeMillis(),
                     isVerified = false
                 )
                 Timber.d("📊 New user - using Auth phone: $authPhoneNumber")
@@ -306,8 +303,7 @@ class UserMetadata @Inject constructor(
             "activeRole" to activeRole,
             "location" to mapOf("lat" to lat, "lng" to lng),
             "geohash" to ((data["geohash"] as? String).orEmpty()),
-            "createdAt" to (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp.now()),
-            "lastActiveAt" to (doc.getTimestamp("lastActiveAt") ?: com.google.firebase.Timestamp.now())
+            "createdAt" to (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp.now())
         )
 
         val profileImageUrl = (data["profileImageUrl"] as? String).orEmpty()
@@ -469,7 +465,6 @@ data class UserStats(
     val phone: String = "",
     val profileImageUrl: String = "",
     val createdAt: Long = 0L,
-    val lastActiveAt: Long = 0L,
     val isVerified: Boolean = false
 ) {
     val accountAgeDays: Int

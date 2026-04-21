@@ -129,10 +129,13 @@ async function migrateWorkerJobTypes() {
 
   console.log('\n2) Stripping legacy fields:');
   await stripFieldFromCollection('users', 'role');
+  await stripFieldFromCollection('users', 'userId');
+  await stripFieldFromCollection('users', 'lastActiveAt');
   await stripFieldFromCollection('users', 'referralStats');
   await stripFieldFromCollection('referrals', 'referrerUserId');
   await stripFieldFromCollection('referrals', 'id');
   await stripFieldFromCollection('referrals', 'reward');
+  await stripFieldFromCollection('jobmetadata', 'companyCity');
 
   console.log('\n3) Stripping redundant doc-ID mirrors:');
   await stripFieldFromCollection('worker_profiles', 'userId');

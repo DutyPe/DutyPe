@@ -38,8 +38,7 @@ data class User(
 
     // System
     val fcmToken: String? = null,
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastActiveAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis()
 ) {
     companion object {
         /**
@@ -67,8 +66,7 @@ data class User(
                 lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0,
                 geohash = (data["geohash"] as? String) ?: "",
                 fcmToken = data["fcmToken"] as? String,
-                createdAt = (data["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                lastActiveAt = (data["lastActiveAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = (data["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
             )
         }
 

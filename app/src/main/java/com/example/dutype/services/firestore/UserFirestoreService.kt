@@ -41,13 +41,11 @@ class UserFirestoreService @Inject constructor(
                 
                 val hasRealLocation = com.example.dutype.utils.GeoUtils.hasValidCoordinates(user.lat, user.lng)
                 val baseUserData = mutableMapOf<String, Any?>(
-                    "userId" to user.id,
                     "phone" to user.phone,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
                     "fcmToken" to user.fcmToken,
-                    "createdAt" to Timestamp(Date(user.createdAt)),
-                    "lastActiveAt" to Timestamp.now()
+                    "createdAt" to Timestamp(Date(user.createdAt))
                 )
                 if (hasRealLocation) {
                     baseUserData["location"] = mapOf("lat" to user.lat, "lng" to user.lng)
@@ -166,7 +164,6 @@ class UserFirestoreService @Inject constructor(
             sanitized["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(mapLat, mapLng)
         }
 
-        sanitized["lastActiveAt"] = Timestamp.now()
         return sanitized
     }
     

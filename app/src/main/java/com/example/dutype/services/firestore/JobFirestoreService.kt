@@ -341,7 +341,6 @@ class JobFirestoreService @Inject constructor(
             val benefits = parseBenefits(jobData["benefits"])
             val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
-            val companyCity = extractCityFromAddress(addressText)
 
             val providedLocation = jobData["location"] as? Map<*, *>
             val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
@@ -395,7 +394,7 @@ class JobFirestoreService @Inject constructor(
                 "location" to location,
                 "geohash" to geohash,
                 "addressText" to addressText,
-                "companyCity" to companyCity,
+                "contactNumber" to contactNumber,
                 "urgency" to urgency,
                 "status" to "open",
                 "createdAt" to createdAt,
@@ -404,7 +403,6 @@ class JobFirestoreService @Inject constructor(
 
             val detailsData = linkedMapOf<String, Any>(
                 "description" to description,
-                "contactNumber" to contactNumber,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
                 "shiftTiming" to shiftTiming,

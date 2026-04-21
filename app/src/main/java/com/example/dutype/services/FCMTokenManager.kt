@@ -150,8 +150,7 @@ class FCMTokenManager @Inject constructor(
     suspend fun saveTokenToFirestore(userId: String, token: String) {
         try {
             val tokenData = mapOf(
-                "fcmToken" to token,
-                "lastActiveAt" to Timestamp.now()
+                "fcmToken" to token
             )
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
@@ -170,8 +169,7 @@ class FCMTokenManager @Inject constructor(
     suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String) {
         try {
             val tokenData = mapOf(
-                "fcmToken" to token,
-                "lastActiveAt" to Timestamp.now()
+                "fcmToken" to token
             )
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
                 .document(userId)
