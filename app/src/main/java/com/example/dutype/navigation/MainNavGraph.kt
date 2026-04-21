@@ -66,6 +66,26 @@ fun MainNavGraph(
             com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(uri, navController)
         }
     }
+
+    // Keep the cold-start cache fresh so next launch draws the correct screen
+    // on the very first frame. Whenever the user lands on a stable entry-point
+    // destination (home, role-select, profile-setup, onboarding), persist it.
+    LaunchedEffect(navController) {
+        val stableEntryPoints = setOf(
+            Routes.ONBOARDING,
+            Routes.SELECT_ROLE,
+            Routes.WORKER_HOME,
+            Routes.EMPLOYER_HOME,
+            Routes.PROFILE_SETUP,
+            Routes.EMPLOYER_PROFILE_SETUP,
+        )
+        navController.currentBackStackEntryFlow.collect { entry ->
+            val route = entry.destination.route ?: return@collect
+            if (route in stableEntryPoints) {
+                runCatching { StartDestinationCache.save(context, route) }
+            }
+        }
+    }
     
     // State management for determining start destination.
     //
