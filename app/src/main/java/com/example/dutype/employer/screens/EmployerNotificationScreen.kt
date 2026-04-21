@@ -65,6 +65,26 @@ fun EmployerNotificationScreen(
     // Dialog state for notification dialogs
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
+    // If the user previously denied POST_NOTIFICATIONS, opening this screen is a
+    // strong signal they want notifications — re-prompt the system dialog.
+    val context = LocalContext.current
+    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        Timber.d("🔔 EmployerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
+    }
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     LaunchedEffect(uiState) {
         Timber.d("🔔 EmployerNotificationScreen - UI State updated:")
         Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")

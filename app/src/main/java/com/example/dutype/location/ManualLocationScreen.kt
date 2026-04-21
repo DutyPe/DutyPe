@@ -1,5 +1,8 @@
 package com.example.dutype.location
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -89,6 +92,49 @@ fun ManualLocationScreen(navController: NavController) {
     var isVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var isFetchingCurrentLocation by remember { mutableStateOf(false) }
+
+    // Runs the actual GPS + reverse-geocode + navigate flow. Split out so the
+    // permission launcher can invoke the exact same path once the user grants.
+    suspend fun fetchAndUseCurrentLocation() {
+        isFetchingCurrentLocation = true
+        errorMessage = ""
+        try {
+            val locationInfo = locationService.getHighAccuracyLocation(
+                timeoutMs = 15000L,
+                minAccuracyMeters = 10f
+            )
+            if (locationInfo != null && (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0)) {
+                val finalLocationData = locationService.toLocationData(locationInfo)
+                locationPreferences.savePreferredLocation(finalLocationData)
+                locationPreferences.setPermissionGranted(true)
+                Timber.d("📍 Location saved: ${finalLocationData.getShortAddress()}")
+                navController.navigate(Routes.WORKER_HOME) {
+                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) { inclusive = true }
+                }
+            } else {
+                errorMessage = "Could not fetch location. Check GPS settings."
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Location fetch error")
+            errorMessage = "Error: ${e.message}"
+        } finally {
+            isFetchingCurrentLocation = false
+        }
+    }
+
+    // Re-prompt system permission dialog whenever the user taps "current location"
+    // without having granted access yet (including after a previous denial).
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            scope.launch { fetchAndUseCurrentLocation() }
+        } else {
+            errorMessage = "Location permission required to use current location."
+        }
+    }
     
     // Search with Azure Maps
     suspend fun searchWithAzureMaps(query: String): List<LocationSuggestion> {
@@ -252,39 +298,16 @@ fun ManualLocationScreen(navController: NavController) {
                             .shadow(8.dp, RoundedCornerShape(14.dp))
                             .clickable(enabled = !isFetchingCurrentLocation) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                scope.launch {
-                                    isFetchingCurrentLocation = true
-                                    errorMessage = ""
-                                    try {
-                                        if (locationService.hasLocationPermission()) {
-                                            // Get high accuracy GPS location (5-10m precision)
-                                            val locationInfo = locationService.getHighAccuracyLocation(
-                                                timeoutMs = 15000L,
-                                                minAccuracyMeters = 10f
-                                            )
-                                            
-                                            if (locationInfo != null && (locationInfo.latitude != 0.0 || locationInfo.longitude != 0.0)) {
-                                                // Use Android Geocoder result directly (no Azure Maps reverse geocoding)
-                                                val finalLocationData = locationService.toLocationData(locationInfo)
-                                                
-                                                locationPreferences.savePreferredLocation(finalLocationData)
-                                                locationPreferences.setPermissionGranted(true)
-                                                Timber.d("📍 Location saved: ${finalLocationData.getShortAddress()}")
-                                                navController.navigate(Routes.WORKER_HOME) {
-                                                    popUpTo(Routes.MANUAL_LOCATION_ROUTE) { inclusive = true }
-                                                }
-                                            } else {
-                                                errorMessage = "Could not fetch location. Check GPS settings."
-                                            }
-                                        } else {
-                                            errorMessage = "Location permission required."
-                                        }
-                                    } catch (e: Exception) {
-                                        Timber.e(e, "Location fetch error")
-                                        errorMessage = "Error: ${e.message}"
-                                    } finally {
-                                        isFetchingCurrentLocation = false
-                                    }
+                                if (locationService.hasLocationPermission()) {
+                                    scope.launch { fetchAndUseCurrentLocation() }
+                                } else {
+                                    // Re-prompt the OS permission dialog even after a previous denial.
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
                                 }
                             },
                         colors = CardDefaults.cardColors(containerColor = Color.White),

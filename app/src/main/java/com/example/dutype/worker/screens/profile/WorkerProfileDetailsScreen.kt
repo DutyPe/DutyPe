@@ -770,7 +770,52 @@ private fun ProfileTextField(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var isFetchingLocation by remember { mutableStateOf(false) }
-    
+
+    // Local helper so both the direct tap (permission already granted) and the
+    // post-grant callback share the exact same fetch path.
+    suspend fun runLocationFetch() {
+        try {
+            val locationService = com.example.dutype.utils.LocationService(context)
+            val locationInfo = locationService.getCurrentLocation()
+            if (locationInfo != null) {
+                onValueChange(locationInfo.getFullAddress())
+            } else {
+                android.widget.Toast.makeText(
+                    context,
+                    "Unable to fetch location. Please check permissions.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(
+                context,
+                "Error fetching location: ${e.message}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } finally {
+            isFetchingLocation = false
+        }
+    }
+
+    // Re-prompt the OS location permission on every tap if it hasn't been granted
+    // yet — including recoveries from a previous denial.
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val granted = results[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            results[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            scope.launch { runLocationFetch() }
+        } else {
+            isFetchingLocation = false
+            android.widget.Toast.makeText(
+                context,
+                "Location permission required to use this button.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     // Check if this is the address field
     val isAddressField = label == "Address"
     
@@ -814,28 +859,23 @@ private fun ProfileTextField(
                     IconButton(
                         onClick = {
                             isFetchingLocation = true
-                            scope.launch {
-                                try {
-                                    val locationService = com.example.dutype.utils.LocationService(context)
-                                    val locationInfo = locationService.getCurrentLocation()
-                                    if (locationInfo != null) {
-                                        onValueChange(locationInfo.getFullAddress())
-                                    } else {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Unable to fetch location. Please check permissions.",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "Error fetching location: ${e.message}",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                } finally {
-                                    isFetchingLocation = false
-                                }
+                            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (hasPermission) {
+                                scope.launch { runLocationFetch() }
+                            } else {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
                             }
                         }
                     ) {

@@ -221,6 +221,15 @@ fun MandatoryWorkerProfileSetupScreen(
                             Timber.d("📦 PREFILL: phoneNumber from OTP = $phoneNumber")
                         }
                     }
+                    // Reuse the name captured in the registration bottom-sheet so users
+                    // don't have to type their name a second time right after OTP.
+                    if (fullName.isBlank()) {
+                        val cachedName = profileCompletionViewModel.getUserName()
+                        if (!cachedName.isNullOrBlank()) {
+                            fullName = cachedName
+                            Timber.d("📦 PREFILL: fullName from registration cache = $fullName")
+                        }
+                    }
                 }
                 
                 else -> {
