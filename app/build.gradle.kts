@@ -123,25 +123,17 @@ android {
         }
     }
     
-    // Split APKs by ABI to reduce size
-    // GOOGLE PLAY RECOMMENDATION: Include only arm64-v8a and armeabi-v7a
-    // This covers 99% of devices:
-    // - ARM64 (arm64-v8a): ~55% of devices (modern phones)
-    // - ARMv7 (armeabi-v7a): ~44% of devices (older phones, tablets)
-    // - x86/x86_64: ~1% (excluded) - mostly emulators and rare devices
+    // NOTE: `splits { abi { ... } }` intentionally removed.
     //
-    // Benefit: Reduces bundle size by 2-3 MB
-    // Reference: https://developer.android.com/guide/app-bundle/configure-app-bundle#configure_dynamic_feature_modules
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            // Official recommendation from Google Play best practices
-            include("arm64-v8a", "armeabi-v7a")
-            // Keep universal APK as fallback for rare x86 devices
-            isUniversalApk = true
-        }
-    }
+    // We ship to Google Play via App Bundle (AAB), and Play automatically
+    // generates per-ABI APKs from the bundle (plus per-density / per-language
+    // splits enabled by default). Configuring `splits { abi }` only produces
+    // legacy per-ABI APKs + a universal APK during `assembleRelease` — both of
+    // which are ignored when uploading an AAB to Play, and only add CI time +
+    // clutter to the `app/build/outputs/apk/` directory.
+    //
+    // If you ever need raw APKs for sideloading a specific ABI, use
+    // `./gradlew :app:bundleRelease` and extract from the AAB with `bundletool`.
     
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

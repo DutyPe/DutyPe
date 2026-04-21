@@ -211,11 +211,11 @@ class MainActivity : ComponentActivity() {
         Timber.d("✅ System bar icon appearance configured")
 
         setContent {
-            // Dismiss splash screen once Compose content is ready
-            // This ensures smooth transition from splash to app
-            LaunchedEffect(Unit) {
-                keepSplashOnScreen = false
-            }
+            // SYSTEM SPLASH (Android 12+): Keep the platform splash visible until
+            // MainNavGraph has determined the correct start destination. This
+            // removes the "blank loading" flash between splash dismissal and the
+            // first real screen and matches the pattern used by Google apps,
+            // LinkedIn, Instagram, Uber. No Compose splash is drawn on top.
             
             val windowSizeClass = rememberWindowSizeClass()
             
@@ -302,38 +302,28 @@ class MainActivity : ComponentActivity() {
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
-                        // COLD-START FLOW:
-                        //  1. The Compose splash animates on its own (nothing else
-                        //     composed) so the main thread is not busy inflating
-                        //     MainNavGraph + Hilt view-models + Firestore listeners
-                        //     while the letters are revealing. This fixes the
-                        //     "splash animation takes time to start" stutter.
-                        //  2. Once the splash calls back, we mount MainNavGraph.
-                        var showSplash by remember { mutableStateOf(true) }
-
-                        if (showSplash) {
-                            com.example.dutype.components.AnimatedSplashScreen(
-                                onAnimationEnd = { showSplash = false }
-                            )
-                        } else {
-                            // PERF: Log only once when MainNavGraph first mounts. Without this
-                            // gate, every parent recomposition (e.g. statusBarColor change from
-                            // navigation events) re-fires both Timber lines.
-                            LaunchedEffect(Unit) {
-                                Timber.d("🚀 Initializing MainNavGraph")
-                                Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
-                            }
-
-                            MainNavGraph(
-                                navController = navController,
-                                onStatusBarColorChange = { color ->
-                                    statusBarColor = color
-                                },
-                                notificationData = intent.extras?.getString("notificationId"),
-                                notificationPermissionManager = notificationPermissionManager,
-                                notificationIntent = intent
-                            )
+                        // PERF: Log only once when MainNavGraph first mounts. Without this
+                        // gate, every parent recomposition (e.g. statusBarColor change from
+                        // navigation events) re-fires both Timber lines.
+                        LaunchedEffect(Unit) {
+                            Timber.d("🚀 Initializing MainNavGraph")
+                            Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
                         }
+
+                        MainNavGraph(
+                            navController = navController,
+                            onStatusBarColorChange = { color ->
+                                statusBarColor = color
+                            },
+                            onReady = {
+                                // Dismiss the system splash once MainNavGraph has resolved
+                                // the start destination and is ready to render content.
+                                keepSplashOnScreen = false
+                            },
+                            notificationData = intent.extras?.getString("notificationId"),
+                            notificationPermissionManager = notificationPermissionManager,
+                            notificationIntent = intent
+                        )
                         
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {

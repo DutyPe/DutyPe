@@ -47,6 +47,7 @@ import timber.log.Timber
 fun MainNavGraph(
     navController: NavHostController,
     onStatusBarColorChange: (Color) -> Unit = {},
+    onReady: () -> Unit = {},
     notificationData: String? = null,
     notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager,
     notificationIntent: android.content.Intent? = null
@@ -251,6 +252,8 @@ fun MainNavGraph(
             // Set states immediately for instant navigation
             isLoading = false
             navigationDetermined = true
+            // Signal MainActivity to dismiss the system splash \u2014 nav is ready.
+            runCatching { onReady() }
             Timber.d("🚀 MainNavGraph - Navigation completed, startDestination: $startDestination")
             
         } catch (e: Exception) {
@@ -259,6 +262,7 @@ fun MainNavGraph(
             startDestination = Routes.ONBOARDING
             isLoading = false
             navigationDetermined = true
+            runCatching { onReady() }
             Timber.d("🚀 MainNavGraph - Error fallback - startDestination: $startDestination")
         }
     }
@@ -269,6 +273,7 @@ fun MainNavGraph(
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
+            runCatching { onReady() }
         }
     }
     

@@ -55,11 +55,8 @@ service cloud.firestore {
         loc.lng is number && loc.lng >= -180 && loc.lng <= 180;
     }
 
-    function validRoles(roles, activeRole) {
-      return roles is list &&
-        roles.size() > 0 && roles.size() <= 2 &&
-        roles.toSet().hasOnly(['WORKER', 'EMPLOYER']) &&
-        roles.toSet().hasAny([activeRole]);
+    function validRole(role) {
+      return role is string && (role == 'WORKER' || role == 'EMPLOYER');
     }
 
     // ── users ──────────────────────────────────────────────────────────
@@ -73,25 +70,21 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'phone', 'fullName', 'profileImageUrl', 'role',
           'location', 'geohash', 'fcmToken', 'language',
-          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId'
+          'createdAt', 'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
         request.resource.data.keys().hasAll([
-          'userId', 'phone', 'fullName', 'roles', 'activeRole',
-          'createdAt', 'lastActiveAt'
+          'phone', 'fullName', 'role', 'createdAt'
         ]) &&
-        request.resource.data.userId == userId &&
         request.resource.data.phone is string &&
         request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20 &&
         request.resource.data.fullName is string &&
         request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120 &&
-        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
-        request.resource.data.activeRole is string &&
+        validRole(request.resource.data.role) &&
         (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
         (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         request.resource.data.createdAt is timestamp &&
-        request.resource.data.lastActiveAt is timestamp &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
@@ -100,56 +93,35 @@ service cloud.firestore {
         (!('language' in request.resource.data) ||
           (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
-      // Lightweight activity/role/token update (high-frequency path).
+      // Lightweight token/language update (high-frequency path).
       allow update: if isSelf(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastActiveAt', 'activeRole', 'fcmToken', 'language']) &&
-        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp) &&
-        (!('activeRole' in request.resource.data) ||
-          (request.resource.data.activeRole is string &&
-           request.resource.data.roles is list &&
-           request.resource.data.roles.toSet().hasAny([request.resource.data.activeRole]))) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken', 'language']) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('language' in request.resource.data) ||
           (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
       // Full profile update (name, image, location, referral linking).
-      // Immutable: userId, phone, createdAt. Forbidden from client: isVerified, isActive, ratings, counters.
+      // Immutable: phone, createdAt, role. Forbidden from client: isVerified, isActive, ratings, counters, email.
       allow update: if isSelf(userId) &&
         request.resource.data.keys().hasAll([
-          'userId', 'phone', 'fullName', 'roles', 'activeRole',
-          'createdAt', 'lastActiveAt'
+          'phone', 'fullName', 'role', 'createdAt'
         ]) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'userId', 'phone', 'fullName', 'profileImageUrl', 'roles', 'activeRole',
+          'phone', 'fullName', 'profileImageUrl', 'role',
           'location', 'geohash', 'fcmToken', 'language',
-          'createdAt', 'lastActiveAt', 'referralCode', 'referredByCode', 'referredByUserId',
-          'isVerified', 'isActive'
+          'createdAt', 'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
-        request.resource.data.userId == userId &&
-        (!('userId' in resource.data) || request.resource.data.userId == resource.data.userId) &&
         (!('phone' in resource.data) || request.resource.data.phone == resource.data.phone) &&
         (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
-        // SECURITY: roles[] is append-only on the client. Removing a role (privilege loss) or
-        // adding a role outside the dual-role set must go through an admin Cloud Function.
-        // The rule allows arrayUnion-style adds (new set is a superset of the old set) but
-        // forbids any removal.
-        (!('roles' in request.resource.data) ||
-          (request.resource.data.roles is list &&
-           request.resource.data.roles.toSet().hasAll(
-             resource.data.get('roles', []).toSet()))) &&
-        // Legacy cleanup tolerance: client may omit legacy trust fields, but may not set/change them.
-        (!('isVerified' in request.resource.data) ||
-          (('isVerified' in resource.data) && request.resource.data.isVerified == resource.data.isVerified)) &&
-        (!('isActive' in request.resource.data) ||
-          (('isActive' in resource.data) && request.resource.data.isActive == resource.data.isActive)) &&
+        // Single-role architecture: role is immutable once set.
+        (!('role' in resource.data) || request.resource.data.role == resource.data.role) &&
         request.resource.data.phone is string &&
         request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20 &&
         request.resource.data.fullName is string &&
         request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120 &&
-        validRoles(request.resource.data.roles, request.resource.data.activeRole) &&
+        validRole(request.resource.data.role) &&
         (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
         (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
-        request.resource.data.lastActiveAt is timestamp &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
@@ -176,29 +148,27 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'jobTypes', 'skills', 'dateOfBirth', 'gender', 'experience', 'isAvailable', 'lastActiveAt'
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'profileImageUrl', 'isAvailable'
         ]) &&
-        request.resource.data.keys().hasAll(['userId', 'isAvailable', 'lastActiveAt']) &&
-        request.resource.data.userId == userId &&
-        (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 20)) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
         (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
-        request.resource.data.isAvailable is bool &&
-        request.resource.data.lastActiveAt is timestamp;
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'jobTypes', 'skills', 'dateOfBirth', 'gender', 'experience', 'isAvailable', 'lastActiveAt'
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'profileImageUrl', 'isAvailable'
         ]) &&
-        (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 20)) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
         (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
-        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
-        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool);
 
       allow delete: if isSelf(userId);
     }
@@ -213,22 +183,23 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'companyName', 'gstNumber', 'lastActiveAt'
+          'companyName', 'email', 'profileImageUrl', 'gstNumber'
         ]) &&
-        request.resource.data.keys().hasAll(['userId', 'companyName']) &&
-        request.resource.data.userId == userId &&
+        request.resource.data.keys().hasAll(['companyName']) &&
         request.resource.data.companyName is string &&
         request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120 &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
-        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'companyName', 'gstNumber', 'lastActiveAt'
+          'companyName', 'email', 'profileImageUrl', 'gstNumber'
         ]) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
-        (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is timestamp);
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string);
 
       allow delete: if isSelf(userId);
     }

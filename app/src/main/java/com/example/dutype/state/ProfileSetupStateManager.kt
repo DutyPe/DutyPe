@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-
 /**
  * Enterprise-level Profile Setup State Manager
  * Manages profile completion status and provides smart navigation decisions
@@ -57,6 +56,18 @@ class ProfileSetupStateManager @Inject constructor(
             // Onboarding completion tracking (separate from app opened)
             private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }
+
+    /**
+     * PERF: Cached first-install time.
+     *
+     * `PackageManager.getPackageInfo()` does disk I/O, and this value never
+     * changes during a process lifetime. Every call to
+     * [hasOnboardingBeenCompleted] and [hasAppBeenOpenedBefore] previously
+     * triggered a fresh PackageManager lookup on the hot startup path;
+     * caching brings it down to a single call per process.
+     */
+    @Volatile
+    private var cachedInstallTime: Long = 0L
     
     /**
      * Check if profile setup has been shown for the given role
@@ -297,12 +308,18 @@ class ProfileSetupStateManager @Inject constructor(
     }
 
     /**
-     * Get the app's first install time from PackageManager
+     * Get the app's first install time from PackageManager.
+     *
+     * Cached in-process after the first call — first-install time never
+     * changes for a given install, and this is called on the hot startup
+     * path from [hasOnboardingBeenCompleted] + [hasAppBeenOpenedBefore].
      */
     private fun getAppInstallTime(): Long {
+        val cached = cachedInstallTime
+        if (cached != 0L) return cached
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.firstInstallTime
+            packageInfo.firstInstallTime.also { cachedInstallTime = it }
         } catch (e: Exception) {
             Timber.e(e, "Error getting app install time")
             0L
@@ -476,6 +493,53 @@ class ProfileSetupStateManager @Inject constructor(
             preferences[ONBOARDING_COMPLETED] = true
         }
         Timber.d("markOnboardingCompleted - Onboarding marked as completed")
+    }
+
+    /**
+     * PERF: Consolidated single-read snapshot of every DataStore value required
+     * by the startup navigation decision in `MainNavGraph`.
+     *
+     * Prior code issued three separate `.first()` collections on the hot
+     * startup path (`hasOnboardingBeenCompleted`, `getUserRole`,
+     * `isProfileComplete`), each allocating its own Flow operators and
+     * coroutine continuations. This helper reads `dataStore.data` once and
+     * returns every field the nav graph needs — same semantics, single
+     * flow collection, instant on warm process.
+     */
+    suspend fun loadStartupSnapshot(): StartupSnapshot {
+        val currentInstallTime = getAppInstallTime()
+        return context.dataStore.data.map { prefs ->
+            val savedInstallTime = prefs[SAVED_INSTALL_TIME]?.toLongOrNull() ?: 0L
+            val freshInstall = savedInstallTime != 0L && savedInstallTime != currentInstallTime
+            val onboardingFlag = prefs[ONBOARDING_COMPLETED] ?: false
+            val roleStr = prefs[USER_ROLE]
+            val role = roleStr?.let { runCatching { UserRole.valueOf(it) }.getOrNull() }
+            val workerComplete = prefs[WORKER_PROFILE_COMPLETE] ?: false
+            val employerComplete = prefs[EMPLOYER_PROFILE_COMPLETE] ?: false
+            StartupSnapshot(
+                onboardingCompleted = if (freshInstall) false else onboardingFlag,
+                userRole = role,
+                workerProfileComplete = workerComplete,
+                employerProfileComplete = employerComplete
+            )
+        }.first()
+    }
+}
+
+/**
+ * Snapshot of the startup-critical DataStore fields read in a single pass.
+ * See [ProfileSetupStateManager.loadStartupSnapshot].
+ */
+data class StartupSnapshot(
+    val onboardingCompleted: Boolean,
+    val userRole: UserRole?,
+    val workerProfileComplete: Boolean,
+    val employerProfileComplete: Boolean,
+) {
+    fun isProfileCompleteFor(role: UserRole): Boolean = when (role) {
+        UserRole.WORKER -> workerProfileComplete
+        UserRole.EMPLOYER -> employerProfileComplete
+        else -> false
     }
 }
 

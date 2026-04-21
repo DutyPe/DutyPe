@@ -11,22 +11,25 @@
         -->
     </style>
 
-    <!-- 
+    <!--
         MODERN SPLASH SCREEN (Android 12+ API)
-        Following Google's official recommendations (2024-2026)
-        
-        Simple, clean branding with app icon
-        Used by: WhatsApp, Instagram, LinkedIn, Uber
+        Google-recommended (2024-2026). Used by WhatsApp, Instagram, LinkedIn, Uber.
+
+        Design:
+          - Solid black background (matches previous branded splash).
+          - App icon rendered centered (~288dp on large, ~192dp on normal).
+          - No animation duration — the system fades the splash out
+            automatically when the activity's first frame is drawn.
+          - Splash stays visible until MainActivity calls
+            `keepSplashOnScreen = false` (after MainNavGraph determines the
+            start destination), so there is no "blank loading" flash.
     -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
-        <!-- Pure black background — matches the Compose AnimatedSplashScreen for a
-             seamless hand-off (no flash, no logo). -->
         <item name="windowSplashScreenBackground">#000000</item>
 
-        <!-- Transparent icon: branding is handled by the Compose splash. -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <!-- Branded icon: the app's adaptive-icon foreground on black. -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
-        <item name="windowSplashScreenIconBackgroundColor">#000000</item>
 
         <!-- Post-splash theme -->
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
