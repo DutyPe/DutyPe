@@ -21,7 +21,7 @@ interface NotificationPayload {
   title: string;
   body: string;
   type: string;
-  relatedId?: string;
+  data?: Record<string, string>;
   locale: SupportedLocale;
 }
 
@@ -32,8 +32,7 @@ async function createNotification(n: NotificationPayload): Promise<void> {
     title: n.title,
     message: n.body,
     type: n.type,
-    relatedId: n.relatedId ?? null,
-    locale: n.locale,
+    ...(n.data ? { data: n.data } : {}),
     isRead: false,
     createdAt: FIELD.serverTimestamp(),
   });
@@ -87,14 +86,14 @@ export const onApplicationStatusChanged = functions.firestore
     const title = tTitle(templateId, locale, params);
     const body = tBody(templateId, locale, params);
 
+    const dataMap: Record<string, string> = {
+      type: "APPLICATION_STATUS",
+      jobId,
+      applicationId: change.after.id,
+    };
     await Promise.all([
-      createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", relatedId: jobId, locale }),
-      sendFcmToUser(workerId, title, body, {
-        type: "APPLICATION_STATUS",
-        jobId,
-        applicationId: change.after.id,
-        locale,
-      }),
+      createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", data: dataMap, locale }),
+      sendFcmToUser(workerId, title, body, { ...dataMap, locale }),
     ]);
   });
 
@@ -123,13 +122,13 @@ export const onApplicationCreated = functions.firestore
     const title = tTitle("NEW_APPLICATION_RECEIVED", locale, params);
     const body = tBody("NEW_APPLICATION_RECEIVED", locale, params);
 
+    const dataMap: Record<string, string> = {
+      type: "NEW_APPLICATION",
+      jobId,
+      applicationId: snap.id,
+    };
     await Promise.all([
-      createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", relatedId: jobId, locale }),
-      sendFcmToUser(employerId, title, body, {
-        type: "NEW_APPLICATION",
-        jobId,
-        applicationId: snap.id,
-        locale,
-      }),
+      createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", data: dataMap, locale }),
+      sendFcmToUser(employerId, title, body, { ...dataMap, locale }),
     ]);
   });

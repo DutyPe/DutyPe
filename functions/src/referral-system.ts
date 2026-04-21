@@ -921,7 +921,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         title: tTitle(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
         message: tBody(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
         type: "REFERRAL_REWARD",
-        locale: referrerLocale,
         data: { referralId, amount: totalReferrerReward },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         isRead: false
@@ -933,7 +932,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         title: tTitle("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
         message: tBody("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
         type: "SIGNUP_BONUS",
-        locale: referredLocale,
         data: { amount: referredUserReward },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         isRead: false
@@ -1168,7 +1166,6 @@ export const onReferredUserProfileComplete = functions.firestore
           title: tTitle(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
           message: tBody(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
           type: "REFERRAL_REWARD",
-          locale: referrerLocale2,
           data: { referralId, amount: totalReferrerReward },
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           isRead: false
@@ -1180,7 +1177,6 @@ export const onReferredUserProfileComplete = functions.firestore
           title: tTitle("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
           message: tBody("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
           type: "SIGNUP_BONUS",
-          locale: referredLocale2,
           data: { amount: referredUserReward },
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           isRead: false

@@ -471,7 +471,6 @@ export const persistSelfNotification = functions.https.onCall(async (data, conte
 
   const notificationRef = db.collection("notifications").doc(notificationId);
   await notificationRef.set({
-    id: notificationRef.id,
     recipientId: userId,
     title,
     message,
@@ -482,7 +481,6 @@ export const persistSelfNotification = functions.https.onCall(async (data, conte
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     expiresAt: admin.firestore.Timestamp.fromMillis(resolvedExpiryMs),
     skipPush: true,
-    source: "SELF_IN_APP",
   });
 
   return {
@@ -705,7 +703,6 @@ export const detectDuplicateJob = functions.firestore
           title: tTitle("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
           message: tBody("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
           type: "MODERATION_REVIEW_REQUIRED",
-          locale: modLocale,
           data: {
             jobId: jobId,
             fraudScore: fraudScore,
@@ -978,7 +975,6 @@ export const processJobReport = functions.firestore
             title: tTitle("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData?.title ?? "", recipient: hideRecipient }),
             message: tBody("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData?.title ?? "", recipient: hideRecipient }),
             type: "JOB_HIDDEN",
-            locale: hideLocale,
             data: {
               jobId: jobId,
               reportCount: currentReportCount,
