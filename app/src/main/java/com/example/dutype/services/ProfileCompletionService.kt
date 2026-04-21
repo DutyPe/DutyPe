@@ -655,10 +655,8 @@ class ProfileCompletionService @Inject constructor(
                 "phone" to PhoneNumberUtils.normalize(phone)
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.WORKER))
+            // Email lives on worker_profiles, NOT users.
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!email.isNullOrBlank()) {
-                userUpdates["email"] = email
-            }
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }
@@ -679,6 +677,9 @@ class ProfileCompletionService @Inject constructor(
                 //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
                 //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
             )
+            if (!email.isNullOrBlank()) {
+                workerProfile["email"] = email
+            }
             if (!dateOfBirth.isNullOrBlank()) {
                 workerProfile["dateOfBirth"] = dateOfBirth
             }
@@ -759,10 +760,8 @@ class ProfileCompletionService @Inject constructor(
                 "phone" to PhoneNumberUtils.normalize(phone)
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
+            // Email lives on employer_profiles, NOT users.
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!email.isNullOrBlank()) {
-                userUpdates["email"] = email
-            }
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }
@@ -774,6 +773,9 @@ class ProfileCompletionService @Inject constructor(
                 //  - `lastActiveAt` removed: redundant with users.lastActiveAt (no readers query it here).
                 //  - isVerified / rating / totalRatings / totalHires are CF-only aggregates.
             )
+            if (!email.isNullOrBlank()) {
+                employerProfile["email"] = email
+            }
 
             val batch = firestore.batch()
             batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())

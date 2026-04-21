@@ -73,13 +73,13 @@ data class User(
         /**
          * Build the canonical Firestore field map for [role].
          *
-         * Single source of truth = `activeRole` (string) + `roles[]` (array)
-         * for multi-role support. The legacy top-level `role` field has been
-         * removed; readers fall back to `activeRole` then `roles[0]`.
+         * Single source of truth = `role` (string). DutyPe enforces a single
+         * immutable product role per phone number; dual-role accounts are not
+         * supported. Read-side fallback to legacy `activeRole`/`roles[0]` is
+         * handled in [fromFirestoreMap].
          */
         fun roleFieldsFor(role: UserRole): Map<String, Any> = mapOf(
-            "activeRole" to role.name,
-            "roles" to listOf(role.name)
+            "role" to role.name
         )
     }
 }

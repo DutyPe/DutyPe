@@ -93,7 +93,21 @@ fun MainNavGraph(
     // NavHost is built with the correct route on the very first frame after a
     // cold start. The async resolver below still runs to reconcile against
     // DataStore + Firestore and corrects the route if reality differs.
-    val cachedStartDestination = remember { StartDestinationCache.read(context) }
+    //
+    // PERF: Ignore auth-gated cached routes (worker_home / employer_home) when
+    // FirebaseAuth has no current user. Otherwise a previously signed-in launch
+    // poisons the cache, the NavHost renders worker_home, kicks off Firestore +
+    // announcement queries, then re-renders to select_role — causing a frame
+    // skip and a wasted Firestore read on every guest cold start.
+    val cachedStartDestination = remember {
+        val cached = StartDestinationCache.read(context)
+        val isAuthGated = cached == Routes.WORKER_HOME || cached == Routes.EMPLOYER_HOME
+        if (isAuthGated && com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+            null
+        } else {
+            cached
+        }
+    }
     var isLoading by remember { mutableStateOf(cachedStartDestination == null) }
     var startDestination by remember {
         mutableStateOf(cachedStartDestination ?: Routes.ONBOARDING)

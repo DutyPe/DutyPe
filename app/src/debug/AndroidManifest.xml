@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only manifest overlay.
+
+  Disables Firebase Analytics + Performance + Crashlytics auto-collection in
+  debug builds. Their ContentProviders still run (they're in the merged
+  manifest), but they short-circuit immediately instead of starting collection
+  pipelines, network uploads, and disk writes during cold start.
+
+  Production manifest is unaffected — these flags only apply to debug builds.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!-- Disable Firebase Analytics auto-collection in debug. -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false"
+            tools:replace="android:value" />
+
+        <!-- Disable Firebase Performance auto-collection in debug. -->
+        <meta-data
+            android:name="firebase_performance_collection_enabled"
+            android:value="false"
+            tools:replace="android:value" />
+
+        <!-- Disable Firebase Crashlytics auto-collection in debug.
+             Production has it enabled by default. -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false"
+            tools:replace="android:value" />
+    </application>
+</manifest>

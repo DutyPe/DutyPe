@@ -214,9 +214,8 @@ class AuthFlowService @Inject constructor(
                 val userData = linkedMapOf<String, Any>(
                     "phone" to resolvedPhone,
                     "fullName" to resolvedFullName,
-                    // Transient compat for unmigrated CFs/admin tools.
-                    "roles" to listOf(role),
-                    "activeRole" to role,
+                    // Single-role architecture: one immutable role per phone.
+                    "role" to role,
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now)
                 )
 

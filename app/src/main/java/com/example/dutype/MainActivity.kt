@@ -54,7 +54,6 @@ import androidx.work.WorkManager
 import com.dutype.app.BuildConfig
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.LocaleHelper
@@ -84,20 +83,16 @@ class MainActivity : ComponentActivity() {
      */
     private var coldStartTrace: com.google.firebase.perf.metrics.Trace? = null
     
-    @Inject
-    lateinit var jobApplicationService: JobApplicationService
-    
+    // PERF: Removed unused eager @Inject fields (jobApplicationService, reviewManager,
+    // metadataManager). They were declared but never referenced in this Activity, yet
+    // Hilt was forced to construct their entire transitive graph (Firestore, Auth,
+    // DataStore, etc.) on every cold start. Inject them where they're actually used.
+
     @Inject
     lateinit var fcmTokenManager: FCMTokenManager
     
     @Inject
-    lateinit var reviewManager: com.example.dutype.utils.InAppReviewManager
-    
-    @Inject
     lateinit var updateManager: com.example.dutype.utils.InAppUpdateManager
-    
-    @Inject
-    lateinit var metadataManager: com.example.dutype.metadata.MetadataManager
 
     /**
      * P2-4: Deep-link bus replaces the prior `LocalBroadcastManager` relay
@@ -177,16 +172,21 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
-            // Guest engagement notifications.
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            // Unauthenticated: subscribe to re-engagement FCM topic + schedule local nudge.
-            fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
-            fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-        } else {
-            // Authenticated: unsubscribe from guest topic + cancel any pending nudges.
-            fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
-            fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-            com.example.dutype.workers.GuestEngagementWorker.cancelAll(this)
+        // Guest engagement notifications.
+        // PERF: Run off the main thread — FirebaseAuth.currentUser triggers a token
+        // store disk read, FirebaseMessaging.getInstance() does first-call I/O, and
+        // subscribeToTopic queues to disk-backed Pending Topic Operations prefs.
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                if (FirebaseAuth.getInstance().currentUser == null) {
+                    fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+                    fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
+                } else {
+                    fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
+                    fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
+                    com.example.dutype.workers.GuestEngagementWorker.cancelAll(this@MainActivity)
+                }
+            }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
         }
 
         // Enable edge-to-edge for Android 15+ compatibility with WHITE status bar
@@ -316,8 +316,13 @@ class MainActivity : ComponentActivity() {
                                 onAnimationEnd = { showSplash = false }
                             )
                         } else {
-                            Timber.d("🚀 Initializing MainNavGraph")
-                            Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
+                            // PERF: Log only once when MainNavGraph first mounts. Without this
+                            // gate, every parent recomposition (e.g. statusBarColor change from
+                            // navigation events) re-fires both Timber lines.
+                            LaunchedEffect(Unit) {
+                                Timber.d("🚀 Initializing MainNavGraph")
+                                Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
+                            }
 
                             MainNavGraph(
                                 navController = navController,

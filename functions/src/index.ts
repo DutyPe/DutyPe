@@ -771,8 +771,34 @@ export const checkPhoneExists = functions.https.onCall(async (data, context) => 
       .get();
   }
 
-  // Boolean-only response. Do NOT leak userId or roles.
-  return { exists: !usersSnapshot.empty };
+  if (usersSnapshot.empty) {
+    return { exists: false, roleConflict: false };
+  }
+
+  // Single-role-per-phone enforcement. We expose ONLY the existing role
+  // so the client can show the right error ("This number is registered as
+  // an employer; please log in as an employer."). We never leak userId,
+  // fullName, or other PII.
+  const userData = usersSnapshot.docs[0].data() as Record<string, unknown>;
+  const existingRole = (
+    (userData.role as string | undefined) ||
+    (userData.activeRole as string | undefined) ||
+    (Array.isArray(userData.roles) ? (userData.roles[0] as string | undefined) : undefined) ||
+    ""
+  ).toUpperCase();
+
+  const requestedRoleRaw = String(data?.requestedRole ?? "").trim().toUpperCase();
+  const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"
+    ? requestedRoleRaw
+    : "";
+
+  const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
+
+  return {
+    exists: true,
+    existingRole: existingRole || null,
+    roleConflict,
+  };
 });
 
 

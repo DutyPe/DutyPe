@@ -53,8 +53,7 @@ object FirestoreUtils {
         val strictUserDoc = linkedMapOf<String, Any>(
             "phone" to resolvedPhone,
             "fullName" to resolvedName,
-            "roles" to listOf(roleUpper),
-            "activeRole" to roleUpper,
+            "role" to roleUpper,
             "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now())
         )
 

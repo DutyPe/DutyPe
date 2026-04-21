@@ -131,19 +131,10 @@ class UserFirestoreService @Inject constructor(
             sanitized["profileImageUrl"] = profileImageUrl.trim()
         }
 
-        val roles = updates["roles"] as? List<*>
-        if (roles != null) {
-            val validRoles = roles.mapNotNull { it?.toString()?.trim()?.uppercase() }
-                .filter { it == "WORKER" || it == "EMPLOYER" }
-                .distinct()
-            if (validRoles.isNotEmpty()) {
-                sanitized["roles"] = validRoles
-            }
-        }
-
-        val activeRole = updates["activeRole"]?.toString()?.trim()?.uppercase()
-        if (activeRole == "WORKER" || activeRole == "EMPLOYER") {
-            sanitized["activeRole"] = activeRole
+        // roles[] / activeRole legacy fields are dropped — only single `role` is supported.
+        val role = updates["role"]?.toString()?.trim()?.uppercase()
+        if (role == "WORKER" || role == "EMPLOYER") {
+            sanitized["role"] = role
         }
 
         val fcmToken = updates["fcmToken"] as? String
@@ -151,10 +142,8 @@ class UserFirestoreService @Inject constructor(
             sanitized["fcmToken"] = fcmToken.trim()
         }
 
-        val emailValue = updates["email"] as? String
-        if (!emailValue.isNullOrBlank()) {
-            sanitized["email"] = emailValue.trim()
-        }
+        // Email is intentionally NOT sanitized here — email lives on
+        // worker_profiles / employer_profiles, never on the users doc.
 
         val locationFromMap = updates["location"] as? Map<*, *>
         val mapLat = (locationFromMap?.get("lat") as? Number)?.toDouble()
@@ -197,8 +186,7 @@ class UserFirestoreService @Inject constructor(
                     "fullName" to data["fullName"],
                     "phone" to data["phone"],
                     "profileImageUrl" to data["profileImageUrl"],
-                    "roles" to data["roles"],
-                    "activeRole" to data["activeRole"]
+                    "role" to (data["role"] ?: data["activeRole"])
                 )
                 Result.success(summary)
             } else {
@@ -232,8 +220,7 @@ class UserFirestoreService @Inject constructor(
                         "fullName" to data["fullName"],
                         "phone" to data["phone"],
                         "profileImageUrl" to data["profileImageUrl"],
-                        "roles" to data["roles"],
-                        "activeRole" to data["activeRole"]
+                        "role" to (data["role"] ?: data["activeRole"])
                     )
                 }.toMap()
                 allSummaries.addAll(chunk.mapNotNull { summariesById[it] })

@@ -30,6 +30,63 @@ class DutyPeApplication : Application(), Configuration.Provider {
     companion object {
         // Keep StrictMode opt-in to avoid vendor ROM noise drowning real app errors in Logcat.
         private const val ENABLE_STRICT_MODE_IN_DEBUG = false
+
+        // PERF: Hoisted into a static Set so the Timber filter doesn't allocate a
+        // ~70-element ArrayList + perform O(n) lookup on every single log call.
+        // During startup Firebase/GMS log heavily; this filter is a hot path.
+        private val NOISY_LOG_TAGS: Set<String> = setOf(
+            "GoogleApiManager",
+            "FlagRegistrar",
+            "ProviderInstaller",
+            "DynamiteModule",
+            "nativeloader",
+            "ApplicationLoaders",
+            "FilePhenotypeFlags",
+            "LocalRequestInterceptor",
+            "NativeCrypto",
+            "InsetsController",
+            "StrictMode",
+            "Choreographer",
+            "FA",
+            "ViewRootImpl",
+            "VRI[MainActivity]",
+            "TRuntime.CTransportBackend",
+            "FirebearSt",
+            "FirebearStorage",
+            "Firestore",
+            "CameraManagerGlobal",
+            "StreamUseCaseUtil",
+            "UseCaseAttachState",
+            "SyncCaptureSessionBase",
+            "CaptureSession",
+            "Camera2Cap",
+            "SyncCaptureSessionImpl",
+            "DeferrableSurface",
+            "VivoJavaJsonManager",
+            "VivoCameraUtils",
+            "Camera2CameraImpl",
+            "CameraStateRegistry",
+            "CameraStateMachine",
+            "Camera2CameraControlImp",
+            "VideoUsageControl",
+            "StreamStateObserver",
+            "Camera2PresenceSrc",
+            "BufferQueueProducer",
+            "BufferQueueConsumer",
+            "BLASTBufferQueue",
+            "SurfaceViewImpl",
+            "ImageReader_JNI",
+            "DMABUFHEAPS",
+            "PipelineWatcher",
+            "CCodecBufferChannel",
+            "BufferPoolAccessor",
+            "BufferPoolAccessor2.0",
+            "C2BqBufferQueueBlockPool",
+            "CompatChangeReporter",
+            "GraphicsEnvironment",
+            "VivoJsonResourceManager",
+            "PowerHalWrapper"
+        )
     }
     
     @Inject
@@ -167,69 +224,8 @@ class DutyPeApplication : Application(), Configuration.Provider {
             // Custom tree that filters out noisy Firebase/GMS logs
             Timber.plant(object : Timber.DebugTree() {
                 override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-                    // AGGRESSIVE FILTERING: Skip all system/library noise
-                    // Filter out noisy Google Play Services and Firebase internal logs
-                    val noisyTags = listOf(
-                        "GoogleApiManager",
-                        "FlagRegistrar", 
-                        "ProviderInstaller",
-                        "DynamiteModule",
-                        "nativeloader",
-                        "ApplicationLoaders",
-                        "FilePhenotypeFlags",
-                        "LocalRequestInterceptor",
-                        "NativeCrypto",
-                        "InsetsController",
-                        "StrictMode", // Filter StrictMode warnings from GMS libraries
-                        "Choreographer", // Filter frame skip warnings
-                        "FA", // Firebase Analytics
-                        "ViewRootImpl", // View system internals
-                        "VRI[MainActivity]", // View root impl
-                        "TRuntime.CTransportBackend", // Firebase logging transport
-                        // Firebase internal
-                        "FirebearSt",
-                        "FirebearStorage",
-                        "Firestore", // Filter Firestore CustomClassMapper warnings
-                        // Camera/CameraX noise (triggered by WebView)
-                        "CameraManagerGlobal",
-                        "StreamUseCaseUtil",
-                        "UseCaseAttachState",
-                        "SyncCaptureSessionBase",
-                        "CaptureSession",
-                        "Camera2Cap",
-                        "SyncCaptureSessionImpl",
-                        "DeferrableSurface",
-                        "VivoJavaJsonManager",
-                        "VivoCameraUtils",
-                        "Camera2CameraImpl",
-                        "CameraStateRegistry",
-                        "CameraStateMachine",
-                        "Camera2CameraControlImp",
-                        "VideoUsageControl",
-                        "StreamStateObserver",
-                        "Camera2PresenceSrc",
-                        "CameraManagerGlobal",
-                        "BufferQueueProducer",
-                        "BufferQueueConsumer",
-                        "BLASTBufferQueue",
-                        "SurfaceViewImpl",
-                        "ImageReader_JNI",
-                        "DMABUFHEAPS",
-                        // Video codec system noise
-                        "PipelineWatcher",
-                        "CCodecBufferChannel",
-                        "BufferPoolAccessor",
-                        "BufferPoolAccessor2.0",
-                        "C2BqBufferQueueBlockPool",
-                        // System noise
-                        "CompatChangeReporter",
-                        "GraphicsEnvironment",
-                        "VivoJsonResourceManager",
-                        "PowerHalWrapper"
-                    )
-                    
                     // Skip noisy tags completely (including errors - they're GMS internal)
-                    if (tag in noisyTags) {
+                    if (tag in NOISY_LOG_TAGS) {
                         return
                     }
                     

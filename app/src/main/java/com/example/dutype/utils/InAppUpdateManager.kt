@@ -18,6 +18,7 @@ import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.dutype.app.BuildConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
@@ -77,6 +78,14 @@ class InAppUpdateManager @Inject constructor(
         onNoUpdate: () -> Unit = {},
         onError: (Exception) -> Unit = {}
     ) {
+        // Short-circuit in debug builds BEFORE binding to Play service. Without this
+        // the Play Core IPC always fails with ERROR_APP_NOT_OWNED (-10) and triggers
+        // GMS DEVELOPER_ERROR / Phenotype noise on every onResume.
+        if (BuildConfig.DEBUG) {
+            Timber.d("ℹ️ IN-APP UPDATE: Skipped (debug build)")
+            onNoUpdate()
+            return
+        }
         try {
             Timber.i("🔄 IN-APP UPDATE: checkForUpdate() called")
             
