@@ -726,6 +726,11 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "experience" to experience
                                                 )
 
+                                                // Store email if provided
+                                                if (email.isNotBlank()) {
+                                                    workerProfileData["email"] = email.trim()
+                                                }
+
                                                 profileCompletionViewModel.locationPreferences
                                                     .getSavedLocationIfFresh()
                                                     ?.takeIf { it.hasValidCoordinates() }

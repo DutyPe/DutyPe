@@ -153,14 +153,9 @@ class UserFirestoreService @Inject constructor(
             sanitized["fcmToken"] = fcmToken.trim()
         }
 
-        val isActive = updates["isActive"] as? Boolean
-        if (isActive != null) {
-            sanitized["isActive"] = isActive
-        }
-
-        val isVerified = updates["isVerified"] as? Boolean
-        if (isVerified != null) {
-            sanitized["isVerified"] = isVerified
+        val emailValue = updates["email"] as? String
+        if (!emailValue.isNullOrBlank()) {
+            sanitized["email"] = emailValue.trim()
         }
 
         val locationFromMap = updates["location"] as? Map<*, *>

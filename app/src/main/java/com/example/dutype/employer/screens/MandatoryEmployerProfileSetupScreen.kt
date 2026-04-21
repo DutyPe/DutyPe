@@ -310,6 +310,11 @@ fun MandatoryEmployerProfileSetupScreen(
                         "phone" to contactPhone
                     )
                     
+                    // Store email if provided
+                    if (contactEmail.isNotBlank()) {
+                        employerProfileData["email"] = contactEmail.trim()
+                    }
+                    
                     // Add selfie URL if uploaded
                     if (uploadedSelfieUrl != null) {
                         employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!

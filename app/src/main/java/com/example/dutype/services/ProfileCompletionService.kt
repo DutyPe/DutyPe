@@ -657,6 +657,10 @@ class ProfileCompletionService @Inject constructor(
                 "lastActiveAt" to now
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.WORKER))
+            val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!email.isNullOrBlank()) {
+                userUpdates["email"] = email
+            }
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }
@@ -758,6 +762,10 @@ class ProfileCompletionService @Inject constructor(
                 "lastActiveAt" to now
             )
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
+            val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!email.isNullOrBlank()) {
+                userUpdates["email"] = email
+            }
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }

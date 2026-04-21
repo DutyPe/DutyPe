@@ -17,11 +17,10 @@ data class Announcement(
     val actionText: String? = null,
     val actionRoute: String? = null,
     val imageUrl: String? = null,
-    val startDate: Timestamp = Timestamp.now(),
-    val endDate: Timestamp? = null,
+    val expiresAt: Timestamp? = null,
     val isDismissible: Boolean = true,
     val isActive: Boolean = true,
-    val createdBy: String? = null, // User ID who created the announcement
+    val createdBy: String? = null,
     val createdAt: Timestamp = Timestamp.now()
 )
 

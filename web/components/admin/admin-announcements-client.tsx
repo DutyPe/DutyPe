@@ -12,7 +12,7 @@ type AnnouncementRow = {
   targetRole?: string;
   isActive?: boolean;
   imageUrl?: string;
-  deepLink?: string;
+  actionRoute?: string;
   expiresAt?: unknown;
   createdAt?: unknown;
 };

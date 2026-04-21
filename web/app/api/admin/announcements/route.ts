@@ -108,14 +108,10 @@ export async function POST(request: NextRequest) {
       imageUrl,
       actionText,
       actionRoute: deepLink,
-      deepLink,
       isDismissible,
       isActive: true,
       createdBy: "admin",
-      startDate: Timestamp.fromDate(now),
-      endDate: Timestamp.fromDate(endDateValue),
       createdAt: Timestamp.fromDate(now),
-      updatedAt: Timestamp.fromDate(now),
       expiresAt: Timestamp.fromDate(endDateValue)
     });
 
@@ -156,7 +152,7 @@ export async function PATCH(request: NextRequest) {
     await db.collection("announcements").doc(announcementId).set(
       {
         isActive: body.isActive,
-        updatedAt: new Date()
+        updatedAt: Timestamp.fromDate(new Date())
       },
       { merge: true }
     );

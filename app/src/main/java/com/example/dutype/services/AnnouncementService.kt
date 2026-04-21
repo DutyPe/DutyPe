@@ -49,8 +49,7 @@ class AnnouncementService @Inject constructor(
             actionText = data["actionText"] as? String,
             actionRoute = data["actionRoute"] as? String,
             imageUrl = data["imageUrl"] as? String,
-            startDate = data["startDate"] as? Timestamp ?: Timestamp.now(),
-            endDate = data["endDate"] as? Timestamp,
+            expiresAt = data["expiresAt"] as? Timestamp ?: data["endDate"] as? Timestamp,
             isDismissible = data["isDismissible"] as? Boolean ?: true,
             isActive = data["isActive"] as? Boolean ?: true,
             createdBy = data["createdBy"] as? String,
@@ -88,13 +87,12 @@ class AnnouncementService @Inject constructor(
                     val roleMatches = announcement.targetRole == null || 
                                     announcement.targetRole.equals(userRole, ignoreCase = true)
                     
-                    // P0 NULL SAFETY FIX: Safe date comparison
-                    val inDateRange = (announcement.startDate?.let { it <= now } ?: true) &&
-                                     (announcement.endDate?.let { it > now } ?: true)
+                    // Filter out expired announcements
+                    val notExpired = announcement.expiresAt?.let { it > now } ?: true
                     
-                    Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, inDateRange=$inDateRange")
+                    Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, notExpired=$notExpired")
                     
-                    roleMatches && inDateRange
+                    roleMatches && notExpired
                 }?.sortedWith(
                     compareByDescending<Announcement> { 
                         // Sort by priority (URGENT > HIGH > MEDIUM/NORMAL > LOW)
@@ -105,7 +103,7 @@ class AnnouncementService @Inject constructor(
                             AnnouncementPriority.NORMAL -> 2
                             AnnouncementPriority.LOW -> 1
                         }
-                    }.thenByDescending { it.startDate }
+                    }.thenByDescending { it.createdAt }
                 ) ?: emptyList()
                 
                 trySend(announcements)

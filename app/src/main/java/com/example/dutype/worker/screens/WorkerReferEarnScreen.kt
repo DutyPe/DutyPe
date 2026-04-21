@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.worker.screens
 
+import android.widget.Toast
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +71,7 @@ fun WorkerReferEarnScreen(
     
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
+    val coroutineScope = rememberCoroutineScope()
 
     // Load data on screen launch
     LaunchedEffect(Unit) {
@@ -321,18 +324,62 @@ fun WorkerReferEarnScreen(
                         }
                     }
                     
-                    // Withdraw Button
-                    if ((uiState.stats?.availableBalance ?: 0.0) >= ReferralRewards.MIN_WITHDRAWAL_AMOUNT) {
-                        item {
-                            AnimatedVisibility(
-                                visible = isVisible,
-                                enter = fadeIn(tween(550, 150)) + slideInVertically(tween(550, 150))
-                            ) {
-                                WithdrawCard(
-                                    availableBalance = uiState.stats?.availableBalance ?: 0.0,
-                                    onWithdrawClick = { showWithdrawDialog = true }
-                                )
-                            }
+                    // Withdraw Button — always visible once data is loaded
+                    item {
+                        val balance = uiState.stats?.availableBalance ?: 0.0
+                        val minWithdrawal = referralConfig.minWithdrawal
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(550, 150)) + slideInVertically(tween(550, 150))
+                        ) {
+                            WithdrawCard(
+                                availableBalance = balance,
+                                minWithdrawal = minWithdrawal,
+                                onWithdrawClick = {
+                                    if (balance < minWithdrawal) return@WithdrawCard
+                                    // Re-check profile completion before opening withdraw dialog
+                                    coroutineScope.launch {
+                                        val profileOk = runCatching {
+                                            profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
+                                        }.getOrDefault(false)
+                                        if (!profileOk) {
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.refer_complete_profile_to_withdraw),
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        } else {
+                                            showWithdrawDialog = true
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // Milestone Progress
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))
+                        ) {
+                            MilestoneProgressCard(
+                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
+                                nextMilestone = uiState.stats?.let { stats ->
+                                    referralConfig.milestones.keys.sorted()
+                                        .firstOrNull { it > stats.successfulReferrals } ?: 0
+                                } ?: 0
+                            )
+                        }
+                    }
+
+                    // Rewards & Milestones (config-driven)
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))
+                        ) {
+                            ConfigDrivenRewardsSection(referralConfig = referralConfig)
                         }
                     }
 
@@ -356,8 +403,25 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                   
-                   
+                    // How It Works
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))
+                        ) {
+                            HowItWorksSection()
+                        }
+                    }
+
+                    // How to Redeem (config-driven threshold)
+                    item {
+                        AnimatedVisibility(
+                            visible = isVisible,
+                            enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                        ) {
+                            RedemptionInstructionsSection(minWithdrawal = referralConfig.minWithdrawal)
+                        }
+                    }
                     
                     item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
@@ -659,36 +723,52 @@ private fun StatsGrid(
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun WithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) {
+private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWithdrawClick: () -> Unit) {
+    val canWithdraw = availableBalance >= minWithdrawal
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.available_to_withdraw),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
-                )
-                Text(
-                    text = "Rs.${String.format("%.0f", availableBalance)}",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
-                    )
-                )
-            }
-            Button(
-                onClick = onWithdrawClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                shape = RoundedCornerShape(12.dp)
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.withdraw_button))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.available_to_withdraw),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                    )
+                    Text(
+                        text = "Rs.${String.format("%.0f", availableBalance)}",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937)
+                        )
+                    )
+                }
+                Button(
+                    onClick = onWithdrawClick,
+                    enabled = canWithdraw,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1F2937),
+                        disabledContainerColor = Color(0xFFD1D5DB)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(stringResource(R.string.withdraw_button))
+                }
+            }
+            if (!canWithdraw) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
+                Text(
+                    text = "Earn ₹${String.format("%.0f", remaining)} more to unlock withdrawal (min ₹${String.format("%.0f", minWithdrawal)})",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -779,6 +859,49 @@ private fun HowItWorksSection() {
     }
 }
 
+@SuppressLint("DefaultLocale")
+@Composable
+private fun ConfigDrivenRewardsSection(referralConfig: com.example.dutype.repositories.ReferralConfig) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.rewards_milestones),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937))
+            )
+            Spacer(Modifier.height(16.dp))
+
+            // Dynamic per-referral reward
+            RewardRow(stringResource(R.string.refer_reward_per_referral, referralConfig.rewardPerReferral.toInt()))
+            // Dynamic signup bonus
+            RewardRow(stringResource(R.string.refer_reward_friend_bonus, referralConfig.signupBonus.toInt()))
+
+            // Dynamic milestones from config
+            referralConfig.milestones.entries.sortedBy { it.key }.forEach { (count, bonus) ->
+                RewardRow(stringResource(R.string.refer_milestone_item, count, bonus.toInt()))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RewardRow(text: String) {
+    Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = Color(0xFF1F2937)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+    }
+}
+
 @Composable
 private fun RewardsSection() {
     Card(
@@ -822,7 +945,7 @@ private fun RewardsSection() {
 }
 
 @Composable
-private fun RedemptionInstructionsSection() {
+private fun RedemptionInstructionsSection(minWithdrawal: Double = 100.0) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -837,7 +960,7 @@ private fun RedemptionInstructionsSection() {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = stringResource(R.string.refer_withdrawal_threshold_info),
+                text = stringResource(R.string.refer_withdrawal_threshold_info, minWithdrawal.toInt()),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1F2937))
             )
             Spacer(Modifier.height(12.dp))
@@ -865,7 +988,7 @@ private fun RedemptionInstructionsSection() {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.refer_min_withdrawal_info),
+                text = stringResource(R.string.refer_min_withdrawal_info, minWithdrawal.toInt()),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1F2937)
