@@ -38,7 +38,6 @@ const workerLinks = [
   { href: "/app/worker/map", label: "Map" },
   { href: "/app/worker/location", label: "Location" },
   { href: "/app/worker/my-jobs", label: "My jobs" },
-  { href: "/app/worker/messages", label: "Messages" },
   { href: "/app/worker/notifications", label: "Notifications" },
   { href: "/app/worker/profile", label: "Profile" }
 ];
@@ -49,7 +48,6 @@ const employerLinks = [
   { href: "/app/employer/locations", label: "Locations" },
   { href: "/app/employer/jobs", label: "My jobs" },
   { href: "/app/employer/applications", label: "Applications" },
-  { href: "/app/employer/messages", label: "Messages" },
   { href: "/app/employer/notifications", label: "Notifications" }
 ];
 

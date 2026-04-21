@@ -7,10 +7,6 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import {
-  getOrCreateConversationId,
-  productConversationRoute
-} from "@/lib/firebase/chat-actions";
-import {
   formatCurrencyRange,
   formatDate,
   formatDateTime,
@@ -628,24 +624,7 @@ export function EmployerApplicationDetailClient({
   }, [applicationId, services, session.user]);
 
   async function handleOpenConversation() {
-    if (!application) {
-      return;
-    }
-
-    try {
-      setError(null);
-      const conversationId = await getOrCreateConversationId(
-        application.workerId,
-        application.jobId || application.id
-      );
-      router.push(productConversationRoute("EMPLOYER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open worker chat."
-      );
-    }
+    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their application.");
   }
 
   async function createVerification(
@@ -1631,20 +1610,7 @@ export function EmployerWorkerProfileClient({
   }, [applicationId, services, session.user, workerId]);
 
   async function handleOpenConversation() {
-    try {
-      setError(null);
-      const conversationId = await getOrCreateConversationId(
-        workerId,
-        application?.jobId || application?.id || workerId
-      );
-      router.push(productConversationRoute("EMPLOYER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open worker chat."
-      );
-    }
+    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their profile.");
   }
 
   if (loading) {

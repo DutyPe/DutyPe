@@ -62,7 +62,11 @@ export function AdminReferralsClient() {
     void loadData();
   }, []);
 
-  async function handleWithdrawalUpdate(id: string, status: "COMPLETED" | "FAILED") {
+  async function handleWithdrawalUpdate(
+    id: string,
+    userId: string | undefined,
+    status: "COMPLETED" | "FAILED"
+  ) {
     const confirmationMessage =
       status === "COMPLETED"
         ? "Approve this withdrawal request?"
@@ -81,6 +85,7 @@ export function AdminReferralsClient() {
         },
         body: JSON.stringify({
           withdrawalId: id,
+          userId,
           status
         })
       });
@@ -203,7 +208,8 @@ export function AdminReferralsClient() {
             <h2>Payout processing queue</h2>
           </div>
           <p>
-            Admin actions here update the live `withdrawal_requests` collection with the
+            Admin actions here update the canonical{" "}
+            <code>users/&#123;uid&#125;/withdrawals</code> subcollection with the
             same statuses already used in the legacy tool.
           </p>
         </div>
@@ -245,7 +251,7 @@ export function AdminReferralsClient() {
                           <button
                             type="button"
                             className="table-action"
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, "COMPLETED")}
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
                             disabled={pendingActionId === withdrawal.id}
                           >
                             {pendingActionId === withdrawal.id ? "Working..." : "Approve"}
@@ -253,7 +259,7 @@ export function AdminReferralsClient() {
                           <button
                             type="button"
                             className="table-action danger"
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, "FAILED")}
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
                             disabled={pendingActionId === withdrawal.id}
                           >
                             Reject

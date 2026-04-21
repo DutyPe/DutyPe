@@ -851,7 +851,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         id: referralId,
         idempotencyKey,
         referrerId: latestReferrerUserId,
-        referrerUserId: latestReferrerUserId,
         referredUserId: newUserId,
         referralCode,
         status: "COMPLETED",

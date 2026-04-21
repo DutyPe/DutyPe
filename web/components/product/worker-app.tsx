@@ -19,10 +19,6 @@ import {
 } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
-import {
-  getOrCreateConversationId,
-  productConversationRoute
-} from "@/lib/firebase/chat-actions";
 import { formatCurrencyRange, formatDateTime } from "@/lib/firebase/firestore-helpers";
 import {
   attachJobDistances,
@@ -827,26 +823,9 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
   }
 
   async function handleMessageEmployer() {
-    if (!job?.employerId) {
-      setError("Employer info is not available for chat.");
-      return;
-    }
-
-    try {
-      setOpeningChat(true);
-      setError(null);
-
-      const conversationId = await getOrCreateConversationId(job.employerId, job.jobId || job.id);
-      router.push(productConversationRoute("WORKER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open employer chat."
-      );
-    } finally {
-      setOpeningChat(false);
-    }
+    // In-app chat has been retired. Workers contact employers via the phone
+    // number revealed on the job detail page after applying.
+    setError("Direct messaging is no longer available. Please contact the employer using the phone number shown after you apply.");
   }
 
   async function handleApply() {

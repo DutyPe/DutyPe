@@ -18,9 +18,12 @@ export async function GET(request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
 
+    // Withdrawals live under `users/{uid}/withdrawals/{id}` (single source of
+    // truth, written by `referral-system.ts`). The legacy top-level
+    // `withdrawal_requests` collection is gone.
     const [referralsSnapshot, withdrawalsSnapshot] = await Promise.all([
       db.collection("referrals").orderBy("createdAt", "desc").limit(500).get(),
-      db.collection("withdrawal_requests").orderBy("createdAt", "desc").limit(200).get()
+      db.collectionGroup("withdrawals").orderBy("createdAt", "desc").limit(200).get()
     ]);
 
     const referrals = referralsSnapshot.docs.map((item) => ({
@@ -28,10 +31,15 @@ export async function GET(request: NextRequest) {
       ...(asRecord(item.data()) as Record<string, unknown>)
     }));
 
-    const withdrawals = withdrawalsSnapshot.docs.map((item) => ({
-      id: item.id,
-      ...(asRecord(item.data()) as Record<string, unknown>)
-    }));
+    const withdrawals = withdrawalsSnapshot.docs.map((item) => {
+      // Path: users/{userId}/withdrawals/{id}
+      const userId = item.ref.parent.parent?.id ?? "";
+      return {
+        id: item.id,
+        userId,
+        ...(asRecord(item.data()) as Record<string, unknown>)
+      };
+    });
 
     return NextResponse.json({ referrals, withdrawals });
   } catch (error) {
@@ -42,6 +50,7 @@ export async function GET(request: NextRequest) {
 
 type UpdateWithdrawalBody = {
   withdrawalId?: string;
+  userId?: string;
   status?: string;
 };
 
@@ -60,6 +69,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const withdrawalId = body.withdrawalId?.trim();
+  const userId = body.userId?.trim();
   const status = body.status?.trim().toUpperCase();
 
   if (!withdrawalId || (status !== "COMPLETED" && status !== "FAILED")) {
@@ -71,7 +81,28 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    await db.collection("withdrawal_requests").doc(withdrawalId).set(
+
+    // Find the withdrawal in users/{uid}/withdrawals — userId is preferred
+    // for a direct hit; otherwise fall back to a collectionGroup lookup.
+    let writeRef = userId
+      ? db.collection("users").doc(userId).collection("withdrawals").doc(withdrawalId)
+      : null;
+
+    if (!writeRef) {
+      const lookup = await db.collectionGroup("withdrawals")
+        .where("id", "==", withdrawalId)
+        .limit(1)
+        .get();
+      if (lookup.empty) {
+        return NextResponse.json(
+          { error: `Withdrawal ${withdrawalId} not found.` },
+          { status: 404 }
+        );
+      }
+      writeRef = lookup.docs[0].ref;
+    }
+
+    await writeRef.set(
       {
         status,
         processedAt: new Date(),

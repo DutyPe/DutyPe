@@ -1,6 +1,6 @@
 "use client";
 
-import { EmployerNotificationsClient } from "@/components/product/communication-app";
+import { EmployerNotificationsClient } from "@/components/product/notifications-app";
 import { ProductRoleBoundary } from "@/components/product/product-shell";
 
 export default function EmployerNotificationsPage() {

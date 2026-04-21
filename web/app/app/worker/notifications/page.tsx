@@ -1,6 +1,6 @@
 "use client";
 
-import { WorkerNotificationsClient } from "@/components/product/communication-app";
+import { WorkerNotificationsClient } from "@/components/product/notifications-app";
 import { ProductRoleBoundary } from "@/components/product/product-shell";
 
 export default function WorkerNotificationsPage() {

@@ -39,17 +39,21 @@ class UserFirestoreService @Inject constructor(
                 val userRef = firestore.collection(USERS_COLLECTION).document(user.id)
                 Timber.d("Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
                 
-                val coreUserData = mapOf(
+                val hasRealLocation = com.example.dutype.utils.GeoUtils.hasValidCoordinates(user.lat, user.lng)
+                val baseUserData = mutableMapOf<String, Any?>(
                     "userId" to user.id,
                     "phone" to user.phone,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
-                    "location" to mapOf("lat" to user.lat, "lng" to user.lng),
-                    "geohash" to com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng),
                     "fcmToken" to user.fcmToken,
                     "createdAt" to Timestamp(Date(user.createdAt)),
                     "lastActiveAt" to Timestamp.now()
-                ) + User.roleFieldsFor(user.role)
+                )
+                if (hasRealLocation) {
+                    baseUserData["location"] = mapOf("lat" to user.lat, "lng" to user.lng)
+                    baseUserData["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng)
+                }
+                val coreUserData = baseUserData + User.roleFieldsFor(user.role)
                 
                 userRef.set(coreUserData).await()
                 Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")

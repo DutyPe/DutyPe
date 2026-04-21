@@ -18,10 +18,6 @@ import {
 } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
-import {
-  getOrCreateConversationId,
-  productConversationRoute
-} from "@/lib/firebase/chat-actions";
 import { formatCurrencyRange, formatDateTime } from "@/lib/firebase/firestore-helpers";
 import {
   employerBaseLocationFromProfile,
@@ -432,25 +428,12 @@ export function EmployerDashboardClient({ session }: SharedProps) {
     };
   }, [services, session.user]);
 
-  async function handleOpenConversation(application: ProductApplication) {
-    try {
-      setError(null);
-
-      const conversationId = await getOrCreateConversationId(
-        application.workerId,
-        application.jobId || application.id
-      );
-
-      router.push(productConversationRoute("EMPLOYER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open worker chat."
-      );
-    }
+  async function handleOpenConversation(_application: ProductApplication) {
+    setError("Direct messaging is no longer available. Please reach the worker via the phone number listed on their application.");
   }
 
+  // Reference unused params to satisfy lint when chat is disabled.
+  void handleOpenConversation;
   const completion = employerProfileCompletion(session.profile);
   const missingFields = missingEmployerFields(session.profile);
   const pendingApplications = applications.filter(
@@ -1837,24 +1820,11 @@ export function EmployerApplicationsClient({
     }
   );
 
-  async function handleOpenConversation(application: ProductApplication) {
-    try {
-      setError(null);
-
-      const conversationId = await getOrCreateConversationId(
-        application.workerId,
-        application.jobId || application.id
-      );
-
-      router.push(productConversationRoute("EMPLOYER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open worker chat."
-      );
-    }
+  async function handleOpenConversation(_application: ProductApplication) {
+    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their application.");
   }
+
+  void handleOpenConversation;
 
   async function handleStatusUpdate(
     application: ProductApplication,

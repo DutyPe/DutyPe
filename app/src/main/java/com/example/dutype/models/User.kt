@@ -73,14 +73,15 @@ data class User(
         }
 
         /**
-         * Build the canonical Firestore field map for [role], including
-         * one-cycle compat mirrors so legacy CFs/admin tools keep working.
+         * Build the canonical Firestore field map for [role].
+         *
+         * Single source of truth = `activeRole` (string) + `roles[]` (array)
+         * for multi-role support. The legacy top-level `role` field has been
+         * removed; readers fall back to `activeRole` then `roles[0]`.
          */
         fun roleFieldsFor(role: UserRole): Map<String, Any> = mapOf(
-            "role" to role.name,
-            // Transient compat. Remove after CFs and admin web read `role`.
-            "roles" to listOf(role.name),
-            "activeRole" to role.name
+            "activeRole" to role.name,
+            "roles" to listOf(role.name)
         )
     }
 }
