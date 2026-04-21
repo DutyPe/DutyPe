@@ -21,6 +21,20 @@ object FirestoreUtils {
     }
 
     /**
+     * Rich result for single-role-per-phone enforcement.
+     *
+     * [existingRole] is the role ("WORKER" | "EMPLOYER") already registered
+     * against this phone number, or null when unknown / not registered.
+     * [roleConflict] is true when an account exists for this phone but under
+     * a different role than the one the caller is trying to use.
+     */
+    data class PhoneCheckResult(
+        val exists: PhoneExistenceResult,
+        val existingRole: String? = null,
+        val roleConflict: Boolean = false
+    )
+
+    /**
      * Ensures a canonical users document exists without ever writing placeholder values.
      */
     suspend fun ensureMinimalUserDocument(
@@ -108,57 +122,99 @@ object FirestoreUtils {
     }
 
     suspend fun checkPhoneExistence(phoneNumber: String): PhoneExistenceResult {
-        val callableResult = checkPhoneExistenceViaCallable(phoneNumber)
-        if (callableResult != PhoneExistenceResult.UNKNOWN) {
+        return checkPhoneForRole(phoneNumber, requestedRole = null).exists
+    }
+
+    /**
+     * Single-role-per-phone aware phone check. When [requestedRole] is
+     * provided and the phone already has an account under a different role,
+     * [PhoneCheckResult.roleConflict] is set to true so the UI can show a
+     * precise error ("This number is registered as an employer").
+     */
+    suspend fun checkPhoneForRole(phoneNumber: String, requestedRole: String?): PhoneCheckResult {
+        val callableResult = checkPhoneForRoleViaCallable(phoneNumber, requestedRole)
+        if (callableResult.exists != PhoneExistenceResult.UNKNOWN) {
             return callableResult
         }
 
         if (FirebaseAuth.getInstance().currentUser == null) {
             Timber.d("Phone existence fallback skipped for guest user (users query requires auth)")
-            return PhoneExistenceResult.UNKNOWN
+            return PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
         }
 
         return try {
-            val result = checkUserExistsByPhoneNumber(phoneNumber)
-            if (result != null) PhoneExistenceResult.EXISTS else PhoneExistenceResult.NOT_EXISTS
+            val userDoc = checkUserExistsByPhoneNumber(phoneNumber)
+            if (userDoc == null) {
+                PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
+            } else {
+                val existingRole = extractRole(userDoc)
+                val conflict = !requestedRole.isNullOrBlank() &&
+                    !existingRole.isNullOrBlank() &&
+                    existingRole.uppercase() != requestedRole.uppercase()
+                PhoneCheckResult(
+                    exists = PhoneExistenceResult.EXISTS,
+                    existingRole = existingRole,
+                    roleConflict = conflict
+                )
+            }
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                 Timber.w("Phone existence check blocked by rules. Continuing with UNKNOWN.")
-                PhoneExistenceResult.UNKNOWN
+                PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
             } else {
                 Timber.e(e, "Phone existence check failed")
-                PhoneExistenceResult.UNKNOWN
+                PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
             }
         } catch (e: Exception) {
             Timber.e(e, "Phone existence check failed")
-            PhoneExistenceResult.UNKNOWN
+            PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
         }
     }
 
-    private suspend fun checkPhoneExistenceViaCallable(phoneNumber: String): PhoneExistenceResult {
+    private fun extractRole(userDoc: Map<String, Any?>): String? {
+        val role = (userDoc["role"] as? String)
+            ?: (userDoc["activeRole"] as? String)
+            ?: (userDoc["roles"] as? List<*>)?.firstOrNull()?.toString()
+        return role?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+    }
+
+    private suspend fun checkPhoneForRoleViaCallable(
+        phoneNumber: String,
+        requestedRole: String?
+    ): PhoneCheckResult {
         val normalized = PhoneNumberUtils.normalize(phoneNumber)
         val variants = PhoneNumberUtils.getVariants(phoneNumber)
         val callableNames = listOf("checkPhoneExists")
 
         for (callableName in callableNames) {
             try {
+                val payloadArgs = mutableMapOf<String, Any>(
+                    "phone" to normalized,
+                    "variants" to variants
+                )
+                if (!requestedRole.isNullOrBlank()) {
+                    payloadArgs["requestedRole"] = requestedRole.uppercase()
+                }
+
                 val response = FirebaseFunctions.getInstance()
                     .getHttpsCallable(callableName)
-                    .call(
-                        mapOf(
-                            "phone" to normalized,
-                            "variants" to variants
-                        )
-                    )
+                    .call(payloadArgs)
                     .await()
 
                 @Suppress("UNCHECKED_CAST")
-                val payload = response.data as? Map<String, Any>
+                val payload = response.data as? Map<String, Any?>
                 val exists = payload?.get("exists") as? Boolean
+                val existingRole = (payload?.get("existingRole") as? String)
+                    ?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+                val roleConflict = payload?.get("roleConflict") as? Boolean ?: false
 
                 when (exists) {
-                    true -> return PhoneExistenceResult.EXISTS
-                    false -> return PhoneExistenceResult.NOT_EXISTS
+                    true -> return PhoneCheckResult(
+                        exists = PhoneExistenceResult.EXISTS,
+                        existingRole = existingRole,
+                        roleConflict = roleConflict
+                    )
+                    false -> return PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
                     null -> Timber.w("Callable $callableName returned invalid payload: $payload")
                 }
             } catch (e: Exception) {
@@ -166,7 +222,7 @@ object FirestoreUtils {
             }
         }
 
-        return PhoneExistenceResult.UNKNOWN
+        return PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
     }
 
     suspend fun updateUserRole(userId: String, role: String) {

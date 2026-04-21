@@ -299,16 +299,35 @@ private fun RegisterContent(
                                 try {
                                     isCheckingPhone = true
 
-                                    // Check if user already exists
-                                    when (FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                    // Check if user already exists. Single-role-per-phone:
+                                    // if a user exists under a DIFFERENT role, surface the
+                                    // role-conflict message so they know where to log in.
+                                    val phoneCheck = FirestoreUtils.checkPhoneForRole(
+                                        phoneNumber = fullPhoneNumber,
+                                        requestedRole = role.name
+                                    )
+                                    when (phoneCheck.exists) {
                                         FirestoreUtils.PhoneExistenceResult.EXISTS -> {
                                         isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ చేయండి." else "This number is already registered. Please Login instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 REGISTER blocked - User already exists: $fullPhoneNumber")
+                                        val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
+                                            "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
+                                            "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                            else -> null
+                                        }
+                                        val message = when {
+                                            phoneCheck.roleConflict && existingRoleLabel != null ->
+                                                if (isTelugu) "ఈ నంబర్ ఇప్పటికే $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                                else "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                                            else ->
+                                                if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ చేయండి."
+                                                else "This number is already registered. Please Login instead."
+                                        }
+                                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                        Timber.w(
+                                            "📱 REGISTER blocked - phone=$fullPhoneNumber " +
+                                                "existingRole=${phoneCheck.existingRole} " +
+                                                "requestedRole=${role.name} conflict=${phoneCheck.roleConflict}"
+                                        )
                                         return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {

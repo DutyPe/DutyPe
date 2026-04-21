@@ -370,8 +370,14 @@ private fun OtpLoginScreen(
                                 try {
                                     isCheckingPhone = true
 
-                                    // Login-only: check if user exists
-                                    when (FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                    // Login-only: check if user exists AND matches the role
+                                    // the user selected on the landing page. Single-role-per-phone
+                                    // means a Worker cannot log in on the Employer tab and vice versa.
+                                    val phoneCheck = FirestoreUtils.checkPhoneForRole(
+                                        phoneNumber = fullPhoneNumber,
+                                        requestedRole = role.name
+                                    )
+                                    when (phoneCheck.exists) {
                                         FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
                                         isCheckingPhone = false
                                         Toast.makeText(
@@ -392,7 +398,27 @@ private fun OtpLoginScreen(
                                             Timber.w("📱 Login blocked - Phone pre-check unavailable: $fullPhoneNumber")
                                             return@launch
                                         }
-                                        FirestoreUtils.PhoneExistenceResult.EXISTS -> Unit
+                                        FirestoreUtils.PhoneExistenceResult.EXISTS -> {
+                                            if (phoneCheck.roleConflict) {
+                                                isCheckingPhone = false
+                                                val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
+                                                    "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
+                                                    "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                                    else -> if (isTelugu) "వేరే పాత్ర" else "different role"
+                                                }
+                                                Toast.makeText(
+                                                    context,
+                                                    if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                                    else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                                Timber.w(
+                                                    "📱 Login blocked - role conflict phone=$fullPhoneNumber " +
+                                                        "existingRole=${phoneCheck.existingRole} requested=${role.name}"
+                                                )
+                                                return@launch
+                                            }
+                                        }
                                     }
 
                                     isCheckingPhone = false

@@ -496,17 +496,43 @@ fun LoginBottomSheet(
                                 try {
                                     isCheckingPhone = true
                                     
-                                    // PRE-OTP USER CHECK: Verify user existence before sending OTP
-                                    when (com.example.dutype.utils.FirestoreUtils.checkPhoneExistence(fullPhoneNumber)) {
+                                    // PRE-OTP USER CHECK: Verify user existence AND role match.
+                                    // Single-role-per-phone means a number registered as WORKER
+                                    // cannot log in / re-register on the EMPLOYER side.
+                                    val phoneCheck = com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(
+                                        phoneNumber = fullPhoneNumber,
+                                        requestedRole = role.name
+                                    )
+                                    val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
+                                        "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
+                                        "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                        else -> null
+                                    }
+                                    when (phoneCheck.exists) {
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS -> {
                                             if (isRegistrationMode) {
                                                 isCheckingPhone = false
+                                                val message = when {
+                                                    phoneCheck.roleConflict && existingRoleLabel != null ->
+                                                        if (isTelugu) "ఈ నంబర్ ఇప్పటికే $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                                        else "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                                                    else ->
+                                                        if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ ఉపయోగించండి."
+                                                        else "This number is already registered. Please use Login instead."
+                                                }
+                                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                                Timber.w("📱 Registration blocked - phone=$fullPhoneNumber existingRole=${phoneCheck.existingRole} conflict=${phoneCheck.roleConflict}")
+                                                return@launch
+                                            } else if (phoneCheck.roleConflict && existingRoleLabel != null) {
+                                                // Login side with the wrong role selected.
+                                                isCheckingPhone = false
                                                 Toast.makeText(
                                                     context,
-                                                    if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ ఉపయోగించండి." else "This number is already registered. Please use Login instead.",
+                                                    if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                                    else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
                                                     Toast.LENGTH_LONG
                                                 ).show()
-                                                Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
+                                                Timber.w("📱 Login blocked - role conflict phone=$fullPhoneNumber existingRole=${phoneCheck.existingRole} requested=${role.name}")
                                                 return@launch
                                             }
                                         }
