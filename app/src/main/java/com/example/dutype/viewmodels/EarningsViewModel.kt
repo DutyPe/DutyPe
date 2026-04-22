@@ -174,7 +174,14 @@ class EarningsViewModel @Inject constructor(
                 .await()
 
             snapshot.documents.forEach { doc ->
-                val salary = (doc.get("salary") as? Number)?.toDouble() ?: 0.0
+                // Bug #6: salary is a free-form String. Earnings need a
+                // numeric value, so use SalaryFormatter.numericForEarnings
+                // (which falls back to the lower bound for ranges/"+" /
+                // returns 0 for "Negotiable").
+                val salaryRaw = (doc.get("salary") as? String)
+                    ?: (doc.get("salary") as? Number)?.toString()
+                    ?: ""
+                val salary = com.example.dutype.utils.SalaryFormatter.numericForEarnings(salaryRaw)
                 result[doc.id] = JobEarningInfo(
                     title = doc.getString("title") ?: "Job",
                     salary = salary

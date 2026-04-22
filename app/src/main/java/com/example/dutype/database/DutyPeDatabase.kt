@@ -35,7 +35,7 @@ import com.example.dutype.database.entity.SavedJobEntity
         ApplicationEntity::class,
         SavedJobEntity::class
     ],
-    version = 7,
+    version = 8,
     // Schema export ON so future Migration objects can be unit-tested with
     // Room's MigrationTestHelper. JSON snapshots land under
     // `app/schemas/<DbClass>/<version>.json` and should be committed.

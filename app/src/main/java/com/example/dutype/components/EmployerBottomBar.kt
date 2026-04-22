@@ -184,38 +184,50 @@ fun EmployerBottomBar(
             }
         }
 
-        // Center floating Post Job button — pill shape with icon + text
-        Surface(
+        // Center floating Post Job button.
+        // Bug fix: replaced the previous bulky pill that floated awkwardly
+        // above the bar with a clean, professional 3-tab layout — Post Job
+        // sits inline as the middle tab using a subtle elevated badge so it
+        // still feels primary without breaking the bottom-bar geometry.
+        Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = (-22).dp)
+                .align(Alignment.Center)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = ::openPostJob
-                ),
-            shape = RoundedCornerShape(20.dp),
-            color = selectedItemColor,
-            shadowElevation = 12.dp,
-            tonalElevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.post_job),
-                    contentDescription = stringResource(id = R.string.bottom_nav_post),
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White
                 )
+                .padding(top = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = selectedItemColor,
+                    shadowElevation = 6.dp,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.post_job),
+                            contentDescription = stringResource(id = R.string.bottom_nav_post),
+                            modifier = Modifier.size(22.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Post Job",
+                    text = stringResource(id = R.string.bottom_nav_post),
                     fontFamily = MeeshoFontFamily,
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = selectedItemColor,
+                    maxLines = 1
                 )
             }
         }

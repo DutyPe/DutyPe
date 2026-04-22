@@ -451,21 +451,12 @@ private enum class ChipType {
 // =============================================================================
 
 /**
- * Format pay display from salary (Double) + salaryType (String).
- * Returns "amount/period" e.g. "500/day"
+ * Bug #6: salary is now a free-form String. Delegate to SalaryFormatter
+ * which handles "Negotiable", ranges ("1000-2000"), "2000+" and plain
+ * numbers, appending the period suffix when appropriate.
  */
-private fun formatPayDisplay(salary: Double, salaryType: String): String {
-    if (salary <= 0.0) return "Negotiable"
-
-    val amount = if (salary == salary.toLong().toDouble()) salary.toLong().toString() else salary.toString()
-    val period = when (salaryType.uppercase()) {
-        "HOURLY" -> "hour"
-        "DAILY" -> "day"
-        "MONTHLY" -> "month"
-        else -> "day"
-    }
-    return "$amount/$period"
-}
+private fun formatPayDisplay(salary: String, salaryType: String): String =
+    com.example.dutype.utils.SalaryFormatter.display(salary, salaryType)
 
 /**
  * Format location with distance.

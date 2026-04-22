@@ -58,10 +58,12 @@ object ValidationUtils {
     }
     
     /**
-     * Validate salary/pay amount (positive number)
+     * Validate salary/pay amount. Bug #6: salary is now a free-form
+     * String — accept anything non-blank ("Negotiable", "1000-2000",
+     * "2000+", "5000"). The post-job form ensures the field isn't empty.
      */
     fun isValidSalary(salary: String): Boolean {
-        return salary.toDoubleOrNull()?.let { it > 0 } ?: false
+        return salary.trim().isNotBlank()
     }
     
     /**

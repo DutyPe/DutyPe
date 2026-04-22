@@ -145,13 +145,11 @@ class JobShareImageGenerator @Inject constructor() {
             // Generate Android App Link (opens app directly or falls back to Play Store)
             val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
-            // Simple, clean share text (like LinkedIn/Indeed)
-            val salaryStr = if (job.salary == job.salary.toLong().toDouble())
-                job.salary.toLong().toString() else job.salary.toString()
-            val period = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+            // Bug #6: salary is a free-form String now.
+            val salaryStr = com.example.dutype.utils.SalaryFormatter.display(job.salary, job.salaryType)
             val shareText = buildString {
                 append("🔥 ${job.title}\n\n")
-                append("💰 Pay: ₹$salaryStr/$period\n")
+                append("💰 Pay: ₹$salaryStr\n")
                 if (job.addressText.isNotEmpty()) append("📍 Location: ${job.addressText}\n")
                 append("\n👉 Apply now: $jobWebLink\n\nDownload DutyPe app to apply instantly!")
             }
@@ -182,12 +180,10 @@ class JobShareImageGenerator @Inject constructor() {
         return try {
             val jobWebLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(job.id)
             
-            val salaryStr2 = if (job.salary == job.salary.toLong().toDouble())
-                job.salary.toLong().toString() else job.salary.toString()
-            val period2 = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+            val salaryStr2 = com.example.dutype.utils.SalaryFormatter.display(job.salary, job.salaryType)
             val shareText = buildString {
                 append("🔥 ${job.title}\n\n")
-                append("💰 ₹$salaryStr2/$period2\n")
+                append("💰 ₹$salaryStr2\n")
                 if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
                 append("\n👉 Apply now: $jobWebLink\n\nDownload DutyPe app to apply instantly!")
             }
@@ -418,11 +414,9 @@ class JobShareImageGenerator @Inject constructor() {
     
     private fun drawModernInfoCards(canvas: Canvas, job: JobListing, x: Float, y: Float, width: Float): Float {
         var currentY = y
-        val salaryStr = if (job.salary == job.salary.toLong().toDouble())
-            job.salary.toLong().toString() else job.salary.toString()
-        val period = when (job.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
+        val salaryStr = com.example.dutype.utils.SalaryFormatter.display(job.salary, job.salaryType)
 
-        drawModernInfoCard(canvas, "💰", "Salary", "₹$salaryStr/$period", x, currentY, width, Color.parseColor("#48BB78"))
+        drawModernInfoCard(canvas, "💰", "Salary", "₹$salaryStr", x, currentY, width, Color.parseColor("#48BB78"))
         currentY += 140f
 
         if (job.addressText.isNotEmpty()) {

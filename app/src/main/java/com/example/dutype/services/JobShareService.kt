@@ -16,16 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class JobShareService @Inject constructor() {
 
-    private fun formatPay(job: JobListing): String {
-        val amount = if (job.salary == job.salary.toLong().toDouble())
-            job.salary.toLong().toString() else job.salary.toString()
-        val period = when (job.salaryType.uppercase()) {
-            "HOURLY" -> "hour"
-            "MONTHLY" -> "month"
-            else -> "day"
-        }
-        return "₹$amount/$period"
-    }
+    private fun formatPay(job: JobListing): String =
+        "₹" + com.example.dutype.utils.SalaryFormatter.display(job.salary, job.salaryType)
 
     fun shareJob(context: Context, job: JobListing) {
         try {

@@ -25,7 +25,7 @@ data class JobEntity(
     val employerId: String,
     val title: String,
     val jobType: String,
-    val salary: Double,
+    val salary: String,
     val salaryType: String,
     val lat: Double,
     val lng: Double,

@@ -28,23 +28,15 @@ private fun mapToEpochMillis(value: Any?): Long {
     }
 }
 
-private fun mapToSalaryDouble(value: Any?): Double {
+private fun mapToSalaryString(value: Any?): String {
     return when (value) {
-        is Number -> value.toDouble()
-        is String -> {
-            val cleaned = value.replace("₹", "").replace(",", "").trim()
-            val numbers = Regex("\\d+(?:\\.\\d+)?")
-                .findAll(cleaned)
-                .mapNotNull { it.value.toDoubleOrNull() }
-                .toList()
-
-            when {
-                numbers.isEmpty() -> 0.0
-                cleaned.contains("-") && numbers.size >= 2 -> (numbers[0] + numbers[1]) / 2.0
-                else -> numbers.first()
-            }
+        null -> ""
+        is String -> value.trim()
+        is Number -> {
+            val d = value.toDouble()
+            if (d <= 0.0) "" else if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
         }
-        else -> 0.0
+        else -> value.toString().trim()
     }
 }
 
@@ -78,8 +70,7 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         ?: (this["longitude"] as? Number)?.toDouble()
         ?: 0.0
 
-    val salary = mapToSalaryDouble(this["salary"]).takeIf { it > 0.0 }
-        ?: mapToSalaryDouble(this["payAmount"])
+    val salary = mapToSalaryString(this["salary"]).ifBlank { mapToSalaryString(this["payAmount"]) }
 
     val normalizedStatus = normalizeJobStatus(
         status = this["status"],
@@ -156,8 +147,7 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         ?: (this["longitude"] as? Number)?.toDouble()
         ?: 0.0
 
-    val salary = mapToSalaryDouble(this["salary"]).takeIf { it > 0.0 }
-        ?: mapToSalaryDouble(this["payAmount"])
+    val salary = mapToSalaryString(this["salary"]).ifBlank { mapToSalaryString(this["payAmount"]) }
 
     val normalizedStatus = normalizeJobStatus(
         status = this["status"],

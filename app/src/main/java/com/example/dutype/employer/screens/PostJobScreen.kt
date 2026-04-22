@@ -646,12 +646,12 @@ fun PostJobScreen(
         // a positive numeric for filtering and surfaces the original text in
         // the description so workers still see "Pay: 15000-20000" or
         // "Pay: Negotiable".
+        // Bug #6 fix: salary is a String — the employer's exact text
+        // ("Negotiable" / "1000-2000" / "2000+" / "5000") is sent
+        // verbatim to Firestore. The card layer formats for display via
+        // SalaryFormatter; numeric filters parse the lower bound.
         val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
-        val descriptionWithPayText = if (payParsed.displayText != null) {
-            "Pay: ${payParsed.displayText}\n\n${jobPosting.description}"
-        } else {
-            jobPosting.description
-        }
+        val descriptionWithPayText = jobPosting.description
 
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
@@ -664,7 +664,7 @@ fun PostJobScreen(
             "addressText" to jobPosting.location,
             
             // Pay information
-            "salary" to payParsed.numeric,
+            "salary" to payParsed.text,
             "salaryType" to jobPosting.payType.name,
             
             // Job details

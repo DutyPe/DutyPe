@@ -75,23 +75,19 @@ class JobFirestoreService @Inject constructor(
         return "closed"
     }
 
-    private fun toSalaryDouble(value: Any?): Double {
+    /**
+     * Bug #6: salary is a free-form String. Returns the trimmed text or
+     * empty when blank/null. Numeric callers use SalaryFormatter.
+     */
+    private fun toSalaryString(value: Any?): String {
         return when (value) {
-            is Number -> value.toDouble()
-            is String -> {
-                val cleaned = value.replace(",", "").replace("₹", "").trim()
-                val numbers = Regex("\\d+(?:\\.\\d+)?")
-                    .findAll(cleaned)
-                    .mapNotNull { it.value.toDoubleOrNull() }
-                    .toList()
-
-                when {
-                    numbers.isEmpty() -> 0.0
-                    cleaned.contains("-") && numbers.size >= 2 -> (numbers[0] + numbers[1]) / 2.0
-                    else -> numbers.first()
-                }
+            null -> ""
+            is String -> value.trim()
+            is Number -> {
+                val d = value.toDouble()
+                if (d <= 0.0) "" else if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
             }
-            else -> 0.0
+            else -> value.toString().trim()
         }
     }
 
@@ -141,8 +137,7 @@ class JobFirestoreService @Inject constructor(
         val longitude = (locationMap?.get("lng") as? Number)?.toDouble()
             ?: (data["longitude"] as? Number)?.toDouble()
             ?: 0.0
-        val salary = toSalaryDouble(data["salary"]).takeIf { it > 0.0 }
-            ?: toSalaryDouble(data["payAmount"])
+        val salary = toSalaryString(data["salary"]).ifBlank { toSalaryString(data["payAmount"]) }
         val salaryType = normalizeString(data["salaryType"])
             .ifBlank { normalizeString(data["payType"]) }
             .uppercase()
@@ -222,7 +217,7 @@ class JobFirestoreService @Inject constructor(
             "companyName" to normalizeString(coreData["companyName"]),
             "isVerified" to (coreData["isVerified"] as? Boolean ?: false),
             "title" to coreTitle,
-            "salary" to toSalaryDouble(coreData["salary"]),
+            "salary" to toSalaryString(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
             "gender" to normalizeString(coreData["gender"]).ifBlank { "Any" },
@@ -331,7 +326,7 @@ class JobFirestoreService @Inject constructor(
             val description = normalizeString(jobData["description"])
             val contactNumber = normalizeString(jobData["contactNumber"])
             val addressText = normalizeString(jobData["addressText"])
-            val salary = toSalaryDouble(jobData["salary"])
+            val salary = toSalaryString(jobData["salary"])
             val salaryType = normalizeString(jobData["salaryType"]).uppercase().ifBlank { "DAILY" }
             val urgency = normalizeString(jobData["urgency"]).uppercase().ifBlank { "MEDIUM" }
                 .let { if (it in listOf("LOW", "MEDIUM", "HIGH")) it else "MEDIUM" }
@@ -357,7 +352,7 @@ class JobFirestoreService @Inject constructor(
                 description.isBlank() ||
                 contactNumber.isBlank() ||
                 addressText.isBlank() ||
-                salary <= 0.0 ||
+                salary.isBlank() ||
                 latitude == null ||
                 longitude == null ||
                 !com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)
@@ -774,8 +769,8 @@ class JobFirestoreService @Inject constructor(
                 cardUpdates["title"] = title
             }
             if (data.containsKey("salary")) {
-                val salary = toSalaryDouble(data["salary"])
-                if (salary <= 0.0) return Result.failure(IllegalArgumentException("Salary must be greater than zero"))
+                val salary = toSalaryString(data["salary"])
+                if (salary.isBlank()) return Result.failure(IllegalArgumentException("Salary is required"))
                 cardUpdates["salary"] = salary
             }
             if (data.containsKey("salaryType")) {
@@ -1100,7 +1095,7 @@ class JobFirestoreService @Inject constructor(
                 
                 // Salary filter (client-side)
                 if (minSalary != null || maxSalary != null) {
-                    val jobSalary = toSalaryDouble(data["salary"]).toInt()
+                    val jobSalary = com.example.dutype.utils.SalaryFormatter.lowerBound(toSalaryString(data["salary"])).toInt()
                     
                     if (minSalary != null && jobSalary < minSalary) return@mapNotNull null
                     if (maxSalary != null && jobSalary > maxSalary) return@mapNotNull null

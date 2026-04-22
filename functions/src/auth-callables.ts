@@ -561,7 +561,7 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
     title: String(job.title ?? ""),
     companyName: String(job.companyName ?? ""),
     jobType: String(job.jobType ?? ""),
-    salary: Number(job.salary ?? 0),
+    salary: String(job.salary ?? ""),
     salaryType: String(job.salaryType ?? ""),
     addressText: String(job.addressText ?? ""),
     status: String(job.status ?? ""),

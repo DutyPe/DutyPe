@@ -425,7 +425,7 @@ private fun TimelineJobCard(
                 ) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = "₹${job.salary.toInt()}",
+                        text = "₹${job.salary.ifBlank { "-" }}",
                         backgroundColor = Color(0xFFECFDF5),
                         iconColor = Color(0xFF10B981)
                     )
@@ -609,7 +609,7 @@ private fun HistoryJobCard(
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
-                    text = "₹${job.salary.toInt()}",
+                    text = "₹${job.salary.ifBlank { "-" }}",
                     backgroundColor = Color(0xFFECFDF5),
                     iconColor = Color(0xFF10B981)
                 )

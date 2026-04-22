@@ -190,7 +190,7 @@ fun EditJobScreen(
     LaunchedEffect(currentJob) {
         currentJob?.let { job ->
             title = job.title
-            payAmount = job.salary.toInt().toString()
+            payAmount = job.salary
             location = job.addressText.ifBlank { job.location }
             description = job.description
             contactNumber = job.contactNumber

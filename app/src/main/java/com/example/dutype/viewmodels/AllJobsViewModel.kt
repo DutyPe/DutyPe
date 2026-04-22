@@ -120,7 +120,7 @@ class AllJobsViewModel @Inject constructor(
     val locationPreferences: com.example.dutype.location.LocationPreferences
 ) : ViewModel() {
 
-    private fun parseSalaryForSort(salary: Double): Int = salary.toInt()
+    private fun parseSalaryForSort(salary: String): Int = com.example.dutype.utils.SalaryFormatter.lowerBound(salary).toInt()
 
     private fun normalizeCategoryToken(value: String?): String {
         val raw = value?.trim().orEmpty()
@@ -465,12 +465,14 @@ class AllJobsViewModel @Inject constructor(
         
         // Step 5: Apply advanced filters
         val advancedFiltered = chipFiltered.filter { job ->
-            // Salary filter — use schema field salary (Double)
-            val jobSalary = job.salary.toInt()
+            // Salary filter — Bug #6: salary is a free-form String now.
+            val lower = com.example.dutype.utils.SalaryFormatter.lowerBound(job.salary)
+            val upper = com.example.dutype.utils.SalaryFormatter.upperBound(job.salary)
+            val jobSalary = lower.toInt()
             val hasSalaryUpperBound = filters.salaryMax < 100000
             val salaryMatch = jobSalary == 0 || (
                 jobSalary >= filters.salaryMin &&
-                    (!hasSalaryUpperBound || jobSalary <= filters.salaryMax)
+                    (!hasSalaryUpperBound || (if (upper == Double.MAX_VALUE) lower.toInt() <= filters.salaryMax else upper.toInt() <= filters.salaryMax))
                 )
             
             // Distance filter

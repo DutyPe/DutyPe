@@ -281,9 +281,10 @@ fun EmployerHomeScreen(
     val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // Set status bar color once on entering this screen — matches the black welcome header.
+    // Bug fix: status bar now matches the calm employer surface instead of
+    // the previous jarring black header.
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.Black)
+        onStatusBarColorChange(com.example.dutype.ui.theme.EmployerRoleColors.screenBackground)
     }
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
@@ -402,7 +403,8 @@ fun EmployerHomeScreen(
                 scrollStateManager = scrollStateManager,
                 onToggleJob = handleJobToggle,
                 onShareJob = handleJobShare,
-                context = context
+                context = context,
+                applicationCountsByJobId = employerJobUiState.applicationCountsByJobId
             )
         }
 
@@ -470,6 +472,7 @@ fun DashboardContent(
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
+    applicationCountsByJobId: Map<String, Int> = emptyMap(),
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -515,7 +518,8 @@ fun DashboardContent(
                     onTabSwitch = { /* No longer needed */ },
                     onToggleJob = onToggleJob,
                     onShareJob = onShareJob,
-                    context = context
+                    context = context,
+                    applicationCountsByJobId = applicationCountsByJobId
                 )
             }
 
@@ -683,11 +687,14 @@ fun WelcomeHeader(
     unreadCount: Int = 0,
     onNotificationClick: () -> Unit = {}
 ) {
+    // Bug fix: header now uses the same light employer surface as the rest
+    // of the screen so there is no harsh black band cutting under the
+    // status bar.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Black)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .background(com.example.dutype.ui.theme.EmployerRoleColors.screenBackground)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -697,17 +704,17 @@ fun WelcomeHeader(
             in 12..16 -> "Good Afternoon!"
             else -> "Good Evening!"
         }
-        
+
         Text(
             text = if (companyName.isNotEmpty()) companyName else greetingText,
             style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-                color = Color.White
+                fontSize = 22.sp,
+                color = Color(0xFF0F172A)
             ),
             modifier = Modifier.weight(1f)
         )
-        
+
         // Notification icon with badge
         Box {
             IconButton(
@@ -715,10 +722,10 @@ fun WelcomeHeader(
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Notifications,  // Changed to outlined like worker screen
+                    imageVector = Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)  // Consistent size with worker screen
+                    tint = Color(0xFF1F2937),
+                    modifier = Modifier.size(24.dp)
                 )
             }
             
@@ -835,7 +842,8 @@ fun RecentJobsSection(
     onTabSwitch: (Int) -> Unit,
     onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
-    context: android.content.Context
+    context: android.content.Context,
+    applicationCountsByJobId: Map<String, Int> = emptyMap()
 ) {
     Column {
         Row(
@@ -914,7 +922,10 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.addressText.ifBlank { job.location },
-                        payAmount = job.salary.toInt().toString(),
+                        // Bug #6 fix: salary is now a free-form String —
+                        // pass it through verbatim so "Negotiable",
+                        // ranges, and "+" suffixes survive the round-trip.
+                        payAmount = job.salary,
                         payType = when (job.salaryType.uppercase()) {
                             "HOURLY" -> PayType.HOURLY
                             "MONTHLY" -> PayType.MONTHLY
@@ -930,7 +941,7 @@ fun RecentJobsSection(
                         postedTime = job.createdAt,
                         contactNumber = job.contactNumber,
                         isActive = job.status == "open",
-                        applicationsReceived = 0,
+                        applicationsReceived = applicationCountsByJobId[job.id] ?: 0,
                         isFilled = job.status == "closed",
                         imageUrl = job.jobImageUrl
                     )

@@ -23,7 +23,7 @@ data class JobListingSummary(
     val companyName: String = "",
     val title: String = "",
     val jobType: String = "",
-    val salary: Double = 0.0,
+    val salary: String = "",
     val salaryType: String = "",        // "HOURLY" | "DAILY" | "MONTHLY"
     val geohash: String = "",
     val urgency: String = "MEDIUM",     // "LOW" | "MEDIUM" | "HIGH"
@@ -48,24 +48,20 @@ data class JobListingSummary(
     fun isExpired(): Boolean = expiresAt > 0L && System.currentTimeMillis() > expiresAt
 
     companion object {
-        private fun parseSalary(value: Any?): Double {
-            return when (value) {
-                is Number -> value.toDouble()
-                is String -> {
-                    val cleaned = value.replace("₹", "").replace(",", "").trim()
-                    val numbers = Regex("\\d+(?:\\.\\d+)?")
-                        .findAll(cleaned)
-                        .mapNotNull { it.value.toDoubleOrNull() }
-                        .toList()
-
-                    when {
-                        numbers.isEmpty() -> 0.0
-                        cleaned.contains("-") && numbers.size >= 2 -> (numbers[0] + numbers[1]) / 2.0
-                        else -> numbers.first()
-                    }
-                }
-                else -> 0.0
+        /**
+         * Read salary as the raw user-typed string. Accepts numbers,
+         * ranges ("1000-2000"), open-ended ("2000+"), and free text
+         * ("Negotiable"). Stored verbatim — numeric filters parse via
+         * [com.example.dutype.utils.SalaryFormatter.lowerBound].
+         */
+        private fun parseSalary(value: Any?): String = when (value) {
+            null -> ""
+            is String -> value.trim()
+            is Number -> {
+                val d = value.toDouble()
+                if (d <= 0.0) "" else if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
             }
+            else -> value.toString().trim()
         }
 
         private fun normalizeStatus(data: Map<String, Any>): String {
@@ -107,8 +103,7 @@ data class JobListingSummary(
                 ?: (data["longitude"] as? Number)?.toDouble()
                 ?: 0.0
 
-            val salary = parseSalary(data["salary"]).takeIf { it > 0.0 }
-                ?: parseSalary(data["payAmount"])
+            val salary = parseSalary(data["salary"]).ifBlank { parseSalary(data["payAmount"]) }
 
             val title = data["title"] as? String ?: ""
             val description = data["description"] as? String ?: ""

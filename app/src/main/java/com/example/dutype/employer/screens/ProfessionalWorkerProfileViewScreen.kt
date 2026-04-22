@@ -25,9 +25,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -211,18 +214,7 @@ fun ProfessionalWorkerProfileViewScreen(
             // Professional Header
             ProfessionalWorkerProfileHeader(
                 workerProfile = workerProfile,
-                application = application,
-                onContactClick = {
-                    // No in-app messaging in this app — fall back to phone dial.
-                    val phone = workerProfile?.phone.orEmpty()
-                    if (phone.isNotBlank()) {
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_DIAL,
-                            android.net.Uri.parse("tel:$phone")
-                        )
-                        runCatching { context.startActivity(intent) }
-                    }
-                }
+                application = application
             )
             
             // Content
@@ -369,122 +361,112 @@ fun ProfessionalWorkerProfileViewScreen(
 @Composable
 private fun ProfessionalWorkerProfileHeader(
     workerProfile: WorkerProfileData?,
-    application: JobApplication?,
-    onContactClick: () -> Unit
+    application: JobApplication?
 ) {
+    // Bug fix: redesigned the header.
+    // - Removed the noisy "Contact" message-style button (DutyPe has no
+    //   in-app messaging; the dial fallback was confusing). Employers can
+    //   tap the phone row in Personal Information to dial.
+    // - The header now shows ONE clean identity block: large avatar,
+    //   name, applied-job title, and a chip with location + status, so
+    //   we no longer render the worker's name twice.
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Avatar
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3B82F6).copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center
             ) {
-                Column {
-                    Text(
-                        text = workerProfile?.fullName.orEmpty().ifBlank { "Worker" },
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
+                val imageUrl = workerProfile?.profileImageUrl
+                if (!imageUrl.isNullOrBlank()) {
+                    com.example.dutype.components.OptimizedProfileImage(
+                        imageUrl = imageUrl,
+                        contentDescription = "Worker Profile",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                    )
+                } else {
+                    val initials = workerProfile?.fullName.orEmpty()
+                        .split(" ")
+                        .take(2)
+                        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                        .joinToString("")
+                        .ifEmpty { workerProfile?.fullName?.take(1)?.uppercase().orEmpty() }
+                    if (initials.isNotBlank()) {
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF3B82F6)
+                            )
                         )
+                    } else {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+            }
+
+            // Name
+            Text(
+                text = workerProfile?.fullName.orEmpty().ifBlank { "Worker" },
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111827)
+                )
+            )
+
+            // Applied for
+            val appliedFor = application?.jobTitle.orEmpty()
+            if (appliedFor.isNotBlank()) {
+                Text(
+                    text = "Applied for $appliedFor",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF6B7280)
+                    )
+                )
+            }
+
+            // Location row
+            val location = workerProfile?.location.orEmpty()
+            if (location.isNotBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = application?.jobTitle.orEmpty().ifBlank { "Candidate Profile" },
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        text = location,
+                        style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF6B7280)
                         )
                     )
-                }
-                
-                // Contact button
-                Button(
-                    onClick = onContactClick,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3B82F6)
-                    )
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.contact), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            
-            // Worker basic info
-            workerProfile?.let { profile ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Profile image with actual image support
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Color(0xFF3B82F6).copy(alpha = 0.1f)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (!profile.profileImageUrl.isNullOrBlank()) {
-                            com.example.dutype.components.OptimizedProfileImage(
-                                imageUrl = profile.profileImageUrl,
-                                contentDescription = "Worker Profile",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                            )
-                        } else {
-                            // Show initials or icon
-                            val initials = profile.fullName.split(" ")
-                                .take(2)
-                                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                                .joinToString("")
-                                .ifEmpty { profile.fullName.take(1).uppercase() }
-                            
-                            if (initials.isNotBlank()) {
-                                Text(
-                                    text = initials,
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF3B82F6)
-                                    )
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = "Profile",
-                                    tint = Color(0xFF3B82F6),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
-                    
-                    Column {
-                        Text(
-                            text = profile.fullName,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
-                            )
-                        )
-                        Text(
-                            text = profile.location,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF9CA3AF)
-                            )
-                        )
-                    }
                 }
             }
         }
@@ -605,7 +587,7 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
                 )
             )
             
-            PersonalInfoRow("Phone", workerProfile.phone)
+            PersonalInfoRow("Phone", workerProfile.phone, isPhone = true)
             PersonalInfoRow("Location", workerProfile.location)
             PersonalInfoRow("Gender", workerProfile.gender)
         }
@@ -613,10 +595,27 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
 }
 
 @Composable
-private fun PersonalInfoRow(label: String, value: String) {
+private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = false) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isPhone && value.isNotBlank()) {
+                    Modifier.clickable {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_DIAL,
+                                    android.net.Uri.parse("tel:$value")
+                                )
+                            )
+                        }
+                    }
+                } else Modifier
+            ),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
@@ -624,13 +623,26 @@ private fun PersonalInfoRow(label: String, value: String) {
                 color = Color(0xFF6B7280)
             )
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF1F2937)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
+                )
             )
-        )
+            if (isPhone && value.isNotBlank()) {
+                Icon(
+                    Icons.Default.Phone,
+                    contentDescription = "Call",
+                    tint = Color(0xFF2563EB),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }
 

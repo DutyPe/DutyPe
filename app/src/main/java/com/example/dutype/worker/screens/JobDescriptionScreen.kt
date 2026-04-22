@@ -550,9 +550,7 @@ fun JobDescriptionScreen(
                             jobTitle = job?.title ?: "",
                             companyName = job?.companyName ?: "",
                             salary = job?.let { j ->
-                                val str = if (j.salary == j.salary.toLong().toDouble()) j.salary.toLong().toString() else j.salary.toString()
-                                val period = when (j.salaryType.uppercase()) { "HOURLY" -> "hour"; "MONTHLY" -> "month"; else -> "day" }
-                                "₹$str/$period"
+                                "₹${com.example.dutype.utils.SalaryFormatter.display(j.salary, j.salaryType)}"
                             } ?: "",
                             location = job?.addressText ?: ""
                         )
@@ -768,8 +766,8 @@ private fun JobDetailsContent(
         // Combined Job Details Card - White background with light border (like worker job cards)
         item {
             // Get pay info from schema fields
-            val salaryStr = if (job.salary == job.salary.toLong().toDouble())
-                job.salary.toLong().toString() else job.salary.toString()
+            // Bug #6: salary is a free-form String now.
+            val salaryStr = job.salary.ifBlank { "Negotiable" }
             val payTypeDisplay = when (job.salaryType.uppercase()) {
                 "HOURLY" -> "per hour"
                 "MONTHLY" -> "per month"

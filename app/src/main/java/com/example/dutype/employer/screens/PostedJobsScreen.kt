@@ -64,7 +64,7 @@ fun PostedJobsScreen(
         JobPostingModel(
             jobId = job.id,
             title = job.title,
-            payAmount = job.salary.toInt().toString(),
+            payAmount = job.salary,
             payType = com.example.dutype.employer.models.PayType.DAILY,
             location = job.addressText.ifBlank { job.location },
             description = job.description,

@@ -250,8 +250,8 @@ service cloud.firestore {
         request.resource.data.title is string &&
         request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
         request.resource.data.jobType is string &&
-        request.resource.data.salary is number &&
-        request.resource.data.salary >= 0 && request.resource.data.salary <= 10000000 &&
+        request.resource.data.salary is string &&
+        request.resource.data.salary.size() >= 1 && request.resource.data.salary.size() <= 60 &&
         request.resource.data.salaryType is string &&
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
@@ -282,7 +282,7 @@ service cloud.firestore {
         request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120 &&
         request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
         request.resource.data.jobType is string &&
-        request.resource.data.salary is number && request.resource.data.salary >= 0 && request.resource.data.salary <= 10000000 &&
+        request.resource.data.salary is string && request.resource.data.salary.size() >= 1 && request.resource.data.salary.size() <= 60 &&
         request.resource.data.salaryType is string &&
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
@@ -295,6 +295,17 @@ service cloud.firestore {
       allow delete: if isSignedIn() &&
         exists(/databases/$(database)/documents/job_details/$(jobId)) &&
         get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid;
+    }
+
+    // ── employer_job_cards ────────────────────────────
+    // Bug #4 fix: dedicated denormalized doc per job for the employer's
+    // home/list cards. Maintained exclusively by Cloud Functions
+    // (employer-cards.ts) so clients have read-only visibility.
+    match /employer_job_cards/{jobId} {
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      // Writes are CF-only via the admin SDK; deny all client writes.
+      allow create, update, delete: if false;
     }
 
     // ── job_details ────────────────────────────────────────────────────

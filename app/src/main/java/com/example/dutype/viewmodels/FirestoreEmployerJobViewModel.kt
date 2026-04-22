@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -30,7 +31,14 @@ data class FirestoreEmployerJobUiState(
     val isDeletingJob: Boolean = false,
     // P0 FIX: Offline posting state
     val isQueuedOffline: Boolean = false,
-    val pendingJobsCount: Int = 0
+    val pendingJobsCount: Int = 0,
+    /**
+     * Bug #4 fix: per-job application counts loaded from the dedicated
+     * `employer_job_cards` denormalized collection (maintained by Cloud
+     * Functions). Keyed by jobId. Empty when not loaded yet — the card
+     * falls back to 0 in that case.
+     */
+    val applicationCountsByJobId: Map<String, Int> = emptyMap()
 )
 
 @HiltViewModel
@@ -93,7 +101,39 @@ class FirestoreEmployerJobViewModel @Inject constructor(
             jobDraftDataStore.clearDraft()
         }
     }
-    
+
+    /**
+     * Bug #4 fix: pull `applicationCount` from the dedicated
+     * `employer_job_cards/{jobId}` collection (CF-maintained denormalized
+     * snapshot per posted job) so the employer's job-list cards can
+     * display the live count without joining against `applications`.
+     *
+     * Failures are silently logged — the cards fall back to 0 which is
+     * preferable to crashing the dashboard if rules / network drop.
+     */
+    private fun loadApplicationCounts(jobIds: List<String>) {
+        if (jobIds.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val counts = mutableMapOf<String, Int>()
+                jobIds.chunked(10).forEach { chunk ->
+                    val snap = firestore.collection("employer_job_cards")
+                        .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                        .get()
+                        .await()
+                    snap.documents.forEach { doc ->
+                        val n = (doc.getLong("applicationCount") ?: 0L).toInt()
+                        counts[doc.id] = n
+                    }
+                }
+                _uiState.value = _uiState.value.copy(applicationCountsByJobId = counts)
+            } catch (e: Exception) {
+                Timber.w(e, "loadApplicationCounts failed; cards will show 0")
+            }
+        }
+    }
+
     fun loadMyJobs() {
         viewModelScope.launch {
             com.example.dutype.performance.MainThreadChecker.assertMainThread()
@@ -121,6 +161,9 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 myJobs = jobs,
                                 isLoading = false
                             )
+                            // Bug #4 fix: hydrate per-job application counts
+                            // from the dedicated employer_job_cards collection.
+                            loadApplicationCounts(jobs.map { it.id })
                         },
                         onFailure = { exception ->
                             Timber.e(exception, "Failed to load employer jobs")
@@ -167,6 +210,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 myJobs = jobs,
                                 isRefreshing = false
                             )
+                            loadApplicationCounts(jobs.map { it.id })
                         },
                         onFailure = { exception ->
                             _uiState.value = _uiState.value.copy(

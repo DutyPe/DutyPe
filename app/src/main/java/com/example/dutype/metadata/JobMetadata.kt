@@ -136,8 +136,8 @@ class JobMetadata @Inject constructor(
         val categoryMap = mutableMapOf<String, CategoryStats>()
         jobs.groupBy { it.getCategory() }.forEach { (category, categoryJobs) ->
             if (category.isNotEmpty()) {
-                val avgPay = categoryJobs.mapNotNull { 
-                    it.salary.takeIf { v -> v > 0 }
+                val avgPay = categoryJobs.mapNotNull {
+                    com.example.dutype.utils.SalaryFormatter.lowerBound(it.salary).takeIf { v -> v > 0 }
                 }.average().takeIf { !it.isNaN() } ?: 0.0
                 
                 categoryMap[category] = CategoryStats(
@@ -181,8 +181,8 @@ class JobMetadata @Inject constructor(
             .map { it.key }
         
         // Pay range stats
-        val allPays = jobs.mapNotNull { 
-            it.salary.takeIf { v -> v > 0 }
+        val allPays = jobs.mapNotNull {
+            com.example.dutype.utils.SalaryFormatter.lowerBound(it.salary).takeIf { v -> v > 0 }
         }
         if (allPays.isNotEmpty()) {
             _payRangeStats.value = PayRangeStats(

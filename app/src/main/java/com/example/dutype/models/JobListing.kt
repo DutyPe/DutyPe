@@ -26,7 +26,14 @@ data class JobListing(
     val title: String = "",
 
     // --- CORE SCHEMA FIELDS ---
-    val salary: Double = 0.0,
+    /**
+     * Free-form pay text. Accepts plain numbers ("18000"), ranges
+     * ("15000-20000"), open-ended ("2000+"), or text ("Negotiable",
+     * "Based on experience"). Stored verbatim in Firestore so cards can
+     * display whatever the employer typed; numeric filters call
+     * [salaryLowerBound] / [salaryUpperBound] which parse on read.
+     */
+    val salary: String = "",
     val salaryType: String = "",        // "HOURLY" | "DAILY" | "MONTHLY"
     val jobType: String = "",
     val geohash: String = "",

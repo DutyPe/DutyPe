@@ -353,10 +353,9 @@ private fun JobSummaryCard(job: JobListing) {
                     }
                 }
                 
-                // Pay — from schema fields salary + salaryType
+                // Pay — Bug #6: salary is a String now.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val salaryStr = if (job.salary == job.salary.toLong().toDouble())
-                        job.salary.toLong().toString() else job.salary.toString()
+                    val salaryStr = job.salary.ifBlank { "Negotiable" }
                     val period = when (job.salaryType.uppercase()) {
                         "HOURLY" -> "hour"
                         "MONTHLY" -> "month"

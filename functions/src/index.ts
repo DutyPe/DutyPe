@@ -1130,6 +1130,7 @@ export * from "./cover-letter";
 // EXPORT AGGREGATE MAINTAINERS + EXPIRY SWEEP
 // ============================================
 export * from "./aggregates";
+export * from "./employer-cards";
 export * from "./job-expiry";
 
 // ============================================

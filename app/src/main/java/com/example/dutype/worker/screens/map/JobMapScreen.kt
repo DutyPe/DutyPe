@@ -664,14 +664,14 @@ private fun EnhancedJobMapCard(
     val perMonth = stringResource(R.string.map_per_month)
     val perDay = stringResource(R.string.map_per_day)
     val salaryDisplay = remember(job.salary, job.salaryType, perHour, perMonth, perDay) {
-        val amount = if (job.salary == job.salary.toLong().toDouble())
-            job.salary.toLong().toString() else job.salary.toString()
+        // Bug #6: salary is a free-form String.
+        val amount = job.salary.ifBlank { "Negotiable" }
         val period = when (job.salaryType.uppercase()) {
             "HOURLY" -> perHour
             "MONTHLY" -> perMonth
             else -> perDay
         }
-        "₹$amount$period"
+        if (amount.equals("Negotiable", ignoreCase = true)) amount else "₹$amount$period"
     }
     
     Card(
