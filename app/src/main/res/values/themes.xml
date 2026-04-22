@@ -11,35 +11,30 @@
         -->
     </style>
 
-    <!--
+    <!-- 
         MODERN SPLASH SCREEN (Android 12+ API)
-        Google-recommended (2024-2026). Used by WhatsApp, Instagram, LinkedIn, Uber.
-
-        Design:
-          - Solid black background (matches previous branded splash).
-          - Branded vector logo rendered centered (~192dp safe zone inside the
-            288dp splash canvas).
-          - No animation duration — the system fades the splash out
-            automatically when the activity's first frame is drawn. This is the
-            zero-overhead path: the splash icon is drawn by SystemUI before the
-            app process starts, so swapping the drawable does not change the
-            cold-start cost or first-frame timing.
-          - Splash stays visible until MainActivity calls
-            `keepSplashOnScreen = false` (after MainNavGraph determines the
-            start destination), so there is no "blank loading" flash.
+        Following Google's official recommendations (2024-2026)
+        
+        Simple, clean branding with app icon
+        Used by: WhatsApp, Instagram, LinkedIn, Uber
     -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
+        <!-- Pure black background -->
         <item name="windowSplashScreenBackground">#000000</item>
-
-        <!-- Branded DutyPe wordmark + monogram, all-vector for crisp rendering. -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_branded_logo</item>
-        <item name="windowSplashScreenAnimationDuration">0</item>
-
+        
+        <!-- App launcher icon (adaptive icon) -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        
+        <!-- Fast animation (200ms) -->
+        <item name="windowSplashScreenAnimationDuration">200</item>
+        
+        <!-- Black icon background -->
+        <item name="windowSplashScreenIconBackgroundColor">#000000</item>
+        
         <!-- Post-splash theme -->
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
-
-        <!-- Black system bars with light (white) icons so battery / network /
-             time stay visible against the black splash background. -->
+        
+        <!-- Black status bar and navigation bar -->
         <item name="android:statusBarColor">#000000</item>
         <item name="android:navigationBarColor">#000000</item>
         <item name="android:windowLightStatusBar">false</item>
