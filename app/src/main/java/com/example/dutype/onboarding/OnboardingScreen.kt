@@ -1,6 +1,5 @@
 package com.example.dutype.onboarding
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
@@ -21,7 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,9 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,26 +60,34 @@ private val GlassTextPrimary = Color(0xFF0F172A)
 private val GlassTextSecondary = Color(0xFF64748B)
 
 data class OnboardingPageData(
-    @DrawableRes val imageRes: Int,
+    val icon: ImageVector,
     val titleRes: Int,
-    val descriptionRes: Int
+    val descriptionRes: Int,
+    val accentStart: Color,
+    val accentEnd: Color
 )
 
 val onboardingPagesData = listOf(
     OnboardingPageData(
-        imageRes = R.drawable.onboardscreen1,
+        icon = Icons.Filled.Bolt,
         titleRes = R.string.onboarding_title_1,
-        descriptionRes = R.string.onboarding_desc_1
+        descriptionRes = R.string.onboarding_desc_1,
+        accentStart = Color(0xFFF59E0B),
+        accentEnd = Color(0xFFEF4444)
     ),
     OnboardingPageData(
-        imageRes = R.drawable.onboardscreen2,
+        icon = Icons.Filled.VerifiedUser,
         titleRes = R.string.onboarding_title_2,
-        descriptionRes = R.string.onboarding_desc_2
+        descriptionRes = R.string.onboarding_desc_2,
+        accentStart = Color(0xFF2563EB),
+        accentEnd = Color(0xFF7C3AED)
     ),
     OnboardingPageData(
-        imageRes = R.drawable.onboardscreen3,
+        icon = Icons.Filled.LocationOn,
         titleRes = R.string.onboarding_title_3,
-        descriptionRes = R.string.onboarding_desc_3
+        descriptionRes = R.string.onboarding_desc_3,
+        accentStart = Color(0xFF059669),
+        accentEnd = Color(0xFF0EA5E9)
     )
 )
 
@@ -91,9 +100,16 @@ fun OnboardingScreen(navController: NavController) {
         FirstTimeLanguageSelection(
             selectedLanguage = LocaleHelper.getLanguage(context),
             onLanguageSelected = { lang ->
+                // Persist + propagate locale to all activities. setLocale alone
+                // only mutates the local Context — it does not survive activity
+                // recreation, so subsequent onboarding/role-select screens render
+                // in the previous language. Persist via saveLanguage and recreate
+                // the host activity so AppCompat re-wraps every Composable.
+                LocaleHelper.saveLanguage(context, lang)
                 LocaleHelper.setLocale(context, lang)
                 markLanguageAsSelected(context)
                 showLanguageSelection = false
+                (context as? android.app.Activity)?.recreate()
             }
         )
     } else {
@@ -547,7 +563,9 @@ private fun OnboardingContent(navController: NavController) {
                 val pageData = onboardingPagesData[page]
                 
                 OnboardingPage(
-                    imageRes = pageData.imageRes,
+                    icon = pageData.icon,
+                    accentStart = pageData.accentStart,
+                    accentEnd = pageData.accentEnd,
                     title = stringResource(pageData.titleRes),
                     description = stringResource(pageData.descriptionRes),
                     pageIndex = page,
@@ -642,7 +660,9 @@ private fun TopBar(
 
 @Composable
 private fun OnboardingPage(
-    @DrawableRes imageRes: Int,
+    icon: ImageVector,
+    accentStart: Color,
+    accentEnd: Color,
     title: String,
     description: String,
     pageIndex: Int,
@@ -665,50 +685,102 @@ private fun OnboardingPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.weight(0.4f))
 
-        // Image Container with layered card and parallax
+        // Hero gradient block — replaces the static illustration. Pure
+        // Compose so it renders crisp at any density and stays visually
+        // role-neutral (suitable for both worker and employer flows).
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1.05f)
-                .padding(horizontal = 12.dp)
+                .fillMaxWidth(0.78f)
+                .aspectRatio(1f)
                 .graphicsLayer {
-                    // Move image slightly slower than swipe
-                    translationX = pageOffset * 100f
-                    scaleX = 1f - (absOffset * 0.1f)
-                    scaleY = scaleX
+                    translationX = pageOffset * 80f
+                    val scale = 1f - (absOffset * 0.08f)
+                    scaleX = scale
+                    scaleY = scale
                 },
             contentAlignment = Alignment.Center
         ) {
-            Card(
+            // Outer soft halo
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .shadow(8.dp, RoundedCornerShape(32.dp), ambientColor = Color(0xFF94A3B8).copy(alpha = 0.12f), spotColor = Color(0xFF94A3B8).copy(alpha = 0.12f)),
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.96f)
-                ),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White)
-                        .padding(18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(id = imageRes),
-                        contentDescription = title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                    .matchParentSize()
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                accentStart.copy(alpha = 0.16f),
+                                Color.Transparent
+                            )
+                        )
                     )
-                }
+            )
+
+            // Mid ring
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(0.78f)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.6f))
+                    .border(
+                        width = 1.dp,
+                        color = Color.White,
+                        shape = CircleShape
+                    )
+                    .shadow(
+                        elevation = 14.dp,
+                        shape = CircleShape,
+                        ambientColor = accentStart.copy(alpha = 0.18f),
+                        spotColor = accentEnd.copy(alpha = 0.18f)
+                    )
+            )
+
+            // Inner gradient disc
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(0.56f)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(accentStart, accentEnd)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = Color.White,
+                    modifier = Modifier.fillMaxSize(0.5f)
+                )
             }
+
+            // Decorative pill — top-right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-12).dp, y = 24.dp)
+                    .size(width = 56.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
+                    .shadow(2.dp, RoundedCornerShape(999.dp))
+            )
+
+            // Decorative dot — bottom-left
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = 18.dp, y = (-22).dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(accentEnd.copy(alpha = 0.85f))
+                    .shadow(4.dp, CircleShape)
+            )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
         // Text Content with different parallax
         Column(
@@ -717,21 +789,41 @@ private fun OnboardingPage(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .graphicsLayer {
-                    // Move text slightly faster/more delay
                     translationX = pageOffset * 50f
                     alpha = 1f - (absOffset * 1.5f).coerceIn(0f, 1f)
                 }
         ) {
+            // Step badge — small, role-neutral, matches accent
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accentStart.copy(alpha = 0.12f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "0${pageIndex + 1}",
+                    style = AppTypography.labelMedium.copy(
+                        color = accentEnd,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
                 text = title,
                 style = AppTypography.displayTitle.copy(
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = GlassTextPrimary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    fontSize = 30.sp,
+                    lineHeight = 36.sp
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
                 text = description,
@@ -742,6 +834,8 @@ private fun OnboardingPage(
                 )
             )
         }
+
+        Spacer(modifier = Modifier.weight(0.6f))
     }
 }
 

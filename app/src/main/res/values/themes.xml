@@ -17,9 +17,13 @@
 
         Design:
           - Solid black background (matches previous branded splash).
-          - App icon rendered centered (~288dp on large, ~192dp on normal).
+          - Branded vector logo rendered centered (~192dp safe zone inside the
+            288dp splash canvas).
           - No animation duration — the system fades the splash out
-            automatically when the activity's first frame is drawn.
+            automatically when the activity's first frame is drawn. This is the
+            zero-overhead path: the splash icon is drawn by SystemUI before the
+            app process starts, so swapping the drawable does not change the
+            cold-start cost or first-frame timing.
           - Splash stays visible until MainActivity calls
             `keepSplashOnScreen = false` (after MainNavGraph determines the
             start destination), so there is no "blank loading" flash.
@@ -27,8 +31,8 @@
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#000000</item>
 
-        <!-- Branded icon: the app's adaptive-icon foreground on black. -->
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <!-- Branded DutyPe wordmark + monogram, all-vector for crisp rendering. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_branded_logo</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
 
         <!-- Post-splash theme -->

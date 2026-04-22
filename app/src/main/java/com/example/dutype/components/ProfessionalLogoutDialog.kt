@@ -230,17 +230,11 @@ private fun performLogout(
             // This handles: Firebase signOut, FCM token removal, local state clearing
             authManager.logout()
             Timber.d("✅ AuthManager logout completed (Firebase + FCM + local state)")
-            
-            // Step 2: Reset profile setup state via ViewModel (for DataStore updates)
-            profileCompletionViewModel.resetProfileSetupState()
-            Timber.d("✅ Profile setup state reset via ViewModel")
-            
-            // Step 3: Navigate to the role-specific home screen so the user
-            // stays in the same surface (Worker stays in worker home, Employer
-            // stays in employer home) instead of being kicked back to the role
-            // selection screen.
-            // P1-7: invalidate cached start destination so a stale route can't
-            // be picked up by the next cold start.
+
+            // Step 2: Navigate IMMEDIATELY so the "Signing Out..." sheet
+            // dismisses promptly. Heavy DataStore resets run in background;
+            // they don't gate the UI transition because the destination
+            // screen reads from a now-cleared session and renders fresh.
             runCatching {
                 com.example.dutype.navigation.StartDestinationCache.clear(navController.context)
             }
@@ -254,7 +248,15 @@ private fun performLogout(
                 popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 launchSingleTop = true
             }
-            
+
+            // Step 3: Background reset of DataStore-backed profile setup state.
+            // Fire-and-forget: failures are non-fatal and a fresh login will
+            // re-derive the state from Firestore anyway.
+            scope.launch {
+                runCatching { profileCompletionViewModel.resetProfileSetupState() }
+                    .onFailure { Timber.w(it, "Profile setup state reset failed (non-fatal)") }
+            }
+
             Timber.d("✅ Logout completed successfully")
             
         } catch (e: Exception) {

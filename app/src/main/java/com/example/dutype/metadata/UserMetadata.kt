@@ -237,16 +237,50 @@ class UserMetadata @Inject constructor(
 
                 val firestorePhone = doc.getString("phone") ?: ""
                 val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
-                
+
+                var resolvedFullName = doc.getString("fullName") ?: ""
+                var resolvedProfileImageUrl = doc.getString("profileImageUrl") ?: ""
+
+                // Fallback: profile menu reads users/{uid}; the profile detail screen
+                // writes name/image into worker_profiles or employer_profiles. If the
+                // users doc is missing those fields, mirror them from the role-specific
+                // profile collection so the menu shows the latest data.
+                if (resolvedFullName.isBlank() || resolvedProfileImageUrl.isBlank()) {
+                    val role = (doc.getString("role")
+                        ?: doc.getString("activeRole")
+                        ?: (doc.get("roles") as? List<*>)?.firstOrNull()?.toString()
+                        ?: "").uppercase()
+                    val profileCollection = when (role) {
+                        "WORKER" -> com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
+                        "EMPLOYER" -> com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
+                        else -> null
+                    }
+                    if (profileCollection != null) {
+                        try {
+                            val profileDoc = firestore.collection(profileCollection).document(userId).get().await()
+                            if (profileDoc.exists()) {
+                                if (resolvedFullName.isBlank()) {
+                                    resolvedFullName = profileDoc.getString("fullName") ?: ""
+                                }
+                                if (resolvedProfileImageUrl.isBlank()) {
+                                    resolvedProfileImageUrl = profileDoc.getString("profileImageUrl") ?: ""
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "📊 UserMetadata: profile fallback read failed for %s/%s", profileCollection, userId)
+                        }
+                    }
+                }
+
                 _userStats.value = UserStats(
                     userId = userId,
-                    fullName = doc.getString("fullName") ?: "",
+                    fullName = resolvedFullName,
                     phone = phoneToUse,
-                    profileImageUrl = doc.getString("profileImageUrl") ?: "",
+                    profileImageUrl = resolvedProfileImageUrl,
                     createdAt = getEpochMillis(doc, "createdAt", System.currentTimeMillis()),
                     isVerified = doc.getBoolean("isVerified") ?: false
                 )
-                Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}")
+                Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}, image=${_userStats.value.profileImageUrl.isNotBlank()}")
             } else {
                 // User document doesn't exist yet (new user) - use Firebase Auth phone
                 _userStats.value = UserStats(

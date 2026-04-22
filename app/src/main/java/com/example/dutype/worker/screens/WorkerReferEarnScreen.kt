@@ -49,6 +49,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ReferralViewModel
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 
 @Composable
@@ -77,22 +78,28 @@ fun WorkerReferEarnScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
 
-        val localProfileComplete = runCatching {
-            profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
-        }.getOrDefault(false)
+        // Kick off the referral data fetch IMMEDIATELY so the code/stats are
+        // ready by the time the profile-completion gate resolves. Previously
+        // we awaited two sequential network checks before even starting the
+        // referral request, which made the screen feel slow on every open.
+        viewModel.loadReferralData()
 
-        val remoteProfileComplete = FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
-            profileCompletionViewModel
-                .isProfileComplete(uid, UserRole.WORKER)
-                .getOrElse { false }
-        } ?: false
-
-        isProfileCompleted = localProfileComplete || remoteProfileComplete
-        isCheckingProfileStatus = false
-
-        if (isProfileCompleted) {
-            viewModel.loadReferralData()
+        // Run local + remote profile-completion checks in parallel.
+        val localProfileDeferred = async {
+            runCatching {
+                profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
+            }.getOrDefault(false)
         }
+        val remoteProfileDeferred = async {
+            FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                profileCompletionViewModel
+                    .isProfileComplete(uid, UserRole.WORKER)
+                    .getOrElse { false }
+            } ?: false
+        }
+
+        isProfileCompleted = localProfileDeferred.await() || remoteProfileDeferred.await()
+        isCheckingProfileStatus = false
 
         delay(100)
         isVisible = true

@@ -93,12 +93,16 @@ service cloud.firestore {
         (!('language' in request.resource.data) ||
           (request.resource.data.language is string && request.resource.data.language.size() <= 8));
 
-      // Lightweight token/language update (high-frequency path).
+      // Lightweight token/language/location update (high-frequency path).
+      // Allows the device to keep fcmToken, language, and live geo coordinates
+      // in sync without re-validating profile completeness (fullName etc).
       allow update: if isSelf(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken', 'language']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken', 'language', 'location', 'geohash']) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('language' in request.resource.data) ||
-          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
+          (request.resource.data.language is string && request.resource.data.language.size() <= 8)) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string);
 
       // Full profile update (name, image, location, referral linking).
       // Immutable: phone, createdAt, role. Forbidden from client: isVerified, isActive, ratings, counters, email.
