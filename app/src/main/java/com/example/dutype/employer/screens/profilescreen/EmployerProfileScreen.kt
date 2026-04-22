@@ -430,11 +430,7 @@ fun EmployerProfileScreen(
             }
             
             // ═══════════════════════════════════════════════════════════════
-            // EMPLOYER MENU — Business actions for the employer surface.
-            // Mirrors the worker profile's menu structure so both roles get
-            // a real flat menu instead of an empty card. All routes resolve
-            // through the local employer NavController so the bottom bar /
-            // status surface stays consistent.
+            // MY ACTIVITY SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -448,32 +444,79 @@ fun EmployerProfileScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = stringResource(R.string.business))
-
+                        SectionHeader(title = stringResource(R.string.my_activity))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,
                             title = stringResource(R.string.my_job_posts),
-                            onClick = {
-                                if (currentUserId.isNotEmpty()) {
-                                    localNavController?.navigate(Routes.EMPLOYER_MY_JOBS)
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_MY_JOBS)
-                                } else {
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "job_posts"
                                     showLoginBottomSheet = true
+                                } else {
+                                    try {
+                                        val navControllerToUse = localNavController ?: rootNavController
+                                        navControllerToUse.navigate(Routes.EMPLOYER_HISTORY)
+                                    } catch (e: Exception) {
+                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_HISTORY")
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Unable to open My Jobs. Please try again.",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             }
                         )
-
+                        
+                        EmployerMenuDivider()
+                        
                         ProfileMenuItem(
-                            icon = Icons.Default.Notifications,
-                            title = stringResource(R.string.notifications),
-                            onClick = {
-                                if (currentUserId.isNotEmpty()) {
-                                    localNavController?.navigate(Routes.EMPLOYER_NOTIFICATIONS)
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS)
-                                } else {
-                                    pendingMenuAction = "notifications"
+                            icon = Icons.Outlined.LocationOn,
+                            title = stringResource(R.string.work_locations),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "locations"
                                     showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // REWARDS SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = stringResource(R.string.rewards))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.CardGiftcard,
+                            title = stringResource(R.string.refer_earn),
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "refer_earn"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) 
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
                                 }
                             }
                         )
@@ -490,8 +533,6 @@ fun EmployerProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    // TODO: Rounded corners commented out for UI testing
-                    // shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -500,24 +541,30 @@ fun EmployerProfileScreen(
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.others))
                         Spacer(modifier = Modifier.height(4.dp))
-
+                        
                         ProfileMenuItem(
                             icon = Icons.Outlined.Phone,
                             title = stringResource(R.string.help_faqs),
-                            onClick = {
-                                localNavController?.navigate(Routes.HELP)
-                                    ?: rootNavController.navigate(Routes.HELP)
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_HELP) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
                             }
                         )
-
+                        
+                        EmployerMenuDivider()
+                        
                         ProfileMenuItem(
                             icon = Icons.Outlined.Info,
-                            title = stringResource(R.string.about_us),
-                            onClick = {
-                                localNavController?.navigate(Routes.ABOUT_US)
-                                    ?: rootNavController.navigate(Routes.ABOUT_US)
+                            title = stringResource(R.string.about),
+                            onClick = { 
+                                localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
+                                    ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
                             }
                         )
+                        
+                        if (currentUserId.isNotEmpty()) {
+                            // Logout moved below
+                        }
                     }
                 }
             }
@@ -602,6 +649,9 @@ fun EmployerProfileScreen(
             // Execute the pending action after successful login
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
+                "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
             }
             pendingMenuAction = null
         },
@@ -752,6 +802,16 @@ private fun EmployerQuickActionButton(
 /**
  * Thin divider for menu items
  */
+@Composable
+private fun EmployerMenuDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 40.dp)
+            .height(1.dp)
+            .background(Color(0xFFE5E7EB))
+    )
+}
 
 // COMMENTED OUT - Follow Us Section
 /*

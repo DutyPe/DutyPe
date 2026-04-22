@@ -39,6 +39,11 @@ object Routes {
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
+    const val EMPLOYER_ABOUT = "employer_about"
+    const val EMPLOYER_HELP = "employer_help"
+    const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
+    const val EMPLOYER_REFER_EARN = "employer_refer_earn"
+    const val EMPLOYER_HISTORY = "employer_history"
     const val CONTACT_US = "contact_us"
     
     // History Routes

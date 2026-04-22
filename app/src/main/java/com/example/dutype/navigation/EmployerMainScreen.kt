@@ -40,7 +40,10 @@ import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerHomeScreen
 import com.example.dutype.employer.screens.EmployerNotificationScreen
-
+import com.example.dutype.employer.screens.EmployerReferEarnScreen
+import com.example.dutype.employer.screens.EmployerSupportScreen
+import com.example.dutype.employer.screens.EmployerAboutScreen
+import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
 
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.PostJobScreen
@@ -81,6 +84,11 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
         Routes.HELP,
         Routes.ABOUT_US,
+        Routes.EMPLOYER_ABOUT,
+        Routes.EMPLOYER_HELP,
+        Routes.EMPLOYER_MANAGE_ADDRESSES,
+        Routes.EMPLOYER_HISTORY,
+        Routes.EMPLOYER_REFER_EARN,
     )
     
     // Check if current route should hide bottom bar
@@ -314,6 +322,40 @@ fun EmployerMainScreen(
                         com.example.dutype.worker.screens.WorkerAboutScreen(
                             navController = navController,
                             onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_MANAGE_ADDRESSES) {
+                        EmployerAddressManagementScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_HELP) {
+                        EmployerSupportScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_ABOUT) {
+                        EmployerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_REFER_EARN) {
+                        EmployerReferEarnScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+
+                    composable(Routes.EMPLOYER_HISTORY) {
+                        com.example.dutype.employer.screens.EmployerHistoryScreen(
+                            navController = navController
                         )
                     }
                 }
