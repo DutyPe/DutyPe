@@ -337,7 +337,19 @@ private fun RegisterContent(
                                         return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            Timber.w("📱 Register pre-check unavailable, continuing with OTP flow")
+                                            // Bug #11 fix: Fail-closed instead of fail-open.
+                                            // Sending OTP when we couldn't verify costs SMS and risks
+                                            // creating a duplicate account if the phone is already
+                                            // registered under a different role.
+                                            isCheckingPhone = false
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "ఇప్పుడు ఈ నంబర్‌ను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి."
+                                                else "Could not verify this number right now. Please try again in a moment.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            Timber.w("📱 REGISTER blocked - phone pre-check UNKNOWN: $fullPhoneNumber")
+                                            return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> Unit
                                     }
@@ -359,7 +371,14 @@ private fun RegisterContent(
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
                                     Timber.e(e, "📱 REGISTER - Error in phone check")
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    // Bug #11 fix: Do NOT fall through to sendOtp on error — that
+                                    // would burn an SMS even when the role-conflict check failed.
+                                    Toast.makeText(
+                                        context,
+                                        if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి."
+                                        else "Account verification failed. Please try again.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
                         },

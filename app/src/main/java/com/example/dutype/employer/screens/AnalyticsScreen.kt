@@ -82,8 +82,13 @@ fun AnalyticsScreen(navController: NavController) {
         totalJobs = totalJobs
     )
 
-    // Load applications data when screen loads
+    // Load applications data when screen loads.
+    // Bug #2 fix: This screen owns its own FirestoreEmployerJobViewModel via
+    // hiltViewModel(), so we must trigger loadMyJobs() here. Otherwise the VM's
+    // uiState.myJobs stays empty and every dashboard count (active/today/total/paused)
+    // renders as 0 even though EmployerHomeScreen (with its own VM) shows them fine.
     LaunchedEffect(Unit) {
+        viewModel.loadMyJobs()
         applicationViewModel.loadEmployerApplications()
     }
 

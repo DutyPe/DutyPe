@@ -241,8 +241,10 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                     tint = Color(0xFF10B981),
                     modifier = Modifier.size(16.dp)
                 )
+                // Bug #3 fix: dropped the literal '₹' from the text — the icon
+                // already renders the rupee symbol, so the text was producing two.
                 Text(
-                    text = "₹${jobPosting.payAmount} ${jobPosting.payType.displayName}",
+                    text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
                     style = AppTypography.price,
                     color = Color(0xFF10B981)
                 )

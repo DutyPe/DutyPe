@@ -123,23 +123,26 @@ fun EditJobScreen(
         }
         
         if (uiState.myJobs.isNotEmpty()) {
-            val existingJob = uiState.myJobs.find { it.id == jobId } // Fixed: use it.id instead of it.jobId
+            // Bug #1 fix: Use the cached card ONLY as a skeleton placeholder so the
+            // form renders instantly, but ALWAYS fetch the full merged document via
+            // getJobById(). uiState.myJobs is sourced from getJobsByEmployer() which
+            // reads only the public `jobmetadata` collection (no description,
+            // contactNumber, vacancies, benefits). The merged read pulls `job_details`
+            // too, so the edit form is correctly pre-filled.
+            val existingJob = uiState.myJobs.find { it.id == jobId }
             if (existingJob != null) {
-                Timber.d("🔍 EditJobScreen - Job found in existing jobs list: ${existingJob.title}")
+                Timber.d("🔍 EditJobScreen - placeholder from cache: ${existingJob.title}")
                 currentJob = existingJob
-                isLoadingJob = false
-            } else {
-                // If not found in the list, try to load it directly from repository
-                Timber.d("🔍 EditJobScreen - Job not found in existing list, loading from repository")
-                viewModel.getJobById(jobId) { job ->
-                    if (job != null) {
-                        Timber.d("🔍 EditJobScreen - Job loaded from repository: ${job.title}")
-                        currentJob = job
-                    } else {
-                        Timber.w("🔍 EditJobScreen - Job not found in repository")
-                    }
-                    isLoadingJob = false
+            }
+            Timber.d("🔍 EditJobScreen - fetching full merged job from repository")
+            viewModel.getJobById(jobId) { job ->
+                if (job != null) {
+                    Timber.d("🔍 EditJobScreen - merged job loaded: ${job.title}")
+                    currentJob = job
+                } else if (existingJob == null) {
+                    Timber.w("🔍 EditJobScreen - Job not found in repository")
                 }
+                isLoadingJob = false
             }
         }
     }

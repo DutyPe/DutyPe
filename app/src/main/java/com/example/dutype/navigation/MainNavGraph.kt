@@ -267,9 +267,13 @@ fun MainNavGraph(
         }
     }
     
-    // Safety timeout to ensure navigationDetermined is always set
+    // Safety timeout to ensure navigationDetermined is always set.
+    // Bug #5.1 fix: Reduced from 3s → 1500ms so a stuck Firestore handshake
+    // (e.g. App Check throttled, SSL retry storm on a flaky network) cannot
+    // freeze the user on the splash. Worst case the user sees the destination
+    // shell (with its own offline UI) within 1.5s.
     LaunchedEffect(Unit) {
-        delay(3000) // P0 FIX: Increased to 3s — generous fallback if Firestore is slow
+        delay(1500)
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
