@@ -97,6 +97,11 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFF059669),
             Icons.Default.CheckCircle
         )
+        ApplicationStatus.COMPLETED -> Triple(
+            Color(0xFFD1FAE5),
+            Color(0xFF065F46),
+            Icons.Default.CheckCircle
+        )
         ApplicationStatus.REJECTED -> Triple(
             Color(0xFFFEE2E2),
             Color(0xFFDC2626),
@@ -114,6 +119,7 @@ private fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.APPLIED -> "Applied"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.HIRED -> "Hired"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
     }
 }

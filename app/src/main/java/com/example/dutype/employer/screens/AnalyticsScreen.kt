@@ -619,6 +619,7 @@ fun RecentApplicationItem(
                         ApplicationStatus.APPLIED -> Color(0xFFFEF3C7)
                         ApplicationStatus.SHORTLISTED -> Color(0xFFDBEAFE)
                         ApplicationStatus.HIRED -> Color(0xFFD1FAE5)
+                        ApplicationStatus.COMPLETED -> Color(0xFFD1FAE5)
                         ApplicationStatus.REJECTED -> Color(0xFFFEE2E2)
                     }
                 )
@@ -631,6 +632,7 @@ fun RecentApplicationItem(
                             ApplicationStatus.APPLIED -> Color(0xFF92400E)
                             ApplicationStatus.SHORTLISTED -> Color(0xFF1E40AF)
                             ApplicationStatus.HIRED -> Color(0xFF065F46)
+                            ApplicationStatus.COMPLETED -> Color(0xFF065F46)
                             ApplicationStatus.REJECTED -> Color(0xFF991B1B)
                         }
                     ),

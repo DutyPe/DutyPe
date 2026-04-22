@@ -17,6 +17,9 @@ private fun Any?.toEpochMillis(): Long {
 
 fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
     val data = data ?: return null
+    val skills = (data["workerSkills"] as? List<*>)
+        ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
+        .orEmpty()
     return JobApplication(
         id = id,
         jobId = data["jobId"]?.toString().orEmpty(),
@@ -29,6 +32,9 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
         jobTitle = data["jobTitle"]?.toString().orEmpty(),
         jobLocation = data["jobLocation"]?.toString().orEmpty(),
         companyName = data["companyName"]?.toString().orEmpty(),
-        workerName = data["workerName"]?.toString().orEmpty()
+        workerName = data["workerName"]?.toString().orEmpty(),
+        workerPhone = (data["workerPhone"] as? String)?.takeIf { it.isNotBlank() },
+        workerProfileImageUrl = (data["workerProfileImageUrl"] as? String)?.takeIf { it.isNotBlank() },
+        workerSkills = skills
     )
 }

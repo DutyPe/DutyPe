@@ -32,38 +32,62 @@ data class JobApplication(
     val workerName: String = "",
     val workerPhone: String? = null,
     val workerProfileImageUrl: String? = null,
+    // Bug #18 / #19 fix: denormalized at write time so the employer can
+    // render the applicant card without reading worker_profiles (locked
+    // to the owner). Source of truth stays in users + worker_profiles.
+    val workerSkills: List<String> = emptyList(),
     val coverLetter: String = ""
 ) {
-    /** ONLY the fields that belong in Firestore. Use for all writes. */
-    fun toFirestoreMap(): Map<String, Any> = mapOf(
-        "jobId" to jobId,
-        "workerId" to workerId,
-        "employerId" to employerId,
-        "status" to status.toFirestoreValue(),
-        "createdAt" to com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt())
-    )
+    /**
+     * Canonical write path. Includes the denormalized worker snapshot fields
+     * (workerName, workerPhone, workerProfileImageUrl, workerSkills, jobTitle,
+     * companyName, jobLocation) when present so the employer can render the
+     * applicant card without an extra worker_profiles read. Firestore rules
+     * accept these as optional on create.
+     */
+    fun toFirestoreMap(): Map<String, Any> {
+        val base = mutableMapOf<String, Any>(
+            "jobId" to jobId,
+            "workerId" to workerId,
+            "employerId" to employerId,
+            "status" to status.toFirestoreValue(),
+            "createdAt" to com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt())
+        )
+        if (jobTitle.isNotBlank()) base["jobTitle"] = jobTitle
+        if (companyName.isNotBlank()) base["companyName"] = companyName
+        if (jobLocation.isNotBlank()) base["jobLocation"] = jobLocation
+        if (workerName.isNotBlank()) base["workerName"] = workerName
+        workerPhone?.takeIf { it.isNotBlank() }?.let { base["workerPhone"] = it }
+        workerProfileImageUrl?.takeIf { it.isNotBlank() }?.let { base["workerProfileImageUrl"] = it }
+        if (workerSkills.isNotEmpty()) base["workerSkills"] = workerSkills.take(20)
+        return base
+    }
 }
 
 // ─── Supporting types ────────────────────────────────────────────────────────
 
 /**
- * Canonical 4-state machine. Matches [firestore.rules] exactly; no UI-only aliases.
+ * 5-state machine. Bug #15 fix: added COMPLETED so the employer can mark a
+ * hired worker's job as finished, which unlocks the worker's earnings entry.
  *   APPLIED     -> worker submitted, awaiting employer review
  *   SHORTLISTED -> employer marked as candidate
- *   REJECTED    -> rejected (by employer) or withdrawn (by worker) — terminal failure
- *   HIRED       -> worker hired — terminal success
+ *   REJECTED    -> rejected (employer) or withdrawn (worker) — terminal failure
+ *   HIRED       -> worker hired, work underway
+ *   COMPLETED   -> employer marked work done — terminal success, earnings unlocked
  */
 enum class ApplicationStatus {
     APPLIED,
     SHORTLISTED,
     REJECTED,
-    HIRED;
+    HIRED,
+    COMPLETED;
 
     fun toFirestoreValue(): String = when (this) {
         APPLIED -> "applied"
         SHORTLISTED -> "shortlisted"
         REJECTED -> "rejected"
         HIRED -> "hired"
+        COMPLETED -> "completed"
     }
 
     companion object {
@@ -72,6 +96,7 @@ enum class ApplicationStatus {
             "shortlisted" -> SHORTLISTED
             "rejected" -> REJECTED
             "hired" -> HIRED
+            "completed" -> COMPLETED
             else -> APPLIED
         }
     }
@@ -82,12 +107,14 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.SHORTLISTED -> "Shortlisted"
     ApplicationStatus.REJECTED -> "Rejected"
     ApplicationStatus.HIRED -> "Hired"
+    ApplicationStatus.COMPLETED -> "Completed"
 }
 
 fun ApplicationStatus.getStatusColor(): Color = when (this) {
     ApplicationStatus.APPLIED -> Color(0xFFFFA500)
     ApplicationStatus.SHORTLISTED -> Color(0xFF2196F3)
     ApplicationStatus.HIRED -> Color(0xFF4CAF50)
+    ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C)
     ApplicationStatus.REJECTED -> Color(0xFFF44336)
 }
 

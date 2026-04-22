@@ -66,7 +66,11 @@ class EarningsViewModel @Inject constructor(
                     .get()
                     .await()
 
-                val earningStatuses = setOf("accepted", "in_progress", "completed")
+                // Bug #15 fix: earnings unlock when an application is HIRED
+                // (in-progress) or COMPLETED (employer marked done = paid).
+                // Legacy strings kept for backward compatibility with any
+                // historical docs.
+                val earningStatuses = setOf("hired", "completed", "accepted", "in_progress")
                 val earningApplications = applications.documents.filter { doc ->
                     val status = doc.getString("status")?.lowercase()
                     status in earningStatuses

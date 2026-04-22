@@ -366,7 +366,15 @@ service cloud.firestore {
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
 
       allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt',
+          // Bug #18 / #19 fix: optional denormalized snapshot so the
+          // employer can render applicant cards without a worker_profiles
+          // read (which is owner-only). Worker writes these from their
+          // own users + worker_profiles docs at apply time.
+          'workerName', 'workerPhone', 'workerProfileImageUrl', 'workerSkills',
+          'jobTitle', 'companyName', 'jobLocation'
+        ]) &&
         request.resource.data.keys().hasAll(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
         request.resource.data.workerId == request.auth.uid &&
         request.resource.data.jobId is string &&
@@ -374,6 +382,13 @@ service cloud.firestore {
         request.resource.data.status == 'applied' &&
         request.resource.data.createdAt is timestamp &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
+        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerProfileImageUrl' in request.resource.data) || (request.resource.data.workerProfileImageUrl is string && request.resource.data.workerProfileImageUrl.size() <= 1024)) &&
+        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 20)) &&
+        (!('jobTitle' in request.resource.data) || (request.resource.data.jobTitle is string && request.resource.data.jobTitle.size() <= 200)) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 200)) &&
+        (!('jobLocation' in request.resource.data) || (request.resource.data.jobLocation is string && request.resource.data.jobLocation.size() <= 200)) &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
         exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
         get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
@@ -383,16 +398,18 @@ service cloud.firestore {
       //   applied      → rejected (worker withdraw)
       //   shortlisted  → rejected | hired                  (employer)
       //   shortlisted  → rejected (worker withdraw)
-      //   hired        → (terminal, immutable)
+      //   hired        → completed                          (employer, Bug #15)
+      //   completed    → (terminal, immutable)
       //   rejected     → (terminal, immutable)
-      // This blocks illegal moves like hired→rejected and worker self-promoting to hired.
+      // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
       allow update: if isSignedIn() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-        resource.data.status in ['applied', 'shortlisted'] &&
+        resource.data.status in ['applied', 'shortlisted', 'hired'] &&
         (
           (
             resource.data.workerId == request.auth.uid &&
-            request.resource.data.status == 'rejected'
+            request.resource.data.status == 'rejected' &&
+            resource.data.status in ['applied', 'shortlisted']
           ) ||
           (
             resource.data.employerId == request.auth.uid &&
@@ -400,7 +417,9 @@ service cloud.firestore {
               (resource.data.status == 'applied' &&
                  request.resource.data.status in ['shortlisted', 'rejected', 'hired']) ||
               (resource.data.status == 'shortlisted' &&
-                 request.resource.data.status in ['rejected', 'hired'])
+                 request.resource.data.status in ['rejected', 'hired']) ||
+              (resource.data.status == 'hired' &&
+                 request.resource.data.status == 'completed')
             )
           )
         );

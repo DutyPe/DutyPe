@@ -476,12 +476,14 @@ class NotificationService @Inject constructor(
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_title
             ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_title
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_title
+            ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_title
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_title
         }
         val msgRes = when (newStatus) {
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_msg
             ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_msg
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_msg
+            ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_msg
         }
         val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)

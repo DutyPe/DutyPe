@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
@@ -130,7 +131,10 @@ fun ProfessionalWorkerProfileViewScreen(
                             gender = "",
                             profileImageUrl = app.workerProfileImageUrl,
                             experience = emptyList(),
-                            skills = emptyList(),
+                            // Bug #19 fix: rules block employers from reading
+                            // worker_profiles, so use the denormalized skills
+                            // snapshot the worker wrote at apply time.
+                            skills = app.workerSkills,
                             languages = emptyList()
                         )
                     } else {
@@ -329,7 +333,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                     application = app.copy(status = ApplicationStatus.HIRED)
                                 }
                             }
-                            ApplicationAction.REJECT -> {
+            ApplicationAction.REJECT -> {
                                 application?.let { app ->
                                     jobApplicationService.updateApplicationStatus(
                                         app.id,
@@ -337,6 +341,16 @@ fun ProfessionalWorkerProfileViewScreen(
                                         "employer" // updatedBy parameter
                                     )
                                     application = app.copy(status = ApplicationStatus.REJECTED)
+                                }
+                            }
+                            ApplicationAction.MARK_COMPLETED -> {
+                                application?.let { app ->
+                                    jobApplicationService.updateApplicationStatus(
+                                        app.id,
+                                        ApplicationStatus.COMPLETED,
+                                        "employer"
+                                    )
+                                    application = app.copy(status = ApplicationStatus.COMPLETED)
                                 }
                             }
                             else -> { /* No action */ }
@@ -819,6 +833,29 @@ private fun ActionButtonsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Bug #15 fix: show "Mark Job Done" only after the candidate is
+                // hired so the employer can complete the contract and the
+                // worker's earnings move from pending → paid on the Earnings tab.
+                if (application?.status == ApplicationStatus.HIRED) {
+                    Button(
+                        onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1F8B4C)
+                        )
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Mark Job Done", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 OutlinedButton(
                     onClick = { onActionClick(ApplicationAction.REJECT) },
                     modifier = Modifier.fillMaxWidth(),
@@ -851,6 +888,7 @@ private fun ApplicationActionDialog(
                     ApplicationAction.SHORTLIST -> "Shortlist Candidate"
                     ApplicationAction.REJECT -> "Reject Application"
                     ApplicationAction.SEND_MESSAGE -> "Send Message"
+                    ApplicationAction.MARK_COMPLETED -> "Mark Job Done"
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
@@ -863,6 +901,7 @@ private fun ApplicationActionDialog(
                     ApplicationAction.SHORTLIST -> "Are you sure you want to shortlist $workerName for this position?"
                     ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
                     ApplicationAction.SEND_MESSAGE -> "Do you want to send a message to $workerName?"
+                    ApplicationAction.MARK_COMPLETED -> "Mark this job as completed for $workerName? Their earnings will be unlocked."
                 },
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -875,6 +914,7 @@ private fun ApplicationActionDialog(
                         ApplicationAction.SHORTLIST -> Color(0xFF10B981)
                         ApplicationAction.REJECT -> Color(0xFFDC2626)
                         ApplicationAction.SEND_MESSAGE -> Color(0xFF3B82F6)
+                        ApplicationAction.MARK_COMPLETED -> Color(0xFF1F8B4C)
                     }
                 )
             ) {
@@ -996,7 +1036,10 @@ data class WorkExperienceDisplay(
 enum class ApplicationAction {
     SHORTLIST,
     REJECT,
-    SEND_MESSAGE
+    SEND_MESSAGE,
+    // Bug #15 fix: employer marks a HIRED application as COMPLETED, which
+    // unlocks the worker's earnings entry on the Earnings dashboard.
+    MARK_COMPLETED
 }
 
 // NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension from models instead

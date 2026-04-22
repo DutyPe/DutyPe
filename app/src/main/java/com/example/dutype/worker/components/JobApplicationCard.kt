@@ -75,6 +75,7 @@ private fun getStatusIcon(status: ApplicationStatus): String {
         ApplicationStatus.APPLIED -> "⏳"
         ApplicationStatus.SHORTLISTED -> "👀"
         ApplicationStatus.HIRED -> "🎉"
+        ApplicationStatus.COMPLETED -> "✅"
         ApplicationStatus.REJECTED -> "❌"
     }
 }
@@ -84,6 +85,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.APPLIED -> "Applied"
         ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.HIRED -> "Hired"
+        ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
     }
 }
@@ -93,6 +95,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.APPLIED -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.SHORTLISTED -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
+        ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C) // Dark green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
     }
 }
@@ -392,6 +395,7 @@ private fun ApplicationTimeline(
                 ApplicationStatus.APPLIED -> "Pending"
                 ApplicationStatus.SHORTLISTED -> "In Progress"
                 ApplicationStatus.HIRED -> "Completed"
+                ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Cancelled"
             },
             isCompleted = status == ApplicationStatus.SHORTLISTED || status == ApplicationStatus.HIRED,

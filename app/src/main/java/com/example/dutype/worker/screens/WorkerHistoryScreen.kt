@@ -79,8 +79,11 @@ fun WorkerHistoryScreen(
             0 -> uiState.applications
                 .filter { it.status != ApplicationStatus.REJECTED }
                 .sortedByDescending { it.createdAt }
+            // Bug #15 fix: Completed tab now includes both HIRED (work in
+            // progress) and COMPLETED (employer marked done) so workers see
+            // every job they were chosen for, not just paid ones.
             1 -> uiState.applications
-                .filter { it.status == ApplicationStatus.HIRED }
+                .filter { it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED }
                 .sortedByDescending { it.createdAt }
             2 -> uiState.applications.sortedByDescending { it.createdAt }
             else -> uiState.applications

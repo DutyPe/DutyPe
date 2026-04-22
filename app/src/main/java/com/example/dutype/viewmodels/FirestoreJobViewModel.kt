@@ -1078,10 +1078,22 @@ class FirestoreJobViewModel @Inject constructor(
     fun refreshJobs() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
-            
+
             // PERFORMANCE FIX P2: Clear vacancy statuses on refresh to prevent memory leak
             clearVacancyStatuses()
-            
+
+            // Bug #6 fix: hard 8s safety timeout so a stuck Firestore stream
+            // (offline / SSL handshake retry storm) cannot leave the
+            // PullToRefreshBox spinner stuck forever. Cancels the watchdog
+            // when the collect path finishes normally.
+            val refreshJob = launch {
+                kotlinx.coroutines.delay(8000)
+                if (_uiState.value.isRefreshing) {
+                    Timber.w("⚠️ refreshJobs watchdog: forcing isRefreshing=false after 8s")
+                    _uiState.value = _uiState.value.copy(isRefreshing = false)
+                }
+            }
+
             try {
                 firestoreJobRepository.getAllJobsSummary(
                     limit = 50L,
@@ -1121,6 +1133,8 @@ class FirestoreJobViewModel @Inject constructor(
                     hasError = true,
                     error = e.message ?: "Failed to refresh jobs"
                 )
+            } finally {
+                refreshJob.cancel()
             }
         }
     }

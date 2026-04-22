@@ -404,6 +404,27 @@ class JobApplicationService @Inject constructor(
 
             Timber.d("=📋 APPLY: jobId=$jobId userId=$userId employerId=$employerId")
 
+            // Bug #18 / #19 fix: pull a thin worker snapshot (name, phone,
+            // photo, skills) from the worker's own users + worker_profiles so
+            // the application doc carries enough context for the employer to
+            // render the applicant card and detail screen WITHOUT querying
+            // worker_profiles (which is locked down to the owner). Best-effort
+            // — apply still succeeds even if the snapshot lookup fails.
+            val workerSnapshot = try {
+                profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
+            } catch (e: Exception) {
+                Timber.w(e, "Could not load worker snapshot for application denormalization")
+                emptyMap<String, Any?>()
+            }
+            val snapshotName = (workerSnapshot["fullName"] as? String).orEmpty()
+            val snapshotPhone = (workerSnapshot["phone"] as? String)?.takeIf { it.isNotBlank() }
+            val snapshotImage = (workerSnapshot["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }
+            val snapshotSkills = (workerSnapshot["skills"] as? List<*>)
+                ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
+                ?.distinct()
+                ?.take(20)
+                .orEmpty()
+
             val application = JobApplication(
                 id = "${jobId}_${userId}",
                 jobId = jobId,
@@ -414,6 +435,10 @@ class JobApplicationService @Inject constructor(
                 jobTitle = jobTitle,
                 jobLocation = jobLocation,
                 companyName = companyName,
+                workerName = snapshotName,
+                workerPhone = snapshotPhone,
+                workerProfileImageUrl = snapshotImage,
+                workerSkills = snapshotSkills,
                 coverLetter = coverLetter.orEmpty()
             )
 

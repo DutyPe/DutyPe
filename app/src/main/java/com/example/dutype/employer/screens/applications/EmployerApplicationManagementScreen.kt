@@ -548,6 +548,47 @@ private fun ApplicationCard(
                 ApplicationStatusBadge(status = application.status)
             }
             
+            // Bug #18 fix: surface the worker's skill snapshot directly on the
+            // applicant card so employers can quickly judge fit without
+            // opening the detail screen (worker_profiles is owner-only by
+            // rules, so we depend on the denormalized snapshot from apply).
+            if (application.workerSkills.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                androidx.compose.foundation.layout.FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    application.workerSkills.take(6).forEach { skill ->
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = Color(0xFFEEF2FF),
+                                    shape = RoundedCornerShape(50)
+                                )
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = skill,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF3730A3),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
+                    }
+                    if (application.workerSkills.size > 6) {
+                        Text(
+                            text = "+${application.workerSkills.size - 6}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF6B7280)
+                            ),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
             
             // Job Info Card
