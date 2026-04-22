@@ -233,7 +233,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
                     if (tag?.contains("Firestore") == true && 
                         (message.contains("CustomClassMapper") || 
                          message.contains("No setter/field") ||
-                         message.contains("isDismissible") ||
                          message.contains("isActive"))) {
                         return
                     }

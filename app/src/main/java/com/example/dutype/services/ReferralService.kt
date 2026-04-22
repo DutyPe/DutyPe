@@ -182,9 +182,7 @@ class ReferralService @Inject constructor(
                 ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
             } catch (e: Exception) {
                 ReferralTier.BRONZE
-            },
-            freeJobPostings = (statsMap["freeJobPostings"] as? Number)?.toInt() ?: 0,
-            freeJobPostingsExpiry = statsMap["freeJobPostingsExpiry"].toEpochMillis()
+            }
         )
     }
 
@@ -626,39 +624,6 @@ class ReferralService @Inject constructor(
      */
     suspend fun getUserReferralCode(): String? {
         return getReferralStats()?.referralCode
-    }
-
-    /**
-     * Check free job postings for employer
-     * Reads from referral_stats/{userId} collection
-     */
-    suspend fun checkFreeJobPostings(userId: String): Result<Pair<Int, Long?>> {
-        return try {
-            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
-                .document(userId)
-                .get()
-                .await()
-
-            if (statsDoc.exists()) {
-                val freePostings = (statsDoc.getLong("freeJobPostings") ?: 0L).toInt()
-                val expiry = statsDoc.get("freeJobPostingsExpiry").toEpochMillis()
-                Result.success(Pair(freePostings, expiry))
-            } else {
-                Result.success(Pair(0, null))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "🎁 REFERRAL: Error checking free job postings")
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Use a free job posting (decrement count)
-     * Updates referral_stats/{userId} collection
-     */
-    suspend fun useFreeJobPosting(userId: String): Result<Boolean> {
-        Timber.d("🎁 REFERRAL: Strict schema mode - useFreeJobPosting is disabled for $userId")
-        return Result.success(false)
     }
 
     /**

@@ -59,13 +59,6 @@ const REFERRAL_CONFIG = {
     100: 1000 // 100 referrals = ₹1000 bonus
   } as { [key: number]: number },
   
-  // Employer free job postings
-  EMPLOYER_FREE_POSTINGS: {
-    5: { count: 5, days: 15 },
-    10: { count: 10, days: 30 },
-    25: { count: 25, days: 60 }
-  } as { [key: number]: { count: number; days: number } },
-  
   // Fraud prevention
   MAX_REFERRALS_PER_DAY: 50,          // Max referrals per user per day
   MAX_PENDING_REFERRALS: 100,         // Max pending referrals
@@ -101,13 +94,9 @@ const DEFAULT_REFERRAL_STATS: { [key: string]: any } = {
   withdrawnAmount: 0,
   availableBalance: 0,
   currentTier: "BRONZE",
-  freeJobPostings: 0,
-  freeJobPostingsExpiry: null,
   signupBonusReceived: false,
   signupBonusAmount: 0,
-  totalWithdrawals: 0,
-  isBlocked: false,
-  blockReason: null
+  totalWithdrawals: 0
 };
 
 type ReferralFraudResult = {
@@ -480,17 +469,6 @@ async function evaluateReferralFraud(params: {
   const totalReferrals = getNumberValue(referrerStats.totalReferrals);
   const rejectedReferrals = getNumberValue(referrerStats.rejectedReferrals);
 
-  if (getBooleanValue(referrerStats.isBlocked)) {
-    return {
-      allowed: false,
-      fraudScore: 100,
-      signals: ["REFERRER_BLOCKED"],
-      needsReview: false,
-      rejectionReason: "REFERRER_BLOCKED",
-      errorMessage: "Referral account is restricted"
-    };
-  }
-
   if (totalReferrals > 10 && rejectedReferrals / totalReferrals > 0.3) {
     fraudScore += 25;
     signals.push("HIGH_REJECTION_RATE");
@@ -822,16 +800,6 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       const newUserOwnReferralCode = getStringValue(
         newUserStats.referralCode || newUserData.referralCode
       );
-      let freePostings = getNumberValue(referrerStats.freeJobPostings);
-      let freePostingsExpiry = referrerStats.freeJobPostingsExpiry || null;
-
-      if (referrerRole === "EMPLOYER") {
-        const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
-        if (postingReward) {
-          freePostings = postingReward.count;
-          freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
-        }
-      }
 
       const referralId = db.collection("referrals").doc().id;
       const maskedPhone = newUserPhone ? "****" + newUserPhone.slice(-4) : "";
@@ -865,11 +833,7 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
         availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
         currentTier: newTier,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-        ...(referrerRole === "EMPLOYER" && freePostingsExpiry ? {
-          freeJobPostings: freePostings,
-          freeJobPostingsExpiry: freePostingsExpiry
-        } : {})
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
 
       transaction.set(newUserStatsRef, {
@@ -1046,16 +1010,6 @@ export const onReferredUserProfileComplete = functions.firestore
 
       // Calculate employer free postings
       const referrerRole = getStringValue(referrerUserData.activeRole, "WORKER");
-      let freePostings = getNumberValue(referrerStats.freeJobPostings);
-      let freePostingsExpiry = referrerStats.freeJobPostingsExpiry;
-      
-      if (referrerRole === "EMPLOYER") {
-        const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
-        if (postingReward) {
-          freePostings = postingReward.count;
-          freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
-        }
-      }
 
       // Use batch write for atomic update
       const batch = db.batch();
@@ -1092,11 +1046,6 @@ export const onReferredUserProfileComplete = functions.firestore
         currentTier: newTier,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       };
-
-      if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-        referrerStatsUpdate.freeJobPostings = freePostings;
-        referrerStatsUpdate.freeJobPostingsExpiry = freePostingsExpiry;
-      }
 
       batch.set(referrerStatsRef, referrerStatsUpdate, { merge: true });
 
@@ -1343,9 +1292,6 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       const availableBalance = getNumberValue(stats.availableBalance);
       const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(availableBalance, minWithdrawal));
 
-      if (getBooleanValue(stats.isBlocked)) {
-        return { success: false as const, error: "Your account is blocked from withdrawals" };
-      }
       if (!canUserWithdraw) {
         return { success: false as const, error: "You need at least Rs." + minWithdrawal + " available to withdraw" };
       }
@@ -1527,13 +1473,10 @@ export const backfillReferralStats = functions
       "canWithdraw",
       "currentTier",
       "nextMilestone",
-      "freeJobPostings",
-      "freeJobPostingsExpiry",
       "signupBonusReceived",
       "signupBonusAmount",
       "totalWithdrawals",
-      "lastWithdrawalAt",
-      "isBlocked"
+      "lastWithdrawalAt"
     ];
 
     let query: FirebaseFirestore.Query = db.collection("users")
@@ -1723,11 +1666,9 @@ export const getReferralLeaderboard = functions.https.onCall(async (data, contex
           successfulReferrals: getNumberValue(combinedStats.successfulReferrals),
           totalEarnings: getNumberValue(combinedStats.totalEarnings),
           availableBalance: getNumberValue(combinedStats.availableBalance),
-          currentTier: getStringValue(combinedStats.currentTier, "BRONZE"),
-          isBlocked: getBooleanValue(combinedStats.isBlocked)
+          currentTier: getStringValue(combinedStats.currentTier, "BRONZE")
         };
       })
-      .filter(entry => !entry.isBlocked)
       .filter(entry => !role || entry.userRole === role)
       .slice(0, limit);
 

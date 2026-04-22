@@ -204,43 +204,6 @@ class ReferralViewModel @Inject constructor(
         }
     }
     
-    /**
-     * Check free job postings for employer
-     */
-    fun checkFreeJobPostings(userId: String) {
-        viewModelScope.launch {
-            try {
-                val result = referralService.checkFreeJobPostings(userId)
-                result.fold(
-                    onSuccess = { (count, expiry) ->
-                        _uiState.value = _uiState.value.copy(
-                            freeJobPostings = count,
-                            freeJobPostingsExpiry = expiry
-                        )
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "Failed to check free job postings")
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error checking free job postings")
-            }
-        }
-    }
-    
-    /**
-     * Use a free job posting
-     */
-    suspend fun useFreeJobPosting(userId: String): Boolean {
-        return try {
-            val result = referralService.useFreeJobPosting(userId)
-            result.getOrNull() ?: false
-        } catch (e: Exception) {
-            Timber.e(e, "Error using free job posting")
-            false
-        }
-    }
-
     override fun onCleared() {
         statsObserverJob?.cancel()
         historyObserverJob?.cancel()
@@ -304,7 +267,5 @@ data class ReferralUiState(
     val isProcessingWithdrawal: Boolean = false,
     val withdrawalError: String? = null,
     val withdrawalSuccess: Boolean = false,
-    val lastWithdrawalId: String? = null,
-    val freeJobPostings: Int = 0,
-    val freeJobPostingsExpiry: Long? = null
+    val lastWithdrawalId: String? = null
 )

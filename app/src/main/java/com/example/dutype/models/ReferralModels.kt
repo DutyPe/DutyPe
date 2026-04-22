@@ -238,9 +238,7 @@ data class ReferralStats(
     val totalEarnings: Double = 0.0,
     val availableBalance: Double = 0.0,
     val canWithdraw: Boolean = false,
-    val currentTier: ReferralTier = ReferralTier.BRONZE,
-    val freeJobPostings: Int = 0,
-    val freeJobPostingsExpiry: Long? = null
+    val currentTier: ReferralTier = ReferralTier.BRONZE
 )
 
 /**

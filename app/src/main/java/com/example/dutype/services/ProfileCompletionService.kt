@@ -1173,9 +1173,7 @@ class ProfileCompletionService @Inject constructor(
         "totalEarnings" to totalEarnings,
         "availableBalance" to availableBalance,
         "canWithdraw" to canWithdraw,
-        "currentTier" to currentTier.name,
-        "freeJobPostings" to freeJobPostings,
-        "freeJobPostingsExpiry" to freeJobPostingsExpiry
+        "currentTier" to currentTier.name
     )
 
     private fun com.example.dutype.models.Referral.toMap(): Map<String, Any?> = mapOf(
