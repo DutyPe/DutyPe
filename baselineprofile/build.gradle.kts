@@ -38,9 +38,11 @@ android {
 }
 
 baselineProfile {
-    // Use the Gradle Managed Device defined above.
-    managedDevices += "pixel6Api34"
-    useConnectedDevices = false
+    // Generate against the developer's connected phone (wireless/USB ADB).
+    // Switch back to managed devices for CI by setting:
+    //   managedDevices += "pixel6Api34"
+    //   useConnectedDevices = false
+    useConnectedDevices = true
 }
 
 dependencies {

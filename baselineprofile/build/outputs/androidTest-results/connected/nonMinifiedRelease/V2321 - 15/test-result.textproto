@@ -1,0 +1,97 @@
+# 2026-04-21T21:24:54.294644100Z:
+test_suite_meta_data {
+  scheduled_test_case_count: 1
+}
+test_status: ERROR
+test_result {
+  test_case {
+    test_class: "BaselineProfileGenerator"
+    test_package: "com.dutype.app.baselineprofile"
+    test_method: "generate"
+    start_time {
+      seconds: 1776806150
+      nanos: 512000000
+    }
+    end_time {
+      seconds: 1776806683
+      nanos: 684000000
+    }
+  }
+  test_status: FAILED
+  output_artifact {
+    label {
+      label: "logcat"
+      namespace: "android"
+    }
+    source_path {
+      path: "C:\\Users\\91961\\DutyPe\\baselineprofile\\build\\outputs\\androidTest-results\\connected\\nonMinifiedRelease\\V2321 - 15\\logcat-com.dutype.app.baselineprofile.BaselineProfileGenerator-generate.txt"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info"
+      namespace: "android"
+    }
+    source_path {
+      path: "C:\\Users\\91961\\DutyPe\\baselineprofile\\build\\outputs\\androidTest-results\\connected\\nonMinifiedRelease\\V2321 - 15\\device-info.pb"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.meminfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "C:\\Users\\91961\\DutyPe\\baselineprofile\\build\\outputs\\androidTest-results\\connected\\nonMinifiedRelease\\V2321 - 15\\meminfo"
+    }
+  }
+  output_artifact {
+    label {
+      label: "device-info.cpuinfo"
+      namespace: "android"
+    }
+    source_path {
+      path: "C:\\Users\\91961\\DutyPe\\baselineprofile\\build\\outputs\\androidTest-results\\connected\\nonMinifiedRelease\\V2321 - 15\\cpuinfo"
+    }
+  }
+}
+platform_error {
+  errors {
+    summary {
+      namespace {
+        namespace: "com.google.testing.platform"
+      }
+      error_code: 2002
+      error_name: "PLUGIN_ERROR"
+      error_classification: "TEST"
+      error_message: "Exception thrown during onAfterAll invocation of plugin AndroidTestApkInstallerPlugin: device \'adb-10BE250M94000HZ-1PnkfQ._adb-tls-connect._tcp\' not found"
+      stack_trace: "com.google.testing.platform.api.plugin.PluginException: ErrorName: PLUGIN_ERROR\nNameSpace: com.google.testing.platform\nErrorCode: 2002\nErrorType: TEST\nMessage: Exception thrown during onAfterAll invocation of plugin AndroidTestApkInstallerPlugin: device \'adb-10BE250M94000HZ-1PnkfQ._adb-tls-connect._tcp\' not found\r\n\tat com.google.testing.platform.plugin.PluginLifecycleKt.invokeOrThrow(PluginLifecycle.kt:547)\r\n\tat com.google.testing.platform.plugin.PluginLifecycleKt.invokeOrThrow$default(PluginLifecycle.kt:517)\r\n\tat com.google.testing.platform.plugin.PluginLifecycle$onAfterAll$1$1$1.invoke(PluginLifecycle.kt:361)\r\n\tat com.google.testing.platform.plugin.PluginLifecycle$onAfterAll$1$1$1.invoke(PluginLifecycle.kt:358)\r\n\tat com.google.testing.platform.lib.cancellation.ProcessCancellationContext.runWithTimeoutDuringCancellation(ProcessCancellationContext.kt:153)\r\n\tat com.google.testing.platform.plugin.PluginLifecycle$onAfterAll$1$1.invoke(PluginLifecycle.kt:358)\r\n\tat com.google.testing.platform.plugin.PluginLifecycle$onAfterAll$1$1.invoke(PluginLifecycle.kt:341)\r\n\tat com.google.testing.platform.core.telemetry.common.noop.NoopDiagnosticsScope.recordEvent(NoopDiagnosticsScope.kt:35)\r\n\tat com.google.testing.platform.core.telemetry.SequentialEventRecordRequest.record$java_com_google_testing_platform_core_telemetry_telemetry_api(EventRecordRequest.kt:71)\r\n\tat com.google.testing.platform.core.telemetry.DiagnosticsExtKt.record(DiagnosticsExt.kt:27)\r\n\tat com.google.testing.platform.core.telemetry.TelemetryKt.createEvent(Telemetry.kt:60)\r\n\tat com.google.testing.platform.plugin.PluginLifecycle.onAfterAll(PluginLifecycle.kt:339)\r\n\tat com.google.testing.platform.executor.SingleDeviceExecutor.onAfterAll(SingleDeviceExecutor.kt:159)\r\n\tat com.google.testing.platform.executor.SingleDeviceExecutor.access$onAfterAll(SingleDeviceExecutor.kt:52)\r\n\tat com.google.testing.platform.executor.SingleDeviceExecutor$execute$1.invoke(SingleDeviceExecutor.kt:121)\r\n\tat com.google.testing.platform.executor.SingleDeviceExecutor$execute$1.invoke(SingleDeviceExecutor.kt:120)\r\n\tat com.google.testing.platform.result.TestResultListenerManager.afterTestSuite(TestResultListenerManager.kt:140)\r\n\tat com.google.testing.platform.executor.SingleDeviceExecutor.execute(SingleDeviceExecutor.kt:147)\r\n\tat com.google.testing.platform.RunnerImpl.run(RunnerImpl.kt:121)\r\n\tat com.google.testing.platform.server.strategy.NonInteractiveServerStrategy$run$4$2.invoke(NonInteractiveServerStrategy.kt:98)\r\n\tat com.google.testing.platform.server.strategy.NonInteractiveServerStrategy$run$4$2.invoke(NonInteractiveServerStrategy.kt:98)\r\n\tat com.google.testing.platform.core.telemetry.common.noop.NoopDiagnosticsScope.recordEvent(NoopDiagnosticsScope.kt:35)\r\n\tat com.google.testing.platform.core.telemetry.SequentialEventRecordRequest.record$java_com_google_testing_platform_core_telemetry_telemetry_api(EventRecordRequest.kt:71)\r\n\tat com.google.testing.platform.core.telemetry.DiagnosticsExtKt.record(DiagnosticsExt.kt:27)\r\n\tat com.google.testing.platform.core.telemetry.TelemetryKt.createEvent(Telemetry.kt:60)\r\n\tat com.google.testing.platform.server.strategy.NonInteractiveServerStrategy.run(NonInteractiveServerStrategy.kt:95)\r\n\tat com.google.testing.platform.main.MainKt$main$4.invokeSuspend(Main.kt:75)\r\n\tat kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)\r\n\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:106)\r\n\tat kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:284)\r\n\tat kotlinx.coroutines.BlockingCoroutine.joinBlocking(Builders.kt:85)\r\n\tat kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking(Builders.kt:59)\r\n\tat kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)\r\n\tat kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)\r\n\tat kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)\r\n\tat com.google.testing.platform.main.MainKt.main(Main.kt:73)\r\n\tat com.google.testing.platform.main.MainKt.main$default(Main.kt:35)\r\n\tat com.google.testing.platform.main.MainKt.main(Main.kt)\r\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(Unknown Source)\r\n\tat java.base/java.lang.reflect.Method.invoke(Unknown Source)\r\n\tat com.google.testing.platform.launcher.Launcher.main(Launcher.java:154)\r\nCaused by: com.android.ddmlib.AdbCommandRejectedException: device \'adb-10BE250M94000HZ-1PnkfQ._adb-tls-connect._tcp\' not found\r\n\tat com.android.ddmlib.AdbHelper.setDevice(AdbHelper.java:981)\r\n\tat com.android.ddmlib.AdbHelper.setDevice(AdbHelper.java:1000)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeRemoteCommand$18(DeviceImpl.java:785)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeRemoteCommand(DeviceImpl.java:755)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeRemoteCommand$15(DeviceImpl.java:618)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeRemoteCommand(DeviceImpl.java:615)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeShellCommand$14(DeviceImpl.java:573)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeShellCommand(DeviceImpl.java:570)\r\n\tat com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDevice.executeShellCommand(DdmlibAndroidDevice.kt)\r\n\tat com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDeviceController$executeAsync$deferred$1.invokeSuspend(DdmlibAndroidDeviceController.kt:171)\r\n\tat kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)\r\n\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:106)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:570)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:749)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:677)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:664)\r\n"
+    }
+    cause {
+      summary {
+        error_message: "device \'adb-10BE250M94000HZ-1PnkfQ._adb-tls-connect._tcp\' not found"
+        stack_trace: "com.android.ddmlib.AdbCommandRejectedException: device \'adb-10BE250M94000HZ-1PnkfQ._adb-tls-connect._tcp\' not found\r\n\tat com.android.ddmlib.AdbHelper.setDevice(AdbHelper.java:981)\r\n\tat com.android.ddmlib.AdbHelper.setDevice(AdbHelper.java:1000)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeRemoteCommand$18(DeviceImpl.java:785)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeRemoteCommand(DeviceImpl.java:755)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeRemoteCommand$15(DeviceImpl.java:618)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeRemoteCommand(DeviceImpl.java:615)\r\n\tat com.android.ddmlib.internal.DeviceImpl.lambda$executeShellCommand$14(DeviceImpl.java:573)\r\n\tat com.android.ddmlib.internal.DeviceImpl.logRun1(DeviceImpl.java:1801)\r\n\tat com.android.ddmlib.internal.DeviceImpl.executeShellCommand(DeviceImpl.java:570)\r\n\tat com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDevice.executeShellCommand(DdmlibAndroidDevice.kt)\r\n\tat com.android.tools.utp.plugins.deviceprovider.ddmlib.DdmlibAndroidDeviceController$executeAsync$deferred$1.invokeSuspend(DdmlibAndroidDeviceController.kt:171)\r\n\tat kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)\r\n\tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:106)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:570)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:749)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:677)\r\n\tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:664)\r\n"
+      }
+    }
+  }
+}
+output_artifact {
+  label {
+    label: "test-results.log"
+    namespace: "com.google.testing.platform.runtime.android.driver.AndroidInstrumentationDriver"
+  }
+  source_path {
+    path: "C:\\Users\\91961\\DutyPe\\baselineprofile\\build\\outputs\\androidTest-results\\connected\\nonMinifiedRelease\\V2321 - 15\\testlog\\test-results.log"
+  }
+  type: TEST_DATA
+  mime_type: "text/plain"
+}
+issue {
+  namespace {
+    namespace: "com.google.testing.platform.runtime.android.driver.AndroidInstrumentationDriver"
+  }
+  severity: SEVERE
+  code: 1
+  name: "INSTRUMENTATION_FAILED"
+  message: "Test run failed to complete. Expected 1 tests, received 0"
+}
