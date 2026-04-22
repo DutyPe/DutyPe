@@ -683,8 +683,10 @@ export function EmployerPostJobClient({ session }: SharedProps) {
         description: form.description.trim(),
         employerId: activeUser.uid,
         employerTrustTier: session.profile?.trustTier || "NEW",
-        expiryDays: 15,
-        expiresAt: currentTime + 15 * 24 * 60 * 60 * 1000,
+        // BUG #4 FIX: Default expiry was 15 days; aligned with the admin tool
+        // and Android post-job default at 30 days.
+        expiryDays: 30,
+        expiresAt: currentTime + 30 * 24 * 60 * 60 * 1000,
         gender: form.gender,
         jobId: jobRef.id,
         jobType: form.jobType,
@@ -1001,15 +1003,21 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         setLoading(true);
         setError(null);
 
-        const snapshot = await getDoc(doc(activeServices.db, "jobs", jobId));
-        if (!snapshot.exists()) {
+        // BUG #7 FIX: 2-collection job schema. Read jobmetadata (public card)
+        // + job_details (private rich fields), then merge for the form.
+        const [metaSnap, detailsSnap] = await Promise.all([
+          getDoc(doc(activeServices.db, "jobmetadata", jobId)),
+          getDoc(doc(activeServices.db, "job_details", jobId))
+        ]);
+        if (!metaSnap.exists()) {
           throw new Error("This job could not be found.");
         }
 
-        const nextJob = normalizeProductJob(
-          snapshot.id,
-          snapshot.data() as Record<string, unknown>
-        );
+        const merged: Record<string, unknown> = {
+          ...(metaSnap.data() as Record<string, unknown>),
+          ...((detailsSnap.exists() ? detailsSnap.data() : {}) as Record<string, unknown>)
+        };
+        const nextJob = normalizeProductJob(metaSnap.id, merged);
 
         if (nextJob.employerId !== activeUser.uid) {
           throw new Error("You can only edit jobs posted by your own employer account.");
@@ -1122,59 +1130,39 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         : hasExistingCoordinates
           ? job.longitude
           : 0;
-      const nextWorkLocations =
-        matchedSavedLocation?.id
-          ? incrementWorkLocationUsage(savedWorkLocations, matchedSavedLocation.id)
-          : savedWorkLocations;
 
-      await updateDoc(doc(services.db, "users", session.user.uid), {
-        activeRole: "EMPLOYER",
-        businessAddress: form.location.trim(),
-        businessLatitude: finalLatitude,
-        businessLongitude: finalLongitude,
+      // BUG #7 FIX: Stop overwriting the user's profile + employer_profiles
+      // from the edit-job submit. Those updates wrote forbidden fields
+      // (`activeRole`, `roles`, `updatedAt`, `businessLatitude`, ...) which
+      // Firestore rules rejected, causing the entire "Save" to fail with
+      // permission-denied. Profile changes belong to the profile screen, not
+      // the per-job editor.
+
+      // BUG #7 FIX: Write per the 2-collection schema:
+      //   jobmetadata = card fields (rule whitelist)
+      //   job_details = private rich fields (rule whitelist)
+      const metadataPayload: Record<string, unknown> = {
+        title: form.title.trim(),
         companyName: form.companyName.trim(),
-        contactEmail: session.user.email ?? session.profile?.email ?? "",
-        contactPhone: form.contactNumber.trim(),
-        role: "EMPLOYER",
-        roles: [...new Set([...session.availableRoles, "EMPLOYER"])],
-        updatedAt: currentTime,
-        workLocations: nextWorkLocations
-      });
-
-      await setDoc(
-        doc(services.db, "employer_profiles", session.user.uid),
-        {
-          businessAddress: form.location.trim(),
-          businessLatitude: finalLatitude,
-          businessLongitude: finalLongitude,
-          companyName: form.companyName.trim(),
-          contactEmail: session.user.email ?? session.profile?.email ?? "",
-          contactPhone: form.contactNumber.trim(),
-          updatedAt: currentTime,
-          userId: session.user.uid,
-          workLocations: nextWorkLocations
-        },
-        { merge: true }
-      );
-
-      await updateDoc(doc(services.db, "jobs", job.id), {
-        addressText: form.location.trim(),
-        companyName: form.companyName.trim(),
-        contactNumber: form.contactNumber.trim(),
-        description: form.description.trim(),
-        gender: form.gender,
         jobType: form.jobType,
-        location: {
-          lat: finalLatitude,
-          lng: finalLongitude
-        },
         salary: Number(form.payAmount.trim()) || 0,
         salaryType: form.payType,
+        location: { lat: finalLatitude, lng: finalLongitude },
+        addressText: form.location.trim()
+      };
+
+      const detailsPayload: Record<string, unknown> = {
+        description: form.description.trim(),
+        contactNumber: form.contactNumber.trim(),
+        gender: form.gender,
         shiftTiming: form.shiftTiming.trim(),
-        title: form.title.trim(),
-        updatedAt: currentTime,
         vacancies: Math.max(1, Number(form.vacancies || "1"))
-      });
+      };
+
+      await Promise.all([
+        updateDoc(doc(services.db, "jobmetadata", job.id), metadataPayload),
+        updateDoc(doc(services.db, "job_details", job.id), detailsPayload)
+      ]);
 
       await session.refreshProfile();
       router.push("/app/employer/jobs");
@@ -1200,7 +1188,8 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
       setDeleting(true);
       setError(null);
 
-      await deleteDoc(doc(services.db, "jobs", job.id));
+      await deleteDoc(doc(services.db, "jobmetadata", job.id));
+      await deleteDoc(doc(services.db, "job_details", job.id));
       router.push("/app/employer/jobs");
       router.refresh();
     } catch (deleteError) {

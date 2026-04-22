@@ -62,6 +62,18 @@ fun EmployerMainScreen(
     val navController = rememberNavController()
     val scrollStateManager = rememberScrollStateManager()
 
+    // BUG #1 FIX: Drain any inner-route handoff queued by the outer graph
+    // (e.g. when the user finishes employer profile setup with
+    // `returnRoute = employer_post_job`). Runs once after this NavHost mounts
+    // so the desired destination is pushed onto the inner controller.
+    androidx.compose.runtime.LaunchedEffect(navController) {
+        EmployerInnerNavQueue.consume()?.let { pending ->
+            navController.navigate(pending) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     // Track current route to conditionally show bottom bar
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

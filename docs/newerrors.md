@@ -25,6 +25,5 @@ is not happening
 3.name is not showing in the worker profiels sidebar screen in webapp
 2.small daily ansteps , bigger pprotunietes related notifcation coming many times ,why like that and if im an employer then also im geyying worker related notifcation in app side
 
-
- 1.When I came as guest and filled the posting fields and as new i am registering through process of employer setup and i got at last the error...but the profile competition is done when clicking finish button from employer profile setup screen, but it's not moving from that screen says the above error
+1.When I came as guest and filled the posting fields and as new i am registering through process of employer setup and i got at last the error...but the profile competition is done when clicking finish button from employer profile setup screen, but it's not moving from that screen says the above error
 error :Navigation destination that matches request NavDeepLinkRequest{ uri=android-app:// androidx.navigation/employer_post_job } cannot be found in the navigation graph ComposeNavGraph(0x0) startDestination={Destination(Ox5ff19820 route=select_role}

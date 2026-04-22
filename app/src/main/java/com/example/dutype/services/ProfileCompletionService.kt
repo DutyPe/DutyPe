@@ -367,7 +367,14 @@ class ProfileCompletionService @Inject constructor(
         return try {
             Timber.d("🔍 ProfileCompletionService.canApplyDirectly - Checking for userId: $userId")
             val userData = getCachedUserDoc(userId) ?: return Result.failure(Exception("User not found"))
+            // BUG #12 FIX: `users/{uid}` written by `ensureMinimalUserDocument`
+            // only stores `role` (single-role architecture). The previous code
+            // looked at `activeRole` first and threw "User role not found" for
+            // every fresh signup, which surfaced as "Please complete your
+            // profile to apply for jobs" via `getOrDefault(false)` upstream.
+            // Fall back through `activeRole` -> `role` -> legacy `roles[0]`.
             val userRole = (userData["activeRole"] as? String)
+                ?: (userData["role"] as? String)
                 ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
                 ?: return Result.failure(Exception("User role not found"))
             

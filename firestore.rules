@@ -227,16 +227,21 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt'
+          'urgency', 'status', 'createdAt', 'employerId'
         ]) &&
         request.resource.data.keys().hasAll([
           'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'urgency', 'status', 'createdAt'
+          'urgency', 'status', 'createdAt', 'employerId'
         ]) &&
         // Ownership is enforced via the sibling job_details doc created in the same batch.
         existsAfter(/databases/$(database)/documents/job_details/$(jobId)) &&
         getAfter(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
+        // BUG #14 FIX: jobmetadata also carries employerId so the employer's
+        // own posted-jobs query (whereEqualTo("employerId", uid)) returns rows.
+        // It must equal the authenticated UID and the sibling job_details doc.
+        request.resource.data.employerId is string &&
+        request.resource.data.employerId == request.auth.uid &&
         request.resource.data.companyName is string &&
         request.resource.data.companyName.size() <= 120 &&
         request.resource.data.title is string &&
@@ -260,9 +265,15 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
-          'urgency', 'status', 'createdAt'
+          'urgency', 'status', 'createdAt', 'employerId'
         ]) &&
         request.resource.data.createdAt == resource.data.createdAt &&
+        // BUG #14 FIX: employerId is now part of the card schema. New writes
+        // must set it to the authenticated UID; legacy docs (created before
+        // this field existed) are allowed to add it on first edit.
+        (!('employerId' in request.resource.data) ||
+          (request.resource.data.employerId is string &&
+           request.resource.data.employerId == request.auth.uid)) &&
         request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120 &&
         request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
         request.resource.data.jobType is string &&

@@ -63,6 +63,15 @@ class GuestEngagementWorker @AssistedInject constructor(
         // Notification ID ranges (avoid collisions)
         private const val BASE_NOTIFICATION_ID = 7000
 
+        // BUG #2 FIX: Local SharedPreferences keys for dedupe state. Replaces
+        // the broken Firestore-based dedupe (notifications collection is
+        // admin-write-only, so the dedupe queries always returned empty).
+        private const val ENGAGEMENT_PREFS = "engagement_worker_prefs"
+        private const val KEY_DAY_START = "day_start"
+        private const val KEY_COUNT_TODAY = "count_today"
+        private const val KEY_TITLES_TODAY = "titles_today"
+        private const val KEY_LAST_SENT_AT = "last_sent_at"
+
         private val WORKER_MESSAGES = listOf(
             Triple(
                 "\uD83D\uDCBC New jobs near you are waiting",
@@ -157,51 +166,61 @@ class GuestEngagementWorker @AssistedInject constructor(
         val now = Calendar.getInstance()
         val slot = getSlot(now)
 
+        // BUG #2 FIX: Default-to-WORKER on lookup failure used to mis-target
+        // employers with worker pushes. Skip the notification entirely if we
+        // can't determine the role with confidence. Also fall back to `role`
+        // (the strict-schema field) when `activeRole` is missing — fresh
+        // signups don't have `activeRole` set (see Bug #12).
         val role = try {
-            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
-            (userDoc.getString("activeRole") ?: "WORKER").uppercase()
+            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
+                .document(userId).get().await()
+            val resolved = (userDoc.getString("activeRole") ?: userDoc.getString("role"))
+                ?.uppercase()
+            if (resolved.isNullOrBlank()) {
+                Timber.w("🔔 EngagementWorker: no role on user doc, skipping (was defaulting to WORKER)")
+                return Result.success()
+            }
+            resolved
         } catch (e: Exception) {
-            Timber.w(e, "🔔 EngagementWorker: failed to load role, default WORKER")
-            "WORKER"
+            Timber.w(e, "🔔 EngagementWorker: role lookup failed, skipping notification")
+            return Result.success()
         }
 
         val pool = if (role == "EMPLOYER") EMPLOYER_MESSAGES else WORKER_MESSAGES
         val (title, body, deepLink) = pool[slot % pool.size]
 
-        // Global anti-spam: max 3 notifications/day total, no duplicate title/day, no short-gap burst.
+        // BUG #2 FIX: Local dedupe via SharedPreferences. The `notifications`
+        // Firestore collection is admin-write-only (`allow create: if false`),
+        // so the previous server-side dedupe queries always returned empty
+        // and every guard silently passed — letting the same title fire on
+        // every WorkManager tick. SharedPreferences is also a network-free
+        // path, removing one Firestore read per tick.
+        val prefs = context.getSharedPreferences(ENGAGEMENT_PREFS, Context.MODE_PRIVATE)
         val dayStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
+        val storedDayStart = prefs.getLong(KEY_DAY_START, 0L)
+        val (countToday, titlesTodayCsv) = if (storedDayStart == dayStart) {
+            prefs.getInt(KEY_COUNT_TODAY, 0) to (prefs.getString(KEY_TITLES_TODAY, "") ?: "")
+        } else {
+            0 to ""
+        }
+        val titlesToday = titlesTodayCsv.split('\u001F').filter { it.isNotBlank() }.toMutableSet()
 
-        val todayNotifications = try {
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.NOTIFICATIONS)
-                .whereEqualTo("recipientId", userId)
-                .whereGreaterThan("createdAt", dayStart)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .get()
-                .await()
-                .documents
-                .mapNotNull { it.data }
-        } catch (e: Exception) {
-            Timber.w(e, "🔔 EngagementWorker: failed to read today notifications, skip local send")
+        if (countToday >= 3) {
+            Timber.d("🔔 EngagementWorker: daily cap reached ($countToday)")
             return Result.success()
         }
 
-        if (todayNotifications.size >= 3) {
-            Timber.d("🔔 EngagementWorker: daily cap reached (${todayNotifications.size})")
-            return Result.success()
-        }
-
-        val duplicateTitleToday = todayNotifications.any { (it["title"] as? String) == title }
-        if (duplicateTitleToday) {
+        if (title in titlesToday) {
             Timber.d("🔔 EngagementWorker: duplicate title today, skipping")
             return Result.success()
         }
 
-        val lastSentAt = todayNotifications.maxOfOrNull { (it["createdAt"] as? Long) ?: 0L } ?: 0L
+        val lastSentAt = prefs.getLong(KEY_LAST_SENT_AT, 0L)
         val minGapMs = 3 * 60 * 60 * 1000L
         if (lastSentAt > 0 && (System.currentTimeMillis() - lastSentAt) < minGapMs) {
             Timber.d("🔔 EngagementWorker: last notification too recent, skipping")
@@ -210,6 +229,15 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         showLocalNotification(title, body, deepLink, role)
         Timber.d("🔔 EngagementWorker: notification shown — \"$title\" for role=$role")
+
+        // Record the send so the next tick's dedupe actually sees it.
+        titlesToday += title
+        prefs.edit()
+            .putLong(KEY_DAY_START, dayStart)
+            .putInt(KEY_COUNT_TODAY, countToday + 1)
+            .putString(KEY_TITLES_TODAY, titlesToday.joinToString("\u001F"))
+            .putLong(KEY_LAST_SENT_AT, System.currentTimeMillis())
+            .apply()
         return Result.success()
     }
 

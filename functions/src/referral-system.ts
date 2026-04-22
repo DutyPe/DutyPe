@@ -203,7 +203,10 @@ function computeEmployerProfileCompletion(user: any = {}): number {
  * Check if profile is considered complete (>= 80%)
  */
 function isProfileComplete(user: any = {}): boolean {
-  const role = getStringValue(user.activeRole, "WORKER").toUpperCase();
+  const role = getStringValue(
+    user.role || user.activeRole,
+    "WORKER"
+  ).toUpperCase();
   const completion = role === "EMPLOYER"
     ? computeEmployerProfileCompletion(user)
     : computeWorkerProfileCompletion(user);
@@ -757,7 +760,14 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
         : [];
       const existingReferredByCode = getStringValue(newUserStats.referredByCode);
 
-      if (newUserRoles.length > 1 || isProfileComplete(newUserData)) {
+      // BUG #11 FIX: The previous guard `newUserRoles.length > 1 || isProfileComplete(newUserData)`
+      // rejected legitimate fallback apply attempts that fire after the user
+      // finishes profile setup (which happens whenever the in-registration
+      // attempt failed for any reason - timing, fraud false-positive, etc.).
+      // Dedup is already enforced below by `existingReferredByCode` and the
+      // existing-referrals query, so we do not need a profile-completion gate
+      // here. We still block multi-role legacy accounts (defensive).
+      if (newUserRoles.length > 1) {
         return { success: false, error: "Referral code can only be used on your first registration" };
       }
 
@@ -788,7 +798,11 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       const newAvailableBalance = currentAvailableBalance + totalReferrerReward;
       const newCanWithdraw = canWithdraw(newAvailableBalance, cfg.minWithdrawal);
       const newNextMilestone = getNextMilestone(newSuccessfulCount);
-      const referrerRole = getStringValue(referrerUserData.activeRole, "WORKER");
+      // BUG #11 FIX: Single-role schema uses `role`; tolerate legacy `activeRole`.
+      const referrerRole = getStringValue(
+        referrerUserData.role || referrerUserData.activeRole,
+        "WORKER"
+      ).toUpperCase();
       const referrerName = getStringValue(
         referrerUserData.fullName || referrerUserData.companyName || latestCodeData.userName,
         "DutyPe User"
@@ -859,7 +873,11 @@ export const applyReferralCode = functions.https.onCall(async (data, context) =>
       transaction.set(referrerEventRef, {
         eventType: "REWARD_CREDITED",
         userId: latestReferrerUserId,
-        userRole: getStringValue(referrerUserData.activeRole, "WORKER"),
+        // BUG #11 FIX: canonical role field is `role`; fall back to legacy fields.
+        userRole: getStringValue(
+          referrerUserData.role || referrerUserData.activeRole,
+          "WORKER"
+        ).toUpperCase(),
         amount: totalReferrerReward,
         bonusAmount: milestoneBonus,
         timestamp: admin.firestore.FieldValue.serverTimestamp()

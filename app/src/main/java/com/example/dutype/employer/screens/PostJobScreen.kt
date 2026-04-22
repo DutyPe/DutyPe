@@ -628,7 +628,22 @@ fun PostJobScreen(
             JobUrgency.FLEXIBLE -> "LOW"
         }
         val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
-        
+
+        // BUG #6 FIX: payAmount is a free-form field (the form/help text says
+        // "Enter amount, range (10000-15000), or text (Based on experience)").
+        // The previous `toDoubleOrNull() ?: 0.0` collapsed every non-numeric
+        // input to 0.0, which the strict Firestore schema (`salary > 0`) then
+        // silently rejected so the post never went through. The parser keeps
+        // a positive numeric for filtering and surfaces the original text in
+        // the description so workers still see "Pay: 15000-20000" or
+        // "Pay: Negotiable".
+        val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
+        val descriptionWithPayText = if (payParsed.displayText != null) {
+            "Pay: ${payParsed.displayText}\n\n${jobPosting.description}"
+        } else {
+            jobPosting.description
+        }
+
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
             // Core job information
@@ -640,11 +655,11 @@ fun PostJobScreen(
             "addressText" to jobPosting.location,
             
             // Pay information
-            "salary" to (jobPosting.payAmount.toDoubleOrNull() ?: 0.0),
+            "salary" to payParsed.numeric,
             "salaryType" to jobPosting.payType.name,
             
             // Job details
-            "description" to jobPosting.description,
+            "description" to descriptionWithPayText,
             "gender" to gender,
             "experienceRequired" to experienceLevel,
             "shiftTiming" to shiftTiming.displayName,

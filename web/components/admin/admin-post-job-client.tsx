@@ -68,7 +68,14 @@ type LocationSuggestion = {
 
 const SALARY_TYPES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"];
 const SHIFTS = ["Flexible", "Day Shift", "Night Shift", "Rotational", "Morning", "Evening"];
-const URGENCY = ["LOW", "MEDIUM", "HIGH"];
+// BUG #5 FIX: Stored values stay LOW/MEDIUM/HIGH (Firestore rules whitelist
+// these), but the user-facing labels now match the Android app's JobUrgency
+// enum (`Today` / `Within 3 days` / `Within 1 week`).
+const URGENCY: Array<{ value: string; label: string }> = [
+  { value: "HIGH", label: "🔴 Today" },
+  { value: "MEDIUM", label: "🟡 Within 3 days" },
+  { value: "LOW", label: "🟢 Within 1 week" }
+];
 const GENDERS = ["Any", "Male", "Female"];
 const EXPERIENCE_LEVELS = [
   "No Experience Required",
@@ -109,7 +116,8 @@ const initialForm = {
   vacancies: "1",
   benefits: [] as string[],
   customBenefits: "",
-  expiresInDays: "15",
+  // BUG #4 FIX: Default expiry was 15 days; matches Android default of ~30.
+  expiresInDays: "30",
   whatsappSameAsPhone: true
 };
 
@@ -286,7 +294,7 @@ export function AdminPostJobClient() {
           workingHours: form.workingHours.trim() || undefined,
           vacancies: Number(form.vacancies) || 1,
           benefits,
-          expiresInDays: Number(form.expiresInDays) || 15
+          expiresInDays: Number(form.expiresInDays) || 30
         })
       });
 
@@ -348,7 +356,15 @@ export function AdminPostJobClient() {
           </label>
           <label className="admin-field">
             <span>Vacancies *</span>
-            <input type="number" min={1} max={1000} value={form.vacancies} onChange={(e) => update("vacancies", e.target.value)} />
+            {/* BUG #8 FIX: avoid wheel-scroll mutating the number. */}
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={form.vacancies}
+              onChange={(e) => update("vacancies", e.target.value)}
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+            />
           </label>
         </div>
       </div>
@@ -358,7 +374,19 @@ export function AdminPostJobClient() {
         <div className="admin-form-grid">
           <label className="admin-field">
             <span>Salary amount *</span>
-            <input type="number" min={1} value={form.salary} onChange={(e) => update("salary", e.target.value)} placeholder="e.g. 18000" required />
+            {/* BUG #8 FIX: <input type="number"> increments/decrements on
+                mouse-wheel scroll when focused, which silently turned 18000
+                into 17998 etc. Blur on wheel disables that behavior without
+                losing the numeric keypad / validation. */}
+            <input
+              type="number"
+              min={1}
+              value={form.salary}
+              onChange={(e) => update("salary", e.target.value)}
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+              placeholder="e.g. 18000"
+              required
+            />
           </label>
           <label className="admin-field">
             <span>Salary type *</span>
@@ -378,7 +406,15 @@ export function AdminPostJobClient() {
           </label>
           <label className="admin-field">
             <span>Expires in (days)</span>
-            <input type="number" min={1} max={60} value={form.expiresInDays} onChange={(e) => update("expiresInDays", e.target.value)} />
+            {/* BUG #8 FIX: avoid wheel-scroll mutating the number. */}
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={form.expiresInDays}
+              onChange={(e) => update("expiresInDays", e.target.value)}
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+            />
           </label>
         </div>
         <div className="admin-field">
@@ -387,11 +423,11 @@ export function AdminPostJobClient() {
             {URGENCY.map((u) => (
               <button
                 type="button"
-                key={u}
-                className={`admin-chip ${form.urgency === u ? "active" : ""}`}
-                onClick={() => update("urgency", u)}
+                key={u.value}
+                className={`admin-chip ${form.urgency === u.value ? "active" : ""}`}
+                onClick={() => update("urgency", u.value)}
               >
-                {u === "LOW" ? "🟢 Low" : u === "MEDIUM" ? "🟡 Medium" : "🔴 High"}
+                {u.label}
               </button>
             ))}
           </div>

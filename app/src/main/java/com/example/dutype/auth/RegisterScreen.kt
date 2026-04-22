@@ -214,7 +214,14 @@ private fun RegisterContent(
                                     ).show()
                                 },
                                 onFailure = { error ->
+                                    // BUG #11 FIX: Previously this was a silent log.warn — users
+                                    // never knew their referral failed and saw no money credited.
+                                    // Surface the CF error so they can retry / report; the
+                                    // profile-setup fallback will still attempt again.
                                     Timber.w(error, "REGISTER - Immediate referral apply failed; fallback will run after profile completion")
+                                    val msg = error.message?.takeIf { it.isNotBlank() }
+                                        ?: if (isTelugu) "రిఫరల్ కోడ్ వర్తించలేదు. ప్రొఫైల్ పూర్తయిన తర్వాత మళ్లీ ప్రయత్నిస్తాం." else "Couldn't apply referral now — we'll retry after profile setup."
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                                 }
                             )
                         }

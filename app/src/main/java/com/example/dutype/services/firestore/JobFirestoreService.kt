@@ -395,7 +395,13 @@ class JobFirestoreService @Inject constructor(
                 "addressText" to addressText,
                 "urgency" to urgency,
                 "status" to "open",
-                "createdAt" to createdAt
+                "createdAt" to createdAt,
+                // BUG #14 FIX: `getJobsByEmployer` queries `jobmetadata` by
+                // `employerId`. Without this field, the employer's own posts
+                // never appear in their My Jobs / dashboard list, even though
+                // they're saved (workers see them because workers query by
+                // geohash, not employerId).
+                "employerId" to employerId
             )
 
             val detailsData = linkedMapOf<String, Any>(

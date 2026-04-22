@@ -108,10 +108,24 @@ export function useProductSession(): ProductSession {
       return;
     }
 
-    await updateDoc(doc(services.db, "users", user.uid), {
-      activeRole: role,
-      lastActiveAt: serverTimestamp()
-    });
+    // BUG #10 FIX: previously the updateDoc throw was unhandled (no try/catch)
+    // and silently failed when Firestore rules rejected the write
+    // (single-role schema doesn't allow `activeRole` on users-doc updates).
+    // Surface the message via setError so the sidebar/UI can show it.
+    try {
+      await updateDoc(doc(services.db, "users", user.uid), {
+        activeRole: role,
+        lastActiveAt: serverTimestamp()
+      });
+      setError(null);
+    } catch (switchError) {
+      setError(
+        switchError instanceof Error
+          ? switchError.message
+          : "Failed to switch active role."
+      );
+      return;
+    }
 
     setProfile((current) =>
       current

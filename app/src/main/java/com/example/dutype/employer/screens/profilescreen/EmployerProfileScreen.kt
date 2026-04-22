@@ -492,6 +492,12 @@ fun EmployerProfileScreen(
             // ═══════════════════════════════════════════════════════════════
             // REWARDS SECTION
             // ═══════════════════════════════════════════════════════════════
+            // BUG #11 FIX: Remove "Refer & Earn" entry from the EMPLOYER profile.
+            // The referral program is worker-only (rewards are credited via the
+            // applyReferralCode Cloud Function on worker registration). Showing
+            // it on the employer side caused confusion and bug reports about
+            // money "not being credited" when employers tried to use it.
+            /*
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -523,6 +529,7 @@ fun EmployerProfileScreen(
                     }
                 }
             }
+            */
 
             // ═══════════════════════════════════════════════════════════════
             // OTHERS SECTION

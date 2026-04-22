@@ -414,9 +414,20 @@ fun MandatoryEmployerProfileSetupScreen(
                 // Navigate to the returnRoute if provided (e.g. post_job after
                 // a guest filled the form and completed profile setup), otherwise
                 // fall back to the employer home screen.
+                //
+                // BUG #1 FIX: `EMPLOYER_POST_JOB` (and other employer-shell
+                // routes) only exist inside the nested `EmployerMainScreen`
+                // NavHost — not in this outer graph. Navigating to them
+                // directly from here crashes with
+                // `Navigation destination ... cannot be found in the navigation
+                // graph`. We instead navigate the outer controller to
+                // `EMPLOYER_HOME` (which mounts `EmployerMainScreen`) and queue
+                // the desired inner route via `EmployerInnerNavQueue`; the
+                // employer shell drains it on first composition.
                 if (returnRoute != null) {
-                    Timber.d("📍 Profile complete - navigating to returnRoute: $returnRoute")
-                    navController.navigate(returnRoute) {
+                    Timber.d("📍 Profile complete - queuing inner route '$returnRoute' and navigating to EMPLOYER_HOME")
+                    com.example.dutype.navigation.EmployerInnerNavQueue.setPending(returnRoute)
+                    navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }

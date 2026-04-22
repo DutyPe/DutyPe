@@ -159,22 +159,47 @@ async function getJobDocument(jobId: string): Promise<ProductJob | null> {
 function buildWorkerProfilePayload(
   profile: ProductUserProfile | null,
   form: WorkerProfileForm,
-  availableRoles: string[]
+  _availableRoles: string[]
 ) {
-  const mergedProfile: ProductUserProfile = {
-    ...profile,
-    ...form,
-    activeRole: "WORKER",
-    fullName: form.fullName.trim(),
-    name: form.fullName.trim() || (profile?.name ?? ""),
-    phone: form.phone.trim(),
-    role: "WORKER",
-    roles: [...new Set([...availableRoles, "WORKER"])]
+  const trimmedName = form.fullName.trim();
+  const trimmedPhone = form.phone.trim();
+
+  // BUG #3 FIX: Firestore rules strictly whitelist fields per collection.
+  // The previous payload mixed users + worker_profiles + legacy fields
+  // (activeRole, roles, name, updatedAt, id, address, bio, ...) which made
+  // the whole updateDoc(users/{uid}, ...) call fail with permission-denied.
+  // The end result: worker name was never saved, so the product-shell
+  // sidebar showed the "DutyPe user" fallback. Split into two narrow payloads.
+  const usersDocPayload: Record<string, unknown> = {
+    fullName: trimmedName,
+    phone: trimmedPhone,
+    role: "WORKER"
   };
 
+  if (profile?.profileImageUrl) {
+    usersDocPayload.profileImageUrl = profile.profileImageUrl;
+  }
+
+  // worker_profiles requires `skills` to be a list (rule: skills is list).
+  const skillsList = form.skills
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 30);
+
+  const workerProfilePayload: Record<string, unknown> = {
+    skills: skillsList,
+    isAvailable: true
+  };
+  if (form.dateOfBirth.trim()) workerProfilePayload.dateOfBirth = form.dateOfBirth.trim();
+  if (form.gender.trim()) workerProfilePayload.gender = form.gender.trim();
+  if (form.experience.trim()) workerProfilePayload.experience = form.experience.trim();
+
   return {
-    ...mergedProfile,
-    updatedAt: Date.now()
+    usersDocPayload,
+    workerProfilePayload,
+    trimmedName,
+    trimmedPhone
   };
 }
 
@@ -1276,24 +1301,17 @@ export function WorkerProfileClient({ session }: SharedProps) {
       setMessage(null);
       setError(null);
 
-      const payload = buildWorkerProfilePayload(session.profile, form, session.availableRoles);
+      const { usersDocPayload, workerProfilePayload } = buildWorkerProfilePayload(
+        session.profile,
+        form,
+        session.availableRoles
+      );
 
-      await updateDoc(doc(activeServices.db, "users", activeUser.uid), payload);
+      // BUG #3 FIX: write only the schema-whitelisted fields per collection.
+      await updateDoc(doc(activeServices.db, "users", activeUser.uid), usersDocPayload);
       await setDoc(
         doc(activeServices.db, "worker_profiles", activeUser.uid),
-        {
-          address: payload.address ?? "",
-          bio: payload.bio ?? "",
-          dateOfBirth: payload.dateOfBirth ?? "",
-          email: activeUser.email ?? payload.email ?? "",
-          experience: payload.experience ?? "",
-          fullName: payload.fullName ?? payload.name ?? "",
-          gender: payload.gender ?? "",
-          phone: payload.phone ?? "",
-          skills: payload.skills ?? "",
-          updatedAt: payload.updatedAt ?? Date.now(),
-          userId: activeUser.uid
-        },
+        workerProfilePayload,
         { merge: true }
       );
 
