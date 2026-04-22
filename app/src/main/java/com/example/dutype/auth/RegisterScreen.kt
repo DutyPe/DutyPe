@@ -40,7 +40,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -793,14 +792,6 @@ private fun RegisterReferralSection(
                         Text(
                             if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
                             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Filled.CardGiftcard,
-                            contentDescription = null,
-                            tint = WorkerColors.IconSecondary,
-                            modifier = Modifier.size(20.dp)
                         )
                     },
                     trailingIcon = {

@@ -38,15 +38,14 @@ class UserMetadata @Inject constructor(
     private val auth: FirebaseAuth
 ) {
     private val allowedUserFields = setOf(
-        "userId",
         "phone",
         "fullName",
         "profileImageUrl",
-        "roles",
-        "activeRole",
+        "role",
         "location",
         "geohash",
         "fcmToken",
+        "language",
         "createdAt",
         "referralCode",
         "referredByCode",
@@ -230,7 +229,11 @@ class UserMetadata @Inject constructor(
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
             
             if (doc.exists()) {
-                enforceStrictUsersSchemaIfNeeded(userId, doc, authPhoneNumber)
+                val data = doc.data.orEmpty()
+                val unknownFields = data.keys.filter { it !in allowedUserFields }
+                if (unknownFields.isNotEmpty()) {
+                    Timber.w("📊 UserMetadata: Found unsupported users fields for %s: %s", userId, unknownFields)
+                }
 
                 val firestorePhone = doc.getString("phone") ?: ""
                 val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
@@ -275,49 +278,9 @@ class UserMetadata @Inject constructor(
         doc: DocumentSnapshot,
         authPhoneNumber: String
     ) {
-        val data = doc.data ?: return
-        val hasLegacyOrExtraFields = data.keys.any { it !in allowedUserFields }
-        if (!hasLegacyOrExtraFields) return
-
-        val roles = (data["roles"] as? List<*>)
-            ?.mapNotNull { it?.toString()?.uppercase() }
-            ?.filter { it == "WORKER" || it == "EMPLOYER" }
-            ?.distinct()
-            .orEmpty()
-            .ifEmpty { listOf("WORKER") }
-
-        val activeRole = (data["activeRole"] as? String)?.uppercase()
-            ?.takeIf { it == "WORKER" || it == "EMPLOYER" }
-            ?: roles.first()
-
-        @Suppress("UNCHECKED_CAST")
-        val location = data["location"] as? Map<String, Any>
-        val lat = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
-        val lng = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
-
-        val strictDoc = mutableMapOf<String, Any>(
-            "userId" to userId,
-            "phone" to ((data["phone"] as? String).orEmpty().ifBlank { authPhoneNumber }),
-            "fullName" to ((data["fullName"] as? String).orEmpty()),
-            "roles" to roles,
-            "activeRole" to activeRole,
-            "location" to mapOf("lat" to lat, "lng" to lng),
-            "geohash" to ((data["geohash"] as? String).orEmpty()),
-            "createdAt" to (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp.now())
-        )
-
-        val profileImageUrl = (data["profileImageUrl"] as? String).orEmpty()
-        if (profileImageUrl.isNotBlank()) strictDoc["profileImageUrl"] = profileImageUrl
-
-        val fcmToken = (data["fcmToken"] as? String).orEmpty()
-        if (fcmToken.isNotBlank()) strictDoc["fcmToken"] = fcmToken
-
-        (data["referralCode"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referralCode"] = it }
-        (data["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referredByCode"] = it }
-        (data["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let { strictDoc["referredByUserId"] = it }
-
-        firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).set(strictDoc).await()
-        Timber.w("📊 UserMetadata: Pruned legacy users fields for $userId")
+        // Disabled intentionally: profile reads must never perform users/{uid} writes.
+        // Strict-schema cleanup is handled by auth/profile services and admin migrations.
+        return
     }
     
     private suspend fun loadWorkerStats(userId: String) {

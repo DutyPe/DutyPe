@@ -652,6 +652,9 @@ private fun PhoneInputContent(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
+    val referralConfig by appConfigViewModel.referralConfig.collectAsState()
+    val signupBonusInt = referralConfig.signupBonus.toInt()
     val policyLinkColor = Color(0xFF1F2937)
     val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
@@ -894,13 +897,6 @@ private fun PhoneInputContent(
                                 style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                             )
                         },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(id = android.R.drawable.ic_menu_share),
-                                contentDescription = null,
-                                tint = WorkerColors.IconSecondary
-                            )
-                        },
                         trailingIcon = {
                             when {
                                 isValidatingCode -> {
@@ -1060,7 +1056,7 @@ private fun PhoneInputContent(
                     }
                     else -> {
                         Text(
-                            text = if (isTelugu) "₹25 బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹25 bonus",
+                            text = if (isTelugu) "₹$signupBonusInt బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹$signupBonusInt bonus",
                             style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                         )
                     }

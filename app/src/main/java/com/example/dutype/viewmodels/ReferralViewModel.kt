@@ -53,9 +53,31 @@ class ReferralViewModel @Inject constructor(
      * traffic. We now just ensure observers are running.
      */
     fun loadReferralData() {
+        bootstrapReferralSnapshot()
         ensureRealtimeObservers()
         loadWithdrawalHistory()
         loadReferrerInfo()
+    }
+
+    private fun bootstrapReferralSnapshot() {
+        viewModelScope.launch {
+            try {
+                referralService.getCurrentUserReferralStats().fold(
+                    onSuccess = { stats ->
+                        _uiState.value = _uiState.value.copy(
+                            stats = stats,
+                            isLoading = false,
+                            error = null
+                        )
+                    },
+                    onFailure = { e ->
+                        Timber.w(e, "Failed to bootstrap referral stats snapshot")
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Error bootstrapping referral stats snapshot")
+            }
+        }
     }
 
     fun refreshReferralStats() {
