@@ -393,7 +393,6 @@ class JobFirestoreService @Inject constructor(
                 "location" to location,
                 "geohash" to geohash,
                 "addressText" to addressText,
-                "contactNumber" to contactNumber,
                 "urgency" to urgency,
                 "status" to "open",
                 "createdAt" to createdAt
@@ -403,6 +402,7 @@ class JobFirestoreService @Inject constructor(
                 "employerId" to employerId,
                 "createdAt" to createdAt,
                 "expiresAt" to expiresAt,
+                "contactNumber" to contactNumber,
                 "description" to description,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
