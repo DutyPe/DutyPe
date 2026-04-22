@@ -3,7 +3,7 @@ package com.example.dutype.services
 import android.content.Context
 import com.example.dutype.utils.LocaleHelper
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -148,18 +148,31 @@ class FCMTokenManager @Inject constructor(
      * Save FCM token to Firestore for the user
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
+        val userRef = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
+            .document(userId)
+
         try {
-            val tokenData = mapOf(
-                "fcmToken" to token
-            )
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .update(tokenData)
-                .await()
+            val userDoc = userRef.get().await()
+            if (!userDoc.exists()) {
+                Timber.w("FCMTokenManager: user doc missing, token save skipped for user: $userId")
+                return
+            }
+
+            userRef.update("fcmToken", token).await()
             Timber.i("FCMTokenManager: Token saved for user: $userId")
-        } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error saving token to Firestore")
-            throw e
+        } catch (e: FirebaseFirestoreException) {
+            when (e.code) {
+                FirebaseFirestoreException.Code.PERMISSION_DENIED -> {
+                    Timber.w("FCMTokenManager: permission denied saving token for user: $userId")
+                }
+                FirebaseFirestoreException.Code.NOT_FOUND -> {
+                    Timber.w("FCMTokenManager: user doc not found during token save for user: $userId")
+                }
+                else -> {
+                    Timber.e(e, "FCMTokenManager: Error saving token to Firestore")
+                    throw e
+                }
+            }
         }
     }
     
@@ -168,13 +181,7 @@ class FCMTokenManager @Inject constructor(
      */
     suspend fun saveTokenToFirestoreWithRole(userId: String, token: String, role: String) {
         try {
-            val tokenData = mapOf(
-                "fcmToken" to token
-            )
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .update(tokenData)
-                .await()
+            saveTokenToFirestore(userId, token)
             Timber.i("FCMTokenManager: Token with role saved for user: $userId, role: $role")
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error saving token with role to Firestore")

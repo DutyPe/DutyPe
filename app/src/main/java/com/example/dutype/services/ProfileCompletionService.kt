@@ -717,18 +717,27 @@ class ProfileCompletionService @Inject constructor(
 
             val now = Timestamp.now()
             val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
+            val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
             val existingUserSnapshot = userRef.get().await()
             var existingUser = existingUserSnapshot.data.orEmpty()
+            val existingEmployer = employerRef.get().await().data.orEmpty()
+
+            val companyName = (profileData["companyName"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingUser["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: currentUser.displayName?.trim()?.takeIf { it.isNotBlank() }
+                .orEmpty()
 
             val fullName = (profileData["fullName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
-                ?: (existingUser["fullName"] as? String)?.trim().orEmpty()
+                ?: (existingUser["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: companyName
             val phone = (profileData["phone"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingUser["phone"] as? String)?.trim()
                 ?: currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val profileImageUrl = (profileData["profileImageUrl"] as? String)?.trim()
-            val companyName = (profileData["companyName"] as? String)?.trim().orEmpty()
 
             if (fullName.isBlank()) {
                 return Result.failure(IllegalArgumentException("Full name is required"))
@@ -752,8 +761,6 @@ class ProfileCompletionService @Inject constructor(
                 existingUser = userRef.get().await().data.orEmpty()
             }
 
-            val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
-
             // Single-role architecture: always overwrite role to EMPLOYER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
                 "fullName" to fullName,
@@ -762,6 +769,8 @@ class ProfileCompletionService @Inject constructor(
             userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
             // Email lives on employer_profiles, NOT users.
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (profileData["contactEmail"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             if (!profileImageUrl.isNullOrBlank()) {
                 userUpdates["profileImageUrl"] = profileImageUrl
             }

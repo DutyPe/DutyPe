@@ -23,18 +23,13 @@
  */
 
 const admin = require('firebase-admin');
-const path = require('path');
-
-const SERVICE_ACCOUNT = path.join(
-  __dirname,
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
-);
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
 
 const APPLY = process.argv.includes('--apply');
 const BATCH_SIZE = 400;
 
 admin.initializeApp({
-  credential: admin.credential.cert(require(SERVICE_ACCOUNT))
+  credential: admin.credential.cert(loadServiceAccount())
 });
 
 const db = admin.firestore();

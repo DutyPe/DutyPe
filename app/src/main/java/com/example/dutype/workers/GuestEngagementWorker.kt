@@ -19,6 +19,7 @@ import com.example.dutype.MainActivity
 import com.example.dutype.services.NotificationChannelManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -179,6 +180,7 @@ class GuestEngagementWorker @AssistedInject constructor(
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.NOTIFICATIONS)
                 .whereEqualTo("recipientId", userId)
                 .whereGreaterThan("createdAt", dayStart)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
                 .documents

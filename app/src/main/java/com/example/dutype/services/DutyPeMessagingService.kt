@@ -11,6 +11,7 @@ import com.dutype.app.R
 import com.example.dutype.MainActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -110,7 +111,14 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 Timber.d("🔔 ✅ FCM token saved to users.fcmToken")
             }
             .addOnFailureListener { e ->
-                Timber.e(e, "🔔 ❌ Failed to save FCM token")
+                val fsError = e as? FirebaseFirestoreException
+                if (fsError?.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                    fsError?.code == FirebaseFirestoreException.Code.NOT_FOUND
+                ) {
+                    Timber.w("🔔 FCM token save skipped: ${fsError.code}")
+                } else {
+                    Timber.e(e, "🔔 ❌ Failed to save FCM token")
+                }
             }
     }
     

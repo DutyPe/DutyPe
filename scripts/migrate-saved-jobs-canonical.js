@@ -15,14 +15,9 @@
  */
 
 const admin = require('firebase-admin');
-const path = require('path');
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
 
-const serviceAccount = require(path.join(
-  __dirname,
-  'dutypeapp-firebase-adminsdk-fbsvc-695bd9746e.json'
-));
-
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+admin.initializeApp({ credential: admin.credential.cert(loadServiceAccount()) });
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
