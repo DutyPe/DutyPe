@@ -114,6 +114,19 @@ fun MainNavGraph(
         mutableStateOf(cachedStartDestination ?: Routes.ONBOARDING)
     }
     var navigationDetermined by remember { mutableStateOf(cachedStartDestination != null) }
+
+    // Bug #9 fix: when we have a cached start destination from a previous
+    // launch, the NavHost can render immediately. Tell MainActivity to drop
+    // the system splash on the very first frame instead of waiting for the
+    // async resolver below to finish — that resolver still runs in parallel
+    // to reconcile the route, but the user is already looking at real
+    // content. This shaves the perceived splash time on warm cold-starts
+    // from ~1.5s to one frame.
+    LaunchedEffect(Unit) {
+        if (cachedStartDestination != null) {
+            runCatching { onReady() }
+        }
+    }
     
     LaunchedEffect(Unit) {
         try {

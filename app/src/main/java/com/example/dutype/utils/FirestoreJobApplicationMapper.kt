@@ -34,6 +34,7 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
         companyName = data["companyName"]?.toString().orEmpty(),
         workerName = data["workerName"]?.toString().orEmpty(),
         workerPhone = (data["workerPhone"] as? String)?.takeIf { it.isNotBlank() },
+        workerEmail = (data["workerEmail"] as? String)?.takeIf { it.isNotBlank() },
         workerProfileImageUrl = (data["workerProfileImageUrl"] as? String)?.takeIf { it.isNotBlank() },
         workerSkills = skills,
         employerPhone = (data["employerPhone"] as? String)?.takeIf { it.isNotBlank() }

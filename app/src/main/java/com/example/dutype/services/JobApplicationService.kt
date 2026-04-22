@@ -422,6 +422,7 @@ class JobApplicationService @Inject constructor(
             }
             val snapshotName = (workerSnapshot["fullName"] as? String).orEmpty()
             val snapshotPhone = (workerSnapshot["phone"] as? String)?.takeIf { it.isNotBlank() }
+            val snapshotEmail = (workerSnapshot["email"] as? String)?.takeIf { it.isNotBlank() }
             val snapshotImage = (workerSnapshot["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }
             val snapshotSkills = (workerSnapshot["skills"] as? List<*>)
                 ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
@@ -441,6 +442,7 @@ class JobApplicationService @Inject constructor(
                 companyName = companyName,
                 workerName = snapshotName,
                 workerPhone = snapshotPhone,
+                workerEmail = snapshotEmail,
                 workerProfileImageUrl = snapshotImage,
                 workerSkills = snapshotSkills,
                 employerPhone = employerContactPhone,

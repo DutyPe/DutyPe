@@ -707,7 +707,11 @@ private fun JobDetailsContent(
     
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        // Bug #10 fix: leave room at the bottom so the report banner and
+        // similar-jobs cards stay fully visible above the sticky
+        // BottomActionBar (Call + Apply, ~74dp tall) instead of being
+        // hidden behind it when the user scrolls to the end.
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         // Job Image Section - Removed in optimization (jobImageUrl field no longer exists)

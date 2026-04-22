@@ -389,7 +389,7 @@ service cloud.firestore {
           // employer can render applicant cards without a worker_profiles
           // read (which is owner-only). Worker writes these from their
           // own users + worker_profiles docs at apply time.
-          'workerName', 'workerPhone', 'workerProfileImageUrl', 'workerSkills',
+          'workerName', 'workerPhone', 'workerEmail', 'workerProfileImageUrl', 'workerSkills',
           'jobTitle', 'companyName', 'jobLocation',
           // Quick-call: denormalized employer contact phone copied from
           // job_details.contactNumber so workers can dial directly from
@@ -405,6 +405,7 @@ service cloud.firestore {
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
         (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
         (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerEmail' in request.resource.data) || (request.resource.data.workerEmail is string && request.resource.data.workerEmail.size() <= 200)) &&
         (!('workerProfileImageUrl' in request.resource.data) || (request.resource.data.workerProfileImageUrl is string && request.resource.data.workerProfileImageUrl.size() <= 1024)) &&
         (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 20)) &&
         (!('jobTitle' in request.resource.data) || (request.resource.data.jobTitle is string && request.resource.data.jobTitle.size() <= 200)) &&

@@ -130,6 +130,7 @@ fun ProfessionalWorkerProfileViewScreen(
                             workerId = app.workerId,
                             fullName = app.workerName.ifBlank { "Unknown Worker" },
                             phone = app.workerPhone ?: "",
+                            email = app.workerEmail.orEmpty(),
                             location = "",
                             gender = "",
                             profileImageUrl = app.workerProfileImageUrl,
@@ -588,6 +589,9 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
             )
             
             PersonalInfoRow("Phone", workerProfile.phone, isPhone = true)
+            if (workerProfile.email.isNotBlank()) {
+                PersonalInfoRow("Email", workerProfile.email)
+            }
             PersonalInfoRow("Location", workerProfile.location)
             PersonalInfoRow("Gender", workerProfile.gender)
         }
@@ -1026,6 +1030,9 @@ data class WorkerProfileData(
     val workerId: String,
     val fullName: String,
     val phone: String,
+    // Bug #7 fix: surface the worker's contact email on the employer
+    // detail screen. Empty when the worker hasn't shared one.
+    val email: String = "",
     val location: String,
     val gender: String,
     val profileImageUrl: String?,

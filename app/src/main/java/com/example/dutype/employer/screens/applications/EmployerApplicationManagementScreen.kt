@@ -442,7 +442,7 @@ private fun ApplicationCard(
     onUnlockContact: () -> Unit = {},
     onStatusUpdate: (ApplicationStatus, String?) -> Unit
 ) {
-    val workerEmail = ""
+    val workerEmail = application.workerEmail.orEmpty()
     // Determine display name - fallback to "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName

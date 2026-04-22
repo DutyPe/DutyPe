@@ -1,122 +1,61 @@
-﻿.\gradlew.bat : WARNING: A restricted method in 
-java.lang.System has been called
+﻿.\gradlew.bat : WARNING: A restricted method in java.lang.System has been called
 At line:1 char:1
-+ .\gradlew.bat :app:assembleDebug --console=plain 
-2>&1 | Out-File buil ...
-+ 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: 
-    A rest...has been called:String) [], RemoteExcep  
-  tion
++ .\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Out-File buil ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called:String) 
+    [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-WARNING: java.lang.System::load has been called by net
-.rubygrapefruit.platform.internal.NativeLibraryLoader 
-in an unnamed module (file:/C:/Users/91961/.gradle/wra
-pper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/g
-radle-8.13/lib/native-platform-0.22-milestone-28.jar)
-WARNING: Use --enable-native-access=ALL-UNNAMED to 
-avoid a warning for callers in this module
-WARNING: Restricted methods will be blocked in a 
-future release unless native access is enabled
+WARNING: java.lang.System::load has been called by 
+net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:
+/Users/91961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.1
+3/lib/native-platform-0.22-milestone-28.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this 
+module
+WARNING: Restricted methods will be blocked in a future release unless native access 
+is enabled
 
+Starting a Gradle Daemon (subsequent builds will be faster)
 Reusing configuration cache.
 > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
-> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:generateDebugBuildConfig UP-TO-DATE
-> Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
-> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:compileDebugShaders NO-SOURCE
-> Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:generateDebugResources UP-TO-DATE
-> Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:packageDebugResources UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
-> Task :app:mergeDebugNativeLibs UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:parseDebugLocalResources UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:stripDebugDebugSymbols UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
 > Task :app:mapDebugSourceSetPaths UP-TO-DATE
 > Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
 > Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :app:processDebugResources UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
 > Task :app:kspDebugKotlin
 > Task :app:compileDebugKotlin
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/auth/EnhancedLoginScreen.kt:361:60 'fun EnterTransition.with(exit: ExitTransition): ContentTransform' is deprecated. Infix fun EnterTransition.with(ExitTransition) has been renamed to togetherWith.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:271:22 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:272:44 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:284:9 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:285:9 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:293:9 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:293:32 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:455:9 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:456:9 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:461:9 'val summariesByCategoryCache: MutableMap<String, JobCacheManager.CacheEntry<List<JobListingSummary>>>' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:462:9 'val summariesByLocationCache: MutableMap<String, JobCacheManager.CacheEntry<List<JobListingSummary>>>' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:477:9 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:478:9 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:483:9 'val summariesByCategoryCache: MutableMap<String, JobCacheManager.CacheEntry<List<JobListingSummary>>>' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:484:9 'val summariesByLocationCache: MutableMap<String, JobCacheManager.CacheEntry<List<JobListingSummary>>>' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:529:36 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:530:43 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:530:107 'var allJobSummariesCacheTimestamp: Long' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/cache/JobCacheManager.kt:550:17 'var allJobSummariesCache: List<JobListingSummary>?' is deprecated. List caching removed.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/common/screens/support/SupportScreens.kt:157:34 'val Icons.Filled.HelpOutline: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.HelpOutline.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/common/screens/support/SupportScreens.kt:162:34 'val Icons.Filled.Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/CommonHeader.kt:83:53 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/FeedbackBottomSheet.kt:413:65 'val Icons.Filled.Send: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Send.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/LoginBottomSheet.kt:451:60 'fun EnterTransition.with(exit: ExitTransition): ContentTransform' is deprecated. Infix fun EnterTransition.with(ExitTransition) has been renamed to togetherWith.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/LoginBottomSheet.kt:976:43 'constructor(capitalization: KeyboardCapitalization = ..., autoCorrect: Boolean, keyboardType: KeyboardType = ..., imeAction: ImeAction = ..., platformImeOptions: PlatformImeOptions? = ..., showKeyboardOnFocus: Boolean? = ..., hintLocales: LocaleList? = ...): KeyboardOptions' is deprecated. Please use the new constructor that takes optional autoCorrectEnabled parameter.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/di/AppModule.kt:91:18 'fun setPersistenceEnabled(p0: Boolean): FirebaseFirestoreSettings.Builder' is deprecated. Deprecated in Java.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/di/AppModule.kt:92:18 'fun setCacheSizeBytes(p0: Long): FirebaseFirestoreSettings.Builder' is deprecated. Deprecated in Java.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/components/PostJobComponents.kt:92:18 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/components/PostJobComponents.kt:476:53 'val Icons.Filled.Send: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Send.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/EditJobScreen.kt:423:61 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/EditJobScreen.kt:758:57 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/EditJobScreen.kt:912:59 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/EmployerHistoryScreen.kt:123:32 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/MandatoryEmployerProfileSetupScreen.kt:1062:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1291:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1297:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1302:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1383:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1441:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1453:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1487:37 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:2074:9 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:2162:9 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:2555:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:3172:33 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:3554:13 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/location/ManualLocationScreen.kt:173:38 'fun resume(value: List<LocationSuggestion>, onCancellation: ((@ParameterName(...) Throwable) -> Unit)?): Unit' is deprecated. Use the overload that also accepts the `value` and the coroutine context in lambda.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/navigation/DeepLinkBus.kt:44:17 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/services/ProfileCompletionService.kt:294:63 Condition is always 'true'.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/services/ReferralService.kt:709:55 Unchecked cast of 'kotlin.Any?' to 'kotlin.collections.List<kotlin.collections.Map<kotlin.String, kotlin.Any>>'.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/viewmodels/FirestoreJobViewModel.kt:1231:40 'fun getJobsByLocation(location: String, limit: Long = ...): Flow<Result<List<JobListing>>>' is deprecated. Use getAllJobsSummary() with calculateSummaryDistances() for better performance.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/EarningsDashboardScreen.kt:330:34 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:867:47 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:1970:56 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:1974:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/NotificationDetailScreen.kt:252:60 'val Icons.Filled.Message: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Message.
 w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/WorkerHistoryScreen.kt:119:32 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/map/JobMapScreen.kt:832:39 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
 w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/myJobs/MyJobsScreen.kt:233:40 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
 
 > Task :app:compileDebugJavaWithJavac
@@ -131,6 +70,6 @@ w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/scr
 > Task :app:assembleDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 5m 1s
+BUILD SUCCESSFUL in 5m 39s
 42 actionable tasks: 8 executed, 34 up-to-date
 Configuration cache entry reused.

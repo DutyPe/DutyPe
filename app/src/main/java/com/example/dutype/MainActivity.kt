@@ -146,13 +146,14 @@ class MainActivity : ComponentActivity() {
         var keepSplashOnScreen = true
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
 
-        // Bug #5.1 belt-and-suspenders: hard-cap the system splash at 2s so a
-        // catastrophic Compose / nav failure (e.g. Hilt init crash, OOM in
-        // theme) cannot leave the user staring at a frozen splash forever.
-        // The splash is allowed to dismiss earlier via onReady() below.
+        // Bug #9 fix: hard-cap the system splash at 1s (was 2s) so a
+        // catastrophic Compose / nav failure cannot leave the user staring
+        // at a frozen splash. The cached-start-destination path in
+        // MainNavGraph dismisses the splash on the very first frame, so
+        // this timeout only matters on the first install.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
-        }, 2000L)
+        }, 1000L)
         
         super.onCreate(savedInstanceState)
         

@@ -31,6 +31,11 @@ data class JobApplication(
     val companyName: String = "",
     val workerName: String = "",
     val workerPhone: String? = null,
+    // Bug #7 fix: surface the worker's contact email on the employer
+    // application card / detail screen. Denormalized at apply time from
+    // worker_profiles.email so we don't need an extra read (rules block
+    // employers from reading worker_profiles directly).
+    val workerEmail: String? = null,
     val workerProfileImageUrl: String? = null,
     // Bug #18 / #19 fix: denormalized at write time so the employer can
     // render the applicant card without reading worker_profiles (locked
@@ -62,6 +67,7 @@ data class JobApplication(
         if (jobLocation.isNotBlank()) base["jobLocation"] = jobLocation
         if (workerName.isNotBlank()) base["workerName"] = workerName
         workerPhone?.takeIf { it.isNotBlank() }?.let { base["workerPhone"] = it }
+        workerEmail?.takeIf { it.isNotBlank() }?.let { base["workerEmail"] = it }
         workerProfileImageUrl?.takeIf { it.isNotBlank() }?.let { base["workerProfileImageUrl"] = it }
         if (workerSkills.isNotEmpty()) base["workerSkills"] = workerSkills.take(20)
         employerPhone?.takeIf { it.isNotBlank() }?.let { base["employerPhone"] = it }
