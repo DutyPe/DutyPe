@@ -54,11 +54,8 @@ const announcements = [
     targetRole: null, // null = all users
     expiresAt: admin.firestore.Timestamp.fromDate(new Date('2026-12-31')),
     isActive: true,
-    isDismissible: true,
-    actionText: 'Get Started',
     actionRoute: 'dutype://home',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: 'system'
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   },
   {
     id: 'new_features_jan_2026',
@@ -69,11 +66,8 @@ const announcements = [
     targetRole: null,
     expiresAt: admin.firestore.Timestamp.fromDate(new Date('2026-02-28')),
     isActive: true,
-    isDismissible: true,
-    actionText: 'Learn More',
     actionRoute: 'dutype://notifications',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: 'system'
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   },
   {
     id: 'worker_bonus_jan_2026',
@@ -84,11 +78,8 @@ const announcements = [
     targetRole: 'worker',
     expiresAt: admin.firestore.Timestamp.fromDate(new Date('2026-03-31')),
     isActive: true,
-    isDismissible: true,
-    actionText: 'Complete Profile',
     actionRoute: 'dutype://worker/profile',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: 'system'
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   },
   {
     id: 'employer_discount_jan_2026',
@@ -99,11 +90,8 @@ const announcements = [
     targetRole: 'employer',
     expiresAt: admin.firestore.Timestamp.fromDate(new Date('2026-03-31')),
     isActive: true,
-    isDismissible: true,
-    actionText: 'Post Job',
     actionRoute: 'dutype://employer/post-job',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: 'system'
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   },
   {
     id: 'referral_program_2026',
@@ -114,11 +102,8 @@ const announcements = [
     targetRole: null,
     expiresAt: admin.firestore.Timestamp.fromDate(new Date('2026-12-31')),
     isActive: true,
-    isDismissible: true,
-    actionText: 'Refer Now',
     actionRoute: 'dutype://refer',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdBy: 'system'
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
   }
 ];
 
