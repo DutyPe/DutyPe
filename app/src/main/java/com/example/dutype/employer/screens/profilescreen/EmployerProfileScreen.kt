@@ -83,8 +83,6 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
-    var fallbackCompanyName by remember { mutableStateOf("") }
-    var fallbackPhone by remember { mutableStateOf("") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -105,13 +103,6 @@ fun EmployerProfileScreen(
             try {
                 // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
                 profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
-
-                // Fallback source: merged employer profile payload (users + employer_profiles).
-                val mergedResult = profileCompletionViewModel.profileCompletionService.getEmployerProfileData(currentUser.uid)
-                mergedResult.getOrNull()?.let { merged ->
-                    fallbackCompanyName = (merged["companyName"] as? String).orEmpty().trim()
-                    fallbackPhone = (merged["phone"] as? String).orEmpty().trim()
-                }
                 
                 // Use metadata for profile image URL
                 profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
@@ -126,11 +117,11 @@ fun EmployerProfileScreen(
     
     // Update company name and phone from metadata (lightweight)
     // Also get phone from Firebase Auth as fallback for new users
-    LaunchedEffect(userStats, fallbackCompanyName, fallbackPhone) {
-        companyName = fallbackCompanyName.ifBlank { userStats.fullName }
+    LaunchedEffect(userStats) {
+        companyName = userStats.fullName
         // Get phone from metadata, fallback to Firebase Auth
         val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-        companyPhone = userStats.phone.ifBlank { fallbackPhone }.ifBlank { authPhone }
+        companyPhone = userStats.phone.ifBlank { authPhone }
         if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
             profileImageUrl = userStats.profileImageUrl
         }

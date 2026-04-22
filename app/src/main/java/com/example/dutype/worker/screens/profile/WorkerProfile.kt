@@ -174,8 +174,6 @@ fun WorkerProfileScreen(
     val backendUser = profileUiState.user
     var userName by remember { mutableStateOf("") }
     var userEmail by remember { mutableStateOf("") }
-    var fallbackFullName by remember { mutableStateOf("") }
-    var fallbackPhone by remember { mutableStateOf("") }
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
     var profileCompletion by remember { mutableStateOf(0) }
     
@@ -201,13 +199,6 @@ fun WorkerProfileScreen(
                 
                 // Use metadata for profile image URL
                 profileImageUrl = latestStats.profileImageUrl.ifEmpty { null }
-
-                // Fallback source: merged worker profile payload (users + worker_profiles).
-                val mergedResult = profileCompletionService.getWorkerProfileData(currentUser.uid)
-                mergedResult.getOrNull()?.let { merged ->
-                    fallbackFullName = (merged["fullName"] as? String).orEmpty().trim()
-                    fallbackPhone = (merged["phone"] as? String).orEmpty().trim()
-                }
                 
                 Timber.i("Worker profile (lightweight) - Name: ${latestStats.fullName}, Phone: ${latestStats.phone}")
             }
@@ -219,10 +210,9 @@ fun WorkerProfileScreen(
     }
     
     // Update userName from metadata (lightweight)
-    LaunchedEffect(userStats, personalInfo, fallbackFullName) {
+    LaunchedEffect(userStats, personalInfo) {
         userName = when {
             userStats.fullName.isNotBlank() -> userStats.fullName
-            fallbackFullName.isNotBlank() -> fallbackFullName
             personalInfo.fullName.isNotBlank() -> personalInfo.fullName
             else -> "User"
         }
@@ -581,10 +571,7 @@ fun WorkerProfileScreen(
                         if (isLoggedIn) {
                             // LIGHTWEIGHT: Get phone number from metadata, then Firebase Auth as fallback
                             val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-                            val userPhone = userStats.phone
-                                .ifBlank { fallbackPhone }
-                                .ifBlank { personalInfo.phone }
-                                .ifBlank { authPhone }
+                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
                             val hasName = userName.isNotBlank() && userName != "User"
                             
                             if (hasName) {
