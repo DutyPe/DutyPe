@@ -187,23 +187,31 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'companyName', 'email', 'profileImageUrl', 'gstNumber'
+          'companyName', 'email', 'profileImageUrl', 'gstNumber',
+          'industry', 'companySize', 'businessAddress'
         ]) &&
         request.resource.data.keys().hasAll(['companyName']) &&
         request.resource.data.companyName is string &&
         request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120 &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string);
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
+        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
+        (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500));
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'companyName', 'email', 'profileImageUrl', 'gstNumber'
+          'companyName', 'email', 'profileImageUrl', 'gstNumber',
+          'industry', 'companySize', 'businessAddress'
         ]) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string);
+        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
+        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
+        (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500));
 
       allow delete: if isSelf(userId);
     }

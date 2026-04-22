@@ -79,6 +79,8 @@ fun EmployerMainScreen(
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
+        Routes.HELP,
+        Routes.ABOUT_US,
     )
     
     // Check if current route should hide bottom bar
@@ -298,6 +300,21 @@ fun EmployerMainScreen(
                     // Also support the route without parameters for backward compatibility
                     composable(Routes.EMPLOYER_PROFILE_SETUP) {
                         MandatoryEmployerProfileSetupScreen(navController = navController)
+                    }
+
+                    // Help & About — registered locally so the employer profile
+                    // menu can navigate without leaving the bottom-bar host.
+                    composable(Routes.HELP) {
+                        com.example.dutype.common.screens.support.HelpMainScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
+                    }
+                    composable(Routes.ABOUT_US) {
+                        com.example.dutype.worker.screens.WorkerAboutScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color -> currentStatusBarColor = color }
+                        )
                     }
                 }
             }

@@ -7,6 +7,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.example.dutype.utils.PhoneNumberUtils
@@ -718,9 +720,15 @@ class ProfileCompletionService @Inject constructor(
             val now = Timestamp.now()
             val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
             val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
-            val existingUserSnapshot = userRef.get().await()
+            // Parallelize the two existing-doc reads — they're independent and
+            // dominate the save latency on slower mobile networks.
+            val (existingUserSnapshot, existingEmployerSnapshot) = coroutineScope {
+                val userDeferred = async { userRef.get().await() }
+                val employerDeferred = async { employerRef.get().await() }
+                userDeferred.await() to employerDeferred.await()
+            }
             var existingUser = existingUserSnapshot.data.orEmpty()
-            val existingEmployer = employerRef.get().await().data.orEmpty()
+            val existingEmployer = existingEmployerSnapshot.data.orEmpty()
 
             val companyName = (profileData["companyName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
@@ -784,6 +792,32 @@ class ProfileCompletionService @Inject constructor(
             )
             if (!email.isNullOrBlank()) {
                 employerProfile["email"] = email
+            }
+            if (!profileImageUrl.isNullOrBlank()) {
+                employerProfile["profileImageUrl"] = profileImageUrl
+            }
+            // Optional business fields. Each is persisted only when the form
+            // explicitly supplied it (or it already exists), so the rule's
+            // hasOnly() whitelist is never broken with empty strings.
+            val gstNumber = (profileData["gstNumber"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["gstNumber"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!gstNumber.isNullOrBlank()) {
+                employerProfile["gstNumber"] = gstNumber
+            }
+            val industry = (profileData["industry"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["industry"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!industry.isNullOrBlank()) {
+                employerProfile["industry"] = industry
+            }
+            val companySize = (profileData["companySize"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["companySize"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!companySize.isNullOrBlank()) {
+                employerProfile["companySize"] = companySize
+            }
+            val businessAddress = (profileData["businessAddress"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["businessAddress"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!businessAddress.isNullOrBlank()) {
+                employerProfile["businessAddress"] = businessAddress
             }
 
             val batch = firestore.batch()

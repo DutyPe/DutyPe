@@ -309,41 +309,64 @@ fun MandatoryEmployerProfileSetupScreen(
                         "companyName" to companyName,
                         "phone" to contactPhone
                     )
-                    
+
                     // Store email if provided
                     if (contactEmail.isNotBlank()) {
                         employerProfileData["email"] = contactEmail.trim()
                     }
-                    
+
+                    // Persist all collected business fields. The Firestore rule
+                    // and ProfileCompletionService both whitelist these keys —
+                    // omitting any of them previously caused silent data loss.
+                    if (industry.isNotBlank()) {
+                        employerProfileData["industry"] = industry.trim()
+                    }
+                    if (companySize.isNotBlank()) {
+                        employerProfileData["companySize"] = companySize.trim()
+                    }
+                    if (businessAddress.isNotBlank()) {
+                        employerProfileData["businessAddress"] = businessAddress.trim()
+                    }
+                    if (gstNumber.isNotBlank()) {
+                        employerProfileData["gstNumber"] = gstNumber.trim()
+                    }
+
                     // Add selfie URL if uploaded
                     if (uploadedSelfieUrl != null) {
                         employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
                     }
-                    
+
                     profileCompletionViewModel
                         .saveEmployerProfileData(employerProfileData)
                         .getOrThrow()
 
+                    // Referral apply is non-critical for the navigation gate —
+                    // run it AFTER the user has been routed to home so the
+                    // "saving" sheet dismisses promptly. Failure here only
+                    // affects bonus crediting; the profile itself is saved.
                     val savedReferralCode = profileCompletionViewModel.getReferralCode()
                     if (!savedReferralCode.isNullOrBlank()) {
-                        val referralApplyResult = profileCompletionViewModel.applyReferralCode(
-                            referralCode = savedReferralCode,
-                            newUserId = currentUser.uid,
-                            newUserRole = UserRole.EMPLOYER.name,
-                            newUserName = companyName.ifBlank { contactPhone },
-                            newUserPhone = contactPhone
-                        )
-
-                        if (referralApplyResult.isSuccess) {
-                            Toast.makeText(
-                                context,
-                                "Referral bonus credited successfully",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        } else {
-                            Timber.w(
-                                "🎁 REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
-                            )
+                        scope.launch {
+                            runCatching {
+                                val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                                    referralCode = savedReferralCode,
+                                    newUserId = currentUser.uid,
+                                    newUserRole = UserRole.EMPLOYER.name,
+                                    newUserName = companyName.ifBlank { contactPhone },
+                                    newUserPhone = contactPhone
+                                )
+                                if (referralApplyResult.isSuccess) {
+                                    Toast.makeText(
+                                        context,
+                                        "Referral bonus credited successfully",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    Timber.w(
+                                        "🎁 REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                                    )
+                                }
+                            }.onFailure { Timber.w(it, "🎁 REFERRAL: background apply error") }
                         }
                     }
                 }
@@ -356,27 +379,27 @@ fun MandatoryEmployerProfileSetupScreen(
                 
                 profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
                 profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
-                
-                // Send profile completion notification ONLY on first completion (not on updates)
+
+                // Notification + FCM register + review trigger are all
+                // non-critical for navigation. Move to fire-and-forget so the
+                // user isn't blocked by Cloud Function round-trips.
                 if (!wasAlreadyComplete) {
                     val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     if (notificationUser != null) {
-                        try {
-                            notificationService.sendProfileCompleteNotification(
-                                userName = companyName,
-                                userId = notificationUser.uid,
-                                userRole = "EMPLOYER"
-                            ).onSuccess {
-                                Timber.d("📬 Profile completion notification sent for employer (first time)")
-                            }.onFailure { error ->
-                                Timber.e(error, "📬 Employer profile completion notification failed")
-                            }
-                            
-                            // Register FCM token with role for push notifications
-                            fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                            Timber.d("📬 FCM token registered with EMPLOYER role")
-                        } catch (e: Exception) {
-                            Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
+                        scope.launch {
+                            runCatching {
+                                notificationService.sendProfileCompleteNotification(
+                                    userName = companyName,
+                                    userId = notificationUser.uid,
+                                    userRole = "EMPLOYER"
+                                ).onSuccess {
+                                    Timber.d("📬 Profile completion notification sent for employer (first time)")
+                                }.onFailure { error ->
+                                    Timber.e(error, "📬 Employer profile completion notification failed")
+                                }
+                                fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                                Timber.d("📬 FCM token registered with EMPLOYER role")
+                            }.onFailure { Timber.e(it, "📬 Background notification/FCM failure") }
                         }
                     }
 

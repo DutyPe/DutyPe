@@ -430,6 +430,58 @@ fun EmployerProfileScreen(
             }
             
             // ═══════════════════════════════════════════════════════════════
+            // EMPLOYER MENU — Business actions for the employer surface.
+            // Mirrors the worker profile's menu structure so both roles get
+            // a real flat menu instead of an empty card. All routes resolve
+            // through the local employer NavController so the bottom bar /
+            // status surface stays consistent.
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        SectionHeader(title = stringResource(R.string.business))
+
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Work,
+                            title = stringResource(R.string.my_job_posts),
+                            onClick = {
+                                if (currentUserId.isNotEmpty()) {
+                                    localNavController?.navigate(Routes.EMPLOYER_MY_JOBS)
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_MY_JOBS)
+                                } else {
+                                    pendingMenuAction = "job_posts"
+                                    showLoginBottomSheet = true
+                                }
+                            }
+                        )
+
+                        ProfileMenuItem(
+                            icon = Icons.Default.Notifications,
+                            title = stringResource(R.string.notifications),
+                            onClick = {
+                                if (currentUserId.isNotEmpty()) {
+                                    localNavController?.navigate(Routes.EMPLOYER_NOTIFICATIONS)
+                                        ?: rootNavController.navigate(Routes.EMPLOYER_NOTIFICATIONS)
+                                } else {
+                                    pendingMenuAction = "notifications"
+                                    showLoginBottomSheet = true
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
             // OTHERS SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
@@ -448,11 +500,24 @@ fun EmployerProfileScreen(
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.others))
                         Spacer(modifier = Modifier.height(4.dp))
-                        
-                        // Only show logout when logged in
-                        if (currentUserId.isNotEmpty()) {
-                            // Logout moved below Follow Us section
-                        }
+
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Phone,
+                            title = stringResource(R.string.help_faqs),
+                            onClick = {
+                                localNavController?.navigate(Routes.HELP)
+                                    ?: rootNavController.navigate(Routes.HELP)
+                            }
+                        )
+
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Info,
+                            title = stringResource(R.string.about_us),
+                            onClick = {
+                                localNavController?.navigate(Routes.ABOUT_US)
+                                    ?: rootNavController.navigate(Routes.ABOUT_US)
+                            }
+                        )
                     }
                 }
             }
