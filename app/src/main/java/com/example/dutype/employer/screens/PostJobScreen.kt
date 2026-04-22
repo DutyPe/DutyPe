@@ -452,6 +452,47 @@ fun PostJobScreen(
     // P1 FIX: Load employer profile data from CACHE (5-minute TTL)
     // P2 FIX: Restore draft if available
     // NOTE: Profile check moved to job submission time - allows non-logged-in users to fill form
+    // Bug #4 fix: The draft restore branch used to live inside the
+    // `if (currentUser != null)` block, so a guest who saved a draft and then
+    // signed in would lose it on the FIRST authenticated composition. Draft
+    // restore now runs unconditionally on entry and re-runs whenever the auth
+    // state flips so the GUEST bucket is migrated transparently.
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val savedDraft = employerJobViewModel.getSavedDraft()
+                if (savedDraft != null && savedDraft.hasContent()) {
+                    Timber.d("📝 Restoring job draft (device-scoped)...")
+                    title = savedDraft.title
+                    description = savedDraft.description
+                    payAmount = savedDraft.payAmount
+                    payType = savedDraft.payType
+                    location = savedDraft.location
+                    if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
+                        locationLatitude = savedDraft.locationLatitude
+                        locationLongitude = savedDraft.locationLongitude
+                    }
+                    category = savedDraft.category
+                    customCategory = savedDraft.customCategory
+                    vacancies = savedDraft.vacancies
+                    if (contactNumber.isBlank()) {
+                        contactNumber = savedDraft.contactNumber
+                    }
+                    shiftTiming = savedDraft.shiftTiming
+                    urgency = savedDraft.urgency
+                    selectedPerks = savedDraft.perks
+                    workType = savedDraft.workType
+                    experienceLevel = savedDraft.experienceLevel
+                    ageRange = savedDraft.ageRange
+                    gender = savedDraft.gender
+                    Timber.d("✅ Draft restored successfully")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "❌ Error restoring job draft")
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
@@ -501,40 +542,8 @@ fun PostJobScreen(
                             }
                         }
                     }
-
-                    // P2 FIX: Restore draft if available
-                    val savedDraft = employerJobViewModel.getSavedDraft()
-                    if (savedDraft != null && savedDraft.hasContent()) {
-                        Timber.d("📝 Restoring job draft...")
-                        title = savedDraft.title
-                        description = savedDraft.description
-                        payAmount = savedDraft.payAmount
-                        payType = savedDraft.payType
-                        location = savedDraft.location
-                        // Restore coordinates so `hasValidJobCoordinates` is true
-                        // and the Next button on Step 2 enables without re-fetching.
-                        if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
-                            locationLatitude = savedDraft.locationLatitude
-                            locationLongitude = savedDraft.locationLongitude
-                        }
-                        category = savedDraft.category
-                        customCategory = savedDraft.customCategory
-                        vacancies = savedDraft.vacancies
-                        // Don't override contact number from profile
-                        if (contactNumber.isBlank()) {
-                            contactNumber = savedDraft.contactNumber
-                        }
-                        shiftTiming = savedDraft.shiftTiming
-                        urgency = savedDraft.urgency
-                        selectedPerks = savedDraft.perks
-                        workType = savedDraft.workType
-                        experienceLevel = savedDraft.experienceLevel
-                        ageRange = savedDraft.ageRange
-                        gender = savedDraft.gender
-                        Timber.d("✅ Draft restored successfully")
-                    }
                 } catch (e: Exception) {
-                    Timber.e(e, "❌ Error loading employer profile or draft")
+                    Timber.e(e, "❌ Error loading employer profile")
                 }
             }
         }

@@ -69,13 +69,19 @@ fun WorkerHistoryScreen(
         jobApplicationViewModel.loadMyApplications()
     }
     
-    // Filter applications based on selected tab
+    // Filter applications based on selected tab.
+    // Bug #13 fix: Tabs were broken — tab 0 (Timeline) and tab 1 (Completed)
+    // both filtered by HIRED, so they showed identical lists. Timeline should
+    // show ALL non-rejected applications grouped by month; Completed shows
+    // only HIRED; All History shows everything.
     val filteredApplications = remember(uiState.applications, selectedTab) {
         when (selectedTab) {
-            0 -> uiState.applications.filter {
-                it.status == ApplicationStatus.HIRED
-            }.sortedByDescending { it.createdAt }
-            1 -> uiState.applications.filter { it.status == ApplicationStatus.HIRED }
+            0 -> uiState.applications
+                .filter { it.status != ApplicationStatus.REJECTED }
+                .sortedByDescending { it.createdAt }
+            1 -> uiState.applications
+                .filter { it.status == ApplicationStatus.HIRED }
+                .sortedByDescending { it.createdAt }
             2 -> uiState.applications.sortedByDescending { it.createdAt }
             else -> uiState.applications
         }

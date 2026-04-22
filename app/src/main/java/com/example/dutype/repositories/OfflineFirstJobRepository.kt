@@ -200,11 +200,20 @@ class OfflineFirstJobRepository @Inject constructor(
      */
     suspend fun getJobById(jobId: String): Result<JobListing?> = withContext(Dispatchers.IO) {
         try {
-            // Try cache first
+            // Bug #8 fix: Use cache ONLY when it actually contains the private
+            // detail fields (description). The Room cache may have been written
+            // from a list path that read jobmetadata only (no description /
+            // contactNumber / vacancies / benefits). Returning that cache makes
+            // JobDescriptionScreen render an empty description forever. When
+            // description is blank we treat it as a partial entry and fetch +
+            // remerge from network so job_details is included.
             val cached = jobDao.getJobById(jobId)
-            if (cached != null) {
-                Timber.d("📦 OFFLINE-FIRST: Job $jobId found in cache")
+            if (cached != null && cached.description.isNotBlank()) {
+                Timber.d("📦 OFFLINE-FIRST: Job $jobId served from cache (full)")
                 return@withContext Result.success(cached.toJobListing())
+            }
+            if (cached != null) {
+                Timber.d("📦 OFFLINE-FIRST: cache for $jobId is partial — refetching merged")
             }
             
             // Fetch from network

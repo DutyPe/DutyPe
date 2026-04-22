@@ -138,20 +138,25 @@ class JobDraftDataStore @Inject constructor(
 
     
     /**
-     * Get saved draft for employer
+     * Get saved draft for employer.
+     *
+     * Bug #4 fix: Drafts are now device-scoped — we no longer block restore
+     * when the saved employerId differs (or is blank for a guest save). The
+     * common scenario is: guest fills the form → navigates to register →
+     * comes back with a freshly-minted uid. Old behaviour saw `savedEmployerId =
+     * "GUEST"` vs the new uid and threw the draft away. We still respect TTL.
      */
     suspend fun getDraft(employerId: String): JobDraft? = withContext(Dispatchers.IO) {
         try {
             context.jobDraftDataStore.data.map { prefs ->
                 val savedEmployerId = prefs[KEY_EMPLOYER_ID] ?: ""
                 val timestamp = prefs[KEY_TIMESTAMP] ?: 0L
-                
-                // Check if draft belongs to this employer and is not expired
-                if (savedEmployerId != employerId) {
-                    Timber.d("📝 JOB_DRAFT: No draft for employer $employerId")
+
+                if (timestamp == 0L) {
+                    Timber.d("📝 JOB_DRAFT: No draft on device")
                     return@map null
                 }
-                
+
                 if (System.currentTimeMillis() - timestamp > DRAFT_TTL_MS) {
                     Timber.d("📝 JOB_DRAFT: Draft expired, clearing...")
                     return@map null

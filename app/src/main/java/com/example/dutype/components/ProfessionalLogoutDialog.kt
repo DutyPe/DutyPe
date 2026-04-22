@@ -75,6 +75,10 @@ fun ProfessionalLogoutDialog(
             LogoutBottomSheetContent(
                 onDismiss = onDismiss,
                 onConfirmLogout = {
+                    // Bug #10 + #17 fix: dismiss the sheet IMMEDIATELY so the
+                    // user never stares at a stuck "Signing Out..." spinner.
+                    // performLogout itself navigates and runs cleanup async.
+                    onDismiss()
                     performLogout(
                         navController = navController,
                         authManager = authManager,

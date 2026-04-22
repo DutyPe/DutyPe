@@ -407,6 +407,14 @@ fun WorkerProfileDetailsScreen(
                     isSaving = isSaving,
                     onCancel = { isEditMode = false },
                     onSave = {
+                        // Bug #12 fix: Validate DOB age (>= 18) before saving;
+                        // previously the screen accepted any string and silently
+                        // wrote it back to Firestore.
+                        val dobError = com.example.dutype.utils.ValidationUtils.getDateOfBirthError(dateOfBirth)
+                        if (dobError != null) {
+                            Toast.makeText(context, dobError, Toast.LENGTH_LONG).show()
+                            return@EditModeButtons
+                        }
                         isSaving = true
                         scope.launch {
                             try {

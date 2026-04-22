@@ -39,10 +39,11 @@ fun ShimmerBox(
     height: Dp = 16.dp,
     shape: RoundedCornerShape = RoundedCornerShape(8.dp)
 ) {
+    // Bug #16 fix: shimmer should be a white-based gradient (was greyish).
     val shimmerColors = listOf(
-        Color(0xFFE5E7EB),
         Color(0xFFF3F4F6),
-        Color(0xFFE5E7EB)
+        Color.White,
+        Color(0xFFF3F4F6)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -84,10 +85,11 @@ fun ShimmerCircle(
     modifier: Modifier = Modifier,
     size: Dp = 60.dp
 ) {
+    // Bug #16 fix: white-based shimmer.
     val shimmerColors = listOf(
-        Color(0xFFE5E7EB),
         Color(0xFFF3F4F6),
-        Color(0xFFE5E7EB)
+        Color.White,
+        Color(0xFFF3F4F6)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer_circle")
@@ -737,10 +739,11 @@ private fun WorkerHomePromiseShimmer() {
  */
 @Composable
 fun JobCardShimmer() {
+    // Bug #16 fix: white-based shimmer for cards (was light grey).
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
+        Color(0xFFF3F4F6),
+        Color.White,
+        Color(0xFFF3F4F6)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")

@@ -793,24 +793,9 @@ private fun OnboardingPage(
                     alpha = 1f - (absOffset * 1.5f).coerceIn(0f, 1f)
                 }
         ) {
-            // Step badge — small, role-neutral, matches accent
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(accentStart.copy(alpha = 0.12f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "0${pageIndex + 1}",
-                    style = AppTypography.labelMedium.copy(
-                        color = accentEnd,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
+            // Bug #7 fix: Step badge ("01", "02", "03") removed per product
+            // request — the page indicator dots at the bottom already convey
+            // progress, so the duplicated number chip was visual noise.
 
             Text(
                 text = title,

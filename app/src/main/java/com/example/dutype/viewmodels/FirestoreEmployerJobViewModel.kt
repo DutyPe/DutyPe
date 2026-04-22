@@ -60,19 +60,27 @@ class FirestoreEmployerJobViewModel @Inject constructor(
     }
     
     /**
-     * P2 FIX: Get saved job draft
+     * P2 FIX: Get saved job draft.
+     *
+     * Bug #4 fix: A guest can fill the form and then sign in; previously
+     * `currentUser?.uid ?: return null` blocked restore on the very first
+     * authenticated composition. We now return the device-scoped draft and
+     * let the screen decide whether to apply it.
      */
     suspend fun getSavedDraft(): JobDraftDataStore.JobDraft? {
-        val employerId = currentUser?.uid ?: return null
+        val employerId = currentUser?.uid.orEmpty()
         return jobDraftDataStore.getDraft(employerId)
     }
     
     /**
-     * P2 FIX: Save job draft
+     * P2 FIX: Save job draft.
+     *
+     * Bug #4 fix: Persist guest drafts under a stable "GUEST" bucket so the
+     * data survives the register → OTP round-trip.
      */
     fun saveDraft(draft: JobDraftDataStore.JobDraft) {
         viewModelScope.launch {
-            val employerId = currentUser?.uid ?: return@launch
+            val employerId = currentUser?.uid ?: "GUEST"
             jobDraftDataStore.saveDraft(draft.copy(employerId = employerId))
         }
     }
