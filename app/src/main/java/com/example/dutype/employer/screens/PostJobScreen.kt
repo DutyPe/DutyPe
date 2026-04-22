@@ -352,6 +352,8 @@ fun PostJobScreen(
                         payAmount = payAmount,
                         payType = payType,
                         location = location,
+                        locationLatitude = locationLatitude,
+                        locationLongitude = locationLongitude,
                         category = category,
                         customCategory = customCategory,
                         vacancies = vacancies,
@@ -509,6 +511,12 @@ fun PostJobScreen(
                         payAmount = savedDraft.payAmount
                         payType = savedDraft.payType
                         location = savedDraft.location
+                        // Restore coordinates so `hasValidJobCoordinates` is true
+                        // and the Next button on Step 2 enables without re-fetching.
+                        if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
+                            locationLatitude = savedDraft.locationLatitude
+                            locationLongitude = savedDraft.locationLongitude
+                        }
                         category = savedDraft.category
                         customCategory = savedDraft.customCategory
                         vacancies = savedDraft.vacancies

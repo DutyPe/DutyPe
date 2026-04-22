@@ -3,6 +3,7 @@ package com.example.dutype.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -55,6 +56,8 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_PAY_AMOUNT = stringPreferencesKey("draft_pay_amount")
         private val KEY_PAY_TYPE = stringPreferencesKey("draft_pay_type")
         private val KEY_LOCATION = stringPreferencesKey("draft_location")
+        private val KEY_LOCATION_LAT = doublePreferencesKey("draft_location_lat")
+        private val KEY_LOCATION_LNG = doublePreferencesKey("draft_location_lng")
         private val KEY_CATEGORY = stringPreferencesKey("draft_category")
         private val KEY_CUSTOM_CATEGORY = stringPreferencesKey("draft_custom_category")
         private val KEY_VACANCIES = stringPreferencesKey("draft_vacancies")
@@ -84,6 +87,8 @@ class JobDraftDataStore @Inject constructor(
         val payAmount: String = "",
         val payType: PayType = PayType.HOURLY,
         val location: String = "",
+        val locationLatitude: Double = 0.0,
+        val locationLongitude: Double = 0.0,
         val category: JobCategory = JobCategory.COOK,
         val customCategory: String = "",
         val vacancies: String = "",
@@ -114,6 +119,8 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_PAY_AMOUNT] = draft.payAmount
         prefs[KEY_PAY_TYPE] = draft.payType.name
         prefs[KEY_LOCATION] = draft.location
+        prefs[KEY_LOCATION_LAT] = draft.locationLatitude
+        prefs[KEY_LOCATION_LNG] = draft.locationLongitude
         // Category removed - will be auto-detected
         prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
         prefs[KEY_VACANCIES] = draft.vacancies
@@ -166,8 +173,8 @@ class JobDraftDataStore @Inject constructor(
                     payAmount = prefs[KEY_PAY_AMOUNT] ?: "",
                     payType = try { PayType.valueOf(prefs[KEY_PAY_TYPE] ?: "HOURLY") } 
                         catch (e: Exception) { PayType.HOURLY },
-                    location = prefs[KEY_LOCATION] ?: "",
-                    category = try { JobCategory.valueOf(prefs[KEY_CATEGORY] ?: "COOK") } 
+                    location = prefs[KEY_LOCATION] ?: "",                    locationLatitude = prefs[KEY_LOCATION_LAT] ?: 0.0,
+                    locationLongitude = prefs[KEY_LOCATION_LNG] ?: 0.0,                    category = try { JobCategory.valueOf(prefs[KEY_CATEGORY] ?: "COOK") } 
                         catch (e: Exception) { JobCategory.COOK },
                     customCategory = prefs[KEY_CUSTOM_CATEGORY] ?: "",
                     vacancies = prefs[KEY_VACANCIES] ?: "",

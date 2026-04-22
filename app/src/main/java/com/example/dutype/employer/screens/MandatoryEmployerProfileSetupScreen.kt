@@ -411,16 +411,12 @@ fun MandatoryEmployerProfileSetupScreen(
                     Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
                 }
 
-                // If returnRoute was provided, set a flag and navigate to home
-                // PostJobScreen will check this flag and jump to last step
+                // Navigate to the returnRoute if provided (e.g. post_job after
+                // a guest filled the form and completed profile setup), otherwise
+                // fall back to the employer home screen.
                 if (returnRoute != null) {
-                    Timber.d("📍 Profile complete - setting flag for PostJobScreen to jump to last step")
-                    // Store flag in SharedPreferences
-                    val prefs = context.getSharedPreferences("dutype_prefs", android.content.Context.MODE_PRIVATE)
-                    prefs.edit().putBoolean("jump_to_post_job_last_step", true).apply()
-                    
-                    // Navigate to employer home, then PostJobScreen will be opened from bottom bar
-                    navController.navigate(Routes.EMPLOYER_HOME) {
+                    Timber.d("📍 Profile complete - navigating to returnRoute: $returnRoute")
+                    navController.navigate(returnRoute) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }

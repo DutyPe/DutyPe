@@ -79,6 +79,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -185,7 +186,20 @@ fun JobDescriptionScreen(
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
 
-    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    // Reactive auth state so the UI updates immediately after a login via
+    // the bottom sheet — the old `val currentUser = ...getInstance().currentUser`
+    // was a one-shot snapshot captured at composition time and stayed null
+    // after the LoginBottomSheet signed in the user.
+    var currentUser by remember { mutableStateOf(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser) }
+    DisposableEffect(Unit) {
+        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { auth ->
+            currentUser = auth.currentUser
+        }
+        com.google.firebase.auth.FirebaseAuth.getInstance().addAuthStateListener(listener)
+        onDispose {
+            com.google.firebase.auth.FirebaseAuth.getInstance().removeAuthStateListener(listener)
+        }
+    }
     val resolvedJobId = remember(jobId, job?.id, job?.jobId) {
         when {
             !job?.id.isNullOrBlank() -> job?.id.orEmpty()

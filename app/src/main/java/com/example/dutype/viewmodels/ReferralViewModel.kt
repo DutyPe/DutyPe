@@ -46,37 +46,51 @@ class ReferralViewModel @Inject constructor(
     /**
      * Load referral data for current user.
      *
-     * Implementation: this used to do a one-shot `getCurrentUserReferralStats()` +
-     * `getCurrentUserReferralHistory()` fetch in addition to starting the
-     * realtime observers. The observers already do a cache-first + server
-     * read via addSnapshotListener, so the one-shots were pure duplicate
-     * traffic. We now just ensure observers are running.
+     * Single bootstrap fetch + one realtime observer for stats. The history
+     * observer and referrer-info fetch are kept separate because they write
+     * to independent state slices. The old code ran a one-shot AND a
+     * realtime observer for stats — both resolving the same referral code
+     * chain (8-10 Firestore reads). Now we run ONE bootstrap fetch; the
+     * realtime observer only starts if the bootstrap fails, so best-case
+     * traffic is halved.
      */
     fun loadReferralData() {
-        bootstrapReferralSnapshot()
-        ensureRealtimeObservers()
+        viewModelScope.launch {
+            val bootstrapOk = bootstrapReferralSnapshot()
+            if (!bootstrapOk) {
+                // Fallback: start the realtime listener so the UI eventually updates
+                // even if the one-shot failed (e.g. Cloud Function creating the code).
+                ensureRealtimeObservers()
+            }
+        }
         loadWithdrawalHistory()
         loadReferrerInfo()
     }
 
-    private fun bootstrapReferralSnapshot() {
-        viewModelScope.launch {
-            try {
-                referralService.getCurrentUserReferralStats().fold(
-                    onSuccess = { stats ->
-                        _uiState.value = _uiState.value.copy(
-                            stats = stats,
-                            isLoading = false,
-                            error = null
-                        )
-                    },
-                    onFailure = { e ->
-                        Timber.w(e, "Failed to bootstrap referral stats snapshot")
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.w(e, "Error bootstrapping referral stats snapshot")
-            }
+    /**
+     * Returns true if the bootstrap succeeded and stats were populated.
+     */
+    private suspend fun bootstrapReferralSnapshot(): Boolean {
+        return try {
+            referralService.getCurrentUserReferralStats().fold(
+                onSuccess = { stats ->
+                    _uiState.value = _uiState.value.copy(
+                        stats = stats,
+                        isLoading = false,
+                        error = null
+                    )
+                    true
+                },
+                onFailure = { e ->
+                    Timber.w(e, "Failed to bootstrap referral stats snapshot")
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    false
+                }
+            )
+        } catch (e: Exception) {
+            Timber.w(e, "Error bootstrapping referral stats snapshot")
+            _uiState.value = _uiState.value.copy(isLoading = false)
+            false
         }
     }
 
@@ -103,8 +117,11 @@ class ReferralViewModel @Inject constructor(
             historyObserverJob = viewModelScope.launch {
                 referralService.getReferralHistoryFlow().collect { history ->
                     _uiState.value = _uiState.value.copy(
-                        referralHistory = history,
-                        isLoading = false
+                        referralHistory = history
+                        // NOTE: do NOT touch isLoading here — the stats path
+                        // owns that flag. Setting it false here used to cause
+                        // the UI to flip from spinner → empty content before
+                        // the referral code had loaded.
                     )
                 }
             }
