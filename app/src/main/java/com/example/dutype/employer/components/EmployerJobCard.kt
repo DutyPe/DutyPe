@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -60,15 +61,28 @@ fun EmployerJobCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    // Job title with category icon
+                    // Job title with category icon (or hero image when present)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = jobPosting.category.icon,
-                            style = MaterialTheme.typography.headlineSmall
-                        )
+                        val heroUrl = jobPosting.imageUrl
+                        if (!heroUrl.isNullOrBlank()) {
+                            // Bug #5: replace emoji with the uploaded job image.
+                            coil.compose.AsyncImage(
+                                model = heroUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = jobPosting.category.icon,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
                         Text(
                             text = jobPosting.title,
                             style = AppTypography.cardTitle,

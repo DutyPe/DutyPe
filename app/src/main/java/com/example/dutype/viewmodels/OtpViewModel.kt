@@ -453,6 +453,22 @@ class OtpViewModel @Inject constructor(
         return try {
             authFlowService.resolveLogin(role.name).fold(
                 onSuccess = { resolution ->
+                    // Bug #9 fix: single-role-per-phone enforcement at LOGIN time.
+                    // If the user has an existing account under a different role,
+                    // refuse the login and surface a precise error so the screen
+                    // can show "this number is registered as <role>" toast and
+                    // sign the user back out.
+                    val existingRole = resolution.roleForFcm.uppercase()
+                    if (resolution.userData != null &&
+                        existingRole.isNotBlank() &&
+                        existingRole != role.name.uppercase()
+                    ) {
+                        runCatching { auth.signOut() }
+                        return@fold Result.failure(
+                            IllegalStateException("phone-already-registered-as:$existingRole")
+                        )
+                    }
+
                     resolution.userData?.let { userData ->
                         cacheResolvedUser(userData, role)
                         runCatching { fcmTokenManager.registerTokenWithRole(resolution.roleForFcm) }

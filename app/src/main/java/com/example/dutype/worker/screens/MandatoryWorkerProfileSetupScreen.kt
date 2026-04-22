@@ -1441,6 +1441,20 @@ private fun AdditionalDetailsStep(
                         TextButton(
                             onClick = {
                                 datePickerState.selectedDateMillis?.let { millis ->
+                                    // Bug #12: enforce 18+ age and surface a toast
+                                    // when the picked date makes the user under-age.
+                                    val now = System.currentTimeMillis()
+                                    val ageMillis = now - millis
+                                    val years = ageMillis / (365.25 * 24 * 60 * 60 * 1000L)
+                                    if (years < 18.0) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "You must be at least 18 years old to register as a worker",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                        // Keep the picker open so the user can correct.
+                                        return@TextButton
+                                    }
                                     val formatter = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
                                     onDateOfBirthChange(formatter.format(java.util.Date(millis)))
                                     Timber.d("📅 Date selected: ${formatter.format(java.util.Date(millis))}")

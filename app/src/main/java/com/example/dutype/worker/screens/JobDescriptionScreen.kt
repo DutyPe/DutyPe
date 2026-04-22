@@ -1184,7 +1184,7 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
 
 @Composable
 private fun ShimmerBox(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp? = null, height: androidx.compose.ui.unit.Dp = 16.dp) {
-    val shimmerColors = listOf(Color(0xFFE5E7EB), Color(0xFFF3F4F6), Color(0xFFE5E7EB))
+    val shimmerColors = listOf(Color(0xFFF3F4F6), Color.White, Color(0xFFF3F4F6))
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnim = transition.animateFloat(initialValue = 0f, targetValue = 1000f, animationSpec = infiniteRepeatable(animation = tween(1500, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Restart), label = "shimmer")
     val brush = Brush.linearGradient(colors = shimmerColors, start = Offset(translateAnim.value - 300f, translateAnim.value - 300f), end = Offset(translateAnim.value, translateAnim.value))

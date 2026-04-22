@@ -144,7 +144,7 @@ fun ProfessionalWorkerProfileViewScreen(
                     error = e.message
                 }
             } ?: run {
-                val profileResult = profileCompletionService.getWorkerProfileData(workerId)
+                val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
                 profileResult.fold(
                     onSuccess = { data ->
                         val locationMap = data["location"] as? Map<*, *>

@@ -184,7 +184,11 @@ object FirestoreUtils {
     ): PhoneCheckResult {
         val normalized = PhoneNumberUtils.normalize(phoneNumber)
         val variants = PhoneNumberUtils.getVariants(phoneNumber)
-        val callableNames = listOf("checkPhoneExists")
+        // Bug #11/#20: prefer the new single-doc `lookupPhoneRole` callable
+        // which reads phone_index/{phoneE164} (one Firestore get) instead of
+        // the legacy multi-variant `IN` query in `checkPhoneExists`. Fall
+        // back to the old name for clients hitting an older deployment.
+        val callableNames = listOf("lookupPhoneRole", "checkPhoneExists")
 
         for (callableName in callableNames) {
             try {

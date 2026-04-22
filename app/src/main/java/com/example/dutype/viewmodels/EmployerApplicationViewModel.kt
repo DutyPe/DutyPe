@@ -272,7 +272,9 @@ class EmployerApplicationViewModel @Inject constructor(
         
         // Fetch worker profile (merges users + worker_profiles for jobTypes)
         return try {
-            val profileResult = profileCompletionService.getWorkerProfileData(workerId)
+            // Bug #19 fix: rules block direct employer reads of worker_profiles —
+            // route through the authorising callable.
+            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
             profileResult.fold(
                 onSuccess = { profile ->
                     // Cache the profile

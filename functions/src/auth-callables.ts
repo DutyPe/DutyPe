@@ -355,6 +355,106 @@ export const lookupPhoneRole = onCallSecured(
 );
 
 // ────────────────────────────────────────────────────────────────────────
+// getWorkerProfileForEmployer (#19)
+// ────────────────────────────────────────────────────────────────────────
+// Firestore rules block direct employer reads of `worker_profiles` because
+// rules cannot iterate `applications` to verify the relationship. This
+// callable bridges that gap: returns the merged user + worker_profile data
+// only if the caller has at least one application from this worker
+// (optionally scoped to a specific jobId).
+export const getWorkerProfileForEmployer = onCallSecured(
+  {},
+  async (data: any, context) => {
+    const uid = context.auth!.uid;
+    const workerId = validateString(data?.workerId, "workerId", {
+      required: true,
+      minLength: 4,
+      maxLength: 128,
+    });
+    const jobId = data?.jobId
+      ? validateString(data.jobId, "jobId", { minLength: 4, maxLength: 128 })
+      : "";
+
+    // Authorise: caller must employ this worker via at least one application.
+    let appQuery = db()
+      .collection("applications")
+      .where("employerId", "==", uid)
+      .where("workerId", "==", workerId)
+      .limit(1);
+    if (jobId) {
+      // Tightest scope: docId is `${jobId}_${workerId}`.
+      const docId = `${jobId}_${workerId}`;
+      const direct = await db().collection("applications").doc(docId).get();
+      if (!direct.exists || (direct.data() as any)?.employerId !== uid) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Caller is not the employer of this application"
+        );
+      }
+    } else {
+      const appSnap = await appQuery.get();
+      if (appSnap.empty) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Caller does not employ this worker"
+        );
+      }
+    }
+
+    const [userSnap, workerSnap] = await Promise.all([
+      db().collection("users").doc(workerId).get(),
+      db().collection("worker_profiles").doc(workerId).get(),
+    ]);
+
+    if (!userSnap.exists && !workerSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Worker profile not found");
+    }
+
+    const user = (userSnap.data() || {}) as Record<string, any>;
+    const worker = (workerSnap.data() || {}) as Record<string, any>;
+
+    // Strip sensitive fields before returning.
+    const safeUser: Record<string, any> = {};
+    for (const k of [
+      "userId",
+      "fullName",
+      "phone",
+      "profileImageUrl",
+      "city",
+      "location",
+      "geohash",
+      "roles",
+      "activeRole",
+    ]) {
+      if (user[k] !== undefined) safeUser[k] = user[k];
+    }
+
+    const safeWorker: Record<string, any> = {};
+    for (const k of [
+      "skills",
+      "jobTypes",
+      "experience",
+      "gender",
+      "dateOfBirth",
+      "isAvailable",
+      "rating",
+      "ratingAvg",
+      "totalRatings",
+      "totalJobs",
+      "completedJobs",
+      "profileImageUrl",
+      "email",
+    ]) {
+      if (worker[k] !== undefined) safeWorker[k] = worker[k];
+    }
+
+    // Merge with worker_profiles taking precedence on overlapping keys.
+    const merged = { ...safeUser, ...safeWorker, workerId };
+    return { success: true, profile: merged };
+  }
+);
+
+// ────────────────────────────────────────────────────────────────────────
 // submitApplication
 // ────────────────────────────────────────────────────────────────────────
 const MIN_WORKER_PROFILE_SCORE = 80;

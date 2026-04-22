@@ -90,8 +90,8 @@ object WorkerColors {
     val ChipSelectedText = Color(0xFF570DF8)       // Purple selected text
     
     // Shimmer Colors
-    val ShimmerBase = Color(0xFFE5E7EB)            // Base shimmer color
-    val ShimmerHighlight = Color(0xFFF9FAFB)       // Shimmer highlight
+    val ShimmerBase = Color(0xFFF5F7FA)            // Bug #16: near-white shimmer base
+    val ShimmerHighlight = Color(0xFFFFFFFF)       // Bug #16: pure white highlight
     
     // Bottom Navigation - Meesho style
     val BottomNavBackground = Color(0xFFFFFFFF)    // White bottom nav

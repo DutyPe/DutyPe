@@ -881,7 +881,36 @@ class ProfileCompletionService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
+    /**
+     * Bug #19 fix: employer-side worker profile read.
+     *
+     * Firestore rules block direct employer reads of `worker_profiles`. Use
+     * the `getWorkerProfileForEmployer` callable, which authorises by
+     * checking that the caller has an application from this worker
+     * (optionally scoped to a specific jobId for the tightest check).
+     */
+    suspend fun getWorkerProfileForEmployer(
+        workerId: String,
+        jobId: String? = null,
+    ): Result<Map<String, Any?>> {
+        return try {
+            val payload = mutableMapOf<String, Any>("workerId" to workerId)
+            if (!jobId.isNullOrBlank()) payload["jobId"] = jobId
+            val res = functions
+                .getHttpsCallable("getWorkerProfileForEmployer")
+                .call(payload)
+                .await()
+            @Suppress("UNCHECKED_CAST")
+            val data = res.data as? Map<String, Any?> ?: emptyMap()
+            @Suppress("UNCHECKED_CAST")
+            val profile = (data["profile"] as? Map<String, Any?>) ?: emptyMap()
+            Result.success(profile)
+        } catch (e: Exception) {
+            Timber.w(e, "getWorkerProfileForEmployer failed for workerId=$workerId")
+            Result.failure(e)
+        }
+    }
     /**
      * Check existing profile high level
      */

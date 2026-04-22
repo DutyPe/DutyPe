@@ -145,6 +145,14 @@ class MainActivity : ComponentActivity() {
         // This ensures smooth transition and prevents flickering
         var keepSplashOnScreen = true
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
+
+        // Bug #5.1 belt-and-suspenders: hard-cap the system splash at 2s so a
+        // catastrophic Compose / nav failure (e.g. Hilt init crash, OOM in
+        // theme) cannot leave the user staring at a frozen splash forever.
+        // The splash is allowed to dismiss earlier via onReady() below.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            keepSplashOnScreen = false
+        }, 2000L)
         
         super.onCreate(savedInstanceState)
         

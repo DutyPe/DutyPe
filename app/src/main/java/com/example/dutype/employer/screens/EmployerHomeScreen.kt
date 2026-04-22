@@ -931,7 +931,8 @@ fun RecentJobsSection(
                         contactNumber = job.contactNumber,
                         isActive = job.status == "open",
                         applicationsReceived = 0,
-                        isFilled = job.status == "closed"
+                        isFilled = job.status == "closed",
+                        imageUrl = job.jobImageUrl
                     )
                     
                     EmployerJobCard(

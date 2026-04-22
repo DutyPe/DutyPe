@@ -200,9 +200,22 @@ private fun OtpLoginScreen(
                         },
                         onFailure = { error ->
                             Timber.e(error, "OTP VERIFICATION SUCCESS - Login resolution failed")
+                            // Bug #9: surface single-role-per-phone block as a
+                            // friendly toast instead of a generic error.
+                            val msg = error.message.orEmpty()
+                            val toastText = if (msg.startsWith("phone-already-registered-as:")) {
+                                val existingRole = msg.substringAfter(":").lowercase()
+                                val existingRoleLabel = if (existingRole == "employer") "employer" else "worker"
+                                if (isTelugu)
+                                    "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
+                                else
+                                    "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                            } else {
+                                error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again."
+                            }
                             Toast.makeText(
                                 context,
-                                error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again.",
+                                toastText,
                                 Toast.LENGTH_LONG
                             ).show()
                         }
