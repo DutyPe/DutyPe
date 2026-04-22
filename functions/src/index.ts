@@ -390,7 +390,6 @@ export const sendPushNotification = functions.firestore
         processing: false,
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
         fcmMessageId: response,
-        locale: effectiveLocale,
       };
       if (templateId) {
         updatePayload.title = effectiveTitle;
