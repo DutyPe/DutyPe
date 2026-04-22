@@ -684,7 +684,11 @@ fun PostJobScreen(
             "urgency" to normalizedUrgency,
             
             // System fields
-            "employerId" to (employerId ?: "")
+            "employerId" to (employerId ?: ""),
+
+            // #5 fix: optional hero image URL persisted on jobmetadata so
+            // it shows on worker / employer job cards instead of an emoji.
+            "jobImageUrl" to jobImageUrl
         )
         
         // DEBUG: Log all job data being sent to Firestore

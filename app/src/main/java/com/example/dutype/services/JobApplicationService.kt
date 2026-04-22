@@ -391,6 +391,10 @@ class JobApplicationService @Inject constructor(
             val jobTitle = jobData.stringValue("title", "jobTitle")
             val companyName = jobData.stringValue("companyName", "company", "employerName")
             val jobLocation = jobData.stringValue("addressText", "jobLocation", "location")
+            // Quick-call: snapshot employer's posted contact number so the
+            // worker can dial directly from the MyJobs applied card.
+            val employerContactPhone = jobData.stringValue("contactNumber", "contactPhone", "phone")
+                .takeIf { it.isNotBlank() }
 
             if (employerId.isBlank()) {
                 return Result.failure(Exception("Job is missing employer information"))
@@ -439,6 +443,7 @@ class JobApplicationService @Inject constructor(
                 workerPhone = snapshotPhone,
                 workerProfileImageUrl = snapshotImage,
                 workerSkills = snapshotSkills,
+                employerPhone = employerContactPhone,
                 coverLetter = coverLetter.orEmpty()
             )
 

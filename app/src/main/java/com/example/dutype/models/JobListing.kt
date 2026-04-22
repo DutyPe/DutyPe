@@ -56,7 +56,11 @@ data class JobListing(
 
     // --- RUNTIME ONLY (computed, never stored) ---
     var distance: Double? = null,
-    var isSaved: Boolean = false
+    var isSaved: Boolean = false,
+
+    // --- Optional employer-uploaded hero image (#5). Stored on jobmetadata
+    //     so worker/employer card lists can render it without an extra read.
+    val jobImageUrl: String? = null
 ) {
     // Stable alias used throughout the codebase
     val jobId: String get() = id

@@ -29,9 +29,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -117,6 +119,15 @@ fun JobApplicationCard(
     // Can withdraw only if status is PENDING or UNDER_REVIEW
     val canWithdraw = application.status == ApplicationStatus.APPLIED || 
                       application.status == ApplicationStatus.SHORTLISTED
+    
+    // Quick-call: workers in early funnel stages (applied / shortlisted / hired)
+    // can dial the employer directly to push their candidacy. Hidden once the
+    // application is rejected or already completed (terminal states).
+    val canCall = !application.employerPhone.isNullOrBlank() &&
+        (application.status == ApplicationStatus.APPLIED ||
+         application.status == ApplicationStatus.SHORTLISTED ||
+         application.status == ApplicationStatus.HIRED)
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.HIRED && !hasAlreadyRated && onRateClick != null
@@ -225,6 +236,42 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
+                // Quick-call hint banner — nudges the worker that calling is
+                // the fastest way to land the job. Only shown when the
+                // application is in an active funnel stage and the employer
+                // shared a phone number on the job post.
+                if (canCall) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = Color(0xFFECFDF5),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = null,
+                            tint = Color(0xFF059669),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Tap Call for super-fast response — employers reply 5× faster on calls",
+                            style = AppTypography.caption.copy(
+                                color = Color(0xFF065F46),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
                 // Action buttons row - separate row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -247,6 +294,43 @@ fun JobApplicationCard(
                                     text = "Withdraw",
                                     style = AppTypography.buttonSmall.copy(
                                         color = Color(0xFFEF4444)
+                                    )
+                                )
+                            }
+                        }
+                        
+                        // Quick Call button — fires ACTION_DIAL with the
+                        // denormalized employer phone (set at apply time).
+                        if (canCall) {
+                            Button(
+                                onClick = {
+                                    val phone = application.employerPhone.orEmpty()
+                                    if (phone.isNotBlank()) {
+                                        runCatching {
+                                            val intent = android.content.Intent(
+                                                android.content.Intent.ACTION_DIAL,
+                                                android.net.Uri.parse("tel:$phone")
+                                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF10B981)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Phone,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Call",
+                                    style = AppTypography.buttonSmall.copy(
+                                        color = Color.White
                                     )
                                 )
                             }

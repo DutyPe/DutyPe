@@ -28,12 +28,21 @@ import java.io.ByteArrayOutputStream
  */
 object ImageUploadUtils {
     
-    private const val MAX_WIDTH = 1200
-    private const val JPEG_QUALITY = 85
-    private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024  // 2MB max
-    private const val MAX_RETRIES = 3
-    private const val INITIAL_DELAY_MS = 1000L
-    private const val MAX_DELAY_MS = 10000L
+    // #5 fix: aggressive defaults so users on poor networks (the common case)
+    // get a usable upload time. The previous 1200px / 2MB / 3-retry / 1s→10s
+    // backoff configuration combined with Firebase Storage's internal
+    // exponential backoff (≈30s) was producing minute-long stalls on Wi-Fi
+    // hiccups and blocking the post-job flow.
+    private const val MAX_WIDTH = 800
+    private const val JPEG_QUALITY = 75
+    private const val MAX_FILE_SIZE_BYTES = 400 * 1024  // 400KB max
+    private const val MAX_RETRIES = 2
+    private const val INITIAL_DELAY_MS = 600L
+    private const val MAX_DELAY_MS = 3_000L
+    // Per-attempt hard ceiling. Firebase's own retry chain can run ≈30s on a
+    // single attempt; we cap it so the user can react instead of watching a
+    // spinner forever.
+    private const val PER_ATTEMPT_TIMEOUT_MS = 25_000L
 
     
     /**
@@ -169,29 +178,36 @@ object ImageUploadUtils {
             try {
                 Timber.d("📸 UPLOAD: Attempt ${attempt + 1}/$MAX_RETRIES for $storagePath")
                 
-                val storage = FirebaseStorage.getInstance()
+                val storage = FirebaseStorage.getInstance().apply {
+                    // Trim Firebase's internal retry/operation budgets so a
+                    // failing attempt doesn't wedge for 30s+ before our own
+                    // retry kicks in.
+                    maxOperationRetryTimeMillis = 8_000L
+                    maxUploadRetryTimeMillis = 8_000L
+                }
                 val storageRef = storage.reference.child(storagePath)
                 
-                // Upload compressed bytes or original file
-                val uploadTask = if (compressedBytes != null) {
-                    Timber.d("📸 UPLOAD: Uploading compressed image (${compressedBytes.size / 1024}KB)")
-                    storageRef.putBytes(compressedBytes)
-                } else {
-                    Timber.d("📸 UPLOAD: Uploading original file (compression failed)")
-                    storageRef.putFile(uri)
+                kotlinx.coroutines.withTimeout(PER_ATTEMPT_TIMEOUT_MS) {
+                    val uploadTask = if (compressedBytes != null) {
+                        Timber.d("📸 UPLOAD: Uploading compressed image (${compressedBytes.size / 1024}KB)")
+                        storageRef.putBytes(compressedBytes)
+                    } else {
+                        Timber.d("📸 UPLOAD: Uploading original file (compression failed)")
+                        storageRef.putFile(uri)
+                    }
+
+                    uploadTask.addOnProgressListener { snapshot ->
+                        val progress = (100.0 * snapshot.bytesTransferred / snapshot.totalByteCount).toInt()
+                        onProgress?.invoke(progress)
+                    }
+
+                    uploadTask.await()
                 }
-                
-                // Track progress
-                uploadTask.addOnProgressListener { snapshot ->
-                    val progress = (100.0 * snapshot.bytesTransferred / snapshot.totalByteCount).toInt()
-                    onProgress?.invoke(progress)
+
+                val downloadUrl = kotlinx.coroutines.withTimeout(8_000L) {
+                    FirebaseStorage.getInstance().reference.child(storagePath)
+                        .downloadUrl.await().toString()
                 }
-                
-                // Wait for upload to complete
-                uploadTask.await()
-                
-                // Get download URL
-                val downloadUrl = storageRef.downloadUrl.await().toString()
                 
                 Timber.i("📸 UPLOAD: ✅ Success! URL: $downloadUrl")
                 return@withContext UploadResult.Success(downloadUrl)

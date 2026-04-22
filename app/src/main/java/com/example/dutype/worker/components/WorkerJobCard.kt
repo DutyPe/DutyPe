@@ -75,6 +75,7 @@ fun JobCard(
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
+        jobImageUrl = job.jobImageUrl,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -127,6 +128,7 @@ fun JobCard(
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
+        jobImageUrl = job.jobImageUrl,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -155,6 +157,7 @@ private fun JobCardInternal(
     isUrgent: Boolean,
     isClosed: Boolean,
     isSaved: Boolean,
+    jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -218,7 +221,7 @@ private fun JobCardInternal(
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
-                        jobImageUrl = null,
+                        jobImageUrl = jobImageUrl,
                         jobTitle = title,
                         modifier = Modifier.size(44.dp)
                     )
@@ -561,15 +564,13 @@ private fun JobImageOrAnimation(
 ) {
     val context = LocalContext.current
     
-    // Priority 1: Show employer uploaded image if available
+    // Priority 1: Show employer uploaded image if available — fits inside the
+    // caller's modifier (44dp circular avatar) instead of forcing 180dp height.
     if (!jobImageUrl.isNullOrBlank()) {
         OptimizedJobImage(
             imageUrl = jobImageUrl,
             contentDescription = "Job image",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            modifier = modifier.clip(CircleShape)
         )
     } else {
         // Priority 2: Show category icon (Lottie removed for performance)

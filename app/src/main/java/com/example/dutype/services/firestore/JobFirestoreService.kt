@@ -240,7 +240,10 @@ class JobFirestoreService @Inject constructor(
             "jobType" to coreJobType,
             "vacancies" to coreVacancies,
             "benefits" to coreBenefits,
-            "companyCity" to coreCompanyCity
+            "companyCity" to coreCompanyCity,
+            // #5 fix: pass the hero image URL through the merged map so
+            // JobListing hydration picks it up.
+            "jobImageUrl" to normalizeString(coreData["jobImageUrl"])
         )
 
         val coreWhatsappNumber = normalizeString(coreData["whatsappNumber"])
@@ -403,6 +406,12 @@ class JobFirestoreService @Inject constructor(
                 // geohash, not employerId).
                 "employerId" to employerId
             )
+            // #5 fix: persist the employer-uploaded hero image URL on the
+            // slim card payload so it can render on every job list without
+            // hitting job_details.
+            normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
+                cardData["jobImageUrl"] = it
+            }
 
             val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,

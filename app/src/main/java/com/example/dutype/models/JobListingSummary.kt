@@ -38,7 +38,10 @@ data class JobListingSummary(
     // Runtime-only (never stored in Firestore)
     var distance: Double? = null,
     var isSaved: Boolean = false,
-    var isApplied: Boolean = false
+    var isApplied: Boolean = false,
+
+    // #5 fix: optional employer-uploaded hero image URL stored on jobmetadata.
+    val jobImageUrl: String? = null
 ) {
     val jobId: String get() = id
 
@@ -148,7 +151,8 @@ data class JobListingSummary(
                 lat = lat,
                 lng = lng,
                 companyCity = companyCity,
-                locationText = locationText
+                locationText = locationText,
+                jobImageUrl = (data["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
             )
         }
 
@@ -173,7 +177,8 @@ data class JobListingSummary(
             companyCity = job.addressText.ifBlank { job.location },
             locationText = job.addressText.ifBlank { job.location },
             distance = job.distance,
-            isSaved = job.isSaved
+            isSaved = job.isSaved,
+            jobImageUrl = job.jobImageUrl
         )
     }
 }

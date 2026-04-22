@@ -61,6 +61,29 @@ class ReferralService @Inject constructor(
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_STATUS = "status"
         private const val STATUS_COMPLETED = "COMPLETED"
+
+        // #14 fix: in-process cache TTL for the heavy bootstrap reads on the
+        // Refer & Earn screen. Each open used to re-execute referral_stats +
+        // referral_codes + users reads serially. With a short TTL the screen
+        // is instant on every re-entry within the same session while still
+        // letting the realtime snapshot listener eventually overwrite stale
+        // data when the user actually earns a new reward.
+        private const val STATS_CACHE_TTL_MS = 60_000L
+    }
+
+    @Volatile private var cachedStatsKey: String? = null
+    @Volatile private var cachedStats: ReferralStats? = null
+    @Volatile private var cachedStatsAt: Long = 0L
+    @Volatile private var cachedReferrerKey: String? = null
+    @Volatile private var cachedReferrer: ReferrerInfo? = null
+    @Volatile private var cachedReferrerAt: Long = 0L
+
+    /** Invalidate caches after a write that may change the snapshot. */
+    private fun invalidateReferralCaches() {
+        cachedStats = null
+        cachedStatsAt = 0L
+        cachedReferrer = null
+        cachedReferrerAt = 0L
     }
 
     private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
@@ -189,6 +212,15 @@ class ReferralService @Inject constructor(
     suspend fun getCurrentUserReferrerInfo(): Result<ReferrerInfo> {
         val userId = auth.currentUser?.uid ?: return Result.success(ReferrerInfo())
 
+        // #14 fix: referrer info almost never changes after signup; serve
+        // from cache so re-opening Refer & Earn skips two users/* reads.
+        val now = System.currentTimeMillis()
+        cachedReferrer?.let { snap ->
+            if (cachedReferrerKey == userId && (now - cachedReferrerAt) < STATS_CACHE_TTL_MS) {
+                return Result.success(snap)
+            }
+        }
+
         return try {
             val userDoc = firestore.collection(COLLECTION_USERS)
                 .document(userId)
@@ -219,14 +251,16 @@ class ReferralService @Inject constructor(
                 }
             }
 
-            Result.success(
-                ReferrerInfo(
-                    referredByCode = referredByCode,
-                    referredByUserId = referredByUserId,
-                    referrerName = referrerName,
-                    referrerRole = referrerRole
-                )
+            val info = ReferrerInfo(
+                referredByCode = referredByCode,
+                referredByUserId = referredByUserId,
+                referrerName = referrerName,
+                referrerRole = referrerRole
             )
+            cachedReferrer = info
+            cachedReferrerKey = userId
+            cachedReferrerAt = now
+            Result.success(info)
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error getting referrer info")
             Result.failure(e)
@@ -474,6 +508,7 @@ class ReferralService @Inject constructor(
             
             if (success) {
                 Timber.d("🎁 REFERRAL: ✅ Code applied successfully")
+                invalidateReferralCaches()
                 Result.success(ApplyReferralResult(
                     success = true,
                     referralId = response["referralId"] as? String,
@@ -507,7 +542,17 @@ class ReferralService @Inject constructor(
      */
     suspend fun getReferralStats(): ReferralStats? {
         val userId = auth.currentUser?.uid ?: return null
-        
+
+        // #14 fix: serve from cache if fresh; this is the call that fires on
+        // every open of Refer & Earn and used to issue 1–3 sequential
+        // network reads.
+        val now = System.currentTimeMillis()
+        cachedStats?.let { snap ->
+            if (cachedStatsKey == userId && (now - cachedStatsAt) < STATS_CACHE_TTL_MS) {
+                return snap
+            }
+        }
+
         return try {
             val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
@@ -559,6 +604,9 @@ class ReferralService @Inject constructor(
                 )
                 
                 Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}")
+                cachedStats = stats
+                cachedStatsKey = userId
+                cachedStatsAt = now
                 stats
             } else {
                 val userDoc = firestore.collection(COLLECTION_USERS).document(userId).get().await()
@@ -571,7 +619,7 @@ class ReferralService @Inject constructor(
                 )
 
                 Timber.d("🎁 REFERRAL: No referral_stats doc for user $userId, returning empty stats fallback")
-                ReferralStats(
+                val fallback = ReferralStats(
                     userId = userId,
                     userRole = userRole,
                     referralCode = fallbackCode,
@@ -582,6 +630,10 @@ class ReferralService @Inject constructor(
                     canWithdraw = false,
                     currentTier = ReferralTier.BRONZE
                 )
+                cachedStats = fallback
+                cachedStatsKey = userId
+                cachedStatsAt = now
+                fallback
             }
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error getting stats")
@@ -794,6 +846,7 @@ class ReferralService @Inject constructor(
             
             if (success) {
                 Timber.d("🎁 REFERRAL: ✅ Withdrawal request created")
+                invalidateReferralCaches()
                 Result.success(WithdrawalResult(
                     success = true,
                     withdrawalId = response["withdrawalId"] as? String

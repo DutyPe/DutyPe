@@ -138,7 +138,8 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         educationRequired = (this["educationRequired"] as? String) ?: "",
         benefits = (this["benefits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
         distance = (this["distance"] as? Number)?.toDouble(),
-        isSaved = isSaved
+        isSaved = isSaved,
+        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
     )
 }
 
@@ -230,5 +231,6 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     location = locationText.ifBlank { companyCity },
     addressText = locationText.ifBlank { companyCity },
     distance = distance,
-    isSaved = isSaved
+    isSaved = isSaved,
+    jobImageUrl = jobImageUrl
 )
