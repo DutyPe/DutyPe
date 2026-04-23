@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OptimizedProfileImage
 import com.example.dutype.models.JobListing
@@ -315,30 +314,20 @@ private fun ShareProfileNotice() {
 }
 
 /**
- * Batch-o #5: harden the Return-to-Home navigation. The earlier
- * implementation called `popUpTo(WorkerBottomRoutes.HOME)` which silently
- * no-op'd when HOME was not present in the back stack (deep-link entry,
- * notification entry, etc.) and the apply screen stayed on top. We now:
- *   1. Try `popBackStack(HOME, inclusive=false)` first \u2014 the cheapest
- *      and most reliable path when HOME IS already on the stack.
- *   2. If that returns false, navigate fresh to HOME, popping the entire
- *      back stack via `findStartDestination().id` so JobDescription /
- *      JobApplication are guaranteed to leave the stack.
+ * Batch-m fix: route the worker home navigation through the
+ * WorkerNavGraph's actual start destination ("home" — see
+ * `WorkerBottomRoutes.HOME`). The earlier code popped to
+ * `Routes.WORKER_HOME` ("worker_home") which is a top-level role-graph
+ * route NOT registered inside WorkerNavGraph, so the popBackStack call
+ * silently no-op'd and the Return-to-Home button appeared dead.
  */
 private fun navigateToWorkerHome(navController: NavController) {
-    val popped = navController.popBackStack(
-        com.example.dutype.navigation.WorkerBottomRoutes.HOME,
-        /* inclusive = */ false
-    )
-    if (popped) return
-
     navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-        popUpTo(navController.graph.findStartDestination().id) {
+        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
             inclusive = false
             saveState = false
         }
         launchSingleTop = true
-        restoreState = false
     }
 }
 
@@ -734,7 +723,7 @@ private fun CoverLetterSection(
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             // Divider with "or"
             Row(
@@ -780,7 +769,7 @@ private fun CoverLetterSection(
                 textStyle = AppTypography.bodyMedium.copy(fontSize = 14.sp)
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             
             // Character count
             Text(
@@ -797,11 +786,72 @@ private fun CoverLetterSection(
 
 @Composable
 private fun WhatEmployerWillSeeSection() {
-    // Batch-o #4: dead composable retained as a no-op so any stray
-    // references compile. The visible-items breakdown was removed
-    // because the same information is already surfaced via the
-    // single-line "Your profile (name, phone, skills) will be shared
-    // with the employer" hint under the Submit button.
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Visibility,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "What employer will see",
+                    style = AppTypography.sectionHeader.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF065F46),
+                        fontSize = 14.sp
+                    )
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // List of visible items
+            val visibleItems = listOf(
+                "Your name and profile photo",
+                "Phone number (for contact)",
+                "Skills and experience",
+                "Cover letter (if provided)",
+                "Your location"
+            )
+            
+            visibleItems.forEach { item ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = item,
+                        style = AppTypography.bodyMedium.copy(
+                            color = Color(0xFF065F46),
+                            fontSize = 13.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

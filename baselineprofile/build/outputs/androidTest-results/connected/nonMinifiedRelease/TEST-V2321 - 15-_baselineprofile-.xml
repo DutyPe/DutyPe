@@ -1,9 +1,0 @@
-<?xml version='1.0' encoding='UTF-8' ?>
-<testsuite name="com.dutype.app.baselineprofile.BaselineProfileGenerator" tests="1" failures="0" errors="0" skipped="0" time="224.01" timestamp="2026-04-21T21:19:34" hostname="localhost">
-  <properties>
-    <property name="device" value="V2321 - 15" />
-    <property name="flavor" value="" />
-    <property name="project" value=":baselineprofile" />
-  </properties>
-  <testcase name="generate" classname="com.dutype.app.baselineprofile.BaselineProfileGenerator" time="-1.776806150656E9" />
-</testsuite>

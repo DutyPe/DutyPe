@@ -5,11 +5,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CurrencyRupee
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material3.Icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,9 +53,11 @@ fun JobSummaryCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "ðŸ“‹",
-                    style = MaterialTheme.typography.titleMedium
+                Icon(
+                    imageVector = Icons.Default.Preview,
+                    contentDescription = null,
+                    tint = Color(0xFF2563EB),
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -108,22 +118,22 @@ fun JobSummaryCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SummaryDetailRow(
-                            icon = "ðŸ’°",
+                            icon = Icons.Default.CurrencyRupee,
                             label = stringResource(R.string.pay_label),
-                            value = "â‚¹${payAmount.ifBlank { "---" }} ${payType.displayName}"
+                            value = "Rs. ${payAmount.ifBlank { "---" }} ${payType.displayName}"
                         )
                         SummaryDetailRow(
-                            icon = "ðŸ“",
+                            icon = Icons.Default.LocationOn,
                             label = stringResource(R.string.location),
                             value = location.ifBlank { "Not set" }
                         )
                         SummaryDetailRow(
-                            icon = "ðŸ‘¥",
+                            icon = Icons.Default.People,
                             label = stringResource(R.string.positions_label),
                             value = "${vacancies.ifBlank { "1" }} opening(s)"
                         )
                         SummaryDetailRow(
-                            icon = "â°",
+                            icon = Icons.Default.AccessTime,
                             label = stringResource(R.string.shift_label),
                             value = shiftTiming.displayName
                         )
@@ -138,6 +148,7 @@ fun JobSummaryCard(
                             JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
                             JobUrgency.URGENT -> Color(0xFFF59E0B)
                             JobUrgency.NORMAL -> primaryBlue
+                            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
                         }
                         Box(
                             modifier = Modifier
@@ -161,7 +172,7 @@ fun JobSummaryCard(
                         HorizontalDivider(color = Color(0xFFE2E8F0))
                         
                         Text(
-                            text = "ðŸŽ Perks & Benefits",
+                            text = "Perks & Benefits",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1E293B)
@@ -213,14 +224,19 @@ fun JobSummaryCard(
 
 @Composable
 private fun SummaryDetailRow(
-    icon: String,
+    icon: ImageVector,
     label: String,
     value: String
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = icon, style = MaterialTheme.typography.bodyMedium)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF64748B),
+            modifier = Modifier.size(18.dp)
+        )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "$label:",

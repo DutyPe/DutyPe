@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
+import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobUrgency
@@ -104,7 +105,12 @@ fun PayTypeDropdown(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(text = getPayTypeEmoji(payType))
+                            Icon(
+                                imageVector = JobPostingHelpers.getPayTypeIcon(payType),
+                                contentDescription = null,
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(16.dp)
+                            )
                             Text(
                                 text = payType.displayName,
                                 fontWeight = FontWeight.Medium
@@ -119,14 +125,6 @@ fun PayTypeDropdown(
             }
         }
     }
-}
-
-// Helper function to get emoji for PayType
-private fun getPayTypeEmoji(payType: PayType): String = when (payType) {
-    PayType.HOURLY -> "â°"
-    PayType.DAILY -> "ðŸ“…"
-    PayType.MONTHLY -> "ðŸ’¼"
-    PayType.TASK -> "ðŸ› ï¸"
 }
 
 @Composable
@@ -429,6 +427,7 @@ private fun UrgencyChip(
             JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
             JobUrgency.URGENT -> Color(0xFFEA580C)
             JobUrgency.NORMAL -> Color(0xFF3B82F6)
+            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
         }
         else -> Color.White
     }
@@ -437,6 +436,7 @@ private fun UrgencyChip(
         JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
         JobUrgency.URGENT -> Color(0xFFEA580C)
         JobUrgency.NORMAL -> Color(0xFF3B82F6)
+        JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
     }
 
     Card(

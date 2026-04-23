@@ -33,6 +33,7 @@ object JobPostingHelpers {
             JobUrgency.IMMEDIATE -> Color(0xFFE53E3E)
             JobUrgency.URGENT -> Color(0xFFFF8C00)
             JobUrgency.NORMAL -> Color(0xFF3B82F6)
+            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
         }
     }
 
@@ -104,6 +105,7 @@ object JobPostingHelpers {
             JobUrgency.IMMEDIATE -> baseCount += 15
             JobUrgency.URGENT -> baseCount += 10
             JobUrgency.NORMAL -> baseCount += 5
+            JobUrgency.WITHIN_MONTH -> baseCount += 2
         }
 
         // Perks adjustment removed as per user request

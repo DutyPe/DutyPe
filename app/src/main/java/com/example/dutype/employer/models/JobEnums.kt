@@ -41,7 +41,8 @@ enum class ShiftTiming(val displayName: String, val icon: String) {
 enum class JobUrgency(val displayName: String) {
     IMMEDIATE("Today"),
     URGENT("Within 3days"),
-    NORMAL("Within 1week")
+    NORMAL("Within 1week"),
+    WITHIN_MONTH("Within month")
     // Batch-p #11.3: removed FLEXIBLE — every job has a hiring window.
 }
 

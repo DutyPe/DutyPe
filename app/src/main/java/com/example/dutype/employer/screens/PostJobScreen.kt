@@ -41,10 +41,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,6 +88,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -640,6 +647,7 @@ fun PostJobScreen(
         val normalizedUrgency = when (urgency) {
             JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
             JobUrgency.NORMAL -> "MEDIUM"
+            JobUrgency.WITHIN_MONTH -> "WITHIN_MONTH"
         }
         val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
 
@@ -944,7 +952,12 @@ fun PostJobScreen(
                 pendingJobSubmission = false
             },
             icon = {
-                Text("âš ï¸", fontSize = 48.sp)
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(48.dp)
+                )
             },
             title = {
                 Text(
@@ -1014,7 +1027,12 @@ fun PostJobScreen(
         AlertDialog(
             onDismissRequest = { showScamWarningDialog = false },
             icon = {
-                Text("\uD83D\uDEAB", fontSize = 48.sp) // ðŸš«
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(48.dp)
+                )
             },
             title = {
                 Text(
@@ -1396,7 +1414,12 @@ fun PostJobScreen(
                                                     .background(Color(0xFFECFCCB), RoundedCornerShape(10.dp)),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text("ðŸ•", fontSize = 18.sp)
+                                                    Icon(
+                                                        imageVector = Icons.Default.AccessTime,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF65A30D),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
@@ -1644,7 +1667,7 @@ private fun PostJobHeroCard(
                 ) {
                     HeroSignalPill(
                         title = stringResource(R.string.pay_label),
-                        value = if (payAmount.isBlank()) "Set salary" else "â‚¹$payAmount ${payType.displayName}"
+                        value = if (payAmount.isBlank()) "Set salary" else "Rs. $payAmount ${payType.displayName}"
                     )
                     HeroSignalPill(
                         title = stringResource(R.string.type_label),
@@ -1672,7 +1695,12 @@ private fun PostJobHeroCard(
                                 .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(if (hasHeroImage) "ðŸ–¼ï¸" else "ðŸ“„", fontSize = 24.sp)
+                            Icon(
+                                imageVector = if (hasHeroImage) Icons.Default.Preview else Icons.Default.Description,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                         Column(
                             modifier = Modifier.weight(1f),
@@ -1792,7 +1820,12 @@ private fun PostJobChecklistPanel(
                         .background(primaryColor.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(if (missingStudioItems.isEmpty()) "âœ“" else "!", color = primaryColor, fontWeight = FontWeight.Black)
+                    Icon(
+                        imageVector = if (missingStudioItems.isEmpty()) Icons.Default.Check else Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -1818,7 +1851,7 @@ private fun PostJobChecklistPanel(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "â€¢",
+                            text = "-",
                             color = accentColor,
                             fontWeight = FontWeight.Black,
                             modifier = Modifier.padding(top = 1.dp)
@@ -2960,7 +2993,12 @@ fun EnhancedLocationSection(
                         .background(Color(0xFFDBEAFE), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("ðŸ“", fontSize = 18.sp)
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -3195,7 +3233,7 @@ fun EnhancedLocationSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "âš ï¸ $locationError",
+                        text = "Warning: $locationError",
                         color = Color(0xFFDC2626),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium
@@ -3232,7 +3270,12 @@ fun RequirementsSection(
                         .background(Color(0xFFF3E8FF), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("ðŸ“‹", fontSize = 18.sp)
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -3255,7 +3298,7 @@ fun RequirementsSection(
             // Experience Level
             RequirementChipSection(
                 title = stringResource(R.string.experience_required),
-                icon = "ðŸ’¼",
+                icon = Icons.Default.Work,
                 options = experienceLevels,
                 selectedOption = experienceLevel,
                 onOptionSelected = onExperienceLevelChange,
@@ -3271,7 +3314,7 @@ fun RequirementsSection(
             // free-form "Add your own" entry for cases like "21-28".
             RequirementChipSection(
                 title = stringResource(R.string.preferred_age_range),
-                icon = "ðŸ‘¤",
+                icon = Icons.Default.Person,
                 options = ageRanges,
                 selectedOption = ageRange,
                 onOptionSelected = onAgeRangeChange,
@@ -3296,11 +3339,11 @@ fun RequirementsSection(
                 genders.forEach { genderOption ->
                     FilterChip(
                         onClick = { onGenderChange(genderOption) },
-                        label = { 
+                        label = {
                             Text(
                                 genderOption,
                                 fontWeight = if (gender == genderOption) FontWeight.Medium else FontWeight.Normal
-                            ) 
+                            )
                         },
                         selected = gender == genderOption,
                         shape = RoundedCornerShape(10.dp),
@@ -3326,7 +3369,7 @@ fun RequirementsSection(
 @Composable
 private fun RequirementChipSection(
     title: String,
-    icon: String = "",
+    icon: ImageVector? = null,
     options: List<String>,
     selectedOption: String,
     onOptionSelected: (String) -> Unit,
@@ -3340,8 +3383,13 @@ private fun RequirementChipSection(
     Row(
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (icon.isNotEmpty()) {
-            Text(text = icon, fontSize = 14.sp)
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF475569),
+                modifier = Modifier.size(14.dp)
+            )
             Spacer(modifier = Modifier.width(6.dp))
         }
         Text(
@@ -3482,7 +3530,12 @@ fun PerksSelectionSection(
                             .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("ðŸŽ", fontSize = 18.sp)
+                        Icon(
+                            imageVector = Icons.Default.CardGiftcard,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {

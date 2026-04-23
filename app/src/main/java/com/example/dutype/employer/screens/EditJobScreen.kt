@@ -318,6 +318,7 @@ fun EditJobScreen(
                     val normalizedUrgency = when (urgency) {
                         JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
                         JobUrgency.NORMAL -> "MEDIUM"
+                        JobUrgency.WITHIN_MONTH -> "WITHIN_MONTH"
                     }
 
                     val updates = mapOf(
