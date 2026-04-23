@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -106,42 +107,58 @@ fun EmployerBottomBar(
         Triple(Routes.EMPLOYER_PROFILE, R.string.profile, Pair(R.drawable.ic_person_unfilled, R.drawable.ic_person_filled))
     )
 
+    // Bug (batch-j) #1: employer bottom bar now mirrors the worker bar's
+    // clean, flat PhonePe/Paytm-style geometry — plain white Surface, a
+    // 0.5dp top border, 64dp item row, three equally-weighted tabs, and
+    // the system navigation-bar inset applied INSIDE the Surface so the
+    // bar paints right to the gesture edge (no stray strip underneath).
+    // Post Job is inlined as the middle tab (same size/shape as Home and
+    // Profile) instead of the previous elevated FAB, so the geometry is
+    // identical to the worker side.
     Box(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        // Frosted glass background bar
-        // Bug #2 fix: the bar used to apply navigationBarsPadding to the
-        // outer Box, which left the system gesture strip below it as a
-        // separate flat white rectangle — visually reading as "a second
-        // bar below the bottom bar". We now let the Surface extend all
-        // the way to the screen edge (its background fills the gesture
-        // area) and shift the navigation bar inset to the inner content
-        // Row so nothing is clipped. Rounded top corners are kept for the
-        // professional shelf look; bottom is square because it meets the
-        // device edge.
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = Color.White.copy(alpha = 0.97f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            shadowElevation = 20.dp,
+            color = Color.White,
+            shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .height(68.dp)
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                sideItems.forEachIndexed { index, (route, labelResId, iconPair) ->
-                    val isSelected = currentRoute == route
-                    val label = stringResource(id = labelResId)
-                    val (iconUnfilled, iconFilled) = iconPair
-                    val iconRes = if (isSelected) iconFilled else iconUnfilled
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Hairline top divider — same tone as the worker bar.
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(Color(0xFFE5E7EB))
+                )
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .height(64.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Home tab
+                    val homeItem = sideItems[0]
+                    EmployerBottomTab(
+                        route = homeItem.first,
+                        labelResId = homeItem.second,
+                        iconUnfilled = homeItem.third.first,
+                        iconFilled = homeItem.third.second,
+                        isSelected = currentRoute == homeItem.first,
+                        selectedItemColor = selectedItemColor,
+                        unselectedItemColor = unselectedItemColor,
+                        onClick = { navigateTo(homeItem.first) }
+                    )
+
+                    // Post Job tab — middle position, same shape & size as
+                    // the other two. Keeps the selectedItemColor (blue)
+                    // tint so Post Job still reads as the primary action
+                    // without elevating above the bar line.
+                    val postSelected = currentRoute == Routes.EMPLOYER_POST_JOB
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
@@ -150,98 +167,84 @@ fun EmployerBottomBar(
                             .fillMaxHeight()
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { navigateTo(route) }
-                    ) {
-                        // Active indicator dot
-                        if (isSelected) {
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 20.dp, height = 3.dp)
-                                    .background(
-                                        selectedItemColor,
-                                        RoundedCornerShape(2.dp)
-                                    )
+                                indication = null,
+                                onClick = ::openPostJob
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-
+                    ) {
                         Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = label,
-                            modifier = Modifier.size(24.dp),
-                            tint = if (isSelected) selectedItemColor else unselectedItemColor
+                            painter = painterResource(id = R.drawable.post_job),
+                            contentDescription = stringResource(id = R.string.bottom_nav_post),
+                            modifier = Modifier.size(26.dp),
+                            tint = if (postSelected) selectedItemColor else unselectedItemColor
                         )
-
                         Spacer(modifier = Modifier.height(2.dp))
-
                         Text(
-                            text = label,
+                            text = stringResource(id = R.string.bottom_nav_post),
                             fontFamily = MeeshoFontFamily,
                             fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isSelected) selectedItemColor else unselectedItemColor,
+                            fontWeight = if (postSelected) FontWeight.Medium else FontWeight.Normal,
+                            color = if (postSelected) selectedItemColor else unselectedItemColor,
                             maxLines = 1
                         )
                     }
 
-                    // Space for center FAB
-                    if (index == 0) {
-                        Spacer(modifier = Modifier.width(72.dp))
-                    }
+                    // Profile tab
+                    val profileItem = sideItems[1]
+                    EmployerBottomTab(
+                        route = profileItem.first,
+                        labelResId = profileItem.second,
+                        iconUnfilled = profileItem.third.first,
+                        iconFilled = profileItem.third.second,
+                        isSelected = currentRoute == profileItem.first,
+                        selectedItemColor = selectedItemColor,
+                        unselectedItemColor = unselectedItemColor,
+                        onClick = { navigateTo(profileItem.first) }
+                    )
                 }
             }
         }
+    }
+}
 
-        // Center floating Post Job button.
-        // Bug fix: replaced the previous bulky pill that floated awkwardly
-        // above the bar with a clean, professional 3-tab layout — Post Job
-        // sits inline as the middle tab using a subtle elevated badge so it
-        // still feels primary without breaking the bottom-bar geometry.
-        // Aligned to TopCenter because the outer Box now also contains
-        // the gesture-area inset; centering vertically would push the
-        // FAB below the visible 68dp bar.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = ::openPostJob
-                )
-                .padding(top = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = selectedItemColor,
-                    shadowElevation = 6.dp,
-                    tonalElevation = 0.dp,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.post_job),
-                            contentDescription = stringResource(id = R.string.bottom_nav_post),
-                            modifier = Modifier.size(22.dp),
-                            tint = Color.White
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = stringResource(id = R.string.bottom_nav_post),
-                    fontFamily = MeeshoFontFamily,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = selectedItemColor,
-                    maxLines = 1
-                )
-            }
-        }
+@Composable
+private fun RowScope.EmployerBottomTab(
+    route: String,
+    labelResId: Int,
+    iconUnfilled: Int,
+    iconFilled: Int,
+    isSelected: Boolean,
+    selectedItemColor: Color,
+    unselectedItemColor: Color,
+    onClick: () -> Unit,
+) {
+    val label = stringResource(id = labelResId)
+    val iconRes = if (isSelected) iconFilled else iconUnfilled
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(26.dp),
+            tint = if (isSelected) selectedItemColor else unselectedItemColor
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            fontFamily = MeeshoFontFamily,
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            color = if (isSelected) selectedItemColor else unselectedItemColor,
+            maxLines = 1
+        )
     }
 }

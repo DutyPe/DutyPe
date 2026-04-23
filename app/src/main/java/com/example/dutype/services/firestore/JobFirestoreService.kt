@@ -181,7 +181,13 @@ class JobFirestoreService @Inject constructor(
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
             "companyCity" to companyCity,
-            "addressText" to addressDisplay  // Full address for job card display
+            "addressText" to addressDisplay,  // Full address for job card display
+            // Batch-j #2 fix: propagate the hero image URL into the card
+            // summary so the worker home job list can render the employer-
+            // uploaded image. Previously this field was only persisted on
+            // the full job document, and the worker card fell back to the
+            // category emoji because its summary map had no `jobImageUrl`.
+            "jobImageUrl" to normalizeString(data["jobImageUrl"])
         )
     }
 
