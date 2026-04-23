@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Base application theme. -->
     <style name="Theme.DutyPe" parent="Theme.Material3.DayNight.NoActionBar">
@@ -26,8 +26,14 @@
              system splash visually merges into the Compose splash. -->
         <item name="windowSplashScreenBackground">#000000</item>
 
-        <!-- Launcher icon intentionally omitted so only the AnimatedSplashScreen
-             is visible to the user. -->
+        <!-- Fully-transparent icon so the OS doesn't fall back to the
+             launcher icon. The user wants ONLY the Compose
+             AnimatedSplashScreen ("DutyPe" letter reveal) to be visible;
+             the system splash on Android 12+ is unavoidable but with a
+             transparent icon + matching black background it appears as a
+             plain black frame that blends into the Compose splash. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/splash_icon_transparent</item>
 
         <!-- Zero-duration icon animation. -->
         <item name="windowSplashScreenAnimationDuration">0</item>
