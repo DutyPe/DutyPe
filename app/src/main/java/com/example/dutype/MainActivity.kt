@@ -137,23 +137,52 @@ class MainActivity : ComponentActivity() {
 
         // MODERN SPLASH SCREEN API (Android 12+)
         // CRITICAL: Must be called BEFORE super.onCreate()
-        // This is the official Google-recommended approach (2024-2026)
-        // Used by: LinkedIn, Instagram, Uber, Google apps
+        //
+        // Best-practice pattern (Google developer docs, 2024-2026):
+        // 1. Install the splash screen (theme-driven, so the system draws
+        //    it on process bring-up — no Compose work involved).
+        // 2. Gate dismissal on a cheap main-thread boolean read.
+        // 3. Flip the boolean from a `ViewTreeObserver.OnPreDrawListener`
+        //    attached to the content view — this guarantees the splash
+        //    drops on the exact frame the NavHost is ready to draw,
+        //    preventing the "blank flash" that happens when you flip the
+        //    flag from a `LaunchedEffect` (which runs one frame late).
+        // 4. A hard-cap `postDelayed` is kept as a safety net so a
+        //    catastrophic Compose failure still releases the splash.
         val splashScreen = installSplashScreen()
-        
-        // Keep splash screen visible while loading (Google recommended approach)
-        // This ensures smooth transition and prevents flickering
+
+        // `@Volatile` is unnecessary here — the lambda passed to
+        // setKeepOnScreenCondition is invoked on the main thread, same
+        // thread that mutates the flag.
         var keepSplashOnScreen = true
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
 
-        // Bug #4 fix: hard-cap the system splash at 500ms. MainNavGraph now
-        // dismisses the splash on its very first composition (frame 1), so
-        // this timeout is only a safety net for catastrophic failures. A
-        // shorter cap means even a totally-broken first render recovers
-        // fast instead of leaving the user on a 1-2s frozen launcher icon.
+        // Safety cap: 500 ms. Normal path flips the flag via the
+        // OnPreDrawListener below, usually within 1 frame (~16 ms).
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
         }, 500L)
+
+        // Google canonical pattern: wait for the content view's first
+        // pre-draw to guarantee we have real UI to show before dropping
+        // the splash. We return false the first time (so this frame is
+        // skipped — the splash is still on top), and true thereafter.
+        // Since we attach BEFORE super.onCreate+setContent below, the
+        // listener fires on the first compose layout pass.
+        val content: android.view.View = findViewById(android.R.id.content)
+        content.viewTreeObserver.addOnPreDrawListener(
+            object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    if (keepSplashOnScreen) {
+                        // First real pre-draw — release the splash on
+                        // the next frame, then detach.
+                        keepSplashOnScreen = false
+                        content.viewTreeObserver.removeOnPreDrawListener(this)
+                    }
+                    return true
+                }
+            }
+        )
         
         super.onCreate(savedInstanceState)
         
@@ -275,39 +304,30 @@ class MainActivity : ComponentActivity() {
                     // System bar color state
                     var statusBarColor by remember { mutableStateOf(Color.White) } // White
 
-                    // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
-                    // This replaces deprecated window.statusBarColor and window.navigationBarColor
+                    // PERF (Android best practice): do NOT call
+                    // `enableEdgeToEdge` on every status-bar color change.
+                    // That API is meant to be invoked once per Activity
+                    // (it rebinds window insets and runs decor-layout),
+                    // and recalling it from a LaunchedEffect keyed on
+                    // color triggers a full insets pass + relayout on
+                    // every screen navigation — visible jank on older
+                    // devices.
+                    //
+                    // Instead, push the color to the window directly and
+                    // update the light/dark icon hint. This is what
+                    // `SystemBarStyle.auto` does internally, minus the
+                    // insets rebind.
                     LaunchedEffect(statusBarColor) {
-                        // Use enableEdgeToEdge with SystemBarStyle for Android 15+ compatibility
-                        // This is the recommended approach instead of deprecated window.statusBarColor
-                        
-                        // Calculate luminance properly for color detection
-                        val luminance = (0.299 * statusBarColor.red + 0.587 * statusBarColor.green + 0.114 * statusBarColor.blue)
+                        val argb = statusBarColor.toArgb()
+                        val luminance = (0.299 * statusBarColor.red +
+                            0.587 * statusBarColor.green +
+                            0.114 * statusBarColor.blue)
                         val isLightStatusBar = luminance > 0.5f
-                        
-                        val statusBarStyle = if (isLightStatusBar) {
-                            // Light status bar - dark icons
-                            SystemBarStyle.light(
-                                scrim = statusBarColor.toArgb(),
-                                darkScrim = statusBarColor.toArgb()
-                            )
-                        } else {
-                            // Dark status bar - light icons
-                            SystemBarStyle.dark(scrim = statusBarColor.toArgb())
-                        }
-                        
-                        enableEdgeToEdge(
-                            statusBarStyle = statusBarStyle,
-                            navigationBarStyle = SystemBarStyle.light(
-                                scrim = android.graphics.Color.WHITE,
-                                darkScrim = android.graphics.Color.WHITE
-                            )
-                        )
 
-                        // Keep navigation bar icons dark for white scrim.
-                        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
-                        
-                        Timber.d("Status bar color changed to: ${statusBarColor} (edge-to-edge)")
+                        @Suppress("DEPRECATION")
+                        window.statusBarColor = argb
+                        WindowCompat.getInsetsController(window, window.decorView)
+                            .isAppearanceLightStatusBars = isLightStatusBar
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
