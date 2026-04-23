@@ -935,7 +935,11 @@ fun RecentJobsSection(
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
                         shiftTiming = ShiftTiming.FLEXIBLE,
                         urgency = JobUrgency.NORMAL,
-                        vacancies = 0,
+                        // Batch-p #8: surface the actual posted vacancies +
+                        // application count instead of hard-coding 0. The
+                        // job card was reading 0 positions / 0 applications
+                        // for every post regardless of reality.
+                        vacancies = job.vacancies,
                         employerId = job.employerId,
                         employerName = job.companyName,
                         postedTime = job.createdAt,

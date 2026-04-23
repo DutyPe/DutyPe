@@ -474,16 +474,14 @@ fun EmployerAddressManagementScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             } else {
-                // Empty state - no saved addresses
+                // Batch-p #10: removed the duplicate "Add address" CTA from
+                // the empty state - the add-form is already on the same
+                // screen above, so a second button just bounced the user to
+                // an inert action and read as a confusing duplicate.
                 EmptyListState(
                     icon = Icons.Default.LocationOff,
                     title = stringResource(R.string.no_saved_addresses),
-                    subtitle = stringResource(R.string.add_office_locations),
-                    actionButton = EmptyStateAction(
-                        label = stringResource(R.string.add_address),
-                        icon = Icons.Default.Add,
-                        onClick = { /* Form is above, user can scroll up or fill it */ }
-                    )
+                    subtitle = stringResource(R.string.add_office_locations)
                 )
             }
             

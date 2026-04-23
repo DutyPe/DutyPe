@@ -266,7 +266,10 @@ fun JobDescriptionScreen(
 
     val contentAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0.3f else 1f,
-        animationSpec = tween(600, easing = EaseInOutQuart),
+        // Batch-p #2 perf: shortened the fade so users see the description
+        // and benefits as soon as Firestore returns; the previous 600ms
+        // tween made the screen feel sluggish even when data was already in.
+        animationSpec = tween(150, easing = EaseInOutQuart),
         label = "contentAlpha"
     )
 

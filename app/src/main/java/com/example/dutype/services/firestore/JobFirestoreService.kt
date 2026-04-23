@@ -9,6 +9,7 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -713,25 +714,35 @@ class JobFirestoreService @Inject constructor(
         return try {
             Timber.d("ðŸ” JobFirestoreService.getJobById - Looking for jobId: $jobId")
             
-            val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
-            if (document.exists()) {
-                Timber.d("ðŸ” JobFirestoreService.getJobById - Document found by ID")
-                val currentUser = FirebaseAuth.getInstance().currentUser
-                val detailsData = if (currentUser == null) {
-                    Timber.d("ðŸ” JobFirestoreService.getJobById - Guest session; skipping private job_details read")
-                    null
-                } else {
-                    try {
-                        firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
-                    } catch (e: FirebaseFirestoreException) {
-                        if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            Timber.w("ðŸ” JobFirestoreService.getJobById - job_details denied for user %s; returning core job data", currentUser.uid)
-                            null
-                        } else {
-                            throw e
+            // Batch-p #2 perf: fetch jobmetadata + job_details IN PARALLEL
+            // (previously two sequential awaits doubled the round-trip
+            // time on slow networks - the user-reported "1 minute" symptom).
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val (document, detailsData) = coroutineScope {
+                val coreDeferred = async {
+                    firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
+                }
+                val detailsDeferred = async<Map<String, Any>?> {
+                    if (currentUser == null) {
+                        Timber.d("Guest session; skipping private job_details read")
+                        null
+                    } else {
+                        try {
+                            firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
+                        } catch (e: FirebaseFirestoreException) {
+                            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                                Timber.w("job_details denied for user %s; returning core job data", currentUser.uid)
+                                null
+                            } else {
+                                throw e
+                            }
                         }
                     }
                 }
+                coreDeferred.await() to detailsDeferred.await()
+            }
+            if (document.exists()) {
+                Timber.d("JobFirestoreService.getJobById - Document found by ID")
                 Result.success(
                     mergeJobWithDetails(jobId, document.data.orEmpty(), detailsData)
                 )

@@ -303,7 +303,11 @@ fun WorkScheduleSection(
     selectedShift: ShiftTiming,
     onShiftSelected: (ShiftTiming) -> Unit,
     selectedUrgency: JobUrgency,
-    onUrgencySelected: (JobUrgency) -> Unit
+    onUrgencySelected: (JobUrgency) -> Unit,
+    customStart: String = "",
+    onCustomStartChange: (String) -> Unit = {},
+    customEnd: String = "",
+    onCustomEndChange: (String) -> Unit = {}
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Shift Timing
@@ -320,6 +324,35 @@ fun WorkScheduleSection(
                     shift = shift,
                     isSelected = selectedShift == shift,
                     onClick = { onShiftSelected(shift) }
+                )
+            }
+        }
+
+        // Batch-p #3: when CUSTOM is picked, the employer types in the actual
+        // start and end times so the worker sees real timings instead of just
+        // "Custom timing".
+        if (selectedShift == ShiftTiming.CUSTOM) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = customStart,
+                    onValueChange = onCustomStartChange,
+                    label = { Text("Start time") },
+                    placeholder = { Text("e.g. 9:00 AM") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                OutlinedTextField(
+                    value = customEnd,
+                    onValueChange = onCustomEndChange,
+                    label = { Text("End time") },
+                    placeholder = { Text("e.g. 6:00 PM") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
                 )
             }
         }

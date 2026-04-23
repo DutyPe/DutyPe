@@ -209,7 +209,10 @@ fun PostJobScreen(
     // Form state matching JobPostingModel
     var title by remember { mutableStateOf("") }
     var payAmount by remember { mutableStateOf("") }
-    var payType by remember { mutableStateOf(PayType.HOURLY) }
+    // Batch-p #11.1: default pay type is daily (matches Indian gig market
+    // mental model better than HOURLY for the typical job categories on
+    // DutyPe — cook, maid, helper, driver, delivery).
+    var payType by remember { mutableStateOf(PayType.DAILY) }
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
@@ -220,6 +223,11 @@ fun PostJobScreen(
     // explicit choice.
     var categoryManuallySet by remember { mutableStateOf(false) }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
+    // Batch-p #3: when shiftTiming == CUSTOM the employer types their own
+    // start/end timing into these two fields; the merged display string is
+    // persisted as the job's shiftTiming value.
+    var customShiftStart by remember { mutableStateOf("") }
+    var customShiftEnd by remember { mutableStateOf("") }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
@@ -232,7 +240,7 @@ fun PostJobScreen(
     var customPerks by remember { mutableStateOf(listOf<String>()) }
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
-    var ageRange by remember { mutableStateOf("18-35") }
+    var ageRange by remember { mutableStateOf("18-30") }
     var gender by remember { mutableStateOf("Any") }
     
     // Employer Trust Tier (loaded from profile)
@@ -260,7 +268,7 @@ fun PostJobScreen(
             baseExperienceLevels
         }
     }
-    val ageRanges = listOf("18-25", "18-35", "25-45", "35+", "Any Age")
+    val ageRanges = listOf("18-30", "30-45", "Any age")
     val genders = listOf("Any", "Male", "Female")
 
     // UI state
@@ -337,7 +345,7 @@ fun PostJobScreen(
                     selectedPerks.isNotEmpty() ||
                     customPerks.isNotEmpty() ||
                     experienceLevel != "No Experience Required" ||
-                    ageRange != "18-35" ||
+                    ageRange != "18-30" ||
                     gender != "Any" ||
                     shiftTiming != ShiftTiming.FLEXIBLE ||
                     urgency != JobUrgency.NORMAL ||
@@ -668,7 +676,18 @@ fun PostJobScreen(
             "description" to descriptionWithPayText,
             "gender" to gender,
             "experienceRequired" to experienceLevel,
-            "shiftTiming" to shiftTiming.displayName,
+            "shiftTiming" to (
+                // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
+                if (shiftTiming == ShiftTiming.CUSTOM &&
+                    (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
+                ) {
+                    listOf(customShiftStart.trim(), customShiftEnd.trim())
+                        .filter { it.isNotBlank() }
+                        .joinToString(separator = " - ")
+                } else {
+                    shiftTiming.displayName
+                }
+            ),
             "vacancies" to (vacancies.toIntOrNull() ?: 1),
             "benefits" to normalizedBenefits,
             
@@ -897,7 +916,7 @@ fun PostJobScreen(
         requirementsReady &&
         locationPinned
 
-    fun attemptPublishJob(allowOutOfRangePay: Boolean = false) {
+    fun attemptPublishJob() {
         val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
         scamValidationResult = scamCheck
         if (!scamCheck.isValid) {
@@ -905,12 +924,9 @@ fun PostJobScreen(
             return
         }
 
-        val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
-        payRateValidationResult = payCheck
-        if (!payCheck.isValid && !allowOutOfRangePay) {
-            showPayRateWarningDialog = true
-            return
-        }
+        // Batch-p #11: market-rate / pay-out-of-range warning dialog has been
+        // removed. Employers can publish at any pay rate without being told it
+        // looks unusual.
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
@@ -1048,78 +1064,8 @@ fun PostJobScreen(
         )
     }
     
-    // ANTI-FRAUD: Pay Rate Warning Dialog (Pay Rate Guardrails)
-    if (showPayRateWarningDialog && payRateValidationResult != null && !payRateValidationResult!!.isValid) {
-        AlertDialog(
-            onDismissRequest = { showPayRateWarningDialog = false },
-            icon = {
-                Text(if (payRateValidationResult!!.isTooLow) "\uD83D\uDCB8" else "\uD83D\uDCB0", fontSize = 48.sp) // ðŸ’¸ or ðŸ’°
-            },
-            title = {
-                Text(
-                    text = if (payRateValidationResult!!.isTooLow) stringResource(R.string.post_job_pay_too_low) else stringResource(R.string.post_job_pay_too_high),
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF59E0B)
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = payRateValidationResult!!.errorMessage ?: "Pay rate is outside the expected range.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF3C7)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.post_job_market_rate, category.displayName),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF92400E)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = getSuggestedPayRange(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF78350F)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.post_job_skeptical_pay, if (payRateValidationResult!!.isTooLow) "low" else "unusually high"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { 
-                        showPayRateWarningDialog = false
-                        attemptPublishJob(allowOutOfRangePay = true)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF59E0B)
-                    )
-                ) {
-                    Text(stringResource(R.string.continue_anyway))
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showPayRateWarningDialog = false }
-                ) {
-                    Text(stringResource(R.string.edit_pay_rate))
-                }
-            }
-        )
-    }
-    
+    // Batch-p #11: market-rate / pay-rate guardrail dialog has been removed.
+
     // PROFILE INCOMPLETE DIALOG - Navigate to profile setup with prefilled data
     if (showProfileIncompleteDialog && profileCheckResult != null) {
         AlertDialog(
@@ -1199,20 +1145,13 @@ fun PostJobScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            val canAdvance = when (currentStep) {
-                1 -> basicsReady
-                2 -> compensationReady && locationPinned
-                3 -> true
-                else -> true
-            }
-            PostJobStepperBar(
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                canAdvance = canAdvance,
+            // Batch-p #11: stepper removed in favour of a single scrollable
+            // canvas. The bottom bar now hosts a single Publish CTA so the
+            // employer doesn't have to step through 4 separate screens to
+            // post a job.
+            PostJobPublishBar(
                 publishEnabled = publishEnabled,
                 isPublishing = employerJobUiState.isCreatingJob || isSubmittingJob,
-                onBack = { if (currentStep > 1) currentStep -= 1 },
-                onNext = { if (currentStep < totalSteps) currentStep += 1 },
                 onPublish = { attemptPublishJob() }
             )
         }
@@ -1252,15 +1191,13 @@ fun PostJobScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     item {
-                        PostJobStepperHeader(
-                            currentStep = currentStep,
-                            totalSteps = totalSteps,
-                            stepLabels = stepLabels
-                        )
+                        // Batch-p #11: stepper header removed; everything
+                        // is on a single scrollable canvas now.
+                        Spacer(modifier = Modifier.height(0.dp))
                     }
 
                     // Group 1: Job Details (title, work type, description, image)
-                    if (currentStep == 1) item {
+                    item {
                         StudioGroupCard(
                             stepNumber = 1,
                             title = stringResource(R.string.tell_us_about_role),
@@ -1355,7 +1292,7 @@ fun PostJobScreen(
                     }
 
                     // Group 2: Pay & Location
-                    if (currentStep == 2) item {
+                    item {
                         StudioGroupCard(
                             stepNumber = 2,
                             title = stringResource(R.string.pay_where_work),
@@ -1374,7 +1311,7 @@ fun PostJobScreen(
                                         payType = payType,
                                         onPayTypeChange = { payType = it },
                                         category = category,
-                                        suggestedRange = getSuggestedPayRange()
+                                        suggestedRange = "" // Batch-p #11: market-rate hint removed
                                     )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     EnhancedLocationSection(
@@ -1417,7 +1354,7 @@ fun PostJobScreen(
                     }
 
                     // Group 3: People, Schedule & Perks
-                    if (currentStep == 3) item {
+                    item {
                         StudioGroupCard(
                             stepNumber = 3,
                             title = stringResource(R.string.who_you_want_extras),
@@ -1477,7 +1414,11 @@ fun PostJobScreen(
                                             selectedShift = shiftTiming,
                                             onShiftSelected = { shiftTiming = it },
                                             selectedUrgency = urgency,
-                                            onUrgencySelected = { urgency = it }
+                                            onUrgencySelected = { urgency = it },
+                                            customStart = customShiftStart,
+                                            onCustomStartChange = { customShiftStart = it },
+                                            customEnd = customShiftEnd,
+                                            onCustomEndChange = { customShiftEnd = it }
                                         )
                                     }
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
@@ -1493,7 +1434,7 @@ fun PostJobScreen(
                     }
 
                     // Standalone: Contact details
-                    if (currentStep == 4) item {
+                    item {
                         ContactSection(
                             contactNumber = contactNumber,
                             onContactNumberChange = { contactNumber = it },
@@ -1502,7 +1443,7 @@ fun PostJobScreen(
                         )
                     }
 
-                    if (currentStep == 4) item {
+                    item {
                         JobSummaryCard(
                             title = title,
                             category = category,
@@ -2040,6 +1981,59 @@ private fun PostJobStepperHeader(
                                 )
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PostJobPublishBar(
+    publishEnabled: Boolean,
+    isPublishing: Boolean,
+    onPublish: () -> Unit
+) {
+    Surface(
+        color = Color.White,
+        shadowElevation = 12.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 12.dp
+                )
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+        ) {
+            Button(
+                onClick = onPublish,
+                enabled = publishEnabled && !isPublishing,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2563EB),
+                    disabledContainerColor = Color(0xFFCBD5E1)
+                )
+            ) {
+                if (isPublishing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Publishing…", color = Color.White, fontWeight = FontWeight.SemiBold)
+                } else {
+                    Text(
+                        text = "Publish Job",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
                 }
             }
         }
@@ -3289,13 +3283,17 @@ fun RequirementsSection(
             Spacer(modifier = Modifier.height(18.dp))
             
             // Age Range
+            // Batch-p #11.2: chips are 18-30 / 30-45 / Any age plus a
+            // free-form "Add your own" entry for cases like "21-28".
             RequirementChipSection(
                 title = stringResource(R.string.preferred_age_range),
                 icon = "ðŸ‘¤",
                 options = ageRanges,
                 selectedOption = ageRange,
                 onOptionSelected = onAgeRangeChange,
-                selectedColor = Color(0xFF2563EB)
+                selectedColor = Color(0xFF2563EB),
+                allowCustomOption = true,
+                customOptionHint = "Add your own age range"
             )
             
             Spacer(modifier = Modifier.height(18.dp))
