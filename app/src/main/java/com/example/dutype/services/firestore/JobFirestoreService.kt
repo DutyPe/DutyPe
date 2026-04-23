@@ -398,7 +398,13 @@ class JobFirestoreService @Inject constructor(
                 // never appear in their My Jobs / dashboard list, even though
                 // they're saved (workers see them because workers query by
                 // geohash, not employerId).
-                "employerId" to employerId
+                "employerId" to employerId,
+                // Bug fix (Apr 2026): mirror vacancies into the slim card
+                // payload so list-only queries (employer home, history) can
+                // render the real number of positions without an extra
+                // job_details fetch. Without this, getJobsByEmployerRealtime
+                // returned no vacancies field and JobListing defaulted to 1.
+                "vacancies" to vacancies
             )
             // #5 fix: persist the employer-uploaded hero image URL on the
             // slim card payload so it can render on every job list without
@@ -832,8 +838,11 @@ class JobFirestoreService @Inject constructor(
             if (data.containsKey("experienceRequired")) detailsUpdates["experienceRequired"] = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
             if (data.containsKey("shiftTiming")) detailsUpdates["shiftTiming"] = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
             if (data.containsKey("vacancies")) {
-                detailsUpdates["vacancies"] = (data["vacancies"] as? Number)?.toInt()
+                val v = (data["vacancies"] as? Number)?.toInt()
                     ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
+                detailsUpdates["vacancies"] = v
+                // Mirror onto the slim card payload so list views keep up.
+                cardUpdates["vacancies"] = v
             }
             data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
             if (data.containsKey("benefits")) detailsUpdates["benefits"] = parseBenefits(data["benefits"])

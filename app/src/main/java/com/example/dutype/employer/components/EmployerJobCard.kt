@@ -359,11 +359,12 @@ private fun JobCardFooter(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left side - Stats
-            JobStatsRow(jobPosting = jobPosting)
+            // Per-user request (Apr 2026): the "👥 N applications" stat
+            // chip is removed from this row. The full applications count
+            // is already shown when the employer taps the card.
 
             // Right side - Actions
             if (showActions) {

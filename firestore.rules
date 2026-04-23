@@ -230,7 +230,11 @@ service cloud.firestore {
           'urgency', 'status', 'createdAt', 'employerId',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
-          'jobImageUrl'
+          'jobImageUrl',
+          // Apr 2026: vacancies mirrored on jobmetadata so list views
+          // (employer home, history) can show real position counts without
+          // an extra job_details fetch.
+          'vacancies'
         ]) &&
         request.resource.data.keys().hasAll([
           'companyName', 'title', 'jobType',
@@ -270,7 +274,8 @@ service cloud.firestore {
           'companyName', 'title', 'jobType',
           'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
           'urgency', 'status', 'createdAt', 'employerId',
-          'jobImageUrl'
+          'jobImageUrl',
+          'vacancies'
         ]) &&
         request.resource.data.createdAt == resource.data.createdAt &&
         // BUG #14 FIX: employerId is now part of the card schema. New writes
@@ -290,7 +295,8 @@ service cloud.firestore {
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
-        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024));
+        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
+        (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
 
       allow delete: if isSignedIn() &&
         exists(/databases/$(database)/documents/job_details/$(jobId)) &&
