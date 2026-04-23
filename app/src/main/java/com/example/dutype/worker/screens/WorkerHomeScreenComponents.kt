@@ -1159,14 +1159,13 @@ internal fun DynamicHeader(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            // Batch-i #3: worker home header now uses a white surface
-            // with a subtle bottom shadow divider instead of the old
-            // solid-black bar. The rest of the home screen is white,
-            // so a black header created a jarring hard band across
-            // the top. Dark ink colours below keep the brand + icons
-            // readable against the new white surface.
+            // Batch-n #2: header surface uses the same soft sky-blue
+            // tint that sits behind the favourite icon on each worker
+            // job card (#93C5FD @ 0.2 alpha ≈ #E3EEFC family). The rest
+            // of the screen and the system status bar stay pure white,
+            // so only the floating header carries the brand-blue wash.
             .background(
-                color = Color.White,
+                color = Color(0xFFE6F0FB),
                 shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             )
     ) {

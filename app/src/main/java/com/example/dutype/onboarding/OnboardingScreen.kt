@@ -143,9 +143,11 @@ private fun FirstTimeLanguageSelection(
     } else {
         "You can change this later from Settings"
     }
-    Box(modifier = Modifier.fillMaxSize()) {
-        LanguageSelectionBackdrop()
-        LanguageScreenDecor(modifier = Modifier.fillMaxSize())
+    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+        // Batch-n #3: cleaner, professional Select Language screen.
+        // Removed the busy gradient backdrop + decorative floating shapes
+        // (LanguageSelectionBackdrop / LanguageScreenDecor) so the screen
+        // reads as a calm white surface with one clear primary action.
 
         Column(
             modifier = Modifier
@@ -348,7 +350,9 @@ private fun LanguageScreenDecor(modifier: Modifier = Modifier) {
 }
 
 /**
- * Screenshot-style glass language card for first-time selection
+ * Batch-n #3: Clean, flat language card. White surface, soft border,
+ * one accent line + check chip when selected. No glassy gradients,
+ * halos, or blurs — reads as a professional choice tile.
  */
 @Composable
 private fun SimpleLanguageCard(
@@ -364,126 +368,73 @@ private fun SimpleLanguageCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(120.dp)
-            .shadow(
-                elevation = if (isSelected) 14.dp else 6.dp,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.08f),
-                spotColor = Color.Black.copy(alpha = 0.08f)
-            )
+            .height(96.dp)
             .border(
-                width = if (isSelected) 1.8.dp else 1.dp,
-                color = if (isSelected) accentTint.copy(alpha = 0.65f) else Color(0xFFE2E8F0),
-                shape = RoundedCornerShape(24.dp)
+                width = if (isSelected) 1.6.dp else 1.dp,
+                color = if (isSelected) accentTint else Color(0xFFE2E8F0),
+                shape = RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.85f)
-        ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = if (isSelected) 0.36f else 0.24f),
-                                accentTint.copy(alpha = if (isSelected) 0.12f else 0.05f),
-                                Color.White.copy(alpha = if (isSelected) 0.14f else 0.08f)
-                            )
-                        )
-                    )
-            )
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 28.dp, y = (-24).dp)
-                    .size(96.dp)
-                    .clip(CircleShape)
-                    .background(accentTint.copy(alpha = if (isSelected) 0.18f else 0.08f))
-                    .blur(18.dp)
-            )
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-18).dp, y = 22.dp)
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = if (isSelected) 0.22f else 0.12f))
-                    .blur(14.dp)
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(iconBrush),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(iconBrush),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = scriptChar,
-                        style = AppTypography.pageTitle.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                Text(
+                    text = scriptChar,
+                    style = AppTypography.pageTitle.copy(
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
                     )
-                }
+                )
+            }
 
-                Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = nativeName,
-                        style = AppTypography.cardTitle.copy(
-                            color = Color(0xFF0F172A),
-                            fontWeight = FontWeight.ExtraBold
-                        )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = nativeName,
+                    style = AppTypography.cardTitle.copy(
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.ExtraBold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = supportingText,
-                        style = AppTypography.bodySmall.copy(
-                            color = Color(0xFF64748B),
-                            lineHeight = 18.sp
-                        )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = supportingText,
+                    style = AppTypography.bodySmall.copy(
+                        color = Color(0xFF64748B),
+                        lineHeight = 18.sp
                     )
-                }
+                )
             }
 
             if (isSelected) {
+                Spacer(modifier = Modifier.width(12.dp))
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-12).dp, y = 12.dp)
-                        .size(34.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF111827),
-                                    Color(0xFF334155)
-                                )
-                            )
-                        )
-                        .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape),
+                        .background(accentTint),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }

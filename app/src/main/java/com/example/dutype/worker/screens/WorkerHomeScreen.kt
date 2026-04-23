@@ -108,14 +108,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-// Batch-m #5: dynamic header gradient that suits the white page
-// without being pure white. Uses a soft indigo-tinted wash at the top
-// (sky-50/indigo-50 family) blending into the white body below — keeps
-// the app-bar visually distinct from content while still feeling clean
-// and on-brand. Previously near-white (#FFFFFF / #F9FAFB) which read as
-// a flat white block.
-internal val WorkerHomeHeaderTopColor = Color(0xFFEEF2FF)
-internal val WorkerHomeHeaderMidColor = Color(0xFFF5F7FF)
+// Batch-n #2: status-bar must be PURE white to match the white worker
+// home body. The soft blue tint requested by the user lives ONLY inside
+// `DynamicHeader` (see WorkerHomeScreenComponents.kt) — keeping the
+// status-bar white means the system bar reads as part of the white
+// screen and only the floating header pops with the subtle blue.
+internal val WorkerHomeHeaderTopColor = Color(0xFFFFFFFF)
+internal val WorkerHomeHeaderMidColor = Color(0xFFFFFFFF)
 internal val WorkerHomeHeaderBottomColor = Color(0xFFFFFFFF)
 
 @OptIn(

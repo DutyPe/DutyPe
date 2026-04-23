@@ -123,10 +123,16 @@ fun JobApplicationCard(
     // Quick-call: workers in early funnel stages (applied / shortlisted / hired)
     // can dial the employer directly to push their candidacy. Hidden once the
     // application is rejected or already completed (terminal states).
-    val canCall = !application.employerPhone.isNullOrBlank() &&
-        (application.status == ApplicationStatus.APPLIED ||
-         application.status == ApplicationStatus.SHORTLISTED ||
-         application.status == ApplicationStatus.HIRED)
+    // Batch-n #4: show the Call button even if `employerPhone` snapshot is
+    // missing on legacy applications — when tapped without a number we
+    // open the job detail screen so the worker can still find the contact
+    // there. Previously the button was hidden whenever the phone was
+    // blank, which silently dropped the primary CTA on most older rows.
+    val isActiveStage = application.status == ApplicationStatus.APPLIED ||
+        application.status == ApplicationStatus.SHORTLISTED ||
+        application.status == ApplicationStatus.HIRED
+    val canCall = isActiveStage
+    val hasEmployerPhone = !application.employerPhone.isNullOrBlank()
     val context = androidx.compose.ui.platform.LocalContext.current
     
     // Can rate only if status is COMPLETED and hasn't rated yet
@@ -301,6 +307,8 @@ fun JobApplicationCard(
                         
                         // Quick Call button — fires ACTION_DIAL with the
                         // denormalized employer phone (set at apply time).
+                        // Falls back to opening the job detail screen when
+                        // the phone snapshot is missing (legacy rows).
                         if (canCall) {
                             Button(
                                 onClick = {
@@ -313,6 +321,12 @@ fun JobApplicationCard(
                                             ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                             context.startActivity(intent)
                                         }
+                                    } else {
+                                        // No snapshot phone — bring the
+                                        // worker to the full job detail
+                                        // screen where the contact section
+                                        // can resolve from job_details.
+                                        onCardClick(application)
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(

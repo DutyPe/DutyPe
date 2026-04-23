@@ -366,18 +366,28 @@ class ProfileCompletionService @Inject constructor(
     suspend fun canApplyDirectly(userId: String): Result<Boolean> {
         return try {
             Timber.d("🔍 ProfileCompletionService.canApplyDirectly - Checking for userId: $userId")
-            val userData = getCachedUserDoc(userId) ?: return Result.failure(Exception("User not found"))
-            // BUG #12 FIX: `users/{uid}` written by `ensureMinimalUserDocument`
-            // only stores `role` (single-role architecture). The previous code
-            // looked at `activeRole` first and threw "User role not found" for
-            // every fresh signup, which surfaced as "Please complete your
-            // profile to apply for jobs" via `getOrDefault(false)` upstream.
-            // Fall back through `activeRole` -> `role` -> legacy `roles[0]`.
+            // Batch-n #1: Don't fail with "User not found" / "User role not
+            // found" here. The apply CTA caller surfaces the exception text
+            // verbatim as a Toast ("Error checking profile: User not found"),
+            // which the user sees when applying to web-admin posted jobs
+            // immediately after a fresh signup whose users/{uid} doc race
+            // hasn't materialized yet, OR when the legacy users doc lacks a
+            // role field. Both situations should funnel to the
+            // ProfileSetup/Completion screen (profile is "incomplete"),
+            // not a hard failure popup.
+            val userData = getCachedUserDoc(userId)
+            if (userData == null) {
+                Timber.w("🔍 canApplyDirectly: users/$userId missing — treating as incomplete profile")
+                return Result.success(false)
+            }
             val userRole = (userData["activeRole"] as? String)
                 ?: (userData["role"] as? String)
                 ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
-                ?: return Result.failure(Exception("User role not found"))
-            
+            if (userRole.isNullOrBlank()) {
+                Timber.w("🔍 canApplyDirectly: users/$userId has no role — treating as incomplete profile")
+                return Result.success(false)
+            }
+
             Timber.d("🔍 ProfileCompletionService.canApplyDirectly - userRole: $userRole")
             
             val completion = if (userRole == "WORKER") {
