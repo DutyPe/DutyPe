@@ -897,7 +897,14 @@ class ProfileCompletionService @Inject constructor(
         return try {
             val payload = mutableMapOf<String, Any>("workerId" to workerId)
             if (!jobId.isNullOrBlank()) payload["jobId"] = jobId
-            val res = functions
+            // Batch-k fix: `getWorkerProfileForEmployer` is deployed via
+            // `onCallSecured` which pins the function to `asia-south1`. The
+            // default `FirebaseFunctions.getInstance()` targets us-central1
+            // and returns NOT_FOUND, which surfaced on the employer-side
+            // worker profile view as "Failed to load worker profile".
+            // Explicitly pin the client to the deployment region.
+            val res = com.google.firebase.functions.FirebaseFunctions
+                .getInstance("asia-south1")
                 .getHttpsCallable("getWorkerProfileForEmployer")
                 .call(payload)
                 .await()

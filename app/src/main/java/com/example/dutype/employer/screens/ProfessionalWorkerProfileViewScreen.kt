@@ -78,6 +78,7 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -110,87 +111,133 @@ fun ProfessionalWorkerProfileViewScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<ApplicationAction?>(null) }
-    
+    // Batch-k fix: let the Retry button actually trigger a re-fetch by
+    // bumping this counter into the LaunchedEffect key set.
+    var reloadTick by remember { mutableStateOf(0) }
+
     // Load worker profile and application data
-    LaunchedEffect(workerId, applicationId) {
+    LaunchedEffect(workerId, applicationId, reloadTick) {
         try {
             isLoading = true
             error = null
-            
-            // Load application if provided
+
+            // If we have an applicationId, seed from the denormalized
+            // snapshot on the application doc so the screen has data even
+            // if the callable below is slow/unavailable.
             applicationId?.let { appId ->
-                // Load application details from service
                 val applicationsResult = jobApplicationService.getApplicationById(appId)
                 applicationsResult.onSuccess { appResult: com.example.dutype.models.JobApplication? ->
                     val app = appResult
                     if (app != null) {
                         application = app
-
                         workerProfile = WorkerProfileData(
                             workerId = app.workerId,
-                            fullName = app.workerName.ifBlank { "Unknown Worker" },
-                            phone = app.workerPhone ?: "",
+                            fullName = app.workerName.ifBlank { "Worker" },
+                            phone = app.workerPhone.orEmpty(),
                             email = app.workerEmail.orEmpty(),
                             location = "",
                             gender = "",
                             profileImageUrl = app.workerProfileImageUrl,
                             experience = emptyList(),
-                            // Bug #19 fix: rules block employers from reading
-                            // worker_profiles, so use the denormalized skills
-                            // snapshot the worker wrote at apply time.
                             skills = app.workerSkills,
                             languages = emptyList()
                         )
-                    } else {
-                        error = "Application not found"
                     }
-                }.onFailure { e: Throwable ->
-                    error = e.message
                 }
-            } ?: run {
-                val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
-                profileResult.fold(
-                    onSuccess = { data ->
-                        val locationMap = data["location"] as? Map<*, *>
-                        val lat = (locationMap?.get("lat") as? Number)?.toDouble()
-                        val lng = (locationMap?.get("lng") as? Number)?.toDouble()
-                        val locationText = when {
-                            !((data["city"] as? String).isNullOrBlank()) -> data["city"] as String
-                            lat != null && lng != null && (lat != 0.0 || lng != 0.0) ->
-                                String.format(Locale.US, "%.4f, %.4f", lat, lng)
-                            else -> ""
-                        }
-
-                        val primarySkills = (data["skills"] as? List<*>)
-                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                            .orEmpty()
-                        val jobTypeSkills = (data["jobTypes"] as? List<*>)
-                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                            .orEmpty()
-
-                        workerProfile = WorkerProfileData(
-                            workerId = workerId,
-                            fullName = (data["fullName"] as? String).orEmpty().ifBlank { "Worker" },
-                            phone = (data["phone"] as? String).orEmpty(),
-                            location = locationText,
-                            gender = (data["gender"] as? String).orEmpty().ifBlank { "Not specified" },
-                            profileImageUrl = data["profileImageUrl"] as? String,
-                            experience = emptyList(),
-                            skills = (primarySkills + jobTypeSkills).distinct(),
-                            languages = (data["languages"] as? List<*>)
-                                ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                                .orEmpty()
-                        )
-                    },
-                    onFailure = { e ->
-                        error = e.message ?: "Failed to load worker profile"
-                    }
-                )
             }
-            
+
+            // Always attempt the callable to get full profile (callable is
+            // region-pinned to asia-south1 by ProfileCompletionService).
+            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
+            profileResult.fold(
+                onSuccess = { data ->
+                    val locationMap = data["location"] as? Map<*, *>
+                    val lat = (locationMap?.get("lat") as? Number)?.toDouble()
+                    val lng = (locationMap?.get("lng") as? Number)?.toDouble()
+                    val locationText = when {
+                        !((data["city"] as? String).isNullOrBlank()) -> data["city"] as String
+                        lat != null && lng != null && (lat != 0.0 || lng != 0.0) ->
+                            String.format(Locale.US, "%.4f, %.4f", lat, lng)
+                        else -> ""
+                    }
+
+                    val primarySkills = (data["skills"] as? List<*>)
+                        ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                        .orEmpty()
+                    val jobTypeSkills = (data["jobTypes"] as? List<*>)
+                        ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                        .orEmpty()
+
+                    workerProfile = WorkerProfileData(
+                        workerId = workerId,
+                        fullName = (data["fullName"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.fullName.orEmpty() }
+                            .ifBlank { "Worker" },
+                        phone = (data["phone"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.phone.orEmpty() },
+                        email = (data["email"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.email.orEmpty() },
+                        location = locationText,
+                        gender = (data["gender"] as? String).orEmpty().ifBlank { "Not specified" },
+                        profileImageUrl = (data["profileImageUrl"] as? String)
+                            ?: workerProfile?.profileImageUrl,
+                        experience = emptyList(),
+                        skills = (primarySkills + jobTypeSkills + (workerProfile?.skills ?: emptyList())).distinct(),
+                        languages = (data["languages"] as? List<*>)
+                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                            .orEmpty()
+                    )
+                },
+                onFailure = { e ->
+                    // Batch-k fix: the callable may fail (region mismatch,
+                    // network, cold start). Fall back to the employer-owned
+                    // applications row, which carries a denormalized worker
+                    // snapshot (workerName/phone/email/skills/profileImageUrl).
+                    // Employer rules allow reads where employerId == uid.
+                    if (workerProfile == null) {
+                        val fallback = runCatching {
+                            val uid = com.google.firebase.auth.FirebaseAuth
+                                .getInstance().currentUser?.uid
+                            if (uid.isNullOrBlank()) return@runCatching null
+                            val snap = com.google.firebase.firestore.FirebaseFirestore
+                                .getInstance()
+                                .collection("applications")
+                                .whereEqualTo("employerId", uid)
+                                .whereEqualTo("workerId", workerId)
+                                .limit(1)
+                                .get()
+                                .await()
+                            val d = snap.documents.firstOrNull()?.data ?: return@runCatching null
+                            WorkerProfileData(
+                                workerId = workerId,
+                                fullName = (d["workerName"] as? String).orEmpty().ifBlank { "Worker" },
+                                phone = (d["workerPhone"] as? String).orEmpty(),
+                                email = (d["workerEmail"] as? String).orEmpty(),
+                                location = "",
+                                gender = "",
+                                profileImageUrl = d["workerProfileImageUrl"] as? String,
+                                experience = emptyList(),
+                                skills = (d["workerSkills"] as? List<*>)
+                                    ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
+                                    .orEmpty(),
+                                languages = emptyList()
+                            )
+                        }.getOrNull()
+
+                        if (fallback != null) {
+                            workerProfile = fallback
+                        } else {
+                            error = e.message ?: "Failed to load worker profile"
+                        }
+                    }
+                    // If workerProfile was already seeded from applicationId
+                    // snapshot, keep that — no error shown.
+                }
+            )
+
             isLoading = false
         } catch (e: Exception) {
-            error = e.message
+            if (workerProfile == null) error = e.message ?: "Failed to load worker profile"
             isLoading = false
         }
     }
@@ -212,23 +259,20 @@ fun ProfessionalWorkerProfileViewScreen(
                 backgroundColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
             )
 
-            // Professional Header
-            ProfessionalWorkerProfileHeader(
-                workerProfile = workerProfile,
-                application = application
-            )
-            
+            // Batch-k fix: the previous `ProfessionalWorkerProfileHeader`
+            // card duplicated the name/avatar block and rendered a bare
+            // "Worker" fallback on load errors. It's been removed; the
+            // list below now leads with a compact identity section inside
+            // `PersonalInformationCard` so the screen shows only worker-
+            // specific data in a single clean card stack.
+
             // Content
             if (isLoading) {
                 LoadingWorkerProfileState()
             } else if (error != null) {
                 ErrorWorkerProfileState(
                     error = error!!,
-                    onRetry = {
-                        scope.launch {
-                            // Retry loading logic
-                        }
-                    }
+                    onRetry = { reloadTick++ }
                 )
             } else if (workerProfile != null) {
                 ScrollAwareLazyColumn(
@@ -264,9 +308,12 @@ fun ProfessionalWorkerProfileViewScreen(
                         }
                     }
                     
-                    // Personal Information
+                    // Personal Information (compact identity header merged in)
                     item {
-                        PersonalInformationCard(workerProfile = workerProfile!!)
+                        PersonalInformationCard(
+                            workerProfile = workerProfile!!,
+                            application = application
+                        )
                     }
                     
                     // Work Experience
@@ -569,7 +616,10 @@ private fun ApplicationStatusCard(
 }
 
 @Composable
-private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
+private fun PersonalInformationCard(
+    workerProfile: WorkerProfileData,
+    application: JobApplication? = null
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -580,6 +630,83 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Batch-k fix: inline identity block (avatar + name + applied-for)
+            // inside the Personal Information card so the screen no longer
+            // needs a separate big "Worker" header card.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3B82F6).copy(alpha = 0.10f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUrl = workerProfile.profileImageUrl
+                    if (!imageUrl.isNullOrBlank()) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = imageUrl,
+                            contentDescription = "Worker Profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        val initials = workerProfile.fullName
+                            .split(" ")
+                            .take(2)
+                            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                            .joinToString("")
+                            .ifEmpty { workerProfile.fullName.take(1).uppercase() }
+                        if (initials.isNotBlank()) {
+                            Text(
+                                text = initials,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF3B82F6)
+                                )
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = "Profile",
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = workerProfile.fullName.ifBlank { "Worker" },
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF111827)
+                        )
+                    )
+                    val appliedFor = application?.jobTitle.orEmpty()
+                    if (appliedFor.isNotBlank()) {
+                        Text(
+                            text = "Applied for $appliedFor",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+            }
+
+            androidx.compose.material3.HorizontalDivider(
+                color = Color(0xFFE5E7EB),
+                thickness = 0.5.dp
+            )
+
             Text(
                 text = "Personal Information",
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -587,13 +714,19 @@ private fun PersonalInformationCard(workerProfile: WorkerProfileData) {
                     color = Color(0xFF1F2937)
                 )
             )
-            
-            PersonalInfoRow("Phone", workerProfile.phone, isPhone = true)
+
+            if (workerProfile.phone.isNotBlank()) {
+                PersonalInfoRow("Phone", workerProfile.phone, isPhone = true)
+            }
             if (workerProfile.email.isNotBlank()) {
                 PersonalInfoRow("Email", workerProfile.email)
             }
-            PersonalInfoRow("Location", workerProfile.location)
-            PersonalInfoRow("Gender", workerProfile.gender)
+            if (workerProfile.location.isNotBlank()) {
+                PersonalInfoRow("Location", workerProfile.location)
+            }
+            if (workerProfile.gender.isNotBlank()) {
+                PersonalInfoRow("Gender", workerProfile.gender)
+            }
         }
     }
 }
