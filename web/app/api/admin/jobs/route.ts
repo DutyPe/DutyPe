@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
     );
 
     const cardData: Record<string, unknown> = {
+      employerId,
       companyName,
       title,
       jobType,
