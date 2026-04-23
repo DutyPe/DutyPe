@@ -4,6 +4,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +21,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -159,19 +165,18 @@ fun JobApplicationScreen(
     // Use either found job or loaded job
     val displayJob = job ?: loadedJob
     
-    // Handle application success
+    // Batch-l: drive an in-screen success view (animated check + CTA)
+    // instead of toast-then-pop. We hold the success flag locally so that
+    // clearing the VM state for the next apply doesn't immediately tear
+    // down the success UI.
+    var showSuccess by remember { mutableStateOf(false) }
     LaunchedEffect(applicationUiState.applicationSuccess) {
         if (applicationUiState.applicationSuccess) {
-            Toast.makeText(context, "Application submitted successfully!", Toast.LENGTH_SHORT).show()
+            showSuccess = true
             applicationViewModel.clearSuccessStates()
-            
-            // Trigger in-app review after successful application
             context.findActivity()?.let { activity ->
                 reviewTriggerService.onWorkerJobApplication(activity)
             }
-            
-            // Navigate back to previous screen (job details) and then to my jobs
-            navController.popBackStack()
         }
     }
     
@@ -191,77 +196,227 @@ fun JobApplicationScreen(
         // Header
         CommonHeader(
             title = stringResource(R.string.apply_for_job),
-            onBackClick = { navController.popBackStack() },
+            onBackClick = {
+                if (showSuccess) {
+                    // Treat back the same as the CTA so we don't strand the
+                    // user on a stale apply form.
+                    navController.popBackStack(
+                        com.example.dutype.navigation.Routes.WORKER_HOME,
+                        inclusive = false
+                    )
+                } else {
+                    navController.popBackStack()
+                }
+            },
             backgroundColor = WorkerColors.CardBackground
         )
-        
-        if (displayJob == null || profileUiState.isLoading) {
-            // Loading state
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Color(0xFF1F2937))
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Job Summary Card
-                JobSummaryCard(job = displayJob)
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Your Profile Section
-                YourProfileSection(
-                    profileUiState = profileUiState,
-                    currentUser = currentUser
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Cover Letter Section
-                CoverLetterSection(
-                    coverLetter = coverLetter,
-                    onCoverLetterChange = { coverLetter = it },
-                    coverLetterFileName = coverLetterFileName,
-                    isUploading = isUploadingCoverLetter,
-                    onUploadClick = { coverLetterPickerLauncher.launch("application/*") },
-                    onRemoveFile = {
-                        coverLetterFileUri = null
-                        coverLetterFileName = null
-                        coverLetterUploadUrl = null
-                    }
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // What Employer Will See
-                WhatEmployerWillSeeSection()
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                // Submit Button
-                SubmitApplicationButton(
-                    isSubmitting = applicationUiState.isApplying || isUploadingCoverLetter,
-                    onSubmit = {
-                        // Build cover letter: text or file URL
-                        val finalCoverLetter = when {
-                            coverLetterUploadUrl != null -> "[FILE] $coverLetterUploadUrl"
-                            coverLetter.isNotBlank() -> coverLetter
-                            else -> null
-                        }
-                        applicationViewModel.applyForJob(
-                            jobId = jobId,
-                            coverLetter = finalCoverLetter
+
+        when {
+            showSuccess && displayJob != null -> {
+                // Batch-l: in-screen success state replaces the prior
+                // toast-then-popBackStack flow. Renders an animated check
+                // tick and a single "Return to Home" CTA that pops the
+                // whole apply / details stack back to the worker home.
+                ApplicationSentSuccess(
+                    jobTitle = displayJob.title,
+                    onReturnHome = {
+                        navController.popBackStack(
+                            com.example.dutype.navigation.Routes.WORKER_HOME,
+                            inclusive = false
                         )
                     }
                 )
-                
-                Spacer(modifier = Modifier.height(32.dp))
             }
+            displayJob == null || profileUiState.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF1F2937))
+                }
+            }
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Job Summary Card
+                    JobSummaryCard(job = displayJob)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Batch-l: replaced the bulky "Your Profile" card +
+                    // duplicate "What employer will see" list with a
+                    // single compact share notice.
+                    ShareProfileNotice()
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Cover Letter Section
+                    CoverLetterSection(
+                        coverLetter = coverLetter,
+                        onCoverLetterChange = { coverLetter = it },
+                        coverLetterFileName = coverLetterFileName,
+                        isUploading = isUploadingCoverLetter,
+                        onUploadClick = { coverLetterPickerLauncher.launch("application/*") },
+                        onRemoveFile = {
+                            coverLetterFileUri = null
+                            coverLetterFileName = null
+                            coverLetterUploadUrl = null
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Submit Button
+                    SubmitApplicationButton(
+                        isSubmitting = applicationUiState.isApplying || isUploadingCoverLetter,
+                        onSubmit = {
+                            val finalCoverLetter = when {
+                                coverLetterUploadUrl != null -> "[FILE] $coverLetterUploadUrl"
+                                coverLetter.isNotBlank() -> coverLetter
+                                else -> null
+                            }
+                            applicationViewModel.applyForJob(
+                                jobId = jobId,
+                                coverLetter = finalCoverLetter
+                            )
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareProfileNotice() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .background(Color(0xFFF0FDF4), RoundedCornerShape(12.dp))
+            .border(0.5.dp, Color(0xFFBBF7D0), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = Color(0xFF10B981),
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = "Your profile (name, phone, skills) will be shared with the employer.",
+            style = AppTypography.bodyMedium.copy(
+                color = Color(0xFF065F46),
+                fontSize = 13.sp
+            ),
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ApplicationSentSuccess(
+    jobTitle: String,
+    onReturnHome: () -> Unit
+) {
+    // Animated scale-in for the check circle.
+    var animateIn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { animateIn = true }
+    val scale by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "successScale"
+    )
+    val tickAlpha by animateFloatAsState(
+        targetValue = if (animateIn) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, delayMillis = 250),
+        label = "tickAlpha"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(Color(0xFF10B981).copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF10B981)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .scale(tickAlpha)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Application Sent!",
+            style = AppTypography.cardTitle.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = Color(0xFF111827)
+            )
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Your application for \"$jobTitle\" has been successfully sent.",
+            style = AppTypography.bodyMedium.copy(
+                color = Color(0xFF6B7280),
+                fontSize = 14.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = onReturnHome,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1F2937)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = "Return to Home",
+                style = AppTypography.buttonMedium.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
         }
     }
 }
@@ -379,131 +534,13 @@ private fun JobSummaryCard(job: JobListing) {
 }
 
 @Composable
-private fun YourProfileSection(
-    profileUiState: ProfileUiState,
-    currentUser: FirebaseUser?
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Section header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Your Profile",
-                    style = AppTypography.sectionHeader.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
-                )
-                
-                // Verified badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Auto-filled",
-                        style = AppTypography.caption.copy(
-                            color = Color(0xFF10B981),
-                            fontSize = 12.sp
-                        )
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Profile info
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Profile image
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFF3F4F6)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val profileImageUrl = profileUiState.user?.profileImageUrl
-                    if (!profileImageUrl.isNullOrBlank()) {
-                        OptimizedProfileImage(
-                            imageUrl = profileImageUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    // Try multiple sources for name (fullName → Firebase displayName → "Your Name")
-                    // Phone number shown separately below, not as name fallback
-                    val displayName = profileUiState.user?.fullName?.takeIf { it.isNotBlank() }
-                        ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-                        ?: "Your Name"
-                    
-                    Text(
-                        text = displayName,
-                        style = AppTypography.cardTitle.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
-                        )
-                    )
-                    
-                    Text(
-                        text = profileUiState.user?.phone 
-                            ?: currentUser?.phoneNumber 
-                            ?: "Phone number",
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280),
-                            fontSize = 13.sp
-                        )
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            HorizontalDivider(color = Color(0xFFF3F4F6))
-            
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-    }
-}
-
-@Composable
 private fun ProfileInfoRow(
     icon: ImageVector,
     label: String,
     value: String
 ) {
+    // Batch-l: kept as a private utility (no longer referenced) to avoid
+    // touching unrelated callers; safe to delete in a future cleanup.
     Row(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
