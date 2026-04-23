@@ -1158,16 +1158,20 @@ internal fun DynamicHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .statusBarsPadding()
-            // Batch-n #2: header surface uses the same soft sky-blue
-            // tint that sits behind the favourite icon on each worker
-            // job card (#93C5FD @ 0.2 alpha ≈ #E3EEFC family). The rest
-            // of the screen and the system status bar stay pure white,
-            // so only the floating header carries the brand-blue wash.
             .background(
-                color = Color(0xFFE6F0FB),
+                // Batch-o #3: gradient purple wash. The status bar is
+                // pinned to the top colour (#6D28D9) in WorkerHomeScreen,
+                // so the system bar visually merges into the header.
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF6D28D9),
+                        Color(0xFF7C3AED),
+                        Color(0xFF8B5CF6)
+                    )
+                ),
                 shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             )
+            .statusBarsPadding()
     ) {
         Row(
             modifier = Modifier
@@ -1185,7 +1189,7 @@ internal fun DynamicHeader(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 21.sp,
-                        color = Color(0xFF0F172A)
+                        color = Color.White
                     )
                 )
             }
@@ -1201,7 +1205,7 @@ internal fun DynamicHeader(
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color(0xFF0F172A),
+                            tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -1271,7 +1275,7 @@ internal fun DynamicHeader(
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFF1F2937),
+                                tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1283,7 +1287,7 @@ internal fun DynamicHeader(
                                 text = locationText,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF111827),
+                                    color = Color.White,
                                     fontSize = 14.sp
                                 ),
                                 maxLines = 1,
@@ -1300,13 +1304,13 @@ internal fun DynamicHeader(
                             androidx.compose.material3.CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = Color(0xFF1F2937)
+                                color = Color.White
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.ChevronRight,
                                 contentDescription = null,
-                                tint = Color(0xFF6B7280),
+                                tint = Color.White.copy(alpha = 0.85f),
                                 modifier = Modifier.size(20.dp)
                             )
                         }

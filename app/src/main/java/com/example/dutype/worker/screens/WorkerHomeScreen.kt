@@ -108,13 +108,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-// Batch-n #2: status-bar must be PURE white to match the white worker
-// home body. The soft blue tint requested by the user lives ONLY inside
-// `DynamicHeader` (see WorkerHomeScreenComponents.kt) — keeping the
-// status-bar white means the system bar reads as part of the white
-// screen and only the floating header pops with the subtle blue.
-internal val WorkerHomeHeaderTopColor = Color(0xFFFFFFFF)
-internal val WorkerHomeHeaderMidColor = Color(0xFFFFFFFF)
+// Batch-o #3: dynamic header now uses a gradient purple wash. The
+// status bar must MATCH the very top of that gradient so the system
+// bar visually merges into the header. Top = #6D28D9 (deep violet),
+// mid = #7C3AED, bottom blends to white. Status bar tint pinned to
+// the top colour and DynamicHeader paints the same gradient.
+internal val WorkerHomeHeaderTopColor = Color(0xFF6D28D9)
+internal val WorkerHomeHeaderMidColor = Color(0xFF7C3AED)
 internal val WorkerHomeHeaderBottomColor = Color(0xFFFFFFFF)
 
 @OptIn(

@@ -184,59 +184,73 @@ object FirestoreUtils {
     ): PhoneCheckResult {
         val normalized = PhoneNumberUtils.normalize(phoneNumber)
         val variants = PhoneNumberUtils.getVariants(phoneNumber)
-        // Bug #11/#20 + Batch-m #4: prefer the new single-doc, role-aware
-        // `lookupPhoneRole` callable. The legacy `checkPhoneExists` does
-        // NOT carry the role-conflict flag, so when the lookup fell
-        // through to it the registration/login screens couldn't block
-        // before sendOtp and the user got an OTP they shouldn't have.
-        // Both callables are deployed via `onCallSecured` to asia-south1,
-        // so we explicitly pin the client region — calling the default
-        // us-central1 instance returned NOT_FOUND and silently swallowed
-        // the role check.
-        val callableNames = listOf("lookupPhoneRole", "checkPhoneExists")
+        // Batch-o #2: per-callable region map. Different callables live
+        // in different regions:
+        //   - `lookupPhoneRole` is wrapped in `onCallSecured` → asia-south1
+        //   - legacy `checkPhoneExists` (functions/src/index.ts) is plain
+        //     `functions.https.onCall` → us-central1 (default)
+        // Batch-m incorrectly pinned BOTH to asia-south1 which made
+        // `checkPhoneExists` start returning NOT_FOUND, so when
+        // `lookupPhoneRole` was unavailable the fallback also failed
+        // → result: PhoneCheckResult.UNKNOWN → user blocked at the
+        // register / login screen with "Could not verify this number".
+        // We now try EACH callable in its primary region first, then
+        // the other region as a safety net (covers older deployments
+        // where the function was published in only one of the two).
+        val callableRegions = listOf(
+            "lookupPhoneRole" to listOf("asia-south1", ""),
+            "checkPhoneExists" to listOf("", "asia-south1")
+        )
 
-        for (callableName in callableNames) {
-            try {
-                val payloadArgs = mutableMapOf<String, Any>(
-                    "phone" to normalized,
-                    "variants" to variants
-                )
-                if (!requestedRole.isNullOrBlank()) {
-                    payloadArgs["requestedRole"] = requestedRole.uppercase()
-                }
-
-                val response = FirebaseFunctions.getInstance("asia-south1")
-                    .getHttpsCallable(callableName)
-                    .call(payloadArgs)
-                    .await()
-
-                @Suppress("UNCHECKED_CAST")
-                val payload = response.data as? Map<String, Any?>
-                val exists = payload?.get("exists") as? Boolean
-                val existingRole = (payload?.get("existingRole") as? String)
-                    ?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
-                val roleConflict = payload?.get("roleConflict") as? Boolean ?: false
-
-                // Batch-m #4: defence-in-depth. If the requested role does
-                // not match the existing role, mark roleConflict=true even
-                // if the callable forgot to set it (older deploy).
-                val effectiveConflict = roleConflict || (
-                    !requestedRole.isNullOrBlank() &&
-                        existingRole != null &&
-                        existingRole != requestedRole.uppercase()
-                )
-
-                when (exists) {
-                    true -> return PhoneCheckResult(
-                        exists = PhoneExistenceResult.EXISTS,
-                        existingRole = existingRole,
-                        roleConflict = effectiveConflict
+        for ((callableName, regions) in callableRegions) {
+            for (region in regions) {
+                try {
+                    val payloadArgs = mutableMapOf<String, Any>(
+                        "phone" to normalized,
+                        "variants" to variants
                     )
-                    false -> return PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
-                    null -> Timber.w("Callable $callableName returned invalid payload: $payload")
+                    if (!requestedRole.isNullOrBlank()) {
+                        payloadArgs["requestedRole"] = requestedRole.uppercase()
+                    }
+
+                    val functions = if (region.isBlank()) {
+                        FirebaseFunctions.getInstance()
+                    } else {
+                        FirebaseFunctions.getInstance(region)
+                    }
+                    val response = functions
+                        .getHttpsCallable(callableName)
+                        .call(payloadArgs)
+                        .await()
+
+                    @Suppress("UNCHECKED_CAST")
+                    val payload = response.data as? Map<String, Any?>
+                    val exists = payload?.get("exists") as? Boolean
+                    val existingRole = (payload?.get("existingRole") as? String)
+                        ?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+                    val roleConflict = payload?.get("roleConflict") as? Boolean ?: false
+
+                    // Defence-in-depth: derive roleConflict from
+                    // existingRole vs requestedRole when the callable
+                    // forgot to set it (older deploy of checkPhoneExists).
+                    val effectiveConflict = roleConflict || (
+                        !requestedRole.isNullOrBlank() &&
+                            existingRole != null &&
+                            existingRole != requestedRole.uppercase()
+                    )
+
+                    when (exists) {
+                        true -> return PhoneCheckResult(
+                            exists = PhoneExistenceResult.EXISTS,
+                            existingRole = existingRole,
+                            roleConflict = effectiveConflict
+                        )
+                        false -> return PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
+                        null -> Timber.w("Callable $callableName ($region) returned invalid payload: $payload")
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "Callable $callableName unavailable at region '$region'")
                 }
-            } catch (e: Exception) {
-                Timber.w(e, "Callable $callableName unavailable")
             }
         }
 
