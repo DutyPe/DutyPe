@@ -404,7 +404,20 @@ class JobFirestoreService @Inject constructor(
                 // render the real number of positions without an extra
                 // job_details fetch. Without this, getJobsByEmployerRealtime
                 // returned no vacancies field and JobListing defaulted to 1.
-                "vacancies" to vacancies
+                "vacancies" to vacancies,
+                // Apr 2026 fast-path: mirror the rich display fields the
+                // worker job-description screen needs (description, benefits,
+                // shiftTiming, gender, experienceRequired). The slim card
+                // grows from ~200 → ~700 bytes but the worker sees the full
+                // job details on the FIRST round-trip from jobmetadata —
+                // no second fetch from job_details required to render the
+                // page body. job_details still holds contactNumber +
+                // applicationCount which remain auth-gated.
+                "description" to description,
+                "benefits" to benefits,
+                "shiftTiming" to shiftTiming,
+                "gender" to gender,
+                "experienceRequired" to experienceRequired
             )
             // #5 fix: persist the employer-uploaded hero image URL on the
             // slim card payload so it can render on every job list without
@@ -824,19 +837,35 @@ class JobFirestoreService @Inject constructor(
             }
 
             // Details-only fields (must match firestore.rules for job_details).
+            // Apr 2026: description, benefits, shiftTiming, gender,
+            // experienceRequired are also mirrored onto jobmetadata so the
+            // worker job-description screen renders without a second fetch.
             if (data.containsKey("description")) {
                 val v = normalizeString(data["description"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))
                 detailsUpdates["description"] = v
+                cardUpdates["description"] = v
             }
             if (data.containsKey("contactNumber")) {
                 val v = normalizeString(data["contactNumber"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Contact number is required"))
                 detailsUpdates["contactNumber"] = v
             }
-            if (data.containsKey("gender")) detailsUpdates["gender"] = normalizeString(data["gender"]).ifBlank { "Any" }
-            if (data.containsKey("experienceRequired")) detailsUpdates["experienceRequired"] = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
-            if (data.containsKey("shiftTiming")) detailsUpdates["shiftTiming"] = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
+            if (data.containsKey("gender")) {
+                val v = normalizeString(data["gender"]).ifBlank { "Any" }
+                detailsUpdates["gender"] = v
+                cardUpdates["gender"] = v
+            }
+            if (data.containsKey("experienceRequired")) {
+                val v = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
+                detailsUpdates["experienceRequired"] = v
+                cardUpdates["experienceRequired"] = v
+            }
+            if (data.containsKey("shiftTiming")) {
+                val v = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
+                detailsUpdates["shiftTiming"] = v
+                cardUpdates["shiftTiming"] = v
+            }
             if (data.containsKey("vacancies")) {
                 val v = (data["vacancies"] as? Number)?.toInt()
                     ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
@@ -845,7 +874,11 @@ class JobFirestoreService @Inject constructor(
                 cardUpdates["vacancies"] = v
             }
             data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
-            if (data.containsKey("benefits")) detailsUpdates["benefits"] = parseBenefits(data["benefits"])
+            if (data.containsKey("benefits")) {
+                val v = parseBenefits(data["benefits"])
+                detailsUpdates["benefits"] = v
+                cardUpdates["benefits"] = v
+            }
 
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
                 val batch = firestore.batch()

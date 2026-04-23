@@ -1,66 +1,63 @@
-﻿.\gradlew.bat : WARNING: A restricted method in java.lang.System has 
-been called
+﻿.\gradlew.bat : WARNING: A restricted method in java.lang.System has been 
+called
 At line:1 char:1
-+ .\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Out-File buil 
-...
++ .\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Out-File buil ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been  
-   called:String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called 
+   :String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
 WARNING: java.lang.System::load has been called by 
-net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed 
-module (file:/C:/Users/91961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0
-ry160q40clulazy9h7d/gradle-8.13/lib/native-platform-0.22-milestone-28.jar
-)
-WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for 
-callers in this module
-WARNING: Restricted methods will be blocked in a future release unless 
-native access is enabled
+net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (
+file:/C:/Users/91961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulaz
+y9h7d/gradle-8.13/lib/native-platform-0.22-milestone-28.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers 
+in this module
+WARNING: Restricted methods will be blocked in a future release unless native 
+access is enabled
 
-Starting a Gradle Daemon (subsequent builds will be faster)
 Reusing configuration cache.
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
 > Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
-> Task :app:mergeDebugShaders UP-TO-DATE
-> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:processDebugGoogleServices UP-TO-DATE
-> Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:validateSigningDebug UP-TO-DATE
-> Task :app:writeDebugAppMetadata UP-TO-DATE
-> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:generateDebugResources
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths
 > Task :app:mergeDebugNativeLibs UP-TO-DATE
 > Task :app:stripDebugDebugSymbols UP-TO-DATE
 > Task :app:processDebugMainManifest UP-TO-DATE
 > Task :app:processDebugManifest UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:packageDebugResources
-> Task :app:parseDebugLocalResources
-> Task :app:mergeDebugResources
-> Task :app:processDebugResources
-> Task :app:kspDebugKotlin
-> Task :app:compileDebugKotlin
+> Task :app:kspDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
 > Task :app:compileDebugJavaWithJavac UP-TO-DATE
 > Task :app:hiltAggregateDepsDebug UP-TO-DATE
-> Task :app:hiltJavaCompileDebug UP-TO-DATE
+> Task :app:hiltJavaCompileDebug
 > Task :app:processDebugJavaRes UP-TO-DATE
 > Task :app:mergeDebugJavaResource UP-TO-DATE
 > Task :app:transformDebugClassesWithAsm
@@ -70,6 +67,6 @@ Reusing configuration cache.
 > Task :app:assembleDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 2m 37s
-42 actionable tasks: 12 executed, 30 up-to-date
+BUILD SUCCESSFUL in 1m
+42 actionable tasks: 5 executed, 37 up-to-date
 Configuration cache entry reused.

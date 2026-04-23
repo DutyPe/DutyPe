@@ -1286,6 +1286,15 @@ class FirestoreJobViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Apr 2026 fast-path: live Flow that emits the cached JobListing first
+     * (instant) and then the fresh Firestore copy. Use this from
+     * JobDescriptionScreen so the screen renders immediately on click and
+     * silently refreshes when the network fetch completes.
+     */
+    fun getJobByIdLive(jobId: String): kotlinx.coroutines.flow.Flow<Result<JobListing?>> =
+        firestoreJobRepository.getJobById(jobId)
+
     suspend fun getRecommendedJobsForJob(currentJob: JobListing, limit: Int = 5): Result<List<JobListing>> {
         return try {
             val primaryCategory = currentJob.jobType.takeIf { it.isNotBlank() }

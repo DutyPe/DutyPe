@@ -278,29 +278,45 @@ fun JobDescriptionScreen(
             isLoading = true
             error = null
             try {
-                val result = jobViewModel.getJobById(jobId)
-                result.fold(
-                    onSuccess = { fetchedJob ->
-                        val jobWithDistance = if (fetchedJob != null &&
-                            currentLocation != null &&
-                            (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
-                            (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)) {
-                            val distance = jobViewModel.locationService.calculateDistance(
-                                currentLocation!!.latitude, currentLocation!!.longitude,
-                                fetchedJob.lat, fetchedJob.lng
-                            )
-                            fetchedJob.copy(distance = distance)
-                        } else fetchedJob
-                        job = jobWithDistance
-                        isLoading = false
-                    },
-                    onFailure = { exception ->
-                        error = exception.message ?: "Failed to load job details"
-                        isLoading = false
-                    }
-                )
+                // Apr 2026 fast-path: collect the live Flow so the cached
+                // JobListing renders INSTANTLY on screen entry, then the
+                // fresh Firestore copy quietly replaces it once the network
+                // fetch completes. The user no longer sees a blank loading
+                // state on jobs they just scrolled past or recently viewed.
+                jobViewModel.getJobByIdLive(jobId).collect { result ->
+                    result.fold(
+                        onSuccess = { fetchedJob ->
+                            val jobWithDistance = if (fetchedJob != null &&
+                                currentLocation != null &&
+                                (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
+                                (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)) {
+                                val distance = jobViewModel.locationService.calculateDistance(
+                                    currentLocation!!.latitude, currentLocation!!.longitude,
+                                    fetchedJob.lat, fetchedJob.lng
+                                )
+                                fetchedJob.copy(distance = distance)
+                            } else fetchedJob
+                            job = jobWithDistance
+                            // Drop the loading state on the FIRST emission
+                            // (cached or network) so the description and
+                            // benefits surface immediately.
+                            isLoading = false
+                        },
+                        onFailure = { exception ->
+                            // If we already have a job from a cache emission,
+                            // keep showing it; only set the error state on
+                            // hard failure with no fallback.
+                            if (job == null) {
+                                error = exception.message ?: "Failed to load job details"
+                            }
+                            isLoading = false
+                        }
+                    )
+                }
             } catch (e: Exception) {
-                error = e.message ?: "Failed to load job details"
+                if (job == null) {
+                    error = e.message ?: "Failed to load job details"
+                }
                 isLoading = false
             }
         }
