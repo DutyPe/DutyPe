@@ -115,17 +115,16 @@ fun MainNavGraph(
     }
     var navigationDetermined by remember { mutableStateOf(cachedStartDestination != null) }
 
-    // Bug #9 fix: when we have a cached start destination from a previous
-    // launch, the NavHost can render immediately. Tell MainActivity to drop
-    // the system splash on the very first frame instead of waiting for the
-    // async resolver below to finish — that resolver still runs in parallel
-    // to reconcile the route, but the user is already looking at real
-    // content. This shaves the perceived splash time on warm cold-starts
-    // from ~1.5s to one frame.
+    // Bug #9 / #4 fix: Always dismiss the system splash on the very first
+    // composition. The NavHost is already built with either the cached
+    // start destination (warm launch) or ONBOARDING (fresh install). The
+    // async resolver below runs in parallel and will redirect if needed,
+    // but the user never sees a frozen launcher-icon splash — they see
+    // real UI on frame 1. This was the dominant cause of the "splash
+    // takes too long" complaint, because even a 300ms Firestore handshake
+    // on a cold-booted device showed as an eternity of dead splash.
     LaunchedEffect(Unit) {
-        if (cachedStartDestination != null) {
-            runCatching { onReady() }
-        }
+        runCatching { onReady() }
     }
     
     LaunchedEffect(Unit) {
@@ -281,12 +280,12 @@ fun MainNavGraph(
     }
     
     // Safety timeout to ensure navigationDetermined is always set.
-    // Bug #5.1 fix: Reduced from 3s → 1500ms so a stuck Firestore handshake
-    // (e.g. App Check throttled, SSL retry storm on a flaky network) cannot
-    // freeze the user on the splash. Worst case the user sees the destination
-    // shell (with its own offline UI) within 1.5s.
+    // Bug #4 fix: reduced from 1500ms → 800ms. The splash is already
+    // dismissed on the first frame (see onReady() call above), so this
+    // timeout only governs how long the ONBOARDING fallback stays on
+    // screen before we accept that Firestore/DataStore is truly stuck.
     LaunchedEffect(Unit) {
-        delay(1500)
+        delay(800)
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true

@@ -35,6 +35,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -83,6 +85,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -171,6 +174,21 @@ fun JobDescriptionScreen(
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
+
+    // #1 reveal-on-scroll: the sticky Call + Apply bar is hidden until the
+    // user scrolls down into the body of the job description (past the
+    // header/cards). Once revealed, it stays visible even if the user
+    // scrolls back up — so they always have a one-tap action available.
+    val detailsListState = rememberLazyListState()
+    var hasRevealedApplyBar by remember { mutableStateOf(false) }
+    LaunchedEffect(detailsListState) {
+        snapshotFlow {
+            detailsListState.firstVisibleItemIndex > 0 ||
+                detailsListState.firstVisibleItemScrollOffset > 120
+        }.collect { scrolled ->
+            if (scrolled) hasRevealedApplyBar = true
+        }
+    }
     var similarJobs by remember { mutableStateOf<List<JobListing>>(emptyList()) }
 
     // Report state
@@ -392,6 +410,7 @@ fun JobDescriptionScreen(
                     error != null -> JobDescriptionErrorContent(error!!) { retryTrigger++ }
                     job != null -> JobDetailsContent(
                         job = job!!,
+                        listState = detailsListState,
                         similarJobs = similarJobs,
                         savedJobIds = savedJobIds,
                         onSimilarJobSaveToggle = { jobIdToToggle, shouldSave ->
@@ -410,7 +429,14 @@ fun JobDescriptionScreen(
             }
 
             if (job != null && !isLoading && error == null) {
-                BottomActionBar(
+                // #1: slide the Call + Apply bar up into view once the user
+                // has started scrolling; keep it visible thereafter.
+                AnimatedVisibility(
+                    visible = hasRevealedApplyBar,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                ) {
+                    BottomActionBar(
                     job = job!!,
                     currentUser = currentUser,
                     context = context,
@@ -451,6 +477,7 @@ fun JobDescriptionScreen(
                         showLoginBottomSheet = true
                     }
                 )
+                }
             }
         }
 
@@ -697,6 +724,7 @@ private fun BottomActionBar(
 private fun JobDetailsContent(
     job: JobListing,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
     similarJobs: List<JobListing> = emptyList(),
     savedJobIds: Set<String> = emptySet(),
     onSimilarJobSaveToggle: (String, Boolean) -> Unit = { _, _ -> },
@@ -707,6 +735,7 @@ private fun JobDetailsContent(
     
     LazyColumn(
         modifier = modifier.fillMaxSize(),
+        state = listState,
         // Bug #10 fix: leave room at the bottom so the report banner and
         // similar-jobs cards stay fully visible above the sticky
         // BottomActionBar (Call + Apply, ~74dp tall) instead of being

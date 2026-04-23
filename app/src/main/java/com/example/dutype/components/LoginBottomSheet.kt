@@ -562,17 +562,21 @@ fun LoginBottomSheet(
                                             }
                                         }
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            if (!isRegistrationMode) {
-                                                isCheckingPhone = false
-                                                Toast.makeText(
-                                                    context,
-                                                    if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                                Timber.w("📱 Login blocked - Phone pre-check unavailable: $fullPhoneNumber")
-                                                return@launch
-                                            }
-                                            Timber.w("📱 Registration pre-check unavailable, continuing with OTP flow")
+                                            // Bug #3 fix: fail-closed on BOTH login and registration.
+                                            // Previously registration fell through to sendOtp when
+                                            // the role-conflict pre-check was unavailable, so the
+                                            // user would first see the OTP sheet and only hear about
+                                            // the role conflict after burning an SMS. Now we refuse
+                                            // to send OTP unless the role check has a definitive
+                                            // answer.
+                                            isCheckingPhone = false
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            Timber.w("📱 Blocked - Phone pre-check unavailable: $fullPhoneNumber (mode=${if (isRegistrationMode) "register" else "login"})")
+                                            return@launch
                                         }
                                     }
                                     
@@ -606,8 +610,15 @@ fun LoginBottomSheet(
                                         return@launch
                                     }
 
-                                    // Registration mode remains fail-open for better onboarding UX.
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    // Bug #3 fix: registration mode is now ALSO fail-closed — we
+                                    // will not burn an SMS when we couldn't verify the role
+                                    // conflict, since the correct role would be surfaced only
+                                    // AFTER the user typed the OTP. Show the same toast as login.
+                                    Toast.makeText(
+                                        context,
+                                        if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
                             }

@@ -146,14 +146,14 @@ class MainActivity : ComponentActivity() {
         var keepSplashOnScreen = true
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
 
-        // Bug #9 fix: hard-cap the system splash at 1s (was 2s) so a
-        // catastrophic Compose / nav failure cannot leave the user staring
-        // at a frozen splash. The cached-start-destination path in
-        // MainNavGraph dismisses the splash on the very first frame, so
-        // this timeout only matters on the first install.
+        // Bug #4 fix: hard-cap the system splash at 500ms. MainNavGraph now
+        // dismisses the splash on its very first composition (frame 1), so
+        // this timeout is only a safety net for catastrophic failures. A
+        // shorter cap means even a totally-broken first render recovers
+        // fast instead of leaving the user on a 1-2s frozen launcher icon.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
-        }, 1000L)
+        }, 500L)
         
         super.onCreate(savedInstanceState)
         

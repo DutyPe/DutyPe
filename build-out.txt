@@ -1,19 +1,24 @@
-﻿.\gradlew.bat : WARNING: A restricted method in java.lang.System has been called
+﻿.\gradlew.bat : WARNING: A restricted method in 
+java.lang.System has been called
 At line:1 char:1
-+ .\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Out-File buil ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called:String) 
-    [], RemoteException
++ .\gradlew.bat :app:assembleDebug --console=plain 
+2>&1 | Out-File buil ...
++ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: 
+    A rest...has been called:String) [], RemoteExcep  
+  tion
     + FullyQualifiedErrorId : NativeCommandError
  
-WARNING: java.lang.System::load has been called by 
-net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:
-/Users/91961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.1
-3/lib/native-platform-0.22-milestone-28.jar)
-WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this 
-module
-WARNING: Restricted methods will be blocked in a future release unless native access 
-is enabled
+WARNING: java.lang.System::load has been called by net
+.rubygrapefruit.platform.internal.NativeLibraryLoader 
+in an unnamed module (file:/C:/Users/91961/.gradle/wra
+pper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/g
+radle-8.13/lib/native-platform-0.22-milestone-28.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to 
+avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a 
+future release unless native access is enabled
 
 Starting a Gradle Daemon (subsequent builds will be faster)
 Reusing configuration cache.
@@ -21,42 +26,42 @@ Reusing configuration cache.
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugShaders UP-TO-DATE
-> Task :app:processDebugGoogleServices UP-TO-DATE
-> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
-> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
 > Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:writeDebugAppMetadata UP-TO-DATE
-> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:generateDebugResources UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
-> Task :app:mergeDebugResources UP-TO-DATE
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:mergeDebugNativeLibs UP-TO-DATE
-> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:packageDebugResources UP-TO-DATE
 > Task :app:parseDebugLocalResources UP-TO-DATE
-> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
 > Task :app:processDebugResources UP-TO-DATE
 > Task :app:kspDebugKotlin
 > Task :app:compileDebugKotlin
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/WorkerHistoryScreen.kt:119:32 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/myJobs/MyJobsScreen.kt:233:40 'fun Indicator(modifier: Modifier = ..., height: Dp = ..., color: Color = ...): Unit' is deprecated. Use SecondaryIndicator instead.
+w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/LoginBottomSheet.kt:451:60 'fun EnterTransition.with(exit: ExitTransition): ContentTransform' is deprecated. Infix fun EnterTransition.with(ExitTransition) has been renamed to togetherWith.
+w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/components/LoginBottomSheet.kt:987:43 'constructor(capitalization: KeyboardCapitalization = ..., autoCorrect: Boolean, keyboardType: KeyboardType = ..., imeAction: ImeAction = ..., platformImeOptions: PlatformImeOptions? = ..., showKeyboardOnFocus: Boolean? = ..., hintLocales: LocaleList? = ...): KeyboardOptions' is deprecated. Please use the new constructor that takes optional autoCorrectEnabled parameter.
 
 > Task :app:compileDebugJavaWithJavac
 > Task :app:hiltAggregateDepsDebug UP-TO-DATE
@@ -70,6 +75,6 @@ w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/scr
 > Task :app:assembleDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 5m 39s
+BUILD SUCCESSFUL in 4m 5s
 42 actionable tasks: 8 executed, 34 up-to-date
 Configuration cache entry reused.

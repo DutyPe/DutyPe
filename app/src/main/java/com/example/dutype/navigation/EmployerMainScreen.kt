@@ -134,15 +134,21 @@ fun EmployerMainScreen(
                 .zIndex(1000f) // Ensure it's always on top
         )
 
-        // Navigation bar overlay - Always show (white background)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .background(roleColors.navigationBar)
-                .align(Alignment.BottomCenter)
-                .zIndex(1000f) // Ensure it's always on top
-        )
+        // Navigation bar overlay — rendered only on routes where the
+        // EmployerBottomBar is NOT shown. The bottom bar itself now
+        // extends under the gesture area and paints that region, so
+        // drawing a second overlay there would create a visible flat
+        // "second bar" below the rounded bottom nav (bug #2).
+        if (!shouldShowBottomBar) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                    .background(roleColors.navigationBar)
+                    .align(Alignment.BottomCenter)
+                    .zIndex(1000f) // Ensure it's always on top
+            )
+        }
 
         // Main content area
         Scaffold(

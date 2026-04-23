@@ -109,9 +109,17 @@ fun EmployerBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Frosted glass background bar
+        // Bug #2 fix: the bar used to apply navigationBarsPadding to the
+        // outer Box, which left the system gesture strip below it as a
+        // separate flat white rectangle — visually reading as "a second
+        // bar below the bottom bar". We now let the Surface extend all
+        // the way to the screen edge (its background fills the gesture
+        // area) and shift the navigation bar inset to the inner content
+        // Row so nothing is clipped. Rounded top corners are kept for the
+        // professional shelf look; bottom is square because it meets the
+        // device edge.
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White.copy(alpha = 0.97f),
@@ -122,6 +130,7 @@ fun EmployerBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
                     .height(68.dp)
                     .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -189,15 +198,18 @@ fun EmployerBottomBar(
         // above the bar with a clean, professional 3-tab layout — Post Job
         // sits inline as the middle tab using a subtle elevated badge so it
         // still feels primary without breaking the bottom-bar geometry.
+        // Aligned to TopCenter because the outer Box now also contains
+        // the gesture-area inset; centering vertically would push the
+        // FAB below the visible 68dp bar.
         Box(
             modifier = Modifier
-                .align(Alignment.Center)
+                .align(Alignment.TopCenter)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = ::openPostJob
                 )
-                .padding(top = 8.dp),
+                .padding(top = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
