@@ -87,6 +87,7 @@ fun EmployerMainScreen(
     val routesWithoutBottomBar = listOf(
         Routes.EMPLOYER_APPLICATIONS,
         Routes.EMPLOYER_APPLICATIONS_JOB,
+        Routes.WORKER_PROFILE_VIEW, // Batch-p #6.1: hide bottom bar on worker profile view
         Routes.CONTACT_US,
         Routes.EMPLOYER_NOTIFICATIONS,
         Routes.EMPLOYER_POST_JOB,

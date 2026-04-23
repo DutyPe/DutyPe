@@ -1,4 +1,4 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -46,7 +46,7 @@ fun JobSummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📋",
+                    text = "ðŸ“‹",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -108,22 +108,22 @@ fun JobSummaryCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SummaryDetailRow(
-                            icon = "💰",
+                            icon = "ðŸ’°",
                             label = stringResource(R.string.pay_label),
-                            value = "₹${payAmount.ifBlank { "---" }} ${payType.displayName}"
+                            value = "â‚¹${payAmount.ifBlank { "---" }} ${payType.displayName}"
                         )
                         SummaryDetailRow(
-                            icon = "📍",
+                            icon = "ðŸ“",
                             label = stringResource(R.string.location),
                             value = location.ifBlank { "Not set" }
                         )
                         SummaryDetailRow(
-                            icon = "👥",
+                            icon = "ðŸ‘¥",
                             label = stringResource(R.string.positions_label),
                             value = "${vacancies.ifBlank { "1" }} opening(s)"
                         )
                         SummaryDetailRow(
-                            icon = "⏰",
+                            icon = "â°",
                             label = stringResource(R.string.shift_label),
                             value = shiftTiming.displayName
                         )
@@ -138,7 +138,6 @@ fun JobSummaryCard(
                             JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
                             JobUrgency.URGENT -> Color(0xFFF59E0B)
                             JobUrgency.NORMAL -> primaryBlue
-                            JobUrgency.FLEXIBLE -> successGreen
                         }
                         Box(
                             modifier = Modifier
@@ -162,7 +161,7 @@ fun JobSummaryCard(
                         HorizontalDivider(color = Color(0xFFE2E8F0))
                         
                         Text(
-                            text = "🎁 Perks & Benefits",
+                            text = "ðŸŽ Perks & Benefits",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF1E293B)
@@ -237,3 +236,4 @@ private fun SummaryDetailRow(
         )
     }
 }
+

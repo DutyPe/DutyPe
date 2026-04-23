@@ -601,7 +601,7 @@ class JobApplicationService @Inject constructor(
                             .await()
                             .data
                             .orEmpty()
-                        listOf("contactNumber", "whatsappNumber", "description", "addressText").forEach { k ->
+                        listOf("contactNumber", "description", "addressText").forEach { k ->
                             val v = det[k]
                             if (v is String && v.isNotBlank() && (merged[k] as? String).isNullOrBlank()) {
                                 merged[k] = v

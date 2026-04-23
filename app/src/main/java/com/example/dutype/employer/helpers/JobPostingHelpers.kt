@@ -1,4 +1,4 @@
-package com.example.dutype.employer.helpers
+﻿package com.example.dutype.employer.helpers
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -33,7 +33,6 @@ object JobPostingHelpers {
             JobUrgency.IMMEDIATE -> Color(0xFFE53E3E)
             JobUrgency.URGENT -> Color(0xFFFF8C00)
             JobUrgency.NORMAL -> Color(0xFF3B82F6)
-            JobUrgency.FLEXIBLE -> Color(0xFF10B981)
         }
     }
 
@@ -105,7 +104,6 @@ object JobPostingHelpers {
             JobUrgency.IMMEDIATE -> baseCount += 15
             JobUrgency.URGENT -> baseCount += 10
             JobUrgency.NORMAL -> baseCount += 5
-            JobUrgency.FLEXIBLE -> baseCount += 3
         }
 
         // Perks adjustment removed as per user request
@@ -128,3 +126,4 @@ data class ValidationResult(
     val isValid: Boolean,
     val errors: List<String>
 )
+

@@ -1,4 +1,4 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -162,7 +162,7 @@ fun EmployerHomeScreen(
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
-    // Birthday wish state 🎂
+    // Birthday wish state ðŸŽ‚
     val birthdayService = remember { 
         BirthdayService(
             hiltFirestore,
@@ -200,10 +200,10 @@ fun EmployerHomeScreen(
     val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     LaunchedEffect(employerId) {
         if (employerId != null) {
-            Timber.d("🏢 EMPLOYER_HOME: Loading jobs for employerId=$employerId")
+            Timber.d("ðŸ¢ EMPLOYER_HOME: Loading jobs for employerId=$employerId")
             viewModel.loadMyJobs()
         } else {
-            Timber.w("🏢 EMPLOYER_HOME: No employerId - user not authenticated")
+            Timber.w("ðŸ¢ EMPLOYER_HOME: No employerId - user not authenticated")
         }
         
         // Load announcements for employer role
@@ -221,7 +221,7 @@ fun EmployerHomeScreen(
                     unreadNotificationCount = count
                 }
                 
-                // 🎂 Check if today is user's birthday
+                // ðŸŽ‚ Check if today is user's birthday
                 if (!birthdayService.hasWishedToday(context, userId)) {
                     val bday = birthdayService.checkIfBirthday(userId)
                     if (bday != null) {
@@ -231,7 +231,7 @@ fun EmployerHomeScreen(
                         birthdayService.sendBirthdayNotification(userId, bday.userName)
                         // Mark as wished today to avoid duplicates
                         birthdayService.markWishedToday(context, userId)
-                        Timber.i("🎂 Happy Birthday ${bday.userName}! Banner and notification sent.")
+                        Timber.i("ðŸŽ‚ Happy Birthday ${bday.userName}! Banner and notification sent.")
                     }
                 }
             } catch (e: Exception) {
@@ -245,14 +245,14 @@ fun EmployerHomeScreen(
     // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
     // Here we only show bottom sheets for returning users who denied permissions
     LaunchedEffect(Unit) {
-        Timber.d("🏠 EmployerHomeScreen - Checking permission status for bottom sheets")
-        Timber.d("🏠 EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
+        Timber.d("ðŸ  EmployerHomeScreen - Checking permission status for bottom sheets")
+        Timber.d("ðŸ  EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
         
         // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
         if (!bottomSheetsShownInSession) {
             bottomSheetsShownInSession = true
             if (!hasNotificationPermission) {
-                Timber.d("🏠 EmployerHomeScreen - Showing notification bottom sheet for denied permission")
+                Timber.d("ðŸ  EmployerHomeScreen - Showing notification bottom sheet for denied permission")
                 showNotificationBottomSheet = true
             }
         }
@@ -314,17 +314,17 @@ fun EmployerHomeScreen(
                         val savedCompanyName = data["companyName"] as? String
                         if (!savedCompanyName.isNullOrBlank()) {
                             companyName = savedCompanyName
-                            Timber.d("🏠 EmployerHomeScreen - Loaded company name: $companyName")
+                            Timber.d("ðŸ  EmployerHomeScreen - Loaded company name: $companyName")
                         }
                     },
                     onFailure = { e ->
-                        Timber.e("🏠 EmployerHomeScreen - Error loading company name: ${e.message}")
+                        Timber.e("ðŸ  EmployerHomeScreen - Error loading company name: ${e.message}")
                     }
                 )
             }
         } catch (e: Exception) {
             // Handle error - keep empty company name
-            Timber.e("🏠 EmployerHomeScreen - Exception loading profile: ${e.message}")
+            Timber.e("ðŸ  EmployerHomeScreen - Exception loading profile: ${e.message}")
             companyName = ""
         }
     }
@@ -332,7 +332,7 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background — every employer screen shares the same
+            // Solid role background â€” every employer screen shares the same
             // calm light-blue surface so the role identity stays consistent.
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
@@ -356,7 +356,7 @@ fun EmployerHomeScreen(
             }
         )
         
-        // 🎂 Birthday Banner - Shows if today is user's birthday
+        // ðŸŽ‚ Birthday Banner - Shows if today is user's birthday
         if (showBirthdayBanner && birthdayInfo != null) {
             BirthdayBanner(
                 userName = birthdayInfo!!.userName,
@@ -364,7 +364,7 @@ fun EmployerHomeScreen(
             )
         }
         
-        // 📢 In-App Announcements - Feature updates, banners
+        // ðŸ“¢ In-App Announcements - Feature updates, banners
         if (announcements.isNotEmpty()) {
             AnnouncementList(
                 announcements = announcements,
@@ -603,7 +603,7 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background — the shimmer skeleton sits on the same
+            // Solid role background â€” the shimmer skeleton sits on the same
             // surface as the rest of the employer flow.
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
@@ -922,7 +922,7 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.addressText.ifBlank { job.location },
-                        // Bug #6 fix: salary is now a free-form String —
+                        // Bug #6 fix: salary is now a free-form String â€”
                         // pass it through verbatim so "Negotiable",
                         // ranges, and "+" suffixes survive the round-trip.
                         payAmount = job.salary,
@@ -934,7 +934,7 @@ fun RecentJobsSection(
                         },
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
                         shiftTiming = ShiftTiming.FLEXIBLE,
-                        urgency = JobUrgency.FLEXIBLE,
+                        urgency = JobUrgency.NORMAL,
                         vacancies = 0,
                         employerId = job.employerId,
                         employerName = job.companyName,
@@ -950,8 +950,8 @@ fun RecentJobsSection(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
                             try {
-                                Timber.d("🔍 EmployerHomeScreen - Edit clicked for job ID: $jobId")
-                                Timber.d("🔍 EmployerHomeScreen - Job title: ${job.title}")
+                                Timber.d("ðŸ” EmployerHomeScreen - Edit clicked for job ID: $jobId")
+                                Timber.d("ðŸ” EmployerHomeScreen - Job title: ${job.title}")
                                 
                                 // Industry standard: Allow editing within 7 days of posting
                                 val currentTime = System.currentTimeMillis()
@@ -965,22 +965,22 @@ fun RecentJobsSection(
                                         "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago.", 
                                         Toast.LENGTH_LONG
                                     ).show()
-                                    Timber.w("🔍 EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
+                                    Timber.w("ðŸ” EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
                                 } else {
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }
                             } catch (e: Exception) {
-                                Timber.e("🔍 EmployerHomeScreen - Error in edit click: ${e.message}")
+                                Timber.e("ðŸ” EmployerHomeScreen - Error in edit click: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onViewApplicationsClick = { jobId ->
                             try {
-                                Timber.d("🔍 EmployerHomeScreen - View applications clicked for job ID: $jobId")
+                                Timber.d("ðŸ” EmployerHomeScreen - View applications clicked for job ID: $jobId")
                                 navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(jobId))
                             } catch (e: Exception) {
-                                Timber.e("🔍 EmployerHomeScreen - Error navigating to applications: ${e.message}")
+                                Timber.e("ðŸ” EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -991,8 +991,8 @@ fun RecentJobsSection(
                             },
                             onShareClick = { jobId ->
                                 // Share job functionality
-                                Timber.d("📤 SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
-                                Timber.d("📤 SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
+                                Timber.d("ðŸ“¤ SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
+                                Timber.d("ðŸ“¤ SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
                                 onShareJob(jobId, job.title)
                             },
                         showActions = true, // Show actions for better interaction
@@ -1172,26 +1172,26 @@ private fun EmployerProfileCompletionPrompt(
 // Share job functionality
 // Share job functionality with deep link
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
-    Timber.d("📤 SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
+    Timber.d("ðŸ“¤ SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
     
     if (jobId.isBlank()) {
-        Timber.e("📤 SHARE: ERROR - jobId is blank!")
+        Timber.e("ðŸ“¤ SHARE: ERROR - jobId is blank!")
         Toast.makeText(context, "Error: Cannot share job (invalid job ID)", Toast.LENGTH_SHORT).show()
         return
     }
     
     val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(jobId)
-    Timber.d("📤 SHARE: Generated deep link: $jobDeepLink")
+    Timber.d("ðŸ“¤ SHARE: Generated deep link: $jobDeepLink")
     
     val shareText = """
-🎯 Hiring Now: $jobTitle
+ðŸŽ¯ Hiring Now: $jobTitle
 
-👉 Apply now: $jobDeepLink
+ðŸ‘‰ Apply now: $jobDeepLink
 
-📲 Download DutyPe app for instant job alerts
+ðŸ“² Download DutyPe app for instant job alerts
     """.trimIndent()
     
-    Timber.d("📤 SHARE: Share text prepared, length=${shareText.length}")
+    Timber.d("ðŸ“¤ SHARE: Share text prepared, length=${shareText.length}")
     
     val shareIntent = Intent().apply {
         action = Intent.ACTION_SEND
@@ -1202,9 +1202,9 @@ private fun shareJob(jobId: String, jobTitle: String, context: android.content.C
     
     try {
         context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
-        Timber.d("📤 SHARE: Share intent launched successfully")
+        Timber.d("ðŸ“¤ SHARE: Share intent launched successfully")
     } catch (e: Exception) {
-        Timber.e(e, "📤 SHARE: Error launching share intent")
+        Timber.e(e, "ðŸ“¤ SHARE: Error launching share intent")
         // Fallback: Copy to clipboard
         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Job Share", shareText)
@@ -1317,3 +1317,4 @@ fun ApplicationAnalyticsSection(
 // NOTE: AnalyticsItem and ActivityItem functions moved to AnalyticsScreen.kt
 // Import from there: com.example.dutype.employer.screens.AnalyticsItem
 // Import from there: com.example.dutype.employer.screens.ActivityItem
+

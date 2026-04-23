@@ -55,7 +55,6 @@ data class JobListing(
     val location: String = "",          // human-readable addressText
     val addressText: String = "",
     val contactNumber: String = "",
-    val whatsappNumber: String = "",
     val vacancies: Int = 1,
     val workingHours: String = "",
     val educationRequired: String = "",

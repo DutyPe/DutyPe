@@ -1,4 +1,4 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -123,10 +123,10 @@ fun PayTypeDropdown(
 
 // Helper function to get emoji for PayType
 private fun getPayTypeEmoji(payType: PayType): String = when (payType) {
-    PayType.HOURLY -> "⏰"
-    PayType.DAILY -> "📅"
-    PayType.MONTHLY -> "💼"
-    PayType.TASK -> "🛠️"
+    PayType.HOURLY -> "â°"
+    PayType.DAILY -> "ðŸ“…"
+    PayType.MONTHLY -> "ðŸ’¼"
+    PayType.TASK -> "ðŸ› ï¸"
 }
 
 @Composable
@@ -396,7 +396,6 @@ private fun UrgencyChip(
             JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
             JobUrgency.URGENT -> Color(0xFFEA580C)
             JobUrgency.NORMAL -> Color(0xFF3B82F6)
-            JobUrgency.FLEXIBLE -> Color(0xFF10B981)
         }
         else -> Color.White
     }
@@ -405,7 +404,6 @@ private fun UrgencyChip(
         JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
         JobUrgency.URGENT -> Color(0xFFEA580C)
         JobUrgency.NORMAL -> Color(0xFF3B82F6)
-        JobUrgency.FLEXIBLE -> Color(0xFF10B981)
     }
 
     Card(
@@ -783,11 +781,7 @@ fun ContactSection(
     contactNumber: String,
     onContactNumberChange: (String) -> Unit,
     employerName: String,
-    onEmployerNameChange: (String) -> Unit,
-    whatsappNumber: String,
-    onWhatsappNumberChange: (String) -> Unit,
-    whatsappSameAsPhone: Boolean,
-    onWhatsappSameAsPhoneChange: (Boolean) -> Unit
+    onEmployerNameChange: (String) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
 
@@ -836,47 +830,8 @@ fun ContactSection(
                 )
             )
 
-            // WhatsApp number + same-as-phone checkbox
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Checkbox(
-                    checked = whatsappSameAsPhone,
-                    onCheckedChange = onWhatsappSameAsPhoneChange,
-                    colors = CheckboxDefaults.colors(checkedColor = primaryBlue)
-                )
-                Text(
-                    text = "WhatsApp same as phone",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF1E293B)
-                )
-            }
-            if (!whatsappSameAsPhone) {
-                OutlinedTextField(
-                    value = whatsappNumber,
-                    onValueChange = onWhatsappNumberChange,
-                    label = { Text("WhatsApp number") },
-                    placeholder = { Text("+91 9876543210") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = Color(0xFF25D366)
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryBlue,
-                        focusedLabelColor = primaryBlue,
-                        unfocusedBorderColor = Color(0xFFE2E8F0),
-                        cursorColor = primaryBlue
-                    )
-                )
-            }
+            // Batch-p #9: WhatsApp number field removed from job posting.
+            // Workers contact employers via the platform-provided phone number.
 
             OutlinedTextField(
                 value = employerName,
@@ -903,3 +858,4 @@ fun ContactSection(
         }
     }
 }
+

@@ -1,4 +1,4 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -231,7 +231,7 @@ fun ProfessionalWorkerProfileViewScreen(
                         }
                     }
                     // If workerProfile was already seeded from applicationId
-                    // snapshot, keep that — no error shown.
+                    // snapshot, keep that â€” no error shown.
                 }
             )
 
@@ -242,7 +242,7 @@ fun ProfessionalWorkerProfileViewScreen(
         }
     }
     
-    // Solid role background — no gradient.
+    // Solid role background â€” no gradient.
     val backgroundGradient = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
     
     Box(
@@ -424,7 +424,7 @@ private fun ProfessionalWorkerProfileHeader(
             .padding(16.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -533,7 +533,7 @@ private fun ApplicationStatusCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -624,7 +624,7 @@ private fun PersonalInformationCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -764,13 +764,9 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
-                )
-            )
+            // Batch-p #6: call icon now sits BEFORE the phone number so
+            // the affordance is read first ("call this number") instead
+            // of as an afterthought trailing the digits.
             if (isPhone && value.isNotBlank()) {
                 Icon(
                     Icons.Default.Phone,
@@ -779,6 +775,13 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
                     modifier = Modifier.size(16.dp)
                 )
             }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
+                )
+            )
         }
     }
 }
@@ -789,7 +792,7 @@ private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -865,7 +868,7 @@ private fun SkillsCard(skills: List<String>) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -911,7 +914,7 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -942,81 +945,69 @@ private fun ActionButtonsCard(
     application: JobApplication?,
     onActionClick: (ApplicationAction) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    // Batch-p #6: dropped the elevated Card wrapper and the multiple
+    // single-button rows. Shortlist + Reject now share ONE row with
+    // weight(1f) on each button so they fill evenly and read clearly
+    // as a paired primary/secondary action.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Actions",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                )
+        Text(
+            text = "Actions",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1F2937)
             )
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
-                    )
-                ) {
-                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.shortlist), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Bug #15 fix: show "Mark Job Done" only after the candidate is
-                // hired so the employer can complete the contract and the
-                // worker's earnings move from pending → paid on the Earnings tab.
-                if (application?.status == ApplicationStatus.HIRED) {
-                    Button(
-                        onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1F8B4C)
-                        )
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Mark Job Done", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
+        )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = { onActionClick(ApplicationAction.SHORTLIST) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981)
+                )
             ) {
-                OutlinedButton(
-                    onClick = { onActionClick(ApplicationAction.REJECT) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFDC2626)
-                    )
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodySmall)
-                }
+                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.shortlist), style = MaterialTheme.typography.bodyMedium)
+            }
+            OutlinedButton(
+                onClick = { onActionClick(ApplicationAction.REJECT) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFFDC2626)
+                )
+            ) {
+                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        // Bug #15 fix: show "Mark Job Done" only after the candidate is
+        // hired so the employer can complete the contract and the
+        // worker's earnings move from pending â†’ paid on the Earnings tab.
+        if (application?.status == ApplicationStatus.HIRED) {
+            Button(
+                onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1F8B4C)
+                )
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Mark Job Done", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -1201,3 +1192,4 @@ enum class ApplicationAction {
 fun ProfessionalWorkerProfileViewScreenPreview() {
     ProfessionalWorkerProfileViewScreen(navController = rememberNavController(), workerId = "sample_worker_id")
 }
+

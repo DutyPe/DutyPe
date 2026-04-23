@@ -1,4 +1,4 @@
-package com.example.dutype.services.firestore
+﻿package com.example.dutype.services.firestore
 
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
@@ -247,9 +247,6 @@ class JobFirestoreService @Inject constructor(
             "jobImageUrl" to normalizeString(coreData["jobImageUrl"])
         )
 
-        val coreWhatsappNumber = normalizeString(coreData["whatsappNumber"])
-        if (coreWhatsappNumber.isNotBlank()) merged["whatsappNumber"] = coreWhatsappNumber
-
         val coreWorkingHours = normalizeString(coreData["workingHours"])
         if (coreWorkingHours.isNotBlank()) merged["workingHours"] = coreWorkingHours
 
@@ -262,9 +259,6 @@ class JobFirestoreService @Inject constructor(
             }
             val contactNumber = normalizeString(details["contactNumber"]).ifBlank {
                 (merged["contactNumber"] as? String).orEmpty()
-            }
-            val whatsappNumber = normalizeString(details["whatsappNumber"]).ifBlank {
-                (merged["whatsappNumber"] as? String).orEmpty()
             }
             val addressText = normalizeString(details["addressText"]).ifBlank {
                 (merged["addressText"] as? String).orEmpty()
@@ -294,7 +288,6 @@ class JobFirestoreService @Inject constructor(
 
             merged["description"] = description
             merged["contactNumber"] = contactNumber
-            if (whatsappNumber.isNotBlank()) merged["whatsappNumber"] = whatsappNumber
             merged["addressText"] = addressText
             merged["companyCity"] = companyCity
             merged["jobType"] = jobType
@@ -320,7 +313,7 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun createJob(jobData: Map<String, Any>): Result<String> {
         return try {
-            Timber.d("📝 FIRESTORE DEBUG: createJob() called")
+            Timber.d("ðŸ“ FIRESTORE DEBUG: createJob() called")
             
             val jobRef = firestore.collection(JOBS_COLLECTION).document()
             val currentTime = System.currentTimeMillis()
@@ -343,7 +336,6 @@ class JobFirestoreService @Inject constructor(
                 ?: normalizeString(jobData["vacancies"]).toIntOrNull()
                 ?: 1
             val benefits = parseBenefits(jobData["benefits"])
-            val whatsappNumber = normalizeString(jobData["whatsappNumber"]).ifBlank { null }
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
 
             val providedLocation = jobData["location"] as? Map<*, *>
@@ -367,7 +359,7 @@ class JobFirestoreService @Inject constructor(
             }
 
             if (payloadEmployerId.isNotBlank() && payloadEmployerId != authUid) {
-                Timber.w("📝 FIRESTORE DEBUG: employerId mismatch (payload=$payloadEmployerId, auth=$authUid). Using authenticated UID.")
+                Timber.w("ðŸ“ FIRESTORE DEBUG: employerId mismatch (payload=$payloadEmployerId, auth=$authUid). Using authenticated UID.")
             }
 
             val employerProfile = firestore.collection(EMPLOYER_PROFILES_COLLECTION)
@@ -427,23 +419,22 @@ class JobFirestoreService @Inject constructor(
                 "benefits" to benefits,
                 "applicationCount" to 0
             )
-            whatsappNumber?.let { detailsData["whatsappNumber"] = it }
             workingHours?.let { detailsData["workingHours"] = it }
 
-            Timber.d("📝 Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
+            Timber.d("ðŸ“ Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
             val batch = firestore.batch()
             batch.set(jobRef, cardData)                                                          // ~200 bytes
             batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData) // ~1KB
             batch.commit().await()
             
-            Timber.i("📝 ✅ Job saved (2-collection split: jobmetadata + job_details)")
+            Timber.i("ðŸ“ âœ… Job saved (2-collection split: jobmetadata + job_details)")
 
             // Nearby-worker notifications run server-side via Cloud Functions
 
             Result.success(jobRef.id)
         } catch (e: Exception) {
-            Timber.e(e, "📝 FIRESTORE DEBUG: ❌ Failed to save job to Firestore")
+            Timber.e(e, "ðŸ“ FIRESTORE DEBUG: âŒ Failed to save job to Firestore")
             Result.failure(e)
         }
     }
@@ -516,15 +507,15 @@ class JobFirestoreService @Inject constructor(
         radiusKm: Double = 10.0
     ): Result<List<Map<String, Any>>> {
         return try {
-            Timber.d("📂 ========== FIRESTORE QUERY START ==========")
-            Timber.d("📂 getAllJobsSummary called:")
+            Timber.d("ðŸ“‚ ========== FIRESTORE QUERY START ==========")
+            Timber.d("ðŸ“‚ getAllJobsSummary called:")
             val effectiveLimit = limit.coerceIn(1L, MAX_JOB_QUERY_LIMIT)
-            Timber.d("📂   - requestedLimit: $limit")
-            Timber.d("📂   - effectiveLimit: $effectiveLimit (max=$MAX_JOB_QUERY_LIMIT)")
-            Timber.d("📂   - lastDocumentId: $lastDocumentId")
-            Timber.d("📂   - category: $category")
-            Timber.d("📂   - userLocation: ($userLatitude, $userLongitude)")
-            Timber.d("📂   - radiusKm: $radiusKm")
+            Timber.d("ðŸ“‚   - requestedLimit: $limit")
+            Timber.d("ðŸ“‚   - effectiveLimit: $effectiveLimit (max=$MAX_JOB_QUERY_LIMIT)")
+            Timber.d("ðŸ“‚   - lastDocumentId: $lastDocumentId")
+            Timber.d("ðŸ“‚   - category: $category")
+            Timber.d("ðŸ“‚   - userLocation: ($userLatitude, $userLongitude)")
+            Timber.d("ðŸ“‚   - radiusKm: $radiusKm")
             
             // CRITICAL FIX: Phase 2 - Geohash-radius filtering
             // Prevents fetching 100+ km away jobs
@@ -533,9 +524,9 @@ class JobFirestoreService @Inject constructor(
                 com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
             
             if (hasValidLocation) {
-                Timber.d("📂 ✅ Valid user location detected: ($userLatitude, $userLongitude) - Client-side distance sorting will be applied")
+                Timber.d("ðŸ“‚ âœ… Valid user location detected: ($userLatitude, $userLongitude) - Client-side distance sorting will be applied")
             } else {
-                Timber.d("📂 ⚠️ No user location - fetching all jobs (no distance sorting)")
+                Timber.d("ðŸ“‚ âš ï¸ No user location - fetching all jobs (no distance sorting)")
             }
             
             // Strict schema: query by jobType + createdAt.
@@ -545,11 +536,11 @@ class JobFirestoreService @Inject constructor(
             if (!category.isNullOrBlank() && category.uppercase() != "ALL" && category != "All Jobs") {
                 val categoryUpper = category.uppercase()
                 Timber.d("Category filter deferred to client-side summary job type: $categoryUpper")
-                Timber.d("📂 ✅ Category filter APPLIED: jobType == '$categoryUpper'")
-                Timber.d("📂 Required index: (jobType ASC, createdAt DESC)")
+                Timber.d("ðŸ“‚ âœ… Category filter APPLIED: jobType == '$categoryUpper'")
+                Timber.d("ðŸ“‚ Required index: (jobType ASC, createdAt DESC)")
             } else {
-                Timber.d("📂 ⚠️ Category filter NOT applied (fetching ALL categories)")
-                Timber.d("📂 Required index: none (single-field createdAt)")
+                Timber.d("ðŸ“‚ âš ï¸ Category filter NOT applied (fetching ALL categories)")
+                Timber.d("ðŸ“‚ Required index: none (single-field createdAt)")
             }
             
             // NOTE: Server-side geohash range filter is disabled.
@@ -566,12 +557,12 @@ class JobFirestoreService @Inject constructor(
             // TODO: Implement GeoFire-style multi-cell query for server-side geo restriction
             // when the job count grows beyond ~50K documents.
             if (hasValidLocation) {
-                Timber.d("📂 ✅ Valid user location - distance sorting will be applied client-side")
+                Timber.d("ðŸ“‚ âœ… Valid user location - distance sorting will be applied client-side")
             }
             
             // Order by createdAt for pagination
             query = query.orderBy("createdAt", Query.Direction.DESCENDING)
-            Timber.d("📂 Ordering: createdAt DESC")
+            Timber.d("ðŸ“‚ Ordering: createdAt DESC")
             
             // CRITICAL FIX: Use DocumentSnapshot cursor instead of timestamp
             // This prevents duplicate pagination when jobs have same createdAt
@@ -580,26 +571,26 @@ class JobFirestoreService @Inject constructor(
                 val lastDoc = firestore.collection(JOBS_COLLECTION).document(lastDocumentId).get().await()
                 if (lastDoc.exists()) {
                     query = query.startAfter(lastDoc)
-                    Timber.d("📂 Pagination: startAfter document '$lastDocumentId'")
+                    Timber.d("ðŸ“‚ Pagination: startAfter document '$lastDocumentId'")
                 } else {
-                    Timber.w("📂 Pagination: Last document not found, starting from beginning")
+                    Timber.w("ðŸ“‚ Pagination: Last document not found, starting from beginning")
                 }
             } else {
-                Timber.d("📂 Pagination: FIRST PAGE (no cursor)")
+                Timber.d("ðŸ“‚ Pagination: FIRST PAGE (no cursor)")
             }
             
             // Apply limit
             query = query.limit(effectiveLimit)
-            Timber.d("📂 Limit: $effectiveLimit jobs")
+            Timber.d("ðŸ“‚ Limit: $effectiveLimit jobs")
             
-            Timber.d("📂 Executing Firestore query...")
+            Timber.d("ðŸ“‚ Executing Firestore query...")
             val startTime = System.currentTimeMillis()
             val snapshot = query.get().await()
             val queryTime = System.currentTimeMillis() - startTime
             
-            Timber.d("📂 ========== FIRESTORE QUERY RESULT ==========")
-            Timber.d("📂 Query completed in ${queryTime}ms")
-            Timber.d("📂 Documents returned from Firestore: ${snapshot.documents.size}")
+            Timber.d("ðŸ“‚ ========== FIRESTORE QUERY RESULT ==========")
+            Timber.d("ðŸ“‚ Query completed in ${queryTime}ms")
+            Timber.d("ðŸ“‚ Documents returned from Firestore: ${snapshot.documents.size}")
             
             val currentTime = System.currentTimeMillis()
             var filteredByStatus = 0
@@ -634,38 +625,38 @@ class JobFirestoreService @Inject constructor(
                 summary
             }
             
-            Timber.d("📦 ========== CLIENT-SIDE FILTERING ==========")
-            Timber.d("📦 Firestore returned: ${snapshot.documents.size} documents")
-            Timber.d("📦 After filtering (status=open, not expired): ${jobs.size} jobs")
-            Timber.d("📦 Filtered out: ${snapshot.documents.size - jobs.size} jobs")
-            Timber.d("📦 Filter reasons: status=$filteredByStatus, expired=$filteredByExpiry")
+            Timber.d("ðŸ“¦ ========== CLIENT-SIDE FILTERING ==========")
+            Timber.d("ðŸ“¦ Firestore returned: ${snapshot.documents.size} documents")
+            Timber.d("ðŸ“¦ After filtering (status=open, not expired): ${jobs.size} jobs")
+            Timber.d("ðŸ“¦ Filtered out: ${snapshot.documents.size - jobs.size} jobs")
+            Timber.d("ðŸ“¦ Filter reasons: status=$filteredByStatus, expired=$filteredByExpiry")
             
             if (jobs.isNotEmpty()) {
-                Timber.d("📦 Sample job categories:")
+                Timber.d("ðŸ“¦ Sample job categories:")
                 jobs.take(5).forEach { job ->
-                    Timber.d("📦   - ${job["title"]}: jobType='${job["jobType"]}'")
+                    Timber.d("ðŸ“¦   - ${job["title"]}: jobType='${job["jobType"]}'")
                 }
             } else {
-                Timber.w("📦 ⚠️ NO JOBS RETURNED after filtering!")
-                Timber.w("📦 Possible reasons:")
-                Timber.w("📦   1. No jobs with status=open")
-                Timber.w("📦   2. All open jobs are expired")
-                Timber.w("📦   3. jobType filter too restrictive")
+                Timber.w("ðŸ“¦ âš ï¸ NO JOBS RETURNED after filtering!")
+                Timber.w("ðŸ“¦ Possible reasons:")
+                Timber.w("ðŸ“¦   1. No jobs with status=open")
+                Timber.w("ðŸ“¦   2. All open jobs are expired")
+                Timber.w("ðŸ“¦   3. jobType filter too restrictive")
             }
             
-            Timber.d("📦 ========== QUERY COMPLETE ==========")
+            Timber.d("ðŸ“¦ ========== QUERY COMPLETE ==========")
             Result.success(jobs)
         } catch (e: Exception) {
-            Timber.e(e, "❌ ========== FIRESTORE QUERY ERROR ==========")
-            Timber.e("❌ Failed to fetch job summaries")
-            Timber.e("❌ Error: ${e.message}")
-            Timber.e("❌ ==========================================")
+            Timber.e(e, "âŒ ========== FIRESTORE QUERY ERROR ==========")
+            Timber.e("âŒ Failed to fetch job summaries")
+            Timber.e("âŒ Error: ${e.message}")
+            Timber.e("âŒ ==========================================")
             Result.failure(e)
         }
     }
 
     /**
-     * Get jobs posted by a specific employer — P0 FIX: Added limit + server-side sort
+     * Get jobs posted by a specific employer â€” P0 FIX: Added limit + server-side sort
      */
     suspend fun getJobsByEmployer(employerId: String): Result<List<Map<String, Any>>> {
         return try {
@@ -720,21 +711,21 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun getJobById(jobId: String): Result<Map<String, Any>?> {
         return try {
-            Timber.d("🔍 JobFirestoreService.getJobById - Looking for jobId: $jobId")
+            Timber.d("ðŸ” JobFirestoreService.getJobById - Looking for jobId: $jobId")
             
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (document.exists()) {
-                Timber.d("🔍 JobFirestoreService.getJobById - Document found by ID")
+                Timber.d("ðŸ” JobFirestoreService.getJobById - Document found by ID")
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val detailsData = if (currentUser == null) {
-                    Timber.d("🔍 JobFirestoreService.getJobById - Guest session; skipping private job_details read")
+                    Timber.d("ðŸ” JobFirestoreService.getJobById - Guest session; skipping private job_details read")
                     null
                 } else {
                     try {
                         firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
                     } catch (e: FirebaseFirestoreException) {
                         if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            Timber.w("🔍 JobFirestoreService.getJobById - job_details denied for user %s; returning core job data", currentUser.uid)
+                            Timber.w("ðŸ” JobFirestoreService.getJobById - job_details denied for user %s; returning core job data", currentUser.uid)
                             null
                         } else {
                             throw e
@@ -745,11 +736,11 @@ class JobFirestoreService @Inject constructor(
                     mergeJobWithDetails(jobId, document.data.orEmpty(), detailsData)
                 )
             } else {
-                Timber.d("🔍 JobFirestoreService.getJobById - Document not found")
+                Timber.d("ðŸ” JobFirestoreService.getJobById - Document not found")
                 Result.success(null)
             }
         } catch (e: Exception) {
-            Timber.e("🔍 JobFirestoreService.getJobById - Error: ${e.message}")
+            Timber.e("ðŸ” JobFirestoreService.getJobById - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -833,7 +824,6 @@ class JobFirestoreService @Inject constructor(
                 detailsUpdates["vacancies"] = (data["vacancies"] as? Number)?.toInt()
                     ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
             }
-            data["whatsappNumber"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["whatsappNumber"] = v } }
             data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
             if (data.containsKey("benefits")) detailsUpdates["benefits"] = parseBenefits(data["benefits"])
 
@@ -886,7 +876,7 @@ class JobFirestoreService @Inject constructor(
     suspend fun searchJobs(query: String, limit: Long = 100L): Result<List<Map<String, Any>>> {
         return try {
             val lowercaseQuery = query.lowercase().trim()
-            Timber.d("🔍 Search: '$lowercaseQuery'")
+            Timber.d("ðŸ” Search: '$lowercaseQuery'")
             
             // Strict schema: fetch open jobs and filter client-side by searchable text fields.
             val snapshot = firestore.collection(JOBS_COLLECTION)
@@ -940,10 +930,10 @@ class JobFirestoreService @Inject constructor(
             .take(limit.toInt())
             .map { it.apply { remove("_score"); remove("_time") } }
             
-            Timber.d("✅ Found ${results.size} jobs")
+            Timber.d("âœ… Found ${results.size} jobs")
             Result.success(results)
         } catch (e: Exception) {
-            Timber.e(e, "❌ Search failed")
+            Timber.e(e, "âŒ Search failed")
             Result.failure(e)
         }
     }
@@ -1005,13 +995,13 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * P0 FIX COMPLETED ✅: Server-side filtering for jobs
+     * P0 FIX COMPLETED âœ…: Server-side filtering for jobs
      * 
      * ENTERPRISE STANDARD (Google Firestore Best Practices 2024):
-     * - ✅ Server-side filtering reduces data transfer by 80-90%
-     * - ✅ Composite indexes for multi-field queries
-     * - ✅ DocumentSnapshot cursor-based pagination for O(1) page loads
-     * - ✅ Client-side filtering only for complex logic (distance)
+     * - âœ… Server-side filtering reduces data transfer by 80-90%
+     * - âœ… Composite indexes for multi-field queries
+     * - âœ… DocumentSnapshot cursor-based pagination for O(1) page loads
+     * - âœ… Client-side filtering only for complex logic (distance)
      * 
      * Research Sources:
      * - Google Cloud Firestore: "Optimize queries with range and inequality filters"
@@ -1041,8 +1031,8 @@ class JobFirestoreService @Inject constructor(
         lastDocumentId: String? = null
     ): Result<List<Map<String, Any>>> {
         return try {
-            Timber.d("📂 ========== P0 FIX: SERVER-SIDE FILTERING ==========")
-            Timber.d("📂 Filters: category=$category, salary=$minSalary-$maxSalary, payType=$payType, gender=$gender, jobType=$jobType")
+            Timber.d("ðŸ“‚ ========== P0 FIX: SERVER-SIDE FILTERING ==========")
+            Timber.d("ðŸ“‚ Filters: category=$category, salary=$minSalary-$maxSalary, payType=$payType, gender=$gender, jobType=$jobType")
             
             // Build optimized query with server-side filters
             var query = firestore.collection(JOBS_COLLECTION)
@@ -1051,19 +1041,19 @@ class JobFirestoreService @Inject constructor(
             // Apply category filter (most selective first)
             if (!category.isNullOrBlank() && category.uppercase() != "ALL") {
                 Timber.d("Client-side category filter will use derived job type: $category")
-                Timber.d("📂 ✅ Category filter: $category")
+                Timber.d("ðŸ“‚ âœ… Category filter: $category")
             }
             
             // Apply pay type filter
             if (!payType.isNullOrBlank()) {
                 query = query.whereEqualTo("salaryType", payType.uppercase())
-                Timber.d("📂 ✅ PayType filter: $payType")
+                Timber.d("ðŸ“‚ âœ… PayType filter: $payType")
             }
             
             // Apply job type filter
             if (!jobType.isNullOrBlank()) {
                 Timber.d("Client-side job type filter will use derived job type: $jobType")
-                Timber.d("📂 ✅ JobType filter: $jobType")
+                Timber.d("ðŸ“‚ âœ… JobType filter: $jobType")
             }
             
             // Order by createdAt for pagination
@@ -1074,7 +1064,7 @@ class JobFirestoreService @Inject constructor(
                 val lastDoc = firestore.collection(JOBS_COLLECTION).document(lastDocumentId).get().await()
                 if (lastDoc.exists()) {
                     query = query.startAfter(lastDoc)
-                    Timber.d("📂 Pagination: startAfter document '$lastDocumentId'")
+                    Timber.d("ðŸ“‚ Pagination: startAfter document '$lastDocumentId'")
                 }
             }
             
@@ -1085,7 +1075,7 @@ class JobFirestoreService @Inject constructor(
             val snapshot = query.get().await()
             val queryTime = System.currentTimeMillis() - startTime
             
-            Timber.d("📂 Query completed in ${queryTime}ms, returned ${snapshot.documents.size} docs")
+            Timber.d("ðŸ“‚ Query completed in ${queryTime}ms, returned ${snapshot.documents.size} docs")
             
             val currentTime = System.currentTimeMillis()
             
@@ -1122,12 +1112,12 @@ class JobFirestoreService @Inject constructor(
                 summary
             }
             
-            Timber.d("📦 After filtering: ${jobs.size} jobs (filtered out ${snapshot.documents.size - jobs.size})")
-            Timber.d("📦 ========== SERVER-SIDE FILTERING COMPLETE ==========")
+            Timber.d("ðŸ“¦ After filtering: ${jobs.size} jobs (filtered out ${snapshot.documents.size - jobs.size})")
+            Timber.d("ðŸ“¦ ========== SERVER-SIDE FILTERING COMPLETE ==========")
             
             Result.success(jobs)
         } catch (e: Exception) {
-            Timber.e(e, "❌ Server-side filtering failed")
+            Timber.e(e, "âŒ Server-side filtering failed")
             Result.failure(e)
         }
     }
@@ -1147,7 +1137,7 @@ class JobFirestoreService @Inject constructor(
             val snapshot = countQuery.get(com.google.firebase.firestore.AggregateSource.SERVER).await()
             val count = snapshot.count.toInt()
             
-            Timber.d("📊 Total active jobs: $count")
+            Timber.d("ðŸ“Š Total active jobs: $count")
             Result.success(count)
         } catch (e: Exception) {
             Timber.e(e, "Failed to get total job count")
@@ -1182,12 +1172,12 @@ class JobFirestoreService @Inject constructor(
         limitPerCell: Long = 50L
     ): Result<List<Map<String, Any>>> {
         return try {
-            Timber.d("📍 getNearbyJobsSummary: lat=$userLatitude, lng=$userLongitude, radius=${radiusKm}km, category=$category")
+            Timber.d("ðŸ“ getNearbyJobsSummary: lat=$userLatitude, lng=$userLongitude, radius=${radiusKm}km, category=$category")
 
             val bounds = com.example.dutype.utils.GeoUtils.getGeohashQueryBounds(
                 userLatitude, userLongitude, radiusKm
             )
-            Timber.d("📍 Querying ${bounds.size} geohash cells in parallel")
+            Timber.d("ðŸ“ Querying ${bounds.size} geohash cells in parallel")
 
             val allDocs = kotlinx.coroutines.coroutineScope {
                 val deferreds = bounds.map { bound ->
@@ -1201,7 +1191,7 @@ class JobFirestoreService @Inject constructor(
                     .distinctBy { it.first }
             }
 
-            Timber.d("📍 Docs across all cells after dedup: ${allDocs.size}")
+            Timber.d("ðŸ“ Docs across all cells after dedup: ${allDocs.size}")
 
             val currentTime = System.currentTimeMillis()
             val categoryUpper = category?.uppercase()?.takeIf { it != "ALL" }
@@ -1248,11 +1238,11 @@ class JobFirestoreService @Inject constructor(
                 buildJobSummary(docId, data, currentTime)
             }
 
-            Timber.d("📍 Nearby result: ${nearby.size} jobs (filtered: status=$filteredStatus, expired=$filteredExpiry, radius=$filteredRadius, category=$filteredCategory)")
+            Timber.d("ðŸ“ Nearby result: ${nearby.size} jobs (filtered: status=$filteredStatus, expired=$filteredExpiry, radius=$filteredRadius, category=$filteredCategory)")
             Result.success(nearby)
 
         } catch (e: Exception) {
-            Timber.e(e, "❌ getNearbyJobsSummary failed")
+            Timber.e(e, "âŒ getNearbyJobsSummary failed")
             Result.failure(e)
         }
     }
@@ -1282,7 +1272,7 @@ class JobFirestoreService @Inject constructor(
                 Pair(doc.id, data)
             }
         } catch (e: Exception) {
-            Timber.e(e, "❌ Cell query failed: start=$startHash end=$endHash")
+            Timber.e(e, "âŒ Cell query failed: start=$startHash end=$endHash")
             emptyList()
         }
     }

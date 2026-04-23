@@ -121,7 +121,6 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         // job_details fields (runtime only, loaded on click)
         description = description,
         contactNumber = (this["contactNumber"] as? String) ?: "",
-        whatsappNumber = (this["whatsappNumber"] as? String) ?: "",
         location = addressText,
         addressText = addressText,
         vacancies = (this["vacancies"] as? Number)?.toInt() ?: 1,

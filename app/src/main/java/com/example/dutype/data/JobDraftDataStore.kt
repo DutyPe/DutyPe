@@ -1,4 +1,4 @@
-package com.example.dutype.data
+﻿package com.example.dutype.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -94,7 +94,7 @@ class JobDraftDataStore @Inject constructor(
         val vacancies: String = "",
         val contactNumber: String = "",
         val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
-        val urgency: JobUrgency = JobUrgency.FLEXIBLE,
+        val urgency: JobUrgency = JobUrgency.NORMAL,
         val perks: Set<JobPerk> = emptySet(),
         val workType: String = "Part-time",
         val experienceLevel: String = "No Experience Required",
@@ -140,9 +140,9 @@ class JobDraftDataStore @Inject constructor(
     /**
      * Get saved draft for employer.
      *
-     * Bug #4 fix: Drafts are now device-scoped — we no longer block restore
+     * Bug #4 fix: Drafts are now device-scoped â€” we no longer block restore
      * when the saved employerId differs (or is blank for a guest save). The
-     * common scenario is: guest fills the form → navigates to register →
+     * common scenario is: guest fills the form â†’ navigates to register â†’
      * comes back with a freshly-minted uid. Old behaviour saw `savedEmployerId =
      * "GUEST"` vs the new uid and threw the draft away. We still respect TTL.
      */
@@ -153,12 +153,12 @@ class JobDraftDataStore @Inject constructor(
                 val timestamp = prefs[KEY_TIMESTAMP] ?: 0L
 
                 if (timestamp == 0L) {
-                    Timber.d("📝 JOB_DRAFT: No draft on device")
+                    Timber.d("ðŸ“ JOB_DRAFT: No draft on device")
                     return@map null
                 }
 
                 if (System.currentTimeMillis() - timestamp > DRAFT_TTL_MS) {
-                    Timber.d("📝 JOB_DRAFT: Draft expired, clearing...")
+                    Timber.d("ðŸ“ JOB_DRAFT: Draft expired, clearing...")
                     return@map null
                 }
                 
@@ -187,7 +187,7 @@ class JobDraftDataStore @Inject constructor(
                     shiftTiming = try { ShiftTiming.valueOf(prefs[KEY_SHIFT_TIMING] ?: "FLEXIBLE") } 
                         catch (e: Exception) { ShiftTiming.FLEXIBLE },
                     urgency = try { JobUrgency.valueOf(prefs[KEY_URGENCY] ?: "FLEXIBLE") } 
-                        catch (e: Exception) { JobUrgency.FLEXIBLE },
+                        catch (e: Exception) { JobUrgency.NORMAL },
                     perks = perks,
                     workType = prefs[KEY_WORK_TYPE] ?: "Part-time",
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
@@ -198,11 +198,11 @@ class JobDraftDataStore @Inject constructor(
                 )
             }.first()?.also {
                 if (it.hasContent()) {
-                    Timber.d("📝 JOB_DRAFT: Draft restored for employer $employerId")
+                    Timber.d("ðŸ“ JOB_DRAFT: Draft restored for employer $employerId")
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "📝 JOB_DRAFT: Failed to get draft")
+            Timber.e(e, "ðŸ“ JOB_DRAFT: Failed to get draft")
             null
         }
     }
@@ -240,3 +240,4 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
     }
 }
+

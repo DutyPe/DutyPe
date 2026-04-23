@@ -1,4 +1,4 @@
-package com.example.dutype.employer.models
+﻿package com.example.dutype.employer.models
 
 import java.util.UUID
 
@@ -16,7 +16,7 @@ data class JobPostingModel(
     val contactNumber: String,                      // Direct contact
     val category: JobCategory,                      // Category (Cook, Maid, Driver, etc.)
     val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
-    val urgency: JobUrgency = JobUrgency.FLEXIBLE,
+    val urgency: JobUrgency = JobUrgency.NORMAL,
     val vacancies: Int = 1,                         // Default 1
     val postedTime: Long = System.currentTimeMillis(),
     val isVerified: Boolean = false,                // From employer verification
@@ -27,3 +27,4 @@ data class JobPostingModel(
     val isFilled: Boolean = false,                  // For vacancy status
     val imageUrl: String? = null                    // Bug #5: hero image for the card
 )
+

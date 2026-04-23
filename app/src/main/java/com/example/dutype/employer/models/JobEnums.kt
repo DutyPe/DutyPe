@@ -33,14 +33,16 @@ enum class ShiftTiming(val displayName: String, val icon: String) {
     EVENING("Evening (6 PM - 12 AM)", "🌆"),
     NIGHT("Night (12 AM - 6 AM)", "🌙"),
     FULL_DAY("Full Day", "⏰"),
+    // Batch-p #3: employer can specify their own start/end timing.
+    CUSTOM("Custom timing", "🕒"),
     FLEXIBLE("Flexible", "⏳")
 }
 
 enum class JobUrgency(val displayName: String) {
     IMMEDIATE("Today"),
     URGENT("Within 3days"),
-    NORMAL("Within 1week"),
-    FLEXIBLE("Flexible")
+    NORMAL("Within 1week")
+    // Batch-p #11.3: removed FLEXIBLE — every job has a hiring window.
 }
 
 enum class JobPerk(val displayName: String, val icon: String) {

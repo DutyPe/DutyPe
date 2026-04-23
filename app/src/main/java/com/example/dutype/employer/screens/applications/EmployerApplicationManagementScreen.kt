@@ -69,6 +69,10 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // Batch-p #7: filter chips at top — Total / Applied / Shortlisted /
+    // Hired. Selecting one filters the application list locally so the
+    // counts in the header stay accurate while the user drills in.
+    var statusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
     
     // FINTECH: Contact Unlock Dialog State
     var showUnlockDialog by remember { mutableStateOf(false) }
@@ -159,8 +163,17 @@ fun EmployerApplicationManagementScreen(
             FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
         }
         
-        // Stats Summary Card
-        ApplicationStatsSummary(stats = stats)
+        // Stats Summary Card — click any item to filter the list
+        ApplicationStatsSummary(
+            stats = stats,
+            selectedFilter = statusFilter,
+            onFilterSelected = { statusFilter = it }
+        )
+
+        val displayedApplications = remember(uiState.applications, statusFilter) {
+            if (statusFilter == null) uiState.applications
+            else uiState.applications.filter { it.status == statusFilter }
+        }
         
         // Applications List
         when {
@@ -183,6 +196,11 @@ fun EmployerApplicationManagementScreen(
                     EmptyApplicationsState()
                 }
             }
+            displayedApplications.isEmpty() -> {
+                Box(modifier = Modifier.weight(1f)) {
+                    EmptyApplicationsState()
+                }
+            }
             else -> {
                 LazyColumn(
                     modifier = Modifier
@@ -191,7 +209,7 @@ fun EmployerApplicationManagementScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    itemsIndexed(uiState.applications) { index, application ->
+                    itemsIndexed(displayedApplications) { index, application ->
                         val isContactUnlocked = viewModel.isContactUnlocked(application.id, index)
                         
                         ApplicationCard(
@@ -371,7 +389,11 @@ private fun JobReportSummaryCard(
 
 // Stats Summary Card
 @Composable
-private fun ApplicationStatsSummary(stats: com.example.dutype.models.ApplicationStats) {
+private fun ApplicationStatsSummary(
+    stats: com.example.dutype.models.ApplicationStats,
+    selectedFilter: ApplicationStatus?,
+    onFilterSelected: (ApplicationStatus?) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -389,22 +411,30 @@ private fun ApplicationStatsSummary(stats: com.example.dutype.models.Application
             StatsSummaryItem(
                 value = stats.totalApplications.toString(),
                 label = stringResource(R.string.total_label),
-                color = Color(0xFF3B82F6)
+                color = Color(0xFF3B82F6),
+                isSelected = selectedFilter == null,
+                onClick = { onFilterSelected(null) }
             )
             StatsSummaryItem(
                 value = stats.appliedApplications.toString(),
                 label = stringResource(R.string.applied),
-                color = Color(0xFFF59E0B)
+                color = Color(0xFFF59E0B),
+                isSelected = selectedFilter == ApplicationStatus.APPLIED,
+                onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
             )
             StatsSummaryItem(
                 value = stats.shortlistedApplications.toString(),
                 label = stringResource(R.string.shortlisted),
-                color = Color(0xFF8B5CF6)
+                color = Color(0xFF8B5CF6),
+                isSelected = selectedFilter == ApplicationStatus.SHORTLISTED,
+                onClick = { onFilterSelected(ApplicationStatus.SHORTLISTED) }
             )
             StatsSummaryItem(
                 value = stats.hiredApplications.toString(),
                 label = stringResource(R.string.hired),
-                color = Color(0xFF10B981)
+                color = Color(0xFF10B981),
+                isSelected = selectedFilter == ApplicationStatus.HIRED,
+                onClick = { onFilterSelected(ApplicationStatus.HIRED) }
             )
         }
     }
@@ -414,10 +444,19 @@ private fun ApplicationStatsSummary(stats: com.example.dutype.models.Application
 private fun StatsSummaryItem(
     value: String,
     label: String,
-    color: Color
+    color: Color,
+    isSelected: Boolean = false,
+    onClick: () -> Unit = {}
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .background(
+                color = if (isSelected) color.copy(alpha = 0.12f) else Color.Transparent,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Text(
             text = value,
@@ -425,7 +464,9 @@ private fun StatsSummaryItem(
         )
         Text(
             text = label,
-            style = AppTypography.caption.copy(color = Color(0xFF6B7280))
+            style = AppTypography.caption.copy(
+                color = if (isSelected) color else Color(0xFF6B7280)
+            )
         )
     }
 }
@@ -590,41 +631,13 @@ private fun ApplicationCard(
             }
             
             Spacer(modifier = Modifier.height(12.dp))
-            
-            // Job Info Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
-                    .padding(12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Work,
-                        contentDescription = null,
-                        tint = Color(0xFF3B82F6),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    Column {
-                        Text(
-                            text = application.jobTitle,
-                            style = AppTypography.labelLarge.copy(color = Color(0xFF1F2937)),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = application.companyName,
-                            style = AppTypography.caption.copy(color = Color(0xFF6B7280))
-                        )
-                    }
-                }
-            }
-            
+
+            // Batch-p #7: dropped the redundant Job Info card
+            // (jobTitle + companyName) from the applicant card. The
+            // employer is already inside the job context (filtered list
+            // or job-scoped applications screen) so repeating the title
+            // on every applicant card just adds noise.
+
             // Skills preview removed - skills not stored on application
             val skillsToShow = emptyList<String>()
             

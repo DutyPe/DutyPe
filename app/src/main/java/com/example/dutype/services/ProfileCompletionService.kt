@@ -508,7 +508,12 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Check if user has complete profile for their role
+     * Check if user has complete profile for their role.
+     * Batch-p #1: 'complete' means good-enough to participate (>= 80%),
+     * matching `canApplyDirectly`. Workers / employers who have filled
+     * all the meaningful fields shouldn't see "Complete profile" CTAs
+     * on the refer-and-earn screen just because the percentage sits at
+     * 95% (e.g. one optional skill missing).
      */
     suspend fun isProfileComplete(userId: String, role: String): Result<Boolean> {
         return try {
@@ -517,7 +522,7 @@ class ProfileCompletionService @Inject constructor(
                     } else {
                 calculateEmployerProfileCompletion(userId)
             }
-            Result.success(completion >= 100)
+            Result.success(completion >= 80)
         } catch (e: Exception) {
             Result.failure(e)
         }

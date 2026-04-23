@@ -353,6 +353,19 @@ class MainActivity : ComponentActivity() {
                             notificationPermissionManager = notificationPermissionManager,
                             notificationIntent = intent
                         )
+
+                        // Batch-p #4: Compose-side animated splash overlay.
+                        // The system splash (theme-driven) drops as soon as
+                        // MainNavGraph signals onReady; this overlay then
+                        // takes over with the letter-by-letter "DutyPe"
+                        // reveal so the user sees a branded splash instead
+                        // of an instant cut to the destination screen.
+                        var showAnimatedSplash by remember { mutableStateOf(true) }
+                        if (showAnimatedSplash) {
+                            com.example.dutype.components.AnimatedSplashScreen(
+                                onAnimationEnd = { showAnimatedSplash = false }
+                            )
+                        }
                         
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {
