@@ -86,6 +86,44 @@ class OtpViewModel @Inject constructor(
             
             // Log to crash reports
             errorHandler.logBreadcrumb("OTP send started: $phoneNumber")
+
+            // Bug #4 (batch-i) defense-in-depth: re-run the phone/role
+            // pre-check here so a UI bypass or stale callable response
+            // cannot cause us to burn an SMS for a phone that is already
+            // registered under a different role. Previously the conflict
+            // was only surfaced AFTER `completeLogin()` ran — which is
+            // AFTER the user typed the 6-digit code.
+            //
+            // Only bail on a DEFINITIVE conflict (EXISTS + roleConflict).
+            // We do NOT block on UNKNOWN here because the UI layer is
+            // now fail-closed for that case; a second UNKNOWN-block
+            // inside the ViewModel would just produce a duplicate toast.
+            runCatching {
+                FirestoreUtils.checkPhoneForRole(
+                    phoneNumber = phoneNumber,
+                    requestedRole = pendingRole.name
+                )
+            }.onSuccess { phoneCheck ->
+                if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
+                    phoneCheck.roleConflict
+                ) {
+                    val existingRole = phoneCheck.existingRole?.lowercase() ?: "different role"
+                    Timber.w(
+                        "🔒 OTP blocked before send — phone=%s already registered as %s, requested=%s",
+                        phoneNumber, phoneCheck.existingRole, pendingRole.name
+                    )
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        otpSent = false,
+                        error = "phone-already-registered-as:$existingRole",
+                        message = "This number is already registered as a $existingRole. Please log in as a $existingRole."
+                    )
+                    errorHandler.logEvent("otp_send_blocked_role_conflict", true)
+                    return@launch
+                }
+            }.onFailure {
+                Timber.w(it, "Pre-send role check failed; continuing (UI layer already gated)")
+            }
             
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()

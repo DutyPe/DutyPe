@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -187,6 +188,17 @@ fun JobDescriptionScreen(
                 detailsListState.firstVisibleItemScrollOffset > 120
         }.collect { scrolled ->
             if (scrolled) hasRevealedApplyBar = true
+        }
+    }
+
+    // Batch-i #1: when the inline Call + Apply row (inserted right after
+    // the "don't pay fee" safety banner) is on screen, the sticky bottom
+    // bar disappears so the user is never shown two duplicate action
+    // bars at once. We key off the LazyColumn item key `"inline_actions"`
+    // so this stays correct regardless of list content around it.
+    val inlineActionsVisible by remember {
+        androidx.compose.runtime.derivedStateOf {
+            detailsListState.layoutInfo.visibleItemsInfo.any { it.key == "inline_actions" }
         }
     }
     var similarJobs by remember { mutableStateOf<List<JobListing>>(emptyList()) }
@@ -404,6 +416,40 @@ fun JobDescriptionScreen(
                 )
             }
 
+            // Shared apply-click behaviour used by BOTH the inline action
+            // row (in content) and the sticky bottom bar. Declared at
+            // screen scope so the two button sites can never drift.
+            val handleApplyClick: () -> Unit = {
+                scope.launch {
+                    val currentUserId = currentUser?.uid
+                    if (currentUserId != null) {
+                        val canApply = profileCompletionService.canApplyDirectly(currentUserId)
+                        canApply.fold(
+                            onSuccess = { allowed ->
+                                if (allowed) {
+                                    navController.navigate(Routes.jobApplicationRoute(jobId))
+                                } else {
+                                    navController.navigate(
+                                        Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId))
+                                    )
+                                }
+                            },
+                            onFailure = { err ->
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Error checking profile: ${err.message}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
+                }
+            }
+            val handleLoginRequired: (String) -> Unit = { action ->
+                pendingAction = action
+                showLoginBottomSheet = true
+            }
+
             Box(modifier = Modifier.fillMaxSize().weight(1f).graphicsLayer(alpha = contentAlpha)) {
                 when {
                     isLoading -> JobDescriptionLoadingContent()
@@ -423,60 +469,45 @@ fun JobDescriptionScreen(
                         onReportClick = { showReportSheet = true },
                         onJobClick = { clickedJobId ->
                             navController.navigate(Routes.jobDetailRoute(clickedJobId))
+                        },
+                        inlineActions = {
+                            ActionButtonsContent(
+                                job = job!!,
+                                currentUser = currentUser,
+                                context = context,
+                                navController = navController,
+                                hasApplied = hasApplied,
+                                applicationStatus = applicationStatus,
+                                onApplyClick = handleApplyClick,
+                                onLoginRequired = handleLoginRequired,
+                            )
                         }
                     )
                 }
             }
 
             if (job != null && !isLoading && error == null) {
-                // #1: slide the Call + Apply bar up into view once the user
-                // has started scrolling; keep it visible thereafter.
+                // Batch-i #1: sticky bar is shown only when
+                //   (a) the user has started scrolling (hasRevealedApplyBar), AND
+                //   (b) the inline Call+Apply row is NOT currently on screen.
+                // That way the user sees exactly one set of actions at a time:
+                // inline while reading, sticky when scrolled away from it.
                 AnimatedVisibility(
-                    visible = hasRevealedApplyBar,
+                    visible = hasRevealedApplyBar && !inlineActionsVisible,
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
                 ) {
                     BottomActionBar(
-                    job = job!!,
-                    currentUser = currentUser,
-                    context = context,
-                    navController = navController,
-                    jobId = jobId,
-                    hasApplied = hasApplied,
-                    applicationStatus = applicationStatus,
-                    onApplyClick = {
-                        scope.launch {
-                            val currentUserId = currentUser?.uid
-                            if (currentUserId != null) {
-                                val canApply = profileCompletionService.canApplyDirectly(currentUserId)
-                                canApply.fold(
-                                    onSuccess = { allowed ->
-                                        if (allowed) {
-                                            // Profile complete - navigate to application screen
-                                            navController.navigate(Routes.jobApplicationRoute(jobId))
-                                        } else {
-                                            // Profile incomplete - navigate to profile setup with return route
-                                            navController.navigate(
-                                                Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId))
-                                            )
-                                        }
-                                    },
-                                    onFailure = { error ->
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Error checking profile: ${error.message}",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                )
-                            }
-                        }
-                    },
-                    onLoginRequired = { action ->
-                        pendingAction = action
-                        showLoginBottomSheet = true
-                    }
-                )
+                        job = job!!,
+                        currentUser = currentUser,
+                        context = context,
+                        navController = navController,
+                        jobId = jobId,
+                        hasApplied = hasApplied,
+                        applicationStatus = applicationStatus,
+                        onApplyClick = handleApplyClick,
+                        onLoginRequired = handleLoginRequired,
+                    )
                 }
             }
         }
@@ -626,95 +657,120 @@ private fun BottomActionBar(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Call Button - Half width with icon and text
-            OutlinedButton(
-                onClick = {
-                    if (currentUser == null) {
-                        onLoginRequired("call")
-                    } else {
-                        val phone = job.contactNumber
-                        if (phone.isNotEmpty()) {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
-                            try {
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Timber.e(e, "Failed to start dialer for $phone")
-                                android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.call), color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            }
-            
-            // Apply Now Button - Shows different states based on application status
-            if (hasApplied) {
-                // Already Applied - Show status button
-                Button(
-                    onClick = {
-                        // Navigate to My Jobs to see application status
-                        navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = when (applicationStatus) {
-                            "ACCEPTED" -> Color(0xFF10B981) // Green
-                            "PENDING", "UNDER_REVIEW" -> Color(0xFFF59E0B) // Amber
-                            else -> Color(0xFF6B7280) // Gray
-                        }
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(
-                            imageVector = when (applicationStatus) {
-                                "ACCEPTED" -> Icons.Default.CheckCircle
-                                else -> Icons.Default.Schedule
-                            },
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = when (applicationStatus) {
-                                "ACCEPTED" -> "Hired!"
-                                "PENDING" -> "Applied"
-                                "UNDER_REVIEW" -> "Under Review"
-                                else -> "Applied"
-                            },
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
+            ActionButtonsContent(
+                job = job,
+                currentUser = currentUser,
+                context = context,
+                navController = navController,
+                hasApplied = hasApplied,
+                applicationStatus = applicationStatus,
+                onApplyClick = onApplyClick,
+                onLoginRequired = onLoginRequired,
+            )
+        }
+    }
+}
+
+/**
+ * Reusable Call + Apply row. Shared by the sticky [BottomActionBar] and the
+ * inline (in-content) action row that appears below the "Don't pay fee"
+ * safety banner. Keeping this in one place guarantees both entry points
+ * behave identically (same apply preconditions, same guest login flow).
+ */
+@Composable
+private fun RowScope.ActionButtonsContent(
+    job: JobListing,
+    currentUser: com.google.firebase.auth.FirebaseUser?,
+    context: android.content.Context,
+    navController: NavController,
+    hasApplied: Boolean,
+    applicationStatus: String?,
+    onApplyClick: () -> Unit,
+    onLoginRequired: (String) -> Unit,
+) {
+    // Call Button - Half width with icon and text
+    OutlinedButton(
+        onClick = {
+            if (currentUser == null) {
+                onLoginRequired("call")
             } else {
-                // Not Applied - Show Apply Now button
-                Button(
-                    onClick = {
-                        if (currentUser == null) {
-                            onLoginRequired("apply")
-                        } else {
-                            // Navigate to application screen for review before submitting
-                            onApplyClick()
-                        }
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                val phone = job.contactNumber
+                if (phone.isNotEmpty()) {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to start dialer for $phone")
+                        android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
+        },
+        modifier = Modifier.weight(1f).height(50.dp),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        contentPadding = PaddingValues(horizontal = 16.dp)
+    ) {
+        Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(stringResource(R.string.call), color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    }
+
+    // Apply Now Button - Shows different states based on application status
+    if (hasApplied) {
+        Button(
+            onClick = {
+                navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
+            },
+            modifier = Modifier.weight(1f).height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = when (applicationStatus) {
+                    "ACCEPTED" -> Color(0xFF10B981)
+                    "PENDING", "UNDER_REVIEW" -> Color(0xFFF59E0B)
+                    else -> Color(0xFF6B7280)
+                }
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(
+                    imageVector = when (applicationStatus) {
+                        "ACCEPTED" -> Icons.Default.CheckCircle
+                        else -> Icons.Default.Schedule
+                    },
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = when (applicationStatus) {
+                        "ACCEPTED" -> "Hired!"
+                        "PENDING" -> "Applied"
+                        "UNDER_REVIEW" -> "Under Review"
+                        else -> "Applied"
+                    },
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+            }
+        }
+    } else {
+        Button(
+            onClick = {
+                if (currentUser == null) {
+                    onLoginRequired("apply")
+                } else {
+                    onApplyClick()
+                }
+            },
+            modifier = Modifier.weight(1f).height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
     }
 }
@@ -729,7 +785,8 @@ private fun JobDetailsContent(
     savedJobIds: Set<String> = emptySet(),
     onSimilarJobSaveToggle: (String, Boolean) -> Unit = { _, _ -> },
     onReportClick: () -> Unit = {},
-    onJobClick: (String) -> Unit = {}
+    onJobClick: (String) -> Unit = {},
+    inlineActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     
@@ -1062,7 +1119,30 @@ private fun JobDetailsContent(
                 }
             }
         }
-        
+
+        // Inline Call + Apply action row — appears directly after the
+        // "don't pay fee" safety banner so the user has a natural,
+        // non-floating touchpoint while they're reading the details.
+        // Paired with a divider above it for visual separation. The
+        // sticky BottomActionBar is hidden while this row is on screen
+        // (see `inlineActionsVisible` in the outer screen) so the user
+        // never sees two duplicated action bars at once.
+        if (inlineActions != null) {
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item {
+                HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+            }
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+            item(key = "inline_actions") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    inlineActions()
+                }
+            }
+        }
+
         // Similar Jobs Section
         if (similarJobs.isNotEmpty()) {
             item { Spacer(modifier = Modifier.height(24.dp)) }
@@ -1215,7 +1295,7 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
 
 @Composable
 private fun ShimmerBox(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp? = null, height: androidx.compose.ui.unit.Dp = 16.dp) {
-    val shimmerColors = listOf(Color(0xFFF3F4F6), Color.White, Color(0xFFF3F4F6))
+    val shimmerColors = listOf(Color(0xFFF9FAFB), Color.White, Color(0xFFF9FAFB))
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnim = transition.animateFloat(initialValue = 0f, targetValue = 1000f, animationSpec = infiniteRepeatable(animation = tween(1500, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Restart), label = "shimmer")
     val brush = Brush.linearGradient(colors = shimmerColors, start = Offset(translateAnim.value - 300f, translateAnim.value - 300f), end = Offset(translateAnim.value, translateAnim.value))

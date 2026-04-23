@@ -40,10 +40,13 @@ fun ShimmerBox(
     shape: RoundedCornerShape = RoundedCornerShape(8.dp)
 ) {
     // Bug #16 fix: shimmer should be a white-based gradient (was greyish).
+    // Batch-i #2: pushed the base tone even closer to white so the
+    // shimmer reads as a soft white pulse on the worker home screen's
+    // white background instead of visible grey blocks.
     val shimmerColors = listOf(
-        Color(0xFFF3F4F6),
+        Color(0xFFF9FAFB),
         Color.White,
-        Color(0xFFF3F4F6)
+        Color(0xFFF9FAFB)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -87,9 +90,9 @@ fun ShimmerCircle(
 ) {
     // Bug #16 fix: white-based shimmer.
     val shimmerColors = listOf(
-        Color(0xFFF3F4F6),
+        Color(0xFFF9FAFB),
         Color.White,
-        Color(0xFFF3F4F6)
+        Color(0xFFF9FAFB)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer_circle")
@@ -741,9 +744,9 @@ private fun WorkerHomePromiseShimmer() {
 fun JobCardShimmer() {
     // Bug #16 fix: white-based shimmer for cards (was light grey).
     val shimmerColors = listOf(
-        Color(0xFFF3F4F6),
+        Color(0xFFF9FAFB),
         Color.White,
-        Color(0xFFF3F4F6)
+        Color(0xFFF9FAFB)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")

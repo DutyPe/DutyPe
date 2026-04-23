@@ -108,9 +108,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-internal val WorkerHomeHeaderTopColor = Color(0xFF000000)
-internal val WorkerHomeHeaderMidColor = Color(0xFF000000)
-internal val WorkerHomeHeaderBottomColor = Color(0xFF000000)
+// Batch-i #3: dynamic header gradient that matches the worker home
+// screen's white background. Previously pure black, which created a
+// jarring top-band transition into the white content. Now a subtle
+// white-to-off-white gradient that blends seamlessly with the page
+// below while still giving enough tonal separation for the app-bar
+// content (greeting, search icon, etc.) to read as a distinct zone.
+internal val WorkerHomeHeaderTopColor = Color(0xFFFFFFFF)
+internal val WorkerHomeHeaderMidColor = Color(0xFFF9FAFB)
+internal val WorkerHomeHeaderBottomColor = Color(0xFFFFFFFF)
 
 @OptIn(
     ExperimentalMaterial3Api::class,
