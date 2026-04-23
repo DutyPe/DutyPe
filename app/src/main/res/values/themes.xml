@@ -11,29 +11,33 @@
         -->
     </style>
 
-    <!-- 
+    <!--
         MODERN SPLASH SCREEN (Android 12+ API)
-        Following Google's official recommendations (2024-2026)
-        
-        Simple, clean branding with app icon
-        Used by: WhatsApp, Instagram, LinkedIn, Uber
+
+        Per-user request (April 2026): only the in-app AnimatedSplashScreen
+        ("DutyPe" letter reveal) should be visible. The system splash is
+        unavoidable on Android 12+ (OS-enforced cold-start behaviour), but
+        we strip the launcher icon and use the same pure-black background
+        as the Compose splash so the system splash becomes an invisible
+        black hand-off frame instead of a second, distinct splash.
     -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
-        <!-- Pure black background -->
+        <!-- Pure black background — matches AnimatedSplashScreen so the
+             system splash visually merges into the Compose splash. -->
         <item name="windowSplashScreenBackground">#000000</item>
-        
-        <!-- App launcher icon (adaptive icon) -->
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        
-        <!-- Fast animation (200ms) -->
-        <item name="windowSplashScreenAnimationDuration">200</item>
-        
-        <!-- Black icon background -->
+
+        <!-- Launcher icon intentionally omitted so only the AnimatedSplashScreen
+             is visible to the user. -->
+
+        <!-- Zero-duration icon animation. -->
+        <item name="windowSplashScreenAnimationDuration">0</item>
+
+        <!-- Black icon background (kept for the OS exit-animation crop). -->
         <item name="windowSplashScreenIconBackgroundColor">#000000</item>
-        
+
         <!-- Post-splash theme -->
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
-        
+
         <!-- Black status bar and navigation bar -->
         <item name="android:statusBarColor">#000000</item>
         <item name="android:navigationBarColor">#000000</item>
