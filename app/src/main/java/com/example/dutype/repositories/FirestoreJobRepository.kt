@@ -137,27 +137,25 @@ class FirestoreJobRepository @Inject constructor(
      */
     fun getJobById(jobId: String): Flow<Result<JobListing?>> = flow {
         try {
-            // Apr 2026 fast-path: emit cached value FIRST so the
-            // JobDescriptionScreen renders instantly when the worker re-opens
-            // a job (or opens a job they just scrolled past on the list).
-            // The network fetch then runs and emits a fresh copy that
-            // overwrites the cached one. Net effect: opens that previously
-            // showed a 200-400ms blank skeleton now render at ~0ms with
-            // last-known data, then refresh once Firestore returns.
-            val cached = jobCacheManager.getJobByIdCached(jobId)
-            if (cached != null) {
-                val savedJobIds = getSavedJobIds()
-                emit(Result.success(cached.copy(isSaved = savedJobIds.contains(jobId))))
+            // Apr 2026 fast-path: emit cached value FIRST so JobDescriptionScreen
+            // renders instantly when re-opening or when the user just scrolled
+            // past the card (we cache list rows). No extra network call here —
+            // saved status is observed reactively by SavedJobsViewModel and
+            // applied by the screen, so we don't pay a savedIds round-trip
+            // on the cache-emit path.
+            jobCacheManager.getJobByIdCached(jobId)?.let { cached ->
+                emit(Result.success(cached))
             }
 
             val result = firestoreService.getJobById(jobId)
             result.fold(
                 onSuccess = { jobData ->
                     val jobListing = jobData?.toJobListing()
-
-                    // Check if this job is saved by the current user
-                    val currentUser = auth.currentUser
-                    val finalJob = if (currentUser != null && jobListing != null) {
+                    val finalJob = if (auth.currentUser != null && jobListing != null) {
+                        // savedIds is locally-cached for 60s in this repo
+                        // (see getSavedJobIds), so it does NOT add a round-trip
+                        // when warm — and the result from the cache-emit
+                        // already covered the cold cold-start case.
                         val savedJobIds = getSavedJobIds()
                         jobListing.copy(isSaved = savedJobIds.contains(jobId))
                     } else {
@@ -167,9 +165,6 @@ class FirestoreJobRepository @Inject constructor(
                     emit(Result.success(finalJob))
                 },
                 onFailure = { exception ->
-                    // If we already emitted a cached value, surface the
-                    // failure but do not blank the UI — the screen still
-                    // shows last-known data.
                     emit(Result.failure(exception))
                 }
             )

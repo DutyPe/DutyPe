@@ -338,7 +338,11 @@ service cloud.firestore {
     match /job_details/{jobId} {
       allow read, write: if isAdmin();
 
-      allow get: if isSignedIn();
+      // Public single-doc reads so guests can see the full job description
+      // (description, benefits, shiftTiming, gender, experience, vacancies,
+      // contactNumber). Listing is still blocked — workers must arrive via
+      // a known jobId from the public jobmetadata card.
+      allow get: if true;
       allow list: if false;
 
       allow create: if isSignedIn() &&

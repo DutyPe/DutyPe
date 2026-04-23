@@ -731,46 +731,44 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun getJobById(jobId: String): Result<Map<String, Any>?> {
         return try {
-            Timber.d("ðŸ” JobFirestoreService.getJobById - Looking for jobId: $jobId")
-            
-            // Batch-p #2 perf: fetch jobmetadata + job_details IN PARALLEL
-            // (previously two sequential awaits doubled the round-trip
-            // time on slow networks - the user-reported "1 minute" symptom).
-            val currentUser = FirebaseAuth.getInstance().currentUser
-            val (document, detailsData) = coroutineScope {
-                val coreDeferred = async {
-                    firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
-                }
-                val detailsDeferred = async<Map<String, Any>?> {
-                    if (currentUser == null) {
-                        Timber.d("Guest session; skipping private job_details read")
+            Timber.d("getJobById - Looking for jobId: %s", jobId)
+
+            // Apr 2026 fast-path: fetch the public jobmetadata FIRST. New
+            // posts mirror description/benefits/shiftTiming/gender/experience
+            // onto this slim card payload, so a single round-trip is enough
+            // to render the job-description screen for guests AND signed-in
+            // users. Only legacy posts (created before the mirror) need a
+            // second job_details fetch.
+            val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
+            if (!document.exists()) {
+                Timber.d("getJobById - Document not found")
+                return Result.success(null)
+            }
+            val coreData = document.data.orEmpty()
+            val cardHasDescription = (coreData["description"] as? String).orEmpty().isNotBlank()
+            // Guests AND signed-in users both fetch job_details when the
+            // card is missing the rich fields (legacy posts created before
+            // the Apr 2026 mirror). Rule `allow get: if true` on job_details
+            // lets unauthenticated workers read a single doc by jobId.
+            val needsDetailsFetch = !cardHasDescription
+            val detailsData: Map<String, Any>? = if (needsDetailsFetch) {
+                try {
+                    firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
+                } catch (e: FirebaseFirestoreException) {
+                    if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("job_details denied for jobId=%s; returning card-only data", jobId)
                         null
                     } else {
-                        try {
-                            firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
-                        } catch (e: FirebaseFirestoreException) {
-                            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                                Timber.w("job_details denied for user %s; returning core job data", currentUser.uid)
-                                null
-                            } else {
-                                throw e
-                            }
-                        }
+                        throw e
                     }
                 }
-                coreDeferred.await() to detailsDeferred.await()
-            }
-            if (document.exists()) {
-                Timber.d("JobFirestoreService.getJobById - Document found by ID")
-                Result.success(
-                    mergeJobWithDetails(jobId, document.data.orEmpty(), detailsData)
-                )
             } else {
-                Timber.d("ðŸ” JobFirestoreService.getJobById - Document not found")
-                Result.success(null)
+                null
             }
+            Timber.d("getJobById - hit (detailsFetch=%s)", needsDetailsFetch)
+            Result.success(mergeJobWithDetails(jobId, coreData, detailsData))
         } catch (e: Exception) {
-            Timber.e("ðŸ” JobFirestoreService.getJobById - Error: ${e.message}")
+            Timber.e("getJobById - Error: %s", e.message)
             Result.failure(e)
         }
     }
