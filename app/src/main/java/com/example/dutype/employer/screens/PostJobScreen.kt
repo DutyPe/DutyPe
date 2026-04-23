@@ -2643,28 +2643,12 @@ fun EnhancedJobTitleSection(
                 )
             }
             
-            // Show selected category badge
-            if (title.isNotBlank() && title != "Other") {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = primaryBlue.copy(alpha = 0.1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(category.icon, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.post_job_category_label, category.displayName),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = primaryBlue
-                        )
-                    }
-                }
-            } else if (isOtherSelected && customCategory.isNotBlank() && customTitleError == null) {
+            // Auto-detected category badge hidden per request: employers
+            // didn't want to see "Category: Cook" / icon under the title.
+            // The custom-category confirmation chip is still shown for the
+            // "Other" branch so the employer knows their typed value was
+            // accepted.
+            if (isOtherSelected && customCategory.isNotBlank() && customTitleError == null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),

@@ -91,14 +91,10 @@ fun EmployerJobCard(
                         )
                     }
 
-                    // Category name
-                    Text(
-                        text = jobPosting.category.displayName,
-                        style = AppTypography.bodyMedium,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(start = 40.dp)
-                    )
-                    
+                    // Category name hidden per request (employers asked us
+                    // to drop the auto-detected category subtitle on the job
+                    // card so the title stands alone).
+
                     // Filled status indicator
                     if (jobPosting.isFilled) {
                         Box(
