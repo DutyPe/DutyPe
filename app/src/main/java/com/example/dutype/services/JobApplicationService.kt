@@ -158,7 +158,12 @@ class JobApplicationService @Inject constructor(
                 it.jobId.isNotBlank() && (
                     it.jobTitle.isBlank() ||
                     it.jobLocation.isBlank() ||
-                    it.companyName.isBlank()
+                    it.companyName.isBlank() ||
+                    // Batch-m: backfill missing employerPhone for legacy
+                    // applications written before the contact-number snapshot
+                    // landed, otherwise the MyJobs Quick-Call button stays
+                    // hidden forever.
+                    it.employerPhone.isNullOrBlank()
                 )
             }
             .map { it.jobId }
@@ -173,6 +178,9 @@ class JobApplicationService @Inject constructor(
 
         val unresolvedIds = needsEnrichmentIds.filter { localJobsById[it] == null }
         val remoteJobDataById = mutableMapOf<String, Map<String, Any>>()
+        // Batch-m: collect contactNumber from job_details since it does NOT
+        // live on the slim jobmetadata card.
+        val remoteContactById = mutableMapOf<String, String>()
 
         unresolvedIds.chunked(50).forEach { chunk ->
             if (chunk.isEmpty()) return@forEach
@@ -192,6 +200,31 @@ class JobApplicationService @Inject constructor(
             }
         }
 
+        // Lazy fetch contact numbers ONLY for applications whose
+        // employerPhone is missing — keeps the read amplification small.
+        val phoneMissingJobIds = applications
+            .filter { it.employerPhone.isNullOrBlank() && it.jobId.isNotBlank() }
+            .map { it.jobId }
+            .distinct()
+        phoneMissingJobIds.chunked(50).forEach { chunk ->
+            if (chunk.isEmpty()) return@forEach
+            runCatching {
+                chunk.forEach { jobId ->
+                    val det = firestore
+                        .collection(com.example.dutype.firestore.FirestoreCollections.JOB_DETAILS)
+                        .document(jobId)
+                        .get()
+                        .await()
+                    if (det.exists()) {
+                        val phone = (det.getString("contactNumber"))?.trim().orEmpty()
+                        if (phone.isNotBlank()) remoteContactById[jobId] = phone
+                    }
+                }
+            }.onFailure { error ->
+                Timber.w(error, "[Applications] Failed to enrich job_details contactNumber chunk")
+            }
+        }
+
         return applications.map { application ->
             val localJob = localJobsById[application.jobId]
             val remoteJob = remoteJobDataById[application.jobId]
@@ -205,11 +238,14 @@ class JobApplicationService @Inject constructor(
             val resolvedCompany = application.companyName.ifBlank {
                 remoteJob?.stringValue("companyName", "company", "employerName").orEmpty()
             }
+            val resolvedEmployerPhone = application.employerPhone?.takeIf { it.isNotBlank() }
+                ?: remoteContactById[application.jobId]
 
             application.copy(
                 jobTitle = resolvedTitle,
                 jobLocation = resolvedLocation,
-                companyName = resolvedCompany
+                companyName = resolvedCompany,
+                employerPhone = resolvedEmployerPhone
             )
         }
     }
@@ -551,7 +587,30 @@ class JobApplicationService @Inject constructor(
             RetryUtils.retryWithBackoffResult {
                 val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
                 if (doc.exists()) {
-                    Result.success(doc.data ?: emptyMap())
+                    val merged = (doc.data ?: emptyMap()).toMutableMap()
+                    // Batch-m fix: jobmetadata never stores `contactNumber`
+                    // (it lives in job_details). Without merging the sibling
+                    // doc we lose the employer contact phone, so the
+                    // applied-card Quick-Call button never appears (the
+                    // gate is `application.employerPhone.isNullOrBlank()`).
+                    runCatching {
+                        val det = firestore
+                            .collection(com.example.dutype.firestore.FirestoreCollections.JOB_DETAILS)
+                            .document(jobId)
+                            .get()
+                            .await()
+                            .data
+                            .orEmpty()
+                        listOf("contactNumber", "whatsappNumber", "description", "addressText").forEach { k ->
+                            val v = det[k]
+                            if (v is String && v.isNotBlank() && (merged[k] as? String).isNullOrBlank()) {
+                                merged[k] = v
+                            }
+                        }
+                    }.onFailure { e ->
+                        Timber.w(e, "JobApplicationService.getJobDetails: job_details merge failed for $jobId")
+                    }
+                    Result.success(merged.toMap())
                 } else {
                     Result.failure(Exception("Job not found"))
                 }

@@ -200,10 +200,7 @@ fun JobApplicationScreen(
                 if (showSuccess) {
                     // Treat back the same as the CTA so we don't strand the
                     // user on a stale apply form.
-                    navController.popBackStack(
-                        com.example.dutype.navigation.Routes.WORKER_HOME,
-                        inclusive = false
-                    )
+                    navigateToWorkerHome(navController)
                 } else {
                     navController.popBackStack()
                 }
@@ -219,12 +216,7 @@ fun JobApplicationScreen(
                 // whole apply / details stack back to the worker home.
                 ApplicationSentSuccess(
                     jobTitle = displayJob.title,
-                    onReturnHome = {
-                        navController.popBackStack(
-                            com.example.dutype.navigation.Routes.WORKER_HOME,
-                            inclusive = false
-                        )
-                    }
+                    onReturnHome = { navigateToWorkerHome(navController) }
                 )
             }
             displayJob == null || profileUiState.isLoading -> {
@@ -318,6 +310,24 @@ private fun ShareProfileNotice() {
             ),
             modifier = Modifier.weight(1f)
         )
+    }
+}
+
+/**
+ * Batch-m fix: route the worker home navigation through the
+ * WorkerNavGraph's actual start destination ("home" — see
+ * `WorkerBottomRoutes.HOME`). The earlier code popped to
+ * `Routes.WORKER_HOME` ("worker_home") which is a top-level role-graph
+ * route NOT registered inside WorkerNavGraph, so the popBackStack call
+ * silently no-op'd and the Return-to-Home button appeared dead.
+ */
+private fun navigateToWorkerHome(navController: NavController) {
+    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+            inclusive = false
+            saveState = false
+        }
+        launchSingleTop = true
     }
 }
 

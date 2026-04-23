@@ -176,20 +176,13 @@ fun JobDescriptionScreen(
     var snackbarMessage by remember { mutableStateOf("") }
     var retryTrigger by remember { mutableStateOf(0) }
 
-    // #1 reveal-on-scroll: the sticky Call + Apply bar is hidden until the
-    // user scrolls down into the body of the job description (past the
-    // header/cards). Once revealed, it stays visible even if the user
-    // scrolls back up — so they always have a one-tap action available.
+    // Batch-m #3: the sticky Call + Apply bar now appears immediately on
+    // screen entry (no more reveal-on-scroll). Users were missing the
+    // primary action because they didn't realise they had to scroll. The
+    // bar is still hidden when the inline action row inside the page
+    // body is on screen, so the user is never shown two duplicate bars
+    // at once.
     val detailsListState = rememberLazyListState()
-    var hasRevealedApplyBar by remember { mutableStateOf(false) }
-    LaunchedEffect(detailsListState) {
-        snapshotFlow {
-            detailsListState.firstVisibleItemIndex > 0 ||
-                detailsListState.firstVisibleItemScrollOffset > 120
-        }.collect { scrolled ->
-            if (scrolled) hasRevealedApplyBar = true
-        }
-    }
 
     // Batch-i #1: when the inline Call + Apply row (inserted right after
     // the "don't pay fee" safety banner) is on screen, the sticky bottom
@@ -487,13 +480,11 @@ fun JobDescriptionScreen(
             }
 
             if (job != null && !isLoading && error == null) {
-                // Batch-i #1: sticky bar is shown only when
-                //   (a) the user has started scrolling (hasRevealedApplyBar), AND
-                //   (b) the inline Call+Apply row is NOT currently on screen.
-                // That way the user sees exactly one set of actions at a time:
-                // inline while reading, sticky when scrolled away from it.
+                // Batch-m #3: sticky bar shown immediately (was reveal-on-
+                // scroll). Still hidden when inline Call+Apply row is on
+                // screen so the user never sees two duplicate bars.
                 AnimatedVisibility(
-                    visible = hasRevealedApplyBar && !inlineActionsVisible,
+                    visible = !inlineActionsVisible,
                     enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                     exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
                 ) {

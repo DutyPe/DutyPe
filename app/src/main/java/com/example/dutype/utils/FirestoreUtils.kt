@@ -184,10 +184,15 @@ object FirestoreUtils {
     ): PhoneCheckResult {
         val normalized = PhoneNumberUtils.normalize(phoneNumber)
         val variants = PhoneNumberUtils.getVariants(phoneNumber)
-        // Bug #11/#20: prefer the new single-doc `lookupPhoneRole` callable
-        // which reads phone_index/{phoneE164} (one Firestore get) instead of
-        // the legacy multi-variant `IN` query in `checkPhoneExists`. Fall
-        // back to the old name for clients hitting an older deployment.
+        // Bug #11/#20 + Batch-m #4: prefer the new single-doc, role-aware
+        // `lookupPhoneRole` callable. The legacy `checkPhoneExists` does
+        // NOT carry the role-conflict flag, so when the lookup fell
+        // through to it the registration/login screens couldn't block
+        // before sendOtp and the user got an OTP they shouldn't have.
+        // Both callables are deployed via `onCallSecured` to asia-south1,
+        // so we explicitly pin the client region — calling the default
+        // us-central1 instance returned NOT_FOUND and silently swallowed
+        // the role check.
         val callableNames = listOf("lookupPhoneRole", "checkPhoneExists")
 
         for (callableName in callableNames) {
@@ -200,7 +205,7 @@ object FirestoreUtils {
                     payloadArgs["requestedRole"] = requestedRole.uppercase()
                 }
 
-                val response = FirebaseFunctions.getInstance()
+                val response = FirebaseFunctions.getInstance("asia-south1")
                     .getHttpsCallable(callableName)
                     .call(payloadArgs)
                     .await()
@@ -212,11 +217,20 @@ object FirestoreUtils {
                     ?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
                 val roleConflict = payload?.get("roleConflict") as? Boolean ?: false
 
+                // Batch-m #4: defence-in-depth. If the requested role does
+                // not match the existing role, mark roleConflict=true even
+                // if the callable forgot to set it (older deploy).
+                val effectiveConflict = roleConflict || (
+                    !requestedRole.isNullOrBlank() &&
+                        existingRole != null &&
+                        existingRole != requestedRole.uppercase()
+                )
+
                 when (exists) {
                     true -> return PhoneCheckResult(
                         exists = PhoneExistenceResult.EXISTS,
                         existingRole = existingRole,
-                        roleConflict = roleConflict
+                        roleConflict = effectiveConflict
                     )
                     false -> return PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
                     null -> Timber.w("Callable $callableName returned invalid payload: $payload")
