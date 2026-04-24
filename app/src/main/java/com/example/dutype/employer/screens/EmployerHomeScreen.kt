@@ -1188,11 +1188,11 @@ private fun shareJob(jobId: String, jobTitle: String, context: android.content.C
     Timber.d("ðŸ“¤ SHARE: Generated deep link: $jobDeepLink")
     
     val shareText = """
-ðŸŽ¯ Hiring Now: $jobTitle
+Hiring Now: $jobTitle
 
-ðŸ‘‰ Apply now: $jobDeepLink
+Apply now: $jobDeepLink
 
-ðŸ“² Download DutyPe app for instant job alerts
+Download DutyPe app for instant job alerts
     """.trimIndent()
     
     Timber.d("ðŸ“¤ SHARE: Share text prepared, length=${shareText.length}")
