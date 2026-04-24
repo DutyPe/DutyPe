@@ -188,7 +188,13 @@ fun ProfessionalWorkerProfileViewScreen(
                         skills = (primarySkills + jobTypeSkills + (workerProfile?.skills ?: emptyList())).distinct(),
                         languages = (data["languages"] as? List<*>)
                             ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                            .orEmpty()
+                            .orEmpty(),
+                        experienceLevel = (data["experience"] as? String).orEmpty(),
+                        dateOfBirth = (data["dateOfBirth"] as? String).orEmpty(),
+                        rating = (data["rating"] as? Number)?.toDouble()
+                            ?: (data["ratingAvg"] as? Number)?.toDouble() ?: 0.0,
+                        totalJobs = (data["totalJobs"] as? Number)?.toInt() ?: 0,
+                        completedJobs = (data["completedJobs"] as? Number)?.toInt() ?: 0
                     )
                 },
                 onFailure = { e ->
@@ -332,11 +338,9 @@ fun ProfessionalWorkerProfileViewScreen(
                             SkillsCard(skills = workerProfile!!.skills)
                         }
                     }
-                    
-                    // Additional Information
-                    item {
-                        AdditionalInfoCard(workerProfile = workerProfile!!)
-                    }
+
+                    // Apr 2026: removed the redundant "Additional Information"
+                    // card — languages now live inside Personal Information.
 
                     // Apr 2026: action buttons moved out of the scrolling
                     // list and pinned to the bottom of the screen instead
@@ -753,6 +757,27 @@ private fun PersonalInformationCard(
             if (workerProfile.gender.isNotBlank()) {
                 PersonalInfoRow("Gender", workerProfile.gender)
             }
+            if (workerProfile.experienceLevel.isNotBlank()) {
+                PersonalInfoRow("Experience", workerProfile.experienceLevel)
+            }
+            if (workerProfile.dateOfBirth.isNotBlank()) {
+                PersonalInfoRow("Date of birth", workerProfile.dateOfBirth)
+            }
+            if (workerProfile.totalJobs > 0 || workerProfile.completedJobs > 0) {
+                PersonalInfoRow(
+                    "Jobs done",
+                    "${workerProfile.completedJobs} / ${workerProfile.totalJobs}"
+                )
+            }
+            if (workerProfile.rating > 0.0) {
+                PersonalInfoRow(
+                    "Rating",
+                    String.format(java.util.Locale.US, "%.1f / 5", workerProfile.rating)
+                )
+            }
+            if (workerProfile.languages.isNotEmpty()) {
+                PersonalInfoRow("Languages", workerProfile.languages.joinToString(", "))
+            }
         }
     }
 }
@@ -1001,9 +1026,9 @@ private fun ActionButtonsCard(
                     containerColor = Color(0xFF10B981)
                 )
             ) {
-                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.shortlist), style = MaterialTheme.typography.bodyMedium)
+                Text("Accept", style = MaterialTheme.typography.bodyMedium)
             }
             OutlinedButton(
                 onClick = { onActionClick(ApplicationAction.REJECT) },
@@ -1051,7 +1076,7 @@ private fun ApplicationActionDialog(
         title = {
             Text(
                 text = when (action) {
-                    ApplicationAction.SHORTLIST -> "Shortlist Candidate"
+                    ApplicationAction.SHORTLIST -> "Accept Candidate"
                     ApplicationAction.REJECT -> "Reject Application"
                     ApplicationAction.SEND_MESSAGE -> "Send Message"
                     ApplicationAction.MARK_COMPLETED -> "Mark Job Done"
@@ -1064,7 +1089,7 @@ private fun ApplicationActionDialog(
         text = {
             Text(
                 text = when (action) {
-                    ApplicationAction.SHORTLIST -> "Are you sure you want to shortlist $workerName for this position?"
+                    ApplicationAction.SHORTLIST -> "Are you sure you want to accept $workerName for this position?"
                     ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
                     ApplicationAction.SEND_MESSAGE -> "Do you want to send a message to $workerName?"
                     ApplicationAction.MARK_COMPLETED -> "Mark this job as completed for $workerName? Their earnings will be unlocked."
@@ -1188,7 +1213,15 @@ data class WorkerProfileData(
     val profileImageUrl: String?,
     val experience: List<WorkExperienceDisplay>,
     val skills: List<String>,
-    val languages: List<String>
+    val languages: List<String>,
+    // Apr 2026: free-form experience bucket the worker picked during setup
+    // ("Less than a year", "1-2", "3-5", "More than 5"). Surfaces directly
+    // on the employer's view of the candidate.
+    val experienceLevel: String = "",
+    val dateOfBirth: String = "",
+    val rating: Double = 0.0,
+    val totalJobs: Int = 0,
+    val completedJobs: Int = 0
 )
 
 /**

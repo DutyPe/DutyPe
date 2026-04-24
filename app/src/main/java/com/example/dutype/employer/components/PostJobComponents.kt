@@ -433,16 +433,21 @@ private fun UrgencyChip(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, textColor)
     ) {
-        Text(
-            text = urgency.displayName,
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = textColor,
-                fontWeight = FontWeight.Medium
-            ),
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = urgency.displayName,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = textColor,
+                    fontWeight = FontWeight.Medium
+                ),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

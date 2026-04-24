@@ -1240,11 +1240,9 @@ private fun MeeshoMenuItem(
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon with tinted circular background
+        // Apr 2026: icon background removed for a flat, divider-only look.
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(iconBgColor, RoundedCornerShape(0.dp)),
+            modifier = Modifier.size(40.dp),
             contentAlignment = Alignment.Center
         ) {
             Icon(

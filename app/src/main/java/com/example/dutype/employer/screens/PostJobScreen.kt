@@ -1234,17 +1234,17 @@ fun PostJobScreen(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
                     contentPadding = PaddingValues(
-                        top = 16.dp,
+                        top = 0.dp,
                         start = 16.dp,
                         end = 16.dp,
                         bottom = 96.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     ),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
-                        // Batch-p #11: stepper header removed; everything
-                        // is on a single scrollable canvas now.
-                        Spacer(modifier = Modifier.height(0.dp))
+                        // Apr 2026: removed leading spacer so step content
+                        // starts right under the stepper instead of leaving
+                        // a tall empty band at the top.
                     }
 
                     // Group 1: Job Details (title, work type, description, image) — STEP 0
@@ -2481,60 +2481,9 @@ fun EnhancedJobTitleSection(
                 )
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Suggestion chips — wrap into multiple rows. Tap to fill.
-            Text(
-                text = stringResource(R.string.post_job_pick_quick_title),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF6B7280)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Apr 2026: 2-row horizontally-scrolling chip grid (left → right).
-            // Replaces the previous wrapping FlowRow so the form stays compact.
-            androidx.compose.foundation.lazy.grid.LazyHorizontalGrid(
-                rows = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
-            ) {
-                items(suggestedTitles.size) { index ->
-                    val (suggestion, icon) = suggestedTitles[index]
-                    val selected = title.trim().equals(suggestion, ignoreCase = true)
-                    Surface(
-                        shape = RoundedCornerShape(0.dp),
-                        color = if (selected) primaryBlue.copy(alpha = 0.10f) else Color(0xFFF1F5F9),
-                        border = androidx.compose.foundation.BorderStroke(
-                            width = 0.5.dp,
-                            color = if (selected) primaryBlue else Color(0xFFE2E8F0)
-                        ),
-                        modifier = Modifier.clickable {
-                            onTitleChange(suggestion)
-                            onCustomCategoryChange(suggestion)
-                            onCategoryChange(categoryFor(suggestion))
-                            titleError = null
-                        }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(icon, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = suggestion,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                color = if (selected) primaryBlue else Color(0xFF1E293B)
-                            )
-                        }
-                    }
-                }
-            }
+            // Apr 2026: title-suggestion chips removed — employer types the
+            // title directly. Keeps the section compact and frees vertical
+            // space for the description below.
         }
     }
 }

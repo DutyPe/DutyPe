@@ -589,47 +589,10 @@ private fun ApplicationCard(
                 ApplicationStatusBadge(status = application.status)
             }
             
-            // Bug #18 fix: surface the worker's skill snapshot directly on the
-            // applicant card so employers can quickly judge fit without
-            // opening the detail screen (worker_profiles is owner-only by
-            // rules, so we depend on the denormalized snapshot from apply).
-            if (application.workerSkills.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    application.workerSkills.take(6).forEach { skill ->
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = Color(0xFFEEF2FF),
-                                    shape = RoundedCornerShape(50)
-                                )
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = skill,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF3730A3),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
-                    if (application.workerSkills.size > 6) {
-                        Text(
-                            text = "+${application.workerSkills.size - 6}",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF6B7280)
-                            ),
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-            
+            // Apr 2026: skill chips removed from the applicant card. Skills
+            // now live only on the worker profile detail screen so the list
+            // card stays scannable.
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // Batch-p #7: dropped the redundant Job Info card
@@ -693,53 +656,9 @@ private fun ApplicationCard(
                     )
                 }
                 
-                // FINTECH: Contact Unlock - Phone display based on unlock status
-                application.workerPhone?.let { phone ->
-                    if (phone.isNotBlank()) {
-                        if (isContactUnlocked) {
-                            // Show phone number
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Phone,
-                                    contentDescription = null,
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = phone,
-                                    style = AppTypography.caption.copy(color = Color(0xFF10B981))
-                                )
-                            }
-                        } else {
-                            // Show locked contact with unlock button
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(8.dp))
-                                    .clickable { onUnlockContact() }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = Color(0xFFD97706),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = stringResource(R.string.unlock_contact),
-                                    style = AppTypography.caption.copy(
-                                        color = Color(0xFFD97706),
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
+                // Apr 2026: phone number / unlock affordance removed from the
+                // applicant card. Contact info is shown only on the worker
+                // profile detail screen where the employer can call directly.
             }
 
             // Quick actions on list card (replaces hidden menu flow)
