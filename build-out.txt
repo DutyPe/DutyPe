@@ -2,31 +2,34 @@
 At line:1 char:1
 + .\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Out-File buil ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called:String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called:String) [], Remo 
+   teException
     + FullyQualifiedErrorId : NativeCommandError
  
-WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/
-C:/Users/91961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13/lib/native-platform-0.22-milestone-28.jar)
+WARNING: java.lang.System::load has been called by 
+net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/C:/Users/91
+961/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13/lib/native-platf
+orm-0.22-milestone-28.jar)
 WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
 WARNING: Restricted methods will be blocked in a future release unless native access is enabled
 
 Starting a Gradle Daemon (subsequent builds will be faster)
 Reusing configuration cache.
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
-> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
-> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
 > Task :app:generateDebugResources UP-TO-DATE
 > Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugJniLibFolders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:packageDebugResources UP-TO-DATE
@@ -35,11 +38,11 @@ Reusing configuration cache.
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
 > Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
 > Task :app:mapDebugSourceSetPaths UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
 > Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
 > Task :app:mergeLibDexDebug UP-TO-DATE
 > Task :app:mergeDebugNativeLibs UP-TO-DATE
 > Task :app:stripDebugDebugSymbols UP-TO-DATE
@@ -50,21 +53,13 @@ Reusing configuration cache.
 > Task :app:processDebugResources UP-TO-DATE
 > Task :app:kspDebugKotlin
 > Task :app:compileDebugKotlin
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1273:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1279:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1284:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1365:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1423:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1435:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:1478:36 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:2022:8 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:2110:8 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:3068:32 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
-w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/screens/PostJobScreen.kt:3469:12 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:867:47 'val Icons.Filled.ArrowForward: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowForward.
+w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:1966:56 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/worker/screens/MandatoryWorkerProfileSetupScreen.kt:1970:26 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
 
-> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac
 > Task :app:hiltAggregateDepsDebug UP-TO-DATE
-> Task :app:hiltJavaCompileDebug UP-TO-DATE
+> Task :app:hiltJavaCompileDebug
 > Task :app:processDebugJavaRes UP-TO-DATE
 > Task :app:mergeDebugJavaResource UP-TO-DATE
 > Task :app:transformDebugClassesWithAsm
@@ -74,6 +69,6 @@ w: file:///C:/Users/91961/DutyPe/app/src/main/java/com/example/dutype/employer/s
 > Task :app:assembleDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 
-BUILD SUCCESSFUL in 4m 7s
-42 actionable tasks: 6 executed, 36 up-to-date
+BUILD SUCCESSFUL in 4m 40s
+42 actionable tasks: 8 executed, 34 up-to-date
 Configuration cache entry reused.

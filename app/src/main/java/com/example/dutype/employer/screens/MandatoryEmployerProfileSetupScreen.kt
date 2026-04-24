@@ -1036,59 +1036,25 @@ private fun CompanyInformationStep(
         }
 
         Column {
-            var companySizeExpanded by remember { mutableStateOf(false) }
-            val companySizes = listOf(
-                "1-10 employees",
-                "11-50 employees",
-                "51-200 employees",
-                "201-500 employees",
-                "500+ employees"
-            )
-
-            ExposedDropdownMenuBox(
-                expanded = companySizeExpanded,
-                onExpandedChange = { companySizeExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = companySize,
-                    onValueChange = { },
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.company_size_label)) },
-                    placeholder = { Text(stringResource(R.string.select_company_size)) },
-                    leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = companySizeExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF8B5CF6),
-                        unfocusedBorderColor = Color(0xFFE5E7EB)
-                    )
+            // Apr 2026: company size is now a free-form text field. The
+            // dropdown was overkill for an optional field — employers
+            // typed weird ranges anyway, and the input keyboard makes
+            // small-team entries (e.g. "5") faster than picking from a
+            // 5-bucket list.
+            OutlinedTextField(
+                value = companySize,
+                onValueChange = { onCompanySizeChange(it) },
+                label = { Text(stringResource(R.string.company_size_label)) },
+                placeholder = { Text("e.g. 25") },
+                leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF8B5CF6),
+                    unfocusedBorderColor = Color(0xFFE5E7EB)
                 )
-
-                ExposedDropdownMenu(
-                    expanded = companySizeExpanded,
-                    onDismissRequest = { companySizeExpanded = false }
-                ) {
-                    companySizes.forEach { size ->
-                        DropdownMenuItem(
-                            text = { Text(size) },
-                            onClick = {
-                                onCompanySizeChange(size)
-                                companySizeExpanded = false
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.People,
-                                    contentDescription = null,
-                                    tint = Color(0xFF8B5CF6)
-                                )
-                            }
-                        )
-                    }
-                }
-            }
+            )
         }
         
         // GST Number (Optional) - For Business Verification

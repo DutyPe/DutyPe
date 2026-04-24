@@ -121,8 +121,21 @@ class OtpViewModel @Inject constructor(
                     errorHandler.logEvent("otp_send_blocked_role_conflict", true)
                     return@launch
                 }
-            }.onFailure {
-                Timber.w(it, "Pre-send role check failed; continuing (UI layer already gated)")
+            }.onFailure { err ->
+                // Apr 2026 hardening: fail-CLOSED on pre-check errors. Previously
+                // the ViewModel logged and continued, which meant a transient
+                // Firestore/network blip would burn an SMS for a phone that may
+                // have been registered under a different role. Now we refuse
+                // to send OTP unless the role check has a definitive answer.
+                Timber.w(err, "🔒 OTP blocked — pre-send role check failed for $phoneNumber")
+                _otpState.value = _otpState.value.copy(
+                    isLoading = false,
+                    otpSent = false,
+                    error = "phone-precheck-failed",
+                    message = "Could not verify this number right now. Please try again in a moment."
+                )
+                errorHandler.logEvent("otp_send_blocked_precheck_failed", true)
+                return@launch
             }
             
             // Start 60-second cooldown timer for initial OTP send
@@ -545,6 +558,42 @@ class OtpViewModel @Inject constructor(
             
             // Track OTP resend attempt for crash investigation
             errorHandler.logBreadcrumb("OTP resend started: $phoneNumber")
+
+            // Apr 2026: same fail-closed role pre-check as sendOtp. Without
+            // this a user could re-trigger OTP for a phone registered under
+            // the other role just by tapping "Resend" — wasting an SMS and
+            // making the conflict surface only after the user types the code.
+            runCatching {
+                FirestoreUtils.checkPhoneForRole(
+                    phoneNumber = phoneNumber,
+                    requestedRole = pendingRole.name
+                )
+            }.onSuccess { phoneCheck ->
+                if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
+                    phoneCheck.roleConflict
+                ) {
+                    val existingRole = phoneCheck.existingRole?.lowercase() ?: "different role"
+                    Timber.w("🔒 Resend blocked — phone $phoneNumber already a $existingRole")
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        otpSent = false,
+                        error = "phone-already-registered-as:$existingRole",
+                        message = "This number is already registered as a $existingRole. Please log in as a $existingRole."
+                    )
+                    errorHandler.logEvent("otp_resend_blocked_role_conflict", true)
+                    return@launch
+                }
+            }.onFailure { err ->
+                Timber.w(err, "🔒 Resend blocked — role pre-check failed for $phoneNumber")
+                _otpState.value = _otpState.value.copy(
+                    isLoading = false,
+                    otpSent = false,
+                    error = "phone-precheck-failed",
+                    message = "Could not verify this number right now. Please try again in a moment."
+                )
+                errorHandler.logEvent("otp_resend_blocked_precheck_failed", true)
+                return@launch
+            }
             
             // Start 60-second cooldown timer
             startResendCooldown()

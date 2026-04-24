@@ -1361,15 +1361,6 @@ fun PostJobScreen(
                                         .fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    EnhancedPaymentSection(
-                                        payAmount = payAmount,
-                                        onPayAmountChange = { payAmount = it },
-                                        payType = payType,
-                                        onPayTypeChange = { payType = it },
-                                        category = category,
-                                        suggestedRange = "" // Batch-p #11: market-rate hint removed
-                                    )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     EnhancedLocationSection(
                                         location = location,
                                         onLocationChange = { location = it },
@@ -2646,7 +2637,8 @@ fun WorkTypeSelection(
                         border = FilterChipDefaults.filterChipBorder(
                             borderColor = Color.Transparent,
                             selectedBorderColor = Color.Transparent,
-                            enabled = true
+                            enabled = true,
+                            selected = workType == type
                         )
                     )
                 }
@@ -2676,7 +2668,6 @@ fun WorkTypeSelection(
                         color = Color(0xFF6B7280)
                     )
                 }
-            }
             
             // ANTI-FRAUD: Show suggested market rate for the category
             if (suggestedRange.isNotBlank()) {

@@ -7,9 +7,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -334,18 +337,41 @@ fun ProfessionalWorkerProfileViewScreen(
                     item {
                         AdditionalInfoCard(workerProfile = workerProfile!!)
                     }
-                    
-                    // Action Buttons
-                    item {
-                        ActionButtonsCard(
-                            application = application,
-                            onActionClick = { action ->
-                                selectedAction = action
-                                showActionDialog = true
-                            }
-                        )
-                    }
+
+                    // Apr 2026: action buttons moved out of the scrolling
+                    // list and pinned to the bottom of the screen instead
+                    // (rendered below as a sibling to the Column). Keep a
+                    // tail spacer so the last card isn't hidden behind it.
+                    item { Spacer(modifier = Modifier.height(120.dp)) }
                 }
+            }
+        }
+
+        // Apr 2026: Shortlist / Reject pinned to the bottom of the screen
+        // with breathing room from the system bar. Only shown once the
+        // profile actually loaded.
+        if (!isLoading && error == null && workerProfile != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 12.dp,
+                        bottom = 24.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars
+                            .asPaddingValues()
+                            .calculateBottomPadding()
+                    )
+            ) {
+                ActionButtonsCard(
+                    application = application,
+                    onActionClick = { action ->
+                        selectedAction = action
+                        showActionDialog = true
+                    }
+                )
             }
         }
     }
@@ -422,8 +448,8 @@ private fun ProfessionalWorkerProfileHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -531,8 +557,8 @@ private fun ApplicationStatusCard(
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -589,7 +615,7 @@ private fun ApplicationStatusCard(
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFFF8FAFC)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp)
@@ -622,8 +648,8 @@ private fun PersonalInformationCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -790,8 +816,8 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
 private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -819,7 +845,7 @@ private fun ExperienceItem(experience: WorkExperienceDisplay) {
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFF8FAFC)
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -866,8 +892,8 @@ private fun ExperienceItem(experience: WorkExperienceDisplay) {
 private fun SkillsCard(skills: List<String>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -891,7 +917,7 @@ private fun SkillsCard(skills: List<String>) {
                         colors = CardDefaults.cardColors(
                             containerColor = Color(0xFF3B82F6).copy(alpha = 0.1f)
                         ),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(0.dp)
                     ) {
                         Text(
                             text = skill,
@@ -912,8 +938,8 @@ private fun SkillsCard(skills: List<String>) {
 private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        shape = RoundedCornerShape(0.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -1104,8 +1130,8 @@ private fun ErrorWorkerProfileState(
     ) {
         Card(
             modifier = Modifier.padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+            shape = RoundedCornerShape(0.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),

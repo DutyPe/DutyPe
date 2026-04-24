@@ -1,4 +1,4 @@
-package com.example.dutype.worker.screens.profile
+﻿package com.example.dutype.worker.screens.profile
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -231,9 +231,9 @@ fun WorkerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            Timber.d("📸 WORKER PROFILE: Image picker result - uri: $uri")
+            Timber.d("ðŸ“¸ WORKER PROFILE: Image picker result - uri: $uri")
             uri?.let { selectedUri ->
-                Timber.d("📸 WORKER PROFILE: Selected image URI: $selectedUri")
+                Timber.d("ðŸ“¸ WORKER PROFILE: Selected image URI: $selectedUri")
                 profileImageUri = selectedUri
                 isUploadingImage = true
                 
@@ -241,15 +241,15 @@ fun WorkerProfileScreen(
                 scope.launch {
                     try {
                         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        Timber.d("📸 WORKER PROFILE: Current user: ${currentUser?.uid}")
+                        Timber.d("ðŸ“¸ WORKER PROFILE: Current user: ${currentUser?.uid}")
                         if (currentUser != null) {
                             // Upload to Firebase Storage
-                            Timber.d("📸 WORKER PROFILE: Starting upload...")
+                            Timber.d("ðŸ“¸ WORKER PROFILE: Starting upload...")
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i("📸 WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
+                                    Timber.i("ðŸ“¸ WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
                                     android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
@@ -339,8 +339,8 @@ fun WorkerProfileScreen(
                     action = android.content.Intent.ACTION_SEND
                     type = "text/plain"
                     putExtra(android.content.Intent.EXTRA_TEXT, 
-                        "🚀 Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
-                        "📲 Download now: $playStoreUrl\n\n" +
+                        "ðŸš€ Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
+                        "ðŸ“² Download now: $playStoreUrl\n\n" +
                         "#DutyPe #Jobs #Career #Hiring"
                     )
                     setPackage("com.instagram.android")
@@ -373,7 +373,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                // Solid role background — no gradient.
+                // Solid role background â€” no gradient.
                 .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
@@ -398,7 +398,7 @@ fun WorkerProfileScreen(
                         IconButton(onClick = { showLanguageBottomSheet = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else "Change Language",
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
                             )
@@ -453,7 +453,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(0.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -635,7 +635,7 @@ fun WorkerProfileScreen(
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF1F2937)  // Dark/Black for Worker
                                 ),
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(0.dp),
                                 modifier = Modifier.height(38.dp)
                             ) {
                                 Text(
@@ -677,7 +677,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(0.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -733,7 +733,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(0.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -774,7 +774,7 @@ fun WorkerProfileScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = Color.White
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(0.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -796,7 +796,7 @@ fun WorkerProfileScreen(
                     
                     MenuDivider()
                     
-                    // ROLE-SWITCH MENU REMOVED — accounts are single-role for life.
+                    // ROLE-SWITCH MENU REMOVED â€” accounts are single-role for life.
                     // (Phase 5 dual-role removal, see docs/role-removal/)
                     
                     // About Us - Available without login
@@ -832,7 +832,7 @@ fun WorkerProfileScreen(
                     ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     MeeshoMenuItem(
                         icon = Icons.AutoMirrored.Outlined.ExitToApp,
@@ -1004,7 +1004,7 @@ private fun ModernEditDialog(
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.8f)    
                 .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(0.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -1050,7 +1050,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.Person, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF1F2937),
@@ -1068,7 +1068,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.Email, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -1088,7 +1088,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.Phone, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -1116,7 +1116,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.Home, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF1F2937),
@@ -1135,7 +1135,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.DateRange, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF1F2937),
@@ -1153,7 +1153,7 @@ private fun ModernEditDialog(
                                 Icon(Icons.Default.Person, contentDescription = null)
                             },
                             singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFF1F2937),
@@ -1173,7 +1173,7 @@ private fun ModernEditDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(0.dp)
                     ) {
                         Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
                     }
@@ -1193,7 +1193,7 @@ private fun ModernEditDialog(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF1F2937)
                         ),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(0.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(stringResource(R.string.save_changes))
@@ -1235,7 +1235,7 @@ private fun MeeshoMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(0.dp))
             .clickable { onClick() }
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1244,7 +1244,7 @@ private fun MeeshoMenuItem(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(iconBgColor, RoundedCornerShape(12.dp)),
+                .background(iconBgColor, RoundedCornerShape(0.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -1274,7 +1274,7 @@ private fun MeeshoMenuItem(
         if (badgeText != null) {
             Box(
                 modifier = Modifier
-                    .background(Color(0xFFEEF2FF), RoundedCornerShape(6.dp))
+                    .background(Color(0xFFEEF2FF), RoundedCornerShape(0.dp))
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
@@ -1314,7 +1314,7 @@ private fun QuickActionButtonDrawable(
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent  // No background - Meesho style
         ),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(0.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp, 
@@ -1376,7 +1376,7 @@ private fun FollowUsSection() {
         colors = CardDefaults.cardColors(
             containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(0.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(

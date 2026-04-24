@@ -1610,19 +1610,16 @@ private fun ProfessionalInformationStep(
             val skillsWithIcons = listOf(
                 "Cooking" to Icons.Default.Restaurant,
                 "Cleaning" to Icons.Default.CleaningServices,
-                "Customer Service" to Icons.Default.SupportAgent,
                 "Driving" to Icons.Default.DirectionsCar,
+                "Delivery" to Icons.Default.LocalShipping,
+                "Childcare" to Icons.Default.SupportAgent,
+                "Elderly care" to Icons.Default.SupportAgent,
+                "Tailoring" to Icons.Default.HomeWork,
+                "Plumbing" to Icons.Default.Plumbing,
+                "Electrical" to Icons.Default.ElectricalServices,
+                "Painting" to Icons.Default.FormatPaint,
                 "Gardening" to Icons.Default.Yard,
                 "Security" to Icons.Default.Security,
-                "Delivery" to Icons.Default.LocalShipping,
-                "Warehouse" to Icons.Default.Warehouse,
-                "Housekeeping" to Icons.Default.HomeWork,
-                "Food Service" to Icons.Default.Restaurant,
-                "Construction" to Icons.Default.Construction,
-                "Electrician" to Icons.Default.ElectricalServices,
-                "Plumbing" to Icons.Default.Plumbing,
-                "Painting" to Icons.Default.FormatPaint,
-                "Carpentry" to Icons.Default.Carpenter,
                 "Others" to Icons.Default.MoreHoriz
             )
             
@@ -1942,11 +1939,10 @@ private fun ProfessionalInformationStep(
         Column {
             var experienceExpanded by remember { mutableStateOf(false) }
             val experienceLevels = listOf(
-                "Fresher (0-1 year)",
-                "Entry Level (1-2 years)",
-                "Intermediate (2-5 years)",
-                "Experienced (5-10 years)",
-                "Expert (10+ years)"
+                "Less than a year",
+                "1-2 years",
+                "3-5 years",
+                "More than 5 years"
             )
             
             Text(

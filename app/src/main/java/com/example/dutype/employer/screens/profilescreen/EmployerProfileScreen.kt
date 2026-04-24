@@ -1,4 +1,4 @@
-package com.example.dutype.employer.screens.profilescreen
+﻿package com.example.dutype.employer.screens.profilescreen
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -176,7 +176,7 @@ fun EmployerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                // Solid role background — no gradient.
+                // Solid role background â€” no gradient.
                 .background(LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
@@ -201,7 +201,7 @@ fun EmployerProfileScreen(
                         IconButton(onClick = { showLanguageBottomSheet = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else stringResource(R.string.language),
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
                             )
@@ -243,9 +243,9 @@ fun EmployerProfileScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // BUSINESS PROFILE SECTION (Flat Menu Item)
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 val isLoggedIn = currentUserId.isNotEmpty()
@@ -255,11 +255,11 @@ fun EmployerProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                     // TODO: Rounded corners commented out for UI testing
-                    // shape = RoundedCornerShape(12.dp),
+                    // shape = RoundedCornerShape(0.dp),
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         // Profile as Flat Menu Item: Photo | Name + Phone | Arrow
@@ -270,7 +270,7 @@ fun EmployerProfileScreen(
                                 // app-wide rule.
                                 .background(
                                     color = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
-                                    shape = RoundedCornerShape(14.dp)
+                                    shape = RoundedCornerShape(0.dp)
                                 )
                                 .clickable {
                                     if (isLoggedIn) {
@@ -395,7 +395,7 @@ fun EmployerProfileScreen(
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color(0xFF1F2937)
                                         ),
-                                        shape = RoundedCornerShape(14.dp),
+                                        shape = RoundedCornerShape(0.dp),
                                         modifier = Modifier.height(38.dp)
                                     ) {
                                         Text(
@@ -429,9 +429,9 @@ fun EmployerProfileScreen(
                 }
             }
             
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // MY ACTIVITY SECTION
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -441,7 +441,7 @@ fun EmployerProfileScreen(
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.my_activity))
@@ -489,9 +489,9 @@ fun EmployerProfileScreen(
                 }
             }
             
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // REWARDS SECTION
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // BUG #11 FIX: Remove "Refer & Earn" entry from the EMPLOYER profile.
             // The referral program is worker-only (rewards are credited via the
             // applyReferralCode Cloud Function on worker registration). Showing
@@ -507,7 +507,7 @@ fun EmployerProfileScreen(
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.rewards))
@@ -531,9 +531,9 @@ fun EmployerProfileScreen(
             }
             */
 
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // OTHERS SECTION
-            // ═══════════════════════════════════════════════════════════════
+            // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -543,7 +543,7 @@ fun EmployerProfileScreen(
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.others))
@@ -596,7 +596,7 @@ fun EmployerProfileScreen(
                         ),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(0.dp)
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             ProfileMenuItem(
@@ -675,7 +675,7 @@ fun EmployerProfileScreen(
     )
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 @Composable
 private fun SectionHeader(title: String) {
     Text(
@@ -708,7 +708,7 @@ private fun ProfileMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(0.dp))
             .clickable { onClick() }
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -717,7 +717,7 @@ private fun ProfileMenuItem(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(iconBgColor, RoundedCornerShape(12.dp)),
+                .background(iconBgColor, RoundedCornerShape(0.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -777,7 +777,7 @@ private fun EmployerQuickActionButton(
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent  // No background - Meesho style
         ),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(0.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, WorkerColors.Border)
     ) {
@@ -835,7 +835,7 @@ private fun EmployerFollowUsSection() {
         colors = CardDefaults.cardColors(
             containerColor = WorkerColors.CardBackground
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(0.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
