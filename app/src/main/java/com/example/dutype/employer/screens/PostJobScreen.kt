@@ -80,6 +80,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -211,9 +212,6 @@ fun PostJobScreen(
     var showProfileIncompleteDialog by remember { mutableStateOf(false) }
     var pendingJobSubmitAfterProfileCheck by remember { mutableStateOf(false) }
 
-    // Critical publish checks tracked for the launch bar
-    val totalSteps = 4
-
     // Form state matching JobPostingModel
     var title by remember { mutableStateOf("") }
     var payAmount by remember { mutableStateOf("") }
@@ -307,21 +305,6 @@ fun PostJobScreen(
     
     // LazyList state for the single-canvas studio layout
     val listState = rememberLazyListState()
-
-    // Stepper state: 1=Job Details, 2=Pay & Location, 3=People & Schedule, 4=Review
-    var currentStep by remember { mutableStateOf(1) }
-    val stepLabels = listOf(
-        stringResource(R.string.step_role),
-        stringResource(R.string.step_pay_place),
-        stringResource(R.string.step_people),
-        stringResource(R.string.step_review)
-    )
-
-    // When the step changes, scroll the canvas to the top so the new step
-    // header is in view immediately.
-    LaunchedEffect(currentStep) {
-        listState.animateScrollToItem(0)
-    }
 
     // Auto-detect the job category from a free-form title (e.g. "Need a
     // delivery boy in Madhapur" -> DELIVERY). Skipped once the employer has
@@ -721,7 +704,7 @@ fun PostJobScreen(
             Timber.d("ðŸ“   - $key: $value")
         }
         
-        employerJobViewModel.createJob(jobData as Map<String, Any>) { success, message ->
+        employerJobViewModel.createJob(jobData as Map<String, Any>) { success, newJobId, message ->
             // Reset local guard
             isSubmittingJob = false
             
@@ -738,9 +721,14 @@ fun PostJobScreen(
                 onJobPosted?.invoke()
                 // Navigate to employer home screen to show the posted job
                 if (onJobPosted == null) {
-                    navController.navigate(Routes.EMPLOYER_HOME) {
-                        // Clear the back stack so user can't go back to the posting form
-                        popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                    if (!newJobId.isNullOrBlank()) {
+                        navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                            popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                        }
+                    } else {
+                        navController.navigate(Routes.EMPLOYER_HOME) {
+                            popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                        }
                     }
                 }
             } else {
@@ -924,6 +912,23 @@ fun PostJobScreen(
         compensationReady &&
         requirementsReady &&
         locationPinned
+
+    // Apr 2026: Apna-style 3-step wizard. Steps:
+    //   0 → Job details   (title, work type, description, image)
+    //   1 → Pay & where   (compensation + location)
+    //   2 → Requirements & contact (people, schedule, perks, contact, review)
+    var currentStep by remember { mutableIntStateOf(0) }
+    val totalSteps = 3
+    // Per-step Next gate. Mirrors the publish checklist but scoped to
+    // the fields that live on each step so the user isn't stuck on a
+    // later step because of an earlier issue.
+    val canAdvanceFromStep: (Int) -> Boolean = { step ->
+        when (step) {
+            0 -> basicsReady
+            1 -> compensationReady && locationPinned
+            else -> true
+        }
+    }
 
     fun attemptPublishJob() {
         val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
@@ -1164,13 +1169,28 @@ fun PostJobScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            // Batch-p #11: stepper removed in favour of a single scrollable
-            // canvas. The bottom bar now hosts a single Publish CTA so the
-            // employer doesn't have to step through 4 separate screens to
-            // post a job.
-            PostJobPublishBar(
+            // Apr 2026: stepper restored. Bottom bar morphs based on step:
+            // step 0   → [Next]
+            // step 1   → [Back] [Next]
+            // step 2   → [Back] [Post job]
+            PostJobStepNavBar(
+                currentStep = currentStep,
+                totalSteps = totalSteps,
+                canAdvance = canAdvanceFromStep(currentStep),
                 publishEnabled = publishEnabled,
                 isPublishing = employerJobUiState.isCreatingJob || isSubmittingJob,
+                onBack = {
+                    if (currentStep > 0) {
+                        currentStep -= 1
+                        scope.launch { listState.scrollToItem(0) }
+                    }
+                },
+                onNext = {
+                    if (currentStep < totalSteps - 1) {
+                        currentStep += 1
+                        scope.launch { listState.scrollToItem(0) }
+                    }
+                },
                 onPublish = { attemptPublishJob() }
             )
         }
@@ -1198,6 +1218,16 @@ fun PostJobScreen(
                     titleColor = Color(0xFF0F172A)
                 )
 
+                // Apr 2026: top stepper indicator (3 numbered steps).
+                PostJobTopStepper(
+                    currentStep = currentStep,
+                    stepLabels = listOf(
+                        "Job\ndetails",
+                        "Pay &\nlocation",
+                        "Requirements\n& contact"
+                    )
+                )
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
@@ -1215,8 +1245,8 @@ fun PostJobScreen(
                         Spacer(modifier = Modifier.height(0.dp))
                     }
 
-                    // Group 1: Job Details (title, work type, description, image)
-                    item {
+                    // Group 1: Job Details (title, work type, description, image) — STEP 0
+                    if (currentStep == 0) item {
                         StudioGroupCard(
                             stepNumber = 1,
                             title = stringResource(R.string.tell_us_about_role),
@@ -1310,8 +1340,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 2: Pay & Location
-                    item {
+                    // Group 2: Pay & Location — STEP 1
+                    if (currentStep == 1) item {
                         StudioGroupCard(
                             stepNumber = 2,
                             title = stringResource(R.string.pay_where_work),
@@ -1372,8 +1402,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 3: People, Schedule & Perks
-                    item {
+                    // Group 3: People, Schedule & Perks — STEP 2
+                    if (currentStep == 2) item {
                         StudioGroupCard(
                             stepNumber = 3,
                             title = stringResource(R.string.who_you_want_extras),
@@ -1457,8 +1487,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Standalone: Contact details
-                    item {
+                    // Standalone: Contact details — STEP 2
+                    if (currentStep == 2) item {
                         ContactSection(
                             contactNumber = contactNumber,
                             onContactNumberChange = { contactNumber = it },
@@ -1467,7 +1497,7 @@ fun PostJobScreen(
                         )
                     }
 
-                    item {
+                    if (currentStep == 2) item {
                         JobSummaryCard(
                             title = title,
                             category = category,
@@ -1915,108 +1945,6 @@ private fun StudioSectionBanner(
                 color = Color(0xFF64748B),
                 lineHeight = 21.sp
             )
-        }
-    }
-}
-
-@Composable
-private fun PostJobStepperHeader(
-    currentStep: Int,
-    totalSteps: Int,
-    stepLabels: List<String>
-) {
-    val activeColor = Color(0xFF2563EB)
-    val doneColor = Color(0xFF10B981)
-    val inactiveColor = Color(0xFFCBD5E1)
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        shadowElevation = 4.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEDF2F7))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.post_job_step_of, currentStep, totalSteps),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF64748B),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = stepLabels.getOrNull(currentStep - 1).orEmpty(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color(0xFF0F172A),
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                for (i in 1..totalSteps) {
-                    val isDone = i < currentStep
-                    val isCurrent = i == currentStep
-                    val circleColor = when {
-                        isDone -> doneColor
-                        isCurrent -> activeColor
-                        else -> Color.White
-                    }
-                    val borderColor = when {
-                        isDone -> doneColor
-                        isCurrent -> activeColor
-                        else -> inactiveColor
-                    }
-                    val numberColor = when {
-                        isDone || isCurrent -> Color.White
-                        else -> Color(0xFF94A3B8)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(circleColor, CircleShape)
-                            .border(2.dp, borderColor, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isDone) {
-                            Text(
-                                text = "\u2713",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        } else {
-                            Text(
-                                text = i.toString(),
-                                color = numberColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                    if (i < totalSteps) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(3.dp)
-                                .padding(horizontal = 6.dp)
-                                .background(
-                                    if (i < currentStep) doneColor else inactiveColor,
-                                    RoundedCornerShape(2.dp)
-                                )
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -2618,12 +2546,19 @@ fun EnhancedJobTitleSection(
                 color = Color(0xFF6B7280)
             )
             Spacer(modifier = Modifier.height(8.dp))
-            androidx.compose.foundation.layout.FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+            // Apr 2026: 2-row horizontally-scrolling chip grid (left → right).
+            // Replaces the previous wrapping FlowRow so the form stays compact.
+            androidx.compose.foundation.lazy.grid.LazyHorizontalGrid(
+                rows = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp)
             ) {
-                suggestedTitles.forEach { (suggestion, icon) ->
+                items(suggestedTitles.size) { index ->
+                    val (suggestion, icon) = suggestedTitles[index]
                     val selected = title.trim().equals(suggestion, ignoreCase = true)
                     Surface(
                         shape = RoundedCornerShape(20.dp),
@@ -3634,3 +3569,183 @@ fun PerksSelectionSection(
 }
 
 
+
+// ===========================================================================
+// Apr 2026: Apna-style 3-step wizard helpers for the Post Job screen.
+// Top stepper indicator + dual-action bottom bar (Back / Next / Post job).
+// Kept minimalist on purpose: no shadows, single accent color, tight type.
+// ===========================================================================
+
+@Composable
+private fun PostJobTopStepper(
+    currentStep: Int,
+    stepLabels: List<String>
+) {
+    val accent = Color(0xFF2563EB)
+    val mutedCircle = Color(0xFFE2E8F0)
+    val mutedText = Color(0xFF94A3B8)
+    val connector = Color(0xFFE2E8F0)
+
+    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            stepLabels.forEachIndexed { index, label ->
+                val isActive = index == currentStep
+                val isDone = index < currentStep
+                val circleColor = when {
+                    isActive -> accent.copy(alpha = 0.12f)
+                    isDone -> accent
+                    else -> mutedCircle
+                }
+                val borderColor = if (isActive) accent else Color.Transparent
+                val numberColor = when {
+                    isActive -> accent
+                    isDone -> Color.White
+                    else -> mutedText
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(circleColor, RoundedCornerShape(18.dp))
+                            .border(
+                                width = if (isActive) 2.dp else 0.dp,
+                                color = borderColor,
+                                shape = RoundedCornerShape(18.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = (index + 1).toString(),
+                            color = numberColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = label,
+                        color = if (isActive) Color(0xFF0F172A) else mutedText,
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                        fontSize = 11.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 14.sp
+                    )
+                }
+
+                if (index < stepLabels.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 17.dp)
+                            .height(1.dp)
+                            .weight(0.5f)
+                            .background(if (index < currentStep) accent else connector)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PostJobStepNavBar(
+    currentStep: Int,
+    totalSteps: Int,
+    canAdvance: Boolean,
+    publishEnabled: Boolean,
+    isPublishing: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+    onPublish: () -> Unit
+) {
+    val accent = Color(0xFF2563EB)
+    val isLast = currentStep == totalSteps - 1
+    val showBack = currentStep > 0
+
+    Surface(
+        color = Color.White,
+        shadowElevation = 8.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (showBack) {
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF0F172A)
+                    )
+                ) {
+                    Text("Back", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+            }
+
+            if (isLast) {
+                Button(
+                    onClick = onPublish,
+                    enabled = publishEnabled && !isPublishing,
+                    modifier = Modifier
+                        .weight(if (showBack) 1.6f else 1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = accent,
+                        disabledContainerColor = accent.copy(alpha = 0.4f),
+                        contentColor = Color.White,
+                        disabledContentColor = Color.White
+                    )
+                ) {
+                    if (isPublishing) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text("Post job", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onNext,
+                    enabled = canAdvance,
+                    modifier = Modifier
+                        .weight(if (showBack) 1.6f else 1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = accent,
+                        disabledContainerColor = accent.copy(alpha = 0.4f),
+                        contentColor = Color.White,
+                        disabledContentColor = Color.White
+                    )
+                ) {
+                    Text("Next", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+            }
+        }
+    }
+}

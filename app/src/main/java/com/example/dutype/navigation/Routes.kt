@@ -34,6 +34,7 @@ object Routes {
     const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
     const val EDIT_JOB = "edit_job/{jobId}"
+    const val EMPLOYER_JOB_PREVIEW = "employer_job_preview/{jobId}"
     const val ANALYTICS = "analytics"
     const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
@@ -73,6 +74,10 @@ object Routes {
     
     fun editJobRoute(jobId: String): String {
         return "edit_job/$jobId"
+    }
+
+    fun employerJobPreviewRoute(jobId: String): String {
+        return "employer_job_preview/$jobId"
     }
     
     fun workerProfileViewRoute(workerId: String): String {

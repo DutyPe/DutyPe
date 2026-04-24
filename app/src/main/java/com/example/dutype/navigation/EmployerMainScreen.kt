@@ -36,6 +36,7 @@ import androidx.navigation.navDeepLink
 import com.example.dutype.components.EmployerBottomBar
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.EditJobScreen
+import com.example.dutype.employer.screens.EmployerJobPreviewScreen
 
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerHomeScreen
@@ -233,6 +234,19 @@ fun EmployerMainScreen(
                     ) { backStackEntry ->
                         val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
                         EditJobScreen(
+                            navController = navController,
+                            jobId = jobId
+                        )
+                    }
+
+                    // Apr 2026: OLX-style preview shown after a fresh post and
+                    // when an employer taps a card on the My Job Posts screen.
+                    composable(
+                        route = Routes.EMPLOYER_JOB_PREVIEW,
+                        arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+                        EmployerJobPreviewScreen(
                             navController = navController,
                             jobId = jobId
                         )

@@ -143,6 +143,11 @@ fun PostedJobsScreen(
                     ) { job ->
                         EmployerJobCard(
                             jobPosting = job,
+                            onCardClick = { jobId ->
+                                navController.navigate(
+                                    com.example.dutype.navigation.Routes.employerJobPreviewRoute(jobId)
+                                )
+                            },
                             onEditClick = { jobId ->
                                 navController.navigate(com.example.dutype.navigation.Routes.editJobRoute(jobId))
                             },

@@ -32,7 +32,8 @@ fun EmployerJobCard(
     onToggleActiveClick: (String) -> Unit = {},
     onShareClick: (String) -> Unit = {},
     showActions: Boolean = true,
-    onViewTrack: (String) -> Unit = {}
+    onViewTrack: (String) -> Unit = {},
+    onCardClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var showJobManagementDialog by remember { mutableStateOf(false) }
@@ -41,9 +42,16 @@ fun EmployerJobCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { 
-                onViewTrack(jobPosting.jobId) // Also call the callback if provided
-                onViewApplicationsClick(jobPosting.jobId) 
+            .clickable {
+                onViewTrack(jobPosting.jobId)
+                // Apr 2026: tap on card now opens the OLX-style preview
+                // when the host screen wires it; legacy callers that
+                // don't pass onCardClick fall back to applications.
+                if (onCardClick != null) {
+                    onCardClick(jobPosting.jobId)
+                } else {
+                    onViewApplicationsClick(jobPosting.jobId)
+                }
             },
         colors = CardDefaults.cardColors(
             containerColor = Color.White

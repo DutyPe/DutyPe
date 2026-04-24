@@ -231,7 +231,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
         }
     }
     
-    fun createJob(jobData: Map<String, Any>, callback: (Boolean, String?) -> Unit) {
+    fun createJob(jobData: Map<String, Any>, callback: (Boolean, String?, String?) -> Unit) {
         viewModelScope.launch {
             com.example.dutype.performance.MainThreadChecker.assertMainThread()
             performanceTracker.trackOperation("createJob")
@@ -248,7 +248,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                         hasError = true,
                         error = "User not authenticated"
                     )
-                    callback(false, "User not authenticated")
+                    callback(false, null, "User not authenticated")
                     return@launch
                 }
                 
@@ -274,7 +274,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             
                             // Real-time listener will automatically update the jobs list
                             // No need to call loadMyJobs() - it causes duplicate loads
-                            callback(true, null)
+                            callback(true, jobId, null)
                         },
                         onFailure = { exception ->
                             Timber.e(exception, "📝 VIEWMODEL DEBUG: ❌ Failed to create job")
@@ -283,7 +283,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                                 hasError = true,
                                 error = exception.message ?: "Failed to create job"
                             )
-                            callback(false, exception.message)
+                            callback(false, null, exception.message)
                         }
                     )
                 }
@@ -294,7 +294,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     hasError = true,
                     error = e.message ?: "Failed to create job"
                 )
-                callback(false, e.message)
+                callback(false, null, e.message)
             }
         }
     }
