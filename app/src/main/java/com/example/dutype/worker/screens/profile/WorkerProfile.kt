@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens.profile
+package com.example.dutype.worker.screens.profile
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -231,9 +231,9 @@ fun WorkerProfileScreen(
 
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            Timber.d("ðŸ“¸ WORKER PROFILE: Image picker result - uri: $uri")
+            Timber.d(" WORKER PROFILE: Image picker result - uri: $uri")
             uri?.let { selectedUri ->
-                Timber.d("ðŸ“¸ WORKER PROFILE: Selected image URI: $selectedUri")
+                Timber.d(" WORKER PROFILE: Selected image URI: $selectedUri")
                 profileImageUri = selectedUri
                 isUploadingImage = true
                 
@@ -241,15 +241,15 @@ fun WorkerProfileScreen(
                 scope.launch {
                     try {
                         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        Timber.d("ðŸ“¸ WORKER PROFILE: Current user: ${currentUser?.uid}")
+                        Timber.d(" WORKER PROFILE: Current user: ${currentUser?.uid}")
                         if (currentUser != null) {
                             // Upload to Firebase Storage
-                            Timber.d("ðŸ“¸ WORKER PROFILE: Starting upload...")
+                            Timber.d(" WORKER PROFILE: Starting upload...")
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i("ðŸ“¸ WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
+                                    Timber.i(" WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
                                     android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
@@ -339,8 +339,8 @@ fun WorkerProfileScreen(
                     action = android.content.Intent.ACTION_SEND
                     type = "text/plain"
                     putExtra(android.content.Intent.EXTRA_TEXT, 
-                        "ðŸš€ Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
-                        "ðŸ“² Download now: $playStoreUrl\n\n" +
+                        " Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
+                        " Download now: $playStoreUrl\n\n" +
                         "#DutyPe #Jobs #Career #Hiring"
                     )
                     setPackage("com.instagram.android")
@@ -451,10 +451,10 @@ fun WorkerProfileScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = null,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -462,7 +462,7 @@ fun WorkerProfileScreen(
                         .fillMaxWidth()
                         // Solid card surface (no gradient) so the row matches the
                         // role-themed cards across the app.
-                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                        
                         .clickable { 
                             if (isLoggedIn) {
                                 rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
@@ -675,10 +675,10 @@ fun WorkerProfileScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = null,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -731,10 +731,10 @@ fun WorkerProfileScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = null,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -772,10 +772,10 @@ fun WorkerProfileScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(0.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = null,
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column {
@@ -828,9 +828,9 @@ fun WorkerProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color.White
+                        containerColor = Color.Transparent
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    border = null,
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -1401,7 +1401,7 @@ private fun FollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                        
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
@@ -1425,7 +1425,7 @@ private fun FollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                        
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(

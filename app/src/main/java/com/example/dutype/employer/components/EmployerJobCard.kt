@@ -256,7 +256,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 Icon(
                     imageVector = Icons.Default.CurrencyRupee,
                     contentDescription = null,
-                    tint = Color(0xFF10B981),
+                    tint = Color(0xFF0F172A),
                     modifier = Modifier.size(16.dp)
                 )
                 // Bug #3 fix: dropped the literal '₹' from the text — the icon
@@ -264,7 +264,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 Text(
                     text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
                     style = AppTypography.price,
-                    color = Color(0xFF10B981)
+                    color = Color(0xFF0F172A)
                 )
             }
 

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.data
+package com.example.dutype.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -153,12 +153,12 @@ class JobDraftDataStore @Inject constructor(
                 val timestamp = prefs[KEY_TIMESTAMP] ?: 0L
 
                 if (timestamp == 0L) {
-                    Timber.d("ðŸ“ JOB_DRAFT: No draft on device")
+                    Timber.d(" JOB_DRAFT: No draft on device")
                     return@map null
                 }
 
                 if (System.currentTimeMillis() - timestamp > DRAFT_TTL_MS) {
-                    Timber.d("ðŸ“ JOB_DRAFT: Draft expired, clearing...")
+                    Timber.d(" JOB_DRAFT: Draft expired, clearing...")
                     return@map null
                 }
                 
@@ -198,11 +198,11 @@ class JobDraftDataStore @Inject constructor(
                 )
             }.first()?.also {
                 if (it.hasContent()) {
-                    Timber.d("ðŸ“ JOB_DRAFT: Draft restored for employer $employerId")
+                    Timber.d(" JOB_DRAFT: Draft restored for employer $employerId")
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "ðŸ“ JOB_DRAFT: Failed to get draft")
+            Timber.e(e, " JOB_DRAFT: Failed to get draft")
             null
         }
     }

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens.profilescreen
+package com.example.dutype.employer.screens.profilescreen
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -256,8 +256,8 @@ fun EmployerProfileScreen(
                         .padding(horizontal = 16.dp),
                     // TODO: Rounded corners commented out for UI testing
                     // shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = null,
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -438,8 +438,8 @@ fun EmployerProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = null,
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -504,8 +504,8 @@ fun EmployerProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = null,
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -540,8 +540,8 @@ fun EmployerProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                    border = null,
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -592,9 +592,9 @@ fun EmployerProfileScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
+                            containerColor = Color.Transparent
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        border = null,
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         shape = RoundedCornerShape(0.dp)
                     ) {
@@ -860,7 +860,7 @@ private fun EmployerFollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                        
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
@@ -884,7 +884,7 @@ private fun EmployerFollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                        
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(

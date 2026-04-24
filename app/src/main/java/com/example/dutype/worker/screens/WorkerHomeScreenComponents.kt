@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -580,7 +580,7 @@ fun HomeSectionsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
-            // ðŸŽ‚ Birthday Banner - Shows if today is user's birthday
+            //  Birthday Banner - Shows if today is user's birthday
             if (showBirthdayBanner && birthdayInfo != null) {
                 item {
                     BirthdayBanner(
@@ -590,7 +590,7 @@ fun HomeSectionsContent(
                 }
             }
         
-        // ðŸ“¢ In-App Announcements - Feature updates, banners
+        //  In-App Announcements - Feature updates, banners
         if (announcements.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(12.dp))  // Add top padding so it doesn't touch header
@@ -608,7 +608,7 @@ fun HomeSectionsContent(
             }
         }
         
-        // ðŸ”¥ Recently Hired - Single centered chip with auto-scroll (no elevation)
+        //  Recently Hired - Single centered chip with auto-scroll (no elevation)
         // COMMENTED OUT - User requested to hide this section
         /*
         if (recentHires.recentHires.isNotEmpty()) {

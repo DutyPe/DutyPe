@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -162,7 +162,7 @@ fun EmployerHomeScreen(
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     
-    // Birthday wish state ðŸŽ‚
+    // Birthday wish state 
     val birthdayService = remember { 
         BirthdayService(
             hiltFirestore,
@@ -221,7 +221,7 @@ fun EmployerHomeScreen(
                     unreadNotificationCount = count
                 }
                 
-                // ðŸŽ‚ Check if today is user's birthday
+                //  Check if today is user's birthday
                 if (!birthdayService.hasWishedToday(context, userId)) {
                     val bday = birthdayService.checkIfBirthday(userId)
                     if (bday != null) {
@@ -231,7 +231,7 @@ fun EmployerHomeScreen(
                         birthdayService.sendBirthdayNotification(userId, bday.userName)
                         // Mark as wished today to avoid duplicates
                         birthdayService.markWishedToday(context, userId)
-                        Timber.i("ðŸŽ‚ Happy Birthday ${bday.userName}! Banner and notification sent.")
+                        Timber.i(" Happy Birthday ${bday.userName}! Banner and notification sent.")
                     }
                 }
             } catch (e: Exception) {
@@ -356,7 +356,7 @@ fun EmployerHomeScreen(
             }
         )
         
-        // ðŸŽ‚ Birthday Banner - Shows if today is user's birthday
+        //  Birthday Banner - Shows if today is user's birthday
         if (showBirthdayBanner && birthdayInfo != null) {
             BirthdayBanner(
                 userName = birthdayInfo!!.userName,
@@ -364,7 +364,7 @@ fun EmployerHomeScreen(
             )
         }
         
-        // ðŸ“¢ In-App Announcements - Feature updates, banners
+        //  In-App Announcements - Feature updates, banners
         if (announcements.isNotEmpty()) {
             AnnouncementList(
                 announcements = announcements,
@@ -954,8 +954,8 @@ fun RecentJobsSection(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
                             try {
-                                Timber.d("ðŸ” EmployerHomeScreen - Edit clicked for job ID: $jobId")
-                                Timber.d("ðŸ” EmployerHomeScreen - Job title: ${job.title}")
+                                Timber.d(" EmployerHomeScreen - Edit clicked for job ID: $jobId")
+                                Timber.d(" EmployerHomeScreen - Job title: ${job.title}")
                                 
                                 // Industry standard: Allow editing within 7 days of posting
                                 val currentTime = System.currentTimeMillis()
@@ -969,22 +969,22 @@ fun RecentJobsSection(
                                         "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago.", 
                                         Toast.LENGTH_LONG
                                     ).show()
-                                    Timber.w("ðŸ” EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
+                                    Timber.w(" EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
                                 } else {
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }
                             } catch (e: Exception) {
-                                Timber.e("ðŸ” EmployerHomeScreen - Error in edit click: ${e.message}")
+                                Timber.e(" EmployerHomeScreen - Error in edit click: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onViewApplicationsClick = { jobId ->
                             try {
-                                Timber.d("ðŸ” EmployerHomeScreen - View applications clicked for job ID: $jobId")
+                                Timber.d(" EmployerHomeScreen - View applications clicked for job ID: $jobId")
                                 navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(jobId))
                             } catch (e: Exception) {
-                                Timber.e("ðŸ” EmployerHomeScreen - Error navigating to applications: ${e.message}")
+                                Timber.e(" EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -995,8 +995,8 @@ fun RecentJobsSection(
                             },
                             onShareClick = { jobId ->
                                 // Share job functionality
-                                Timber.d("ðŸ“¤ SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
-                                Timber.d("ðŸ“¤ SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
+                                Timber.d(" SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
+                                Timber.d(" SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
                                 onShareJob(jobId, job.title)
                             },
                         showActions = true, // Show actions for better interaction
@@ -1176,16 +1176,16 @@ private fun EmployerProfileCompletionPrompt(
 // Share job functionality
 // Share job functionality with deep link
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
-    Timber.d("ðŸ“¤ SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
+    Timber.d(" SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
     
     if (jobId.isBlank()) {
-        Timber.e("ðŸ“¤ SHARE: ERROR - jobId is blank!")
+        Timber.e(" SHARE: ERROR - jobId is blank!")
         Toast.makeText(context, "Error: Cannot share job (invalid job ID)", Toast.LENGTH_SHORT).show()
         return
     }
     
     val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(jobId)
-    Timber.d("ðŸ“¤ SHARE: Generated deep link: $jobDeepLink")
+    Timber.d(" SHARE: Generated deep link: $jobDeepLink")
     
     val shareText = """
 Hiring Now: $jobTitle
@@ -1195,7 +1195,7 @@ Apply now: $jobDeepLink
 Download DutyPe app for instant job alerts
     """.trimIndent()
     
-    Timber.d("ðŸ“¤ SHARE: Share text prepared, length=${shareText.length}")
+    Timber.d(" SHARE: Share text prepared, length=${shareText.length}")
     
     val shareIntent = Intent().apply {
         action = Intent.ACTION_SEND
@@ -1206,9 +1206,9 @@ Download DutyPe app for instant job alerts
     
     try {
         context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
-        Timber.d("ðŸ“¤ SHARE: Share intent launched successfully")
+        Timber.d(" SHARE: Share intent launched successfully")
     } catch (e: Exception) {
-        Timber.e(e, "ðŸ“¤ SHARE: Error launching share intent")
+        Timber.e(e, " SHARE: Error launching share intent")
         // Fallback: Copy to clipboard
         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Job Share", shareText)

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -218,7 +218,7 @@ fun WorkerHomeScreen(
             try {
                 val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
                 if (freshCachedLocation != null) {
-                    Timber.d("ðŸ“ Using fresh cached location, skipping new GPS fetch")
+                    Timber.d(" Using fresh cached location, skipping new GPS fetch")
                     jobViewModel.setUserLocation(
                         freshCachedLocation.latitude,
                         freshCachedLocation.longitude,
@@ -228,14 +228,14 @@ fun WorkerHomeScreen(
                     return@LaunchedEffect
                 }
 
-                // ðŸš€ UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
+                //  UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
                 // This provides immediate results while improving accuracy.
                 // Uses LocationRepository so concurrent screens share a single GPS request.
-                Timber.d("ðŸ“ Starting FAST location fetch (Uber/Swiggy strategy)...")
+                Timber.d(" Starting FAST location fetch (Uber/Swiggy strategy)...")
                 
                 locationRepository.refresh { locationData ->
                     if (locationData != null) {
-                        Timber.d("ðŸ“ âš¡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
+                        Timber.d(" âš¡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
                         
                         // Location already saved by getLocationFast()
                         locationPreferences.setPermissionGranted(true)
@@ -257,7 +257,7 @@ fun WorkerHomeScreen(
                                             "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude)
                                         )
                                     ).await()
-                                    Timber.d("ðŸ“ Location synced to Firestore")
+                                    Timber.d(" Location synced to Firestore")
                                 } catch (e: Exception) {
                                     Timber.e(e, "Failed to sync location to Firestore")
                                 }
@@ -274,7 +274,7 @@ fun WorkerHomeScreen(
                             
                             // FORCE UI REFRESH: Trigger recomposition by updating a state
                             // This ensures the location text updates immediately
-                            Timber.d("ðŸ“ FORCING UI REFRESH after location update")
+                            Timber.d(" FORCING UI REFRESH after location update")
                         }
                     }
                 }
@@ -320,7 +320,7 @@ fun WorkerHomeScreen(
                               savedLocation.longitude != 0.0
         
         if (hasValidLocation) {
-            Timber.d("ðŸ“ Using cached location: ${savedLocation?.getShortAddress()}")
+            Timber.d(" Using cached location: ${savedLocation?.getShortAddress()}")
             // Set location immediately for instant distance calculations
             jobViewModel.setUserLocation(
                 savedLocation!!.latitude, 
@@ -329,13 +329,13 @@ fun WorkerHomeScreen(
             )
 
             if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
-                Timber.d("ðŸ“ Refreshing location in background for WorkerHomeScreen")
+                Timber.d(" Refreshing location in background for WorkerHomeScreen")
                 jobViewModel.locationFetchedInSession = true
                 isLocationLoading = true
             }
         } else if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
             // Permission granted but no saved location - fetch it
-            Timber.d("ðŸ“ Permission granted but no saved location - fetching now")
+            Timber.d(" Permission granted but no saved location - fetching now")
             jobViewModel.locationFetchedInSession = true
             isLocationLoading = true
         }
@@ -354,7 +354,7 @@ fun WorkerHomeScreen(
     LaunchedEffect(currentLocation) {
         val loc = currentLocation
         if (loc != null && (loc.latitude != 0.0 || loc.longitude != 0.0)) {
-            Timber.d("ðŸ“ Location StateFlow updated: ${loc.getShortAddress()} - updating ViewModel")
+            Timber.d(" Location StateFlow updated: ${loc.getShortAddress()} - updating ViewModel")
             jobViewModel.setUserLocation(loc.latitude, loc.longitude, immediate = true)
         }
     }
@@ -390,9 +390,9 @@ fun WorkerHomeScreen(
     
     // Debug: Log when announcements change
     LaunchedEffect(announcements) {
-        Timber.d("ðŸ“¢ WorkerHomeScreen: Announcements updated - count: ${announcements.size}")
+        Timber.d(" WorkerHomeScreen: Announcements updated - count: ${announcements.size}")
         announcements.forEach { announcement ->
-            Timber.d("ðŸ“¢   - ${announcement.title} (targetRole: ${announcement.targetRole})")
+            Timber.d("   - ${announcement.title} (targetRole: ${announcement.targetRole})")
         }
     }
 

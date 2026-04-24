@@ -194,7 +194,7 @@ class OtpViewModel @Inject constructor(
                                 // Specific error handling for Play Store app recognition delay
                                 if (e.message?.contains("app not Recognized", ignoreCase = true) == true) {
                                     Timber.w("âš ï¸ CRITICAL: App not recognized by Play Store yet!")
-                                    Timber.w("ðŸ’¡ Wait 24-48 hours after upload for Play Store to recognize your app")
+                                    Timber.w(" Wait 24-48 hours after upload for Play Store to recognize your app")
                                     errorHandler.logEvent("app_not_recognized_by_play_store", true)
                                 }
 
@@ -309,7 +309,7 @@ class OtpViewModel @Inject constructor(
                     val userId = firebaseUser.uid
                     errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
                     
-                    // ðŸ” CRITICAL: Check if user has existing profile data in Firestore
+                    //  CRITICAL: Check if user has existing profile data in Firestore
                     // REFACTORED: Now uses FirestoreUtils.getUserByUid() - canonical implementation
                     Timber.d("OtpViewModel - Checking for existing profile data for user: $userId")
                     val existingProfileData = FirestoreUtils.getUserByUid(userId)
@@ -376,7 +376,7 @@ class OtpViewModel @Inject constructor(
                         Timber.i("OtpViewModel - New user detected, deferring FCM registration until completeRegistration")
                     }
                     
-                    // ðŸ“± IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
+                    //  IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
                     if (hasExistingProfile) {
                         Timber.i("OtpViewModel - Existing user detected, marking profile as complete")
                         try {

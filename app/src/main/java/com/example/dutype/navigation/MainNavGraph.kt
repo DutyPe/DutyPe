@@ -162,7 +162,7 @@ fun MainNavGraph(
                                 .await()
                         }
                     } catch (e: Exception) {
-                        Timber.e(e, "ðŸš€ MainNavGraph - Error reading users doc")
+                        Timber.e(e, " MainNavGraph - Error reading users doc")
                         null
                     }
 
