@@ -10,6 +10,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -2436,7 +2437,7 @@ fun StudioGroupCard(
  * 
  * Implemented: December 27, 2025
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun EnhancedJobTitleSection(
     title: String,
@@ -2447,51 +2448,63 @@ fun EnhancedJobTitleSection(
     onCustomCategoryChange: (String) -> Unit = {}
 ) {
     val primaryBlue = Color(0xFF2563EB)
-    var expanded by remember { mutableStateOf(false) }
-    var isOtherSelected by remember { mutableStateOf(false) }
-    var customTitleError by remember { mutableStateOf<String?>(null) }
-    
-    // Predefined job titles - Clean names without slashes
-    val predefinedJobTitles = listOf(
-        "Cook" to "\uD83D\uDC68\u200D\uD83C\uDF73",
-        "Chef" to "\uD83D\uDC69\u200D\uD83C\uDF73",
-        "Maid" to "\uD83E\uDDF9",
-        "House Cleaner" to "\uD83C\uDFE0",
-        "Driver" to "\uD83D\uDE97",
-        "Security Guard" to "\uD83D\uDEE1\uFE0F",
-        "Delivery Executive" to "\uD83D\uDCE6",
-        "Waiter" to "\uD83C\uDF7D\uFE0F",
-        "Server" to "\uD83E\uDD35",
-        "Helper" to "\uD83E\uDD1D",
-        "Assistant" to "\uD83D\uDCBC",
-        "Electrician" to "\u26A1",
-        "Plumber" to "\uD83D\uDD27",
-        "Painter" to "\uD83C\uDFA8",
-        "Carpenter" to "\uD83E\uDE9A",
-        "Gardener" to "\uD83C\uDF31",
-        "Caretaker" to "\uD83D\uDC76",
-        "Nanny" to "\uD83D\uDC69\u200D\uD83C\uDF7C",
-        "Receptionist" to "\uD83D\uDCBC",
-        "Cashier" to "\uD83D\uDCB5",
-        "Packer" to "\uD83D\uDCE6",
-        "Loader" to "\uD83D\uDCE6",
-        "Office Boy" to "\uD83C\uDFE2",
-        "Factory Worker" to "\uD83C\uDFED",
-        "Construction Worker" to "\uD83D\uDC77",
-        "Shop Assistant" to "\uD83D\uDED2",
-        "Housekeeping Staff" to "\uD83C\uDFE0",
-        "Kitchen Helper" to "\uD83C\uDF73",
-        "Watchman" to "\uD83D\uDC41\uFE0F",
-        "AC Technician" to "\u2744\uFE0F",
-        "Tailor" to "\uD83E\uDDF5",
-        "Other" to "\u2795"
-    )
-    
-    // Only show the custom text field when the user explicitly selects "Other"
-    LaunchedEffect(title) {
-        isOtherSelected = title == "Other"
+    var titleError by remember { mutableStateOf<String?>(null) }
+
+    // Apr 2026 redesign: title is a free-text field. Predefined titles
+    // appear as wrapping chips below the field — tap a chip to fill,
+    // or type your own. Whatever the employer types is what workers see
+    // on the job card; no more "Other" placeholder hiding the real title.
+    val suggestedTitles = remember {
+        listOf(
+            "Cook" to "\uD83D\uDC68\u200D\uD83C\uDF73",
+            "Chef" to "\uD83D\uDC69\u200D\uD83C\uDF73",
+            "Maid" to "\uD83E\uDDF9",
+            "House Cleaner" to "\uD83C\uDFE0",
+            "Driver" to "\uD83D\uDE97",
+            "Security Guard" to "\uD83D\uDEE1\uFE0F",
+            "Delivery Executive" to "\uD83D\uDCE6",
+            "Waiter" to "\uD83C\uDF7D\uFE0F",
+            "Helper" to "\uD83E\uDD1D",
+            "Electrician" to "\u26A1",
+            "Plumber" to "\uD83D\uDD27",
+            "Painter" to "\uD83C\uDFA8",
+            "Carpenter" to "\uD83E\uDE9A",
+            "Gardener" to "\uD83C\uDF31",
+            "Caretaker" to "\uD83D\uDC76",
+            "Nanny" to "\uD83D\uDC69\u200D\uD83C\uDF7C",
+            "Receptionist" to "\uD83D\uDCBC",
+            "Cashier" to "\uD83D\uDCB5",
+            "Packer" to "\uD83D\uDCE6",
+            "Office Boy" to "\uD83C\uDFE2",
+            "Factory Worker" to "\uD83C\uDFED",
+            "Construction Worker" to "\uD83D\uDC77",
+            "Shop Assistant" to "\uD83D\uDED2",
+            "Kitchen Helper" to "\uD83C\uDF73",
+            "AC Technician" to "\u2744\uFE0F",
+            "Tailor" to "\uD83E\uDDF5"
+        )
     }
-    
+
+    fun categoryFor(t: String): JobCategory = when (t.trim()) {
+        "Cook", "Chef", "Kitchen Helper" -> JobCategory.COOK
+        "Maid", "House Cleaner", "Housekeeping Staff" -> JobCategory.MAID
+        "Driver" -> JobCategory.DRIVER
+        "Security Guard", "Watchman" -> JobCategory.SECURITY
+        "Delivery Executive" -> JobCategory.DELIVERY
+        "Waiter", "Server" -> JobCategory.WAITER
+        "Electrician" -> JobCategory.ELECTRICIAN
+        "Plumber" -> JobCategory.PLUMBER
+        "Painter" -> JobCategory.PAINTER
+        "Carpenter" -> JobCategory.CARPENTER
+        "Gardener" -> JobCategory.GARDENER
+        "Caretaker", "Nanny" -> JobCategory.CARETAKER
+        "Receptionist" -> JobCategory.RECEPTIONIST
+        "Cashier" -> JobCategory.CASHIER
+        "Packer", "Loader" -> JobCategory.PACKER
+        "" -> JobCategory.OTHER
+        else -> JobCategory.OTHER
+    }
+
     PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -2532,9 +2545,9 @@ fun EnhancedJobTitleSection(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Anti-fraud info banner
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -2554,151 +2567,91 @@ fun EnhancedJobTitleSection(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Dropdown for job title selection
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
-            ) {
-                OutlinedTextField(
-                    value = if (isOtherSelected && customCategory.isNotBlank()) customCategory else title,
-                    onValueChange = { },
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.select_job_title)) },
-                    placeholder = { Text(stringResource(R.string.tap_to_select_job_title)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = primaryBlue,
-                        focusedLabelColor = primaryBlue,
-                        unfocusedBorderColor = Color(0xFFE2E8F0),
-                        cursorColor = primaryBlue,
-                        unfocusedContainerColor = Color.White,
-                        focusedContainerColor = Color.White
-                    )
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(Color.White)
-                ) {
-                    predefinedJobTitles.forEach { (jobTitle, icon) ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(icon, fontSize = 20.sp)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        jobTitle,
-                                        fontWeight = if (title == jobTitle) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (jobTitle == "Other") primaryBlue else Color(0xFF1E293B)
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onTitleChange(jobTitle)
-                                isOtherSelected = jobTitle == "Other"
-                                if (jobTitle != "Other") {
-                                    onCustomCategoryChange("")
-                                    customTitleError = null
-                                }
-                                // Auto-select matching category
-                                val matchingCategory = when (jobTitle) {
-                                    "Cook", "Chef", "Kitchen Helper" -> JobCategory.COOK
-                                    "Maid", "House Cleaner", "Housekeeping Staff" -> JobCategory.MAID
-                                    "Driver" -> JobCategory.DRIVER
-                                    "Security Guard", "Watchman" -> JobCategory.SECURITY
-                                    "Delivery Executive" -> JobCategory.DELIVERY
-                                    "Waiter", "Server" -> JobCategory.WAITER
-                                    "Electrician" -> JobCategory.ELECTRICIAN
-                                    "Plumber" -> JobCategory.PLUMBER
-                                    "Painter" -> JobCategory.PAINTER
-                                    "Carpenter" -> JobCategory.CARPENTER
-                                    "Gardener" -> JobCategory.GARDENER
-                                    "Caretaker", "Nanny" -> JobCategory.CARETAKER
-                                    "Receptionist" -> JobCategory.RECEPTIONIST
-                                    "Cashier" -> JobCategory.CASHIER
-                                    "Packer", "Loader" -> JobCategory.PACKER
-                                    "Other" -> JobCategory.OTHER
-                                    else -> JobCategory.HELPER
-                                }
-                                onCategoryChange(matchingCategory)
-                                expanded = false
-                            },
-                            modifier = Modifier.background(Color.White)
-                        )
-                    }
-                }
-            }
-            
-            // Custom job title input when "Other" is selected
-            if (isOtherSelected || title == "Other") {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                OutlinedTextField(
-                    value = customCategory,
-                    onValueChange = { newValue ->
-                        onCustomCategoryChange(newValue)
-                        // Validate against scam keywords
-                        val validation = JobValidationUtils.validateAgainstScamKeywords(newValue, "")
-                        customTitleError = if (!validation.isValid) {
-                            "This job title is not allowed. Only local, in-person jobs."
-                        } else {
-                            null
-                        }
-                    },
-                    label = { Text(stringResource(R.string.enter_job_title)) },
-                    placeholder = { Text(stringResource(R.string.job_title_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = customTitleError != null,
-                    supportingText = if (customTitleError != null) {
-                        { Text(customTitleError!!, color = Color(0xFFDC2626)) }
+
+            // Free-text title field. Whatever is typed shows on the card.
+            OutlinedTextField(
+                value = title,
+                onValueChange = { newValue ->
+                    onTitleChange(newValue)
+                    // Keep customCategory in sync for legacy draft saves;
+                    // submitJobWithCoordinates uses it when category=OTHER.
+                    onCustomCategoryChange(newValue.trim())
+                    val matched = categoryFor(newValue)
+                    onCategoryChange(matched)
+                    val validation = JobValidationUtils.validateAgainstScamKeywords(newValue, "")
+                    titleError = if (newValue.isNotBlank() && !validation.isValid) {
+                        "This job title is not allowed. Only local, in-person jobs."
                     } else {
-                        { Text(stringResource(R.string.job_title_hint), color = Color(0xFF6B7280)) }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (customTitleError != null) Color(0xFFDC2626) else primaryBlue,
-                        focusedLabelColor = if (customTitleError != null) Color(0xFFDC2626) else primaryBlue,
-                        unfocusedBorderColor = if (customTitleError != null) Color(0xFFDC2626) else Color(0xFFE2E8F0),
-                        cursorColor = primaryBlue,
-                        unfocusedContainerColor = Color.White,
-                        focusedContainerColor = Color.White
-                    )
+                        null
+                    }
+                },
+                label = { Text(stringResource(R.string.enter_job_title)) },
+                placeholder = { Text(stringResource(R.string.job_title_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = titleError != null,
+                supportingText = if (titleError != null) {
+                    { Text(titleError!!, color = Color(0xFFDC2626)) }
+                } else {
+                    { Text(stringResource(R.string.job_title_hint), color = Color(0xFF6B7280)) }
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
+                    focusedLabelColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
+                    unfocusedBorderColor = if (titleError != null) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
                 )
-            }
-            
-            // Auto-detected category badge hidden per request: employers
-            // didn't want to see "Category: Cook" / icon under the title.
-            // The custom-category confirmation chip is still shown for the
-            // "Other" branch so the employer knows their typed value was
-            // accepted.
-            if (isOtherSelected && customCategory.isNotBlank() && customTitleError == null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF10B981).copy(alpha = 0.1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Suggestion chips — wrap into multiple rows. Tap to fill.
+            Text(
+                text = stringResource(R.string.post_job_pick_quick_title),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF6B7280)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            androidx.compose.foundation.layout.FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                suggestedTitles.forEach { (suggestion, icon) ->
+                    val selected = title.trim().equals(suggestion, ignoreCase = true)
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (selected) primaryBlue.copy(alpha = 0.10f) else Color(0xFFF1F5F9),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = 1.dp,
+                            color = if (selected) primaryBlue else Color(0xFFE2E8F0)
+                        ),
+                        modifier = Modifier.clickable {
+                            onTitleChange(suggestion)
+                            onCustomCategoryChange(suggestion)
+                            onCategoryChange(categoryFor(suggestion))
+                            titleError = null
+                        }
                     ) {
-                        Text("\u2705", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.post_job_custom_category, customCategory),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF10B981)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(icon, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = suggestion,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) primaryBlue else Color(0xFF1E293B)
+                            )
+                        }
                     }
                 }
             }

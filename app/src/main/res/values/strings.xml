@@ -971,6 +971,7 @@
     <string name="post_job_local_only_warning">Only local, in-person jobs allowed. No online or WFH jobs.</string>
     <string name="post_job_category_label">Category: %1$s</string>
     <string name="post_job_custom_category">Custom: %1$s</string>
+    <string name="post_job_pick_quick_title">Pick a common title or type your own</string>
     <string name="post_job_work_type">Work Type</string>
     <string name="post_job_work_type_desc">Full-time, part-time or flexible?</string>
     <string name="post_job_how_much_pay">How much will you pay?</string>
