@@ -28,14 +28,14 @@ enum class JobCategory(val displayName: String, val icon: String) {
 }
 
 enum class ShiftTiming(val displayName: String, val icon: String) {
-    MORNING("Morning (6 AM - 12 PM)", "☀️"),
-    AFTERNOON("Afternoon (12 PM - 6 PM)", "🏙️"),
-    EVENING("Evening (6 PM - 12 AM)", "🌆"),
-    NIGHT("Night (12 AM - 6 AM)", "🌙"),
-    FULL_DAY("Full Day", "⏰"),
+    MORNING("Day shift", "☀️"),
+    AFTERNOON("Day shift", "🏙️"),
+    EVENING("Night shift", "🌆"),
+    NIGHT("Night shift", "🌙"),
+    FULL_DAY("Any shift", "⏰"),
     // Batch-p #3: employer can specify their own start/end timing.
-    CUSTOM("Custom timing", "🕒"),
-    FLEXIBLE("Flexible", "⏳")
+    CUSTOM("Any shift", "🕒"),
+    FLEXIBLE("Any shift", "⏳")
 }
 
 enum class JobUrgency(val displayName: String) {

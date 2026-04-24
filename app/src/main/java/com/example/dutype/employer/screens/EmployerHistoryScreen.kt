@@ -195,7 +195,7 @@ fun EmployerHistoryScreen(
                         groupedJobs = groupedJobs,
                         currentTime = currentTime,
                         onJobClick = { job ->
-                            navController.navigate(Routes.employerApplicationsJobRoute(job.id))
+                            navController.navigate(Routes.employerJobPreviewRoute(job.id))
                         }
                     )
                 }
@@ -214,7 +214,7 @@ fun EmployerHistoryScreen(
                                 job = job,
                                 currentTime = currentTime,
                                 onClick = {
-                                    navController.navigate(Routes.employerApplicationsJobRoute(job.id))
+                                    navController.navigate(Routes.employerJobPreviewRoute(job.id))
                                 }
                             )
                         }

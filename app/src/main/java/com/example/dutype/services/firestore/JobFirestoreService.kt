@@ -834,6 +834,13 @@ class JobFirestoreService @Inject constructor(
                 cardUpdates["addressText"] = v
             }
 
+            if (data.containsKey("jobImageUrl")) {
+                val v = normalizeString(data["jobImageUrl"])
+                if (v.isNotBlank()) {
+                    cardUpdates["jobImageUrl"] = v
+                }
+            }
+
             // Details-only fields (must match firestore.rules for job_details).
             // Apr 2026: description, benefits, shiftTiming, gender,
             // experienceRequired are also mirrored onto jobmetadata so the

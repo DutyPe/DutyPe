@@ -1,6 +1,7 @@
 ﻿package com.example.dutype.employer.screens
 
 import android.Manifest
+import android.R.attr.category
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
@@ -106,7 +107,6 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
-import com.example.dutype.employer.components.JobSummaryCard
 import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
 import com.example.dutype.employer.components.VacanciesSection
@@ -178,7 +178,7 @@ fun PostJobScreen(
     navController: NavController,
     rootNavController: NavController? = null,
     employerId: String? = null,
-    onJobPosted: (() -> Unit)? = null,
+    onJobPosted: ((String?) -> Unit)? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -247,7 +247,7 @@ fun PostJobScreen(
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var ageRange by remember { mutableStateOf("18-30") }
-    var gender by remember { mutableStateOf("Any") }
+    var gender by remember { mutableStateOf("Both") }
     
     // Employer Trust Tier (loaded from profile)
     var employerTrustTier by remember { mutableStateOf("VERIFIED") }
@@ -275,7 +275,7 @@ fun PostJobScreen(
         }
     }
     val ageRanges = listOf("18-30", "30-45", "Any age")
-    val genders = listOf("Any", "Male", "Female")
+    val genders = listOf("Male", "Female", "Both")
 
     // UI state
     var isLoading by remember { mutableStateOf(false) }
@@ -337,7 +337,7 @@ fun PostJobScreen(
                     customPerks.isNotEmpty() ||
                     experienceLevel != "No Experience Required" ||
                     ageRange != "18-30" ||
-                    gender != "Any" ||
+                    gender != "Both" ||
                     shiftTiming != ShiftTiming.FLEXIBLE ||
                     urgency != JobUrgency.NORMAL ||
                     workType != "Part-time"
@@ -481,7 +481,11 @@ fun PostJobScreen(
                     workType = savedDraft.workType
                     experienceLevel = savedDraft.experienceLevel
                     ageRange = savedDraft.ageRange
-                    gender = savedDraft.gender
+                    gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
+                        "Both"
+                    } else {
+                        savedDraft.gender
+                    }
                     Timber.d("âœ… Draft restored successfully")
                 }
             } catch (e: Exception) {
@@ -718,7 +722,7 @@ fun PostJobScreen(
                 }
                 
                 // Call the callback if provided (for tabbed interface)
-                onJobPosted?.invoke()
+                onJobPosted?.invoke(newJobId)
                 // Navigate to employer home screen to show the posted job
                 if (onJobPosted == null) {
                     if (!newJobId.isNullOrBlank()) {
@@ -886,8 +890,8 @@ fun PostJobScreen(
     val successGreen = Color(0xFF059669)
     val accentOrange = Color(0xFFFF8A3D)
     val darkText = Color(0xFF0F172A)
-    // Solid role background pulled from the theme â€” no gradient.
-    val pageBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
+    // Full white canvas for all post-job steps.
+    val pageBackground = Color.White
     val basicsReady = title.isNotBlank() && description.isNotBlank()
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
     val requirementsReady = contactNumber.isNotBlank()
@@ -1201,8 +1205,6 @@ fun PostJobScreen(
                 .background(pageBackground)
                 .padding(paddingValues)
         ) {
-            PostJobBackdropDecor(modifier = Modifier.fillMaxSize())
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1274,7 +1276,12 @@ fun PostJobScreen(
                                     WorkTypeSelection(
                                         workType = workType,
                                         onWorkTypeChange = { workType = it },
-                                        workTypes = workTypes
+                                        workTypes = workTypes,
+                                        payAmount = payAmount,
+                                        onPayAmountChange = { payAmount = it },
+                                        payType = payType,
+                                        onPayTypeChange = { payType = it },
+                                        category = category
                                     )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     JobDescriptionSection(
@@ -1494,21 +1501,6 @@ fun PostJobScreen(
                             onContactNumberChange = { contactNumber = it },
                             employerName = employerName,
                             onEmployerNameChange = { employerName = it }
-                        )
-                    }
-
-                    if (currentStep == 2) item {
-                        JobSummaryCard(
-                            title = title,
-                            category = category,
-                            payAmount = payAmount,
-                            payType = payType,
-                            location = location,
-                            vacancies = vacancies,
-                            urgency = urgency,
-                            shiftTiming = shiftTiming,
-                            description = description,
-                            selectedPerks = selectedPerks
                         )
                     }
 
@@ -2330,28 +2322,16 @@ fun StudioGroupCard(
     accentColor: Color,
     content: @Composable () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        shadowElevation = 6.dp,
-        tonalElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEDF2F7))
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // NOTE: The step badge/title/subtitle that used to render here was
-            // removed because the top stepper header already shows the same
-            // step number + title â€” having both was duplicate noise.
-            androidx.compose.runtime.CompositionLocalProvider(
-                com.example.dutype.employer.components.LocalSectionInGroup provides true
+    Column(modifier = Modifier.fillMaxWidth()) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.example.dutype.employer.components.LocalSectionInGroup provides true
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    content()
-                }
+                content()
             }
         }
     }
@@ -2598,10 +2578,18 @@ fun EnhancedJobTitleSection(
 fun WorkTypeSelection(
     workType: String,
     onWorkTypeChange: (String) -> Unit,
-    workTypes: List<String>
+    workTypes: List<String>,
+    payAmount: String,
+    onPayAmountChange: (String) -> Unit,
+    payType: PayType,
+    onPayTypeChange: (PayType) -> Unit,
+    category: JobCategory
 ) {
     val primaryBlue = Color(0xFF2563EB)
-    
+
+    // Get suggested pay range for current category
+    val suggestedRange = JobValidationUtils.formatSuggestedRange(category, payType)
+
     PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -2658,47 +2646,16 @@ fun WorkTypeSelection(
                         border = FilterChipDefaults.filterChipBorder(
                             borderColor = Color.Transparent,
                             selectedBorderColor = Color.Transparent,
-                            enabled = true,
-                            selected = workType == type
+                            enabled = true
                         )
                     )
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun EnhancedPaymentSection(
-    payAmount: String,
-    onPayAmountChange: (String) -> Unit,
-    payType: PayType,
-    onPayTypeChange: (PayType) -> Unit,
-    category: JobCategory = JobCategory.OTHER,
-    suggestedRange: String = ""
-) {
-    val primaryBlue = Color(0xFF2563EB)
-    val payAmountNum = payAmount.toIntOrNull() ?: 0
-    val isError = payAmount.isNotEmpty() && payAmountNum > 50000
-    
-    PolishedCard {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("\uD83D\uDCB0", fontSize = 18.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = stringResource(R.string.payment_details),
                             style = MaterialTheme.typography.titleMedium,
@@ -3221,20 +3178,24 @@ fun RequirementsSection(
                 color = Color(0xFF475569)
             )
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                genders.forEach { genderOption ->
+                items(genders) { genderOption ->
                     FilterChip(
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .height(34.dp),
                         onClick = { onGenderChange(genderOption) },
                         label = {
                             Text(
                                 genderOption,
-                                fontWeight = if (gender == genderOption) FontWeight.Medium else FontWeight.Normal
+                                fontWeight = if (gender == genderOption) FontWeight.Medium else FontWeight.Normal,
+                                fontSize = 11.sp
                             )
                         },
                         selected = gender == genderOption,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF8B5CF6),
                             selectedLabelColor = Color.White,
@@ -3289,19 +3250,23 @@ private fun RequirementChipSection(
     }
     Spacer(modifier = Modifier.height(10.dp))
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         items(options) { option ->
             FilterChip(
+                modifier = Modifier
+                    .padding(end = 4.dp)
+                    .height(34.dp),
                 onClick = { onOptionSelected(option) },
                 label = { 
                     Text(
                         option,
-                        fontWeight = if (selectedOption == option) FontWeight.Medium else FontWeight.Normal
+                        fontWeight = if (selectedOption == option) FontWeight.Medium else FontWeight.Normal,
+                        fontSize = 11.sp
                     ) 
                 },
                 selected = selectedOption == option,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = selectedColor,
                     selectedLabelColor = Color.White,
@@ -3320,15 +3285,19 @@ private fun RequirementChipSection(
         if (allowCustomOption) {
             item {
                 FilterChip(
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .height(34.dp),
                     onClick = { showCustomInput = !showCustomInput },
                     label = {
                         Text(
                             if (showCustomInput) "Cancel" else "Add your own +",
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
                         )
                     },
                     selected = false,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFFF1F5F9),
                         selectedLabelColor = Color(0xFF334155),
@@ -3398,6 +3367,7 @@ fun PerksSelectionSection(
     onCustomPerksChanged: (List<String>) -> Unit = {}
 ) {
     var newPerkText by remember { mutableStateOf("") }
+    var showCustomPerkInput by remember { mutableStateOf(false) }
     val totalCount = selectedPerks.size + customPerks.size
 
     PolishedCard {
@@ -3428,7 +3398,7 @@ fun PerksSelectionSection(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = stringResource(R.string.post_job_perks_benefits),
+                            text = "Perks & Benefits",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1E293B)
@@ -3462,65 +3432,53 @@ fun PerksSelectionSection(
             
             PerksSelectionGrid(
                 selectedPerks = selectedPerks,
-                onPerksChanged = onPerksChanged
+                onPerksChanged = onPerksChanged,
+                onAddOwnPerkClick = { showCustomPerkInput = true }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
-            Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.post_job_add_own_perk),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F172A)
-            )
-            Text(
-                text = stringResource(R.string.post_job_perk_placeholder),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6B7280)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = newPerkText,
-                    onValueChange = { if (it.length <= 40) newPerkText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("e.g. Free meals", fontSize = 14.sp) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF10B981),
-                        unfocusedBorderColor = Color(0xFFCBD5E1)
-                    )
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Button(
-                    onClick = {
-                        val trimmed = newPerkText.trim()
-                        if (trimmed.isNotEmpty() &&
-                            customPerks.none { it.equals(trimmed, ignoreCase = true) } &&
-                            selectedPerks.none { it.displayName.equals(trimmed, ignoreCase = true) }
-                        ) {
-                            onCustomPerksChanged(customPerks + trimmed)
-                            newPerkText = ""
-                        }
-                    },
-                    enabled = newPerkText.trim().isNotEmpty(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981),
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF94A3B8)
-                    ),
-                    modifier = Modifier.height(52.dp)
+            if (showCustomPerkInput) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = newPerkText,
+                        onValueChange = { if (it.length <= 40) newPerkText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("e.g. Free meals", fontSize = 13.sp) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF10B981),
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val trimmed = newPerkText.trim()
+                            if (trimmed.isNotEmpty() &&
+                                customPerks.none { it.equals(trimmed, ignoreCase = true) } &&
+                                selectedPerks.none { it.displayName.equals(trimmed, ignoreCase = true) }
+                            ) {
+                                onCustomPerksChanged(customPerks + trimmed)
+                                newPerkText = ""
+                                showCustomPerkInput = false
+                            }
+                        },
+                        enabled = newPerkText.trim().isNotEmpty(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE2E8F0),
+                            disabledContentColor = Color(0xFF94A3B8)
+                        ),
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 

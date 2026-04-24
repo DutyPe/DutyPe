@@ -65,12 +65,11 @@ val WorkerRoleColors: RoleColorScheme = RoleColorScheme(
  * while still reading as part of the same brand. Solid, no gradient.
  */
 val EmployerRoleColors: RoleColorScheme = RoleColorScheme(
-    // Soft sky tint that's clearly distinguishable from the worker grey at a
-    // glance, while staying calm and professional. White cards on top.
-    screenBackground = Color(0xFFEAF3FB),
+    // Keep employer screens on a single white background for consistency.
+    screenBackground = Color(0xFFFFFFFF),
     cardBackground = Color(0xFFFFFFFF),
-    secondaryBackground = Color(0xFFDFEBF6),
-    statusBar = Color(0xFFEAF3FB),
+    secondaryBackground = Color(0xFFFFFFFF),
+    statusBar = Color(0xFFFFFFFF),
     navigationBar = Color(0xFFFFFFFF),
     primary = EmployerColors.Primary,
     onPrimary = Color.White,

@@ -95,6 +95,7 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_COMPANY_DETAILS,
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
+        Routes.EMPLOYER_JOB_PREVIEW,
         Routes.EMPLOYER_PROFILE_SETUP, // Hide bottom bar on profile setup
         Routes.HELP,
         Routes.ABOUT_US,
@@ -196,10 +197,17 @@ fun EmployerMainScreen(
                             navController = navController,
                             rootNavController = rootNavController,
                             employerId = null,
-                            onJobPosted = {
-                                // Navigate back to dashboard after job is posted
-                                navController.navigate(Routes.EMPLOYER_DASHBOARD) {
-                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                            onJobPosted = { newJobId ->
+                                if (!newJobId.isNullOrBlank()) {
+                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
                                 }
                             },
                             onStatusBarColorChange = { color ->

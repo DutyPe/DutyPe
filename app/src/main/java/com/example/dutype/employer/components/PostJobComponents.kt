@@ -57,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
@@ -199,12 +200,12 @@ private fun CategoryChip(
         )
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = category.icon,
-                fontSize = 20.sp
+                fontSize = 18.sp
             )
             Text(
                 text = category.displayName,
@@ -213,7 +214,9 @@ private fun CategoryChip(
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 ),
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 11.sp
             )
         }
     }
@@ -222,35 +225,42 @@ private fun CategoryChip(
 @Composable
 fun PerksSelectionGrid(
     selectedPerks: Set<JobPerk>,
-    onPerksChanged: (Set<JobPerk>) -> Unit
+    onPerksChanged: (Set<JobPerk>) -> Unit,
+    onAddOwnPerkClick: (() -> Unit)? = null
 ) {
-    Column {
-        Text(
-            text = "Select Perks & Benefits",
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+    androidx.compose.foundation.lazy.LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        items(JobPerk.values().toList()) { perk ->
+            PerkChip(
+                perk = perk,
+                isSelected = selectedPerks.contains(perk),
+                onClick = {
+                    onPerksChanged(
+                        if (selectedPerks.contains(perk)) {
+                            selectedPerks - perk
+                        } else {
+                            selectedPerks + perk
+                        }
+                    )
+                }
+            )
+        }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.height(300.dp)
-        ) {
-            items(JobPerk.values().toList()) { perk ->
-                PerkChip(
-                    perk = perk,
-                    isSelected = selectedPerks.contains(perk),
-                    onClick = {
-                        onPerksChanged(
-                            if (selectedPerks.contains(perk)) {
-                                selectedPerks - perk
-                            } else {
-                                selectedPerks + perk
-                            }
-                        )
-                    }
-                )
+        if (onAddOwnPerkClick != null) {
+            item {
+                OutlinedButton(
+                    onClick = onAddOwnPerkClick,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Text(
+                        text = "Add your own perk +",
+                        fontSize = 11.sp,
+                        color = Color(0xFF334155)
+                    )
+                }
             }
         }
     }
@@ -264,7 +274,7 @@ private fun PerkChip(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
+            .padding(end = 4.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF10B981).copy(alpha = 0.1f) else Color.White
@@ -276,21 +286,23 @@ private fun PerkChip(
         )
     ) {
         Row(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = perk.icon,
-                fontSize = 16.sp
+                fontSize = 12.sp
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = perk.displayName,
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = if (isSelected) Color(0xFF10B981) else Color(0xFF374151),
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 ),
-                maxLines = 2
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp
             )
         }
     }
@@ -307,50 +319,22 @@ fun WorkScheduleSection(
     customEnd: String = "",
     onCustomEndChange: (String) -> Unit = {}
 ) {
+    val shiftOptions = listOf(ShiftTiming.MORNING, ShiftTiming.NIGHT, ShiftTiming.FLEXIBLE)
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Shift Timing
         Text(
-            text = "Shift Timing",
+            text = "Shift",
             style = MaterialTheme.typography.labelLarge
         )
 
         androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            items(ShiftTiming.values().toList()) { shift ->
+            items(shiftOptions) { shift ->
                 ShiftChip(
                     shift = shift,
                     isSelected = selectedShift == shift,
                     onClick = { onShiftSelected(shift) }
-                )
-            }
-        }
-
-        // Batch-p #3: when CUSTOM is picked, the employer types in the actual
-        // start and end times so the worker sees real timings instead of just
-        // "Custom timing".
-        if (selectedShift == ShiftTiming.CUSTOM) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = customStart,
-                    onValueChange = onCustomStartChange,
-                    label = { Text("Start time") },
-                    placeholder = { Text("e.g. 9:00 AM") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)
-                )
-                OutlinedTextField(
-                    value = customEnd,
-                    onValueChange = onCustomEndChange,
-                    label = { Text("End time") },
-                    placeholder = { Text("e.g. 6:00 PM") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)
                 )
             }
         }
@@ -364,7 +348,7 @@ fun WorkScheduleSection(
         )
 
         androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             items(JobUrgency.values().toList()) { urgency ->
                 UrgencyChip(
@@ -385,6 +369,7 @@ private fun ShiftChip(
 ) {
     Card(
         modifier = Modifier
+            .padding(end = 4.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF3B82F6) else Color.White
@@ -396,13 +381,13 @@ private fun ShiftChip(
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = shift.icon,
-                fontSize = 18.sp
+                fontSize = 13.sp
             )
             Text(
                 text = shift.displayName,
@@ -410,6 +395,7 @@ private fun ShiftChip(
                     color = if (isSelected) Color.White else Color(0xFF374151),
                     fontWeight = FontWeight.Medium
                 ),
+                fontSize = 11.sp,
                 textAlign = TextAlign.Center
             )
         }
@@ -440,9 +426,11 @@ private fun UrgencyChip(
     }
 
     Card(
-        modifier = Modifier.clickable { onClick() },
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, textColor)
     ) {
         Text(
@@ -451,7 +439,8 @@ private fun UrgencyChip(
                 color = textColor,
                 fontWeight = FontWeight.Medium
             ),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            fontSize = 11.sp,
             textAlign = TextAlign.Center
         )
     }

@@ -47,6 +47,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.EmployerColors
+import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.LocaleHelper
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
@@ -65,7 +66,6 @@ fun EmployerProfileScreen(
     localNavController: NavController? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    val screenBackgroundColor = EmployerColors.ScreenBackground
     LaunchedEffect(Unit) {
         onStatusBarColorChange?.invoke(Color.White)
     }
@@ -177,7 +177,7 @@ fun EmployerProfileScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 // Solid role background — no gradient.
-                .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+                .background(LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -592,7 +592,7 @@ fun EmployerProfileScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White
+                            containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
                         ),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),

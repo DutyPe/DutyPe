@@ -961,7 +961,7 @@
     <string name="post_job_missing_fields">Missing: %1$s</string>
     <string name="post_job_image_uploaded">Image uploaded successfully!</string>
     <string name="post_job_image_upload_failed">Failed to upload image: %1$s</string>
-    <string name="post_job_schedule_urgency">Work Schedule &amp;amp; Urgency</string>
+    <string name="post_job_schedule_urgency">Work Schedule &amp; Urgency</string>
     <string name="post_job_worker_preview">Worker-facing preview</string>
     <string name="post_job_ready_percent">%1$d%% ready</string>
     <string name="post_job_launch_checklist">Launch Checklist</string>
@@ -980,7 +980,7 @@
     <string name="post_job_requirements">Job Requirements</string>
     <string name="post_job_looking_for">Who are you looking for?</string>
     <string name="post_job_gender_preference">Gender Preference</string>
-    <string name="post_job_perks_benefits">Perks &amp;amp; Benefits</string>
+    <string name="post_job_perks_benefits">Perks &amp; Benefits</string>
     <string name="post_job_attract_candidates">Attract more candidates</string>
     <string name="post_job_selected_count">%1$d selected</string>
     <string name="post_job_add_own_perk">Add your own perk</string>
