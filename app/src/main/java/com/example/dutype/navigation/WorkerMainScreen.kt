@@ -55,8 +55,25 @@ fun WorkerMainScreen(
     var showBottomBar by remember { mutableStateOf(true) }
     val isBottomBarVisible by scrollStateManager.isBottomBarVisible
 
-    // Status bar color state - starts with white, individual screens can change it
-    var statusBarColor by remember { mutableStateOf(Color.White) }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    // Apr 2026 fix: drive the status-bar colour deterministically from the
+    // current route, not from a per-screen `LaunchedEffect` callback. The
+    // old approach had a race on cold install — `WorkerHomeScreen`'s
+    // `LaunchedEffect(Unit)` ran AFTER the activity's initial
+    // `enableEdgeToEdge`, so the home screen showed white on first install
+    // and only flipped to purple after a process restart. Routing the
+    // colour from `currentRoute` makes it correct at every transition.
+    //
+    // Rule: ONLY the worker home screen uses the purple header colour.
+    // Every other worker screen (and any unknown route) gets pure white
+    // so the status bar matches the screen's white app-bar background.
+    val statusBarColor = if (currentRoute == WorkerBottomRoutes.HOME) {
+        com.example.dutype.worker.screens.WorkerHomeHeaderTopColor
+    } else {
+        Color.White
+    }
     val navigationBarColor = Color.White // White navigation bar with dark icons
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
@@ -88,13 +105,10 @@ fun WorkerMainScreen(
         )
     }
 
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
     // Define routes that should not show the bottom bar
     val routesWithoutBottomBar = listOf(
         Routes.JOB_DETAIL,
-        Routes.HELP, Routes.REPORT, 
+        Routes.HELP, Routes.REPORT,
         Routes.ABOUT_US,
         Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
         Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen
@@ -186,10 +200,11 @@ fun WorkerMainScreen(
                 WorkerNavGraph(
                     navController = navController,
                     rootNavController = rootNavController,
-                    onStatusBarColorChange = { color ->
-                        statusBarColor = color
-                        onStatusBarColorChange(color)
-                    },
+                    // Per-screen colour callbacks are now no-ops; the
+                    // status-bar colour is derived from `currentRoute`
+                    // above. We still forward to the parent in case the
+                    // host activity (MainActivity) wants to react.
+                    onStatusBarColorChange = { color -> onStatusBarColorChange(color) },
                     scrollStateManager = scrollStateManager,
                     notificationPermissionManager = notificationPermissionManager
                 )
