@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
@@ -206,32 +205,13 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Pay info and Applied time in same row (removed job type with suitcase icon)
+                // Applied time only. The worker's applied-job card intentionally
+                // hides the job address to keep this list compact and private.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Location info (payInfo removed from optimized schema)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color(0xFF6B7280),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = application.jobLocation,
-                            style = AppTypography.labelMedium.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    }
-                    
-                    // Applied time
                     Text(
                         text = "Applied ${formatDate(application.createdAt)}",
                         style = AppTypography.caption.copy(
