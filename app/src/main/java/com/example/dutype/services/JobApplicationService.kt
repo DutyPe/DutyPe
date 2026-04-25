@@ -154,18 +154,7 @@ class JobApplicationService @Inject constructor(
         if (applications.isEmpty()) return applications
 
         val needsEnrichmentIds = applications
-            .filter {
-                it.jobId.isNotBlank() && (
-                    it.jobTitle.isBlank() ||
-                    it.jobLocation.isBlank() ||
-                    it.companyName.isBlank() ||
-                    // Batch-m: backfill missing employerPhone for legacy
-                    // applications written before the contact-number snapshot
-                    // landed, otherwise the MyJobs Quick-Call button stays
-                    // hidden forever.
-                    it.employerPhone.isNullOrBlank()
-                )
-            }
+            .filter { it.jobId.isNotBlank() }
             .map { it.jobId }
             .distinct()
 
@@ -240,12 +229,17 @@ class JobApplicationService @Inject constructor(
             }
             val resolvedEmployerPhone = application.employerPhone?.takeIf { it.isNotBlank() }
                 ?: remoteContactById[application.jobId]
+            val resolvedJobStatus = remoteJob?.stringValue("status")
+                ?.takeIf { it.isNotBlank() }
+                ?: localJob?.status?.takeIf { it.isNotBlank() }
+                ?: application.jobStatus.ifBlank { "open" }
 
             application.copy(
                 jobTitle = resolvedTitle,
                 jobLocation = resolvedLocation,
                 companyName = resolvedCompany,
-                employerPhone = resolvedEmployerPhone
+                employerPhone = resolvedEmployerPhone,
+                jobStatus = resolvedJobStatus
             )
         }
     }
@@ -314,7 +308,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun preApplicationCheck(jobId: String, userId: String): PreApplicationCheckResult {
         return try {
-            Timber.d("=��� BATCH PRE-CHECK: Starting for jobId: $jobId, userId: $userId")
+            Timber.d("BATCH PRE-CHECK: Starting for jobId: $jobId, userId: $userId")
             
             coroutineScope {
                 val hasAppliedDeferred = async(Dispatchers.IO) {
@@ -331,7 +325,7 @@ class JobApplicationService @Inject constructor(
                 val canUserApply = canUserApplyDeferred.await()
                 val isProfileComplete = profileCompleteDeferred.await()
                 
-                Timber.d("=��� BATCH PRE-CHECK: hasApplied=$hasApplied, canUserApply=$canUserApply, profileComplete=$isProfileComplete")
+                Timber.d("BATCH PRE-CHECK: hasApplied=$hasApplied, canUserApply=$canUserApply, profileComplete=$isProfileComplete")
                 
                 val errorMessage: String? = when {
                     hasApplied -> "You have already applied to this job"
@@ -349,7 +343,7 @@ class JobApplicationService @Inject constructor(
                 )
             }
         } catch (e: Exception) {
-            Timber.e(e, "=��� BATCH PRE-CHECK: Error")
+            Timber.e(e, "BATCH PRE-CHECK: Error")
             PreApplicationCheckResult(
                 canApply = false,
                 hasAlreadyApplied = false,
@@ -371,31 +365,31 @@ class JobApplicationService @Inject constructor(
         coverLetter: String? = null
     ): Result<JobApplication> {
         return try {
-            Timber.d("=��� JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
+            Timber.d("JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
             
             // PERFORMANCE FIX: Use batch pre-check instead of sequential calls
             val preCheck = preApplicationCheck(jobId, userId)
             
             if (!preCheck.canApply && !preCheck.allowOfflineFallback) {
-                Timber.w("G��n+� JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
+                Timber.w("JobApplicationService.applyForJob - Pre-check failed: ${preCheck.errorMessage}")
                 return Result.failure(Exception(preCheck.errorMessage ?: "Cannot apply for this job"))
             }
             if (preCheck.allowOfflineFallback) {
                 Timber.w("JobApplicationService.applyForJob - Pre-check unavailable, continuing with offline-safe apply")
             }
             
-            Timber.d("=��� JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
+            Timber.d("JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
             val result = applyDirectly(jobId, userId, coverLetter)
             
             // Increment user application count on success
             if (result.isSuccess) {
                 metadataManager.userMetadata.incrementApplicationCount()
-                Timber.d("=��� JobApplicationService.applyForJob - Application count incremented")
+                Timber.d("JobApplicationService.applyForJob - Application count incremented")
             }
             
             result
         } catch (e: Exception) {
-            Timber.e(e, "G�� JobApplicationService.applyForJob - Exception: ${e.message}")
+            Timber.e(e, "JobApplicationService.applyForJob - Exception: ${e.message}")
             Result.failure(e)
         }
     }
@@ -497,7 +491,7 @@ class JobApplicationService @Inject constructor(
                 Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
             }
         } catch (e: Exception) {
-            Timber.e(e, "=��� OPTIMIZED APPLY: Error")
+            Timber.e(e, "OPTIMIZED APPLY: Error")
             Result.failure(e)
         }
     }
@@ -508,7 +502,7 @@ class JobApplicationService @Inject constructor(
      */
     suspend fun hasUserApplied(jobId: String, userId: String): Result<Boolean> {
         return try {
-            Timber.d("=��� JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
+            Timber.d("JobApplicationService.hasUserApplied - Checking jobId: $jobId, userId: $userId")
             if (applicationDao.hasWorkerApplied(userId, jobId)) {
                 return Result.success(true)
             }
@@ -528,7 +522,7 @@ class JobApplicationService @Inject constructor(
                 Result.success(hasApplied)
             }
         } catch (e: Exception) {
-            Timber.e(e, "G�� JobApplicationService.hasUserApplied - Error: ${e.message}")
+            Timber.e(e, "JobApplicationService.hasUserApplied - Error: ${e.message}")
             Result.failure(e)
         }
     }
@@ -650,8 +644,7 @@ class JobApplicationService @Inject constructor(
 
             cacheApplicationsLocally(listOf(appWithId))
 
-            // Notify employer only
-            notificationService.sendNewApplicationNotification(appWithId, appWithId.employerId)
+            // Cross-user notification is handled by Cloud Functions on applications/{id} create.
 
             Result.success(appWithId)
         } catch (e: Exception) {
@@ -1115,10 +1108,13 @@ class JobApplicationService @Inject constructor(
                 )
                 
                 docRef.update("status", newStatus.toFirestoreValue()).await()
-                notificationService.sendApplicationStatusNotification(updatedApplication, newStatus, updatedApplication.workerId)
+                // Cloud Functions owns cross-user status notifications.
                 
-                // Send hired notification to both worker and employer when status is ACCEPTED
+                // Close the job only when the hired count reaches vacancies.
                 if (newStatus == ApplicationStatus.HIRED) {
+                    updateJobVacancyStatusIfNeeded(updatedApplication.jobId)
+                }
+                if (false) {
                     try {
                         notificationService.sendWorkerHiredNotification(
                             workerName = "Worker",
@@ -1127,9 +1123,9 @@ class JobApplicationService @Inject constructor(
                             employerId = updatedApplication.employerId,
                             jobId = updatedApplication.jobId
                         )
-                        Timber.d("=��� Worker hired notification sent")
+                        Timber.d("Worker hired notification sent")
                     } catch (e: Exception) {
-                        Timber.e(e, "=��� Failed to send worker hired notification")
+                        Timber.e(e, "Failed to send worker hired notification")
                     }
                 }
                 
@@ -1231,7 +1227,7 @@ class JobApplicationService @Inject constructor(
                 
                 // DEDUPLICATION FIX: Notification sent by updateApplicationStatus() to avoid duplicates
                 // Only send if called directly (not through updateApplicationStatus)
-                notificationService.sendApplicationStatusNotification(
+                if (false) notificationService.sendApplicationStatusNotification(
                     updatedApplication, 
                     ApplicationStatus.SHORTLISTED, 
                     updatedApplication.workerId
@@ -1283,7 +1279,7 @@ class JobApplicationService @Inject constructor(
             
             // DEDUPLICATION FIX: Send notifications here since this is the primary accept method
             // updateApplicationStatus() is for generic status changes
-            notificationService.sendApplicationStatusNotification(
+            if (false) notificationService.sendApplicationStatusNotification(
                 updatedApplication, 
                 ApplicationStatus.HIRED, 
                 updatedApplication.workerId
@@ -1291,16 +1287,16 @@ class JobApplicationService @Inject constructor(
             
             // Send hired notification to both worker and employer
             try {
-                notificationService.sendWorkerHiredNotification(
+                if (false) notificationService.sendWorkerHiredNotification(
                     workerName = "Worker",
                     jobTitle = getJobTitle(updatedApplication.jobId),
                     workerId = updatedApplication.workerId,
                     employerId = updatedApplication.employerId,
                     jobId = updatedApplication.jobId
                 )
-                Timber.d("=��� Worker hired notification sent")
+                Timber.d("Worker hired notification sent")
             } catch (e: Exception) {
-                Timber.e(e, "=��� Failed to send worker hired notification")
+                Timber.e(e, "Failed to send worker hired notification")
             }
             
             // Update job vacancy status if needed
@@ -1321,7 +1317,16 @@ class JobApplicationService @Inject constructor(
             val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
-            Result.success(jobStatus == "open")
+            if (jobStatus != "open") return Result.success(false)
+            val vacancies = (jobDoc.getLong("vacancies") ?: 1L).toInt().coerceAtLeast(1)
+            val hiredCount = firestore.collection(applicationsCollection)
+                .whereEqualTo("jobId", jobId)
+                .whereEqualTo("status", ApplicationStatus.HIRED.toFirestoreValue())
+                .limit(vacancies.toLong())
+                .get()
+                .await()
+                .size()
+            Result.success(hiredCount < vacancies)
         } catch (e: Exception) {
             Timber.e(e, "Error checking vacancy availability")
             Result.failure(e)
@@ -1337,7 +1342,16 @@ class JobApplicationService @Inject constructor(
             val jobDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS).document(jobId).get().await()
             if (!jobDoc.exists()) return Result.failure(Exception("Job not found"))
             val jobStatus = jobDoc.getString("status") ?: "open"
-            Result.success(if (jobStatus == "open") 1 else 0)
+            if (jobStatus != "open") return Result.success(0)
+            val vacancies = (jobDoc.getLong("vacancies") ?: 1L).toInt().coerceAtLeast(1)
+            val hiredCount = firestore.collection(applicationsCollection)
+                .whereEqualTo("jobId", jobId)
+                .whereEqualTo("status", ApplicationStatus.HIRED.toFirestoreValue())
+                .limit(vacancies.toLong())
+                .get()
+                .await()
+                .size()
+            Result.success((vacancies - hiredCount).coerceAtLeast(0))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1368,7 +1382,7 @@ class JobApplicationService @Inject constructor(
             
             // DEDUPLICATION FIX: Notification sent by updateApplicationStatus() to avoid duplicates
             // Only send if called directly (not through updateApplicationStatus)
-            notificationService.sendApplicationStatusNotification(
+            if (false) notificationService.sendApplicationStatusNotification(
                 updatedApplication, 
                 ApplicationStatus.REJECTED, 
                 updatedApplication.workerId
@@ -1386,10 +1400,13 @@ class JobApplicationService @Inject constructor(
      */
     private suspend fun updateJobVacancyStatusIfNeeded(jobId: String) {
         try {
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
-                .document(jobId)
-                .update("status", "closed")
-                .await()
+            val remaining = getRemainingVacancies(jobId).getOrDefault(1)
+            if (remaining <= 0) {
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
+                    .document(jobId)
+                    .update("status", "closed")
+                    .await()
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error updating job vacancy status")
         }

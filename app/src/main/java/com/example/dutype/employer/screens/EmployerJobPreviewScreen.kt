@@ -100,7 +100,10 @@ fun EmployerJobPreviewScreen(
             when (val uploadResult = ImageUploadUtils.uploadWithRetry(context, uri, storagePath)) {
                 is ImageUploadUtils.UploadResult.Success -> {
                     val newUrl = uploadResult.downloadUrl
-                    viewModel.updateJob(currentJob.id, mapOf("jobImageUrl" to newUrl)) { success, message ->
+                    viewModel.updateJob(
+                        currentJob.id,
+                        mapOf("jobImageUrl" to newUrl)
+                    ) { success, message ->
                         if (success) {
                             job = currentJob.copy(jobImageUrl = newUrl)
                             Toast.makeText(context, "Job image updated", Toast.LENGTH_SHORT).show()

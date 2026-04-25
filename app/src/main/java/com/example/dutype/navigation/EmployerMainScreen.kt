@@ -265,7 +265,7 @@ fun EmployerMainScreen(
                         EmployerApplicationManagementScreen(
                             jobId = null, // View all applications
                             onApplicationClick = { application ->
-                                navController.navigate(Routes.workerProfileViewRoute(application.workerId))
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
                             onBackClick = { navController.popBackStack() }
                         )
@@ -279,7 +279,7 @@ fun EmployerMainScreen(
                         EmployerApplicationManagementScreen(
                             jobId = jobId, // View applications for specific job
                             onApplicationClick = { application ->
-                                navController.navigate(Routes.workerProfileViewRoute(application.workerId))
+                                navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
                             onBackClick = { navController.popBackStack() }
                         )
@@ -288,7 +288,14 @@ fun EmployerMainScreen(
                     // Worker Profile View Route
                     composable(
                         Routes.WORKER_PROFILE_VIEW,
-                        arguments = listOf(navArgument("workerId") { type = NavType.StringType }),
+                        arguments = listOf(
+                            navArgument("workerId") { type = NavType.StringType },
+                            navArgument("applicationId") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        ),
                         deepLinks = listOf(
                             navDeepLink {
                                 uriPattern = "dutype://worker/{workerId}"
@@ -299,9 +306,11 @@ fun EmployerMainScreen(
                         )
                     ) { backStackEntry ->
                         val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+                        val applicationId = backStackEntry.arguments?.getString("applicationId")
                         ProfessionalWorkerProfileViewScreen(
                             navController = navController,
                             workerId = workerId,
+                            applicationId = applicationId,
                             scrollStateManager = scrollStateManager
                         )
                     }

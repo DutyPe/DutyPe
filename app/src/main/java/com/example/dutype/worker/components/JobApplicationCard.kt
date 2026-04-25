@@ -136,6 +136,9 @@ fun JobApplicationCard(
     val canCall = isActiveStage
     val hasEmployerPhone = !application.employerPhone.isNullOrBlank()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val isFilledForThisWorker = application.jobStatus.equals("closed", ignoreCase = true) &&
+        application.status != ApplicationStatus.HIRED &&
+        application.status != ApplicationStatus.COMPLETED
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.HIRED && !hasAlreadyRated && onRateClick != null
@@ -147,7 +150,7 @@ fun JobApplicationCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onCardClick(application) }
+            .clickable(enabled = !isFilledForThisWorker) { onCardClick(application) }
             .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
@@ -229,7 +232,37 @@ fun JobApplicationCard(
                 // the fastest way to land the job. Only shown when the
                 // application is in an active funnel stage and the employer
                 // shared a phone number on the job post.
-                if (canCall) {
+                if (isFilledForThisWorker) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = Color(0xFFFFF7ED),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = null,
+                            tint = Color(0xFFEA580C),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "This job was filled. Your application is still saved here.",
+                            style = AppTypography.caption.copy(
+                                color = Color(0xFF9A3412),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else if (canCall) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -292,7 +325,7 @@ fun JobApplicationCard(
                         // denormalized employer phone (set at apply time).
                         // Falls back to opening the job detail screen when
                         // the phone snapshot is missing (legacy rows).
-                        if (canCall) {
+                        if (canCall && !isFilledForThisWorker) {
                             Button(
                                 onClick = {
                                     val phone = application.employerPhone.orEmpty()
@@ -333,19 +366,21 @@ fun JobApplicationCard(
                             }
                         }
                         
-                        Button(
-                            onClick = { onCardClick(application) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF1F2937)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "View Details",
-                                style = AppTypography.buttonSmall.copy(
-                                    color = Color.White
+                        if (!isFilledForThisWorker) {
+                            Button(
+                                onClick = { onCardClick(application) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1F2937)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "View Details",
+                                    style = AppTypography.buttonSmall.copy(
+                                        color = Color.White
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }

@@ -464,6 +464,8 @@ export const getWorkerProfileForEmployer = onCallSecured(
       "skills",
       "jobTypes",
       "experience",
+      "educationQualification",
+      "bio",
       "gender",
       "dateOfBirth",
       "isAvailable",

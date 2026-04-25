@@ -257,10 +257,34 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
         ? requestedRoleRaw
         : "";
     const snap = await db().collection("phone_index").doc(phoneE164).get();
+    let d = snap.data() || {};
     if (!snap.exists) {
-        return { exists: false, roleConflict: false };
+        const digits = phoneE164.replace(/\D/g, "");
+        const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+        const variants = Array.from(new Set([
+            phoneE164,
+            digits,
+            last10 ? `+91${last10}` : "",
+            last10 ? `91${last10}` : "",
+            last10,
+        ].filter(Boolean)));
+        let userSnap = await db()
+            .collection("users")
+            .where("phone", "in", variants.slice(0, 10))
+            .limit(1)
+            .get();
+        if (userSnap.empty) {
+            userSnap = await db()
+                .collection("users")
+                .where("phoneNumber", "in", variants.slice(0, 10))
+                .limit(1)
+                .get();
+        }
+        if (userSnap.empty) {
+            return { exists: false, roleConflict: false };
+        }
+        d = userSnap.docs[0].data() || {};
     }
-    const d = snap.data() || {};
     const existingRole = String(d.role || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
@@ -340,6 +364,8 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, a
         "skills",
         "jobTypes",
         "experience",
+        "educationQualification",
+        "bio",
         "gender",
         "dateOfBirth",
         "isAvailable",

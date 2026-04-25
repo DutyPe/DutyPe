@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -377,7 +378,7 @@ fun JobDescriptionScreen(
 
             // Header - Using CommonHeader for consistency
             com.example.dutype.components.CommonHeader(
-                title = stringResource(R.string.job_details),
+                title = job?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.job_details),
                 onBackClick = { handleBackNavigation() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground,
@@ -799,6 +800,9 @@ private fun JobDetailsContent(
     inlineActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val heroImageUrl = remember(job.jobImageUrl) {
+        job.jobImageUrl?.takeIf { it.isNotBlank() }
+    }
     
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -810,23 +814,25 @@ private fun JobDetailsContent(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        if (!job.jobImageUrl.isNullOrBlank()) {
+        if (!heroImageUrl.isNullOrBlank()) {
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(10.dp),
-                    elevation = CardDefaults.cardElevation(0.dp)
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data(job.jobImageUrl)
+                            .data(heroImageUrl)
                             .crossfade(true)
                             .build(),
                         contentDescription = "Job image",
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(220.dp)
+                            .fillMaxSize()
                             .clip(RoundedCornerShape(10.dp)),
                         contentScale = ContentScale.Crop
                     )
@@ -892,20 +898,6 @@ private fun JobDetailsContent(
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Job Title - Prominent display at top
-                    Text(
-                        text = job.title,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            fontSize = 20.sp
-                        ),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
                     // Company Name - show at top of job details
                     if (job.companyName.isNotEmpty()) {
                         JobDetailRow(Icons.Filled.Business, Color(0xFF7C3AED), "Company:", job.companyName)
@@ -977,6 +969,14 @@ private fun JobDetailsContent(
                     
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    JobDetailRow(
+                        Icons.Outlined.WorkOutline,
+                        Color(0xFF2563EB),
+                        "Education:",
+                        job.educationRequired.ifBlank { "No qualification required" }
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Working Hours

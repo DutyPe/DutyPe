@@ -66,7 +66,8 @@ data class JobListing(
 
     // --- Optional employer-uploaded hero image (#5). Stored on jobmetadata
     //     so worker/employer card lists can render it without an extra read.
-    val jobImageUrl: String? = null
+    val jobImageUrl: String? = null,
+    val jobImageUrls: List<String> = emptyList()
 ) {
     // Stable alias used throughout the codebase
     val jobId: String get() = id

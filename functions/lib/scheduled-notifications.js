@@ -956,6 +956,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
 exports.notifyApplicationStatusUpdate = functions.firestore
     .document('applications/{applicationId}')
     .onUpdate(async (change, context) => {
+    var _a;
     const before = change.before.data();
     const after = change.after.data();
     // Only notify if status changed
@@ -963,7 +964,7 @@ exports.notifyApplicationStatusUpdate = functions.firestore
         return null;
     }
     const workerId = after.workerId;
-    const jobTitle = after.jobTitle || 'a job';
+    const jobTitle = after.jobTitle || ((_a = after.jobSnapshot) === null || _a === void 0 ? void 0 : _a.title) || 'a job';
     const newStatus = after.status;
     console.log(`[APPLICATION_STATUS] Application status changed: ${before.status} -> ${newStatus} for worker ${workerId}`);
     // Determine notification template based on status; localised per-recipient.
@@ -1124,10 +1125,20 @@ exports.guestEngagementEvening = functions.pubsub
 exports.notifyNewApplication = functions.firestore
     .document('applications/{applicationId}')
     .onCreate(async (snapshot, context) => {
+    var _a, _b;
     const application = snapshot.data();
     const employerId = application.employerId;
-    const workerName = application.workerName || 'A worker';
-    const jobTitle = application.jobTitle || 'your job';
+    if (!employerId || employerId === application.workerId) {
+        console.log('[NEW_APPLICATION] Missing employerId or self-application; skipping');
+        return null;
+    }
+    const employerDoc = await admin.firestore().collection('users').doc(employerId).get();
+    if (!employerDoc.exists || !userActiveRoleMatches(employerDoc.data(), 'EMPLOYER')) {
+        console.log(`[NEW_APPLICATION] Skipping employer ${employerId} - not in EMPLOYER mode`);
+        return null;
+    }
+    const jobTitle = application.jobTitle || ((_a = application.jobSnapshot) === null || _a === void 0 ? void 0 : _a.title) || 'your job';
+    const workerName = application.workerName || ((_b = application.workerSnapshot) === null || _b === void 0 ? void 0 : _b.fullName) || 'A worker';
     console.log(`[NEW_APPLICATION] New application from ${workerName} for job: ${jobTitle}`);
     try {
         const sent = await sendFCMNotification(employerId, {

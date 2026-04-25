@@ -191,6 +191,8 @@ fun ProfessionalWorkerProfileViewScreen(
                             .orEmpty(),
                         experienceLevel = (data["experience"] as? String).orEmpty(),
                         dateOfBirth = (data["dateOfBirth"] as? String).orEmpty(),
+                        educationQualification = (data["educationQualification"] as? String).orEmpty(),
+                        bio = (data["bio"] as? String).orEmpty(),
                         rating = (data["rating"] as? Number)?.toDouble()
                             ?: (data["ratingAvg"] as? Number)?.toDouble() ?: 0.0,
                         totalJobs = (data["totalJobs"] as? Number)?.toInt() ?: 0,
@@ -395,21 +397,15 @@ fun ProfessionalWorkerProfileViewScreen(
                         when (action) {
                             ApplicationAction.SHORTLIST -> {
                                 application?.let { app ->
-                                    jobApplicationService.updateApplicationStatus(
-                                        app.id,
-                                        ApplicationStatus.HIRED,
-                                        "employer" // updatedBy parameter
-                                    )
+                                    val result = jobApplicationService.acceptApplication(app.id, app.employerId)
+                                    result.getOrThrow()
                                     application = app.copy(status = ApplicationStatus.HIRED)
                                 }
                             }
             ApplicationAction.REJECT -> {
                                 application?.let { app ->
-                                    jobApplicationService.updateApplicationStatus(
-                                        app.id,
-                                        ApplicationStatus.REJECTED,
-                                        "employer" // updatedBy parameter
-                                    )
+                                    val result = jobApplicationService.rejectApplication(app.id, app.employerId)
+                                    result.getOrThrow()
                                     application = app.copy(status = ApplicationStatus.REJECTED)
                                 }
                             }
@@ -760,8 +756,14 @@ private fun PersonalInformationCard(
             if (workerProfile.experienceLevel.isNotBlank()) {
                 PersonalInfoRow("Experience", workerProfile.experienceLevel)
             }
+            if (workerProfile.educationQualification.isNotBlank()) {
+                PersonalInfoRow("Education", workerProfile.educationQualification)
+            }
             if (workerProfile.dateOfBirth.isNotBlank()) {
-                PersonalInfoRow("Date of birth", workerProfile.dateOfBirth)
+                PersonalInfoRow("Age", formatWorkerAge(workerProfile.dateOfBirth))
+            }
+            if (workerProfile.bio.isNotBlank()) {
+                PersonalInfoRow("Bio", workerProfile.bio)
             }
             if (workerProfile.totalJobs > 0 || workerProfile.completedJobs > 0) {
                 PersonalInfoRow(
@@ -1219,10 +1221,26 @@ data class WorkerProfileData(
     // on the employer's view of the candidate.
     val experienceLevel: String = "",
     val dateOfBirth: String = "",
+    val educationQualification: String = "",
+    val bio: String = "",
     val rating: Double = 0.0,
     val totalJobs: Int = 0,
     val completedJobs: Int = 0
 )
+
+private fun formatWorkerAge(dateOfBirth: String): String {
+    val formats = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd")
+    val birthDate = formats.firstNotNullOfOrNull { pattern ->
+        runCatching {
+            SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }.parse(dateOfBirth)
+        }.getOrNull()
+    } ?: return dateOfBirth
+    val birth = java.util.Calendar.getInstance().apply { time = birthDate }
+    val today = java.util.Calendar.getInstance()
+    var age = today.get(java.util.Calendar.YEAR) - birth.get(java.util.Calendar.YEAR)
+    if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) age--
+    return if (age > 0) "$age years old" else dateOfBirth
+}
 
 /**
  * Simplified work experience for display only

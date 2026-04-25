@@ -129,7 +129,11 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         benefits = (this["benefits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
         distance = (this["distance"] as? Number)?.toDouble(),
         isSaved = isSaved,
-        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
+        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() },
+        jobImageUrls = (this["jobImageUrls"] as? List<*>)
+            ?.mapNotNull { it?.toString()?.takeIf { url -> url.isNotBlank() } }
+            ?: (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }?.let { listOf(it) }
+            ?: emptyList()
     )
 }
 
@@ -169,6 +173,9 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
     }
 
     val docId = (this["jobId"] as? String) ?: (this["documentId"] as? String) ?: (this["id"] as? String) ?: ""
+    val vacancies = (this["vacancies"] as? Number)?.toInt()
+        ?: (this["vacancies"] as? String)?.toIntOrNull()
+        ?: 1
 
     return JobListingSummary(
         id = docId,
@@ -192,8 +199,10 @@ fun Map<String, Any?>.toJobListingSummary(isSaved: Boolean = false): JobListingS
         lng = lng,
         companyCity = companyCity,
         locationText = locationText,
+        vacancies = vacancies.coerceAtLeast(1),
         distance = (this["distance"] as? Number)?.toDouble(),
-        isSaved = isSaved
+        isSaved = isSaved,
+        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
     )
 }
 
@@ -219,7 +228,9 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     lng = lng,
     location = locationText.ifBlank { companyCity },
     addressText = locationText.ifBlank { companyCity },
+    vacancies = vacancies,
     distance = distance,
     isSaved = isSaved,
-    jobImageUrl = jobImageUrl
+    jobImageUrl = jobImageUrl,
+    jobImageUrls = jobImageUrl?.let { listOf(it) } ?: emptyList()
 )

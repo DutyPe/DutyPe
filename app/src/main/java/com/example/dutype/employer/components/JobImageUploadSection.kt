@@ -157,7 +157,7 @@ fun JobImageUploadSection(
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Add up to 3 photos of the workplace or job area",
+                        text = "Add one clear photo of the workplace or job area",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -269,13 +269,13 @@ fun JobImageUploadSection(
                 }
 
                 Text(
-                    text = "${selectedImageUris.size}/3 images selected",
+                    text = "1 image selected",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF64748B)
                 )
 
                 // Change image button
-                if (!isUploading && selectedImageUris.size < 3) {
+                if (!isUploading) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -291,7 +291,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Add photo", fontSize = 13.sp)
+                            Text("Change photo", fontSize = 13.sp)
                         }
                         
                         OutlinedButton(
@@ -344,12 +344,12 @@ fun JobImageUploadSection(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Tap to add job photos",
+                            text = "Tap to add job photo",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFF6B7280)
                         )
                         Text(
-                            text = "First photo appears on worker and employer cards",
+                            text = "This photo appears on worker and employer cards",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF9CA3AF)
                         )
@@ -426,7 +426,7 @@ fun JobImageUploadSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Clear job photos help workers understand the place and apply with more confidence.",
+                        text = "A clear job photo helps workers understand the place and apply with more confidence.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF166534)
                     )

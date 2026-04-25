@@ -36,7 +36,7 @@ object Routes {
     const val EDIT_JOB = "edit_job/{jobId}"
     const val EMPLOYER_JOB_PREVIEW = "employer_job_preview/{jobId}"
     const val ANALYTICS = "analytics"
-    const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}"
+    const val WORKER_PROFILE_VIEW = "worker_profile_view/{workerId}?applicationId={applicationId}"
     const val EMPLOYER_PROFILE_VIEW = "employer_profile_view/{employerId}"
     const val EMPLOYER_APPLICATIONS = "employer_applications"
     const val EMPLOYER_APPLICATIONS_JOB = "employer_applications_job/{jobId}"
@@ -80,8 +80,12 @@ object Routes {
         return "employer_job_preview/$jobId"
     }
     
-    fun workerProfileViewRoute(workerId: String): String {
-        return "worker_profile_view/$workerId"
+    fun workerProfileViewRoute(workerId: String, applicationId: String? = null): String {
+        return if (applicationId.isNullOrBlank()) {
+            "worker_profile_view/$workerId"
+        } else {
+            "worker_profile_view/$workerId?applicationId=${java.net.URLEncoder.encode(applicationId, "UTF-8")}"
+        }
     }
     
     fun employerProfileViewRoute(employerId: String): String {

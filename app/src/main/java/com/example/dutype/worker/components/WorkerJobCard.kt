@@ -169,16 +169,15 @@ private fun JobCardInternal(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onCardClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.86f)),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.65f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                // Solid card surface (no gradient) per the role-theme rule.
-                .background(com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground)
+                .background(Color.White)
         ) {
             Box(
                 modifier = Modifier
@@ -186,7 +185,7 @@ private fun JobCardInternal(
                     .offset(x = 34.dp, y = (-28).dp)
                     .size(104.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF93C5FD).copy(alpha = 0.2f))
+                    .background(Color.Transparent)
             )
 
             Box(
@@ -195,7 +194,7 @@ private fun JobCardInternal(
                     .offset(x = (-24).dp, y = 26.dp)
                     .size(86.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF67E8F9).copy(alpha = 0.18f))
+                    .background(Color.Transparent)
             )
 
             Column(
@@ -215,10 +214,10 @@ private fun JobCardInternal(
                         .clip(CircleShape)
                         // Solid surface for the job icon — no gradient.
                         .background(
-                            color = com.example.dutype.ui.theme.LocalRoleColors.current.secondaryBackground,
+                            color = Color.White,
                             shape = CircleShape
                         )
-                        .border(1.dp, Color.White.copy(alpha = 0.8f), CircleShape),
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(
@@ -278,8 +277,8 @@ private fun JobCardInternal(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.72f))
-                        .border(1.dp, Color.White.copy(alpha = 0.82f), CircleShape)
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                 ) {
                     Icon(
                         imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -571,22 +570,18 @@ private fun JobImageOrAnimation(
             modifier = modifier.clip(CircleShape)
         )
     } else {
-        val fallbackInitial = companyName.trim().firstOrNull()
-            ?: jobTitle.trim().firstOrNull()
-            ?: 'D'
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(Color(0xFF111111)),
+                .background(Color.White)
+                .border(1.dp, Color(0xFFE5E7EB), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = fallbackInitial.uppercaseChar().toString(),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
+            Icon(
+                imageVector = Icons.Default.Business,
+                contentDescription = "Company",
+                tint = Color(0xFF6B7280),
+                modifier = Modifier.size(22.dp)
             )
         }
     }

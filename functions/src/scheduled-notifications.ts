@@ -1115,7 +1115,7 @@ export const notifyApplicationStatusUpdate = functions.firestore
     }
     
     const workerId = after.workerId;
-    const jobTitle = after.jobTitle || 'a job';
+    const jobTitle = after.jobTitle || after.jobSnapshot?.title || 'a job';
     const newStatus = after.status;
     
     console.log(`[APPLICATION_STATUS] Application status changed: ${before.status} -> ${newStatus} for worker ${workerId}`);
@@ -1293,8 +1293,19 @@ export const notifyNewApplication = functions.firestore
   .onCreate(async (snapshot, context) => {
     const application = snapshot.data();
     const employerId = application.employerId;
-    const workerName = application.workerName || 'A worker';
-    const jobTitle = application.jobTitle || 'your job';
+    if (!employerId || employerId === application.workerId) {
+        console.log('[NEW_APPLICATION] Missing employerId or self-application; skipping');
+        return null;
+    }
+
+    const employerDoc = await admin.firestore().collection('users').doc(employerId).get();
+    if (!employerDoc.exists || !userActiveRoleMatches(employerDoc.data(), 'EMPLOYER')) {
+        console.log(`[NEW_APPLICATION] Skipping employer ${employerId} - not in EMPLOYER mode`);
+        return null;
+    }
+
+    const jobTitle = application.jobTitle || application.jobSnapshot?.title || 'your job';
+    const workerName = application.workerName || application.workerSnapshot?.fullName || 'A worker';
     
     console.log(`[NEW_APPLICATION] New application from ${workerName} for job: ${jobTitle}`);
     

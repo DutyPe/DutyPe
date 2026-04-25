@@ -113,7 +113,6 @@ export async function POST(request: NextRequest) {
 
   const title = body.title?.trim() ?? "";
   const companyName = body.companyName?.trim() ?? "";
-  const jobType = (body.jobType?.trim() || "OTHER").toUpperCase();
   const addressText = body.addressText?.trim() ?? "";
   const description = body.description?.trim() ?? "";
   const contactNumber = body.contactNumber?.trim() ?? "";
@@ -181,7 +180,6 @@ export async function POST(request: NextRequest) {
       employerId,
       companyName,
       title,
-      jobType,
       salary,
       salaryType,
       location: { lat: latitude, lng: longitude },
@@ -189,14 +187,12 @@ export async function POST(request: NextRequest) {
       addressText,
       urgency,
       status: "open",
-      isVerified: true,
       createdAt: Timestamp.fromDate(now),
       vacancies
     };
 
     const detailsData: Record<string, unknown> = {
       employerId,
-      createdAt: Timestamp.fromDate(now),
       expiresAt: Timestamp.fromDate(expiresAt),
       description,
       contactNumber,
@@ -204,7 +200,6 @@ export async function POST(request: NextRequest) {
       experienceRequired,
       educationRequired,
       companyCity,
-      vacancies,
       benefits,
       applicationCount: 0
     };
@@ -260,10 +255,23 @@ export async function PATCH(request: NextRequest) {
 
   const cardPayload: Record<string, unknown> = {};
   const detailsPayload: Record<string, unknown> = {};
+  const legacyMetadataFields = [
+    "jobType",
+    "description",
+    "benefits",
+    "gender",
+    "experienceRequired",
+    "educationRequired",
+    "companyCity",
+    "isVerified"
+  ];
+
+  legacyMetadataFields.forEach((field) => {
+    cardPayload[field] = FieldValue.delete();
+  });
 
   if (body.title !== undefined) cardPayload.title = String(body.title).trim();
   if (body.companyName !== undefined) cardPayload.companyName = String(body.companyName).trim();
-  if (body.jobType !== undefined) cardPayload.jobType = String(body.jobType).trim().toUpperCase();
   if (body.salary !== undefined) {
     const v = String(body.salary).trim();
     if (v.length > 0 && v.length <= 60) cardPayload.salary = v;
@@ -277,7 +285,6 @@ export async function PATCH(request: NextRequest) {
     cardPayload.addressText = a;
     detailsPayload.companyCity = extractCityFromAddress(a);
   }
-  cardPayload.companyCity = FieldValue.delete();
   if (body.latitude !== undefined && body.longitude !== undefined) {
     const lat = Number(body.latitude);
     const lng = Number(body.longitude);
@@ -306,7 +313,6 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.vacancies !== undefined) {
     const vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
-    detailsPayload.vacancies = vacancies;
     cardPayload.vacancies = vacancies;
   }
   if (body.benefits !== undefined) {

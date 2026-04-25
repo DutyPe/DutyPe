@@ -217,14 +217,6 @@ fun EmployerApplicationManagementScreen(
                             applicationIndex = index,
                             isContactUnlocked = isContactUnlocked,
                             onClick = { 
-                                // Update status to Shortlisted when employer clicks on application
-                                if (application.status == ApplicationStatus.APPLIED) {
-                                    viewModel.updateApplicationStatus(
-                                        applicationId = application.id,
-                                        newStatus = ApplicationStatus.SHORTLISTED,
-                                        notes = "Application viewed by employer"
-                                    )
-                                }
                                 onApplicationClick(application) 
                             },
                             onUnlockContact = {

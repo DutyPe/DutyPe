@@ -45,6 +45,7 @@ data class JobApplication(
     // job_details.contactNumber at apply time) so the worker can dial the
     // employer directly from the MyJobs card without an extra read.
     val employerPhone: String? = null,
+    val jobStatus: String = "open",
     val coverLetter: String = ""
 ) {
     /**

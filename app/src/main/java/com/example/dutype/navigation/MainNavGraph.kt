@@ -636,12 +636,21 @@ fun MainNavGraph(
         }
         composable(
             route = Routes.WORKER_PROFILE_VIEW,
-            arguments = listOf(navArgument("workerId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("workerId") { type = NavType.StringType },
+                navArgument("applicationId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val workerId = backStackEntry.arguments?.getString("workerId") ?: ""
+            val applicationId = backStackEntry.arguments?.getString("applicationId")
             ProfessionalWorkerProfileViewScreen(
                 navController = navController,
-                workerId = workerId
+                workerId = workerId,
+                applicationId = applicationId
             )
         }
         composable(
@@ -671,7 +680,7 @@ fun MainNavGraph(
                 jobId = null,
                 onApplicationClick = { application ->
                     // Navigate to detailed application view
-                    navController.navigate(Routes.workerProfileViewRoute(application.workerId))
+                    navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                 },
                 onBackClick = { navController.popBackStack() }
             )
@@ -686,7 +695,7 @@ fun MainNavGraph(
             EmployerApplicationManagementScreen(
                 jobId = jobId,
                 onApplicationClick = { application ->
-                    navController.navigate(Routes.workerProfileViewRoute(application.workerId))
+                    navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                 },
                 onBackClick = { navController.popBackStack() }
             )

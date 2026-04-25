@@ -246,7 +246,6 @@ fun PostJobScreen(
     // JOB IMAGE: Optional image upload for job posting
     var jobImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var jobImageUrl by remember { mutableStateOf("") }
-    var jobImageUrls by remember { mutableStateOf<List<String>>(emptyList()) }
     var isUploadingJobImage by remember { mutableStateOf(false) }
     val storage = remember { FirebaseStorage.getInstance() }
     
@@ -688,8 +687,7 @@ fun PostJobScreen(
 
             // #5 fix: optional hero image URL persisted on jobmetadata so
             // it shows on worker / employer job cards instead of an emoji.
-            "jobImageUrl" to jobImageUrl,
-            "jobImageUrls" to jobImageUrls
+            "jobImageUrl" to jobImageUrl
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -1293,10 +1291,10 @@ fun PostJobScreen(
                                         selectedImageUris = jobImageUris,
                                         isUploading = isUploadingJobImage,
                                         onImageSelected = { uri ->
-                                            if (jobImageUris.size >= 3) {
-                                                Toast.makeText(context, "You can add up to 3 job images", Toast.LENGTH_SHORT).show()
+                                            if (jobImageUris.isNotEmpty()) {
+                                                Toast.makeText(context, "You can add only one job image", Toast.LENGTH_SHORT).show()
                                             } else {
-                                                jobImageUris = (jobImageUris + uri).take(3)
+                                                jobImageUris = listOf(uri)
                                                 scope.launch {
                                                     isUploadingJobImage = true
                                                     try {
@@ -1315,9 +1313,7 @@ fun PostJobScreen(
 
                                                             when (uploadResult) {
                                                                 is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
-                                                                    val updatedUrls = (jobImageUrls + uploadResult.downloadUrl).take(3)
-                                                                    jobImageUrls = updatedUrls
-                                                                    jobImageUrl = updatedUrls.firstOrNull().orEmpty()
+                                                                    jobImageUrl = uploadResult.downloadUrl
                                                                     Timber.d(" JOB IMAGE: âœ… Upload successful!")
                                                                     Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
                                                                 }
@@ -1341,12 +1337,8 @@ fun PostJobScreen(
                                             }
                                         },
                                         onImageRemoved = { uri ->
-                                            val removeIndex = jobImageUris.indexOf(uri)
                                             jobImageUris = jobImageUris - uri
-                                            if (removeIndex >= 0 && removeIndex < jobImageUrls.size) {
-                                                jobImageUrls = jobImageUrls.filterIndexed { index, _ -> index != removeIndex }
-                                            }
-                                            jobImageUrl = jobImageUrls.firstOrNull().orEmpty()
+                                            jobImageUrl = ""
                                             Timber.d(" JOB IMAGE: Image removed")
                                         }
                                     )

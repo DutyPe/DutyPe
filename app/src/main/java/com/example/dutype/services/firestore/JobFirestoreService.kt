@@ -182,8 +182,10 @@ class JobFirestoreService @Inject constructor(
             "expiresAt" to toEpochMillis(data["expiresAt"]),
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
-            "companyCity" to companyCity,
             "addressText" to addressDisplay,  // Full address for job card display
+            "vacancies" to ((data["vacancies"] as? Number)?.toInt()
+                ?: normalizeString(data["vacancies"]).toIntOrNull()
+                ?: 1),
             // Batch-j #2 fix: propagate the hero image URL into the card
             // summary so the worker home job list can render the employer-
             // uploaded image. Previously this field was only persisted on
@@ -206,15 +208,13 @@ class JobFirestoreService @Inject constructor(
         } ?: mapOf("lat" to 0.0, "lng" to 0.0)
 
         val coreTitle = normalizeString(coreData["title"])
-        val coreDescription = normalizeString(coreData["description"])
         val coreAddressText = normalizeString(coreData["addressText"])
         val coreJobType = normalizeString(coreData["jobType"]).ifBlank {
-            deriveJobType(coreTitle, coreDescription)
+            deriveJobType(coreTitle)
         }
         val coreVacancies = (coreData["vacancies"] as? Number)?.toInt()
             ?: normalizeString(coreData["vacancies"]).toIntOrNull()
             ?: 1
-        val coreBenefits = parseBenefits(coreData["benefits"])
         val coreCompanyCity = normalizeString(coreData["companyCity"]).ifBlank {
             extractCityFromAddress(coreAddressText)
         }
@@ -228,31 +228,25 @@ class JobFirestoreService @Inject constructor(
             "salary" to toSalaryString(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
-            "gender" to normalizeString(coreData["gender"]).ifBlank { "Any" },
-            "experienceRequired" to normalizeString(coreData["experienceRequired"]).ifBlank { "No Experience Required" },
+            "gender" to "Any",
+            "experienceRequired" to "No Experience Required",
             "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
             "location" to locationValue,
             "geohash" to normalizeString(coreData["geohash"]),
             "status" to normalizeReadStatus(coreData),
             "createdAt" to toEpochMillis(coreData["createdAt"]),
             "expiresAt" to toEpochMillis(coreData["expiresAt"]),
-            "description" to coreDescription,
+            "description" to "",
             "contactNumber" to normalizeString(coreData["contactNumber"]),
             "addressText" to coreAddressText,
             "jobType" to coreJobType,
             "vacancies" to coreVacancies,
-            "benefits" to coreBenefits,
+            "benefits" to emptyList<String>(),
             "companyCity" to coreCompanyCity,
             // #5 fix: pass the hero image URL through the merged map so
             // JobListing hydration picks it up.
             "jobImageUrl" to normalizeString(coreData["jobImageUrl"])
         )
-
-        val coreWorkingHours = normalizeString(coreData["workingHours"])
-        if (coreWorkingHours.isNotBlank()) merged["workingHours"] = coreWorkingHours
-
-        val coreEducationRequired = normalizeString(coreData["educationRequired"])
-        if (coreEducationRequired.isNotBlank()) merged["educationRequired"] = coreEducationRequired
 
         detailsData?.let { details ->
             val description = normalizeString(details["description"]).ifBlank {
@@ -286,7 +280,6 @@ class JobFirestoreService @Inject constructor(
                     extractCityFromAddress(addressText)
                 }
             }
-
             merged["description"] = description
             merged["contactNumber"] = contactNumber
             merged["addressText"] = addressText
@@ -322,7 +315,6 @@ class JobFirestoreService @Inject constructor(
             val payloadEmployerId = normalizeString(jobData["employerId"])
             val employerId = if (authUid.isNotBlank()) authUid else payloadEmployerId
             val title = normalizeString(jobData["title"])
-            val jobType = normalizeString(jobData["jobType"])
             val description = normalizeString(jobData["description"])
             val contactNumber = normalizeString(jobData["contactNumber"])
             val addressText = normalizeString(jobData["addressText"])
@@ -348,7 +340,6 @@ class JobFirestoreService @Inject constructor(
                 authUid.isBlank() ||
                 employerId.isBlank() ||
                 title.isBlank() ||
-                jobType.isBlank() ||
                 description.isBlank() ||
                 contactNumber.isBlank() ||
                 addressText.isBlank() ||
@@ -372,8 +363,6 @@ class JobFirestoreService @Inject constructor(
             if (companyName.isBlank()) {
                 return Result.failure(IllegalArgumentException("Employer company name is required"))
             }
-            val isVerified = employerProfile.getBoolean("isVerified") ?: false
-
             val location = mapOf("lat" to latitude, "lng" to longitude)
             val geohash = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             val createdAt = Timestamp(Date(currentTime))
@@ -385,7 +374,6 @@ class JobFirestoreService @Inject constructor(
             val cardData = linkedMapOf<String, Any>(
                 "title" to title,
                 "companyName" to companyName,
-                "jobType" to jobType,
                 "salary" to salary,
                 "salaryType" to salaryType,
                 "location" to location,
@@ -405,20 +393,7 @@ class JobFirestoreService @Inject constructor(
                 // render the real number of positions without an extra
                 // job_details fetch. Without this, getJobsByEmployerRealtime
                 // returned no vacancies field and JobListing defaulted to 1.
-                "vacancies" to vacancies,
-                // Apr 2026 fast-path: mirror the rich display fields the
-                // worker job-description screen needs (description, benefits,
-                // gender, experienceRequired). The slim card
-                // grows from ~200 → ~700 bytes but the worker sees the full
-                // job details on the FIRST round-trip from jobmetadata —
-                // no second fetch from job_details required to render the
-                // page body. job_details still holds contactNumber +
-                // applicationCount which remain auth-gated.
-                "description" to description,
-                "benefits" to benefits,
-                "gender" to gender,
-                "experienceRequired" to experienceRequired,
-                "educationRequired" to educationRequired
+                "vacancies" to vacancies
             )
             // #5 fix: persist the employer-uploaded hero image URL on the
             // slim card payload so it can render on every job list without
@@ -426,13 +401,8 @@ class JobFirestoreService @Inject constructor(
             normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
                 cardData["jobImageUrl"] = it
             }
-            val jobImageUrls = (jobData["jobImageUrls"] as? List<*>)
-                ?.mapNotNull { normalizeString(it).takeIf { url -> url.isNotBlank() } }
-                ?.take(3)
-
             val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
-                "createdAt" to createdAt,
                 "expiresAt" to expiresAt,
                 "contactNumber" to contactNumber,
                 "description" to description,
@@ -440,14 +410,10 @@ class JobFirestoreService @Inject constructor(
                 "experienceRequired" to experienceRequired,
                 "educationRequired" to educationRequired,
                 "companyCity" to companyCity,
-                "vacancies" to vacancies,
                 "benefits" to benefits,
                 "applicationCount" to 0
             )
             workingHours?.let { detailsData["workingHours"] = it }
-            if (!jobImageUrls.isNullOrEmpty()) {
-                detailsData["jobImageUrls"] = jobImageUrls
-            }
 
             Timber.d(" Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
@@ -741,39 +707,25 @@ class JobFirestoreService @Inject constructor(
         return try {
             Timber.d("getJobById - Looking for jobId: %s", jobId)
 
-            // Apr 2026 fast-path: fetch the public jobmetadata FIRST. New
-            // posts mirror description/benefits/gender/experience
-            // onto this slim card payload, so a single round-trip is enough
-            // to render the job-description screen for guests AND signed-in
-            // users. Only legacy posts (created before the mirror) need a
-            // second job_details fetch.
+            // Fetch the lean public card first, then fetch the public details
+            // doc for description/requirements/benefits/image gallery.
             val document = firestore.collection(JOBS_COLLECTION).document(jobId).get().await()
             if (!document.exists()) {
                 Timber.d("getJobById - Document not found")
                 return Result.success(null)
             }
             val coreData = document.data.orEmpty()
-            val cardHasDescription = (coreData["description"] as? String).orEmpty().isNotBlank()
-            // Guests AND signed-in users both fetch job_details when the
-            // card is missing the rich fields (legacy posts created before
-            // the Apr 2026 mirror). Rule `allow get: if true` on job_details
-            // lets unauthenticated workers read a single doc by jobId.
-            val needsDetailsFetch = !cardHasDescription
-            val detailsData: Map<String, Any>? = if (needsDetailsFetch) {
-                try {
-                    firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
-                } catch (e: FirebaseFirestoreException) {
-                    if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                        Timber.w("job_details denied for jobId=%s; returning card-only data", jobId)
-                        null
-                    } else {
-                        throw e
-                    }
+            val detailsData: Map<String, Any>? = try {
+                firestore.collection(JOB_DETAILS_COLLECTION).document(jobId).get().await().data
+            } catch (e: FirebaseFirestoreException) {
+                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    Timber.w("job_details denied for jobId=%s; returning card-only data", jobId)
+                    null
+                } else {
+                    throw e
                 }
-            } else {
-                null
             }
-            Timber.d("getJobById - hit (detailsFetch=%s)", needsDetailsFetch)
+            Timber.d("getJobById - hit (detailsFetch=true)")
             Result.success(mergeJobWithDetails(jobId, coreData, detailsData))
         } catch (e: Exception) {
             Timber.e("getJobById - Error: %s", e.message)
@@ -783,8 +735,8 @@ class JobFirestoreService @Inject constructor(
     
     /**
      * Update a job posting.
-     * `jobmetadata` = card data (title, salary, location, status...).
-     * `job_details`  = description, contact, vacancies, benefits, etc. (no duplicates).
+     * `jobmetadata` = lean card/search data (title, salary, location, status, vacancies, first image).
+     * `job_details`  = description, contact, requirements, benefits, image gallery, etc. (no duplicates).
      */
     suspend fun updateJob(jobId: String, updates: Map<String, Any>): Result<Unit> {
         return try {
@@ -795,6 +747,15 @@ class JobFirestoreService @Inject constructor(
 
             val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()
+            listOf(
+                "jobType",
+                "description",
+                "benefits",
+                "gender",
+                "experienceRequired",
+                "educationRequired",
+                "companyCity"
+            ).forEach { cardUpdates[it] = FieldValue.delete() }
 
             if (data.containsKey("title")) {
                 val title = normalizeString(data["title"])
@@ -810,9 +771,7 @@ class JobFirestoreService @Inject constructor(
                 cardUpdates["salaryType"] = normalizeString(data["salaryType"]).uppercase().ifBlank { "DAILY" }
             }
             if (data.containsKey("jobType")) {
-                val v = normalizeString(data["jobType"])
-                if (v.isBlank()) return Result.failure(IllegalArgumentException("Job type is required"))
-                cardUpdates["jobType"] = v
+                cardUpdates["jobType"] = FieldValue.delete()
             }
 
             val providedLocation = data["location"] as? Map<*, *>
@@ -848,16 +807,11 @@ class JobFirestoreService @Inject constructor(
                     cardUpdates["jobImageUrl"] = v
                 }
             }
-
             // Details-only fields (must match firestore.rules for job_details).
-            // Apr 2026: description, benefits, gender,
-            // experienceRequired are also mirrored onto jobmetadata so the
-            // worker job-description screen renders without a second fetch.
             if (data.containsKey("description")) {
                 val v = normalizeString(data["description"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Description is required"))
                 detailsUpdates["description"] = v
-                cardUpdates["description"] = v
             }
             if (data.containsKey("contactNumber")) {
                 val v = normalizeString(data["contactNumber"])
@@ -867,29 +821,22 @@ class JobFirestoreService @Inject constructor(
             if (data.containsKey("gender")) {
                 val v = normalizeString(data["gender"]).ifBlank { "Any" }
                 detailsUpdates["gender"] = v
-                cardUpdates["gender"] = v
             }
             if (data.containsKey("experienceRequired")) {
                 val v = normalizeString(data["experienceRequired"]).ifBlank { "No Experience Required" }
                 detailsUpdates["experienceRequired"] = v
-                cardUpdates["experienceRequired"] = v
             }
             if (data.containsKey("educationRequired")) {
                 val v = normalizeString(data["educationRequired"]).ifBlank { "No qualification required" }
                 detailsUpdates["educationRequired"] = v
-                cardUpdates["educationRequired"] = v
             }
             if (data.containsKey("addressText")) {
                 val city = extractCityFromAddress(normalizeString(data["addressText"]))
                 if (city.isNotBlank()) detailsUpdates["companyCity"] = city
             }
-            // `companyCity` no longer belongs in jobmetadata. Delete it on
-            // every card edit so legacy card docs become lean automatically.
-            cardUpdates["companyCity"] = FieldValue.delete()
             if (data.containsKey("vacancies")) {
                 val v = (data["vacancies"] as? Number)?.toInt()
                     ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
-                detailsUpdates["vacancies"] = v
                 // Mirror onto the slim card payload so list views keep up.
                 cardUpdates["vacancies"] = v
             }
@@ -897,7 +844,6 @@ class JobFirestoreService @Inject constructor(
             if (data.containsKey("benefits")) {
                 val v = parseBenefits(data["benefits"])
                 detailsUpdates["benefits"] = v
-                cardUpdates["benefits"] = v
             }
 
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
