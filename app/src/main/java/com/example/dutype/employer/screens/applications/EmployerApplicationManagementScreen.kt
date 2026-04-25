@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.components.ApplicationListItemShimmer
 import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getDisplayName
@@ -45,6 +46,7 @@ import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
 
@@ -62,6 +64,13 @@ fun EmployerApplicationManagementScreen(
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
+    val scope = rememberCoroutineScope()
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
+        )
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
 
@@ -77,6 +86,8 @@ fun EmployerApplicationManagementScreen(
     // FINTECH: Contact Unlock Dialog State
     var showUnlockDialog by remember { mutableStateOf(false) }
     var pendingUnlockApplication by remember { mutableStateOf<JobApplication?>(null) }
+    var pendingRatingApplication by remember { mutableStateOf<JobApplication?>(null) }
+    var showRatingSheet by remember { mutableStateOf(false) }
     var isProcessingPayment by remember { mutableStateOf(false) }
     var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
     var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
@@ -136,6 +147,42 @@ fun EmployerApplicationManagementScreen(
                         Toast.makeText(context, context.getString(R.string.payment_failed_error, error), Toast.LENGTH_SHORT).show()
                     }
                 )
+            }
+        )
+    }
+
+    if (showRatingSheet && pendingRatingApplication != null) {
+        RatingBottomSheet(
+            isVisible = showRatingSheet,
+            targetName = pendingRatingApplication!!.workerName.ifBlank { "this worker" },
+            targetRole = "WORKER",
+            onDismiss = {
+                showRatingSheet = false
+                pendingRatingApplication = null
+            },
+            onSubmit = { rating, review, tags ->
+                pendingRatingApplication?.let { application ->
+                    scope.launch {
+                        ratingService.submitRating(
+                            jobId = application.jobId,
+                            targetUserId = application.workerId,
+                            rating = rating,
+                            review = review,
+                            tags = tags
+                        ).fold(
+                            onSuccess = { result ->
+                                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                                if (result.success) {
+                                    showRatingSheet = false
+                                    pendingRatingApplication = null
+                                }
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
             }
         )
     }
@@ -241,6 +288,17 @@ fun EmployerApplicationManagementScreen(
                                     newStatus = newStatus,
                                     notes = notes
                                 )
+                            },
+                            onRateWorker = {
+                                scope.launch {
+                                    val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
+                                    if (alreadyRated) {
+                                        Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        pendingRatingApplication = application
+                                        showRatingSheet = true
+                                    }
+                                }
                             }
                         )
                     }
@@ -473,9 +531,17 @@ private fun ApplicationCard(
     isContactUnlocked: Boolean = true,
     onClick: () -> Unit,
     onUnlockContact: () -> Unit = {},
-    onStatusUpdate: (ApplicationStatus, String?) -> Unit
+    onStatusUpdate: (ApplicationStatus, String?) -> Unit,
+    onRateWorker: () -> Unit = {}
 ) {
     val workerEmail = application.workerEmail.orEmpty()
+    val threeHoursMillis = 3L * 60 * 60 * 1000
+    val ratingClockNow = remember(application.id, application.hiredAt, application.createdAt) {
+        System.currentTimeMillis()
+    }
+    val ratingAvailableFrom = application.hiredAt.takeIf { it > 0L } ?: application.createdAt
+    val canRateWorker = application.status == ApplicationStatus.HIRED &&
+        ratingClockNow - ratingAvailableFrom >= threeHoursMillis
     // Determine display name - fallback to "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
@@ -691,6 +757,26 @@ private fun ApplicationCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(stringResource(R.string.accept), style = AppTypography.labelLarge, color = Color.White)
                     }
+                }
+            }
+
+            if (canRateWorker) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onRateWorker,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFF59E0B)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Rate Worker", style = AppTypography.labelLarge)
                 }
             }
             

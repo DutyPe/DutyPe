@@ -80,6 +80,7 @@ fun WorkerProfileDetailsScreen(
     var workerRating by remember { mutableStateOf(0f) }
     var workerTotalRatings by remember { mutableStateOf(0) }
     var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var workerGivenReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
     var showReviewsSheet by remember { mutableStateOf(false) }
     var isReviewsLoading by remember { mutableStateOf(false) }
     val ratingService = remember {
@@ -301,6 +302,7 @@ fun WorkerProfileDetailsScreen(
                                         scope.launch {
                                             isReviewsLoading = true
                                             workerReviews = ratingService.getUserRatings(currentUserId)
+                                            workerGivenReviews = ratingService.getRatingsGivenByUser(currentUserId)
                                             isReviewsLoading = false
                                             showReviewsSheet = true
                                         }
@@ -459,7 +461,11 @@ fun WorkerProfileDetailsScreen(
         averageRating = workerRating,
         totalRatings = workerTotalRatings,
         reviews = workerReviews,
+        givenReviews = workerGivenReviews,
         isLoading = isReviewsLoading,
+        isGivenLoading = isReviewsLoading,
+        receivedTabTitle = "Employers rated you",
+        givenTabTitle = "You rated employers",
         onDismiss = { showReviewsSheet = false }
     )
 }

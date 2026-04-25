@@ -457,7 +457,8 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
         get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
 
-      // STATE MACHINE: only status can change, and only along legal transitions.
+      // STATE MACHINE: only status can change, except the employer may set
+      // hiredAt while moving an application into hired for rating cooldowns.
       //   applied      → shortlisted | rejected | hired   (employer)
       //   applied      → rejected (worker withdraw)
       //   shortlisted  → rejected | hired                  (employer)
@@ -467,23 +468,30 @@ service cloud.firestore {
       //   rejected     → (terminal, immutable)
       // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
       allow update: if isSignedIn() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hiredAt']) &&
         resource.data.status in ['applied', 'shortlisted', 'hired'] &&
         (
           (
             resource.data.workerId == request.auth.uid &&
             request.resource.data.status == 'withdrawn' &&
-            resource.data.status in ['applied', 'shortlisted']
+            resource.data.status in ['applied', 'shortlisted'] &&
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])
           ) ||
           (
             resource.data.employerId == request.auth.uid &&
             (
               (resource.data.status == 'applied' &&
-                 request.resource.data.status in ['shortlisted', 'rejected', 'hired']) ||
+                 request.resource.data.status in ['shortlisted', 'rejected'] &&
+                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])) ||
               (resource.data.status == 'shortlisted' &&
-                 request.resource.data.status in ['rejected', 'hired']) ||
+                 request.resource.data.status == 'rejected' &&
+                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])) ||
+              (resource.data.status in ['applied', 'shortlisted'] &&
+                 request.resource.data.status == 'hired' &&
+                 request.resource.data.hiredAt is timestamp) ||
               (resource.data.status == 'hired' &&
-                 request.resource.data.status == 'completed')
+                 request.resource.data.status == 'completed' &&
+                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt']))
             )
           )
         );
@@ -537,7 +545,7 @@ service cloud.firestore {
          resource.data.toUserId == request.auth.uid);
 
       allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'tags', 'raterName', 'raterCompanyName', 'targetName', 'targetCompanyName', 'createdAt']) &&
         request.resource.data.keys().hasAll(['jobId', 'fromUserId', 'toUserId', 'rating', 'createdAt']) &&
         request.resource.data.fromUserId == request.auth.uid &&
         request.resource.data.fromUserId != request.resource.data.toUserId &&
@@ -549,6 +557,16 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp &&
         (!('review' in request.resource.data) ||
           (request.resource.data.review is string && request.resource.data.review.size() <= 1000)) &&
+        (!('tags' in request.resource.data) ||
+          (request.resource.data.tags is list && request.resource.data.tags.size() <= 10)) &&
+        (!('raterName' in request.resource.data) ||
+          (request.resource.data.raterName is string && request.resource.data.raterName.size() <= 120)) &&
+        (!('raterCompanyName' in request.resource.data) ||
+          (request.resource.data.raterCompanyName is string && request.resource.data.raterCompanyName.size() <= 200)) &&
+        (!('targetName' in request.resource.data) ||
+          (request.resource.data.targetName is string && request.resource.data.targetName.size() <= 120)) &&
+        (!('targetCompanyName' in request.resource.data) ||
+          (request.resource.data.targetCompanyName is string && request.resource.data.targetCompanyName.size() <= 200)) &&
         // Must be linked to a real hired application (either direction).
         (
           (

@@ -70,7 +70,6 @@ async function testFlexibleSalary() {
         postedAt: Date.now(),
         contactNumber: '9390515834',
         jobType: 'FULL_TIME',
-        ageRange: '18-45',
         gender: 'Any',
         applicationCount: 0,
         landmark: 'Test Landmark',

@@ -129,11 +129,7 @@ fun Map<String, Any?>.toJobListing(isSaved: Boolean = false): JobListing {
         benefits = (this["benefits"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList(),
         distance = (this["distance"] as? Number)?.toDouble(),
         isSaved = isSaved,
-        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() },
-        jobImageUrls = (this["jobImageUrls"] as? List<*>)
-            ?.mapNotNull { it?.toString()?.takeIf { url -> url.isNotBlank() } }
-            ?: (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }?.let { listOf(it) }
-            ?: emptyList()
+        jobImageUrl = (this["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
     )
 }
 
@@ -231,6 +227,5 @@ fun JobListingSummary.toJobListing(): JobListing = JobListing(
     vacancies = vacancies,
     distance = distance,
     isSaved = isSaved,
-    jobImageUrl = jobImageUrl,
-    jobImageUrls = jobImageUrl?.let { listOf(it) } ?: emptyList()
+    jobImageUrl = jobImageUrl
 )

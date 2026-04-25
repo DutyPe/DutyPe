@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
@@ -246,7 +247,7 @@ fun PostJobScreen(
     var customPerks by remember { mutableStateOf(listOf<String>()) }
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
-    var ageRange by remember { mutableStateOf("18-30") }
+    var educationRequired by remember { mutableStateOf("No qualification required") }
     var gender by remember { mutableStateOf("Both") }
     
     // Employer Trust Tier (loaded from profile)
@@ -274,7 +275,22 @@ fun PostJobScreen(
             baseExperienceLevels
         }
     }
-    val ageRanges = listOf("18-30", "30-45", "Any age")
+    val baseEducationRequirements = listOf(
+        "No qualification required",
+        "10th pass",
+        "12th pass",
+        "ITI",
+        "Diploma",
+        "Graduate",
+        "Any qualification"
+    )
+    val educationRequirements = remember(educationRequired) {
+        if (educationRequired.isNotBlank() && educationRequired !in baseEducationRequirements) {
+            baseEducationRequirements + educationRequired
+        } else {
+            baseEducationRequirements
+        }
+    }
     val genders = listOf("Male", "Female", "Both")
 
     // UI state
@@ -336,7 +352,7 @@ fun PostJobScreen(
                     selectedPerks.isNotEmpty() ||
                     customPerks.isNotEmpty() ||
                     experienceLevel != "No Experience Required" ||
-                    ageRange != "18-30" ||
+                    educationRequired != "No qualification required" ||
                     gender != "Both" ||
                     shiftTiming != ShiftTiming.FLEXIBLE ||
                     urgency != JobUrgency.NORMAL ||
@@ -360,7 +376,7 @@ fun PostJobScreen(
                         perks = selectedPerks,
                         workType = workType,
                         experienceLevel = experienceLevel,
-                        ageRange = ageRange,
+                        educationRequired = educationRequired,
                         gender = gender,
                         requirements = "",
                         benefits = ""
@@ -388,7 +404,7 @@ fun PostJobScreen(
         customPerks,
         workType,
         experienceLevel,
-        ageRange,
+        educationRequired,
         gender
     ) {
         draftTrigger.value = System.currentTimeMillis()
@@ -480,7 +496,7 @@ fun PostJobScreen(
                     selectedPerks = savedDraft.perks
                     workType = savedDraft.workType
                     experienceLevel = savedDraft.experienceLevel
-                    ageRange = savedDraft.ageRange
+                    educationRequired = savedDraft.educationRequired
                     gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
                         "Both"
                     } else {
@@ -672,6 +688,7 @@ fun PostJobScreen(
             "description" to descriptionWithPayText,
             "gender" to gender,
             "experienceRequired" to experienceLevel,
+            "educationRequired" to educationRequired,
             "shiftTiming" to (
                 // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
                 if (shiftTiming == ShiftTiming.CUSTOM &&
@@ -1467,9 +1484,9 @@ fun PostJobScreen(
                                         experienceLevel = experienceLevel,
                                         onExperienceLevelChange = { experienceLevel = it },
                                         experienceLevels = experienceLevels,
-                                        ageRange = ageRange,
-                                        onAgeRangeChange = { ageRange = it },
-                                        ageRanges = ageRanges,
+                                        educationRequired = educationRequired,
+                                        onEducationRequiredChange = { educationRequired = it },
+                                        educationRequirements = educationRequirements,
                                         gender = gender,
                                         onGenderChange = { gender = it },
                                         genders = genders
@@ -2974,9 +2991,9 @@ fun RequirementsSection(
     experienceLevel: String,
     onExperienceLevelChange: (String) -> Unit,
     experienceLevels: List<String>,
-    ageRange: String,
-    onAgeRangeChange: (String) -> Unit,
-    ageRanges: List<String>,
+    educationRequired: String,
+    onEducationRequiredChange: (String) -> Unit,
+    educationRequirements: List<String>,
     gender: String,
     onGenderChange: (String) -> Unit,
     genders: List<String>
@@ -3032,21 +3049,18 @@ fun RequirementsSection(
             )
             
             Spacer(modifier = Modifier.height(18.dp))
-            
-            // Age Range
-            // Batch-p #11.2: chips are 18-30 / 30-45 / Any age plus a
-            // free-form "Add your own" entry for cases like "21-28".
+
             RequirementChipSection(
-                title = stringResource(R.string.preferred_age_range),
-                icon = Icons.Default.Person,
-                options = ageRanges,
-                selectedOption = ageRange,
-                onOptionSelected = onAgeRangeChange,
-                selectedColor = Color(0xFF2563EB),
+                title = "Education required",
+                icon = Icons.Default.School,
+                options = educationRequirements,
+                selectedOption = educationRequired,
+                onOptionSelected = onEducationRequiredChange,
+                selectedColor = Color(0xFF7C3AED),
                 allowCustomOption = true,
-                customOptionHint = "Add your own age range"
+                customOptionHint = "Add education requirement"
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
             
             // Gender Preference

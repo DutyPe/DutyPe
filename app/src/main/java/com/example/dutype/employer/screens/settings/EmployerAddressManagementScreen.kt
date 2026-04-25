@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -531,7 +532,10 @@ private fun AddressCard(
                         text = address.name,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (address.isActive) Color(0xFF1F2937) else Color(0xFF9CA3AF)
+                        color = if (address.isActive) Color(0xFF1F2937) else Color(0xFF9CA3AF),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     if (address.isDefault) {
                         Spacer(modifier = Modifier.width(8.dp))
@@ -546,6 +550,8 @@ private fun AddressCard(
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF10B981),
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -578,7 +584,9 @@ private fun AddressCard(
                 text = address.address,
                 fontSize = 13.sp,
                 color = if (address.isActive) Color(0xFF6B7280) else Color(0xFF9CA3AF),
-                lineHeight = 18.sp
+                lineHeight = 18.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
             
             Spacer(modifier = Modifier.height(12.dp))

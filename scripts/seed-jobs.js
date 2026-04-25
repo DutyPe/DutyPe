@@ -219,7 +219,6 @@ function generateJob(category) {
     category: category,
     jobType: payType === "MONTHLY" ? "FULL_TIME" : "PART_TIME",
     experienceRequired: randomElement(["No experience required", "1+ year experience", "2+ years experience"]),
-    ageRange: randomElement(["18-35", "20-40", "25-45", "18-50", "Any"]),
     gender: randomElement(["Male", "Female", "Any"]),
     applicationCount: randomNumber(0, 20),
     landmark: randomElement(["Near Metro", "Near Bus Stop", "Main Road", "Near Market", "Near Hospital"]),

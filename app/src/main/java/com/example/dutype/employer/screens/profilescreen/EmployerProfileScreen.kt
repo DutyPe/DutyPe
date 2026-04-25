@@ -20,7 +20,6 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,6 +54,7 @@ import timber.log.Timber
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import com.dutype.app.R
@@ -83,6 +83,7 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
+    var companyEmail by remember { mutableStateOf("") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -103,6 +104,12 @@ fun EmployerProfileScreen(
             try {
                 // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
                 profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
+
+                profileCompletionViewModel.getEmployerProfileData(currentUser.uid).onSuccess { data ->
+                    companyEmail = (data["email"] as? String)
+                        ?: (data["contactEmail"] as? String)
+                        ?: ""
+                }
                 
                 // Use metadata for profile image URL
                 profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
@@ -370,12 +377,6 @@ fun EmployerProfileScreen(
                                             maxLines = 1,
                                             modifier = Modifier.weight(1f, fill = false)
                                         )
-                                        Icon(
-                                            imageVector = Icons.Default.Verified,
-                                            contentDescription = "Verified",
-                                            tint = Color(0xFF10B981),
-                                            modifier = Modifier.size(16.dp)
-                                        )
                                     }
                                     if (companyPhone.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -384,6 +385,17 @@ fun EmployerProfileScreen(
                                             style = AppTypography.bodyMedium.copy(
                                                 color = WorkerColors.TextSecondary
                                             )
+                                        )
+                                    }
+                                    if (companyEmail.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = companyEmail,
+                                            style = AppTypography.bodySmall.copy(
+                                                color = WorkerColors.TextSecondary
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 } else {

@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -824,35 +823,6 @@ fun MandatoryEmployerProfileSetupContent(
     }
 }
 
-@Composable
-private fun BusinessLocationMapPreview(
-    latitude: Double,
-    longitude: Double,
-    address: String,
-    onLocationPicked: (Double, Double) -> Unit
-) {
-    if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
-        return
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
-    ) {
-        SelectableLocationMap(
-            latitude = latitude,
-            longitude = longitude,
-            markerTitle = "Business location",
-            markerSnippet = address.takeIf { it.isNotBlank() },
-            modifier = Modifier.fillMaxSize(),
-            onLocationPicked = onLocationPicked
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompanyInformationStep(
@@ -1106,16 +1076,6 @@ private fun ContactDetailsStep(
 ) {
     var isFetchingLocation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    fun updatePinnedBusinessLocation(latitude: Double, longitude: Double) {
-        onBusinessLocationChange(latitude, longitude)
-        coroutineScope.launch {
-            val locationInfo = locationService.getLocationFromCoordinates(latitude, longitude)
-            val resolvedAddress = locationInfo?.getFullAddress()?.takeIf { it.isNotBlank() }
-                ?: "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}"
-            onBusinessAddressChange(resolvedAddress)
-        }
-    }
-    
     Column(
         modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1313,12 +1273,6 @@ private fun ContactDetailsStep(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
-            BusinessLocationMapPreview(
-                latitude = businessLatitude,
-                longitude = businessLongitude,
-                address = businessAddress,
-                onLocationPicked = ::updatePinnedBusinessLocation
-            )
         }
         
         // Gender Selection
@@ -1333,7 +1287,7 @@ private fun ContactDetailsStep(
             )
             
             val genderOptions = listOf("Male", "Female", "Other")
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1343,16 +1297,15 @@ private fun ContactDetailsStep(
             ) {
                 genderOptions.forEach { genderOption ->
                     Row(
-                        modifier = Modifier
-                            .selectable(
-                                selected = (genderOption == gender),
-                                onClick = { onGenderChange(genderOption) },
-                                role = Role.RadioButton
-                            ),
+                        modifier = Modifier.selectable(
+                            selected = genderOption == gender,
+                            onClick = { onGenderChange(genderOption) },
+                            role = Role.RadioButton
+                        ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = (genderOption == gender),
+                            selected = genderOption == gender,
                             onClick = null,
                             colors = RadioButtonDefaults.colors(
                                 selectedColor = Color(0xFF8B5CF6),

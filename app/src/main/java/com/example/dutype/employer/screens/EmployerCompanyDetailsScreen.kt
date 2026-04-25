@@ -91,6 +91,9 @@ fun EmployerCompanyDetailsScreen(
     var employerReviews by remember {
         mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList())
     }
+    var employerGivenReviews by remember {
+        mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList())
+    }
     var showReviewsSheet by remember { mutableStateOf(false) }
     var isReviewsLoading by remember { mutableStateOf(false) }
     val ratingService = remember {
@@ -162,7 +165,9 @@ fun EmployerCompanyDetailsScreen(
                 employerProfileData.fold(
                     onSuccess = { data ->
                         companyName = data["companyName"] as? String ?: ""
-                        contactEmail = data["contactEmail"] as? String ?: ""
+                        contactEmail = (data["contactEmail"] as? String)
+                            ?: (data["email"] as? String)
+                            ?: ""
                         contactPhone = data["contactPhone"] as? String
                             ?: data["phone"] as? String ?: ""
                         businessAddress = data["businessAddress"] as? String ?: ""
@@ -287,6 +292,7 @@ fun EmployerCompanyDetailsScreen(
                                     scope.launch {
                                         isReviewsLoading = true
                                         employerReviews = ratingService.getUserRatings(currentUserId)
+                                        employerGivenReviews = ratingService.getRatingsGivenByUser(currentUserId)
                                         isReviewsLoading = false
                                         showReviewsSheet = true
                                     }
@@ -368,6 +374,7 @@ fun EmployerCompanyDetailsScreen(
                                     val data = mutableMapOf<String, Any>(
                                         "companyName" to companyName,
                                         "contactEmail" to contactEmail,
+                                        "email" to contactEmail,
                                         "businessAddress" to businessAddress,
                                         "industry" to industry,
                                         "companySize" to companySize
@@ -406,7 +413,11 @@ fun EmployerCompanyDetailsScreen(
         averageRating = employerRating,
         totalRatings = employerTotalRatings,
         reviews = employerReviews,
+        givenReviews = employerGivenReviews,
         isLoading = isReviewsLoading,
+        isGivenLoading = isReviewsLoading,
+        receivedTabTitle = "Workers rated you",
+        givenTabTitle = "You rated workers",
         onDismiss = { showReviewsSheet = false }
     )
 }

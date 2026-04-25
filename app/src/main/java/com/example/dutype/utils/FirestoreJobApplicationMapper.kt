@@ -29,6 +29,7 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
             data["status"]?.toString() ?: ApplicationStatus.APPLIED.toFirestoreValue()
         ),
         createdAt = data["createdAt"].toEpochMillis().takeIf { it > 0L } ?: System.currentTimeMillis(),
+        hiredAt = data["hiredAt"].toEpochMillis(),
         jobTitle = data["jobTitle"]?.toString().orEmpty(),
         jobLocation = data["jobLocation"]?.toString().orEmpty(),
         companyName = data["companyName"]?.toString().orEmpty(),

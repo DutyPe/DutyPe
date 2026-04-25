@@ -202,7 +202,6 @@ function createJobObject(jobData) {
     category: category,
     jobType: payInfo.type === 'MONTHLY' ? 'FULL_TIME' : 'PART_TIME',
     experienceRequired: "No experience required",
-    ageRange: "18-50",
     gender: "Any",
     applicationCount: 0,
     landmark: "",

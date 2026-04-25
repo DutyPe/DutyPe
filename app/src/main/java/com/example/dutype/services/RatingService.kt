@@ -25,6 +25,9 @@ data class Rating(
     val fromUserId: String = "",
     val toUserId: String = "",
     val raterName: String = "",
+    val raterCompanyName: String = "",
+    val targetName: String = "",
+    val targetCompanyName: String = "",
     val rating: Int = 0,            // 1-5 stars
     val review: String = "",
     val tags: List<String> = emptyList(),
@@ -45,6 +48,37 @@ class RatingService @Inject constructor(
         const val RATINGS_COLLECTION = "ratings"
         const val APPLICATIONS_COLLECTION = "applications"
         const val USERS_COLLECTION = "users"
+        const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
+        const val WORKER_PROFILES_COLLECTION = "worker_profiles"
+    }
+
+    private suspend fun resolveRaterIdentity(userId: String): Pair<String, String> {
+        var raterName = auth.currentUser?.displayName.orEmpty().trim()
+        var companyName = ""
+
+        runCatching {
+            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
+            raterName = userDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
+                ?: userDoc.getString("name")?.trim()?.takeIf { it.isNotBlank() }
+                ?: raterName
+        }
+
+        runCatching {
+            val workerDoc = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId).get().await()
+            raterName = workerDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
+                ?: workerDoc.getString("name")?.trim()?.takeIf { it.isNotBlank() }
+                ?: raterName
+        }
+
+        runCatching {
+            val employerDoc = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId).get().await()
+            companyName = employerDoc.getString("companyName")?.trim().orEmpty()
+            raterName = employerDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
+                ?: employerDoc.getString("name")?.trim()?.takeIf { it.isNotBlank() }
+                ?: raterName
+        }
+
+        return raterName.ifBlank { "DutyPe user" } to companyName
     }
 
     private suspend fun resolveTargetUserId(
@@ -71,6 +105,39 @@ class RatingService @Inject constructor(
         }
 
         return normalizedProvided
+    }
+
+    private suspend fun resolveTargetIdentity(
+        jobId: String,
+        currentUserId: String,
+        targetUserId: String
+    ): Pair<String, String> {
+        val candidateApplicationIds = listOf(
+            "${jobId}_${currentUserId}",
+            "${jobId}_${targetUserId}"
+        ).distinct()
+
+        for (applicationId in candidateApplicationIds) {
+            val applicationDoc = runCatching {
+                firestore.collection(APPLICATIONS_COLLECTION).document(applicationId).get().await()
+            }.getOrNull() ?: continue
+
+            if (!applicationDoc.exists()) continue
+
+            val workerId = applicationDoc.getString("workerId").orEmpty()
+            val employerId = applicationDoc.getString("employerId").orEmpty()
+            val workerName = applicationDoc.getString("workerName").orEmpty().trim()
+            val companyName = applicationDoc.getString("companyName").orEmpty().trim()
+
+            if (targetUserId == workerId) {
+                return workerName.ifBlank { "Worker" } to ""
+            }
+            if (targetUserId == employerId) {
+                return companyName.ifBlank { "Employer" } to companyName
+            }
+        }
+
+        return "DutyPe user" to ""
     }
 
     /**
@@ -115,14 +182,32 @@ class RatingService @Inject constructor(
                 return Result.success(RatingResult(false, "You have already rated this"))
             }
 
-            val ratingData = mapOf(
+            val (raterName, raterCompanyName) = resolveRaterIdentity(currentUser.uid)
+            val (targetName, targetCompanyName) = resolveTargetIdentity(
+                jobId = jobId,
+                currentUserId = currentUser.uid,
+                targetUserId = resolvedTargetUserId
+            )
+
+            val ratingData = mutableMapOf<String, Any>(
                 "jobId" to jobId,
                 "fromUserId" to currentUser.uid,
                 "toUserId" to resolvedTargetUserId,
                 "rating" to rating,
                 "review" to review,
+                "raterName" to raterName,
+                "targetName" to targetName,
                 "createdAt" to Timestamp.now()
             )
+            if (raterCompanyName.isNotBlank()) {
+                ratingData["raterCompanyName"] = raterCompanyName
+            }
+            if (targetCompanyName.isNotBlank()) {
+                ratingData["targetCompanyName"] = targetCompanyName
+            }
+            if (tags.isNotEmpty()) {
+                ratingData["tags"] = tags.take(10)
+            }
 
             firestore.collection(RATINGS_COLLECTION)
                 .document(ratingId)
@@ -184,6 +269,9 @@ class RatingService @Inject constructor(
                         fromUserId = data["fromUserId"] as? String ?: "",
                         toUserId = data["toUserId"] as? String ?: "",
                         raterName = data["raterName"] as? String ?: "",
+                        raterCompanyName = data["raterCompanyName"] as? String ?: "",
+                        targetName = data["targetName"] as? String ?: "",
+                        targetCompanyName = data["targetCompanyName"] as? String ?: "",
                         rating = (data["rating"] as? Number)?.toInt() ?: 0,
                         review = data["review"] as? String ?: "",
                         tags = (data["tags"] as? List<*>)?.filterIsInstance<String>().orEmpty(),
@@ -197,6 +285,43 @@ class RatingService @Inject constructor(
                 .sortedByDescending { it.createdAt }
         } catch (e: Exception) {
             Timber.e(e, "Failed to get user ratings for $userId")
+            emptyList()
+        }
+    }
+
+    suspend fun getRatingsGivenByUser(userId: String): List<Rating> {
+        return try {
+            val snapshot = firestore.collection(RATINGS_COLLECTION)
+                .whereEqualTo("fromUserId", userId)
+                .limit(100)
+                .get()
+                .await()
+
+            snapshot.documents
+                .mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    Rating(
+                        id = doc.id,
+                        jobId = data["jobId"] as? String ?: "",
+                        fromUserId = data["fromUserId"] as? String ?: "",
+                        toUserId = data["toUserId"] as? String ?: "",
+                        raterName = data["raterName"] as? String ?: "",
+                        raterCompanyName = data["raterCompanyName"] as? String ?: "",
+                        targetName = data["targetName"] as? String ?: "",
+                        targetCompanyName = data["targetCompanyName"] as? String ?: "",
+                        rating = (data["rating"] as? Number)?.toInt() ?: 0,
+                        review = data["review"] as? String ?: "",
+                        tags = (data["tags"] as? List<*>)?.filterIsInstance<String>().orEmpty(),
+                        createdAt = when (val created = data["createdAt"]) {
+                            is Number -> created.toLong()
+                            is Timestamp -> created.toDate().time
+                            else -> 0L
+                        }
+                    )
+                }
+                .sortedByDescending { it.createdAt }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get ratings given by $userId")
             emptyList()
         }
     }

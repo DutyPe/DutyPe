@@ -54,7 +54,7 @@ function generateJobLandingPage(job, jobId) {
     const salary = job.salary ? `₹${job.salary}/${job.salaryType || "FIXED"}` : "Salary Negotiable";
     const description = `💰 ${salary} | 📍 ${job.location}`;
     const url = `https://dutype-860ac.web.app/jobs/${jobId}`;
-    const imageUrl = job.imageUrl || "https://dutype-860ac.web.app/logo.png";
+    const imageUrl = job.jobImageUrl || "https://dutype-860ac.web.app/logo.png";
     // CRITICAL FIX: Use App Link (not Intent URL) for INSTANT opening
     // App Links are verified and open instantly without any dialog or webpage
     const appLink = `https://dutype-860ac.web.app/jobs/${jobId}`;

@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
@@ -66,10 +64,10 @@ import com.dutype.app.R
  */
 @Composable
 fun JobImageUploadSection(
-    selectedImageUris: List<Uri>,
+    selectedImageUri: Uri?,
     isUploading: Boolean,
     onImageSelected: (Uri) -> Unit,
-    onImageRemoved: (Uri) -> Unit,
+    onImageRemoved: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -167,8 +165,7 @@ fun JobImageUploadSection(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Image preview or upload area
-            if (selectedImageUris.isNotEmpty()) {
-                val primaryImageUri = selectedImageUris.first()
+            if (selectedImageUri != null) {
                 // Show selected image with remove option
                 Box(
                     modifier = Modifier
@@ -178,7 +175,7 @@ fun JobImageUploadSection(
                         .background(Color(0xFFF3F4F6))
                 ) {
                     OptimizedJobImage(
-                        imageUrl = primaryImageUri.toString(),
+                        imageUrl = selectedImageUri.toString(),
                         contentDescription = "Job image preview",
                         modifier = Modifier
                             .fillMaxSize()
@@ -213,7 +210,7 @@ fun JobImageUploadSection(
                     // Remove button
                     if (!isUploading) {
                         IconButton(
-                            onClick = { onImageRemoved(primaryImageUri) },
+                            onClick = onImageRemoved,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
@@ -231,42 +228,6 @@ fun JobImageUploadSection(
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
-                
-                if (selectedImageUris.size > 1) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(selectedImageUris) { uri ->
-                            Box(
-                                modifier = Modifier
-                                    .size(58.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFFF3F4F6))
-                            ) {
-                                OptimizedJobImage(
-                                    imageUrl = uri.toString(),
-                                    contentDescription = "Job image",
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                if (!isUploading) {
-                                    IconButton(
-                                        onClick = { onImageRemoved(uri) },
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .size(20.dp)
-                                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Remove image",
-                                            tint = Color(0xFFEF4444),
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
                 Text(
                     text = "1 image selected",

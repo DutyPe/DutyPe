@@ -64,7 +64,6 @@ const relianceJobs = [
       'Basic computer knowledge'
     ],
     benefits: ['PF', 'ESI', 'Performance incentives', 'Employee discount'],
-    ageRange: '18-35',
     gender: 'Any',
     jobType: 'FULL_TIME'
   },
@@ -82,7 +81,6 @@ const relianceJobs = [
       'Honest and reliable'
     ],
     benefits: ['PF', 'ESI', 'Performance bonus', 'Employee discount'],
-    ageRange: '18-35',
     gender: 'Any',
     jobType: 'FULL_TIME'
   },
@@ -100,7 +98,6 @@ const relianceJobs = [
       'Presentable appearance'
     ],
     benefits: ['PF', 'ESI', 'Sales incentives', 'Employee discount', 'Fashion training'],
-    ageRange: '18-35',
     gender: 'Any',
     jobType: 'FULL_TIME'
   },
@@ -119,7 +116,6 @@ const relianceJobs = [
       'Leadership qualities'
     ],
     benefits: ['PF', 'ESI', 'Performance incentives', 'Employee discount', 'Career growth'],
-    ageRange: '22-40',
     gender: 'Any',
     jobType: 'FULL_TIME'
   }
@@ -159,7 +155,6 @@ async function postRelianceJobs() {
         category: 'OTHER', // CRITICAL: Required for Firestore query filtering
         contactNumber: contactNumber,
         jobType: job.jobType,
-        ageRange: job.ageRange,
         gender: job.gender,
         applicationCount: 0,
         landmark: landmark,
