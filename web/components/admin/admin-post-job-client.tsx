@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 
-// Mirrors the Android app's PostJobScreen enums (jobType / salaryType / urgency / experience / gender).
+// Mirrors the Android app's PostJobScreen enums (jobType / salaryType / urgency / shift / experience / gender).
 const JOB_TYPES: { value: string; label: string }[] = [
   { value: "DELIVERY", label: "Delivery" },
   { value: "DRIVER", label: "Driver" },
@@ -67,6 +67,7 @@ type LocationSuggestion = {
 };
 
 const SALARY_TYPES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"];
+const SHIFTS = ["Flexible", "Day Shift", "Night Shift", "Rotational", "Morning", "Evening"];
 // BUG #5 FIX: Stored values stay LOW/MEDIUM/HIGH (Firestore rules whitelist
 // these), but the user-facing labels now match the Android app's JobUrgency
 // enum (`Today` / `Within 3 days` / `Within 1 week`).
@@ -79,18 +80,9 @@ const GENDERS = ["Any", "Male", "Female"];
 const EXPERIENCE_LEVELS = [
   "No Experience Required",
   "Fresher",
-  "1-2 years",
-  "2-5 years",
+  "1-3 years",
+  "3-5 years",
   "5+ years"
-];
-const QUALIFICATION_LEVELS = [
-  "No qualification required",
-  "Below 10th",
-  "10th pass",
-  "12th pass",
-  "ITI / Diploma",
-  "Graduate",
-  "Any qualification"
 ];
 const COMMON_BENEFITS = [
   "Food",
@@ -116,16 +108,16 @@ const initialForm = {
   urgency: "MEDIUM",
   description: "",
   contactNumber: "",
+  whatsappNumber: "",
   gender: "Any",
   experienceRequired: "No Experience Required",
-  educationRequired: "No qualification required",
-  customQualification: "",
+  shiftTiming: "Flexible",
   workingHours: "",
   vacancies: "1",
   benefits: [] as string[],
   customBenefits: "",
-  // BUG #4 FIX: Default expiry was 15 days; matches Android default of ~30.
   expiresInDays: "30",
+  whatsappSameAsPhone: true
 };
 
 export function AdminPostJobClient() {
@@ -137,7 +129,6 @@ export function AdminPostJobClient() {
   const [form, setForm] = useState(initialForm);
   const [jobTypeManuallySet, setJobTypeManuallySet] = useState(false);
   const [showCoordOverride, setShowCoordOverride] = useState(false);
-  const [showCustomQualification, setShowCustomQualification] = useState(false);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingLocation, setSearchingLocation] = useState(false);
@@ -211,23 +202,6 @@ export function AdminPostJobClient() {
     }));
   }
 
-  function selectQualification(value: string) {
-    setShowCustomQualification(false);
-    setForm((prev) => ({
-      ...prev,
-      educationRequired: value,
-      customQualification: ""
-    }));
-  }
-
-  function updateCustomQualification(value: string) {
-    setForm((prev) => ({
-      ...prev,
-      customQualification: value,
-      educationRequired: value.trim() || "No qualification required"
-    }));
-  }
-
   async function handleGeocode() {
     if (!form.addressText.trim()) {
       setError("Enter an address before geocoding.");
@@ -278,9 +252,9 @@ export function AdminPostJobClient() {
       setError("Address is required.");
       return;
     }
-    const salaryText = form.salary.trim();
-    if (!salaryText || salaryText.length > 60) {
-      setError("Enter salary as a number, range, 12000+, Negotiable, or Based on experience.");
+    const salaryNumber = Number(form.salary);
+    if (!Number.isFinite(salaryNumber) || salaryNumber <= 0) {
+      setError("Salary must be a positive number.");
       return;
     }
     const lat = Number(form.latitude);
@@ -304,7 +278,7 @@ export function AdminPostJobClient() {
           title: form.title.trim(),
           companyName: form.companyName.trim(),
           jobType: form.jobType,
-          salary: salaryText,
+          salary: salaryNumber,
           salaryType: form.salaryType,
           addressText: form.addressText.trim(),
           latitude: lat,
@@ -312,9 +286,10 @@ export function AdminPostJobClient() {
           urgency: form.urgency,
           description: form.description.trim(),
           contactNumber: form.contactNumber.trim(),
+          whatsappNumber: (form.whatsappSameAsPhone ? form.contactNumber : form.whatsappNumber).trim() || undefined,
           gender: form.gender,
           experienceRequired: form.experienceRequired,
-          educationRequired: form.educationRequired,
+          shiftTiming: form.shiftTiming,
           workingHours: form.workingHours.trim() || undefined,
           vacancies: Number(form.vacancies) || 1,
           benefits,
@@ -345,7 +320,6 @@ export function AdminPostJobClient() {
         <p style={{ opacity: 0.7, fontSize: 13 }}>Job ID: <code>{success}</code></p>
         <div className="admin-success-actions">
           <button className="button" onClick={() => setSuccess(null)}>Post another job</button>
-          <button className="button" onClick={() => router.push(`/admin/posters?jobId=${success}`)}>Print poster</button>
           <button className="button ghost" onClick={() => router.push("/admin/jobs")}>View all jobs</button>
         </div>
       </div>
@@ -398,12 +372,18 @@ export function AdminPostJobClient() {
         <h3>2. Compensation & schedule</h3>
         <div className="admin-form-grid">
           <label className="admin-field">
-            <span>Salary / income *</span>
+            <span>Salary amount *</span>
+            {/* BUG #8 FIX: <input type="number"> increments/decrements on
+                mouse-wheel scroll when focused, which silently turned 18000
+                into 17998 etc. Blur on wheel disables that behavior without
+                losing the numeric keypad / validation. */}
             <input
-              type="text"
+              type="number"
+              min={1}
               value={form.salary}
               onChange={(e) => update("salary", e.target.value)}
-              placeholder="e.g. 12000+, 10000-12000, Negotiable"
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+              placeholder="e.g. 18000"
               required
             />
           </label>
@@ -411,6 +391,12 @@ export function AdminPostJobClient() {
             <span>Salary type *</span>
             <select value={form.salaryType} onChange={(e) => update("salaryType", e.target.value)}>
               {SALARY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label className="admin-field">
+            <span>Shift timing</span>
+            <select value={form.shiftTiming} onChange={(e) => update("shiftTiming", e.target.value)}>
+              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <label className="admin-field">
@@ -462,37 +448,6 @@ export function AdminPostJobClient() {
               {EXPERIENCE_LEVELS.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           </label>
-        </div>
-
-        <div className="admin-field">
-          <span>Qualification</span>
-          <div className="admin-chip-row">
-            {QUALIFICATION_LEVELS.map((q) => (
-              <button
-                type="button"
-                key={q}
-                className={`admin-chip ${form.educationRequired === q ? "active" : ""}`}
-                onClick={() => selectQualification(q)}
-              >
-                {q}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={`admin-chip ${showCustomQualification || !QUALIFICATION_LEVELS.includes(form.educationRequired) ? "active" : ""}`}
-              onClick={() => setShowCustomQualification(true)}
-            >
-              Add your own
-            </button>
-          </div>
-          {showCustomQualification || !QUALIFICATION_LEVELS.includes(form.educationRequired) ? (
-            <input
-              value={form.customQualification || (!QUALIFICATION_LEVELS.includes(form.educationRequired) ? form.educationRequired : "")}
-              onChange={(e) => updateCustomQualification(e.target.value)}
-              placeholder="e.g. Nursing certificate, B.Com, basic English"
-              maxLength={200}
-            />
-          ) : null}
         </div>
 
         <div className="admin-field">
@@ -609,7 +564,25 @@ export function AdminPostJobClient() {
             <span>Contact phone *</span>
             <input type="tel" value={form.contactNumber} onChange={(e) => update("contactNumber", e.target.value)} placeholder="+91 9876543210" required />
           </label>
+          <label className="admin-field">
+            <span>WhatsApp {form.whatsappSameAsPhone ? "(same as phone)" : "(optional)"}</span>
+            <input
+              type="tel"
+              value={form.whatsappSameAsPhone ? form.contactNumber : form.whatsappNumber}
+              onChange={(e) => update("whatsappNumber", e.target.value)}
+              placeholder="+91 9876543210"
+              disabled={form.whatsappSameAsPhone}
+            />
+          </label>
         </div>
+        <label className="admin-field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={form.whatsappSameAsPhone}
+            onChange={(e) => update("whatsappSameAsPhone", e.target.checked)}
+          />
+          <span>WhatsApp same as phone</span>
+        </label>
       </div>
 
       <div className="admin-form-actions">
