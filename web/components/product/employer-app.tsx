@@ -694,7 +694,7 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           lat: hasCoordinates ? latitude : 0,
           lng: hasCoordinates ? longitude : 0
         },
-        salary: Number(form.payAmount.trim()) || 0,
+        salary: form.payAmount.trim(),
         salaryType: form.payType,
         shiftTiming: form.shiftTiming.trim(),
         status: "open",
@@ -1145,7 +1145,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         title: form.title.trim(),
         companyName: form.companyName.trim(),
         jobType: form.jobType,
-        salary: Number(form.payAmount.trim()) || 0,
+        salary: form.payAmount.trim(),
         salaryType: form.payType,
         location: { lat: finalLatitude, lng: finalLongitude },
         addressText: form.location.trim()

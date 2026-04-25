@@ -318,7 +318,7 @@ fun EditJobScreen(
 
                     val updates = mapOf(
                         "title" to title,
-                        "salary" to (payAmount.toDoubleOrNull() ?: 0.0),
+                        "salary" to payAmount.trim(),
                         "salaryType" to payType.name,
                         "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
                         "addressText" to location,
