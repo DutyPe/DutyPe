@@ -189,8 +189,8 @@ class AllJobsViewModel @Inject constructor(
 
         return when (selectedLevel) {
             "Fresher" -> listOf("no experience", "fresher", "entry", "0 year", "0-", "0 ").any(text::contains)
-            "1-2 years" -> Regex("1\\s*(to|-)?\\s*2|1 year|2 year").containsMatchIn(text)
-            "2-5 years" -> Regex("2\\s*(to|-)?\\s*5|3 year|4 year|5 year").containsMatchIn(text)
+            "1-3 years" -> Regex("1\\s*(to|-)?\\s*3|1 year|2 year|3 year").containsMatchIn(text)
+            "3-5 years" -> Regex("3\\s*(to|-)?\\s*5|3 year|4 year|5 year").containsMatchIn(text)
             "5+ years" -> Regex("5\\+|5 year|6 year|7 year|8 year|9 year|10 year").containsMatchIn(text)
             else -> true
         }

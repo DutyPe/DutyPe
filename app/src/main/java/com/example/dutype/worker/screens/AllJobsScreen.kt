@@ -598,7 +598,7 @@ private fun JobFilterBottomSheet(
     var payType by remember { mutableStateOf(filters.payType) }
     var workType by remember { mutableStateOf(filters.workType) }
     
-    val experienceOptions = listOf("Any", "Fresher", "1-2 years", "2-5 years", "5+ years")
+    val experienceOptions = listOf("Any", "Fresher", "1-3 years", "3-5 years", "5+ years")
     val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
     val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
     val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
