@@ -1374,9 +1374,6 @@ private fun AdditionalDetailsStep(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            var showDatePicker by remember { mutableStateOf(false) }
-            val datePickerState = rememberDatePickerState()
-            
             Text(
                 text = "Date of Birth *",
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -1384,124 +1381,56 @@ private fun AdditionalDetailsStep(
                     color = Color(0xFF1F2937)
                 )
             )
-            
-            OutlinedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true }
-                    .border(
-                        width = 1.dp,
-                        color = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.outlinedCardColors(
-                    containerColor = Color.White
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = Color(0xFF6B7280)
-                        )
-                        Text(
-                            text = if (dateOfBirth.isEmpty()) "Select your date of birth" else dateOfBirth,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = if (dateOfBirth.isEmpty()) Color(0xFFD1D5DB) else Color(0xFF1F2937)
-                            )
-                        )
+
+            // Apr 2026: replaced the heavy Material calendar picker with a
+            // plain text input. Workers type their DOB as DD/MM/YYYY
+            // (auto-inserts slashes) - simpler and faster on low-end phones.
+            OutlinedTextField(
+                value = dateOfBirth,
+                onValueChange = { raw ->
+                    val digits = raw.filter { it.isDigit() }.take(8)
+                    val formatted = buildString {
+                        digits.forEachIndexed { idx, c ->
+                            if (idx == 2 || idx == 4) append('/')
+                            append(c)
+                        }
                     }
+                    onDateOfBirthChange(formatted)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = {
+                    Text(
+                        "DD/MM/YYYY",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFFD1D5DB)
+                        )
+                    )
+                },
+                leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
+                        imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF9CA3AF)
+                        tint = Color(0xFF6B7280)
                     )
-                }
-            }
-            
-            if (showDatePicker) {
-                // Modern calendar-style date picker matching reference design
-                DatePickerDialog(
-                    onDismissRequest = { showDatePicker = false },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                datePickerState.selectedDateMillis?.let { millis ->
-                                    // Bug #12: enforce 18+ age and surface a toast
-                                    // when the picked date makes the user under-age.
-                                    val now = System.currentTimeMillis()
-                                    val ageMillis = now - millis
-                                    val years = ageMillis / (365.25 * 24 * 60 * 60 * 1000L)
-                                    if (years < 18.0) {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "You must be at least 18 years old to register as a worker",
-                                            android.widget.Toast.LENGTH_LONG
-                                        ).show()
-                                        // Keep the picker open so the user can correct.
-                                        return@TextButton
-                                    }
-                                    val formatter = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-                                    onDateOfBirthChange(formatter.format(java.util.Date(millis)))
-                                    Timber.d("📅 Date selected: ${formatter.format(java.util.Date(millis))}")
-                                }
-                                showDatePicker = false
-                            }
-                        ) {
-                            Text(stringResource(R.string.ok), color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDatePicker = false }) {
-                            Text(stringResource(R.string.cancel).uppercase(), color = Color(0xFF009688), fontWeight = FontWeight.SemiBold)
-                        }
-                    },
-                    colors = DatePickerDefaults.colors(
-                        containerColor = Color.White
-                    )
-                ) {
-                    DatePicker(
-                        state = datePickerState,
-                        showModeToggle = false, // Hide mode toggle for cleaner look
-                        title = null, // Remove default title
-                        headline = null, // Remove default headline
-                        colors = DatePickerDefaults.colors(
-                            containerColor = Color.White,
-                            titleContentColor = Color.White,
-                            headlineContentColor = Color.White,
-                            weekdayContentColor = Color(0xFF6B7280),
-                            subheadContentColor = Color.White,
-                            yearContentColor = Color(0xFF1F2937),
-                            currentYearContentColor = Color(0xFF009688),
-                            selectedYearContentColor = Color.White,
-                            selectedYearContainerColor = Color(0xFF009688),
-                            dayContentColor = Color(0xFF1F2937),
-                            selectedDayContentColor = Color.White,
-                            selectedDayContainerColor = Color(0xFF009688),
-                            todayContentColor = Color(0xFF009688),
-                            todayDateBorderColor = Color(0xFF009688),
-                            dayInSelectionRangeContentColor = Color(0xFF009688),
-                            dayInSelectionRangeContainerColor = Color(0xFF009688).copy(alpha = 0.1f),
-                            navigationContentColor = Color(0xFF1F2937)
-                        )
-                    )
-                }
-            }
-            
+                },
+                singleLine = true,
+                isError = dateOfBirthError != null,
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color(0xFF111111),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626),
+                    focusedTextColor = Color(0xFF1F2937),
+                    unfocusedTextColor = Color(0xFF1F2937)
+                )
+            )
+
             if (dateOfBirthError != null) {
                 Text(
                     text = dateOfBirthError,

@@ -1452,9 +1452,6 @@ private fun ContactDetailsStep(
         
         // Date of Birth
         Column {
-            var showDatePicker by remember { mutableStateOf(false) }
-            val datePickerState = rememberDatePickerState()
-            
             Text(
                 text = "Date of Birth *",
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -1463,30 +1460,38 @@ private fun ContactDetailsStep(
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
+            // Apr 2026: replaced the heavy Material calendar picker with a
+            // plain text input - employer types DOB as DD/MM/YYYY (auto
+            // slashes) so the form stays simple and fast.
             OutlinedTextField(
                 value = dateOfBirth,
-                onValueChange = { },
-                readOnly = true,
-                placeholder = { Text(stringResource(R.string.select_date_of_birth)) },
-                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
-                        Icon(Icons.Default.DateRange, contentDescription = "Select date")
+                onValueChange = { raw ->
+                    val digits = raw.filter { it.isDigit() }.take(8)
+                    val formatted = buildString {
+                        digits.forEachIndexed { idx, c ->
+                            if (idx == 2 || idx == 4) append('/')
+                            append(c)
+                        }
                     }
+                    onDateOfBirthChange(formatted)
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true },
+                placeholder = { Text("DD/MM/YYYY") },
+                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
                 isError = dateOfBirthError != null,
                 shape = RoundedCornerShape(16.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
                     unfocusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626)
                 )
             )
-            
+
             if (dateOfBirthError != null) {
                 Text(
                     text = dateOfBirthError,
@@ -1494,32 +1499,6 @@ private fun ContactDetailsStep(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
-            }
-            
-            if (showDatePicker) {
-                DatePickerDialog(
-                    onDismissRequest = { showDatePicker = false },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                datePickerState.selectedDateMillis?.let { millis ->
-                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                                    onDateOfBirthChange(dateFormat.format(Date(millis)))
-                                }
-                                showDatePicker = false
-                            }
-                        ) {
-                            Text(stringResource(R.string.ok))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDatePicker = false }) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                    }
-                ) {
-                    DatePicker(state = datePickerState)
-                }
             }
         }
     }
