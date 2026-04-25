@@ -18,20 +18,8 @@ const notification_i18n_1 = require("./notification-i18n");
 const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
 async function createNotification(n) {
-    var _a;
     const ref = db.collection("notifications").doc();
-    await ref.set({
-        id: ref.id,
-        recipientId: n.recipientId,
-        title: n.title,
-        body: n.body,
-        message: n.body,
-        type: n.type,
-        relatedId: (_a = n.relatedId) !== null && _a !== void 0 ? _a : null,
-        locale: n.locale,
-        isRead: false,
-        createdAt: FIELD.serverTimestamp(),
-    });
+    await ref.set(Object.assign(Object.assign({ recipientId: n.recipientId, title: n.title, message: n.body, type: n.type }, (n.data ? { data: n.data } : {})), { isRead: false, createdAt: FIELD.serverTimestamp() }));
 }
 async function sendFcmToUser(userId, title, body, data) {
     var _a;
@@ -66,43 +54,59 @@ exports.onApplicationStatusChanged = functions.firestore
     if (!workerId)
         return;
     const locale = await (0, notification_i18n_1.getUserLanguage)(db, workerId);
+    const recipient = await (0, notification_i18n_1.getUserDisplayName)(db, workerId);
     const templateId = next === "hired" ? "APPLICATION_HIRED" :
         next === "shortlisted" ? "APPLICATION_SHORTLISTED" :
             next === "rejected" ? "APPLICATION_REJECTED" :
-                "APPLICATION_STATUS_OTHER";
-    const params = templateId === "APPLICATION_STATUS_OTHER" ? { status: next } : undefined;
+                next === "withdrawn" ? "APPLICATION_WITHDRAWN" :
+                    "APPLICATION_STATUS_OTHER";
+    const params = { recipient };
+    if (templateId === "APPLICATION_STATUS_OTHER")
+        params.status = next;
     const title = (0, notification_i18n_1.tTitle)(templateId, locale, params);
     const body = (0, notification_i18n_1.tBody)(templateId, locale, params);
+    const dataMap = {
+        type: "APPLICATION_STATUS",
+        jobId,
+        applicationId: change.after.id,
+    };
     await Promise.all([
-        createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", relatedId: jobId, locale }),
-        sendFcmToUser(workerId, title, body, {
-            type: "APPLICATION_STATUS",
-            jobId,
-            applicationId: change.after.id,
-            locale,
-        }),
+        createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", data: dataMap, locale }),
+        sendFcmToUser(workerId, title, body, Object.assign(Object.assign({}, dataMap), { locale })),
     ]);
 });
 exports.onApplicationCreated = functions.firestore
     .document("applications/{applicationId}")
     .onCreate(async (snap) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const data = snap.data() || {};
     const employerId = String((_a = data.employerId) !== null && _a !== void 0 ? _a : "");
     const jobId = String((_b = data.jobId) !== null && _b !== void 0 ? _b : "");
+    const workerId = String((_c = data.workerId) !== null && _c !== void 0 ? _c : "");
     if (!employerId)
         return;
     const locale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
-    const title = (0, notification_i18n_1.tTitle)("NEW_APPLICATION_RECEIVED", locale);
-    const body = (0, notification_i18n_1.tBody)("NEW_APPLICATION_RECEIVED", locale);
+    const [recipient, workerName, jobSnap] = await Promise.all([
+        (0, notification_i18n_1.getUserDisplayName)(db, employerId),
+        (0, notification_i18n_1.getUserDisplayName)(db, workerId, "A worker"),
+        jobId ? db.doc(`jobmetadata/${jobId}`).get().catch(() => null) : Promise.resolve(null),
+    ]);
+    const jobTitle = jobSnap && jobSnap.exists ? String((_d = jobSnap.get("title")) !== null && _d !== void 0 ? _d : "") : "";
+    const params = {
+        recipient,
+        workerName,
+        jobTitle: jobTitle ? `"${jobTitle}"` : "",
+    };
+    const title = (0, notification_i18n_1.tTitle)("NEW_APPLICATION_RECEIVED", locale, params);
+    const body = (0, notification_i18n_1.tBody)("NEW_APPLICATION_RECEIVED", locale, params);
+    const dataMap = {
+        type: "NEW_APPLICATION",
+        jobId,
+        applicationId: snap.id,
+    };
     await Promise.all([
-        createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", relatedId: jobId, locale }),
-        sendFcmToUser(employerId, title, body, {
-            type: "NEW_APPLICATION",
-            jobId,
-            applicationId: snap.id,
-            locale,
-        }),
+        createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", data: dataMap, locale }),
+        sendFcmToUser(employerId, title, body, Object.assign(Object.assign({}, dataMap), { locale })),
     ]);
 });
 //# sourceMappingURL=notification-fanout.js.map

@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
@@ -90,9 +90,9 @@ type CreateJobBody = {
   urgency?: string;
   description?: string;
   contactNumber?: string;
-  whatsappNumber?: string;
   gender?: string;
   experienceRequired?: string;
+  educationRequired?: string;
   shiftTiming?: string;
   workingHours?: string;
   vacancies?: number | string;
@@ -118,12 +118,12 @@ export async function POST(request: NextRequest) {
   const addressText = body.addressText?.trim() ?? "";
   const description = body.description?.trim() ?? "";
   const contactNumber = body.contactNumber?.trim() ?? "";
-  const whatsappNumber = body.whatsappNumber?.trim() || undefined;
   const workingHours = body.workingHours?.trim() || undefined;
   const shiftTiming = body.shiftTiming?.trim() || "Flexible";
   const experienceRequired = body.experienceRequired?.trim() || "No Experience Required";
+  const educationRequired = body.educationRequired?.trim() || "No qualification required";
 
-  const salary = Number(body.salary ?? 0);
+  const salary = String(body.salary ?? "").trim();
   const salaryTypeRaw = (body.salaryType?.trim() || "DAILY").toUpperCase();
   const salaryType = VALID_SALARY_TYPE.has(salaryTypeRaw) ? salaryTypeRaw : "DAILY";
 
@@ -148,8 +148,8 @@ export async function POST(request: NextRequest) {
   if (!description) return NextResponse.json({ error: "Description is required." }, { status: 400 });
   if (!contactNumber) return NextResponse.json({ error: "Contact number is required." }, { status: 400 });
   if (!addressText) return NextResponse.json({ error: "Address is required." }, { status: 400 });
-  if (!Number.isFinite(salary) || salary <= 0 || salary > 10000000) {
-    return NextResponse.json({ error: "Salary must be > 0 and <= 10,000,000." }, { status: 400 });
+  if (!salary || salary.length > 60) {
+    return NextResponse.json({ error: "Salary is required and must be 60 characters or less." }, { status: 400 });
   }
   if (!hasValidCoordinates(latitude, longitude)) {
     return NextResponse.json(
@@ -189,7 +189,6 @@ export async function POST(request: NextRequest) {
       location: { lat: latitude, lng: longitude },
       geohash,
       addressText,
-      companyCity,
       urgency,
       status: "open",
       isVerified: true,
@@ -204,12 +203,13 @@ export async function POST(request: NextRequest) {
       contactNumber,
       gender,
       experienceRequired,
+      educationRequired,
+      companyCity,
       shiftTiming,
       vacancies,
       benefits,
       applicationCount: 0
     };
-    if (whatsappNumber) detailsData.whatsappNumber = whatsappNumber;
     if (workingHours) detailsData.workingHours = workingHours;
 
     const batch = db.batch();
@@ -238,9 +238,9 @@ type UpdateJobBody = {
   status?: string;
   description?: string;
   contactNumber?: string;
-  whatsappNumber?: string;
   gender?: string;
   experienceRequired?: string;
+  educationRequired?: string;
   shiftTiming?: string;
   workingHours?: string;
   vacancies?: number | string;
@@ -268,8 +268,8 @@ export async function PATCH(request: NextRequest) {
   if (body.companyName !== undefined) cardPayload.companyName = String(body.companyName).trim();
   if (body.jobType !== undefined) cardPayload.jobType = String(body.jobType).trim().toUpperCase();
   if (body.salary !== undefined) {
-    const n = Number(body.salary);
-    if (Number.isFinite(n) && n >= 0) cardPayload.salary = n;
+    const v = String(body.salary).trim();
+    if (v.length > 0 && v.length <= 60) cardPayload.salary = v;
   }
   if (body.salaryType !== undefined) {
     const v = String(body.salaryType).trim().toUpperCase();
@@ -278,8 +278,9 @@ export async function PATCH(request: NextRequest) {
   if (body.addressText !== undefined) {
     const a = String(body.addressText).trim();
     cardPayload.addressText = a;
-    cardPayload.companyCity = extractCityFromAddress(a);
+    detailsPayload.companyCity = extractCityFromAddress(a);
   }
+  cardPayload.companyCity = FieldValue.delete();
   if (body.latitude !== undefined && body.longitude !== undefined) {
     const lat = Number(body.latitude);
     const lng = Number(body.longitude);
@@ -299,10 +300,10 @@ export async function PATCH(request: NextRequest) {
 
   if (body.description !== undefined) detailsPayload.description = String(body.description).trim();
   if (body.contactNumber !== undefined) detailsPayload.contactNumber = String(body.contactNumber).trim();
-  if (body.whatsappNumber !== undefined) detailsPayload.whatsappNumber = String(body.whatsappNumber).trim();
   if (body.workingHours !== undefined) detailsPayload.workingHours = String(body.workingHours).trim();
   if (body.shiftTiming !== undefined) detailsPayload.shiftTiming = String(body.shiftTiming).trim();
   if (body.experienceRequired !== undefined) detailsPayload.experienceRequired = String(body.experienceRequired).trim();
+  if (body.educationRequired !== undefined) detailsPayload.educationRequired = String(body.educationRequired).trim();
   if (body.gender !== undefined) {
     const v = String(body.gender).trim();
     detailsPayload.gender = VALID_GENDER.has(v) ? v : "Any";

@@ -89,7 +89,7 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
     const companyName = assertString(rest.companyName, "companyName", 1, 120);
     const title = assertString(rest.title, "title", 3, 120);
     const jobType = assertString(rest.jobType, "jobType", 1, 80);
-    const salary = assertNumber(rest.salary, "salary", 0, 10000000);
+    const salary = assertString(rest.salary, "salary", 1, 60);
     const salaryType = assertString(rest.salaryType, "salaryType", 1, 40);
     const geohash = assertString(rest.geohash, "geohash", 1, 20);
     const addressText = assertString(rest.addressText, "addressText", 1, 300);
@@ -101,17 +101,19 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
     const expiresAt = toTimestamp(rest.expiresAt, "expiresAt");
     try {
         // Idempotency + creation atomically inside one transaction.
+        // employerId + expiresAt + idempotencyKey now live in job_details (slim jobmetadata).
         const result = await db.runTransaction(async (tx) => {
-            const dup = await tx.get(db.collection("jobmetadata")
+            const dup = await tx.get(db.collection("job_details")
                 .where("employerId", "==", uid)
                 .where("idempotencyKey", "==", idempotencyKey)
                 .limit(1));
             if (!dup.empty) {
                 return { jobId: dup.docs[0].id, duplicate: true };
             }
-            const ref = db.collection("jobmetadata").doc();
-            tx.set(ref, {
-                employerId: uid,
+            const metaRef = db.collection("jobmetadata").doc();
+            const detailsRef = db.collection("job_details").doc(metaRef.id);
+            const createdAt = admin.firestore.FieldValue.serverTimestamp();
+            tx.set(metaRef, {
                 companyName,
                 title,
                 jobType,
@@ -122,11 +124,15 @@ exports.createJobWithIdempotency = functions.https.onCall(async (data, context) 
                 addressText,
                 urgency: urgencyRaw,
                 status: "open",
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt,
+            });
+            tx.set(detailsRef, {
+                employerId: uid,
+                createdAt,
                 expiresAt,
                 idempotencyKey,
             });
-            return { jobId: ref.id, duplicate: false };
+            return { jobId: metaRef.id, duplicate: false };
         });
         functions.logger.info(`job-posting: ${result.duplicate ? "duplicate" : "created"} ${result.jobId} by ${uid}`);
         return {
@@ -162,18 +168,20 @@ exports.batchUpdateVacancyStatus = functions.https.onCall(async (data, context) 
         const results = {};
         for (const idRaw of jobIds) {
             const jobId = String(idRaw);
-            const snap = await db.collection("jobmetadata").doc(jobId).get();
-            if (!snap.exists) {
+            const metaSnap = await db.collection("jobmetadata").doc(jobId).get();
+            if (!metaSnap.exists) {
                 results[jobId] = { error: "Job not found" };
                 continue;
             }
-            const d = snap.data() || {};
-            if (d.employerId !== uid) {
+            // Ownership lives in job_details (slim jobmetadata schema).
+            const detailsSnap = await db.collection("job_details").doc(jobId).get();
+            const ownerId = detailsSnap.exists ? detailsSnap.get("employerId") : undefined;
+            if (ownerId !== uid) {
                 // Ownership check — do NOT leak status of jobs you don't own.
                 results[jobId] = { error: "Forbidden" };
                 continue;
             }
-            results[jobId] = { status: (_a = d.status) !== null && _a !== void 0 ? _a : "open" };
+            results[jobId] = { status: (_a = metaSnap.get("status")) !== null && _a !== void 0 ? _a : "open" };
         }
         return { success: true, results };
     }

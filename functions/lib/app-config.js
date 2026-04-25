@@ -9,7 +9,7 @@ exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getRe
  * Shape (all numbers in INR unless stated):
  *   rewardPerReferral:  number   // default 25
  *   signupBonus:        number   // default 25
- *   minWithdrawal:      number   // default 50
+ *   minWithdrawal:      number   // default 100
  *   maxWithdrawalPerDay:number   // default 1000
  *   milestones:         { [count:string]: number }
  *   withdrawalMilestones: number[]
@@ -21,7 +21,7 @@ const admin = require("firebase-admin");
 exports.DEFAULT_REFERRAL_CONFIG = {
     rewardPerReferral: 25,
     signupBonus: 25,
-    minWithdrawal: 50,
+    minWithdrawal: 100,
     maxWithdrawalPerDay: 1000,
     milestones: { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 },
     withdrawalMilestones: [5, 10, 15],
@@ -38,7 +38,7 @@ async function getReferralConfig() {
         const merged = {
             rewardPerReferral: num(data.rewardPerReferral, exports.DEFAULT_REFERRAL_CONFIG.rewardPerReferral),
             signupBonus: num(data.signupBonus, exports.DEFAULT_REFERRAL_CONFIG.signupBonus),
-            minWithdrawal: num(data.minWithdrawal, exports.DEFAULT_REFERRAL_CONFIG.minWithdrawal),
+            minWithdrawal: Math.max(num(data.minWithdrawal, exports.DEFAULT_REFERRAL_CONFIG.minWithdrawal), 100),
             maxWithdrawalPerDay: num(data.maxWithdrawalPerDay, exports.DEFAULT_REFERRAL_CONFIG.maxWithdrawalPerDay),
             milestones: (data.milestones && typeof data.milestones === "object")
                 ? data.milestones

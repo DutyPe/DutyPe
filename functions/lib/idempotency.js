@@ -27,7 +27,7 @@ async function withIdempotency(uid, op, rawKey, ttlMs = DEFAULT_TTL_MS) {
     if (!rawKey) {
         throw new functions.https.HttpsError("invalid-argument", "idempotencyKey is required");
     }
-    const key = rawKey.trim();
+    const key = String(rawKey).trim();
     if (!KEY_PATTERN.test(key)) {
         throw new functions.https.HttpsError("invalid-argument", "idempotencyKey must be 8-128 chars [A-Za-z0-9_-]");
     }

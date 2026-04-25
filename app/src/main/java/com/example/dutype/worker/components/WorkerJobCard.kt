@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +68,7 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
+        vacancies = job.vacancies,
         workTypeLabel = extractWorkTypeLabel(
             job.workingHours,
             job.shiftTiming,
@@ -124,6 +127,7 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         jobType = job.jobType,
+        vacancies = job.vacancies,
         workTypeLabel = extractWorkTypeLabel(job.jobType, job.title),
         isUrgent = isUrgent,
         isClosed = isClosed,
@@ -144,7 +148,7 @@ fun JobCard(
 /**
  * Internal JobCard implementation — uses only schema fields.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun JobCardInternal(
     jobId: String,
@@ -153,6 +157,7 @@ private fun JobCardInternal(
     payDisplay: String,
     locationDisplay: String,
     jobType: String,
+    vacancies: Int,
     workTypeLabel: String?,
     isUrgent: Boolean,
     isClosed: Boolean,
@@ -351,10 +356,15 @@ private fun JobCardInternal(
             }
 
             // Row 4: Tags
-            Row(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                CompactChip(
+                    text = if (vacancies == 1) "1 vacancy" else "$vacancies vacancies",
+                    chipType = ChipType.VACANCY
+                )
+
                 if (jobType.isNotEmpty()) {
                     CompactChip(text = jobType, chipType = ChipType.JOB_TYPE)
                 }
@@ -463,20 +473,25 @@ private fun formatPayDisplay(salary: String, salaryType: String): String =
  * addressText comes from job_details (runtime only), distance is computed client-side.
  */
 private fun formatLocationWithDistance(addressText: String, distance: Double?): String {
-    val normalizedLocation = addressText
+    val parts = addressText
         .split(",")
         .map { it.trim() }
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase() }
-        .joinToString(", ")
+    val shortLocation = when {
+        parts.isEmpty() -> ""
+        parts.size >= 2 && parts.last().equals("India", ignoreCase = true) -> parts.first()
+        parts.size >= 3 -> parts[parts.size - 3]
+        else -> parts.first()
+    }
 
-    if (distance == null) return normalizedLocation
+    if (distance == null) return shortLocation
     val distStr = when {
         distance < 1.0 -> "${(distance * 1000).toInt()}m away"
         distance < 2.0 -> "${"%.1f".format(distance)} km walkable"
         else -> "${"%.1f".format(distance)} km away"
     }
-    return if (normalizedLocation.isNotEmpty()) "$normalizedLocation • $distStr" else distStr
+    return if (shortLocation.isNotEmpty()) "$distStr - $shortLocation" else distStr
 }
 
 private fun extractWorkTypeLabel(vararg candidates: String?): String? {

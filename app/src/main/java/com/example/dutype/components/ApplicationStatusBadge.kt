@@ -107,6 +107,11 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFFDC2626),
             Icons.Default.Close
         )
+        ApplicationStatus.WITHDRAWN -> Triple(
+            Color(0xFFF3F4F6),
+            Color(0xFF4B5563),
+            Icons.Default.Close
+        )
     }
 }
 
@@ -121,5 +126,6 @@ private fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }

@@ -31,6 +31,7 @@ __exportStar(require("./referral-system"), exports);
 __exportStar(require("./job-landing"), exports);
 __exportStar(require("./worker-landing"), exports);
 __exportStar(require("./employer-landing"), exports);
+__exportStar(require("./auth-callables"), exports);
 const db = admin.firestore();
 const messaging = admin.messaging();
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -359,7 +360,6 @@ exports.sendPushNotification = functions.firestore
             processing: false,
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
             fcmMessageId: response,
-            locale: effectiveLocale,
         };
         if (templateId) {
             updatePayload.title = effectiveTitle;
@@ -425,8 +425,8 @@ exports.persistSelfNotification = functions.https.onCall(async (data, context) =
         ? Math.min(requestedExpiresAt, maxAllowedExpiry)
         : maxAllowedExpiry;
     const notificationRef = db.collection("notifications").doc(notificationId);
-    await notificationRef.set(Object.assign(Object.assign({ id: notificationRef.id, recipientId: userId, title,
-        message, type: notificationType }, (targetRole ? { targetRole } : {})), { data: payloadData, isRead: false, createdAt: admin.firestore.FieldValue.serverTimestamp(), expiresAt: admin.firestore.Timestamp.fromMillis(resolvedExpiryMs), skipPush: true, source: "SELF_IN_APP" }));
+    await notificationRef.set(Object.assign(Object.assign({ recipientId: userId, title,
+        message, type: notificationType }, (targetRole ? { targetRole } : {})), { data: payloadData, isRead: false, createdAt: admin.firestore.FieldValue.serverTimestamp(), expiresAt: admin.firestore.Timestamp.fromMillis(resolvedExpiryMs), skipPush: true }));
     return {
         success: true,
         notificationId: notificationRef.id,
@@ -461,11 +461,31 @@ function calculateTextSimilarity(text1, text2) {
 exports.detectDuplicateJob = functions.firestore
     .document("jobmetadata/{jobId}")
     .onCreate(async (snapshot, context) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const job = snapshot.data();
     const jobId = context.params.jobId;
-    const employerId = job.employerId;
+    // employerId now lives in job_details (slim jobmetadata schema).
+    const detailsSnap = await db.collection("job_details").doc(jobId).get();
+    const employerId = (detailsSnap.exists ? detailsSnap.get("employerId") : null);
+    if (!employerId) {
+        functions.logger.warn(`🔍 DUPLICATE CHECK: No employerId found in job_details for ${jobId}`);
+        return;
+    }
     functions.logger.info(`🔍 DUPLICATE CHECK: Analyzing job ${jobId}`);
+    // Helper: look up employerId for a set of jobIds via job_details in parallel.
+    const resolveEmployerIds = async (ids) => {
+        if (ids.length === 0)
+            return new Map();
+        const refs = ids.map((id) => db.collection("job_details").doc(id));
+        const snaps = await db.getAll(...refs);
+        const result = new Map();
+        for (const snap of snaps) {
+            const eid = snap.exists ? snap.get("employerId") : undefined;
+            if (eid)
+                result.set(snap.id, eid);
+        }
+        return result;
+    };
     try {
         let fraudScore = 0;
         const signals = [];
@@ -479,7 +499,12 @@ exports.detectDuplicateJob = functions.firestore
                 .where("createdAt", ">", twentyFourHoursAgoTs)
                 .limit(10)
                 .get();
-            const differentUserSameContact = sameContactJobs.docs.filter(doc => doc.data().employerId !== employerId && doc.id !== jobId);
+            const candidateIds = sameContactJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+            const employerMap = await resolveEmployerIds(candidateIds);
+            const differentUserSameContact = candidateIds.filter((id) => {
+                const eid = employerMap.get(id);
+                return eid && eid !== employerId;
+            });
             if (differentUserSameContact.length > 0) {
                 fraudScore += 50;
                 signals.push("SAME_CONTACT_DIFFERENT_USER");
@@ -487,15 +512,31 @@ exports.detectDuplicateJob = functions.firestore
             }
         }
         // CHECK 2: Similar description (>70% match)
-        const recentJobs = await db.collection("jobmetadata")
+        const recentJobsSnap = await db.collection("jobmetadata")
             .where("createdAt", ">", twentyFourHoursAgoTs)
-            .where("employerId", "!=", employerId)
             .limit(50)
             .get();
-        for (const recentJob of recentJobs.docs) {
+        const recentIds = recentJobsSnap.docs.map((d) => d.id).filter((id) => id !== jobId);
+        const recentEmployerMap = await resolveEmployerIds(recentIds);
+        const recentDetailsMap = new Map();
+        {
+            const detailRefs = recentIds.map((id) => db.collection("job_details").doc(id));
+            if (detailRefs.length > 0) {
+                const detailSnaps = await db.getAll(...detailRefs);
+                for (const ds of detailSnaps) {
+                    if (ds.exists)
+                        recentDetailsMap.set(ds.id, ds.data() || {});
+                }
+            }
+        }
+        for (const recentJob of recentJobsSnap.docs) {
             if (recentJob.id === jobId)
                 continue;
-            const similarity = calculateTextSimilarity(job.description || "", recentJob.data().description || "");
+            const otherEmployerId = recentEmployerMap.get(recentJob.id);
+            if (!otherEmployerId || otherEmployerId === employerId)
+                continue;
+            const otherDescription = ((_a = recentDetailsMap.get(recentJob.id)) === null || _a === void 0 ? void 0 : _a.description) || "";
+            const similarity = calculateTextSimilarity(job.description || "", otherDescription);
             if (similarity > 0.7) {
                 fraudScore += 40;
                 signals.push(`SIMILAR_DESCRIPTION_${Math.round(similarity * 100)}%`);
@@ -506,12 +547,12 @@ exports.detectDuplicateJob = functions.firestore
         // CHECK 3: Same title + same area (within 1km)
         const jobLat = typeof job.latitude === "number"
             ? job.latitude
-            : typeof ((_a = job.location) === null || _a === void 0 ? void 0 : _a.lat) === "number"
+            : typeof ((_b = job.location) === null || _b === void 0 ? void 0 : _b.lat) === "number"
                 ? job.location.lat
                 : null;
         const jobLng = typeof job.longitude === "number"
             ? job.longitude
-            : typeof ((_b = job.location) === null || _b === void 0 ? void 0 : _b.lng) === "number"
+            : typeof ((_c = job.location) === null || _c === void 0 ? void 0 : _c.lng) === "number"
                 ? job.location.lng
                 : null;
         if (job.title && jobLat !== null && jobLng !== null) {
@@ -520,18 +561,23 @@ exports.detectDuplicateJob = functions.firestore
                 .where("createdAt", ">", twentyFourHoursAgoTs)
                 .limit(20)
                 .get();
+            const titleCandidateIds = sameTitleJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+            const titleEmployerMap = await resolveEmployerIds(titleCandidateIds);
             for (const sameTitleJob of sameTitleJobs.docs) {
                 if (sameTitleJob.id === jobId)
                     continue;
                 const otherJob = sameTitleJob.data();
+                const otherEmployerId = titleEmployerMap.get(sameTitleJob.id);
+                if (!otherEmployerId)
+                    continue;
                 const otherLat = typeof otherJob.latitude === "number"
                     ? otherJob.latitude
-                    : typeof ((_c = otherJob.location) === null || _c === void 0 ? void 0 : _c.lat) === "number"
+                    : typeof ((_d = otherJob.location) === null || _d === void 0 ? void 0 : _d.lat) === "number"
                         ? otherJob.location.lat
                         : null;
                 const otherLng = typeof otherJob.longitude === "number"
                     ? otherJob.longitude
-                    : typeof ((_d = otherJob.location) === null || _d === void 0 ? void 0 : _d.lng) === "number"
+                    : typeof ((_e = otherJob.location) === null || _e === void 0 ? void 0 : _e.lng) === "number"
                         ? otherJob.location.lng
                         : null;
                 if (otherLat !== null && otherLng !== null) {
@@ -539,7 +585,7 @@ exports.detectDuplicateJob = functions.firestore
                     const latDiff = Math.abs(jobLat - otherLat);
                     const lngDiff = Math.abs(jobLng - otherLng);
                     const isNearby = latDiff < 0.01 && lngDiff < 0.01; // ~1km
-                    if (isNearby && otherJob.employerId !== employerId) {
+                    if (isNearby && otherEmployerId !== employerId) {
                         fraudScore += 30;
                         signals.push("SAME_TITLE_SAME_AREA");
                         functions.logger.warn(`🔍 DUPLICATE: Same title "${job.title}" in same area`);
@@ -571,12 +617,12 @@ exports.detectDuplicateJob = functions.firestore
             });
             // Create in-app notification instead of using legacy moderation queue collection.
             const modLocale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
+            const modRecipient = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
             await db.collection("notifications").add({
                 recipientId: employerId,
-                title: (0, notification_i18n_1.tTitle)("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
-                message: (0, notification_i18n_1.tBody)("JOB_UNDER_REVIEW", modLocale, { title: job.title }),
+                title: (0, notification_i18n_1.tTitle)("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
+                message: (0, notification_i18n_1.tBody)("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
                 type: "MODERATION_REVIEW_REQUIRED",
-                locale: modLocale,
                 data: {
                     jobId: jobId,
                     fraudScore: fraudScore,
@@ -621,7 +667,7 @@ exports.logUserActivity = functions.https.onCall(async (data, context) => {
  *   • Response is boolean-only — never discloses userId or roles.
  */
 exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const rawIp = ((_a = context.rawRequest) === null || _a === void 0 ? void 0 : _a.ip) || "unknown";
     const callerIdentity = ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid) || `ip_${rawIp}`;
     const callerKey = callerIdentity.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 120) || "anon";
@@ -671,8 +717,28 @@ exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
             .limit(1)
             .get();
     }
-    // Boolean-only response. Do NOT leak userId or roles.
-    return { exists: !usersSnapshot.empty };
+    if (usersSnapshot.empty) {
+        return { exists: false, roleConflict: false };
+    }
+    // Single-role-per-phone enforcement. We expose ONLY the existing role
+    // so the client can show the right error ("This number is registered as
+    // an employer; please log in as an employer."). We never leak userId,
+    // fullName, or other PII.
+    const userData = usersSnapshot.docs[0].data();
+    const existingRole = (userData.role ||
+        userData.activeRole ||
+        (Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
+        "").toUpperCase();
+    const requestedRoleRaw = String((_d = data === null || data === void 0 ? void 0 : data.requestedRole) !== null && _d !== void 0 ? _d : "").trim().toUpperCase();
+    const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"
+        ? requestedRoleRaw
+        : "";
+    const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
+    return {
+        exists: true,
+        existingRole: existingRole || null,
+        roleConflict,
+    };
 });
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM
@@ -702,6 +768,7 @@ const AUTO_HIDE_THRESHOLD = 3;
 exports.processJobReport = functions.firestore
     .document("job_reports/{reportId}")
     .onCreate(async (snapshot, context) => {
+    var _a, _b;
     const report = snapshot.data();
     const reportId = context.params.reportId;
     const jobId = report.jobId;
@@ -773,14 +840,19 @@ exports.processJobReport = functions.firestore
             jobAggregateUpdate.status = "closed";
             jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
             // Notify employer instead of creating legacy moderation queue documents.
-            if (jobData === null || jobData === void 0 ? void 0 : jobData.employerId) {
-                const hideLocale = await (0, notification_i18n_1.getUserLanguage)(db, jobData.employerId);
+            // employerId now lives in job_details (slim jobmetadata schema).
+            const detailsSnapForReport = await db.collection("job_details").doc(jobId).get();
+            const reportEmployerId = detailsSnapForReport.exists
+                ? detailsSnapForReport.get("employerId")
+                : undefined;
+            if (reportEmployerId) {
+                const hideLocale = await (0, notification_i18n_1.getUserLanguage)(db, reportEmployerId);
+                const hideRecipient = await (0, notification_i18n_1.getUserDisplayName)(db, reportEmployerId);
                 await db.collection("notifications").add({
-                    recipientId: jobData.employerId,
-                    title: (0, notification_i18n_1.tTitle)("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
-                    message: (0, notification_i18n_1.tBody)("JOB_HIDDEN_REPORTS", hideLocale, { title: jobData.title }),
+                    recipientId: reportEmployerId,
+                    title: (0, notification_i18n_1.tTitle)("JOB_HIDDEN_REPORTS", hideLocale, { title: (_a = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _a !== void 0 ? _a : "", recipient: hideRecipient }),
+                    message: (0, notification_i18n_1.tBody)("JOB_HIDDEN_REPORTS", hideLocale, { title: (_b = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _b !== void 0 ? _b : "", recipient: hideRecipient }),
                     type: "JOB_HIDDEN",
-                    locale: hideLocale,
                     data: {
                         jobId: jobId,
                         reportCount: currentReportCount,
@@ -908,6 +980,7 @@ __exportStar(require("./cover-letter"), exports);
 // EXPORT AGGREGATE MAINTAINERS + EXPIRY SWEEP
 // ============================================
 __exportStar(require("./aggregates"), exports);
+__exportStar(require("./employer-cards"), exports);
 __exportStar(require("./job-expiry"), exports);
 // ============================================
 // EXPORT NOTIFICATION FAN-OUT

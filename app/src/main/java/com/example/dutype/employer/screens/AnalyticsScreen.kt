@@ -621,6 +621,7 @@ fun RecentApplicationItem(
                         ApplicationStatus.HIRED -> Color(0xFFD1FAE5)
                         ApplicationStatus.COMPLETED -> Color(0xFFD1FAE5)
                         ApplicationStatus.REJECTED -> Color(0xFFFEE2E2)
+                        ApplicationStatus.WITHDRAWN -> Color(0xFFF3F4F6)
                     }
                 )
             ) {
@@ -634,6 +635,7 @@ fun RecentApplicationItem(
                             ApplicationStatus.HIRED -> Color(0xFF065F46)
                             ApplicationStatus.COMPLETED -> Color(0xFF065F46)
                             ApplicationStatus.REJECTED -> Color(0xFF991B1B)
+                            ApplicationStatus.WITHDRAWN -> Color(0xFF4B5563)
                         }
                     ),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

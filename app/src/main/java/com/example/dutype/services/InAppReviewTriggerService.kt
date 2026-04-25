@@ -18,12 +18,12 @@ import javax.inject.Singleton
  * Intelligently triggers review prompts at optimal moments:
  * 
  * WORKER TRIGGERS:
- * - After first job application ⭐
+ * - After first job application
  * - After first job completion
  * - After profile completion
  * 
  * EMPLOYER TRIGGERS:
- * - After first job posting ⭐
+ * - After first job posting
  * - After first successful hire
  * - After first work verification
  * 
@@ -47,26 +47,26 @@ class InAppReviewTriggerService @Inject constructor(
     fun onWorkerJobApplication(activity: Activity) {
         scope.launch {
             try {
-                Timber.i("⭐ IN-APP REVIEW: onWorkerJobApplication() called")
+                Timber.i("IN-APP REVIEW: onWorkerJobApplication() called")
                 reviewManager.trackPositiveAction()
 
                 val isFirstApplication = isFirstWorkerApplication()
-                Timber.d("⭐ IN-APP REVIEW: worker first application = $isFirstApplication")
+                Timber.d("IN-APP REVIEW: worker first application = $isFirstApplication")
                 if (!isFirstApplication) {
-                    Timber.d("⭐ IN-APP REVIEW: Skipping prompt (not first worker application)")
+                    Timber.d("IN-APP REVIEW: Skipping prompt (not first worker application)")
                     return@launch
                 }
                 
                 // Check stats for logging
                 val stats = reviewManager.getReviewStats()
-                Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
+                Timber.d("Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
 
                 // Trigger on first successful application.
                 reviewManager.requestInAppReview(activity)
                 
-                Timber.d("📝 Worker applied to job - review triggered")
+                Timber.d("Worker applied to first job - review triggered")
             } catch (e: Exception) {
-                Timber.e(e, "❌ Error requesting review after job application")
+                Timber.e(e, "Error requesting review after job application")
             }
         }
     }
@@ -78,8 +78,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
-                Timber.d("✅ Worker profile completed - requesting review")
+                Timber.d("Worker profile completed - positive action tracked")
             } catch (e: Exception) {
                 Timber.e(e, "Error tracking profile completion")
             }
@@ -93,8 +92,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
-                Timber.d("✅ Employer profile completed - requesting review")
+                Timber.d("Employer profile completed - positive action tracked")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after employer profile completion")
             }
@@ -109,7 +107,7 @@ class InAppReviewTriggerService @Inject constructor(
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
-                Timber.d("🎉 Worker job completed - requesting review")
+                Timber.d("Worker job completed - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after job completion")
             }
@@ -124,26 +122,26 @@ class InAppReviewTriggerService @Inject constructor(
     fun onEmployerJobPosted(activity: Activity) {
         scope.launch {
             try {
-                Timber.i("⭐ IN-APP REVIEW: onEmployerJobPosted() called")
+                Timber.i("IN-APP REVIEW: onEmployerJobPosted() called")
                 reviewManager.trackPositiveAction()
 
                 val isFirstPostedJob = isFirstEmployerPostedJob()
-                Timber.d("⭐ IN-APP REVIEW: employer first posted job = $isFirstPostedJob")
+                Timber.d("IN-APP REVIEW: employer first posted job = $isFirstPostedJob")
                 if (!isFirstPostedJob) {
-                    Timber.d("⭐ IN-APP REVIEW: Skipping prompt (not first employer posting)")
+                    Timber.d("IN-APP REVIEW: Skipping prompt (not first employer posting)")
                     return@launch
                 }
                 
                 // Check stats for logging
                 val stats = reviewManager.getReviewStats()
-                Timber.d("📊 Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
+                Timber.d("Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
 
                 // Trigger on first successful job posting.
                 reviewManager.requestInAppReview(activity)
                 
-                Timber.d("💼 Employer posted job - review triggered")
+                Timber.d("Employer posted first job - review triggered")
             } catch (e: Exception) {
-                Timber.e(e, "❌ Error requesting review after job posting")
+                Timber.e(e, "Error requesting review after job posting")
             }
         }
     }
@@ -156,7 +154,7 @@ class InAppReviewTriggerService @Inject constructor(
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
-                Timber.d("🤝 Employer hired worker - requesting review")
+                Timber.d("Employer hired worker - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after hiring")
             }
@@ -171,7 +169,7 @@ class InAppReviewTriggerService @Inject constructor(
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
-                Timber.d("✅ Employer verified work - requesting review")
+                Timber.d("Employer verified work - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after work verification")
             }
@@ -185,7 +183,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("🎁 Successful referral - positive action tracked")
+                Timber.d("Successful referral - positive action tracked")
             } catch (e: Exception) {
                 Timber.e(e, "Error tracking referral")
             }
@@ -199,8 +197,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
-                Timber.d("📤 Referral code shared - requesting review")
+                Timber.d("Referral code shared - positive action tracked")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after referral share")
             }
@@ -214,8 +211,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
-                Timber.d("💸 Referral withdrawal successful - requesting review")
+                Timber.d("Referral withdrawal successful - positive action tracked")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after referral withdrawal success")
             }
@@ -230,7 +226,7 @@ class InAppReviewTriggerService @Inject constructor(
             try {
                 reviewManager.trackPositiveAction()
                 reviewManager.requestInAppReview(activity)
-                Timber.d("🔓 Employer contact unlocked - requesting review")
+                Timber.d("Employer contact unlocked - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after contact unlock")
             }

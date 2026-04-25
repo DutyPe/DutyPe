@@ -192,7 +192,7 @@ export function AdminJobsClient() {
           title: editing.title,
           companyName: editing.companyName,
           location: editing.location,
-          payAmount: editing.payAmount,
+          salary: editing.payAmount,
           vacancies: Number(editing.vacancies) || 0,
           description: editing.description,
           category: editing.category,

@@ -62,6 +62,16 @@ export const NOTIFICATION_TEMPLATES: Translations = {
       body: "ఈసారి మీ దరఖాస్తు ఎంపిక కాలేదు.",
     },
   },
+  APPLICATION_WITHDRAWN: {
+    en: {
+      title: "Changed your mind? Happens!",
+      body: "You withdrew this application. Let's find the right job for you.",
+    },
+    te: {
+      title: "పరవాలేదు, మీ నిర్ణయం మార్చుకున్నారా?",
+      body: "మీరు ఈ దరఖాస్తును ఉపసంహరించుకున్నారు. మీకు సరైన ఉద్యోగం కనుగొందాం.",
+    },
+  },
   APPLICATION_STATUS_OTHER: {
     en: {
       title: "Hi {recipient}, application update",

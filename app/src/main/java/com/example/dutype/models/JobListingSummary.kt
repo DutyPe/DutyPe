@@ -34,6 +34,7 @@ data class JobListingSummary(
     val lng: Double = 0.0,
     val companyCity: String = "",       // NEW: City name for location display
     val locationText: String = "",      // NEW: Exact location text for card display
+    val vacancies: Int = 1,
 
     // Runtime-only (never stored in Firestore)
     var distance: Double? = null,
@@ -124,6 +125,9 @@ data class JobListingSummary(
                 ?: "DAILY").uppercase()
 
             val id = (data["jobId"] as? String) ?: (data["documentId"] as? String) ?: docId
+            val vacancies = (data["vacancies"] as? Number)?.toInt()
+                ?: (data["vacancies"] as? String)?.toIntOrNull()
+                ?: 1
 
             return JobListingSummary(
                 id = id,
@@ -147,6 +151,7 @@ data class JobListingSummary(
                 lng = lng,
                 companyCity = companyCity,
                 locationText = locationText,
+                vacancies = vacancies.coerceAtLeast(1),
                 jobImageUrl = (data["jobImageUrl"] as? String)?.takeIf { it.isNotBlank() }
             )
         }
@@ -171,6 +176,7 @@ data class JobListingSummary(
             lng = job.lng,
             companyCity = job.addressText.ifBlank { job.location },
             locationText = job.addressText.ifBlank { job.location },
+            vacancies = job.vacancies,
             distance = job.distance,
             isSaved = job.isSaved,
             jobImageUrl = job.jobImageUrl

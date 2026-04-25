@@ -44,6 +44,12 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -80,6 +86,8 @@ fun MandatoryEmployerProfileSetupScreen(
     var contactEmail by rememberSaveable { mutableStateOf("") }
     var contactPhone by rememberSaveable { mutableStateOf("") }
     var businessAddress by rememberSaveable { mutableStateOf("") }
+    var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
+    var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
     var companySize by rememberSaveable { mutableStateOf("") }
     var dateOfBirth by rememberSaveable { mutableStateOf("") }
@@ -206,7 +214,7 @@ fun MandatoryEmployerProfileSetupScreen(
     }
 
     // Validation logic
-    val isStep1Valid = companyName.isNotBlank() && industry.isNotBlank()
+    val isStep1Valid = companyName.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
             (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && 
             (dateOfBirth.isBlank() || ValidationUtils.isValidDateOfBirth(dateOfBirth))  // Date of birth is optional
@@ -233,7 +241,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 else -> null
             }
             companyNameError = if (companyName.isBlank()) "Company name is required" else null
-            industryError = if (industry.isBlank()) "Please select at least one industry" else null
+            industryError = null
             addressError = if (businessAddress.isBlank()) "Work location is required" else null
             genderError = if (gender.isBlank()) "Please select your gender" else null
             dateOfBirthError = if (dateOfBirth.isNotBlank()) ValidationUtils.getDateOfBirthError(dateOfBirth) else null  // Optional field
@@ -326,6 +334,12 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     if (businessAddress.isNotBlank()) {
                         employerProfileData["businessAddress"] = businessAddress.trim()
+                    }
+                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
+                        employerProfileData["businessLocation"] = mapOf(
+                            "lat" to businessLatitude,
+                            "lng" to businessLongitude
+                        )
                     }
                     if (gstNumber.isNotBlank()) {
                         employerProfileData["gstNumber"] = gstNumber.trim()
@@ -476,6 +490,8 @@ fun MandatoryEmployerProfileSetupScreen(
         contactEmail = contactEmail,
         contactPhone = contactPhone,
         businessAddress = businessAddress,
+        businessLatitude = businessLatitude,
+        businessLongitude = businessLongitude,
         industry = industry,
         companySize = companySize,
         gstNumber = gstNumber,
@@ -507,6 +523,10 @@ fun MandatoryEmployerProfileSetupScreen(
         onContactEmailChange = { contactEmail = it },
         onContactPhoneChange = { contactPhone = it },
         onBusinessAddressChange = { businessAddress = it },
+        onBusinessLocationChange = { lat, lng ->
+            businessLatitude = lat
+            businessLongitude = lng
+        },
         onIndustryChange = { industry = it },
         onCompanySizeChange = { companySize = it },
         onGstNumberChange = { gstNumber = it },
@@ -590,6 +610,8 @@ fun MandatoryEmployerProfileSetupContent(
     contactEmail: String,
     contactPhone: String,
     businessAddress: String,
+    businessLatitude: Double,
+    businessLongitude: Double,
     industry: String,
     companySize: String,
     gstNumber: String,
@@ -621,6 +643,7 @@ fun MandatoryEmployerProfileSetupContent(
     onContactEmailChange: (String) -> Unit,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
+    onBusinessLocationChange: (Double, Double) -> Unit,
     onIndustryChange: (String) -> Unit,
     onCompanySizeChange: (String) -> Unit,
     onGstNumberChange: (String) -> Unit,

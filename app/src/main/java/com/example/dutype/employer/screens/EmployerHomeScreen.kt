@@ -200,10 +200,10 @@ fun EmployerHomeScreen(
     val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     LaunchedEffect(employerId) {
         if (employerId != null) {
-            Timber.d("ðŸ¢ EMPLOYER_HOME: Loading jobs for employerId=$employerId")
+            Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
             viewModel.loadMyJobs()
         } else {
-            Timber.w("ðŸ¢ EMPLOYER_HOME: No employerId - user not authenticated")
+            Timber.w("EMPLOYER_HOME: No employerId - user not authenticated")
         }
         
         // Load announcements for employer role
@@ -245,14 +245,14 @@ fun EmployerHomeScreen(
     // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
     // Here we only show bottom sheets for returning users who denied permissions
     LaunchedEffect(Unit) {
-        Timber.d("ðŸ  EmployerHomeScreen - Checking permission status for bottom sheets")
-        Timber.d("ðŸ  EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
+        Timber.d("EmployerHomeScreen - Checking permission status for bottom sheets")
+        Timber.d("EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
         
         // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
         if (!bottomSheetsShownInSession) {
             bottomSheetsShownInSession = true
             if (!hasNotificationPermission) {
-                Timber.d("ðŸ  EmployerHomeScreen - Showing notification bottom sheet for denied permission")
+                Timber.d("EmployerHomeScreen - Showing notification bottom sheet for denied permission")
                 showNotificationBottomSheet = true
             }
         }
@@ -314,17 +314,17 @@ fun EmployerHomeScreen(
                         val savedCompanyName = data["companyName"] as? String
                         if (!savedCompanyName.isNullOrBlank()) {
                             companyName = savedCompanyName
-                            Timber.d("ðŸ  EmployerHomeScreen - Loaded company name: $companyName")
+                            Timber.d("EmployerHomeScreen - Loaded company name: $companyName")
                         }
                     },
                     onFailure = { e ->
-                        Timber.e("ðŸ  EmployerHomeScreen - Error loading company name: ${e.message}")
+                        Timber.e("EmployerHomeScreen - Error loading company name: ${e.message}")
                     }
                 )
             }
         } catch (e: Exception) {
             // Handle error - keep empty company name
-            Timber.e("ðŸ  EmployerHomeScreen - Exception loading profile: ${e.message}")
+            Timber.e("EmployerHomeScreen - Exception loading profile: ${e.message}")
             companyName = ""
         }
     }
@@ -954,8 +954,8 @@ fun RecentJobsSection(
                         jobPosting = jobPosting,
                         onEditClick = { jobId ->
                             try {
-                                Timber.d(" EmployerHomeScreen - Edit clicked for job ID: $jobId")
-                                Timber.d(" EmployerHomeScreen - Job title: ${job.title}")
+                                Timber.d("EmployerHomeScreen - Edit clicked for job ID: $jobId")
+                                Timber.d("EmployerHomeScreen - Job title: ${job.title}")
                                 
                                 // Industry standard: Allow editing within 7 days of posting
                                 val currentTime = System.currentTimeMillis()
@@ -969,22 +969,22 @@ fun RecentJobsSection(
                                         "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago.", 
                                         Toast.LENGTH_LONG
                                     ).show()
-                                    Timber.w(" EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
+                                    Timber.w("EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
                                 } else {
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }
                             } catch (e: Exception) {
-                                Timber.e(" EmployerHomeScreen - Error in edit click: ${e.message}")
+                                Timber.e("EmployerHomeScreen - Error in edit click: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onViewApplicationsClick = { jobId ->
                             try {
-                                Timber.d(" EmployerHomeScreen - View applications clicked for job ID: $jobId")
+                                Timber.d("EmployerHomeScreen - View applications clicked for job ID: $jobId")
                                 navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(jobId))
                             } catch (e: Exception) {
-                                Timber.e(" EmployerHomeScreen - Error navigating to applications: ${e.message}")
+                                Timber.e("EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()
                                 Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
                             }

@@ -67,6 +67,7 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_PERKS = stringPreferencesKey("draft_perks")
         private val KEY_WORK_TYPE = stringPreferencesKey("draft_work_type")
         private val KEY_EXPERIENCE_LEVEL = stringPreferencesKey("draft_experience_level")
+        private val KEY_EDUCATION_REQUIRED = stringPreferencesKey("draft_education_required")
         private val KEY_AGE_RANGE = stringPreferencesKey("draft_age_range")
         private val KEY_GENDER = stringPreferencesKey("draft_gender")
         private val KEY_TIMESTAMP = longPreferencesKey("draft_timestamp")
@@ -98,6 +99,7 @@ class JobDraftDataStore @Inject constructor(
         val perks: Set<JobPerk> = emptySet(),
         val workType: String = "Part-time",
         val experienceLevel: String = "No Experience Required",
+        val educationRequired: String = "No qualification required",
         val ageRange: String = "18-35",
         val gender: String = "Any",
         val landmark: String = "",
@@ -130,6 +132,7 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_PERKS] = gson.toJson(draft.perks.map { it.name })
         prefs[KEY_WORK_TYPE] = draft.workType
         prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
+        prefs[KEY_EDUCATION_REQUIRED] = draft.educationRequired
         prefs[KEY_AGE_RANGE] = draft.ageRange
         prefs[KEY_GENDER] = draft.gender
         prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
@@ -191,6 +194,7 @@ class JobDraftDataStore @Inject constructor(
                     perks = perks,
                     workType = prefs[KEY_WORK_TYPE] ?: "Part-time",
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
+                    educationRequired = prefs[KEY_EDUCATION_REQUIRED] ?: "No qualification required",
                     ageRange = prefs[KEY_AGE_RANGE] ?: "18-35",
                     gender = prefs[KEY_GENDER] ?: "Any",
                     timestamp = timestamp,

@@ -90,6 +90,7 @@ enum class ApplicationStatus {
     APPLIED,
     SHORTLISTED,
     REJECTED,
+    WITHDRAWN,
     HIRED,
     COMPLETED;
 
@@ -97,6 +98,7 @@ enum class ApplicationStatus {
         APPLIED -> "applied"
         SHORTLISTED -> "shortlisted"
         REJECTED -> "rejected"
+        WITHDRAWN -> "withdrawn"
         HIRED -> "hired"
         COMPLETED -> "completed"
     }
@@ -106,6 +108,7 @@ enum class ApplicationStatus {
             "applied" -> APPLIED
             "shortlisted" -> SHORTLISTED
             "rejected" -> REJECTED
+            "withdrawn" -> WITHDRAWN
             "hired" -> HIRED
             "completed" -> COMPLETED
             else -> APPLIED
@@ -117,6 +120,7 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.APPLIED -> "Applied"
     ApplicationStatus.SHORTLISTED -> "Shortlisted"
     ApplicationStatus.REJECTED -> "Rejected"
+    ApplicationStatus.WITHDRAWN -> "Withdrawn"
     ApplicationStatus.HIRED -> "Hired"
     ApplicationStatus.COMPLETED -> "Completed"
 }
@@ -127,6 +131,7 @@ fun ApplicationStatus.getStatusColor(): Color = when (this) {
     ApplicationStatus.HIRED -> Color(0xFF4CAF50)
     ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C)
     ApplicationStatus.REJECTED -> Color(0xFFF44336)
+    ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
 }
 
 enum class JobVacancyStatus { OPEN, FILLED, CLOSED, EXPIRED }

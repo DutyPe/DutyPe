@@ -79,6 +79,7 @@ export const onApplicationStatusChanged = functions.firestore
       next === "hired" ? "APPLICATION_HIRED" :
       next === "shortlisted" ? "APPLICATION_SHORTLISTED" :
       next === "rejected" ? "APPLICATION_REJECTED" :
+      next === "withdrawn" ? "APPLICATION_WITHDRAWN" :
       "APPLICATION_STATUS_OTHER";
 
     const params: Record<string, string | number> = { recipient };

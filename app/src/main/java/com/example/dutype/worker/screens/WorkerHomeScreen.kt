@@ -307,7 +307,7 @@ fun WorkerHomeScreen(
     // ENTERPRISE OPTIMIZATION: Load jobs in parallel with page load
     // Instagram/TikTok approach: Show UI instantly, populate data in background
     LaunchedEffect(Unit) {
-        Timber.d("ðŸ  WorkerHomeScreen - INIT: Starting ULTRA-FAST initialization")
+        Timber.d("WorkerHomeScreen - INIT: Starting ULTRA-FAST initialization")
         
         // CRITICAL: Refresh StateFlow from SharedPreferences in case location was saved
         // while this screen wasn't composed (e.g., saved from SelectRoleScreen async GPS)
@@ -320,7 +320,7 @@ fun WorkerHomeScreen(
                               savedLocation.longitude != 0.0
         
         if (hasValidLocation) {
-            Timber.d(" Using cached location: ${savedLocation?.getShortAddress()}")
+            Timber.d("Using cached location: ${savedLocation?.getShortAddress()}")
             // Set location immediately for instant distance calculations
             jobViewModel.setUserLocation(
                 savedLocation!!.latitude, 
@@ -329,23 +329,23 @@ fun WorkerHomeScreen(
             )
 
             if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
-                Timber.d(" Refreshing location in background for WorkerHomeScreen")
+                Timber.d("Refreshing location in background for WorkerHomeScreen")
                 jobViewModel.locationFetchedInSession = true
                 isLocationLoading = true
             }
         } else if (hasLocationPermission && !jobViewModel.locationFetchedInSession && !locationPreferences.isManualLocationLocked()) {
             // Permission granted but no saved location - fetch it
-            Timber.d(" Permission granted but no saved location - fetching now")
+            Timber.d("Permission granted but no saved location - fetching now")
             jobViewModel.locationFetchedInSession = true
             isLocationLoading = true
         }
         
         // PERFORMANCE FIX: Load ONLY 3 jobs for instant home screen load
         // This is the Instagram/TikTok pattern - show something immediately
-        Timber.d("ðŸ  Loading 3 jobs for instant display...")
+        Timber.d("Loading 3 jobs for instant display...")
         jobViewModel.loadJobsSummaryForHome()
         
-        Timber.d("ðŸ  WorkerHomeScreen - INIT: Complete (instant - <100ms)")
+        Timber.d("WorkerHomeScreen - INIT: Complete (instant - <100ms)")
     }
     
     // CRITICAL: React to location changes from async GPS callbacks

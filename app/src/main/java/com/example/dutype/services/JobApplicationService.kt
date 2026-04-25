@@ -518,8 +518,9 @@ class JobApplicationService @Inject constructor(
                     .get()
                     .await()
                 
-                // Check if there's any active application (not WITHDRAWN or REJECTED)
-                val hasApplied = snapshot.exists()
+                val existingStatus = snapshot.getString("status")?.lowercase()
+                // Check if there's any active application (not withdrawn/rejected)
+                val hasApplied = snapshot.exists() && existingStatus !in setOf("withdrawn", "rejected")
                 Timber.d("JobApplicationService.hasUserApplied - Result: $hasApplied")
                 if (hasApplied) {
                     Timber.d("JobApplicationService.hasUserApplied - Existing application found")
@@ -961,7 +962,7 @@ class JobApplicationService @Inject constructor(
                 return Result.success(
                     localApplication.toJobApplication()
                         .withCanonicalId(localApplication.applicationId)
-                        .copy(status = ApplicationStatus.REJECTED)
+                        .copy(status = ApplicationStatus.WITHDRAWN)
                 )
             }
 
@@ -988,12 +989,12 @@ class JobApplicationService @Inject constructor(
                 }
                 
                 val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.REJECTED
+                    status = ApplicationStatus.WITHDRAWN
                 )
                 
                 // Write only the status field - keep document lean
                 docRef.update(
-                    "status", ApplicationStatus.REJECTED.toFirestoreValue()
+                    "status", ApplicationStatus.WITHDRAWN.toFirestoreValue()
                 ).await()
 
                 applicationDao.insertApplication(

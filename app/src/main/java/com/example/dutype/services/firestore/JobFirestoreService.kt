@@ -1,8 +1,9 @@
-package com.example.dutype.services.firestore
+﻿package com.example.dutype.services.firestore
 
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
@@ -332,6 +333,8 @@ class JobFirestoreService @Inject constructor(
                 .let { if (it in listOf("LOW", "MEDIUM", "HIGH")) it else "MEDIUM" }
             val gender = normalizeString(jobData["gender"]).ifBlank { "Any" }
             val experienceRequired = normalizeString(jobData["experienceRequired"]).ifBlank { "No Experience Required" }
+            val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { "No qualification required" }
+            val companyCity = extractCityFromAddress(addressText)
             val shiftTiming = normalizeString(jobData["shiftTiming"]).ifBlank { "Flexible" }
             val vacancies = (jobData["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(jobData["vacancies"]).toIntOrNull()
@@ -417,7 +420,8 @@ class JobFirestoreService @Inject constructor(
                 "benefits" to benefits,
                 "shiftTiming" to shiftTiming,
                 "gender" to gender,
-                "experienceRequired" to experienceRequired
+                "experienceRequired" to experienceRequired,
+                "educationRequired" to educationRequired
             )
             // #5 fix: persist the employer-uploaded hero image URL on the
             // slim card payload so it can render on every job list without
@@ -434,6 +438,8 @@ class JobFirestoreService @Inject constructor(
                 "description" to description,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
+                "educationRequired" to educationRequired,
+                "companyCity" to companyCity,
                 "shiftTiming" to shiftTiming,
                 "vacancies" to vacancies,
                 "benefits" to benefits,
@@ -866,6 +872,18 @@ class JobFirestoreService @Inject constructor(
                 detailsUpdates["experienceRequired"] = v
                 cardUpdates["experienceRequired"] = v
             }
+            if (data.containsKey("educationRequired")) {
+                val v = normalizeString(data["educationRequired"]).ifBlank { "No qualification required" }
+                detailsUpdates["educationRequired"] = v
+                cardUpdates["educationRequired"] = v
+            }
+            if (data.containsKey("addressText")) {
+                val city = extractCityFromAddress(normalizeString(data["addressText"]))
+                if (city.isNotBlank()) detailsUpdates["companyCity"] = city
+            }
+            // `companyCity` no longer belongs in jobmetadata. Delete it on
+            // every card edit so legacy card docs become lean automatically.
+            cardUpdates["companyCity"] = FieldValue.delete()
             if (data.containsKey("shiftTiming")) {
                 val v = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
                 detailsUpdates["shiftTiming"] = v

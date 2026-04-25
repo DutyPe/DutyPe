@@ -841,6 +841,13 @@ class ProfileCompletionService @Inject constructor(
             if (!businessAddress.isNullOrBlank()) {
                 employerProfile["businessAddress"] = businessAddress
             }
+            val businessLocation = (profileData["businessLocation"] as? Map<*, *>)
+                ?: (existingEmployer["businessLocation"] as? Map<*, *>)
+            val businessLat = (businessLocation?.get("lat") as? Number)?.toDouble()
+            val businessLng = (businessLocation?.get("lng") as? Number)?.toDouble()
+            if (businessLat != null && businessLng != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLat, businessLng)) {
+                employerProfile["businessLocation"] = mapOf("lat" to businessLat, "lng" to businessLng)
+            }
 
             val batch = firestore.batch()
             batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())

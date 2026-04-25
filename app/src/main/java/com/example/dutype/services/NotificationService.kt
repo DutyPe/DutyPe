@@ -478,6 +478,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_title
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_title
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_title
+            ApplicationStatus.WITHDRAWN -> R.string.notif_application_withdrawn_title
         }
         val msgRes = when (newStatus) {
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_msg
@@ -485,6 +486,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_msg
+            ApplicationStatus.WITHDRAWN -> R.string.notif_application_withdrawn_msg
         }
         val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)
         val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes)
@@ -801,6 +803,8 @@ class NotificationService @Inject constructor(
         }
 
         val notificationId = notification.id.hashCode()
+        intent.putExtra("from_notification", true)
+        intent.putExtra("notification_system_id", notificationId)
         val pendingIntent = PendingIntent.getActivity(
             context, notificationId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

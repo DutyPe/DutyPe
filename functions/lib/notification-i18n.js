@@ -1,58 +1,70 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.localizedTopic = exports.getUserLanguagesBulk = exports.getUserLanguage = exports.tBody = exports.tTitle = exports.normalizeLocale = exports.SE_GUEST_POOL = exports.SE_EMPLOYER_POOL = exports.SE_WORKER_POOL = exports.NOTIFICATION_TEMPLATES = exports.DEFAULT_LOCALE = exports.SUPPORTED_LOCALES = void 0;
+exports.localizedTopic = exports.getUserLanguagesBulk = exports.getUserDisplayName = exports.getUserLanguage = exports.tBody = exports.tTitle = exports.normalizeLocale = exports.SE_GUEST_POOL = exports.SE_EMPLOYER_POOL = exports.SE_WORKER_POOL = exports.NOTIFICATION_TEMPLATES = exports.DEFAULT_LOCALE = exports.SUPPORTED_LOCALES = void 0;
 exports.SUPPORTED_LOCALES = ["en", "te"];
 exports.DEFAULT_LOCALE = "en";
 exports.NOTIFICATION_TEMPLATES = {
     // ── application status ────────────────────────────────────────────
+    // `{recipient}` resolves to the worker's first name when known (see
+    // getUserDisplayName). When unknown, the greeting collapses cleanly.
     APPLICATION_HIRED: {
         en: {
-            title: "You're hired! 🎉",
+            title: "Hi {recipient}, you're hired! 🎉",
             body: "An employer has accepted your application.",
         },
         te: {
-            title: "మీరు ఎంపికయ్యారు! 🎉",
+            title: "హాయ్ {recipient}, మీరు ఎంపికయ్యారు! 🎉",
             body: "ఒక యజమాని మీ దరఖాస్తును అంగీకరించారు.",
         },
     },
     APPLICATION_SHORTLISTED: {
         en: {
-            title: "You've been shortlisted",
+            title: "Hi {recipient}, you've been shortlisted",
             body: "An employer is reviewing your application.",
         },
         te: {
-            title: "మీరు షార్ట్‌లిస్ట్ అయ్యారు",
+            title: "హాయ్ {recipient}, మీరు షార్ట్‌లిస్ట్ అయ్యారు",
             body: "ఒక యజమాని మీ దరఖాస్తును సమీక్షిస్తున్నారు.",
         },
     },
     APPLICATION_REJECTED: {
         en: {
-            title: "Application update",
+            title: "Hi {recipient}, application update",
             body: "Your application wasn't selected this time.",
         },
         te: {
-            title: "దరఖాస్తు అప్‌డేట్",
+            title: "హాయ్ {recipient}, దరఖాస్తు అప్‌డేట్",
             body: "ఈసారి మీ దరఖాస్తు ఎంపిక కాలేదు.",
+        },
+    },
+    APPLICATION_WITHDRAWN: {
+        en: {
+            title: "Changed your mind? Happens!",
+            body: "You withdrew this application. Let's find the right job for you.",
+        },
+        te: {
+            title: "పరవాలేదు, మీ నిర్ణయం మార్చుకున్నారా?",
+            body: "మీరు ఈ దరఖాస్తును ఉపసంహరించుకున్నారు. మీకు సరైన ఉద్యోగం కనుగొందాం.",
         },
     },
     APPLICATION_STATUS_OTHER: {
         en: {
-            title: "Application update",
+            title: "Hi {recipient}, application update",
             body: "Status: {status}",
         },
         te: {
-            title: "దరఖాస్తు అప్‌డేట్",
+            title: "హాయ్ {recipient}, దరఖాస్తు అప్‌డేట్",
             body: "స్థితి: {status}",
         },
     },
     NEW_APPLICATION_RECEIVED: {
         en: {
-            title: "New application received",
-            body: "A worker has applied to your job posting.",
+            title: "Hi {recipient}, new application received",
+            body: "{workerName} applied to your job {jobTitle}.",
         },
         te: {
-            title: "కొత్త దరఖాస్తు వచ్చింది",
-            body: "ఒక కార్మికుడు మీ ఉద్యోగానికి దరఖాస్తు చేశారు.",
+            title: "హాయ్ {recipient}, కొత్త దరఖాస్తు వచ్చింది",
+            body: "{workerName} మీ ఉద్యోగానికి {jobTitle} దరఖాస్తు చేశారు.",
         },
     },
     // ── referral system ───────────────────────────────────────────────
@@ -84,6 +96,57 @@ exports.NOTIFICATION_TEMPLATES = {
         te: {
             title: "🎁 స్వాగత బోనస్",
             body: "రిఫరల్ కోడ్‌తో చేరినందుకు మీరు ₹{amount} సంపాదించారు.",
+        },
+    },
+    // ── transactional reminders & re-engagement ────────────────────────
+    JOB_EXPIRY_SOON: {
+        en: {
+            title: "⏰ Hi {recipient}, job expiring soon",
+            body: "Your job \"{jobTitle}\" expires in {hoursLeft} hours. Renew it to keep receiving applications.",
+        },
+        te: {
+            title: "⏰ హాయ్ {recipient}, ఉద్యోగం త్వరలో గడువు ముగుస్తుంది",
+            body: "మీ \"{jobTitle}\" ఉద్యోగం {hoursLeft} గంటల్లో గడువు ముగుస్తుంది. దరఖాస్తులు రావడానికి దానిని పునరుద్ధరించండి.",
+        },
+    },
+    EMPLOYER_PENDING_APPLICATIONS: {
+        en: {
+            title: "📋 Hi {recipient}, you have pending applications",
+            body: "{count} applications are waiting for your review. Don't miss out on great candidates!",
+        },
+        te: {
+            title: "📋 హాయ్ {recipient}, వేచి ఉన్న దరఖాస్తులు ఉన్నాయి",
+            body: "మీ సమీక్ష కోసం {count} దరఖాస్తులు పెండింగ్‌లో ఉన్నాయి. మంచి అభ్యర్థులను మిస్ అవ్వకండి!",
+        },
+    },
+    WORKER_PENDING_APPLICATION: {
+        en: {
+            title: "⏰ Hi {recipient}, your application is still pending",
+            body: "Your application for \"{jobTitle}\" has been pending for {daysPending} days. For faster updates, call the employer directly!",
+        },
+        te: {
+            title: "⏰ హాయ్ {recipient}, మీ దరఖాస్తు ఇంకా పెండింగ్‌లో ఉంది",
+            body: "\"{jobTitle}\" కోసం మీ దరఖాస్తు {daysPending} రోజులుగా పెండింగ్‌లో ఉంది. వేగంగా అప్‌డేట్‌ల కోసం, యజమానిని నేరుగా కాల్ చేయండి!",
+        },
+    },
+    WORKER_RE_ENGAGEMENT: {
+        en: {
+            title: "💼 Hi {recipient}, new jobs are waiting for you!",
+            body: "Check out the latest job opportunities near you. Your next opportunity is just a tap away!",
+        },
+        te: {
+            title: "💼 హాయ్ {recipient}, కొత్త ఉద్యోగాలు మీ కోసం వేచి ఉన్నాయి!",
+            body: "మీ సమీపంలోని తాజా ఉద్యోగ అవకాశాలను చూడండి. మీ తదుపరి అవకాశం ఒక్క ట్యాప్ దూరంలో ఉంది!",
+        },
+    },
+    EMPLOYER_RE_ENGAGEMENT: {
+        en: {
+            title: "🏢 Hi {recipient}, ready to hire?",
+            body: "Post a job and connect with thousands of qualified workers in your area. Hiring made easy!",
+        },
+        te: {
+            title: "🏢 హాయ్ {recipient}, నియమించడానికి సిద్ధంగా ఉన్నారా?",
+            body: "ఉద్యోగాన్ని పోస్ట్ చేయండి మరియు మీ ప్రాంతంలోని వేలాది నైపుణ్యం గల కార్మికులతో కనెక్ట్ అవ్వండి. సులభంగా నియామకం!",
         },
     },
     // ── scheduled smart engagement: workers ───────────────────────────
@@ -223,21 +286,21 @@ exports.NOTIFICATION_TEMPLATES = {
     // ── moderation ───────────────────────────────────────────────────
     JOB_UNDER_REVIEW: {
         en: {
-            title: "Job Under Review",
+            title: "Hi {recipient}, your job is under review",
             body: "Your job \"{title}\" needs manual review due to duplicate signals.",
         },
         te: {
-            title: "ఉద్యోగం సమీక్షలో ఉంది",
+            title: "హాయ్ {recipient}, మీ ఉద్యోగం సమీక్షలో ఉంది",
             body: "డూప్లికేట్ సిగ్నల్‌ల కారణంగా మీ ఉద్యోగం \"{title}\" మాన్యువల్ సమీక్ష అవసరం.",
         },
     },
     JOB_HIDDEN_REPORTS: {
         en: {
-            title: "Job Hidden for Review",
+            title: "Hi {recipient}, your job was hidden for review",
             body: "Your job \"{title}\" has been hidden due to community reports.",
         },
         te: {
-            title: "ఉద్యోగం సమీక్ష కోసం దాచబడింది",
+            title: "హాయ్ {recipient}, మీ ఉద్యోగం సమీక్ష కోసం దాచబడింది",
             body: "కమ్యూనిటీ నివేదికల కారణంగా మీ ఉద్యోగం \"{title}\" దాచబడింది.",
         },
     },
@@ -287,9 +350,20 @@ function normalizeLocale(value) {
 }
 exports.normalizeLocale = normalizeLocale;
 function applyParams(template, params) {
-    if (!params)
-        return template;
-    return template.replace(/\{(\w+)\}/g, (_, key) => params[key] !== undefined && params[key] !== null ? String(params[key]) : `{${key}}`);
+    const replaced = template.replace(/\{(\w+)\}/g, (_, key) => {
+        if (!params)
+            return "";
+        const value = params[key];
+        return value !== undefined && value !== null ? String(value) : "";
+    });
+    // Clean up artefacts left when a placeholder resolves to empty — e.g.
+    // "Hi , welcome" → "Hi, welcome", "Hi , " → "", double spaces → single.
+    return replaced
+        .replace(/\s+,/g, ",")
+        .replace(/,\s*,/g, ",")
+        .replace(/\s{2,}/g, " ")
+        .replace(/^\s*[,;:\-]\s*/g, "")
+        .trim();
 }
 function pickLocalized(templateId, locale) {
     var _a, _b;
@@ -331,6 +405,36 @@ async function getUserLanguage(db, userId) {
     }
 }
 exports.getUserLanguage = getUserLanguage;
+/**
+ * Returns the recipient's display name for use in notification bodies.
+ * Prefers the first word of `fullName` (e.g. "Rahul" from "Rahul Kumar")
+ * so the copy reads naturally. Falls back to the supplied default when the
+ * user doc is missing or has no name.
+ *
+ * Use this wherever a notification is addressed directly to a user so the
+ * copy feels personal ("Hi Rahul, a new job matches…") instead of generic.
+ */
+async function getUserDisplayName(db, userId, fallback = "") {
+    var _a, _b;
+    if (!userId)
+        return fallback;
+    try {
+        const snap = await db.collection("users").doc(userId).get();
+        if (!snap.exists)
+            return fallback;
+        const fullName = String((_a = snap.get("fullName")) !== null && _a !== void 0 ? _a : "").trim();
+        if (!fullName)
+            return fallback;
+        // First token only — keeps notification bodies concise and avoids
+        // awkward surnames in the greeting.
+        const firstName = (_b = fullName.split(/\s+/)[0]) !== null && _b !== void 0 ? _b : fullName;
+        return firstName.length > 24 ? firstName.slice(0, 24) : firstName;
+    }
+    catch (_c) {
+        return fallback;
+    }
+}
+exports.getUserDisplayName = getUserDisplayName;
 /**
  * Bulk-resolve languages for many users in a single round-trip.
  * Returns a map { userId -> locale }; missing users default to "en".

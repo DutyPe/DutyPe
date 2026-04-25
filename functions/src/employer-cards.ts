@@ -189,6 +189,8 @@ function statusCounterField(status: string): string {
       return "completedCount";
     case "rejected":
       return "rejectedCount";
+    case "withdrawn":
+      return "withdrawnCount";
     default:
       // applied / unknown -> only contributes to the total.
       return "appliedCount";

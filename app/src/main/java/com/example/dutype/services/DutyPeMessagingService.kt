@@ -137,7 +137,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         val notificationId = System.currentTimeMillis().toInt()
         
         // Create pending intent for deep link
-        val intent = createDeepLinkIntent(deepLink)
+        val intent = createDeepLinkIntent(deepLink, notificationId)
         val pendingIntent = PendingIntent.getActivity(
             this,
             notificationId,
@@ -182,7 +182,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
     /**
      * Create intent for deep link
      */
-    private fun createDeepLinkIntent(deepLink: String?): Intent {
+    private fun createDeepLinkIntent(deepLink: String?, notificationId: Int? = null): Intent {
         val uri = deepLink?.let { Uri.parse(it) }
         val uriHost = uri?.host.orEmpty()
         val isExternalLink = uri?.scheme == "market" ||
@@ -191,6 +191,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         if (uri != null && isExternalLink) {
             return Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                notificationId?.let { putExtra("notification_system_id", it) }
             }
         }
 
@@ -198,10 +199,14 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
                 setClass(this@DutyPeMessagingService, MainActivity::class.java)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("from_notification", true)
+                notificationId?.let { putExtra("notification_system_id", it) }
             }
         } else {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra("from_notification", true)
+                notificationId?.let { putExtra("notification_system_id", it) }
             }
         }
     }
@@ -236,7 +241,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 // Add "Renew Job" action
                 val jobId = data["jobId"]
                 if (jobId != null) {
-                    val renewIntent = createDeepLinkIntent("dutype://job/$jobId/renew")
+                    val renewIntent = createDeepLinkIntent("dutype://job/$jobId/renew", notificationId)
                     val renewPendingIntent = PendingIntent.getActivity(
                         this,
                         notificationId + 1,
@@ -252,7 +257,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             }
             "PENDING_APPLICATIONS" -> {
                 // Add "View Applications" action
-                val viewIntent = createDeepLinkIntent("dutype://applications")
+                val viewIntent = createDeepLinkIntent("dutype://applications", notificationId)
                 val viewPendingIntent = PendingIntent.getActivity(
                     this,
                     notificationId + 1,
@@ -268,7 +273,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             "RE_ENGAGEMENT",
             "GUEST_ENGAGEMENT" -> {
                 // Add "Browse Jobs" action for guest & re-engagement nudges
-                val browseIntent = createDeepLinkIntent("dutype://jobs")
+                val browseIntent = createDeepLinkIntent("dutype://jobs", notificationId)
                 val browsePendingIntent = PendingIntent.getActivity(
                     this,
                     notificationId + 1,
@@ -288,7 +293,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 val applicationId = data["applicationId"]
                 val dest = if (!applicationId.isNullOrEmpty()) "dutype://worker/applications/$applicationId"
                            else "dutype://worker/applications"
-                val actionIntent = createDeepLinkIntent(dest)
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -303,7 +308,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                     !jobId.isNullOrEmpty() -> "dutype://employer/jobs/$jobId"
                     else -> "dutype://employer/applications"
                 }
-                val actionIntent = createDeepLinkIntent(dest)
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -314,7 +319,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 val jobId = data["jobId"]
                 val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
                            else "dutype://employer/applications"
-                val actionIntent = createDeepLinkIntent(dest)
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -325,7 +330,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 val jobId = data["jobId"]
                 val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
                            else "dutype://employer/jobs"
-                val actionIntent = createDeepLinkIntent(dest)
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -336,7 +341,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 val role = data["userRole"] ?: ""
                 val dest = if (role.equals("EMPLOYER", ignoreCase = true))
                     "dutype://employer/dashboard" else "dutype://worker/jobs"
-                val actionIntent = createDeepLinkIntent(dest)
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT

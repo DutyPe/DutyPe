@@ -78,6 +78,7 @@ private fun getStatusIcon(status: ApplicationStatus): String {
         ApplicationStatus.HIRED -> "🎉"
         ApplicationStatus.COMPLETED -> "✅"
         ApplicationStatus.REJECTED -> "❌"
+        ApplicationStatus.WITHDRAWN -> ""
     }
 }
 
@@ -88,6 +89,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
+        ApplicationStatus.WITHDRAWN -> "Withdrawn"
     }
 }
 
@@ -98,6 +100,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
         ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C) // Dark green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
+        ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
     }
 }
 
@@ -475,6 +478,7 @@ private fun ApplicationTimeline(
                 ApplicationStatus.HIRED -> "Completed"
                 ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Cancelled"
+                ApplicationStatus.WITHDRAWN -> "Withdrawn"
             },
             isCompleted = status == ApplicationStatus.SHORTLISTED || status == ApplicationStatus.HIRED,
             isCurrent = status == ApplicationStatus.SHORTLISTED,
@@ -485,17 +489,19 @@ private fun ApplicationTimeline(
             label = when (status) {
                 ApplicationStatus.HIRED -> "Hired"
                 ApplicationStatus.REJECTED -> "Rejected"
+                ApplicationStatus.WITHDRAWN -> "Withdrawn"
                 else -> "Decision"
             },
             statusText = when (status) {
                 ApplicationStatus.HIRED -> "Completed"
                 ApplicationStatus.REJECTED -> "Completed"
+                ApplicationStatus.WITHDRAWN -> "Completed"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.HIRED || status == ApplicationStatus.REJECTED,
+            isCompleted = status == ApplicationStatus.HIRED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN,
             isCurrent = false,
             isSuccess = status == ApplicationStatus.HIRED,
-            isFailure = status == ApplicationStatus.REJECTED
+            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )
     

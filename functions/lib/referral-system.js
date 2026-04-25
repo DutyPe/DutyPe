@@ -46,7 +46,7 @@ const REFERRAL_CONFIG = {
     // Reward amounts (in INR)
     REWARD_PER_REFERRAL: 25,
     SIGNUP_BONUS: 25,
-    MIN_WITHDRAWAL: 50,
+    MIN_WITHDRAWAL: 100,
     MAX_WITHDRAWAL_PER_DAY: 1000,
     // Milestone bonuses
     MILESTONES: {
@@ -56,14 +56,6 @@ const REFERRAL_CONFIG = {
         25: 250,
         50: 500,
         100: 1000 // 100 referrals = ₹1000 bonus
-    },
-    // Withdrawal milestones (can withdraw at these counts)
-    WITHDRAWAL_MILESTONES: [5, 10, 15],
-    // Employer free job postings
-    EMPLOYER_FREE_POSTINGS: {
-        5: { count: 5, days: 15 },
-        10: { count: 10, days: 30 },
-        25: { count: 25, days: 60 }
     },
     // Fraud prevention
     MAX_REFERRALS_PER_DAY: 50,
@@ -95,19 +87,12 @@ const DEFAULT_REFERRAL_STATS = {
     expiredReferrals: 0,
     rejectedReferrals: 0,
     totalEarnings: 0,
-    pendingEarnings: 0,
     withdrawnAmount: 0,
     availableBalance: 0,
-    canWithdraw: false,
-    nextMilestone: 5,
     currentTier: "BRONZE",
-    freeJobPostings: 0,
-    freeJobPostingsExpiry: null,
     signupBonusReceived: false,
     signupBonusAmount: 0,
-    totalWithdrawals: 0,
-    isBlocked: false,
-    blockReason: null
+    totalWithdrawals: 0
 };
 // ============================================
 // HELPER FUNCTIONS
@@ -140,11 +125,10 @@ function getNextMilestone(successfulReferrals) {
     return successfulReferrals + 10;
 }
 /**
- * Check if user can withdraw based on referral count
+ * Check if user can withdraw based on available balance
  */
-function canWithdraw(successfulReferrals) {
-    return successfulReferrals >= 15 ||
-        REFERRAL_CONFIG.WITHDRAWAL_MILESTONES.includes(successfulReferrals);
+function canWithdraw(availableBalance, minWithdrawal) {
+    return availableBalance >= minWithdrawal;
 }
 /**
  * Get milestone bonus if applicable
@@ -208,7 +192,7 @@ function computeEmployerProfileCompletion(user = {}) {
  * Check if profile is considered complete (>= 80%)
  */
 function isProfileComplete(user = {}) {
-    const role = getStringValue(user.activeRole, "WORKER").toUpperCase();
+    const role = getStringValue(user.role || user.activeRole, "WORKER").toUpperCase();
     const completion = role === "EMPLOYER"
         ? computeEmployerProfileCompletion(user)
         : computeWorkerProfileCompletion(user);
@@ -314,14 +298,12 @@ async function ensureCanonicalReferralCodeForUser(userId, userRole, userName, ex
                     }
                 }
                 transaction.set(statsRef, {
-                    userId,
                     userRole: resolvedUserRole,
                     userName: resolvedUserName,
                     referralCode: codeToUse,
                     lastUpdated: admin.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 transaction.set(codeRef, {
-                    code: codeToUse,
                     userId,
                     userRole: resolvedUserRole,
                     userName: resolvedUserName,
@@ -429,16 +411,6 @@ async function evaluateReferralFraud(params) {
     const referrerStats = getCombinedReferralStats(referrerUserDoc.data() || {}, referrerStatsDoc.data() || {});
     const totalReferrals = getNumberValue(referrerStats.totalReferrals);
     const rejectedReferrals = getNumberValue(referrerStats.rejectedReferrals);
-    if (getBooleanValue(referrerStats.isBlocked)) {
-        return {
-            allowed: false,
-            fraudScore: 100,
-            signals: ["REFERRER_BLOCKED"],
-            needsReview: false,
-            rejectionReason: "REFERRER_BLOCKED",
-            errorMessage: "Referral account is restricted"
-        };
-    }
     if (totalReferrals > 10 && rejectedReferrals / totalReferrals > 0.3) {
         fraudScore += 25;
         signals.push("HIGH_REJECTION_RATE");
@@ -676,7 +648,14 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 ? newUserData.roles.map((roleValue) => getStringValue(roleValue).toUpperCase()).filter(Boolean)
                 : [];
             const existingReferredByCode = getStringValue(newUserStats.referredByCode);
-            if (newUserRoles.length > 1 || isProfileComplete(newUserData)) {
+            // BUG #11 FIX: The previous guard `newUserRoles.length > 1 || isProfileComplete(newUserData)`
+            // rejected legitimate fallback apply attempts that fire after the user
+            // finishes profile setup (which happens whenever the in-registration
+            // attempt failed for any reason - timing, fraud false-positive, etc.).
+            // Dedup is already enforced below by `existingReferredByCode` and the
+            // existing-referrals query, so we do not need a profile-completion gate
+            // here. We still block multi-role legacy accounts (defensive).
+            if (newUserRoles.length > 1) {
                 return { success: false, error: "Referral code can only be used on your first registration" };
             }
             if (existingReferredByCode) {
@@ -694,54 +673,51 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 return { success: false, error: "You have already used a referral code" };
             }
             const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
+            const currentAvailableBalance = getNumberValue(referrerStats.availableBalance);
             const newSuccessfulCount = currentSuccessful + 1;
             const referrerReward = cfg.rewardPerReferral;
             const referredUserReward = cfg.signupBonus;
             const milestoneBonus = getMilestoneBonus(newSuccessfulCount);
             const totalReferrerReward = referrerReward + milestoneBonus;
             const newTier = calculateTier(newSuccessfulCount);
-            const newCanWithdraw = canWithdraw(newSuccessfulCount);
+            const newAvailableBalance = currentAvailableBalance + totalReferrerReward;
+            const newCanWithdraw = canWithdraw(newAvailableBalance, cfg.minWithdrawal);
             const newNextMilestone = getNextMilestone(newSuccessfulCount);
-            const referrerRole = getStringValue(referrerUserData.activeRole, "WORKER");
+            // BUG #11 FIX: Single-role schema uses `role`; tolerate legacy `activeRole`.
+            const referrerRole = getStringValue(referrerUserData.role || referrerUserData.activeRole, "WORKER").toUpperCase();
             const referrerName = getStringValue(referrerUserData.fullName || referrerUserData.companyName || latestCodeData.userName, "DutyPe User");
             const referrerOwnReferralCode = getStringValue(referrerStats.referralCode || referrerUserData.referralCode || referralCode, referralCode);
             const newUserOwnReferralCode = getStringValue(newUserStats.referralCode || newUserData.referralCode);
-            let freePostings = getNumberValue(referrerStats.freeJobPostings);
-            let freePostingsExpiry = referrerStats.freeJobPostingsExpiry || null;
-            if (referrerRole === "EMPLOYER") {
-                const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
-                if (postingReward) {
-                    freePostings = postingReward.count;
-                    freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
-                }
-            }
             const referralId = db.collection("referrals").doc().id;
             const maskedPhone = newUserPhone ? "****" + newUserPhone.slice(-4) : "";
             const idempotencyKey = generateIdempotencyKey(latestReferrerUserId, newUserId);
             const referralRef = db.collection("referrals").doc(referralId);
             const referredDisplayName = getStringValue(newUserName || newUserData.fullName || newUserData.companyName, maskedPhone || "User");
             transaction.set(referralRef, {
-                id: referralId,
                 idempotencyKey,
                 referrerId: latestReferrerUserId,
-                referrerUserId: latestReferrerUserId,
                 referredUserId: newUserId,
                 referralCode,
                 status: "COMPLETED",
                 rewardAmount: referrerReward,
                 bonusAmount: milestoneBonus,
                 referredUserReward,
-                reward: totalReferrerReward,
                 referredUserName: referredDisplayName,
                 referredUserRole: newUserRole,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 completedAt: admin.firestore.FieldValue.serverTimestamp()
             });
-            transaction.set(referrerStatsRef, Object.assign({ userId: latestReferrerUserId, userRole: referrerRole, referralCode: referrerOwnReferralCode, totalReferrals: admin.firestore.FieldValue.increment(1), successfulReferrals: newSuccessfulCount, totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward), availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward), canWithdraw: newCanWithdraw, currentTier: newTier, nextMilestone: newNextMilestone, lastUpdated: admin.firestore.FieldValue.serverTimestamp() }, (referrerRole === "EMPLOYER" && freePostingsExpiry ? {
-                freeJobPostings: freePostings,
-                freeJobPostingsExpiry: freePostingsExpiry
-            } : {})), { merge: true });
-            transaction.set(newUserStatsRef, Object.assign(Object.assign({ userId: newUserId, userRole: newUserRole }, (newUserOwnReferralCode ? { referralCode: newUserOwnReferralCode } : {})), { referredByCode: referralCode, referredByUserId: latestReferrerUserId, totalEarnings: admin.firestore.FieldValue.increment(referredUserReward), availableBalance: admin.firestore.FieldValue.increment(referredUserReward), signupBonusReceived: true, signupBonusAmount: referredUserReward, lastUpdated: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
+            transaction.set(referrerStatsRef, {
+                userRole: referrerRole,
+                referralCode: referrerOwnReferralCode,
+                totalReferrals: admin.firestore.FieldValue.increment(1),
+                successfulReferrals: newSuccessfulCount,
+                totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
+                availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
+                currentTier: newTier,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            transaction.set(newUserStatsRef, Object.assign(Object.assign({ userRole: newUserRole }, (newUserOwnReferralCode ? { referralCode: newUserOwnReferralCode } : {})), { referredByCode: referralCode, referredByUserId: latestReferrerUserId, totalEarnings: admin.firestore.FieldValue.increment(referredUserReward), availableBalance: admin.firestore.FieldValue.increment(referredUserReward), signupBonusReceived: true, signupBonusAmount: referredUserReward, lastUpdated: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
             transaction.update(codeRef, {
                 totalUsed: admin.firestore.FieldValue.increment(1),
                 successfulReferrals: admin.firestore.FieldValue.increment(1),
@@ -752,7 +728,8 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
             transaction.set(referrerEventRef, {
                 eventType: "REWARD_CREDITED",
                 userId: latestReferrerUserId,
-                userRole: getStringValue(referrerUserData.activeRole, "WORKER"),
+                // BUG #11 FIX: canonical role field is `role`; fall back to legacy fields.
+                userRole: getStringValue(referrerUserData.role || referrerUserData.activeRole, "WORKER").toUpperCase(),
                 amount: totalReferrerReward,
                 bonusAmount: milestoneBonus,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
@@ -775,7 +752,6 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 title: (0, notification_i18n_1.tTitle)(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
                 message: (0, notification_i18n_1.tBody)(referrerTemplateId, referrerLocale, { name: referrerName2, amount: totalReferrerReward, bonus: milestoneBonus }),
                 type: "REFERRAL_REWARD",
-                locale: referrerLocale,
                 data: { referralId, amount: totalReferrerReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -786,7 +762,6 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
                 message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
                 type: "SIGNUP_BONUS",
-                locale: referredLocale,
                 data: { amount: referredUserReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -870,6 +845,7 @@ exports.onReferredUserProfileComplete = functions.firestore
         const referrerUserData = referrerUserDoc.data() || {};
         const referrerStats = getCombinedReferralStats(referrerUserData, referrerStatsDoc.data() || {});
         const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
+        const currentAvailableBalance = getNumberValue(referrerStats.availableBalance);
         const newSuccessfulCount = currentSuccessful + 1;
         // Calculate rewards
         const cfg2 = await (0, app_config_1.getReferralConfig)();
@@ -879,19 +855,11 @@ exports.onReferredUserProfileComplete = functions.firestore
         const totalReferrerReward = referrerReward + milestoneBonus;
         // Calculate new tier and withdrawal eligibility
         const newTier = calculateTier(newSuccessfulCount);
-        const newCanWithdraw = canWithdraw(newSuccessfulCount);
+        const newAvailableBalance = currentAvailableBalance + totalReferrerReward;
+        const newCanWithdraw = canWithdraw(newAvailableBalance, cfg2.minWithdrawal);
         const newNextMilestone = getNextMilestone(newSuccessfulCount);
         // Calculate employer free postings
         const referrerRole = getStringValue(referrerUserData.activeRole, "WORKER");
-        let freePostings = getNumberValue(referrerStats.freeJobPostings);
-        let freePostingsExpiry = referrerStats.freeJobPostingsExpiry;
-        if (referrerRole === "EMPLOYER") {
-            const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
-            if (postingReward) {
-                freePostings = postingReward.count;
-                freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
-            }
-        }
         // Use batch write for atomic update
         const batch = db.batch();
         // 1. Update referral status
@@ -911,21 +879,14 @@ exports.onReferredUserProfileComplete = functions.firestore
         // 2. Update referrer's stats (canonical: referral_stats/{uid})
         const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
         const referrerStatsUpdate = {
-            userId: referrerUserId,
             userRole: referrerRole,
             successfulReferrals: newSuccessfulCount,
             pendingReferrals: admin.firestore.FieldValue.increment(-1),
             totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
             availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
-            canWithdraw: newCanWithdraw,
             currentTier: newTier,
-            nextMilestone: newNextMilestone,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         };
-        if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-            referrerStatsUpdate.freeJobPostings = freePostings;
-            referrerStatsUpdate.freeJobPostingsExpiry = freePostingsExpiry;
-        }
         batch.set(referrerStatsRef, referrerStatsUpdate, { merge: true });
         // 3. Update referral code stats
         const codeRef = db.collection("referral_codes").doc(referral.referralCode);
@@ -936,7 +897,6 @@ exports.onReferredUserProfileComplete = functions.firestore
         // 4. Credit referred user's signup bonus (canonical: referral_stats/{uid})
         const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
         batch.set(referredStatsRef, {
-            userId: referredUserId,
             userRole: getStringValue(after.activeRole, "WORKER"),
             totalEarnings: admin.firestore.FieldValue.increment(referredUserReward),
             availableBalance: admin.firestore.FieldValue.increment(referredUserReward),
@@ -988,7 +948,6 @@ exports.onReferredUserProfileComplete = functions.firestore
                 title: (0, notification_i18n_1.tTitle)(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
                 message: (0, notification_i18n_1.tBody)(referrerTemplateId2, referrerLocale2, { name: referrerName3, amount: totalReferrerReward, bonus: milestoneBonus }),
                 type: "REFERRAL_REWARD",
-                locale: referrerLocale2,
                 data: { referralId, amount: totalReferrerReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -999,7 +958,6 @@ exports.onReferredUserProfileComplete = functions.firestore
                 title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
                 message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale2, { amount: referredUserReward }),
                 type: "SIGNUP_BONUS",
-                locale: referredLocale2,
                 data: { amount: referredUserReward },
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
@@ -1112,6 +1070,7 @@ exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError("invalid-argument", error.message);
     }
     const cfg = await (0, app_config_1.getReferralConfig)();
+    const minWithdrawal = Math.max(cfg.minWithdrawal, 100);
     const amount = parseFloat(data.amount);
     const paymentMethod = data.paymentMethod || "UPI";
     const upiId = data.upiId;
@@ -1133,19 +1092,18 @@ exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
             const userData = userDoc.data() || {};
             const stats = getCombinedReferralStats(userData, legacyStatsDoc.data() || {});
             const availableBalance = getNumberValue(stats.availableBalance);
-            const successfulReferrals = getNumberValue(stats.successfulReferrals);
-            const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(successfulReferrals));
-            if (getBooleanValue(stats.isBlocked)) {
-                return { success: false, error: "Your account is blocked from withdrawals" };
-            }
+            const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(availableBalance, minWithdrawal));
             if (!canUserWithdraw) {
-                return { success: false, error: "You need at least 5 successful referrals to withdraw" };
+                return { success: false, error: "You need at least Rs." + minWithdrawal + " available to withdraw" };
             }
-            if (amount < cfg.minWithdrawal) {
-                return { success: false, error: "Minimum withdrawal is Rs." + cfg.minWithdrawal };
+            if (amount < minWithdrawal) {
+                return { success: false, error: "Minimum withdrawal is Rs." + minWithdrawal };
             }
             if (amount > availableBalance) {
                 return { success: false, error: "Insufficient balance. Available: Rs." + availableBalance };
+            }
+            if (Math.abs(amount - availableBalance) > 0.01) {
+                return { success: false, error: "Withdraw the full available balance to empty your wallet" };
             }
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1162,8 +1120,6 @@ exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
             }
             const userRole = getStringValue(userData.activeRole, "WORKER");
             tx.set(withdrawalRef, {
-                id: withdrawalId,
-                userId,
                 userRole,
                 amount,
                 status: "PENDING",
@@ -1175,7 +1131,6 @@ exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             tx.set(legacyStatsRef, {
-                userId,
                 userRole,
                 availableBalance: admin.firestore.FieldValue.increment(-amount),
                 withdrawnAmount: admin.firestore.FieldValue.increment(amount),
@@ -1297,13 +1252,10 @@ exports.backfillReferralStats = functions
         "canWithdraw",
         "currentTier",
         "nextMilestone",
-        "freeJobPostings",
-        "freeJobPostingsExpiry",
         "signupBonusReceived",
         "signupBonusAmount",
         "totalWithdrawals",
-        "lastWithdrawalAt",
-        "isBlocked"
+        "lastWithdrawalAt"
     ];
     let query = db.collection("users")
         .orderBy(admin.firestore.FieldPath.documentId())
@@ -1455,11 +1407,9 @@ exports.getReferralLeaderboard = functions.https.onCall(async (data, context) =>
                 successfulReferrals: getNumberValue(combinedStats.successfulReferrals),
                 totalEarnings: getNumberValue(combinedStats.totalEarnings),
                 availableBalance: getNumberValue(combinedStats.availableBalance),
-                currentTier: getStringValue(combinedStats.currentTier, "BRONZE"),
-                isBlocked: getBooleanValue(combinedStats.isBlocked)
+                currentTier: getStringValue(combinedStats.currentTier, "BRONZE")
             };
         })
-            .filter(entry => !entry.isBlocked)
             .filter(entry => !role || entry.userRole === role)
             .slice(0, limit);
         return {

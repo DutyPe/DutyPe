@@ -188,7 +188,7 @@ service cloud.firestore {
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress'
+          'industry', 'companySize', 'businessAddress', 'businessLocation'
         ]) &&
         request.resource.data.keys().hasAll(['companyName']) &&
         request.resource.data.companyName is string &&
@@ -198,12 +198,13 @@ service cloud.firestore {
         (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
-        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500));
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation));
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress'
+          'industry', 'companySize', 'businessAddress', 'businessLocation'
         ]) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
@@ -211,7 +212,8 @@ service cloud.firestore {
         (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
-        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500));
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation));
 
       allow delete: if isSelf(userId);
     }
@@ -226,7 +228,7 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'companyName', 'title', 'jobType',
-          'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'urgency', 'status', 'createdAt', 'employerId',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
@@ -240,7 +242,7 @@ service cloud.firestore {
           // first round-trip (no second job_details fetch needed). These
           // remain non-sensitive; contactNumber + applicationCount stay
           // private in job_details.
-          'description', 'benefits', 'shiftTiming', 'gender', 'experienceRequired'
+          'description', 'benefits', 'shiftTiming', 'gender', 'experienceRequired', 'educationRequired'
         ]) &&
         request.resource.data.keys().hasAll([
           'companyName', 'title', 'jobType',
@@ -267,7 +269,6 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
-        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
@@ -277,18 +278,19 @@ service cloud.firestore {
         (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
         (!('shiftTiming' in request.resource.data) || (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 30)) &&
-        (!('experienceRequired' in request.resource.data) || (request.resource.data.experienceRequired is string && request.resource.data.experienceRequired.size() <= 200));
+        (!('experienceRequired' in request.resource.data) || (request.resource.data.experienceRequired is string && request.resource.data.experienceRequired.size() <= 200)) &&
+        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200));
 
       allow update: if isSignedIn() &&
         exists(/databases/$(database)/documents/job_details/$(jobId)) &&
         get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
         request.resource.data.keys().hasOnly([
           'companyName', 'title', 'jobType',
-          'salary', 'salaryType', 'location', 'geohash', 'addressText', 'companyCity',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'urgency', 'status', 'createdAt', 'employerId',
           'jobImageUrl',
           'vacancies',
-          'description', 'benefits', 'shiftTiming', 'gender', 'experienceRequired'
+          'description', 'benefits', 'shiftTiming', 'gender', 'experienceRequired', 'educationRequired'
         ]) &&
         request.resource.data.createdAt == resource.data.createdAt &&
         // BUG #14 FIX: employerId is now part of the card schema. New writes
@@ -305,7 +307,6 @@ service cloud.firestore {
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
-        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
@@ -314,7 +315,8 @@ service cloud.firestore {
         (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
         (!('shiftTiming' in request.resource.data) || (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 30)) &&
-        (!('experienceRequired' in request.resource.data) || (request.resource.data.experienceRequired is string && request.resource.data.experienceRequired.size() <= 200));
+        (!('experienceRequired' in request.resource.data) || (request.resource.data.experienceRequired is string && request.resource.data.experienceRequired.size() <= 200)) &&
+        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200));
 
       allow delete: if isSignedIn() &&
         exists(/databases/$(database)/documents/job_details/$(jobId)) &&
@@ -348,8 +350,8 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'employerId', 'createdAt', 'expiresAt', 'idempotencyKey',
-          'description', 'contactNumber', 'whatsappNumber',
-          'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
+          'description', 'contactNumber',
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming', 'workingHours',
           'vacancies', 'benefits', 'applicationCount'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -368,9 +370,10 @@ service cloud.firestore {
         request.resource.data.benefits is list &&
         request.resource.data.benefits.size() <= 20 &&
         (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
-        (!('whatsappNumber' in request.resource.data) || (request.resource.data.whatsappNumber is string && request.resource.data.whatsappNumber.size() <= 20)) &&
         (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
         (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
+        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
+        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         (!('shiftTiming' in request.resource.data) || request.resource.data.shiftTiming is string) &&
         (!('workingHours' in request.resource.data) || request.resource.data.workingHours is string);
 
@@ -378,8 +381,8 @@ service cloud.firestore {
         resource.data.employerId == request.auth.uid &&
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'description', 'contactNumber', 'whatsappNumber',
-          'gender', 'experienceRequired', 'shiftTiming', 'workingHours',
+          'description', 'contactNumber',
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming', 'workingHours',
           'vacancies', 'benefits', 'applicationCount', 'expiresAt'
         ]) &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
@@ -387,6 +390,8 @@ service cloud.firestore {
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000)) &&
         (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
         (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
+        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
+        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
 
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
@@ -459,7 +464,7 @@ service cloud.firestore {
         (
           (
             resource.data.workerId == request.auth.uid &&
-            request.resource.data.status == 'rejected' &&
+            request.resource.data.status == 'withdrawn' &&
             resource.data.status in ['applied', 'shortlisted']
           ) ||
           (

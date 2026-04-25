@@ -2,6 +2,7 @@ package com.example.dutype
 
 import android.content.Context
 import android.content.Intent
+import android.app.NotificationManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -185,6 +186,7 @@ class MainActivity : ComponentActivity() {
         )
         
         super.onCreate(savedInstanceState)
+        cancelTappedSystemNotification(intent)
         
         // Initialize Timber for logging (if not already initialized in Application class)
         if (Timber.treeCount == 0) {
@@ -419,6 +421,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(newIntent: Intent) {
         super.onNewIntent(newIntent)
         setIntent(newIntent) // CRITICAL: Update the activity's intent
+        cancelTappedSystemNotification(newIntent)
         
         Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
         Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
@@ -440,6 +443,16 @@ class MainActivity : ComponentActivity() {
             deepLinkBus.emit(deepLinkUri)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
+        }
+    }
+
+    private fun cancelTappedSystemNotification(sourceIntent: Intent?) {
+        val notificationId = sourceIntent?.getIntExtra("notification_system_id", Int.MIN_VALUE) ?: Int.MIN_VALUE
+        if (notificationId == Int.MIN_VALUE) return
+        runCatching {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
+        }.onFailure { error ->
+            Timber.w(error, "Failed to cancel tapped notification")
         }
     }
     
