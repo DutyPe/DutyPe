@@ -41,6 +41,7 @@ import com.example.dutype.components.ReferralValidationResult
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
@@ -483,7 +484,7 @@ fun MandatoryEmployerProfileSetupScreen(
         androidx.compose.foundation.layout.Box(
             modifier = androidx.compose.ui.Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(LocalRoleColors.current.screenBackground),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             androidx.compose.foundation.layout.Column(
@@ -677,7 +678,7 @@ fun MandatoryEmployerProfileSetupContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(LocalRoleColors.current.screenBackground)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
