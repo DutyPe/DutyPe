@@ -8,6 +8,7 @@ const adminRoutes = [
   { href: "/admin/users", label: "Users", description: "Browse and manage workers/employers." },
   { href: "/admin/jobs", label: "Jobs", description: "Review jobs and moderation controls." },
   { href: "/admin/post-job", label: "Post Job", description: "Create and publish a new job posting." },
+  { href: "/admin/posters", label: "Posters", description: "Print posters for posted jobs, workers, and employers." },
   { href: "/admin/applications", label: "Applications", description: "Track applications and update status." },
   { href: "/admin/referrals", label: "Referrals", description: "Monitor referrals and payouts." },
   { href: "/admin/notifications", label: "Notifications", description: "Broadcast app alerts to all users or one role." },

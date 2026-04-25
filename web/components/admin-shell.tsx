@@ -14,6 +14,7 @@ const adminLinks = [
   { href: "/admin/employer-profiles", label: "Employer Profiles", icon: "🏢" },
   { href: "/admin/jobs", label: "Jobs", icon: "💼" },
   { href: "/admin/post-job", label: "Post Job", icon: "➕" },
+  { href: "/admin/posters", label: "Posters", icon: "▣" },
   { href: "/admin/applications", label: "Applications", icon: "📋" },
   { href: "/admin/saved-jobs", label: "Saved Jobs", icon: "💾" },
   { href: "/admin/ratings", label: "Ratings", icon: "⭐" },

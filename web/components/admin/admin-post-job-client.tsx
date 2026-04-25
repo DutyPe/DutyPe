@@ -348,6 +348,7 @@ export function AdminPostJobClient() {
         <p style={{ opacity: 0.7, fontSize: 13 }}>Job ID: <code>{success}</code></p>
         <div className="admin-success-actions">
           <button className="button" onClick={() => setSuccess(null)}>Post another job</button>
+          <button className="button" onClick={() => router.push(`/admin/posters?jobId=${success}`)}>Print poster</button>
           <button className="button ghost" onClick={() => router.push("/admin/jobs")}>View all jobs</button>
         </div>
       </div>

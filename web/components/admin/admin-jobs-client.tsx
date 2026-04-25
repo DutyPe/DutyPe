@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
@@ -411,6 +412,12 @@ export function AdminJobsClient() {
                       >
                         Edit
                       </button>
+                      <Link
+                        className="table-action"
+                        href={`/admin/posters?jobId=${encodeURIComponent(job.id)}`}
+                      >
+                        Print Poster
+                      </Link>
                       <button
                         type="button"
                         className="table-action danger"

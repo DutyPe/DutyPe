@@ -4460,6 +4460,361 @@ button.product-chip {
   color: #4b5563;
 }
 
+/* Admin printable posters */
+.poster-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.poster-side-panel {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.poster-side-kicker {
+  margin: 0 0 4px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.poster-side-link {
+  width: 100%;
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  text-align: left;
+}
+
+.poster-side-link:hover,
+.poster-side-link.active {
+  border-color: #111827;
+  background: #f8fafc;
+}
+
+.poster-side-link span {
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.poster-side-link small {
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.poster-main-panel,
+.poster-section-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.poster-control-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.poster-control-card h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.poster-control-card p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.poster-job-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.poster-preview-shell {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  min-width: 0;
+}
+
+.poster-preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.poster-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.print-poster {
+  width: min(100%, 720px);
+  min-height: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 42px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 2px solid #0f172a;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+}
+
+.poster-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.poster-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.poster-brand-row strong,
+.poster-brand-row span {
+  display: block;
+}
+
+.poster-brand-row strong {
+  font-size: 1.18rem;
+}
+
+.poster-brand-row span {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.poster-main-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.poster-eyebrow {
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid #0f172a;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.poster-main-copy h2 {
+  margin: 0;
+  font-size: clamp(2.3rem, 7vw, 4.9rem);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.poster-company {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.poster-description {
+  margin: 0;
+  max-width: 58ch;
+  color: #334155;
+  line-height: 1.65;
+  font-size: 1.04rem;
+}
+
+.poster-description.large {
+  font-size: 1.24rem;
+}
+
+.poster-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.poster-detail-grid div {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.poster-detail-grid dt {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.poster-detail-grid dd {
+  margin: 4px 0 0;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.poster-bullet-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.poster-bullet-list li {
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.poster-bottom-band {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 10px;
+}
+
+.poster-bottom-band strong,
+.poster-bottom-band span {
+  display: block;
+}
+
+.poster-bottom-band span {
+  margin-top: 4px;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.poster-app-badge {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  font-weight: 900;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .poster-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .poster-side-panel {
+    position: static;
+  }
+
+  .poster-control-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .poster-job-controls {
+    justify-content: stretch;
+  }
+
+  .poster-job-controls > * {
+    flex: 1;
+    min-width: 220px;
+  }
+
+  .print-poster {
+    min-height: 820px;
+    padding: 28px;
+  }
+
+  .poster-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  body.printing-poster {
+    background: #ffffff !important;
+  }
+
+  body.printing-poster * {
+    visibility: hidden !important;
+  }
+
+  body.printing-poster .poster-print-target,
+  body.printing-poster .poster-print-target * {
+    visibility: visible !important;
+  }
+
+  body.printing-poster .poster-print-target {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 190mm !important;
+    min-height: 277mm !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    border: 2px solid #0f172a !important;
+    box-shadow: none !important;
+    page-break-after: avoid;
+    overflow: hidden;
+  }
+
+  body.printing-poster .poster-main-copy h2 {
+    font-size: 42pt !important;
+  }
+
+  body.printing-poster .poster-description {
+    font-size: 12pt !important;
+  }
+}
+
 .admin-code {
   font-family: monospace;
   font-size: 0.8rem;
