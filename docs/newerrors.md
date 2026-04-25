@@ -43,7 +43,7 @@ in feature we need to recomand the worker to the employers based on the his work
 2026-04-25 22:19:53.867 18039-24522 Google Android Maps SDK com.dutype.app                       E  In the Google Developer Console (**************************************
                                                                                                     Ensure that the "Maps SDK for Android" is enabled.
                                                                                                     Ensure that the following Android Key exists:
-                                                                                                    	API Key: AIzaSyC5Wx2Utzd7VnJ3WX46LxFn7l_33_rPYEo
+																										API Key: <GOOGLE_MAPS_API_KEY>
                                                                                                     	Android Application (<cert_fingerprint>;<package_name>): ***********************:***********************:AC:16:D3:BA;com.dutype.app
 2026-04-25 22:19:55.166 18039-24465 DynamiteModule          com.dutype.app                       W  Local module descriptor class for com.google.android.gms.googlecertificates not found.
 2026-04-25 22:19:55.171 18039-24465

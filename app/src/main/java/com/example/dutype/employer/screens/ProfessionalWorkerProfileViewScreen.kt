@@ -139,11 +139,15 @@ fun ProfessionalWorkerProfileViewScreen(
                             phone = app.workerPhone.orEmpty(),
                             email = app.workerEmail.orEmpty(),
                             location = "",
-                            gender = "",
+                            gender = app.workerGender,
                             profileImageUrl = app.workerProfileImageUrl,
                             experience = emptyList(),
                             skills = app.workerSkills,
-                            languages = emptyList()
+                            languages = emptyList(),
+                            experienceLevel = app.workerExperience,
+                            dateOfBirth = app.workerDateOfBirth,
+                            educationQualification = app.workerEducationQualification,
+                            bio = app.workerBio
                         )
                     }
                 }
@@ -181,7 +185,8 @@ fun ProfessionalWorkerProfileViewScreen(
                         email = (data["email"] as? String).orEmpty()
                             .ifBlank { workerProfile?.email.orEmpty() },
                         location = locationText,
-                        gender = (data["gender"] as? String).orEmpty().ifBlank { "Not specified" },
+                        gender = (data["gender"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.gender.orEmpty() },
                         profileImageUrl = (data["profileImageUrl"] as? String)
                             ?: workerProfile?.profileImageUrl,
                         experience = emptyList(),
@@ -189,10 +194,14 @@ fun ProfessionalWorkerProfileViewScreen(
                         languages = (data["languages"] as? List<*>)
                             ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
                             .orEmpty(),
-                        experienceLevel = (data["experience"] as? String).orEmpty(),
-                        dateOfBirth = (data["dateOfBirth"] as? String).orEmpty(),
-                        educationQualification = (data["educationQualification"] as? String).orEmpty(),
-                        bio = (data["bio"] as? String).orEmpty(),
+                        experienceLevel = (data["experience"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.experienceLevel.orEmpty() },
+                        dateOfBirth = (data["dateOfBirth"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.dateOfBirth.orEmpty() },
+                        educationQualification = (data["educationQualification"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.educationQualification.orEmpty() },
+                        bio = (data["bio"] as? String).orEmpty()
+                            .ifBlank { workerProfile?.bio.orEmpty() },
                         rating = (data["rating"] as? Number)?.toDouble()
                             ?: (data["ratingAvg"] as? Number)?.toDouble() ?: 0.0,
                         totalJobs = (data["totalJobs"] as? Number)?.toInt() ?: 0,
@@ -225,13 +234,17 @@ fun ProfessionalWorkerProfileViewScreen(
                                 phone = (d["workerPhone"] as? String).orEmpty(),
                                 email = (d["workerEmail"] as? String).orEmpty(),
                                 location = "",
-                                gender = "",
+                                gender = (d["workerGender"] as? String).orEmpty(),
                                 profileImageUrl = d["workerProfileImageUrl"] as? String,
                                 experience = emptyList(),
                                 skills = (d["workerSkills"] as? List<*>)
                                     ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
                                     .orEmpty(),
-                                languages = emptyList()
+                                languages = emptyList(),
+                                experienceLevel = (d["workerExperience"] as? String).orEmpty(),
+                                dateOfBirth = (d["workerDateOfBirth"] as? String).orEmpty(),
+                                educationQualification = (d["workerEducationQualification"] as? String).orEmpty(),
+                                bio = (d["workerBio"] as? String).orEmpty()
                             )
                         }.getOrNull()
 
@@ -242,7 +255,7 @@ fun ProfessionalWorkerProfileViewScreen(
                         }
                     }
                     // If workerProfile was already seeded from applicationId
-                    // snapshot, keep that â€” no error shown.
+                    // snapshot, keep it and show no error.
                 }
             )
 
@@ -253,7 +266,7 @@ fun ProfessionalWorkerProfileViewScreen(
         }
     }
     
-    // Solid role background â€” no gradient.
+    // Solid role background; no gradient.
     val backgroundGradient = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
     
     Box(

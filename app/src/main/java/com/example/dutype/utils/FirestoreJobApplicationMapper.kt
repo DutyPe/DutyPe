@@ -38,6 +38,11 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
         workerEmail = (data["workerEmail"] as? String)?.takeIf { it.isNotBlank() },
         workerProfileImageUrl = (data["workerProfileImageUrl"] as? String)?.takeIf { it.isNotBlank() },
         workerSkills = skills,
+        workerGender = data["workerGender"]?.toString().orEmpty(),
+        workerExperience = data["workerExperience"]?.toString().orEmpty(),
+        workerEducationQualification = data["workerEducationQualification"]?.toString().orEmpty(),
+        workerDateOfBirth = data["workerDateOfBirth"]?.toString().orEmpty(),
+        workerBio = data["workerBio"]?.toString().orEmpty(),
         employerPhone = (data["employerPhone"] as? String)?.takeIf { it.isNotBlank() },
         jobStatus = data["jobStatus"]?.toString()?.takeIf { it.isNotBlank() } ?: "open"
     )

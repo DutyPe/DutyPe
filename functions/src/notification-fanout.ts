@@ -17,7 +17,9 @@ const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
 
 interface NotificationPayload {
+  id: string;
   recipientId: string;
+  targetRole: "WORKER" | "EMPLOYER";
   title: string;
   body: string;
   type: string;
@@ -25,38 +27,35 @@ interface NotificationPayload {
   locale: SupportedLocale;
 }
 
-async function createNotification(n: NotificationPayload): Promise<void> {
-  const ref = db.collection("notifications").doc();
-  await ref.set({
-    recipientId: n.recipientId,
-    title: n.title,
-    message: n.body,
-    type: n.type,
-    ...(n.data ? { data: n.data } : {}),
-    isRead: false,
-    createdAt: FIELD.serverTimestamp(),
-  });
-}
+async function createNotification(n: NotificationPayload): Promise<boolean> {
+  const ref = db.collection("notifications").doc(n.id);
+  let created = false;
 
-async function sendFcmToUser(
-  userId: string,
-  title: string,
-  body: string,
-  data: Record<string, string>
-): Promise<void> {
-  try {
-    const userSnap = await db.doc(`users/${userId}`).get();
-    const token = userSnap.exists ? String(userSnap.get("fcmToken") ?? "") : "";
-    if (!token) return;
-    await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data,
-      android: { priority: "high" },
+  await db.runTransaction(async (transaction) => {
+    const existing = await transaction.get(ref);
+    if (existing.exists) {
+      return;
+    }
+
+    transaction.set(ref, {
+      recipientId: n.recipientId,
+      targetRole: n.targetRole,
+      title: n.title,
+      message: n.body,
+      type: n.type,
+      data: {
+        ...(n.data ?? {}),
+        targetRole: n.targetRole,
+      },
+      locale: n.locale,
+      isRead: false,
+      createdAt: FIELD.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
-  } catch (e: any) {
-    functions.logger.warn("sendFcmToUser failed", { userId, err: e?.message });
-  }
+    created = true;
+  });
+
+  return created;
 }
 
 export const onApplicationStatusChanged = functions.firestore
@@ -66,24 +65,26 @@ export const onApplicationStatusChanged = functions.firestore
     const after = change.after.data() || {};
     const prev = String(before.status ?? "");
     const next = String(after.status ?? "");
-    if (prev === next) return;
+    const previousStatus = prev.toLowerCase();
+    const nextStatus = next.toLowerCase() === "accepted" ? "hired" : next.toLowerCase();
+    if (previousStatus === nextStatus) return null;
 
     const workerId = String(after.workerId ?? "");
     const jobId = String(after.jobId ?? "");
-    if (!workerId) return;
+    if (!workerId) return null;
 
     const locale = await getUserLanguage(db, workerId);
     const recipient = await getUserDisplayName(db, workerId);
 
     const templateId =
-      next === "hired" ? "APPLICATION_HIRED" :
-      next === "shortlisted" ? "APPLICATION_SHORTLISTED" :
-      next === "rejected" ? "APPLICATION_REJECTED" :
-      next === "withdrawn" ? "APPLICATION_WITHDRAWN" :
+      nextStatus === "hired" ? "APPLICATION_HIRED" :
+      nextStatus === "shortlisted" ? "APPLICATION_SHORTLISTED" :
+      nextStatus === "rejected" ? "APPLICATION_REJECTED" :
+      nextStatus === "withdrawn" ? "APPLICATION_WITHDRAWN" :
       "APPLICATION_STATUS_OTHER";
 
     const params: Record<string, string | number> = { recipient };
-    if (templateId === "APPLICATION_STATUS_OTHER") params.status = next;
+    if (templateId === "APPLICATION_STATUS_OTHER") params.status = nextStatus;
     const title = tTitle(templateId, locale, params);
     const body = tBody(templateId, locale, params);
 
@@ -91,11 +92,12 @@ export const onApplicationStatusChanged = functions.firestore
       type: "APPLICATION_STATUS",
       jobId,
       applicationId: change.after.id,
+      status: nextStatus,
+      deepLink: `dutype://worker/applications/${change.after.id}`,
     };
-    await Promise.all([
-      createNotification({ recipientId: workerId, title, body, type: "APPLICATION_STATUS", data: dataMap, locale }),
-      sendFcmToUser(workerId, title, body, { ...dataMap, locale }),
-    ]);
+    const id = `app_status_${change.after.id}_${nextStatus}`;
+    await createNotification({ id, recipientId: workerId, targetRole: "WORKER", title, body, type: "APPLICATION_STATUS", data: dataMap, locale });
+    return null;
   });
 
 export const onApplicationCreated = functions.firestore
@@ -105,7 +107,7 @@ export const onApplicationCreated = functions.firestore
     const employerId = String(data.employerId ?? "");
     const jobId = String(data.jobId ?? "");
     const workerId = String(data.workerId ?? "");
-    if (!employerId) return;
+    if (!employerId) return null;
 
     const locale = await getUserLanguage(db, employerId);
     const [recipient, workerName, jobSnap] = await Promise.all([
@@ -127,9 +129,10 @@ export const onApplicationCreated = functions.firestore
       type: "NEW_APPLICATION",
       jobId,
       applicationId: snap.id,
+      workerId,
+      deepLink: `dutype://employer/applications/${snap.id}`,
     };
-    await Promise.all([
-      createNotification({ recipientId: employerId, title, body, type: "NEW_APPLICATION", data: dataMap, locale }),
-      sendFcmToUser(employerId, title, body, { ...dataMap, locale }),
-    ]);
+    const id = `new_application_${snap.id}`;
+    await createNotification({ id, recipientId: employerId, targetRole: "EMPLOYER", title, body, type: "NEW_APPLICATION", data: dataMap, locale });
+    return null;
   });

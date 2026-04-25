@@ -431,6 +431,7 @@ service cloud.firestore {
           // read (which is owner-only). Worker writes these from their
           // own users + worker_profiles docs at apply time.
           'workerName', 'workerPhone', 'workerEmail', 'workerProfileImageUrl', 'workerSkills',
+          'workerGender', 'workerExperience', 'workerEducationQualification', 'workerDateOfBirth', 'workerBio',
           'jobTitle', 'companyName', 'jobLocation',
           // Quick-call: denormalized employer contact phone copied from
           // job_details.contactNumber so workers can dial directly from
@@ -449,6 +450,11 @@ service cloud.firestore {
         (!('workerEmail' in request.resource.data) || (request.resource.data.workerEmail is string && request.resource.data.workerEmail.size() <= 200)) &&
         (!('workerProfileImageUrl' in request.resource.data) || (request.resource.data.workerProfileImageUrl is string && request.resource.data.workerProfileImageUrl.size() <= 1024)) &&
         (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 20)) &&
+        (!('workerGender' in request.resource.data) || (request.resource.data.workerGender is string && request.resource.data.workerGender.size() <= 20)) &&
+        (!('workerExperience' in request.resource.data) || (request.resource.data.workerExperience is string && request.resource.data.workerExperience.size() <= 500)) &&
+        (!('workerEducationQualification' in request.resource.data) || (request.resource.data.workerEducationQualification is string && request.resource.data.workerEducationQualification.size() <= 120)) &&
+        (!('workerDateOfBirth' in request.resource.data) || (request.resource.data.workerDateOfBirth is string && request.resource.data.workerDateOfBirth.size() <= 20)) &&
+        (!('workerBio' in request.resource.data) || (request.resource.data.workerBio is string && request.resource.data.workerBio.size() <= 300)) &&
         (!('jobTitle' in request.resource.data) || (request.resource.data.jobTitle is string && request.resource.data.jobTitle.size() <= 200)) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 200)) &&
         (!('jobLocation' in request.resource.data) || (request.resource.data.jobLocation is string && request.resource.data.jobLocation.size() <= 200)) &&

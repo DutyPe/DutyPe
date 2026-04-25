@@ -42,6 +42,11 @@ data class JobApplication(
     // render the applicant card without reading worker_profiles (locked
     // to the owner). Source of truth stays in users + worker_profiles.
     val workerSkills: List<String> = emptyList(),
+    val workerGender: String = "",
+    val workerExperience: String = "",
+    val workerEducationQualification: String = "",
+    val workerDateOfBirth: String = "",
+    val workerBio: String = "",
     // Quick-call feature: denormalized employer contact phone (taken from
     // job_details.contactNumber at apply time) so the worker can dial the
     // employer directly from the MyJobs card without an extra read.
@@ -72,6 +77,11 @@ data class JobApplication(
         workerEmail?.takeIf { it.isNotBlank() }?.let { base["workerEmail"] = it }
         workerProfileImageUrl?.takeIf { it.isNotBlank() }?.let { base["workerProfileImageUrl"] = it }
         if (workerSkills.isNotEmpty()) base["workerSkills"] = workerSkills.take(20)
+        if (workerGender.isNotBlank()) base["workerGender"] = workerGender
+        if (workerExperience.isNotBlank()) base["workerExperience"] = workerExperience
+        if (workerEducationQualification.isNotBlank()) base["workerEducationQualification"] = workerEducationQualification
+        if (workerDateOfBirth.isNotBlank()) base["workerDateOfBirth"] = workerDateOfBirth
+        if (workerBio.isNotBlank()) base["workerBio"] = workerBio
         employerPhone?.takeIf { it.isNotBlank() }?.let { base["employerPhone"] = it }
         return base
     }

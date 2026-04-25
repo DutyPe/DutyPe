@@ -456,6 +456,11 @@ class JobApplicationService @Inject constructor(
             val snapshotPhone = (workerSnapshot["phone"] as? String)?.takeIf { it.isNotBlank() }
             val snapshotEmail = (workerSnapshot["email"] as? String)?.takeIf { it.isNotBlank() }
             val snapshotImage = (workerSnapshot["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }
+            val snapshotGender = (workerSnapshot["gender"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
+            val snapshotExperience = (workerSnapshot["experience"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
+            val snapshotEducationQualification = (workerSnapshot["educationQualification"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
+            val snapshotDateOfBirth = (workerSnapshot["dateOfBirth"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
+            val snapshotBio = (workerSnapshot["bio"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
             val snapshotSkills = (workerSnapshot["skills"] as? List<*>)
                 ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
                 ?.distinct()
@@ -477,6 +482,11 @@ class JobApplicationService @Inject constructor(
                 workerEmail = snapshotEmail,
                 workerProfileImageUrl = snapshotImage,
                 workerSkills = snapshotSkills,
+                workerGender = snapshotGender,
+                workerExperience = snapshotExperience,
+                workerEducationQualification = snapshotEducationQualification,
+                workerDateOfBirth = snapshotDateOfBirth,
+                workerBio = snapshotBio,
                 employerPhone = employerContactPhone,
                 coverLetter = coverLetter.orEmpty()
             )
@@ -1286,12 +1296,18 @@ class JobApplicationService @Inject constructor(
                 return Result.failure(Exception("All vacancies for this job have been filled. Cannot accept more applications."))
             }
             
+            val hiredAt = System.currentTimeMillis()
             val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.HIRED
+                status = ApplicationStatus.HIRED,
+                hiredAt = hiredAt
             )
             
-            // Write only the status field - keep document lean
-            docRef.update("status", ApplicationStatus.HIRED.toFirestoreValue()).await()
+            docRef.update(
+                mapOf(
+                    "status" to ApplicationStatus.HIRED.toFirestoreValue(),
+                    "hiredAt" to Timestamp(Date(hiredAt))
+                )
+            ).await()
             
             // DEDUPLICATION FIX: Send notifications here since this is the primary accept method
             // updateApplicationStatus() is for generic status changes

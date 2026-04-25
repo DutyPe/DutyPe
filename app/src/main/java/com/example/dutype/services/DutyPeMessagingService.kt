@@ -134,7 +134,10 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         channelId: String,
         data: Map<String, String>
     ) {
-        val notificationId = System.currentTimeMillis().toInt()
+        val notificationId = data["notificationId"]
+            ?.takeIf { it.isNotBlank() }
+            ?.hashCode()
+            ?: System.currentTimeMillis().toInt()
         
         // Create pending intent for deep link
         val intent = createDeepLinkIntent(deepLink, notificationId)

@@ -154,7 +154,7 @@ async function sendFCMNotification(userId, payload) {
                 }
             }
         });
-        console.log(`âœ… FCM notification sent to user ${userId}`);
+        console.log(`FCM notification sent to user ${userId}`);
         return true;
     }
     catch (error) {
@@ -201,8 +201,8 @@ function isQuietHours() {
  * Check if user's ACTIVE role matches the target role
  * ACTIVE ROLE NOTIFICATIONS:
  * - User only receives notifications for their currently active role
- * - If user is in WORKER mode â†’ only worker notifications
- * - If user is in EMPLOYER mode â†’ only employer notifications
+ * - If user is in WORKER mode -> only worker notifications
+ * - If user is in EMPLOYER mode -> only employer notifications
  * - Birthday notifications sent to everyone regardless of active role
  */
 function userActiveRoleMatches(user, targetRole) {
@@ -481,11 +481,11 @@ exports.checkExpiringJobs = functions.pubsub
     .schedule('0 * * * *') // Every hour at minute 0
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
-    console.log('â° ========== EXPIRING JOBS CHECK START ==========');
-    console.log('â° Role: EMPLOYER (active role only)');
+    console.log('[EXPIRING_JOBS] ========== CHECK START ==========');
+    console.log('[EXPIRING_JOBS] Role: EMPLOYER (active role only)');
     // Skip during quiet hours
     if (isQuietHours()) {
-        console.log('â° Quiet hours - skipping expiring jobs check');
+        console.log('[EXPIRING_JOBS] Quiet hours - skipping check');
         return null;
     }
     const now = Date.now();
@@ -498,7 +498,7 @@ exports.checkExpiringJobs = functions.pubsub
             .where('expiresAt', '>', now)
             .limit(100)
             .get();
-        console.log(`â° Found ${detailsSnapshot.size} job_details expiring in 24 hours`);
+        console.log(`[EXPIRING_JOBS] Found ${detailsSnapshot.size} job_details expiring in 24 hours`);
         let sentCount = 0;
         for (const detailsDoc of detailsSnapshot.docs) {
             const details = detailsDoc.data();
@@ -524,7 +524,7 @@ exports.checkExpiringJobs = functions.pubsub
             const employer = employerDoc.data();
             // Only send if user's ACTIVE role is EMPLOYER
             if (!userActiveRoleMatches(employer, 'EMPLOYER')) {
-                console.log(`â° Skipping job ${jobId} - employer ${employerId} not in EMPLOYER mode`);
+                console.log(`[EXPIRING_JOBS] Skipping job ${jobId} - employer ${employerId} not in EMPLOYER mode`);
                 continue;
             }
             // Check if we can send notification
@@ -553,12 +553,12 @@ exports.checkExpiringJobs = functions.pubsub
                 }
             }
         }
-        console.log(`â° Sent ${sentCount} job expiry notifications`);
-        console.log('â° ========== EXPIRING JOBS CHECK COMPLETE ==========');
+        console.log(`[EXPIRING_JOBS] Sent ${sentCount} job expiry notifications`);
+        console.log('[EXPIRING_JOBS] ========== CHECK COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('â° Error checking expiring jobs:', error);
+        console.error('[EXPIRING_JOBS] Error checking expiring jobs:', error);
         return null;
     }
 });
@@ -662,9 +662,9 @@ exports.remindWorkersPendingApplications = functions.pubsub
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
     var _a;
-    console.log('â° ========== WORKER PENDING APPLICATION REMINDERS START ==========');
-    console.log('â° Role: WORKER (active role only)');
-    console.log('â° Smart Logic: One notification per job, no quiet hours');
+    console.log('[WORKER_PENDING_APPLICATIONS] ========== REMINDERS START ==========');
+    console.log('[WORKER_PENDING_APPLICATIONS] Role: WORKER (active role only)');
+    console.log('[WORKER_PENDING_APPLICATIONS] Smart Logic: One notification per job, no quiet hours');
     // NO QUIET HOURS CHECK - Send anytime for urgent job updates
     try {
         // Query applications that are pending for more than 24 hours
@@ -675,7 +675,7 @@ exports.remindWorkersPendingApplications = functions.pubsub
             .where('status', '==', 'applied')
             .where('createdAt', '<', oneDayAgoTs)
             .get();
-        console.log(`â° Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
+        console.log(`[WORKER_PENDING_APPLICATIONS] Found ${applicationsSnapshot.size} pending applications older than 24 hours`);
         let sentCount = 0;
         // Process each application individually (one notification per job)
         for (const doc of applicationsSnapshot.docs) {
@@ -693,7 +693,7 @@ exports.remindWorkersPendingApplications = functions.pubsub
             const activeRole = (userData === null || userData === void 0 ? void 0 : userData.activeRole) || 'WORKER';
             // Only send to users whose ACTIVE role is WORKER
             if (activeRole !== 'WORKER') {
-                console.log(`â° Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
+                console.log(`[WORKER_PENDING_APPLICATIONS] Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
                 continue;
             }
             // Get job details
@@ -720,7 +720,7 @@ exports.remindWorkersPendingApplications = functions.pubsub
                     .reduce((max, value) => value > max ? value : max, 0);
                 const hoursSinceLast = (Date.now() - latestSentAt) / (60 * 60 * 1000);
                 if (hoursSinceLast < 24) {
-                    console.log(`â° Skipping ${applicationId} for ${workerId} - last sent ${hoursSinceLast.toFixed(1)}h ago`);
+                    console.log(`[WORKER_PENDING_APPLICATIONS] Skipping ${applicationId} for ${workerId} - last sent ${hoursSinceLast.toFixed(1)}h ago`);
                     continue;
                 }
             }
@@ -759,15 +759,15 @@ exports.remindWorkersPendingApplications = functions.pubsub
                     timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
                 sentCount++;
-                console.log(`â° Sent notification to worker ${workerId} for job ${jobId} (${jobTitle})`);
+                console.log(`[WORKER_PENDING_APPLICATIONS] Sent notification to worker ${workerId} for job ${jobId} (${jobTitle})`);
             }
         }
-        console.log(`â° Sent ${sentCount} worker pending application reminders`);
-        console.log('â° ========== WORKER PENDING APPLICATION REMINDERS COMPLETE ==========');
+        console.log(`[WORKER_PENDING_APPLICATIONS] Sent ${sentCount} worker pending application reminders`);
+        console.log('[WORKER_PENDING_APPLICATIONS] ========== REMINDERS COMPLETE ==========');
         return null;
     }
     catch (error) {
-        console.error('â° Error sending worker pending application reminders:', error);
+        console.error('[WORKER_PENDING_APPLICATIONS] Error sending worker pending application reminders:', error);
         return null;
     }
 });
@@ -955,70 +955,9 @@ exports.reEngageInactiveEmployers = functions.pubsub
  */
 exports.notifyApplicationStatusUpdate = functions.firestore
     .document('applications/{applicationId}')
-    .onUpdate(async (change, context) => {
-    var _a;
-    const before = change.before.data();
-    const after = change.after.data();
-    // Only notify if status changed
-    if (before.status === after.status) {
-        return null;
-    }
-    const workerId = after.workerId;
-    const jobTitle = after.jobTitle || ((_a = after.jobSnapshot) === null || _a === void 0 ? void 0 : _a.title) || 'a job';
-    const newStatus = after.status;
-    console.log(`[APPLICATION_STATUS] Application status changed: ${before.status} -> ${newStatus} for worker ${workerId}`);
-    // Determine notification template based on status; localised per-recipient.
-    let templateId = '';
-    let priority = 'high';
-    switch (newStatus) {
-        case 'ACCEPTED':
-        case 'hired':
-            templateId = 'APPLICATION_HIRED';
-            break;
-        case 'REJECTED':
-        case 'rejected':
-            templateId = 'APPLICATION_REJECTED';
-            priority = 'normal';
-            break;
-        case 'WITHDRAWN':
-        case 'withdrawn':
-            templateId = 'APPLICATION_WITHDRAWN';
-            priority = 'normal';
-            break;
-        case 'SHORTLISTED':
-        case 'shortlisted':
-            templateId = 'APPLICATION_SHORTLISTED';
-            break;
-        default:
-            return null; // Don't notify for other status changes
-    }
-    const locale = await (0, notification_i18n_1.getUserLanguage)(admin.firestore(), workerId);
-    const tParams = { jobTitle };
-    const title = (0, notification_i18n_1.tTitle)(templateId, locale, tParams);
-    const body = (0, notification_i18n_1.tBody)(templateId, locale, tParams);
-    try {
-        const sent = await sendFCMNotification(workerId, {
-            title,
-            body,
-            data: {
-                type: 'APPLICATION_STATUS',
-                applicationId: context.params.applicationId,
-                jobId: after.jobId || '',
-                status: newStatus,
-                deepLink: `dutype://application/${context.params.applicationId}`
-            },
-            priority,
-            channel: 'high_priority'
-        });
-        if (sent) {
-            console.log(`âœ… Application status notification sent to worker ${workerId}`);
-        }
-        return null;
-    }
-    catch (error) {
-        console.error('Error sending application status notification:', error);
-        return null;
-    }
+    .onUpdate(async (_change, context) => {
+    console.log(`[APPLICATION_STATUS] Legacy direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns application status notifications`);
+    return null;
 });
 // ============================================
 // GUEST ENGAGEMENT TOPIC MESSAGES
@@ -1124,45 +1063,9 @@ exports.guestEngagementEvening = functions.pubsub
  */
 exports.notifyNewApplication = functions.firestore
     .document('applications/{applicationId}')
-    .onCreate(async (snapshot, context) => {
-    var _a, _b;
-    const application = snapshot.data();
-    const employerId = application.employerId;
-    if (!employerId || employerId === application.workerId) {
-        console.log('[NEW_APPLICATION] Missing employerId or self-application; skipping');
-        return null;
-    }
-    const employerDoc = await admin.firestore().collection('users').doc(employerId).get();
-    if (!employerDoc.exists || !userActiveRoleMatches(employerDoc.data(), 'EMPLOYER')) {
-        console.log(`[NEW_APPLICATION] Skipping employer ${employerId} - not in EMPLOYER mode`);
-        return null;
-    }
-    const jobTitle = application.jobTitle || ((_a = application.jobSnapshot) === null || _a === void 0 ? void 0 : _a.title) || 'your job';
-    const workerName = application.workerName || ((_b = application.workerSnapshot) === null || _b === void 0 ? void 0 : _b.fullName) || 'A worker';
-    console.log(`[NEW_APPLICATION] New application from ${workerName} for job: ${jobTitle}`);
-    try {
-        const sent = await sendFCMNotification(employerId, {
-            title: 'New Application Received!',
-            body: `${workerName} has applied for "${jobTitle}". Review their profile now!`,
-            data: {
-                type: 'NEW_APPLICATION',
-                applicationId: context.params.applicationId,
-                jobId: application.jobId || '',
-                workerId: application.workerId || '',
-                deepLink: `dutype://application/${context.params.applicationId}`
-            },
-            priority: 'high',
-            channel: 'high_priority'
-        });
-        if (sent) {
-            console.log(`âœ… New application notification sent to employer ${employerId}`);
-        }
-        return null;
-    }
-    catch (error) {
-        console.error('Error sending new application notification:', error);
-        return null;
-    }
+    .onCreate(async (_snapshot, context) => {
+    console.log(`[NEW_APPLICATION] Legacy direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns new application notifications`);
+    return null;
 });
 /**
  * Cleanup expired notifications from Firestore inbox.
