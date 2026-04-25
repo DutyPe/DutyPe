@@ -29,8 +29,8 @@ class BirthdayService @Inject constructor(
     
     /**
      * Check if today is the user's birthday.
-     * Reads `dateOfBirth` from `worker_profiles/{userId}` (preferred) or
-     * `employer_profiles/{userId}` and matches day+month against today.
+    * Reads `dateOfBirth` from `worker_profiles/{userId}` and matches
+    * day+month against today.
      *
      * Accepted DOB formats: "DD/MM/YYYY", "DD-MM-YYYY", "YYYY-MM-DD".
      */
@@ -66,18 +66,6 @@ class BirthdayService @Inject constructor(
                 val dob = (workerSnap.getString("dateOfBirth") ?: "").trim()
                 val name = (workerSnap.getString("fullName")
                     ?: workerSnap.getString("name")
-                    ?: "").trim()
-                if (dob.isNotBlank()) return Pair(dob, name)
-            }
-        }
-        // Fall back to employer profile.
-        runCatching {
-            val empSnap = firestore.collection("employer_profiles").document(userId).get().await()
-            if (empSnap.exists()) {
-                val dob = (empSnap.getString("dateOfBirth") ?: "").trim()
-                val name = (empSnap.getString("contactPersonName")
-                    ?: empSnap.getString("fullName")
-                    ?: empSnap.getString("name")
                     ?: "").trim()
                 if (dob.isNotBlank()) return Pair(dob, name)
             }

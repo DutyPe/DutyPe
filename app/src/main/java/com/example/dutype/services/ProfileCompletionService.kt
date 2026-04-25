@@ -198,8 +198,6 @@ class ProfileCompletionService @Inject constructor(
      * - Industry: 15%
      * - Contact Phone: 15%
      * - Business Address: 20%
-     * - Gender: 10%
-     * - Date of Birth: 10%
      * - Contact Email: 5% (optional)
      * - Company Size: 5% (optional)
      * - Profile Picture: 5% (optional - won't block job posting)
@@ -225,8 +223,6 @@ class ProfileCompletionService @Inject constructor(
         if (industry.isNotBlank()) completion += 15
         if (contactPhone.isNotBlank()) completion += 15
         if (businessAddress.isNotBlank()) completion += 20
-        // Note: gender and dateOfBirth are checked in Firestore version
-        
         // Optional Fields (15% total)
         if (contactEmail.isNotBlank()) completion += 5
         if (companySize.isNotBlank()) completion += 5
@@ -243,8 +239,6 @@ class ProfileCompletionService @Inject constructor(
      * - Industry: 15%
      * - Contact Phone: 15%
      * - Business Address: 20%
-     * - Gender: 10%
-     * - Date of Birth: 10%
      * - Contact Email: 5% (optional)
      * - Company Size: 5% (optional)
      * - Profile Picture: 5% (optional - won't block job posting)
@@ -291,7 +285,7 @@ class ProfileCompletionService @Inject constructor(
         return try {
             // SECURITY FIX: Don't log sensitive data
             Timber.d("📸 PROFILE IMAGE: Starting upload for user role: $userRole")
-            Timber.d("📸 PROFILE IMAGE: Image URI provided: ${imageUri != null}")
+            Timber.d("📸 PROFILE IMAGE: Image URI provided")
             
             // Store under user's folder: profile_images/{userId}/profile_{timestamp}.jpg
             val fileName = "profile_${System.currentTimeMillis()}.jpg"

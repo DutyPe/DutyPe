@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ReferralValidationResult
+import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -45,18 +46,9 @@ import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.dutype.app.R
 
 /**
@@ -91,7 +83,6 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
     var companySize by rememberSaveable { mutableStateOf("") }
-    var dateOfBirth by rememberSaveable { mutableStateOf("") }
     var gstNumber by rememberSaveable { mutableStateOf("") } // Optional GST for business verification
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
@@ -234,8 +225,7 @@ fun MandatoryEmployerProfileSetupScreen(
     // Validation logic
     val isStep1Valid = companyName.isNotBlank()
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
-            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank() && 
-            (dateOfBirth.isBlank() || ValidationUtils.isValidDateOfBirth(dateOfBirth))  // Date of birth is optional
+            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank()
     val isStep3Valid = true  // Selfie is optional - always valid
 
     var phoneError by remember { mutableStateOf<String?>(null) }
@@ -244,10 +234,9 @@ fun MandatoryEmployerProfileSetupScreen(
     var industryError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
     var genderError by remember { mutableStateOf<String?>(null) }
-    var dateOfBirthError by remember { mutableStateOf<String?>(null) }
 
     // Update errors only when showValidationErrors is true
-    LaunchedEffect(contactPhone, contactEmail, companyName, industry, businessAddress, gender, dateOfBirth, showValidationErrors) {
+    LaunchedEffect(contactPhone, contactEmail, companyName, industry, businessAddress, gender, showValidationErrors) {
         if (showValidationErrors) {
             phoneError = when {
                 contactPhone.isBlank() -> "Phone number is required"
@@ -262,7 +251,6 @@ fun MandatoryEmployerProfileSetupScreen(
             industryError = null
             addressError = if (businessAddress.isBlank()) "Work location is required" else null
             genderError = if (gender.isBlank()) "Please select your gender" else null
-            dateOfBirthError = if (dateOfBirth.isNotBlank()) ValidationUtils.getDateOfBirthError(dateOfBirth) else null  // Optional field
         } else {
             phoneError = null
             emailError = null
@@ -270,7 +258,6 @@ fun MandatoryEmployerProfileSetupScreen(
             industryError = null
             addressError = null
             genderError = null
-            dateOfBirthError = null
         }
     }
 
@@ -514,7 +501,6 @@ fun MandatoryEmployerProfileSetupScreen(
         companySize = companySize,
         gstNumber = gstNumber,
         gender = gender,
-        dateOfBirth = dateOfBirth,
         selfieUri = selfieUri,
         isUploadingSelfie = isUploadingSelfie,
         selfieError = selfieError,
@@ -530,7 +516,6 @@ fun MandatoryEmployerProfileSetupScreen(
         industryError = if (showValidationErrors) industryError else null,
         addressError = if (showValidationErrors) addressError else null,
         genderError = if (showValidationErrors) genderError else null,
-        dateOfBirthError = if (showValidationErrors) dateOfBirthError else null,
         referralCode = referralCode,
         isValidatingReferral = isValidatingReferral,
         referralValidationResult = referralValidationResult,
@@ -549,7 +534,6 @@ fun MandatoryEmployerProfileSetupScreen(
         onCompanySizeChange = { companySize = it },
         onGstNumberChange = { gstNumber = it },
         onGenderChange = { gender = it },
-        onDateOfBirthChange = { dateOfBirth = it },
         onReferralCodeChange = { newCode ->
             referralCode = newCode
             if (referralValidationResult != null) {
@@ -634,7 +618,6 @@ fun MandatoryEmployerProfileSetupContent(
     companySize: String,
     gstNumber: String,
     gender: String,
-    dateOfBirth: String,
     selfieUri: Uri?,
     isUploadingSelfie: Boolean,
     selfieError: String?,
@@ -650,7 +633,6 @@ fun MandatoryEmployerProfileSetupContent(
     industryError: String?,
     addressError: String?,
     genderError: String?,
-    dateOfBirthError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -666,7 +648,6 @@ fun MandatoryEmployerProfileSetupContent(
     onCompanySizeChange: (String) -> Unit,
     onGstNumberChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
-    onDateOfBirthChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -737,18 +718,15 @@ fun MandatoryEmployerProfileSetupContent(
                                 businessLongitude = businessLongitude,
                                 contactEmail = contactEmail,
                                 gender = gender,
-                                dateOfBirth = dateOfBirth,
                                 phoneError = phoneError,
                                 emailError = emailError,
                                 addressError = addressError,
                                 genderError = genderError,
-                                dateOfBirthError = dateOfBirthError,
                                 onContactPhoneChange = onContactPhoneChange,
                                 onBusinessAddressChange = onBusinessAddressChange,
                                 onBusinessLocationChange = onBusinessLocationChange,
                                 onContactEmailChange = onContactEmailChange,
                                 onGenderChange = onGenderChange,
-                                onDateOfBirthChange = onDateOfBirthChange,
                                 locationService = locationService
                             )
                         }
@@ -850,36 +828,28 @@ fun MandatoryEmployerProfileSetupContent(
 private fun BusinessLocationMapPreview(
     latitude: Double,
     longitude: Double,
-    address: String
+    address: String,
+    onLocationPicked: (Double, Double) -> Unit
 ) {
     if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
         return
     }
 
-    key(latitude, longitude) {
-        val selectedPoint = LatLng(latitude, longitude)
-        val cameraPositionState = rememberCameraPositionState {
-            position = CameraPosition.fromLatLngZoom(selectedPoint, 16f)
-        }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
-        ) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState
-            ) {
-                Marker(
-                    state = MarkerState(position = selectedPoint),
-                    title = "Business location",
-                    snippet = address.takeIf { it.isNotBlank() }
-                )
-            }
-        }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+    ) {
+        SelectableLocationMap(
+            latitude = latitude,
+            longitude = longitude,
+            markerTitle = "Business location",
+            markerSnippet = address.takeIf { it.isNotBlank() },
+            modifier = Modifier.fillMaxSize(),
+            onLocationPicked = onLocationPicked
+        )
     }
 }
 
@@ -983,106 +953,11 @@ private fun CompanyInformationStep(
         }
 
         Column {
-            Text(
-                text = "Company type (optional)",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
-                ),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            val industriesWithIcons = listOf(
-                "Food Service" to Icons.Default.Restaurant,
-                "Retail / Store" to Icons.Default.Store,
-                "Delivery" to Icons.Default.LocalShipping,
-                "Warehouse" to Icons.Default.Warehouse,
-                "Security" to Icons.Default.Security,
-                "Housekeeping" to Icons.Default.HomeWork,
-                "Construction" to Icons.Default.Construction,
-                "Healthcare" to Icons.Default.LocalHospital,
-                "Hospitality" to Icons.Default.Hotel,
-                "Manufacturing" to Icons.Default.PrecisionManufacturing,
-                "Others" to Icons.Default.MoreHoriz
-            )
-
-            var selectedIndustries by remember {
-                mutableStateOf(
-                    industry.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-                )
-            }
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                industriesWithIcons.chunked(2).forEach { rowIndustries ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        rowIndustries.forEach { (ind, icon) ->
-                            FilterChip(
-                                selected = selectedIndustries.contains(ind),
-                                onClick = {
-                                    selectedIndustries = if (selectedIndustries.contains(ind)) {
-                                        selectedIndustries - ind
-                                    } else {
-                                        selectedIndustries + ind
-                                    }
-                                    onIndustryChange(selectedIndustries.joinToString(", "))
-                                },
-                                label = {
-                                    Text(
-                                        ind,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            fontWeight = if (selectedIndustries.contains(ind))
-                                                FontWeight.SemiBold
-                                            else
-                                                FontWeight.Normal
-                                        )
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                leadingIcon = {
-                                    Icon(
-                                        icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = selectedIndustries.contains(ind),
-                                    borderWidth = if (selectedIndustries.contains(ind)) 1.5.dp else 1.dp,
-                                    borderColor = if (selectedIndustries.contains(ind))
-                                        Color(0xFF8B5CF6)
-                                    else
-                                        Color(0xFFE5E7EB)
-                                ),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = Color.White,
-                                    selectedContainerColor = Color(0xFF8B5CF6).copy(alpha = 0.12f),
-                                    labelColor = Color(0xFF6B7280),
-                                    selectedLabelColor = Color(0xFF8B5CF6),
-                                    iconColor = Color(0xFF9CA3AF),
-                                    selectedLeadingIconColor = Color(0xFF8B5CF6)
-                                )
-                            )
-                        }
-                        if (rowIndustries.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-
             OutlinedTextField(
                 value = industry,
                 onValueChange = { onIndustryChange(it.take(120)) },
-                label = { Text("Company type (optional)") },
-                placeholder = { Text("e.g. Restaurant, food service, retail store") },
+                label = { Text("Hiring categories (optional)") },
+                placeholder = { Text("e.g. cooking, cleaning, delivery") },
                 leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1090,43 +965,11 @@ private fun CompanyInformationStep(
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF8B5CF6),
+                    focusedBorderColor = Color(0xFF111111),
                     unfocusedBorderColor = Color(0xFFE5E7EB),
-                    cursorColor = Color(0xFF8B5CF6)
+                    cursorColor = Color(0xFF111111)
                 )
             )
-
-            if (selectedIndustries.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF8B5CF6).copy(alpha = 0.05f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF8B5CF6),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            "${selectedIndustries.size} industr${if (selectedIndustries.size > 1) "ies" else "y"} selected",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF8B5CF6),
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                }
-            }
         }
 
         Column {
@@ -1250,22 +1093,28 @@ private fun ContactDetailsStep(
     businessLongitude: Double,
     contactEmail: String,
     gender: String,
-    dateOfBirth: String,
     phoneError: String?,
     emailError: String?,
     addressError: String?,
     genderError: String?,
-    dateOfBirthError: String?,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
     onContactEmailChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
-    onDateOfBirthChange: (String) -> Unit,
     locationService: com.example.dutype.utils.LocationService
 ) {
     var isFetchingLocation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    fun updatePinnedBusinessLocation(latitude: Double, longitude: Double) {
+        onBusinessLocationChange(latitude, longitude)
+        coroutineScope.launch {
+            val locationInfo = locationService.getLocationFromCoordinates(latitude, longitude)
+            val resolvedAddress = locationInfo?.getFullAddress()?.takeIf { it.isNotBlank() }
+                ?: "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}"
+            onBusinessAddressChange(resolvedAddress)
+        }
+    }
     
     Column(
         modifier = Modifier.padding(top = 20.dp),
@@ -1467,7 +1316,8 @@ private fun ContactDetailsStep(
             BusinessLocationMapPreview(
                 latitude = businessLatitude,
                 longitude = businessLongitude,
-                address = businessAddress
+                address = businessAddress,
+                onLocationPicked = ::updatePinnedBusinessLocation
             )
         }
         
@@ -1523,58 +1373,6 @@ private fun ContactDetailsStep(
             if (genderError != null) {
                 Text(
                     text = genderError,
-                    color = Color(0xFFDC2626),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-        }
-        
-        // Date of Birth
-        Column {
-            Text(
-                text = "Date of Birth (optional)",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
-                ),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // Apr 2026: replaced the heavy Material calendar picker with a
-            // plain text input - employer types DOB as DD/MM/YYYY (auto
-            // slashes) so the form stays simple and fast.
-            OutlinedTextField(
-                value = dateOfBirth,
-                onValueChange = { raw ->
-                    val digits = raw.filter { it.isDigit() }.take(8)
-                    val formatted = buildString {
-                        digits.forEachIndexed { idx, c ->
-                            if (idx == 2 || idx == 4) append('/')
-                            append(c)
-                        }
-                    }
-                    onDateOfBirthChange(formatted)
-                },
-                placeholder = { Text("DD/MM/YYYY") },
-                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = dateOfBirthError != null,
-                shape = RoundedCornerShape(16.dp),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (dateOfBirthError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
-                )
-            )
-
-            if (dateOfBirthError != null) {
-                Text(
-                    text = dateOfBirthError,
                     color = Color(0xFFDC2626),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)

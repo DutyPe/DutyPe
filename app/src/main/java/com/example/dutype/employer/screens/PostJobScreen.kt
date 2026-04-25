@@ -50,7 +50,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Preview
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
@@ -104,6 +103,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
@@ -238,7 +238,6 @@ fun PostJobScreen(
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var educationRequired by remember { mutableStateOf("No qualification required") }
-    var ageRange by remember { mutableStateOf("Any age") }
     var gender by remember { mutableStateOf("Both") }
     
     // Employer Trust Tier (loaded from profile)
@@ -279,7 +278,6 @@ fun PostJobScreen(
         )
         if (educationRequired.isNotBlank() && educationRequired !in base) base + educationRequired else base
     }
-    val ageRanges = listOf("Any age", "18-30", "30-45")
     val genders = listOf("Male", "Female", "Both")
 
     // UI state
@@ -342,7 +340,6 @@ fun PostJobScreen(
                     customPerks.isNotEmpty() ||
                     experienceLevel != "No Experience Required" ||
                     educationRequired != "No qualification required" ||
-                    ageRange != "18-30" ||
                     gender != "Both" ||
                     urgency != JobUrgency.NORMAL ||
                     workType != "Part-time"
@@ -365,7 +362,6 @@ fun PostJobScreen(
                         workType = workType,
                         experienceLevel = experienceLevel,
                         educationRequired = educationRequired,
-                        ageRange = ageRange,
                         gender = gender,
                         requirements = "",
                         benefits = ""
@@ -383,6 +379,8 @@ fun PostJobScreen(
         payAmount,
         payType,
         location,
+        locationLatitude,
+        locationLongitude,
         category,
         customCategory,
         vacancies,
@@ -393,7 +391,6 @@ fun PostJobScreen(
         workType,
         experienceLevel,
         educationRequired,
-        ageRange,
         gender
     ) {
         draftTrigger.value = System.currentTimeMillis()
@@ -485,7 +482,6 @@ fun PostJobScreen(
                     workType = savedDraft.workType
                     experienceLevel = savedDraft.experienceLevel
                     educationRequired = savedDraft.educationRequired
-                    ageRange = savedDraft.ageRange
                     gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
                         "Both"
                     } else {
@@ -1376,8 +1372,11 @@ fun PostJobScreen(
                                     EnhancedLocationSection(
                                         location = location,
                                         onLocationChange = { location = it },
+                                        locationLatitude = locationLatitude,
+                                        locationLongitude = locationLongitude,
                                         isLoadingLocation = isLoadingLocation,
                                         locationError = locationError,
+                                        locationService = locationService,
                                         onLocationButtonClick = {
                                             Timber.d(" LOCATION BUTTON: Clicked - checking permission...")
                                             if (locationService.hasLocationPermission()) {
@@ -1503,9 +1502,6 @@ fun PostJobScreen(
                                         educationRequired = educationRequired,
                                         onEducationRequiredChange = { educationRequired = it },
                                         qualificationLevels = qualificationLevels,
-                                        ageRange = ageRange,
-                                        onAgeRangeChange = { ageRange = it },
-                                        ageRanges = ageRanges,
                                         gender = gender,
                                         onGenderChange = { gender = it },
                                         genders = genders
@@ -2701,8 +2697,11 @@ fun WorkTypeSelection(
 fun EnhancedLocationSection(
     location: String,
     onLocationChange: (String) -> Unit,
+    locationLatitude: Double,
+    locationLongitude: Double,
     isLoadingLocation: Boolean,
     locationError: String?,
+    locationService: com.example.dutype.utils.LocationService,
     onLocationButtonClick: () -> Unit,
     onLocationSelected: ((Double, Double) -> Unit)? = null,
     savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
@@ -2716,6 +2715,15 @@ fun EnhancedLocationSection(
     var isSearching by remember { mutableStateOf(false) }
     var searchSuggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
     var showSuggestions by remember { mutableStateOf(false) }
+    fun updatePinnedJobLocation(latitude: Double, longitude: Double) {
+        onLocationSelected?.invoke(latitude, longitude)
+        scope.launch {
+            val locationInfo = locationService.getLocationFromCoordinates(latitude, longitude)
+            val resolvedAddress = locationInfo?.getFullAddress()?.takeIf { it.isNotBlank() }
+                ?: "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}"
+            onLocationChange(resolvedAddress)
+        }
+    }
     
     // Search for locations when user types
     LaunchedEffect(location) {
@@ -3009,6 +3017,27 @@ fun EnhancedLocationSection(
                     }
                 }
             }
+
+            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(locationLatitude, locationLongitude)) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    SelectableLocationMap(
+                        latitude = locationLatitude,
+                        longitude = locationLongitude,
+                        markerTitle = "Work location",
+                        markerSnippet = location.takeIf { it.isNotBlank() },
+                        modifier = Modifier.fillMaxSize(),
+                        onLocationPicked = ::updatePinnedJobLocation
+                    )
+                }
+            }
             
             if (locationError != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -3043,9 +3072,6 @@ fun RequirementsSection(
     educationRequired: String,
     onEducationRequiredChange: (String) -> Unit,
     qualificationLevels: List<String>,
-    ageRange: String,
-    onAgeRangeChange: (String) -> Unit,
-    ageRanges: List<String>,
     gender: String,
     onGenderChange: (String) -> Unit,
     genders: List<String>
@@ -3112,23 +3138,6 @@ fun RequirementsSection(
                 allowCustomOption = true,
                 customOptionHint = "Add qualification"
             )
-
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            // Age Range
-            // Batch-p #11.2: chips are 18-30 / 30-45 / Any age plus a
-            // free-form "Add your own" entry for cases like "21-28".
-            RequirementChipSection(
-                title = stringResource(R.string.preferred_age_range),
-                icon = Icons.Default.Person,
-                options = ageRanges,
-                selectedOption = ageRange,
-                onOptionSelected = onAgeRangeChange,
-                selectedColor = Color(0xFF2563EB),
-                allowCustomOption = true,
-                customOptionHint = "Add your own age range"
-            )
-            
             Spacer(modifier = Modifier.height(18.dp))
             
             // Gender Preference

@@ -696,6 +696,18 @@ class LocationService(private val context: Context) {
         // Delegate to the accuracy version with 0 accuracy
         processLocationWithAccuracy(latitude, longitude, 0f, callback)
     }
+
+    suspend fun getLocationFromCoordinates(latitude: Double, longitude: Double): LocationInfo? {
+        if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
+            return null
+        }
+
+        return suspendCancellableCoroutine { continuation ->
+            processLocationWithAccuracy(latitude, longitude, 0f) { locationInfo ->
+                continuation.resume(locationInfo)
+            }
+        }
+    }
     
     /**
      * Create LocationInfo from coordinates and address with detailed extraction
