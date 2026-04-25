@@ -322,7 +322,7 @@ fun JobDescriptionScreen(
         }
     }
 
-    LaunchedEffect(job?.id, job?.jobType, currentLocation?.latitude, currentLocation?.longitude) {
+    LaunchedEffect(job?.id, currentLocation?.latitude, currentLocation?.longitude) {
         val currentJob = job ?: return@LaunchedEffect
         similarJobs = try {
             jobViewModel.getRecommendedJobsForJob(currentJob, limit = 5)
@@ -810,32 +810,31 @@ private fun JobDetailsContent(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        // Job Image Section - Removed in optimization (jobImageUrl field no longer exists)
-        // if (job.jobImageUrl.isNotBlank()) {
-        //     item {
-        //         Card(
-        //             modifier = Modifier.fillMaxWidth(),
-        //             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        //             shape = RoundedCornerShape(12.dp),
-        //             elevation = CardDefaults.cardElevation(2.dp)
-        //         ) {
-        //             AsyncImage(
-        //                 model = ImageRequest.Builder(context)
-        //                     .data(job.jobImageUrl)
-        //                     .crossfade(true)
-        //                     .build(),
-        //                 contentDescription = "Job image",
-        //                 modifier = Modifier
-        //                     .fillMaxWidth()
-        //                     .height(180.dp)
-        //                     .clip(RoundedCornerShape(12.dp)),
-        //                 contentScale = ContentScale.Crop
-        //             )
-        //         }
-        //     }
-        //     
-        //     item { Spacer(modifier = Modifier.height(12.dp)) }
-        // }
+        if (!job.jobImageUrl.isNullOrBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(10.dp),
+                    elevation = CardDefaults.cardElevation(0.dp)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(job.jobImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Job image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+        }
         
         // Location Section removed from top - now in Job Details Card
         
@@ -884,7 +883,6 @@ private fun JobDetailsContent(
             val displayLocation = job.addressText.ifBlank { job.location }
             val workingHoursDisplay = job.workingHours.ifBlank { "Not specified" }
             val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
-            val shiftTimingDisplay = job.shiftTiming.ifBlank { "Not specified" }
             // Employer joined time should be fetched from employer profile if needed
             
             Card(
@@ -975,20 +973,12 @@ private fun JobDetailsContent(
                     JobDetailRow(Icons.Default.Payments, Color(0xFF10B981), "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
                     Spacer(modifier = Modifier.height(10.dp))
                     
-                    // Job Type
-                    JobDetailRow(Icons.Filled.Work, Color(0xFFF59E0B), "Job Type:", job.jobType.ifEmpty { "Not specified" })
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
                     // Vacancies — not in schema, removed
                     
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Shift timing
-                    JobDetailRow(Icons.Default.Schedule, Color(0xFF0EA5E9), "Shift:", shiftTimingDisplay)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
                     // Working Hours
                     JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Working Hours:", workingHoursDisplay)
                     Spacer(modifier = Modifier.height(10.dp))

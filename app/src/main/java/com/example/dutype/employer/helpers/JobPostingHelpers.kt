@@ -20,6 +20,7 @@ object JobPostingHelpers {
         return when (payType) {
             PayType.HOURLY -> Icons.Default.AccessTime
             PayType.DAILY -> Icons.Default.CalendarToday
+            PayType.WEEKLY -> Icons.Default.DateRange
             PayType.MONTHLY -> Icons.Default.Work
             PayType.TASK -> Icons.Default.Build
         }
@@ -114,6 +115,7 @@ object JobPostingHelpers {
         val payAmount = jobPosting.payAmount.toIntOrNull() ?: 0
         when (jobPosting.payType) {
             PayType.DAILY -> if (payAmount > 400) baseCount += 10
+            PayType.WEEKLY -> if (payAmount > 2500) baseCount += 10
             PayType.HOURLY -> if (payAmount > 50) baseCount += 10
             PayType.MONTHLY -> if (payAmount > 15000) baseCount += 10
             PayType.TASK -> if (payAmount > 200) baseCount += 5

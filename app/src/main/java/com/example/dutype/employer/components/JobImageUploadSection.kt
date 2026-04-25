@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
@@ -64,10 +66,10 @@ import com.dutype.app.R
  */
 @Composable
 fun JobImageUploadSection(
-    selectedImageUri: Uri?,
+    selectedImageUris: List<Uri>,
     isUploading: Boolean,
     onImageSelected: (Uri) -> Unit,
-    onImageRemoved: () -> Unit,
+    onImageRemoved: (Uri) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -144,7 +146,7 @@ fun JobImageUploadSection(
                         .background(Color(0xFFEDE9FE), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("📷", fontSize = 18.sp)
+                    Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -155,7 +157,7 @@ fun JobImageUploadSection(
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Add a photo to attract more applicants",
+                        text = "Add up to 3 photos of the workplace or job area",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -165,7 +167,8 @@ fun JobImageUploadSection(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Image preview or upload area
-            if (selectedImageUri != null) {
+            if (selectedImageUris.isNotEmpty()) {
+                val primaryImageUri = selectedImageUris.first()
                 // Show selected image with remove option
                 Box(
                     modifier = Modifier
@@ -175,7 +178,7 @@ fun JobImageUploadSection(
                         .background(Color(0xFFF3F4F6))
                 ) {
                     OptimizedJobImage(
-                        imageUrl = selectedImageUri.toString(),
+                        imageUrl = primaryImageUri.toString(),
                         contentDescription = "Job image preview",
                         modifier = Modifier
                             .fillMaxSize()
@@ -210,7 +213,7 @@ fun JobImageUploadSection(
                     // Remove button
                     if (!isUploading) {
                         IconButton(
-                            onClick = onImageRemoved,
+                            onClick = { onImageRemoved(primaryImageUri) },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
@@ -229,8 +232,50 @@ fun JobImageUploadSection(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
+                if (selectedImageUris.size > 1) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(selectedImageUris) { uri ->
+                            Box(
+                                modifier = Modifier
+                                    .size(58.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFF3F4F6))
+                            ) {
+                                OptimizedJobImage(
+                                    imageUrl = uri.toString(),
+                                    contentDescription = "Job image",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (!isUploading) {
+                                    IconButton(
+                                        onClick = { onImageRemoved(uri) },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(20.dp)
+                                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(10.dp))
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove image",
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = "${selectedImageUris.size}/3 images selected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
+
                 // Change image button
-                if (!isUploading) {
+                if (!isUploading && selectedImageUris.size < 3) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -246,7 +291,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.gallery), fontSize = 13.sp)
+                            Text("Add photo", fontSize = 13.sp)
                         }
                         
                         OutlinedButton(
@@ -299,12 +344,12 @@ fun JobImageUploadSection(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Tap to add job image",
+                            text = "Tap to add job photos",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFF6B7280)
                         )
                         Text(
-                            text = "Show your workplace or job environment",
+                            text = "First photo appears on worker and employer cards",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF9CA3AF)
                         )
@@ -373,19 +418,17 @@ fun JobImageUploadSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFEF3C7)
+                    containerColor = Color(0xFFE8F8EF)
                 )
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("💡", fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Jobs with images get 40% more applications!",
+                        text = "Clear job photos help workers understand the place and apply with more confidence.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF92400E)
+                        color = Color(0xFF166534)
                     )
                 }
             }

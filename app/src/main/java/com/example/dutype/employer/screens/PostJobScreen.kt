@@ -107,16 +107,13 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
-import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
 import com.example.dutype.employer.components.VacanciesSection
-import com.example.dutype.employer.components.WorkScheduleSection
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.JobValidationUtils
@@ -228,12 +225,6 @@ fun PostJobScreen(
     // the title only runs while this stays false so we never clobber an
     // explicit choice.
     var categoryManuallySet by remember { mutableStateOf(false) }
-    var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
-    // Batch-p #3: when shiftTiming == CUSTOM the employer types their own
-    // start/end timing into these two fields; the merged display string is
-    // persisted as the job's shiftTiming value.
-    var customShiftStart by remember { mutableStateOf("") }
-    var customShiftEnd by remember { mutableStateOf("") }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
@@ -247,15 +238,16 @@ fun PostJobScreen(
     var workType by remember { mutableStateOf("Part-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var educationRequired by remember { mutableStateOf("No qualification required") }
-    var ageRange by remember { mutableStateOf("18-30") }
+    var ageRange by remember { mutableStateOf("Any age") }
     var gender by remember { mutableStateOf("Both") }
     
     // Employer Trust Tier (loaded from profile)
     var employerTrustTier by remember { mutableStateOf("VERIFIED") }
     
     // JOB IMAGE: Optional image upload for job posting
-    var jobImageUri by remember { mutableStateOf<Uri?>(null) }
+    var jobImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var jobImageUrl by remember { mutableStateOf("") }
+    var jobImageUrls by remember { mutableStateOf<List<String>>(emptyList()) }
     var isUploadingJobImage by remember { mutableStateOf(false) }
     val storage = remember { FirebaseStorage.getInstance() }
     
@@ -287,7 +279,7 @@ fun PostJobScreen(
         )
         if (educationRequired.isNotBlank() && educationRequired !in base) base + educationRequired else base
     }
-    val ageRanges = listOf("18-30", "30-45", "Any age")
+    val ageRanges = listOf("Any age", "18-30", "30-45")
     val genders = listOf("Male", "Female", "Both")
 
     // UI state
@@ -352,7 +344,6 @@ fun PostJobScreen(
                     educationRequired != "No qualification required" ||
                     ageRange != "18-30" ||
                     gender != "Both" ||
-                    shiftTiming != ShiftTiming.FLEXIBLE ||
                     urgency != JobUrgency.NORMAL ||
                     workType != "Part-time"
 
@@ -369,7 +360,6 @@ fun PostJobScreen(
                         customCategory = customCategory,
                         vacancies = vacancies,
                         contactNumber = contactNumber,
-                        shiftTiming = shiftTiming,
                         urgency = urgency,
                         perks = selectedPerks,
                         workType = workType,
@@ -397,7 +387,6 @@ fun PostJobScreen(
         customCategory,
         vacancies,
         contactNumber,
-        shiftTiming,
         urgency,
         selectedPerks,
         customPerks,
@@ -491,7 +480,6 @@ fun PostJobScreen(
                     if (contactNumber.isBlank()) {
                         contactNumber = savedDraft.contactNumber
                     }
-                    shiftTiming = savedDraft.shiftTiming
                     urgency = savedDraft.urgency
                     selectedPerks = savedDraft.perks
                     workType = savedDraft.workType
@@ -625,7 +613,6 @@ fun PostJobScreen(
             description = description,
             contactNumber = contactNumber,
             category = category,
-            shiftTiming = shiftTiming,
             urgency = urgency,
             vacancies = vacancies.toIntOrNull() ?: 1,
             employerId = employerId ?: "",
@@ -652,7 +639,7 @@ fun PostJobScreen(
         val normalizedUrgency = when (urgency) {
             JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
             JobUrgency.NORMAL -> "MEDIUM"
-            JobUrgency.WITHIN_MONTH -> "WITHIN_MONTH"
+            JobUrgency.WITHIN_MONTH -> "LOW"
         }
         val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
 
@@ -690,18 +677,6 @@ fun PostJobScreen(
             "gender" to gender,
             "experienceRequired" to experienceLevel,
             "educationRequired" to educationRequired,
-            "shiftTiming" to (
-                // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
-                if (shiftTiming == ShiftTiming.CUSTOM &&
-                    (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
-                ) {
-                    listOf(customShiftStart.trim(), customShiftEnd.trim())
-                        .filter { it.isNotBlank() }
-                        .joinToString(separator = " - ")
-                } else {
-                    shiftTiming.displayName
-                }
-            ),
             "vacancies" to (vacancies.toIntOrNull() ?: 1),
             "benefits" to normalizedBenefits,
             
@@ -717,7 +692,8 @@ fun PostJobScreen(
 
             // #5 fix: optional hero image URL persisted on jobmetadata so
             // it shows on worker / employer job cards instead of an emoji.
-            "jobImageUrl" to jobImageUrl
+            "jobImageUrl" to jobImageUrl,
+            "jobImageUrls" to jobImageUrls
         )
         
         // DEBUG: Log all job data being sent to Firestore
@@ -733,6 +709,16 @@ fun PostJobScreen(
             if (success) {
                 Timber.i(" JOB POSTING DEBUG: âœ… Job posted successfully!")
                 Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
+                if (location.isNotBlank() && com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
+                    runCatching {
+                        savedWorkLocationsStore.add(
+                            label = location.take(30),
+                            address = location,
+                            latitude = finalLatitude,
+                            longitude = finalLongitude
+                        )
+                    }.onFailure { Timber.w(it, "Saved work location was not updated") }
+                }
                 
                 // Trigger in-app review after successful job posting
                 context.findActivity()?.let { activity ->
@@ -914,7 +900,7 @@ fun PostJobScreen(
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
     val requirementsReady = contactNumber.isNotBlank()
     val locationPinned = hasValidJobCoordinates
-    val hasHeroImage = jobImageUrl.isNotBlank() || jobImageUri != null
+    val hasHeroImage = jobImageUrl.isNotBlank() || jobImageUris.isNotEmpty()
     val readinessCount = listOf(
         basicsReady,
         compensationReady,
@@ -1308,55 +1294,63 @@ fun PostJobScreen(
                                     )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     JobImageUploadSection(
-                                        selectedImageUri = jobImageUri,
+                                        selectedImageUris = jobImageUris,
                                         isUploading = isUploadingJobImage,
                                         onImageSelected = { uri ->
-                                            jobImageUri = uri
-                                            scope.launch {
-                                                isUploadingJobImage = true
-                                                try {
-                                                    val currentUser = FirebaseAuth.getInstance().currentUser
-                                                    if (currentUser != null) {
-                                                        val fileName = "job_image_${System.currentTimeMillis()}.jpg"
-                                                        val storagePath = "job_images/${currentUser.uid}/$fileName"
+                                            if (jobImageUris.size >= 3) {
+                                                Toast.makeText(context, "You can add up to 3 job images", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                jobImageUris = (jobImageUris + uri).take(3)
+                                                scope.launch {
+                                                    isUploadingJobImage = true
+                                                    try {
+                                                        val currentUser = FirebaseAuth.getInstance().currentUser
+                                                        if (currentUser != null) {
+                                                            val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                                            val storagePath = "job_images/${currentUser.uid}/$fileName"
 
-                                                        Timber.d(" JOB IMAGE: Starting upload with compression...")
+                                                            Timber.d(" JOB IMAGE: Starting upload with compression...")
 
-                                                        val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
-                                                            context = context,
-                                                            uri = uri,
-                                                            storagePath = storagePath
-                                                        )
+                                                            val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                                                                context = context,
+                                                                uri = uri,
+                                                                storagePath = storagePath
+                                                            )
 
-                                                        when (uploadResult) {
-                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
-                                                                jobImageUrl = uploadResult.downloadUrl
-                                                                Timber.d(" JOB IMAGE: âœ… Upload successful!")
-                                                                Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
-                                                            }
-                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
-                                                                Timber.e(uploadResult.exception, " JOB IMAGE: âŒ Upload failed: ${uploadResult.error}")
-                                                                Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
-                                                                jobImageUri = null
-                                                                jobImageUrl = ""
-                                                            }
-                                                            else -> {
+                                                            when (uploadResult) {
+                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                                                                    val updatedUrls = (jobImageUrls + uploadResult.downloadUrl).take(3)
+                                                                    jobImageUrls = updatedUrls
+                                                                    jobImageUrl = updatedUrls.firstOrNull().orEmpty()
+                                                                    Timber.d(" JOB IMAGE: âœ… Upload successful!")
+                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
+                                                                }
+                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                                                                    Timber.e(uploadResult.exception, " JOB IMAGE: âŒ Upload failed: ${uploadResult.error}")
+                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
+                                                                    jobImageUris = jobImageUris - uri
+                                                                }
+                                                                else -> {
+                                                                }
                                                             }
                                                         }
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, " JOB IMAGE: âŒ Upload failed")
+                                                        Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                                        jobImageUris = jobImageUris - uri
+                                                    } finally {
+                                                        isUploadingJobImage = false
                                                     }
-                                                } catch (e: Exception) {
-                                                    Timber.e(e, " JOB IMAGE: âŒ Upload failed")
-                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-                                                    jobImageUri = null
-                                                    jobImageUrl = ""
-                                                } finally {
-                                                    isUploadingJobImage = false
                                                 }
                                             }
                                         },
-                                        onImageRemoved = {
-                                            jobImageUri = null
-                                            jobImageUrl = ""
+                                        onImageRemoved = { uri ->
+                                            val removeIndex = jobImageUris.indexOf(uri)
+                                            jobImageUris = jobImageUris - uri
+                                            if (removeIndex >= 0 && removeIndex < jobImageUrls.size) {
+                                                jobImageUrls = jobImageUrls.filterIndexed { index, _ -> index != removeIndex }
+                                            }
+                                            jobImageUrl = jobImageUrls.firstOrNull().orEmpty()
                                             Timber.d(" JOB IMAGE: Image removed")
                                         }
                                     )
@@ -1446,16 +1440,37 @@ fun PostJobScreen(
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(18.dp))
-                                        WorkScheduleSection(
-                                            selectedShift = shiftTiming,
-                                            onShiftSelected = { shiftTiming = it },
-                                            selectedUrgency = urgency,
-                                            onUrgencySelected = { urgency = it },
-                                            customStart = customShiftStart,
-                                            onCustomStartChange = { customShiftStart = it },
-                                            customEnd = customShiftEnd,
-                                            onCustomEndChange = { customShiftEnd = it }
-                                        )
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(JobUrgency.values()) { urgencyOption ->
+                                                val selected = urgency == urgencyOption
+                                                FilterChip(
+                                                    selected = selected,
+                                                    onClick = { urgency = urgencyOption },
+                                                    label = {
+                                                        Text(
+                                                            urgencyOption.displayName,
+                                                            fontSize = 13.sp,
+                                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                                        )
+                                                    },
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = Color(0xFF111111),
+                                                        selectedLabelColor = Color.White,
+                                                        containerColor = Color(0xFFF3F4F6),
+                                                        labelColor = Color(0xFF374151)
+                                                    ),
+                                                    border = FilterChipDefaults.filterChipBorder(
+                                                        enabled = true,
+                                                        selected = selected,
+                                                        borderColor = Color(0xFFD1D5DB),
+                                                        selectedBorderColor = Color(0xFF111111)
+                                                    )
+                                                )
+                                            }
+                                        }
                                     }
                                     // Group 2 close
                                 }
@@ -2460,7 +2475,7 @@ fun EnhancedJobTitleSection(
                         )
                     }
                     Text(
-                        text = stringResource(R.string.post_job_select_position),
+                        text = "Enter a specific job title for your local business / best suited name",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -2488,9 +2503,7 @@ fun EnhancedJobTitleSection(
                 isError = titleError != null,
                 supportingText = if (titleError != null) {
                     { Text(titleError!!, color = Color(0xFFDC2626)) }
-                } else {
-                    { Text(stringResource(R.string.job_title_hint), color = Color(0xFF6B7280)) }
-                },
+                } else null,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
@@ -2614,38 +2627,70 @@ fun WorkTypeSelection(
             
             Spacer(modifier = Modifier.height(18.dp))
             
-            Row(
+            OutlinedTextField(
+                value = payAmount,
+                onValueChange = { newValue ->
+                    // Allow flexible input: numbers, ranges (10000-15000), or text
+                    onPayAmountChange(newValue)
+                },
+                label = { Text(stringResource(R.string.amount_rupees)) },
+                placeholder = { Text("e.g. 12000+, 10000-12000, negotiable") },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = payAmount,
-                        onValueChange = { newValue ->
-                            // Allow flexible input: numbers, ranges (10000-15000), or text
-                            onPayAmountChange(newValue)
+                singleLine = true,
+                isError = false,
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Pay type",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF475569)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PayType.values().toList()) { type ->
+                    FilterChip(
+                        modifier = Modifier.height(34.dp),
+                        selected = payType == type,
+                        onClick = { onPayTypeChange(type) },
+                        label = {
+                            Text(
+                                text = when (type) {
+                                    PayType.DAILY -> "Daily"
+                                    PayType.WEEKLY -> "Weekly"
+                                    PayType.HOURLY -> "After work"
+                                    PayType.MONTHLY -> "Monthly"
+                                    PayType.TASK -> "Per task"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = if (payType == type) FontWeight.SemiBold else FontWeight.Normal
+                            )
                         },
-                        label = { Text(stringResource(R.string.amount_rupees)) },
-                        placeholder = { Text("e.g. 12000") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = false, // Remove numeric validation error
-                        shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = primaryBlue,
-                            focusedLabelColor = primaryBlue,
-                            unfocusedBorderColor = Color(0xFFE2E8F0),
-                            cursorColor = primaryBlue
+                        shape = RoundedCornerShape(8.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = primaryBlue,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFFF1F5F9),
+                            labelColor = Color(0xFF475569)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = Color.Transparent,
+                            selectedBorderColor = Color.Transparent,
+                            enabled = true,
+                            selected = payType == type
                         )
                     )
                 }
-                
-                PayTypeDropdown(
-                    selectedType = payType,
-                    onTypeSelected = onPayTypeChange,
-                    modifier = Modifier.weight(1f)
-                )
             }
             
         }
@@ -3241,7 +3286,9 @@ private fun RequirementChipSection(
             OutlinedTextField(
                 value = customOptionText,
                 onValueChange = { customOptionText = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp),
                 singleLine = true,
                 label = { Text(customOptionHint) },
                 placeholder = { Text(stringResource(R.string.education_example_hint)) },
@@ -3266,9 +3313,11 @@ private fun RequirementChipSection(
                 },
                 enabled = customOptionText.trim().isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = selectedColor),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(34.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
             ) {
-                Text(stringResource(R.string.add_button))
+                Text(stringResource(R.string.add_button), fontSize = 12.sp)
             }
         }
     }
@@ -3361,10 +3410,12 @@ fun PerksSelectionSection(
                     OutlinedTextField(
                         value = newPerkText,
                         onValueChange = { if (it.length <= 40) newPerkText = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
                         placeholder = { Text("e.g. Free meals", fontSize = 13.sp) },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF10B981),
                             unfocusedBorderColor = Color(0xFFCBD5E1)
@@ -3384,16 +3435,17 @@ fun PerksSelectionSection(
                             }
                         },
                         enabled = newPerkText.trim().isNotEmpty(),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF10B981),
                             contentColor = Color.White,
                             disabledContainerColor = Color(0xFFE2E8F0),
                             disabledContentColor = Color(0xFF94A3B8)
                         ),
-                        modifier = Modifier.height(44.dp)
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                     ) {
-                        Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     }
                 }
             }

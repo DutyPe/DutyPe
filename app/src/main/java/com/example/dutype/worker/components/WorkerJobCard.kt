@@ -37,7 +37,7 @@ import com.example.dutype.utils.ValidationUtils
 
 /**
  * JobCard that accepts JobListing directly - PREFERRED
- * Uses only schema fields: title, jobType, salary, salaryType, urgency, status, distance, isSaved
+ * Uses only card fields: title, companyName, salary, salaryType, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,11 +67,9 @@ fun JobCard(
         companyName = job.companyName,
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
-        jobType = job.jobType,
         vacancies = job.vacancies,
         workTypeLabel = extractWorkTypeLabel(
             job.workingHours,
-            job.shiftTiming,
             job.title,
             job.description
         ),
@@ -93,7 +91,7 @@ fun JobCard(
 
 /**
  * PERFORMANCE OPTIMIZED: JobCard that accepts JobListingSummary
- * Uses only schema fields: title, jobType, salary, salaryType, urgency, status, distance, isSaved
+ * Uses only card fields: title, companyName, salary, salaryType, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,9 +124,8 @@ fun JobCard(
         companyName = job.companyName,
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
-        jobType = job.jobType,
         vacancies = job.vacancies,
-        workTypeLabel = extractWorkTypeLabel(job.jobType, job.title),
+        workTypeLabel = null,
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
@@ -156,7 +153,6 @@ private fun JobCardInternal(
     companyName: String,
     payDisplay: String,
     locationDisplay: String,
-    jobType: String,
     vacancies: Int,
     workTypeLabel: String?,
     isUrgent: Boolean,
@@ -228,6 +224,7 @@ private fun JobCardInternal(
                     JobImageOrAnimation(
                         jobImageUrl = jobImageUrl,
                         jobTitle = title,
+                        companyName = companyName,
                         modifier = Modifier.size(44.dp)
                     )
                 }
@@ -365,11 +362,7 @@ private fun JobCardInternal(
                     chipType = ChipType.VACANCY
                 )
 
-                if (jobType.isNotEmpty()) {
-                    CompactChip(text = jobType, chipType = ChipType.JOB_TYPE)
-                }
-
-                if (!workTypeLabel.isNullOrBlank() && !jobType.equals(workTypeLabel, ignoreCase = true)) {
+                if (!workTypeLabel.isNullOrBlank()) {
                     CompactChip(text = workTypeLabel, chipType = ChipType.JOB_TYPE)
                 }
 
@@ -566,10 +559,9 @@ private fun JobLottieAnimation(jobTitle: String, modifier: Modifier = Modifier) 
 private fun JobImageOrAnimation(
     jobImageUrl: String?,
     jobTitle: String,
+    companyName: String,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    
     // Priority 1: Show employer uploaded image if available — fits inside the
     // caller's modifier (44dp circular avatar) instead of forcing 180dp height.
     if (!jobImageUrl.isNullOrBlank()) {
@@ -579,8 +571,24 @@ private fun JobImageOrAnimation(
             modifier = modifier.clip(CircleShape)
         )
     } else {
-        // Priority 2: Show category icon (Lottie removed for performance)
-        JobLottieAnimation(jobTitle = jobTitle, modifier = modifier)
+        val fallbackInitial = companyName.trim().firstOrNull()
+            ?: jobTitle.trim().firstOrNull()
+            ?: 'D'
+        Box(
+            modifier = modifier
+                .clip(CircleShape)
+                .background(Color(0xFF111111)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = fallbackInitial.uppercaseChar().toString(),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
+            )
+        }
     }
 }
 

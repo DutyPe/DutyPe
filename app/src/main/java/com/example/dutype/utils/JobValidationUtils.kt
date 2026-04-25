@@ -480,7 +480,12 @@ object JobValidationUtils {
         }
         
         val ranges = PAY_RATE_RANGES[category] ?: PAY_RATE_RANGES[JobCategory.OTHER]!!
-        val (minRate, maxRate) = ranges[payType] ?: Pair(0, Int.MAX_VALUE)
+        val (minRate, maxRate) = if (payType == PayType.WEEKLY) {
+            val dailyRange = ranges[PayType.DAILY] ?: Pair(250, 1500)
+            Pair(dailyRange.first * 6, dailyRange.second * 6)
+        } else {
+            ranges[payType] ?: Pair(0, Int.MAX_VALUE)
+        }
         
         return when {
             amountToValidate < minRate -> PayRateValidationResult(
@@ -510,6 +515,10 @@ object JobValidationUtils {
      */
     fun getSuggestedPayRange(category: JobCategory, payType: PayType): Pair<Int, Int> {
         val ranges = PAY_RATE_RANGES[category] ?: PAY_RATE_RANGES[JobCategory.OTHER]!!
+        if (payType == PayType.WEEKLY) {
+            val dailyRange = ranges[PayType.DAILY] ?: Pair(250, 1500)
+            return Pair(dailyRange.first * 6, dailyRange.second * 6)
+        }
         return ranges[payType] ?: Pair(0, 0)
     }
     
@@ -520,6 +529,7 @@ object JobValidationUtils {
         val (min, max) = getSuggestedPayRange(category, payType)
         val suffix = when (payType) {
             PayType.DAILY -> "/day"
+            PayType.WEEKLY -> "/week"
             PayType.HOURLY -> "/hour"
             PayType.MONTHLY -> "/month"
             PayType.TASK -> "/task"

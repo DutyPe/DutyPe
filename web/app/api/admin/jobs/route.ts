@@ -93,7 +93,6 @@ type CreateJobBody = {
   gender?: string;
   experienceRequired?: string;
   educationRequired?: string;
-  shiftTiming?: string;
   workingHours?: string;
   vacancies?: number | string;
   benefits?: string[] | string;
@@ -119,7 +118,6 @@ export async function POST(request: NextRequest) {
   const description = body.description?.trim() ?? "";
   const contactNumber = body.contactNumber?.trim() ?? "";
   const workingHours = body.workingHours?.trim() || undefined;
-  const shiftTiming = body.shiftTiming?.trim() || "Flexible";
   const experienceRequired = body.experienceRequired?.trim() || "No Experience Required";
   const educationRequired = body.educationRequired?.trim() || "No qualification required";
 
@@ -192,7 +190,8 @@ export async function POST(request: NextRequest) {
       urgency,
       status: "open",
       isVerified: true,
-      createdAt: Timestamp.fromDate(now)
+      createdAt: Timestamp.fromDate(now),
+      vacancies
     };
 
     const detailsData: Record<string, unknown> = {
@@ -205,7 +204,6 @@ export async function POST(request: NextRequest) {
       experienceRequired,
       educationRequired,
       companyCity,
-      shiftTiming,
       vacancies,
       benefits,
       applicationCount: 0
@@ -241,7 +239,6 @@ type UpdateJobBody = {
   gender?: string;
   experienceRequired?: string;
   educationRequired?: string;
-  shiftTiming?: string;
   workingHours?: string;
   vacancies?: number | string;
   benefits?: string[] | string;
@@ -301,7 +298,6 @@ export async function PATCH(request: NextRequest) {
   if (body.description !== undefined) detailsPayload.description = String(body.description).trim();
   if (body.contactNumber !== undefined) detailsPayload.contactNumber = String(body.contactNumber).trim();
   if (body.workingHours !== undefined) detailsPayload.workingHours = String(body.workingHours).trim();
-  if (body.shiftTiming !== undefined) detailsPayload.shiftTiming = String(body.shiftTiming).trim();
   if (body.experienceRequired !== undefined) detailsPayload.experienceRequired = String(body.experienceRequired).trim();
   if (body.educationRequired !== undefined) detailsPayload.educationRequired = String(body.educationRequired).trim();
   if (body.gender !== undefined) {
@@ -309,7 +305,9 @@ export async function PATCH(request: NextRequest) {
     detailsPayload.gender = VALID_GENDER.has(v) ? v : "Any";
   }
   if (body.vacancies !== undefined) {
-    detailsPayload.vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
+    const vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
+    detailsPayload.vacancies = vacancies;
+    cardPayload.vacancies = vacancies;
   }
   if (body.benefits !== undefined) {
     detailsPayload.benefits = parseBenefits(body.benefits);

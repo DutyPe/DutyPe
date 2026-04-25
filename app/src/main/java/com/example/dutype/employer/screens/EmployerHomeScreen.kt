@@ -928,6 +928,7 @@ fun RecentJobsSection(
                         payAmount = job.salary,
                         payType = when (job.salaryType.uppercase()) {
                             "HOURLY" -> PayType.HOURLY
+                            "WEEKLY" -> PayType.WEEKLY
                             "MONTHLY" -> PayType.MONTHLY
                             "TASK" -> PayType.TASK
                             else -> PayType.DAILY

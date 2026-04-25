@@ -74,7 +74,6 @@ fun EditJobScreen(
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(JobCategory.COOK) }
-    var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
     var vacancies by remember { mutableStateOf("1") }
@@ -211,11 +210,6 @@ fun EditJobScreen(
                 it.name.equals(job.salaryType, ignoreCase = true) ||
                     it.displayName.equals(job.salaryType, ignoreCase = true)
             } ?: PayType.DAILY
-            // shiftTiming
-            shiftTiming = ShiftTiming.values().firstOrNull {
-                it.displayName.equals(job.shiftTiming, ignoreCase = true) ||
-                    it.name.equals(job.shiftTiming, ignoreCase = true)
-            } ?: ShiftTiming.FLEXIBLE
             // Urgency from stored "LOW"|"MEDIUM"|"HIGH"
             urgency = when (job.urgency.uppercase()) {
                 "HIGH" -> JobUrgency.URGENT
@@ -235,6 +229,7 @@ fun EditJobScreen(
             }.toSet()
             vacancies = job.vacancies.toString()
             employerName = job.companyName
+            val shiftTiming = "removed"
             Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$shiftTiming")
         }
     }
@@ -318,7 +313,7 @@ fun EditJobScreen(
                     val normalizedUrgency = when (urgency) {
                         JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
                         JobUrgency.NORMAL -> "MEDIUM"
-                        JobUrgency.WITHIN_MONTH -> "WITHIN_MONTH"
+                        JobUrgency.WITHIN_MONTH -> "LOW"
                     }
 
                     val updates = mapOf(
@@ -331,7 +326,6 @@ fun EditJobScreen(
                         "contactNumber" to contactNumber,
                         "jobType" to category.displayName,
                         "urgency" to normalizedUrgency,
-                        "shiftTiming" to shiftTiming.displayName,
                         "vacancies" to (vacancies.toIntOrNull() ?: 1),
                         "benefits" to selectedPerks.map { it.displayName }
                     )
@@ -1085,32 +1079,6 @@ fun EditJobScreen(
                                     fontSize = 15.sp
                                 )
                             )
-                        }
-
-                        // Shift Timing
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "Shift Timing",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF374151)
-                                )
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(ShiftTiming.values()) { shift ->
-                                    FilterChip(
-                                        onClick = { shiftTiming = shift },
-                                        label = { Text(shift.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
-                                        selected = shiftTiming == shift,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                            selectedLabelColor = Color(0xFF3B82F6)
-                                        )
-                                    )
-                                }
-                            }
                         }
 
                         // Urgency

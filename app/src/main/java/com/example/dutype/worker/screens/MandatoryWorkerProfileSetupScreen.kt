@@ -52,6 +52,8 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.dutype.app.R
 
+private const val MIN_WORKER_BIO_LENGTH = 20
+private const val MAX_WORKER_BIO_LENGTH = 300
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -88,6 +90,8 @@ fun MandatoryWorkerProfileSetupScreen(
     var gender by rememberSaveable { mutableStateOf("") }
     var skills by rememberSaveable { mutableStateOf("") }
     var experience by rememberSaveable { mutableStateOf("") }
+    var educationQualification by rememberSaveable { mutableStateOf("") }
+    var workerBio by rememberSaveable { mutableStateOf("") }
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -150,6 +154,8 @@ fun MandatoryWorkerProfileSetupScreen(
                     val savedDateOfBirth = existingData["dateOfBirth"] as? String
                     val savedGender = existingData["gender"] as? String
                     val savedExperience = existingData["experience"] as? String
+                    val savedEducationQualification = existingData["educationQualification"] as? String
+                    val savedBio = existingData["bio"] as? String
                     // skills from worker_profiles (List<String>) — joined for display in skills field
                     val savedSkills = when (val rawSkills = existingData["skills"]) {
                         is List<*> -> rawSkills.filterIsInstance<String>()
@@ -183,6 +189,14 @@ fun MandatoryWorkerProfileSetupScreen(
                     if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
                         experience = savedExperience
                         Timber.d("📦 PREFILL: experience restored")
+                    }
+                    if (educationQualification.isBlank() && !savedEducationQualification.isNullOrBlank()) {
+                        educationQualification = savedEducationQualification
+                        Timber.d("PREFILL: education qualification restored")
+                    }
+                    if (workerBio.isBlank() && !savedBio.isNullOrBlank()) {
+                        workerBio = savedBio
+                        Timber.d("PREFILL: worker bio restored")
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
@@ -296,7 +310,9 @@ fun MandatoryWorkerProfileSetupScreen(
         }
     }
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
-    val isStep3Valid = skills.isNotBlank() && experience.isNotBlank()
+    val isStep3Valid = skills.isNotBlank() &&
+        experience.isNotBlank() &&
+        workerBio.trim().length >= MIN_WORKER_BIO_LENGTH
     val isStep4Valid = true  // Selfie is optional - always valid
     
     // Overall form validation
@@ -321,9 +337,10 @@ fun MandatoryWorkerProfileSetupScreen(
     var genderError by remember { mutableStateOf<String?>(null) }
     var skillsError by remember { mutableStateOf<String?>(null) }
     var experienceError by remember { mutableStateOf<String?>(null) }
+    var bioError by remember { mutableStateOf<String?>(null) }
     
     // Debug logging for form validation
-    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, currentStep, isCurrentStepValid, showValidationErrors) {
+    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, skills, experience, workerBio, currentStep, isCurrentStepValid, showValidationErrors) {
         // Show DOB age errors immediately when a DOB is selected/typed,
         // while keeping "required" gating behind Next click.
         val liveDateOfBirthError = if (dateOfBirth.isBlank()) null else ValidationUtils.getDateOfBirthError(dateOfBirth)
@@ -375,6 +392,12 @@ fun MandatoryWorkerProfileSetupScreen(
                 experience.isBlank() -> "Experience is required"
                 else -> null
             }
+
+            bioError = when {
+                workerBio.isBlank() -> "Short bio is required"
+                workerBio.trim().length < MIN_WORKER_BIO_LENGTH -> "Write at least $MIN_WORKER_BIO_LENGTH characters about yourself"
+                else -> null
+            }
         } else {
             // Clear all errors when not showing validation
             phoneError = null
@@ -385,6 +408,7 @@ fun MandatoryWorkerProfileSetupScreen(
             genderError = null
             skillsError = null
             experienceError = null
+            bioError = null
         }
         
         Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
@@ -573,10 +597,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                     ProfessionalInformationStep(
                                         skills = skills,
                                         experience = experience,
+                                        educationQualification = educationQualification,
+                                        workerBio = workerBio,
                                         skillsError = if (showValidationErrors) skillsError else null,
                                         experienceError = if (showValidationErrors) experienceError else null,
+                                        bioError = if (showValidationErrors) bioError else null,
                                         onSkillsChange = { skills = it },
-                                        onExperienceChange = { experience = it }
+                                        onExperienceChange = { experience = it },
+                                        onEducationQualificationChange = { educationQualification = it },
+                                        onWorkerBioChange = { workerBio = it }
                                     )
                                 }
                             }
@@ -723,12 +752,16 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "skills" to skills,
                                                     "dateOfBirth" to dateOfBirth,
                                                     "gender" to gender,
-                                                    "experience" to experience
+                                                    "experience" to experience,
+                                                    "bio" to workerBio.trim()
                                                 )
 
                                                 // Store email if provided
                                                 if (email.isNotBlank()) {
                                                     workerProfileData["email"] = email.trim()
+                                                }
+                                                if (educationQualification.isNotBlank()) {
+                                                    workerProfileData["educationQualification"] = educationQualification.trim()
                                                 }
 
                                                 profileCompletionViewModel.locationPreferences
@@ -1464,10 +1497,15 @@ private fun AdditionalDetailsStep(
 private fun ProfessionalInformationStep(
     skills: String,
     experience: String,
+    educationQualification: String,
+    workerBio: String,
     skillsError: String?,
     experienceError: String?,
+    bioError: String?,
     onSkillsChange: (String) -> Unit,
-    onExperienceChange: (String) -> Unit
+    onExperienceChange: (String) -> Unit,
+    onEducationQualificationChange: (String) -> Unit,
+    onWorkerBioChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1626,7 +1664,7 @@ private fun ProfessionalInformationStep(
                                                 Icons.Default.CheckCircle,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(16.dp),
-                                                tint = Color(0xFF111111)
+                                                tint = Color.White
                                             )
                                         }
                                     } else {
@@ -1648,9 +1686,9 @@ private fun ProfessionalInformationStep(
                                     colors = FilterChipDefaults.filterChipColors(
                                         containerColor = Color.White,
                                         labelColor = Color(0xFF1F2937),
-                                        selectedContainerColor = Color.White,
-                                        selectedLabelColor = Color(0xFF1F2937),
-                                        selectedLeadingIconColor = Color(0xFF111111)
+                                        selectedContainerColor = Color(0xFF111111),
+                                        selectedLabelColor = Color.White,
+                                        selectedLeadingIconColor = Color.White
                                     ),
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
@@ -1862,6 +1900,118 @@ private fun ProfessionalInformationStep(
                     )
                 }
             }
+        }
+
+        Column {
+            Text(
+                text = "Education qualification (optional)",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            val qualificationOptions = listOf(
+                "Below 10th",
+                "10th pass",
+                "12th pass",
+                "ITI / Diploma",
+                "Graduate",
+                "Any qualification"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                qualificationOptions.forEach { option ->
+                    FilterChip(
+                        selected = educationQualification == option,
+                        onClick = { onEducationQualificationChange(option) },
+                        label = {
+                            Text(
+                                option,
+                                fontSize = 12.sp,
+                                fontWeight = if (educationQualification == option) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF111111),
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFFF3F4F6),
+                            labelColor = Color(0xFF374151)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = educationQualification == option,
+                            borderColor = Color.Transparent,
+                            selectedBorderColor = Color.Transparent
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = educationQualification,
+                onValueChange = { onEducationQualificationChange(it.take(120)) },
+                label = { Text("Add your qualification") },
+                placeholder = { Text("e.g. B.Com, Nursing diploma, ITI electrician") },
+                leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF111111),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF111111),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
+                )
+            )
+        }
+
+        Column {
+            Text(
+                text = "Short bio *",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1F2937)
+                ),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            OutlinedTextField(
+                value = workerBio,
+                onValueChange = { onWorkerBioChange(it.take(MAX_WORKER_BIO_LENGTH)) },
+                placeholder = { Text("Tell employers about your work style, experience, and reliability") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                maxLines = 5,
+                isError = bioError != null,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF111111),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    errorBorderColor = Color(0xFFDC2626),
+                    cursorColor = Color(0xFF111111),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    errorContainerColor = Color.White
+                ),
+                supportingText = {
+                    Text(
+                        text = bioError ?: "${workerBio.trim().length}/$MAX_WORKER_BIO_LENGTH characters",
+                        color = if (bioError != null) Color(0xFFDC2626) else Color(0xFF6B7280)
+                    )
+                }
+            )
         }
 
         // Experience Level

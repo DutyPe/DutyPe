@@ -672,6 +672,12 @@ class ProfileCompletionService @Inject constructor(
             val experience = (profileData["experience"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingWorker["experience"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val educationQualification = (profileData["educationQualification"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingWorker["educationQualification"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val bio = (profileData["bio"] as? String)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: (existingWorker["bio"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
             // Single-role architecture: always overwrite role to WORKER on this code path.
             val userUpdates = mutableMapOf<String, Any>(
@@ -712,6 +718,12 @@ class ProfileCompletionService @Inject constructor(
             }
             if (!experience.isNullOrBlank()) {
                 workerProfile["experience"] = experience
+            }
+            if (!educationQualification.isNullOrBlank()) {
+                workerProfile["educationQualification"] = educationQualification.take(120)
+            }
+            if (!bio.isNullOrBlank()) {
+                workerProfile["bio"] = bio.take(300)
             }
 
             val batch = firestore.batch()

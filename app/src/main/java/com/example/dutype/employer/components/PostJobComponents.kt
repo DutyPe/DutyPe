@@ -319,7 +319,7 @@ fun WorkScheduleSection(
     customEnd: String = "",
     onCustomEndChange: (String) -> Unit = {}
 ) {
-    val shiftOptions = listOf(ShiftTiming.MORNING, ShiftTiming.NIGHT, ShiftTiming.FLEXIBLE)
+    val shiftOptions = listOf(ShiftTiming.MORNING, ShiftTiming.NIGHT, ShiftTiming.BOTH, ShiftTiming.FLEXIBLE)
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(

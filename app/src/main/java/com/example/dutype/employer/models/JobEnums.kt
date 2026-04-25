@@ -2,6 +2,7 @@ package com.example.dutype.employer.models
 
 enum class PayType(val displayName: String) {
     DAILY("Daily"),
+    WEEKLY("Weekly"),
     HOURLY("Hourly"),
     MONTHLY("Monthly"),
     TASK("Per Task")
@@ -32,6 +33,7 @@ enum class ShiftTiming(val displayName: String, val icon: String) {
     AFTERNOON("Day shift", "🏙️"),
     EVENING("Night shift", "🌆"),
     NIGHT("Night shift", "🌙"),
+    BOTH("Both shift", ""),
     FULL_DAY("Any shift", "⏰"),
     // Batch-p #3: employer can specify their own start/end timing.
     CUSTOM("Any shift", "🕒"),

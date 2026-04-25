@@ -230,7 +230,6 @@ class JobFirestoreService @Inject constructor(
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
             "gender" to normalizeString(coreData["gender"]).ifBlank { "Any" },
             "experienceRequired" to normalizeString(coreData["experienceRequired"]).ifBlank { "No Experience Required" },
-            "shiftTiming" to normalizeString(coreData["shiftTiming"]).ifBlank { "Flexible" },
             "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
             "location" to locationValue,
             "geohash" to normalizeString(coreData["geohash"]),
@@ -335,7 +334,6 @@ class JobFirestoreService @Inject constructor(
             val experienceRequired = normalizeString(jobData["experienceRequired"]).ifBlank { "No Experience Required" }
             val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { "No qualification required" }
             val companyCity = extractCityFromAddress(addressText)
-            val shiftTiming = normalizeString(jobData["shiftTiming"]).ifBlank { "Flexible" }
             val vacancies = (jobData["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(jobData["vacancies"]).toIntOrNull()
                 ?: 1
@@ -410,7 +408,7 @@ class JobFirestoreService @Inject constructor(
                 "vacancies" to vacancies,
                 // Apr 2026 fast-path: mirror the rich display fields the
                 // worker job-description screen needs (description, benefits,
-                // shiftTiming, gender, experienceRequired). The slim card
+                // gender, experienceRequired). The slim card
                 // grows from ~200 → ~700 bytes but the worker sees the full
                 // job details on the FIRST round-trip from jobmetadata —
                 // no second fetch from job_details required to render the
@@ -418,7 +416,6 @@ class JobFirestoreService @Inject constructor(
                 // applicationCount which remain auth-gated.
                 "description" to description,
                 "benefits" to benefits,
-                "shiftTiming" to shiftTiming,
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
                 "educationRequired" to educationRequired
@@ -429,6 +426,9 @@ class JobFirestoreService @Inject constructor(
             normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
                 cardData["jobImageUrl"] = it
             }
+            val jobImageUrls = (jobData["jobImageUrls"] as? List<*>)
+                ?.mapNotNull { normalizeString(it).takeIf { url -> url.isNotBlank() } }
+                ?.take(3)
 
             val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
@@ -440,12 +440,14 @@ class JobFirestoreService @Inject constructor(
                 "experienceRequired" to experienceRequired,
                 "educationRequired" to educationRequired,
                 "companyCity" to companyCity,
-                "shiftTiming" to shiftTiming,
                 "vacancies" to vacancies,
                 "benefits" to benefits,
                 "applicationCount" to 0
             )
             workingHours?.let { detailsData["workingHours"] = it }
+            if (!jobImageUrls.isNullOrEmpty()) {
+                detailsData["jobImageUrls"] = jobImageUrls
+            }
 
             Timber.d(" Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
@@ -740,7 +742,7 @@ class JobFirestoreService @Inject constructor(
             Timber.d("getJobById - Looking for jobId: %s", jobId)
 
             // Apr 2026 fast-path: fetch the public jobmetadata FIRST. New
-            // posts mirror description/benefits/shiftTiming/gender/experience
+            // posts mirror description/benefits/gender/experience
             // onto this slim card payload, so a single round-trip is enough
             // to render the job-description screen for guests AND signed-in
             // users. Only legacy posts (created before the mirror) need a
@@ -848,7 +850,7 @@ class JobFirestoreService @Inject constructor(
             }
 
             // Details-only fields (must match firestore.rules for job_details).
-            // Apr 2026: description, benefits, shiftTiming, gender,
+            // Apr 2026: description, benefits, gender,
             // experienceRequired are also mirrored onto jobmetadata so the
             // worker job-description screen renders without a second fetch.
             if (data.containsKey("description")) {
@@ -884,11 +886,6 @@ class JobFirestoreService @Inject constructor(
             // `companyCity` no longer belongs in jobmetadata. Delete it on
             // every card edit so legacy card docs become lean automatically.
             cardUpdates["companyCity"] = FieldValue.delete()
-            if (data.containsKey("shiftTiming")) {
-                val v = normalizeString(data["shiftTiming"]).ifBlank { "Flexible" }
-                detailsUpdates["shiftTiming"] = v
-                cardUpdates["shiftTiming"] = v
-            }
             if (data.containsKey("vacancies")) {
                 val v = (data["vacancies"] as? Number)?.toInt()
                     ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1

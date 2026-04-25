@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 
-// Mirrors the Android app's PostJobScreen enums (jobType / salaryType / urgency / shift / experience / gender).
+// Mirrors the Android app's PostJobScreen enums (jobType / salaryType / urgency / experience / gender).
 const JOB_TYPES: { value: string; label: string }[] = [
   { value: "DELIVERY", label: "Delivery" },
   { value: "DRIVER", label: "Driver" },
@@ -67,7 +67,6 @@ type LocationSuggestion = {
 };
 
 const SALARY_TYPES = ["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"];
-const SHIFTS = ["Flexible", "Day Shift", "Night Shift", "Rotational", "Morning", "Evening"];
 // BUG #5 FIX: Stored values stay LOW/MEDIUM/HIGH (Firestore rules whitelist
 // these), but the user-facing labels now match the Android app's JobUrgency
 // enum (`Today` / `Within 3 days` / `Within 1 week`).
@@ -121,7 +120,6 @@ const initialForm = {
   experienceRequired: "No Experience Required",
   educationRequired: "No qualification required",
   customQualification: "",
-  shiftTiming: "Flexible",
   workingHours: "",
   vacancies: "1",
   benefits: [] as string[],
@@ -317,7 +315,6 @@ export function AdminPostJobClient() {
           gender: form.gender,
           experienceRequired: form.experienceRequired,
           educationRequired: form.educationRequired,
-          shiftTiming: form.shiftTiming,
           workingHours: form.workingHours.trim() || undefined,
           vacancies: Number(form.vacancies) || 1,
           benefits,
@@ -414,12 +411,6 @@ export function AdminPostJobClient() {
             <span>Salary type *</span>
             <select value={form.salaryType} onChange={(e) => update("salaryType", e.target.value)}>
               {SALARY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
-          <label className="admin-field">
-            <span>Shift timing</span>
-            <select value={form.shiftTiming} onChange={(e) => update("shiftTiming", e.target.value)}>
-              {SHIFTS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <label className="admin-field">

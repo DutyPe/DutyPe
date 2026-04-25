@@ -471,8 +471,11 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideSavedWorkLocationsStore(): com.example.dutype.services.SavedWorkLocationsStore {
-        return com.example.dutype.services.SavedWorkLocationsStore()
+    fun provideSavedWorkLocationsStore(
+        firestore: FirebaseFirestore,
+        auth: FirebaseAuth
+    ): com.example.dutype.services.SavedWorkLocationsStore {
+        return com.example.dutype.services.SavedWorkLocationsStore(firestore, auth)
     }
 
     @Provides

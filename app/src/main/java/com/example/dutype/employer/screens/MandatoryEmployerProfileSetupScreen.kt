@@ -148,6 +148,8 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedIndustry = existingData["industry"] as? String
                     val savedCompanySize = existingData["companySize"] as? String
                     val savedGstNumber = existingData["gstNumber"] as? String
+                    val savedBusinessAddress = existingData["businessAddress"] as? String
+                    val savedBusinessLocation = existingData["businessLocation"] as? Map<*, *>
                     
                     // Apply prefilled values (only if current field is empty)
                     if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
@@ -174,6 +176,21 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (gstNumber.isBlank() && !savedGstNumber.isNullOrBlank()) {
                         gstNumber = savedGstNumber
                         Timber.d("📦 PREFILL: gstNumber = $gstNumber")
+                    }
+                    if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
+                        businessAddress = savedBusinessAddress
+                        Timber.d("PREFILL: businessAddress loaded")
+                    }
+                    if (businessLatitude == 0.0 && businessLongitude == 0.0 && savedBusinessLocation != null) {
+                        val savedLat = (savedBusinessLocation["lat"] as? Number)?.toDouble()
+                        val savedLng = (savedBusinessLocation["lng"] as? Number)?.toDouble()
+                        if (savedLat != null && savedLng != null &&
+                            com.example.dutype.utils.GeoUtils.hasValidCoordinates(savedLat, savedLng)
+                        ) {
+                            businessLatitude = savedLat
+                            businessLongitude = savedLng
+                            Timber.d("PREFILL: businessLocation loaded")
+                        }
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
@@ -313,7 +330,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         }
                     }
                     
-                    val employerProfileData = mutableMapOf(
+                    val employerProfileData = mutableMapOf<String, Any>(
                         "companyName" to companyName,
                         "phone" to contactPhone
                     )
@@ -715,6 +732,8 @@ fun MandatoryEmployerProfileSetupContent(
                             ContactDetailsStep(
                                 contactPhone = contactPhone,
                                 businessAddress = businessAddress,
+                                businessLatitude = businessLatitude,
+                                businessLongitude = businessLongitude,
                                 contactEmail = contactEmail,
                                 gender = gender,
                                 dateOfBirth = dateOfBirth,
@@ -725,6 +744,7 @@ fun MandatoryEmployerProfileSetupContent(
                                 dateOfBirthError = dateOfBirthError,
                                 onContactPhoneChange = onContactPhoneChange,
                                 onBusinessAddressChange = onBusinessAddressChange,
+                                onBusinessLocationChange = onBusinessLocationChange,
                                 onContactEmailChange = onContactEmailChange,
                                 onGenderChange = onGenderChange,
                                 onDateOfBirthChange = onDateOfBirthChange,
@@ -820,6 +840,43 @@ fun MandatoryEmployerProfileSetupContent(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BusinessLocationMapPreview(
+    latitude: Double,
+    longitude: Double,
+    address: String
+) {
+    if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(latitude, longitude)) {
+        return
+    }
+
+    key(latitude, longitude) {
+        val selectedPoint = LatLng(latitude, longitude)
+        val cameraPositionState = rememberCameraPositionState {
+            position = CameraPosition.fromLatLngZoom(selectedPoint, 16f)
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+        ) {
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState
+            ) {
+                Marker(
+                    state = MarkerState(position = selectedPoint),
+                    title = "Business location",
+                    snippet = address.takeIf { it.isNotBlank() }
+                )
             }
         }
     }
@@ -926,7 +983,7 @@ private fun CompanyInformationStep(
 
         Column {
             Text(
-                text = "Industry * (Select all that apply)",
+                text = "Company type (optional)",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF374151)
@@ -936,20 +993,15 @@ private fun CompanyInformationStep(
 
             val industriesWithIcons = listOf(
                 "Food Service" to Icons.Default.Restaurant,
-                "Housekeeping" to Icons.Default.HomeWork,
+                "Retail / Store" to Icons.Default.Store,
                 "Delivery" to Icons.Default.LocalShipping,
                 "Warehouse" to Icons.Default.Warehouse,
+                "Security" to Icons.Default.Security,
+                "Housekeeping" to Icons.Default.HomeWork,
                 "Construction" to Icons.Default.Construction,
                 "Healthcare" to Icons.Default.LocalHospital,
-                "Retail" to Icons.Default.Store,
-                "Manufacturing" to Icons.Default.PrecisionManufacturing,
-                "Security" to Icons.Default.Security,
                 "Hospitality" to Icons.Default.Hotel,
-                "Transportation" to Icons.Default.DirectionsBus,
-                "Agriculture" to Icons.Default.Agriculture,
-                "IT Services" to Icons.Default.Computer,
-                "Education" to Icons.Default.School,
-                "Real Estate" to Icons.Default.Home,
+                "Manufacturing" to Icons.Default.PrecisionManufacturing,
                 "Others" to Icons.Default.MoreHoriz
             )
 
@@ -1024,6 +1076,24 @@ private fun CompanyInformationStep(
                     }
                 }
             }
+
+            OutlinedTextField(
+                value = industry,
+                onValueChange = { onIndustryChange(it.take(120)) },
+                label = { Text("Company type (optional)") },
+                placeholder = { Text("e.g. Restaurant, food service, retail store") },
+                leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF8B5CF6),
+                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    cursorColor = Color(0xFF8B5CF6)
+                )
+            )
 
             if (selectedIndustries.isNotEmpty()) {
                 Card(
@@ -1124,7 +1194,7 @@ private fun CompanyInformationStep(
                 supportingText = {
                     if (gstNumber.isBlank()) {
                         Text(
-                            "Add GST to get 🏢 Business badge",
+                            "Optional. Add GST to help us verify your business.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF6B7280)
                             )
@@ -1138,15 +1208,14 @@ private fun CompanyInformationStep(
                         )
                     } else {
                         Text(
-                            "✅ Valid GST - You'll get Business badge!",
+                            "Valid GST - business verification ready.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF10B981),
                                 fontWeight = FontWeight.Medium
                             )
                         )
                     }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
+                },                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFF8B5CF6),
                     unfocusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFFE5E7EB)
                 )
@@ -1176,6 +1245,8 @@ private fun CompanyInformationStep(
 private fun ContactDetailsStep(
     contactPhone: String,
     businessAddress: String,
+    businessLatitude: Double,
+    businessLongitude: Double,
     contactEmail: String,
     gender: String,
     dateOfBirth: String,
@@ -1186,6 +1257,7 @@ private fun ContactDetailsStep(
     dateOfBirthError: String?,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
+    onBusinessLocationChange: (Double, Double) -> Unit,
     onContactEmailChange: (String) -> Unit,
     onGenderChange: (String) -> Unit,
     onDateOfBirthChange: (String) -> Unit,
@@ -1336,6 +1408,7 @@ private fun ContactDetailsStep(
                                 if (locationInfo != null) {
                                     // Use detailed full address for business profile
                                     onBusinessAddressChange(locationInfo.getFullAddress())
+                                    onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
                                 }
                                 isFetchingLocation = false
                             }
@@ -1368,8 +1441,9 @@ private fun ContactDetailsStep(
             com.example.dutype.components.LocationAutocompleteField(
                 value = businessAddress,
                 onValueChange = onBusinessAddressChange,
-                onLocationSelected = { selectedAddress, _, _ ->
+                onLocationSelected = { selectedAddress, latitude, longitude ->
                     onBusinessAddressChange(selectedAddress)
+                    onBusinessLocationChange(latitude, longitude)
                 },
                 locationService = locationService,
                 label = stringResource(R.string.business_address),
@@ -1389,6 +1463,11 @@ private fun ContactDetailsStep(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
+            BusinessLocationMapPreview(
+                latitude = businessLatitude,
+                longitude = businessLongitude,
+                address = businessAddress
+            )
         }
         
         // Gender Selection
@@ -1453,7 +1532,7 @@ private fun ContactDetailsStep(
         // Date of Birth
         Column {
             Text(
-                text = "Date of Birth *",
+                text = "Date of Birth (optional)",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1F2937)
