@@ -37,3 +37,43 @@ reeiw rating are should be who store with the names,
 suppose employer vamsi  given rating to the worker then worker see the rating reveiw in his  profieldetail scren with actual employer name wiith company gave him this rating ,same way worker given rating employer can esee withh name
 
 in feature we need to recomand the worker to the employers based on the his works with rating and review so we need to keep this way in ligjt wight way
+
+
+2026-04-25 22:19:53.864 18039-24522 Google Android Maps SDK com.dutype.app                       E  Authorization failure.  Please see ****************************************************************** for how to correctly set up the map.
+2026-04-25 22:19:53.867 18039-24522 Google Android Maps SDK com.dutype.app                       E  In the Google Developer Console (**************************************
+                                                                                                    Ensure that the "Maps SDK for Android" is enabled.
+                                                                                                    Ensure that the following Android Key exists:
+                                                                                                    	API Key: AIzaSyC5Wx2Utzd7VnJ3WX46LxFn7l_33_rPYEo
+                                                                                                    	Android Application (<cert_fingerprint>;<package_name>): ***********************:***********************:AC:16:D3:BA;com.dutype.app
+2026-04-25 22:19:55.166 18039-24465 DynamiteModule          com.dutype.app                       W  Local module descriptor class for com.google.android.gms.googlecertificates not found.
+2026-04-25 22:19:55.171 18039-24465
+
+for the above error wjat to do and
+give me the sha key and steps to add in the google cloud 
+2. application relaed ,hiring ,update on review, apllcaition eerecived and more notifcations are coming twice 
+except the profiel completetion
+3. another thing is that , if the worker applied for the job then the applied for the notifcaion coming twice and employer related notifcation also coming like new application reciveed on worker side itself...
+4.Accept,rejecct  button not working in worker profile screenlike the appplcaition screen of the employerside and  where the employer can view the worker profiel from the applcaition screen to coming this screen
+and in this screen, only the anme, skills, phone number are showing , not showing the 
+field
+bio
+
+
+
+educationQualification
+
+  dob: convet this to show hoe many years old
+
+
+experience
+ 
+
+
+gender
+4.If employer hired count(accepted applocation) equals to vacancy then,hide the from the worker screens,
+If the worker applied for the job ,if wasnt the hired for that job then show  job was filled the vacancy..on click that card dont navaigate to jobdescription screeen,keep worker applied history as its like applied for the job  like that
+5.add the fearur that employer can only add the single image for the job ppsting --now update relatd this every wher ein the jobdesciption, job preview and collection also.. employer cant add more  thatn one tjhts it
+and the uplaod image should show perfectly in the jobdscriptin-have a look,its already working fine
+ 
+
+6some notifcations still has these symbols d ð/ðŸ-remove it
