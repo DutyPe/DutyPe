@@ -206,14 +206,14 @@ class FirestoreJobRepository @Inject constructor(
      * INDUSTRY STANDARD: Search uses relevance scoring, not pagination
      * Returns top 100 most relevant results sorted by score
      * 
-     * DUAL-ROLE FIX: Filters out jobs posted by the current user
+    * Filters out jobs posted by the current user.
      */
     fun searchJobs(query: String, limit: Long = 100L): Flow<Result<List<JobListing>>> = flow {
         try {
             val result = firestoreService.searchJobs(query, limit)
             result.fold(
                 onSuccess = { jobsData ->
-                    // DUAL-ROLE FIX: Filter out jobs posted by current user
+                    // Filter out jobs posted by current user.
                     val currentUserId = auth.currentUser?.uid
                     val filteredJobsData = if (currentUserId != null) {
                         jobsData.filter { jobData ->
@@ -256,7 +256,7 @@ class FirestoreJobRepository @Inject constructor(
             val result = firestoreService.getAllJobsSummary(limit, null, category)
             result.fold(
                 onSuccess = { summariesData ->
-                    // DUAL-ROLE FIX: Filter out jobs posted by current user
+                    // Filter out jobs posted by current user.
                     val currentUserId = auth.currentUser?.uid
                     val filteredData = if (currentUserId != null) {
                         summariesData.filter { data ->
@@ -301,7 +301,7 @@ class FirestoreJobRepository @Inject constructor(
             val result = firestoreService.getJobsByLocation(location, limit)
             result.fold(
                 onSuccess = { jobsData ->
-                    // DUAL-ROLE FIX: Filter out jobs posted by current user
+                    // Filter out jobs posted by current user.
                     val currentUserId = auth.currentUser?.uid
                     val filteredJobsData = if (currentUserId != null) {
                         jobsData.filter { jobData ->

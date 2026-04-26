@@ -38,7 +38,7 @@ data class JobApplication(
     val workerProfileImageUrl: String? = null,
     // Bug #18 / #19 fix: denormalized at write time so the employer can
     // render the applicant card without reading worker_profiles (locked
-    // to the owner). Source of truth stays in users + worker_profiles.
+    // to the owner). Source of truth stays in worker_profiles.
     val workerSkills: List<String> = emptyList(),
     val workerGender: String = "",
     val workerExperience: String = "",

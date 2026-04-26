@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitApplication = exports.getWorkerProfileForEmployer = exports.lookupPhoneRole = exports.switchActiveRole = exports.addRole = exports.completeRegistration = void 0;
+exports.submitApplication = exports.getWorkerProfileForEmployer = exports.lookupPhoneRole = exports.completeRegistration = void 0;
 /**
  * Auth, role, and application callables for DutyPe.
  *
@@ -122,10 +122,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
                 throw new functions.https.HttpsError("already-exists", "Phone number is already linked to another account");
             }
             // Single-role-per-phone (#9 / #20): block role change on same phone.
-            const existingRoles = Array.isArray(phoneData.roles)
-                ? phoneData.roles.map((value) => String(value).toUpperCase()).filter(Boolean)
-                : [];
-            const existingRole = String(phoneData.role || existingRoles[0] || "").toUpperCase();
+            const existingRole = String(phoneData.role || "").toUpperCase();
             if (existingRole && existingRole !== role) {
                 throw new functions.https.HttpsError("failed-precondition", `phone-already-registered-as:${existingRole}`);
             }
@@ -184,64 +181,11 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
     const out = {
         success: true,
         userId: uid,
-        activeRole: role,
+        role,
         alreadyExisted: result.alreadyExisted,
     };
     await idem.record(out);
     return out;
-});
-// ────────────────────────────────────────────────────────────────────────
-// addRole — DISABLED (#20: dual-role not supported)
-// ────────────────────────────────────────────────────────────────────────
-// Kept exported for binary compatibility with deployed clients; always
-// rejects so existing apps surface a clear error instead of silently
-// granting a second role.
-exports.addRole = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
-    var _a;
-    const uid = context.auth.uid;
-    const phoneE164 = normalizePhoneE164((_a = context.auth.token) === null || _a === void 0 ? void 0 : _a.phone_number);
-    const newRole = (0, validation_1.validateEnum)(data === null || data === void 0 ? void 0 : data.newRole, "newRole", VALID_ROLES);
-    // Look up existing role for the toast message.
-    const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
-    const existing = ((phoneSnap === null || phoneSnap === void 0 ? void 0 : phoneSnap.data()) || {});
-    const legacyRoles = Array.isArray(existing.roles)
-        ? existing.roles.map((r) => String(r).toUpperCase()).filter(Boolean)
-        : [];
-    const existingRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
-    if (existingRole === newRole) {
-        return { success: true, role: existingRole, activeRole: newRole, noop: true };
-    }
-    throw new functions.https.HttpsError("failed-precondition", existingRole
-        ? `phone-already-registered-as:${existingRole}`
-        : "dual-role-not-supported");
-});
-// ────────────────────────────────────────────────────────────────────────
-// switchActiveRole — DISABLED (#20: dual-role not supported)
-// ────────────────────────────────────────────────────────────────────────
-// If the requested role matches the user's existing role, this is a no-op
-// (idempotent for clients calling on every cold start). Anything else is
-// rejected.
-exports.switchActiveRole = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
-    var _a;
-    const uid = context.auth.uid;
-    const phoneE164 = normalizePhoneE164((_a = context.auth.token) === null || _a === void 0 ? void 0 : _a.phone_number);
-    const newRole = (0, validation_1.validateEnum)(data === null || data === void 0 ? void 0 : data.newRole, "newRole", VALID_ROLES);
-    const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
-    if (!(phoneSnap === null || phoneSnap === void 0 ? void 0 : phoneSnap.exists)) {
-        throw new functions.https.HttpsError("failed-precondition", "User profile not found");
-    }
-    const existing = (phoneSnap.data() || {});
-    const legacyRoles = Array.isArray(existing.roles)
-        ? existing.roles.map((r) => String(r).toUpperCase()).filter(Boolean)
-        : [];
-    const activeRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
-    if (activeRole === newRole) {
-        return { success: true, role: activeRole, activeRole: newRole, profileExists: true, noop: true };
-    }
-    const existingRole = activeRole || "";
-    throw new functions.https.HttpsError("failed-precondition", existingRole
-        ? `phone-already-registered-as:${existingRole}`
-        : "dual-role-not-supported");
 });
 // ────────────────────────────────────────────────────────────────────────
 // lookupPhoneRole — single-doc, role-aware phone lookup (#11 / #20)
@@ -263,10 +207,7 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
         return { exists: false, roleConflict: false };
     }
     const d = snap.data() || {};
-    const legacyRoles = Array.isArray(d.roles)
-        ? d.roles.map((value) => String(value).toUpperCase()).filter(Boolean)
-        : [];
-    const existingRole = String(d.role || legacyRoles[0] || "").toUpperCase();
+    const existingRole = String(d.role || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
     return {

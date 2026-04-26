@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -658,75 +658,6 @@ exports.detectDuplicateJob = functions.firestore
 exports.logUserActivity = functions.https.onCall(async (data, context) => {
     // Activity logging removed - Firebase Analytics handles this
     return { success: true };
-});
-/**
- * Check whether a user exists for a phone number.
- * HARDENED:
- *   • Must be authenticated (prevents unauth'd phone enumeration).
- *   • Response is boolean-only — never discloses userId or roles.
- */
-exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c, _d;
-    const rawIp = ((_a = context.rawRequest) === null || _a === void 0 ? void 0 : _a.ip) || "unknown";
-    const callerIdentity = ((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid) || `ip_${rawIp}`;
-    const callerKey = callerIdentity.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 120) || "anon";
-    if (!context.app) {
-        functions.logger.warn("checkPhoneExists called without App Check token", {
-            callerKey,
-            hasAuth: !!context.auth,
-        });
-    }
-    const rawPhone = String((_c = data === null || data === void 0 ? void 0 : data.phone) !== null && _c !== void 0 ? _c : "").trim();
-    const providedVariants = Array.isArray(data === null || data === void 0 ? void 0 : data.variants)
-        ? data.variants.map(v => String(v)).filter(v => v.trim().length > 0)
-        : [];
-    if (providedVariants.length > 10) {
-        throw new functions.https.HttpsError("invalid-argument", "too many variants");
-    }
-    if (rawPhone && (rawPhone.length < 7 || rawPhone.length > 20)) {
-        throw new functions.https.HttpsError("invalid-argument", "phone");
-    }
-    if (!rawPhone && providedVariants.length === 0) {
-        return { exists: false };
-    }
-    const digits = rawPhone.replace(/\D/g, "");
-    const last10 = digits.length >= 10 ? digits.slice(-10) : "";
-    const generatedVariants = new Set([
-        rawPhone.replace(/[\s-]/g, ""),
-        digits,
-        digits.startsWith("91") ? `+${digits}` : "",
-        digits.startsWith("91") ? digits : "",
-        last10 ? `+91${last10}` : "",
-        last10 ? `91${last10}` : "",
-        last10,
-    ].filter(Boolean));
-    for (const variant of providedVariants) {
-        generatedVariants.add(variant.trim());
-    }
-    const variants = Array.from(generatedVariants).slice(0, 10);
-    const phoneRoleDocs = await Promise.all(variants.map((variant) => db.collection("phoneRoles").doc(variant).get()));
-    const phoneRoleDoc = phoneRoleDocs.find((doc) => doc.exists);
-    if (!phoneRoleDoc) {
-        return { exists: false, roleConflict: false };
-    }
-    // Single-role-per-phone enforcement. We expose ONLY the existing role
-    // so the client can show the right error ("This number is registered as
-    // an employer; please log in as an employer."). We never leak userId,
-    // fullName, or other PII.
-    const userData = phoneRoleDoc.data();
-    const existingRole = ((typeof userData.role === "string" ? userData.role : undefined) ||
-        (Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
-        "").toUpperCase();
-    const requestedRoleRaw = String((_d = data === null || data === void 0 ? void 0 : data.requestedRole) !== null && _d !== void 0 ? _d : "").trim().toUpperCase();
-    const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"
-        ? requestedRoleRaw
-        : "";
-    const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
-    return {
-        exists: true,
-        existingRole: existingRole || null,
-        roleConflict,
-    };
 });
 // ============================================
 // P1 FIX #10: MODERATION QUEUE SYSTEM

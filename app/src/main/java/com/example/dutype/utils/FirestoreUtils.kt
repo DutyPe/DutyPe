@@ -192,9 +192,7 @@ object FirestoreUtils {
     }
 
     private fun extractRole(userDoc: Map<String, Any?>): String? {
-        val role = (userDoc["role"] as? String)
-            ?: (userDoc["activeRole"] as? String)
-            ?: (userDoc["roles"] as? List<*>)?.firstOrNull()?.toString()
+        val role = userDoc["role"] as? String
         return role?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
     }
 
@@ -204,22 +202,8 @@ object FirestoreUtils {
     ): PhoneCheckResult {
         val normalized = PhoneNumberUtils.normalize(phoneNumber)
         val variants = PhoneNumberUtils.getVariants(phoneNumber)
-        // Batch-o #2: per-callable region map. Different callables live
-        // in different regions:
-        //   - `lookupPhoneRole` is wrapped in `onCallSecured` → asia-south1
-        //   - legacy `checkPhoneExists` (functions/src/index.ts) is plain
-        //     `functions.https.onCall` → us-central1 (default)
-        // Batch-m incorrectly pinned BOTH to asia-south1 which made
-        // `checkPhoneExists` start returning NOT_FOUND, so when
-        // `lookupPhoneRole` was unavailable the fallback also failed
-        // → result: PhoneCheckResult.UNKNOWN → user blocked at the
-        // register / login screen with "Could not verify this number".
-        // We now try EACH callable in its primary region first, then
-        // the other region as a safety net (covers older deployments
-        // where the function was published in only one of the two).
         val callableRegions = listOf(
-            "lookupPhoneRole" to listOf("asia-south1", ""),
-            "checkPhoneExists" to listOf("", "asia-south1")
+            "lookupPhoneRole" to listOf("asia-south1", "")
         )
 
         for ((callableName, regions) in callableRegions) {
@@ -250,9 +234,6 @@ object FirestoreUtils {
                         ?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
                     val roleConflict = payload?.get("roleConflict") as? Boolean ?: false
 
-                    // Defence-in-depth: derive roleConflict from
-                    // existingRole vs requestedRole when the callable
-                    // forgot to set it (older deploy of checkPhoneExists).
                     val effectiveConflict = roleConflict || (
                         !requestedRole.isNullOrBlank() &&
                             existingRole != null &&

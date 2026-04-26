@@ -88,6 +88,7 @@ fun EmployerApplicationManagementScreen(
     var pendingUnlockApplication by remember { mutableStateOf<JobApplication?>(null) }
     var pendingRatingApplication by remember { mutableStateOf<JobApplication?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
+    var ratedApplicationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var isProcessingPayment by remember { mutableStateOf(false) }
     var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
     var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
@@ -116,6 +117,13 @@ fun EmployerApplicationManagementScreen(
     // Handle search
     LaunchedEffect(searchQuery) {
         viewModel.searchApplications(searchQuery)
+    }
+
+    LaunchedEffect(uiState.applications) {
+        val completedApplications = uiState.applications.filter { it.status == ApplicationStatus.COMPLETED }
+        ratedApplicationIds = completedApplications.mapNotNull { application ->
+            if (ratingService.hasRated(application.jobId, application.workerId)) application.id else null
+        }.toSet()
     }
     
     // FINTECH: Contact Unlock Payment Dialog
@@ -173,6 +181,7 @@ fun EmployerApplicationManagementScreen(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                                 if (result.success) {
+                                    ratedApplicationIds = ratedApplicationIds + application.id
                                     showRatingSheet = false
                                     pendingRatingApplication = null
                                 }
@@ -263,6 +272,7 @@ fun EmployerApplicationManagementScreen(
                             application = application,
                             applicationIndex = index,
                             isContactUnlocked = isContactUnlocked,
+                            hasAlreadyRated = application.id in ratedApplicationIds,
                             onClick = { 
                                 onApplicationClick(application) 
                             },
@@ -309,6 +319,7 @@ fun EmployerApplicationManagementScreen(
 
                                     val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
                                     if (alreadyRated) {
+                                        ratedApplicationIds = ratedApplicationIds + application.id
                                         Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
                                     } else {
                                         pendingRatingApplication = application
@@ -545,6 +556,7 @@ private fun ApplicationCard(
     application: JobApplication,
     applicationIndex: Int = 0,
     isContactUnlocked: Boolean = true,
+    hasAlreadyRated: Boolean = false,
     onClick: () -> Unit,
     onUnlockContact: () -> Unit = {},
     onStatusUpdate: (ApplicationStatus, String?) -> Unit,
@@ -775,10 +787,12 @@ private fun ApplicationCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = onRateWorker,
+                    enabled = canMarkWorkDone || !hasAlreadyRated,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFF59E0B)
+                        contentColor = Color(0xFFF59E0B),
+                        disabledContentColor = Color(0xFF059669)
                     )
                 ) {
                     Icon(
@@ -788,7 +802,7 @@ private fun ApplicationCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        if (canMarkWorkDone) "Mark Work Done" else "Rate Worker",
+                        if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
                         style = AppTypography.labelLarge
                     )
                 }

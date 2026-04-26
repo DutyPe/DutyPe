@@ -320,8 +320,6 @@ class OtpViewModel @Inject constructor(
                     
                     val resolvedRole = run {
                         val raw = (existingProfileData?.get("role") as? String)
-                            ?: (existingProfileData?.get("activeRole") as? String)
-                            ?: (existingProfileData?.get("roles") as? List<*>)?.firstOrNull()?.toString()
                             ?: pendingRole.name
                         runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(UserRole.WORKER)
                     }
@@ -355,7 +353,7 @@ class OtpViewModel @Inject constructor(
                         // Existing canonical profile is present, safe to register token now.
                         viewModelScope.launch {
                             try {
-                                val userRole = if (existingProfileData?.get("role") != null || existingProfileData?.get("activeRole") != null) {
+                                val userRole = if (existingProfileData?.get("role") != null) {
                                     user.role.name
                                 } else {
                                     pendingRole.name
@@ -428,9 +426,7 @@ class OtpViewModel @Inject constructor(
             !((userData["fullName"] as? String).isNullOrBlank())
 
         val hasRoleData = when {
-            userData["activeRole"] is String -> true
             (userData["role"] as? String)?.isNotBlank() == true -> true
-            (userData["roles"] as? List<*>)?.isNotEmpty() == true -> true
             else -> false
         }
 
@@ -457,8 +453,6 @@ class OtpViewModel @Inject constructor(
         try {
             val resolvedRole = run {
                 val raw = (userData["role"] as? String)
-                    ?: (userData["activeRole"] as? String)
-                    ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
                     ?: fallbackRole.name
                 runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(fallbackRole)
             }

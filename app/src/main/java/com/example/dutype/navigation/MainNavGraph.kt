@@ -171,9 +171,7 @@ fun MainNavGraph(
                         null
                     }
 
-                    val firestoreRoleStr = (phoneRoleDoc?.get("roles") as? List<*>)
-                        ?.firstOrNull()
-                        ?.toString()
+                    val firestoreRoleStr = phoneRoleDoc?.getString("role")
 
                     val profileDocExists = try {
                         kotlinx.coroutines.withTimeoutOrNull(2000L) {

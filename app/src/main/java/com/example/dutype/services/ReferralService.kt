@@ -167,12 +167,6 @@ class ReferralService @Inject constructor(
             ?.uppercase()
             ?.takeIf { it.isNotBlank() }
             ?.let { roles += it }
-        @Suppress("UNCHECKED_CAST")
-        val phoneRoles = phoneRoleData["roles"] as? List<*>
-        phoneRoles.orEmpty()
-            .mapNotNull { it as? String }
-            .map { it.uppercase() }
-            .forEach { roles += it }
         roles += "WORKER"
         roles += "EMPLOYER"
 

@@ -106,7 +106,7 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Calculate profile completion percentage for workers from Firestore (users collection only)
+        * Calculate profile completion percentage for workers from worker_profiles.
      * 
      * WEIGHTS (Profile picture is optional - only 5%):
      * - Full Name: 10%
@@ -127,7 +127,7 @@ class ProfileCompletionService @Inject constructor(
                 firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
             } catch (e: Exception) {
                 if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                    Timber.w("worker_profiles read denied for userId=%s; using users-only completion fallback", userId)
+                    Timber.w("worker_profiles read denied for userId=%s; reporting empty profile", userId)
                     emptyMap<String, Any>()
                 } else {
                     throw e
@@ -154,7 +154,7 @@ class ProfileCompletionService @Inject constructor(
             // The previous fallback let unverified users bypass the apply-gate by triggering a
             // PERMISSION_DENIED on worker_profiles. The apply-gate must reflect actual stored data.
             if (workerData.isEmpty()) {
-                Timber.w("⚠️ ProfileCompletionService - worker_profiles empty/unreadable for $userId; reporting users-only score")
+                Timber.w("⚠️ ProfileCompletionService - worker_profiles empty/unreadable for $userId; reporting stored profile score")
             }
 
             val finalCompletion = completion.coerceAtMost(100)
@@ -484,9 +484,7 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Save user info for profile setup - DUAL ROLE SUPPORT
-     * Initializes roles array with the selected role
-     * Sets activeRole to the selected role
+        * Save user info for profile setup.
      */
     suspend fun saveUserInfo(email: String, name: String, role: String): Result<Unit> {
         return try {
@@ -535,12 +533,11 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Update user role - DUAL ROLE SUPPORT
+        * Update user role.
      * Sets the user's single role.
      *
-     * Single-role architecture: this OVERWRITES `role`, `activeRole`, and the
-     * one-element `roles` compat array. Accounts are single-role for life;
-     * call sites that previously appended a second role are no longer valid.
+        * Accounts are single-role for life; call sites that previously appended
+        * a second role are no longer valid.
      */
     suspend fun updateUserRole(newRole: String): Result<Unit> {
         return try {
@@ -966,7 +963,6 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val resolvedRole = (phoneRoleData["role"] as? String)
-                ?: (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()
             val roleUpper = resolvedRole?.uppercase()
             val hasRequiredCore = !((phoneRoleData["phoneNumber"] as? String).isNullOrBlank()) &&
                 !((phoneRoleData["name"] as? String).isNullOrBlank())

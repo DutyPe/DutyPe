@@ -33,7 +33,6 @@ data class User(
         @Suppress("UNCHECKED_CAST")
         fun fromFirestoreMap(uid: String, data: Map<String, Any?>): User {
             val roleStr = (data["role"] as? String)
-                ?: (data["roles"] as? List<*>)?.firstOrNull()?.toString()
                 ?: UserRole.WORKER.name
             val role = runCatching { UserRole.valueOf(roleStr.uppercase()) }
                 .getOrDefault(UserRole.WORKER)
@@ -56,9 +55,7 @@ data class User(
          * Build the canonical Firestore field map for [role].
          *
          * Single source of truth = `role` (string). DutyPe enforces a single
-         * immutable product role per phone number; dual-role accounts are not
-         * supported. Read-side fallback to legacy `activeRole`/`roles[0]` is
-         * handled in [fromFirestoreMap].
+         * immutable product role per phone number.
          */
         fun roleFieldsFor(role: UserRole): Map<String, Any> = mapOf(
             "role" to role.name

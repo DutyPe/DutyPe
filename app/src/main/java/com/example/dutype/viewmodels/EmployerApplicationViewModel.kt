@@ -268,7 +268,7 @@ class EmployerApplicationViewModel @Inject constructor(
             return applyWorkerProfileToApplication(application, cachedProfile)
         }
         
-        // Fetch worker profile (merges users + worker_profiles for jobTypes)
+        // Fetch worker profile from worker_profiles.
         return try {
             // Bug #19 fix: rules block direct employer reads of worker_profiles —
             // route through the authorising callable.
@@ -293,7 +293,7 @@ class EmployerApplicationViewModel @Inject constructor(
     
     /**
      * Apply worker profile data to application object
-     * Reads from merged users + worker_profiles data (target schema only)
+    * Reads worker profile data from the target schema only.
      */
     private fun applyWorkerProfileToApplication(
         application: JobApplication,

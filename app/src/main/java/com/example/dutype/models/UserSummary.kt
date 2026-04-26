@@ -21,7 +21,7 @@ data class UserSummary(
             fullName = user.fullName,
             profileImageUrl = user.profileImageUrl,
             phone = user.phone,
-            companyName = null  // not stored on users doc — fetch from employer_profiles if needed
+            companyName = null
         )
 
         fun fromMap(data: Map<String, Any>): UserSummary = UserSummary(

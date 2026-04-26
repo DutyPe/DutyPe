@@ -141,8 +141,8 @@ fun JobApplicationCard(
         application.status != ApplicationStatus.COMPLETED
     
     // Can rate only if status is COMPLETED and hasn't rated yet
-    val canRate = application.status == ApplicationStatus.HIRED && !hasAlreadyRated && onRateClick != null
-    val isCompleted = application.status == ApplicationStatus.HIRED
+    val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
+    val isCompleted = application.status == ApplicationStatus.COMPLETED
     
     // State for rating section expansion
     var isRatingSectionExpanded by remember { mutableStateOf(canRate) }

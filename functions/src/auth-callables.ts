@@ -150,10 +150,7 @@ export const completeRegistration = onCallSecured(
           );
         }
         // Single-role-per-phone (#9 / #20): block role change on same phone.
-        const existingRoles = Array.isArray(phoneData.roles)
-          ? phoneData.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
-          : [];
-        const existingRole = String(phoneData.role || existingRoles[0] || "").toUpperCase();
+        const existingRole = String(phoneData.role || "").toUpperCase();
         if (existingRole && existingRole !== role) {
           throw new functions.https.HttpsError(
             "failed-precondition",
@@ -231,85 +228,13 @@ export const completeRegistration = onCallSecured(
     const out = {
       success: true,
       userId: uid,
-      activeRole: role,
+      role,
       alreadyExisted: result.alreadyExisted,
     };
     await idem.record!(out);
     return out;
   }
 );
-
-// ────────────────────────────────────────────────────────────────────────
-// addRole — DISABLED (#20: dual-role not supported)
-// ────────────────────────────────────────────────────────────────────────
-// Kept exported for binary compatibility with deployed clients; always
-// rejects so existing apps surface a clear error instead of silently
-// granting a second role.
-export const addRole = onCallSecured({}, async (data: any, context) => {
-  const uid = context.auth!.uid;
-  const phoneE164 = normalizePhoneE164(context.auth!.token?.phone_number);
-  const newRole = validateEnum(
-    data?.newRole,
-    "newRole",
-    VALID_ROLES as unknown as string[]
-  ) as Role;
-
-  // Look up existing role for the toast message.
-  const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
-  const existing = (phoneSnap?.data() || {}) as Record<string, any>;
-  const legacyRoles: string[] = Array.isArray(existing.roles)
-    ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
-    : [];
-  const existingRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
-
-  if (existingRole === newRole) {
-    return { success: true, role: existingRole, activeRole: newRole, noop: true };
-  }
-
-  throw new functions.https.HttpsError(
-    "failed-precondition",
-    existingRole
-      ? `phone-already-registered-as:${existingRole}`
-      : "dual-role-not-supported"
-  );
-});
-
-// ────────────────────────────────────────────────────────────────────────
-// switchActiveRole — DISABLED (#20: dual-role not supported)
-// ────────────────────────────────────────────────────────────────────────
-// If the requested role matches the user's existing role, this is a no-op
-// (idempotent for clients calling on every cold start). Anything else is
-// rejected.
-export const switchActiveRole = onCallSecured({}, async (data: any, context) => {
-  const uid = context.auth!.uid;
-  const phoneE164 = normalizePhoneE164(context.auth!.token?.phone_number);
-  const newRole = validateEnum(
-    data?.newRole,
-    "newRole",
-    VALID_ROLES as unknown as string[]
-  ) as Role;
-
-  const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
-  if (!phoneSnap?.exists) {
-    throw new functions.https.HttpsError("failed-precondition", "User profile not found");
-  }
-  const existing = (phoneSnap.data() || {}) as Record<string, any>;
-  const legacyRoles: string[] = Array.isArray(existing.roles)
-    ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
-    : [];
-  const activeRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
-  if (activeRole === newRole) {
-    return { success: true, role: activeRole, activeRole: newRole, profileExists: true, noop: true };
-  }
-
-  const existingRole = activeRole || "";
-  throw new functions.https.HttpsError(
-    "failed-precondition",
-    existingRole
-      ? `phone-already-registered-as:${existingRole}`
-      : "dual-role-not-supported"
-  );
-});
 
 // ────────────────────────────────────────────────────────────────────────
 // lookupPhoneRole — single-doc, role-aware phone lookup (#11 / #20)
@@ -340,10 +265,7 @@ export const lookupPhoneRole = onCallSecured(
     }
     const d = snap.data() || {};
 
-    const legacyRoles = Array.isArray(d.roles)
-      ? d.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
-      : [];
-    const existingRole = String(d.role || legacyRoles[0] || "").toUpperCase();
+    const existingRole = String(d.role || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict =
       !!requestedRole && !!existingRole && requestedRole !== existingRole;

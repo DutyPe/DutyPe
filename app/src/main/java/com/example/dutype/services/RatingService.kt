@@ -11,8 +11,7 @@ import javax.inject.Singleton
 /**
  * Rating & Review Service
  * 
- * Dual-role support: Workers rate employers, Employers rate workers
- * Ratings are stored per-role so a dual-role user gets separate ratings
+ * Workers rate employers, and employers rate workers.
  * for their worker and employer roles.
  * 
  * Collection: ratings/{ratingId}

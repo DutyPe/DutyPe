@@ -19,9 +19,8 @@ import javax.inject.Inject
 /**
  * Read-only viewmodel for the currently authenticated user.
  *
- * Replaces the dual-role `RoleManagementViewModel`. It exposes the user's
- * single role and basic identity fields. There is no API for changing the
- * role at runtime — accounts are single-role for life.
+ * Exposes the user's single role and basic identity fields. There is no API
+ * for changing the role at runtime; accounts are single-role for life.
  */
 @HiltViewModel
 class CurrentUserViewModel @Inject constructor(
@@ -51,7 +50,6 @@ class CurrentUserViewModel @Inject constructor(
                     emptyMap()
                 }
                 val role = (phoneRoleData["role"] as? String)?.uppercase()
-                    ?: (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
                 val profileCollection = if (role == UserRole.EMPLOYER.name) {
                     FirestoreCollections.EMPLOYER_PROFILES
                 } else {

@@ -1,5 +1,6 @@
 package com.example.dutype.employer.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -54,7 +55,8 @@ fun EmployerJobCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -160,20 +162,6 @@ fun EmployerJobCard(
 
             // Job details
             JobDetailsRow(jobPosting = jobPosting)
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Description preview
-            if (jobPosting.description.isNotBlank()) {
-                Text(
-                    text = jobPosting.description,
-                    style = AppTypography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
 
             // Perks display removed as per user request
         }
@@ -310,11 +298,20 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = jobPosting.shiftTimingText?.takeIf { it.isNotBlank() } ?: jobPosting.shiftTiming.displayName,
+                text = jobPosting.shiftDisplayText(),
                 style = AppTypography.bodyMedium,
                 color = Color.Gray
             )
         }
+    }
+}
+
+private fun JobPostingModel.shiftDisplayText(): String {
+    val text = shiftTimingText?.trim().orEmpty()
+    return when {
+        text.equals("Any", ignoreCase = true) -> shiftTiming.displayName
+        text.isNotBlank() -> text
+        else -> shiftTiming.displayName
     }
 }
 

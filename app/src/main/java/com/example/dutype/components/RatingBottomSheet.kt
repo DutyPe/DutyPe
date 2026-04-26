@@ -23,7 +23,7 @@ import com.dutype.app.R
 
 /**
  * Rating Bottom Sheet for rating employers/workers after job completion.
- * Supports dual-role: workers rate employers, employers rate workers.
+ * Supports worker-to-employer and employer-to-worker ratings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

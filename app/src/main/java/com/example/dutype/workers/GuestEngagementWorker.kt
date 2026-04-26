@@ -167,10 +167,7 @@ class GuestEngagementWorker @AssistedInject constructor(
             val normalizedPhone = user.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val phoneRoleDoc = normalizedPhone.takeIf { it.isNotBlank() }
                 ?.let { firestore.collection(FirestoreCollections.PHONE_ROLES).document(it).get().await() }
-            val resolved = phoneRoleDoc?.get("roles")
-                ?.let { it as? List<*> }
-                ?.mapNotNull { it?.toString()?.uppercase() }
-                ?.firstOrNull()
+            val resolved = phoneRoleDoc?.getString("role")?.uppercase()
                 ?: when {
                     firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().exists() -> "EMPLOYER"
                     firestore.collection(FirestoreCollections.WORKER_PROFILES).document(userId).get().await().exists() -> "WORKER"

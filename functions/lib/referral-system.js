@@ -595,9 +595,7 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
             const newUserData = newUserProfileDoc.data() || {};
             const referrerStats = referrerStatsDoc.data() || {};
             const newUserStats = newUserStatsDoc.data() || {};
-            const newUserRoles = Array.isArray(newUserData.roles)
-                ? newUserData.roles.map((roleValue) => getStringValue(roleValue).toUpperCase()).filter(Boolean)
-                : [getStringValue(newUserData.role || newUserRole, newUserRole).toUpperCase()].filter(Boolean);
+            const newUserRoles = [getStringValue(newUserData.role || newUserRole, newUserRole).toUpperCase()].filter(Boolean);
             const existingReferredByCode = getStringValue(newUserStats.referredByCode || newUserData.referredByCode);
             // BUG #11 FIX: The previous guard `newUserRoles.length > 1 || isProfileComplete(newUserData)`
             // rejected legitimate fallback apply attempts that fire after the user

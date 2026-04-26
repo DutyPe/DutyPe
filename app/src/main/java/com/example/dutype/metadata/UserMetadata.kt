@@ -229,9 +229,7 @@ class UserMetadata @Inject constructor(
                 .orEmpty()
             val phoneRoleDoc = normalizedPhone.takeIf { auth.currentUser?.uid == userId && it.isNotBlank() }
                 ?.let { firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
-            val role = (phoneRoleDoc?.getString("role")
-                ?: (phoneRoleDoc?.get("roles") as? List<*>)?.firstOrNull()?.toString()
-                ?: "").uppercase()
+            val role = (phoneRoleDoc?.getString("role") ?: "").uppercase()
             val preferredCollection = when (role) {
                 "EMPLOYER" -> com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
                 else -> com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES

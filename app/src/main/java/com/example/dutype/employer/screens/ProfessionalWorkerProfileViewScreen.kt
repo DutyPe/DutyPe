@@ -123,6 +123,7 @@ fun ProfessionalWorkerProfileViewScreen(
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<ApplicationAction?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
+    var hasRatedWorker by remember { mutableStateOf(false) }
     // Batch-k fix: let the Retry button actually trigger a re-fetch by
     // bumping this counter into the LaunchedEffect key set.
     var reloadTick by remember { mutableStateOf(0) }
@@ -278,6 +279,15 @@ fun ProfessionalWorkerProfileViewScreen(
         }
     }
 
+    LaunchedEffect(application?.id, application?.jobId, application?.workerId, application?.status) {
+        val app = application
+        hasRatedWorker = if (app?.status == ApplicationStatus.COMPLETED && app.jobId.isNotBlank() && app.workerId.isNotBlank()) {
+            ratingService.hasRated(app.jobId, app.workerId)
+        } else {
+            false
+        }
+    }
+
     if (showRatingSheet && application != null) {
         RatingBottomSheet(
             isVisible = showRatingSheet,
@@ -296,7 +306,10 @@ fun ProfessionalWorkerProfileViewScreen(
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
-                                if (result.success) showRatingSheet = false
+                                if (result.success) {
+                                    hasRatedWorker = true
+                                    showRatingSheet = false
+                                }
                             },
                             onFailure = { error ->
                                 Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
@@ -351,29 +364,6 @@ fun ProfessionalWorkerProfileViewScreen(
                     ),
                     scrollStateManager = scrollStateManager
                 ) {
-                    // Application Status Card
-                    application?.let { app ->
-                        item {
-                            ApplicationStatusCard(
-                                application = app,
-                                onUpdateStatus = { newStatus ->
-                                    scope.launch {
-                                        try {
-                                            jobApplicationService.updateApplicationStatus(
-                                                app.id,
-                                                newStatus,
-                                                "employer" // updatedBy parameter
-                                            )
-                                            application = app.copy(status = newStatus)
-                                        } catch (e: Exception) {
-                                            error = e.message
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    
                     // Personal Information (compact identity header merged in)
                     item {
                         PersonalInformationCard(
@@ -414,7 +404,8 @@ fun ProfessionalWorkerProfileViewScreen(
         val showActionBar = application?.status in setOf(
             ApplicationStatus.APPLIED,
             ApplicationStatus.SHORTLISTED,
-            ApplicationStatus.HIRED
+            ApplicationStatus.HIRED,
+            ApplicationStatus.COMPLETED
         )
         if (!isLoading && error == null && workerProfile != null && showActionBar) {
             Box(
@@ -433,6 +424,19 @@ fun ProfessionalWorkerProfileViewScreen(
             ) {
                 ActionButtonsCard(
                     application = application,
+                    hasRatedWorker = hasRatedWorker,
+                    onRateWorkerClick = {
+                        application?.let { app ->
+                            scope.launch {
+                                val alreadyRated = ratingService.hasRated(app.jobId, app.workerId)
+                                if (alreadyRated) {
+                                    hasRatedWorker = true
+                                } else {
+                                    showRatingSheet = true
+                                }
+                            }
+                        }
+                    },
                     onActionClick = { action ->
                         selectedAction = action
                         showActionDialog = true
@@ -479,6 +483,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                     application = updatedApplication.copy(status = ApplicationStatus.COMPLETED)
                                     val alreadyRated = ratingService.hasRated(app.jobId, app.workerId)
                                     if (alreadyRated) {
+                                        hasRatedWorker = true
                                         Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
                                     } else {
                                         showRatingSheet = true
@@ -712,6 +717,10 @@ private fun PersonalInformationCard(
     workerProfile: WorkerProfileData,
     application: JobApplication? = null
 ) {
+    val appliedAt = application?.createdAt?.takeIf { it > 0L }?.let { createdAt ->
+        SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(createdAt))
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(0.dp),
@@ -782,15 +791,16 @@ private fun PersonalInformationCard(
                             color = Color(0xFF111827)
                         )
                     )
-                    val appliedFor = application?.jobTitle.orEmpty()
-                    if (appliedFor.isNotBlank()) {
-                        Text(
-                            text = "Applied for $appliedFor",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    }
+                }
+
+                if (appliedAt != null) {
+                    Text(
+                        text = "Applied $appliedAt",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF6B7280)
+                        ),
+                        textAlign = TextAlign.End
+                    )
                 }
             }
 
@@ -813,9 +823,6 @@ private fun PersonalInformationCard(
             if (workerProfile.email.isNotBlank()) {
                 PersonalInfoRow("Email", workerProfile.email)
             }
-            if (workerProfile.location.isNotBlank()) {
-                PersonalInfoRow("Location", workerProfile.location)
-            }
             if (workerProfile.gender.isNotBlank()) {
                 PersonalInfoRow("Gender", workerProfile.gender)
             }
@@ -830,12 +837,6 @@ private fun PersonalInformationCard(
             }
             if (workerProfile.bio.isNotBlank()) {
                 PersonalInfoRow("Bio", workerProfile.bio)
-            }
-            if (workerProfile.totalJobs > 0 || workerProfile.completedJobs > 0) {
-                PersonalInfoRow(
-                    "Jobs done",
-                    "${workerProfile.completedJobs} / ${workerProfile.totalJobs}"
-                )
             }
             if (workerProfile.rating > 0.0) {
                 PersonalInfoRow(
@@ -870,38 +871,22 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
                     }
                 } else Modifier
             ),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = label,
+            text = "$label : ",
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFF6B7280)
             )
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // Batch-p #6: call icon now sits BEFORE the phone number so
-            // the affordance is read first ("call this number") instead
-            // of as an afterthought trailing the digits.
-            if (isPhone && value.isNotBlank()) {
-                Icon(
-                    Icons.Default.Phone,
-                    contentDescription = "Call",
-                    tint = Color(0xFF2563EB),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
-                )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Medium,
+                color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
             )
-        }
+        )
     }
 }
 
@@ -1062,6 +1047,8 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
 @Composable
 private fun ActionButtonsCard(
     application: JobApplication?,
+    hasRatedWorker: Boolean,
+    onRateWorkerClick: () -> Unit,
     onActionClick: (ApplicationAction) -> Unit
 ) {
     // Batch-p #6: dropped the elevated Card wrapper and the multiple
@@ -1121,6 +1108,26 @@ private fun ActionButtonsCard(
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Mark Work Done", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        if (application?.status == ApplicationStatus.COMPLETED) {
+            OutlinedButton(
+                onClick = onRateWorkerClick,
+                enabled = !hasRatedWorker,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFFF59E0B),
+                    disabledContentColor = Color(0xFF059669)
+                )
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    if (hasRatedWorker) "Rated Worker" else "Rate Worker",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }

@@ -79,13 +79,7 @@ class AuthFlowService @Inject constructor(
     fun observeActiveRole(): Flow<String?> = observeCurrentUser()
         .map { data ->
             if (data == null) return@map null
-            (data["role"] as? String)?.trim()?.uppercase()?.takeIf { it in VALID_ROLES }?.let {
-                return@map it
-            }
-            val roles = (data["roles"] as? List<*>)
-                ?.mapNotNull { it?.toString()?.uppercase() }
-                .orEmpty()
-            roles.firstOrNull()
+            (data["role"] as? String)?.trim()?.uppercase()?.takeIf { it in VALID_ROLES }
         }
         .distinctUntilChanged()
 
@@ -186,10 +180,8 @@ class AuthFlowService @Inject constructor(
                 val existingProfileData = existingProfile.data.orEmpty()
 
                 // Single-role architecture: an existing complete account cannot
-                // register again, regardless of which role is requested. We also
-                // tolerate legacy `activeRole` / `roles[0]` for compat reads.
+                // register again, regardless of which role is requested.
                 val existingRoleRaw = (existingData["role"] as? String)
-                    ?: (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
                     ?: (existingProfileData["role"] as? String)
                 val existingRole = existingRoleRaw?.uppercase()
                 val existingReferralCode = (existingProfileData["referralCode"] as? String)?.trim().orEmpty()
@@ -302,7 +294,6 @@ class AuthFlowService @Inject constructor(
 
             val userData = userSnapshot.data.orEmpty().toMutableMap()
             val existingRole = (userData["role"] as? String)?.uppercase()
-                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
             val effectiveRole = existingRole ?: role
             userData["userId"] = currentUser.uid
             userData["fullName"] = userData["name"] as? String ?: ""

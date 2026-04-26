@@ -798,8 +798,7 @@ fun WorkerProfileScreen(
                     
                     MenuDivider()
                     
-                    // ROLE-SWITCH MENU REMOVED â€” accounts are single-role for life.
-                    // (Phase 5 dual-role removal, see docs/role-removal/)
+                    // Role switching is not supported; accounts are single-role for life.
                     
                     // About Us - Available without login
                     MeeshoMenuItem(
