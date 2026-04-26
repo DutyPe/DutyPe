@@ -64,82 +64,79 @@ service cloud.firestore {
       return role is string && (role == 'WORKER' || role == 'EMPLOYER');
     }
 
-    // ── users ──────────────────────────────────────────────────────────
-    // Source of truth for identity. Trust fields (isVerified, isActive) are CF-only.
-    match /users/{userId} {
-      // Admins (DutyPe internal staff) need full read/write for the Next.js
-      // admin tooling (user list, referral utilities, etc).
+    function validSingleRoleList(roles) {
+      return roles is list && roles.size() == 1 && validRole(roles[0]);
+    }
+
+    function phoneMatchesAuth(phone) {
+      return isSignedIn() && request.auth.token.get('phone_number', '') == phone;
+    }
+
+    // ── phoneRoles ───────────────────────────────────────────────────
+    // Phone-number index for auth/login role resolution. Document ID is the
+    // normalized E.164 phone number; role-owned profile data lives in the
+    // worker/employer profile collections.
+    match /phoneRoles/{phone} {
       allow read, write: if isAdmin();
 
-      allow get, list: if isSelf(userId);
+      allow get: if isSignedIn() &&
+        phoneMatchesAuth(phone) &&
+        resource.data.uid == request.auth.uid;
+      allow list: if false;
 
-      allow create: if isSelf(userId) &&
+      allow create: if isSignedIn() &&
+        phoneMatchesAuth(phone) &&
         request.resource.data.keys().hasOnly([
-          'phone', 'fullName', 'profileImageUrl', 'role',
-          'location', 'geohash', 'fcmToken', 'language',
-          'createdAt', 'referralCode', 'referredByCode', 'referredByUserId'
+          'phoneNumber', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
         ]) &&
-        request.resource.data.keys().hasAll([
-          'phone', 'fullName', 'role', 'createdAt'
-        ]) &&
-        request.resource.data.phone is string &&
-        request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20 &&
-        request.resource.data.fullName is string &&
-        request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120 &&
-        validRole(request.resource.data.role) &&
-        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
-        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
-        request.resource.data.createdAt is timestamp &&
-        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
-        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
-        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
-        (!('language' in request.resource.data) ||
-          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
+        request.resource.data.keys().hasAll(['phoneNumber', 'roles', 'name', 'uid']) &&
+        request.resource.data.phoneNumber == phone &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() <= 120 &&
+        validSingleRoleList(request.resource.data.roles) &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
-      // Lightweight token/language/location update (high-frequency path).
-      // Allows the device to keep fcmToken, language, and live geo coordinates
-      // in sync without re-validating profile completeness (fullName etc).
-      allow update: if isSelf(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken', 'language', 'location', 'geohash']) &&
+      allow update: if isSignedIn() &&
+        phoneMatchesAuth(phone) &&
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.phoneNumber == phone &&
+        request.resource.data.keys().hasOnly([
+          'phoneNumber', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() <= 120 &&
+        validSingleRoleList(request.resource.data.roles) &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+      allow delete: if false;
+    }
+
+    // ── user_tokens ─────────────────────────────────────────────────
+    // Per-user device targeting state for direct FCM sends and language-specific
+    // notification localization. Profile/identity data stays in phoneRoles and
+    // role profile collections.
+    match /user_tokens/{userId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSelf(userId);
+      allow list: if false;
+
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'fcmToken', 'language', 'platform', 'updatedAt'
+        ]) &&
         (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
         (!('language' in request.resource.data) ||
           (request.resource.data.language is string && request.resource.data.language.size() <= 8)) &&
-        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
-        (!('geohash' in request.resource.data) || request.resource.data.geohash is string);
+        (!('platform' in request.resource.data) ||
+          request.resource.data.platform in ['android']) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
-      // Full profile update (name, image, location, referral linking).
-      // Immutable: phone, createdAt, role. Forbidden from client: isVerified, isActive, ratings, counters, email.
-      allow update: if isSelf(userId) &&
-        request.resource.data.keys().hasAll([
-          'phone', 'fullName', 'role', 'createdAt'
-        ]) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'phone', 'fullName', 'profileImageUrl', 'role',
-          'location', 'geohash', 'fcmToken', 'language',
-          'createdAt', 'referralCode', 'referredByCode', 'referredByUserId'
-        ]) &&
-        (!('phone' in resource.data) || request.resource.data.phone == resource.data.phone) &&
-        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt) &&
-        // Single-role architecture: role is immutable once set.
-        (!('role' in resource.data) || request.resource.data.role == resource.data.role) &&
-        request.resource.data.phone is string &&
-        request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20 &&
-        request.resource.data.fullName is string &&
-        request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120 &&
-        validRole(request.resource.data.role) &&
-        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
-        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
-        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
-        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
-        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
-        (!('language' in request.resource.data) ||
-          (request.resource.data.language is string && request.resource.data.language.size() <= 8));
-
-      allow delete: if false;
+      allow delete: if isSelf(userId);
     }
 
     // ── worker_profiles ───────────────────────────────────────────────
@@ -157,8 +154,19 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable'
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'location', 'geohash',
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
+          'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
@@ -167,12 +175,26 @@ service cloud.firestore {
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
         (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool);
+        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable'
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'location', 'geohash',
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
+          'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
@@ -181,7 +203,10 @@ service cloud.firestore {
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
         (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool);
+        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
 
       allow delete: if isSelf(userId);
     }
@@ -196,25 +221,42 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress', 'businessLocation'
+          'industry', 'companySize', 'businessAddress', 'businessLocation',
+          'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
-        request.resource.data.keys().hasAll(['companyName']) &&
-        request.resource.data.companyName is string &&
-        request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120 &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
         (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
-        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation));
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress', 'businessLocation'
+          'industry', 'companySize', 'businessAddress', 'businessLocation',
+          'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
@@ -222,7 +264,10 @@ service cloud.firestore {
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
-        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation));
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
 
       allow delete: if isSelf(userId);
     }
@@ -447,8 +492,7 @@ service cloud.firestore {
           get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId
         );
 
-      // STATE MACHINE: only status can change, except the employer may set
-      // hiredAt while moving an application into hired for rating cooldowns.
+      // STATE MACHINE: only status can change.
       //   applied      → shortlisted | rejected | hired   (employer)
       //   applied      → rejected (worker withdraw)
       //   shortlisted  → rejected | hired                  (employer)
@@ -458,30 +502,25 @@ service cloud.firestore {
       //   rejected     → (terminal, immutable)
       // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
       allow update: if isSignedIn() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hiredAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
         resource.data.status in ['applied', 'shortlisted', 'hired'] &&
         (
           (
             resource.data.workerId == request.auth.uid &&
             request.resource.data.status == 'withdrawn' &&
-            resource.data.status in ['applied', 'shortlisted'] &&
-            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])
+            resource.data.status in ['applied', 'shortlisted']
           ) ||
           (
             resource.data.employerId == request.auth.uid &&
             (
               (resource.data.status == 'applied' &&
-                 request.resource.data.status in ['shortlisted', 'rejected'] &&
-                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])) ||
+                  request.resource.data.status in ['shortlisted', 'rejected']) ||
               (resource.data.status == 'shortlisted' &&
-                 request.resource.data.status == 'rejected' &&
-                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt'])) ||
+                  request.resource.data.status == 'rejected') ||
               (resource.data.status in ['applied', 'shortlisted'] &&
-                 request.resource.data.status == 'hired' &&
-                 request.resource.data.hiredAt is timestamp) ||
+                  request.resource.data.status == 'hired') ||
               (resource.data.status == 'hired' &&
-                 request.resource.data.status == 'completed' &&
-                 !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hiredAt']))
+                  request.resource.data.status == 'completed')
             )
           )
         );
@@ -647,6 +686,16 @@ service cloud.firestore {
       allow get: if isSelf(userId);
       allow list: if false;
       allow create, update, delete: if false;
+
+      match /withdrawals/{withdrawalId} {
+        allow get, list: if isSelf(userId);
+        allow create, update, delete: if false;
+      }
+
+      match /audit_logs/{auditId} {
+        allow read, write: if isAdmin();
+        allow get, list, create, update, delete: if false;
+      }
     }
 
     // ── referral_codes ────────────────────────────────────────────────
@@ -658,12 +707,6 @@ service cloud.firestore {
       allow get: if code.matches('^[A-Za-z0-9]{7,10}$') &&
         (resource == null || resource.data.isActive == true);
       allow list: if false;
-      allow create, update, delete: if false;
-    }
-
-    // ── users/{userId}/withdrawals (read-only; CF writes) ─────────────
-    match /users/{userId}/withdrawals/{withdrawalId} {
-      allow get, list: if isSelf(userId);
       allow create, update, delete: if false;
     }
 

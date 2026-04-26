@@ -545,15 +545,18 @@ fun PostJobScreen(
                         // Fallback to direct Firestore fetch (cache miss)
                         Timber.d(" Cache miss, fetching from Firestore...")
                         val db = com.example.dutype.di.firestoreFromHilt(context)
-                        val userDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid).get().await()
                         val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
+                        val phoneRoleDoc = currentUser.phoneNumber
+                            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
 
-                        if (userDoc.exists()) {
-                            val savedFullName = userDoc.getString("fullName")
+                        if (employerDoc.exists() || phoneRoleDoc?.exists() == true) {
+                            val savedFullName = employerDoc.getString("fullName") ?: phoneRoleDoc?.getString("name")
                             if (!savedFullName.isNullOrBlank()) {
                                 employerName = savedFullName
                             }
-                            val savedContactPhone = userDoc.getString("phone")
+                            val savedContactPhone = employerDoc.getString("phone") ?: phoneRoleDoc?.getString("phoneNumber")
                             if (!savedContactPhone.isNullOrBlank()) {
                                 contactNumber = savedContactPhone
                             }

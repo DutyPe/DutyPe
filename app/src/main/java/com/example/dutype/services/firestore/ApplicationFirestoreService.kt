@@ -100,7 +100,7 @@ class ApplicationFirestoreService @Inject constructor(
     
     /**
      * Check if a job is saved by a worker
-     * OPTIMIZED: Reads from users.savedJobs array
+    * OPTIMIZED: Reads from saved_jobs by deterministic worker/job id
      */
     suspend fun isJobSaved(workerId: String, jobId: String): Result<Boolean> {
         return try {

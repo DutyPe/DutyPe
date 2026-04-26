@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import java.util.Locale
@@ -55,15 +56,22 @@ object LocaleHelper {
 
         if (previous == normalized) return
 
-        // Best-effort sync to Firestore so cloud functions can read users/{uid}.language.
+        // Best-effort sync to Firestore so cloud functions can read user_tokens/{uid}.language.
         // Silent failure is acceptable — local SharedPreferences remains the source of truth
         // for the UI; server-side localization just falls back to English.
         runCatching {
             FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
                 FirebaseFirestore.getInstance()
-                    .collection("users")
+                    .collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
                     .document(uid)
-                    .update("language", normalized)
+                    .set(
+                        mapOf(
+                            "language" to normalized,
+                            "platform" to "android",
+                            "updatedAt" to Timestamp.now()
+                        ),
+                        com.google.firebase.firestore.SetOptions.merge()
+                    )
             }
         }
 

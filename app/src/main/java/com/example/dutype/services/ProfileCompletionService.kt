@@ -7,8 +7,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.Timestamp
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.example.dutype.utils.PhoneNumberUtils
@@ -43,31 +41,6 @@ class ProfileCompletionService @Inject constructor(
     private val errorHandler: com.example.dutype.core.error.ErrorHandler,
     private val referralService: ReferralService
 ) {
-    // #22 FIX: In-memory TTL cache for user docs — prevents 12x repeated reads per session
-    // Key: userId, Value: Pair(timestampMs, userData)
-    private val userDocCache = mutableMapOf<String, Pair<Long, Map<String, Any>>>()
-    private val USER_DOC_CACHE_TTL_MS = 30_000L // 30 seconds
-    
-    /**
-     * Get cached user document or fetch from Firestore. 
-     * Caches for 30s to avoid repeated reads in the same session flow.
-     */
-    private suspend fun getCachedUserDoc(userId: String): Map<String, Any>? {
-        val cached = userDocCache[userId]
-        if (cached != null && (System.currentTimeMillis() - cached.first) < USER_DOC_CACHE_TTL_MS) {
-            return cached.second
-        }
-        val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
-        val data = userDoc.data ?: return null
-        userDocCache[userId] = System.currentTimeMillis() to data
-        return data
-    }
-    
-    /** Invalidate cache for a user after writes */
-    private fun invalidateUserCache(userId: String) {
-        userDocCache.remove(userId)
-    }
-
     private fun buildBasicUserFallback(userId: String): MutableMap<String, Any?> {
         val currentUser = auth.currentUser
         val fallback = mutableMapOf<String, Any?>(
@@ -78,6 +51,17 @@ class ProfileCompletionService @Inject constructor(
         fallback.remove("fullName", "")
         fallback.remove("phone", "")
         return fallback
+    }
+
+    private fun profileCollectionForRole(role: String): String =
+        if (role.uppercase() == "EMPLOYER") COLLECTION_EMPLOYER_PROFILES else COLLECTION_WORKER_PROFILES
+
+    private suspend fun currentPhoneRoleData(userId: String): Map<String, Any> {
+        val currentUser = auth.currentUser ?: return emptyMap()
+        val phone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
+            ?: return emptyMap()
+        if (currentUser.uid != userId) return emptyMap()
+        return firestore.collection(COLLECTION_PHONE_ROLES).document(phone).get().await().data.orEmpty()
     }
 
     private fun extractSkills(rawSkills: Any?): List<String> {
@@ -139,7 +123,6 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun calculateWorkerProfileCompletion(userId: String): Int {
         return try {
-            val userData = getCachedUserDoc(userId) ?: return 0
             val workerData = try {
                 firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
             } catch (e: Exception) {
@@ -152,16 +135,12 @@ class ProfileCompletionService @Inject constructor(
             }
             
             Timber.d("🔍 ProfileCompletionService.calculateWorkerProfileCompletion for userId: $userId")
-            Timber.d("🔍 Firebase userData keys: ${userData.keys}")
-            // SECURITY FIX: Don't log PII - only log field existence
-            Timber.d("🔍 Phone field exists: ${userData["phone"] != null}")
             Timber.d("🔍 Worker profile exists: ${workerData.isNotEmpty()}")
             
             var completion = 0
             
-            // Strict users core fields
-            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 30
-            val phoneValue = userData["phone"]
+            if (workerData["fullName"] != null && workerData["fullName"].toString().isNotBlank()) completion += 30
+            val phoneValue = workerData["phone"]
             if (phoneValue != null && phoneValue.toString().isNotBlank()) completion += 30
 
             // Strict worker profile fields
@@ -169,7 +148,7 @@ class ProfileCompletionService @Inject constructor(
             if (skills.isNotEmpty()) completion += 35
             
             // Optional display field
-            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
+            if (workerData["profileImageUrl"] != null && workerData["profileImageUrl"].toString().isNotBlank()) completion += 5
 
             // SECURITY FIX: Do NOT inflate completion to 80% when worker_profiles is missing/unreadable.
             // The previous fallback let unverified users bypass the apply-gate by triggering a
@@ -247,24 +226,21 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun calculateEmployerProfileCompletion(userId: String): Int {
         return try {
-            val userData = getCachedUserDoc(userId) ?: return 0
             val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
             
             SecureLogger.d("ProfileCompletionService", "Calculating employer profile completion for user",
                 "userId" to userId)
-            SecureLogger.logCollectionSize("ProfileCompletionService", "userData keys", userData.keys.size)
             
             var completion = 0
             
-            // Strict users core fields
-            if (userData["fullName"] != null && userData["fullName"].toString().isNotBlank()) completion += 30
-            if (userData["phone"] != null && userData["phone"].toString().isNotBlank()) completion += 30
+            if (employerData["fullName"] != null && employerData["fullName"].toString().isNotBlank()) completion += 30
+            if (employerData["phone"] != null && employerData["phone"].toString().isNotBlank()) completion += 30
 
             // Strict employer profile fields
             if (employerData["companyName"] != null && employerData["companyName"].toString().isNotBlank()) completion += 35
 
             // Optional display field
-            if (userData["profileImageUrl"] != null && userData["profileImageUrl"].toString().isNotBlank()) completion += 5
+            if (employerData["profileImageUrl"] != null && employerData["profileImageUrl"].toString().isNotBlank()) completion += 5
             
             val finalCompletion = completion.coerceAtMost(100)
             Timber.d("🔍 ProfileCompletionService - Employer completion percentage: $finalCompletion%")
@@ -279,7 +255,7 @@ class ProfileCompletionService @Inject constructor(
      * Upload profile image to Firebase Storage with compression
      * Images are compressed to max 2MB before upload while maintaining quality
      * Images are stored under: profile_images/{userId}/profile.jpg
-     * Profile image URL is stored only in the users collection
+    * Profile image URL is stored on the role-specific profile document.
      */
     suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String): Result<String> {
         return try {
@@ -305,16 +281,15 @@ class ProfileCompletionService @Inject constructor(
                     val downloadUrl = uploadResult.downloadUrl
                     Timber.d("📸 PROFILE IMAGE: Download URL obtained successfully")
                     
-                    // Update user document with image URL (only in users collection)
-                    // Use set with merge to handle case where document might not exist
-                    Timber.d("📸 PROFILE IMAGE: Updating user document...")
+                    Timber.d("📸 PROFILE IMAGE: Updating profile document...")
                     val imageData = mapOf(
-                        "profileImageUrl" to downloadUrl
+                        "profileImageUrl" to downloadUrl,
+                        "updatedAt" to Timestamp.now()
                     )
-                    firestore.collection(COLLECTION_USERS).document(userId)
-                        .update(imageData)
+                    firestore.collection(profileCollectionForRole(userRole)).document(userId)
+                        .set(imageData, com.google.firebase.firestore.SetOptions.merge())
                         .await()
-                    Timber.d("📸 PROFILE IMAGE: User document updated")
+                    Timber.d("📸 PROFILE IMAGE: Profile document updated")
                     
                     Timber.i("📸 PROFILE IMAGE: ✅ Profile image uploaded successfully with compression!")
                     Result.success(downloadUrl)
@@ -360,35 +335,15 @@ class ProfileCompletionService @Inject constructor(
     suspend fun canApplyDirectly(userId: String): Result<Boolean> {
         return try {
             Timber.d("🔍 ProfileCompletionService.canApplyDirectly - Checking for userId: $userId")
-            // Batch-n #1: Don't fail with "User not found" / "User role not
-            // found" here. The apply CTA caller surfaces the exception text
-            // verbatim as a Toast ("Error checking profile: User not found"),
-            // which the user sees when applying to web-admin posted jobs
-            // immediately after a fresh signup whose users/{uid} doc race
-            // hasn't materialized yet, OR when the legacy users doc lacks a
-            // role field. Both situations should funnel to the
-            // ProfileSetup/Completion screen (profile is "incomplete"),
-            // not a hard failure popup.
-            val userData = getCachedUserDoc(userId)
-            if (userData == null) {
-                Timber.w("🔍 canApplyDirectly: users/$userId missing — treating as incomplete profile")
-                return Result.success(false)
-            }
-            val userRole = (userData["activeRole"] as? String)
-                ?: (userData["role"] as? String)
-                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
-            if (userRole.isNullOrBlank()) {
-                Timber.w("🔍 canApplyDirectly: users/$userId has no role — treating as incomplete profile")
-                return Result.success(false)
-            }
+            val workerProfileExists = firestore
+                .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
+                .document(userId)
+                .get()
+                .await()
+                .exists()
+            if (!workerProfileExists) return Result.success(false)
 
-            Timber.d("🔍 ProfileCompletionService.canApplyDirectly - userRole: $userRole")
-            
-            val completion = if (userRole == "WORKER") {
-                calculateWorkerProfileCompletion(userId)
-                    } else {
-                calculateEmployerProfileCompletion(userId)
-            }
+            val completion = calculateWorkerProfileCompletion(userId)
             
             Timber.d("🔍 ProfileCompletionService.canApplyDirectly - completion: $completion%, canApply: ${completion >= 80}")
             Result.success(completion >= 80)
@@ -477,13 +432,19 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Get user profile data from users collection
+     * Get user profile data from role-specific profile collections.
      */
     suspend fun getUserProfile(userId: String): Result<Map<String, Any?>> {
         return try {
             Timber.d("🔍 ProfileCompletionService.getUserProfile - Fetching profile")
-            val userData = getCachedUserDoc(userId)?.toMutableMap() ?: mutableMapOf()
-            
+            val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
+            val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
+            val userData = when {
+                workerData.isNotEmpty() -> getWorkerProfileData(userId).getOrNull().orEmpty().toMutableMap()
+                employerData.isNotEmpty() -> getEmployerProfileData(userId).getOrNull().orEmpty().toMutableMap()
+                else -> mutableMapOf()
+            }
+
             if (userData.isEmpty()) {
                 Timber.w("🔍 ProfileCompletionService.getUserProfile - No data found")
                 return Result.failure(Exception("User not found"))
@@ -534,17 +495,38 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not authenticated"))
             }
 
-            val normalizedPhone = currentUser.phoneNumber?.let { PhoneNumberUtils.normalize(it) }
-            FirestoreUtils.ensureMinimalUserDocument(
-                userId = currentUser.uid,
-                role = role,
-                phoneNumber = normalizedPhone,
-                fullName = name
+            val normalizedPhone = currentUser.phoneNumber?.let { PhoneNumberUtils.normalize(it) }.orEmpty()
+            if (normalizedPhone.isBlank()) {
+                return Result.failure(IllegalArgumentException("Phone number is required"))
+            }
+            val now = Timestamp.now()
+            val normalizedRole = role.uppercase()
+            val batch = firestore.batch()
+            batch.set(
+                firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone),
+                mapOf(
+                    "phoneNumber" to normalizedPhone,
+                    "roles" to listOf(normalizedRole),
+                    "name" to name.trim(),
+                    "uid" to currentUser.uid,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
             )
+            batch.set(
+                firestore.collection(profileCollectionForRole(normalizedRole)).document(currentUser.uid),
+                mapOf(
+                    "userId" to currentUser.uid,
+                    "phone" to normalizedPhone,
+                    "fullName" to name.trim(),
+                    "role" to normalizedRole,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.commit().await()
 
-            invalidateUserCache(currentUser.uid)
-
-            Timber.d("✅ ProfileCompletionService - Ensured strict users core doc for role=${role.uppercase()}")
+            Timber.d("✅ ProfileCompletionService - Ensured identity/profile docs for role=${role.uppercase()}")
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService - Error saving user info: ${e.message}")
@@ -570,12 +552,29 @@ class ProfileCompletionService @Inject constructor(
                 com.example.dutype.models.UserRole.valueOf(newRole.uppercase())
             }.getOrDefault(com.example.dutype.models.UserRole.WORKER)
 
-            val updates = com.example.dutype.models.User.roleFieldsFor(role)
-
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(currentUser.uid)
-                .update(updates)
-                .await()
-            invalidateUserCache(currentUser.uid)
+            val normalizedPhone = currentUser.phoneNumber?.let { PhoneNumberUtils.normalize(it) }.orEmpty()
+            if (normalizedPhone.isBlank()) {
+                return Result.failure(IllegalArgumentException("Phone number is required"))
+            }
+            val now = Timestamp.now()
+            val batch = firestore.batch()
+            batch.set(
+                firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone),
+                mapOf(
+                    "phoneNumber" to normalizedPhone,
+                    "roles" to listOf(role.name),
+                    "name" to currentUser.displayName.orEmpty(),
+                    "uid" to currentUser.uid,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.set(
+                firestore.collection(profileCollectionForRole(role.name)).document(currentUser.uid),
+                mapOf("role" to role.name, "updatedAt" to now),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.commit().await()
 
             Timber.d("✅ ProfileCompletionService - Set single role: ${role.name}")
             Result.success(Unit)
@@ -618,16 +617,16 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val now = Timestamp.now()
-            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
-            val existingUserSnapshot = userRef.get().await()
-            var existingUser = existingUserSnapshot.data.orEmpty()
+            val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
+            val existingWorker = workerRef.get().await().data.orEmpty()
 
             val fullName = (profileData["fullName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
-                ?: (existingUser["fullName"] as? String)?.trim().orEmpty()
+                ?: (existingWorker["fullName"] as? String)?.trim()
+                ?: currentUser.displayName?.trim().orEmpty()
             val phone = (profileData["phone"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
-                ?: (existingUser["phone"] as? String)?.trim()
+                ?: (existingWorker["phone"] as? String)?.trim()
                 ?: currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val profileImageUrl = (profileData["profileImageUrl"] as? String)?.trim()
             val skills = extractSkills(profileData["skills"])
@@ -642,21 +641,7 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Select at least one skill"))
             }
 
-            // OTP-login-first flows may reach profile setup before users/{uid} exists.
-            // Bootstrap a canonical user doc so profile writes never dead-end.
-            if (!existingUserSnapshot.exists()) {
-                FirestoreUtils.ensureMinimalUserDocument(
-                    userId = currentUser.uid,
-                    role = "WORKER",
-                    phoneNumber = phone,
-                    fullName = fullName
-                )
-                existingUser = userRef.get().await().data.orEmpty()
-            }
-
-            val workerRef = firestore.collection(COLLECTION_WORKER_PROFILES).document(currentUser.uid)
-            val existingWorker = workerRef.get().await().data.orEmpty()
-            val validLocation = extractValidLocation(profileData, existingUser)
+            val validLocation = extractValidLocation(profileData, existingWorker)
             val dateOfBirth = (profileData["dateOfBirth"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingWorker["dateOfBirth"] as? String)?.trim()?.takeIf { it.isNotBlank() }
@@ -673,36 +658,34 @@ class ProfileCompletionService @Inject constructor(
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingWorker["bio"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
-            // Single-role architecture: always overwrite role to WORKER on this code path.
-            val userUpdates = mutableMapOf<String, Any>(
-                "fullName" to fullName,
-                "phone" to PhoneNumberUtils.normalize(phone)
-            )
-            userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.WORKER))
-            // Email lives on worker_profiles, NOT users.
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!profileImageUrl.isNullOrBlank()) {
-                userUpdates["profileImageUrl"] = profileImageUrl
-            }
-            if (validLocation != null) {
-                userUpdates["location"] = validLocation
-                userUpdates["geohash"] = GeoUtils.encodeGeohash(
-                    (validLocation["lat"] as Number).toDouble(),
-                    (validLocation["lng"] as Number).toDouble()
-                )
-            }
 
             val workerProfile = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
+                "fullName" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "role" to "WORKER",
+                "updatedAt" to now,
                 "skills" to skills,
                 "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true)
                 // Notes:
                 //  - `userId` removed: redundant with doc ID (no readers use the body field).
-                //  - `lastActiveAt` removed: redundant with users.lastActiveAt (no readers query it here).
+                //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
                 //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
                 //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
             )
             if (!email.isNullOrBlank()) {
                 workerProfile["email"] = email
+            }
+            if (!profileImageUrl.isNullOrBlank()) {
+                workerProfile["profileImageUrl"] = profileImageUrl
+            }
+            if (validLocation != null) {
+                workerProfile["location"] = validLocation
+                workerProfile["geohash"] = GeoUtils.encodeGeohash(
+                    (validLocation["lat"] as Number).toDouble(),
+                    (validLocation["lng"] as Number).toDouble()
+                )
             }
             if (!dateOfBirth.isNullOrBlank()) {
                 workerProfile["dateOfBirth"] = dateOfBirth
@@ -721,11 +704,19 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val batch = firestore.batch()
-            batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())
+            batch.set(
+                firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
+                mapOf(
+                    "phoneNumber" to PhoneNumberUtils.normalize(phone),
+                    "roles" to listOf("WORKER"),
+                    "name" to fullName,
+                    "uid" to currentUser.uid,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
             batch.set(workerRef, workerProfile, com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
-
-            invalidateUserCache(currentUser.uid)
             
             Timber.d("🔍 ProfileCompletionService.saveWorkerProfileData - Saved profile data: ${profileData.keys}")
             Result.success(Unit)
@@ -746,32 +737,23 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val now = Timestamp.now()
-            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
             val employerRef = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(currentUser.uid)
-            // Parallelize the two existing-doc reads — they're independent and
-            // dominate the save latency on slower mobile networks.
-            val (existingUserSnapshot, existingEmployerSnapshot) = coroutineScope {
-                val userDeferred = async { userRef.get().await() }
-                val employerDeferred = async { employerRef.get().await() }
-                userDeferred.await() to employerDeferred.await()
-            }
-            var existingUser = existingUserSnapshot.data.orEmpty()
-            val existingEmployer = existingEmployerSnapshot.data.orEmpty()
+            val existingEmployer = employerRef.get().await().data.orEmpty()
 
             val companyName = (profileData["companyName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingEmployer["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (existingUser["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: currentUser.displayName?.trim()?.takeIf { it.isNotBlank() }
                 .orEmpty()
 
             val fullName = (profileData["fullName"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
-                ?: (existingUser["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: companyName
             val phone = (profileData["phone"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
-                ?: (existingUser["phone"] as? String)?.trim()
+                ?: (existingEmployer["phone"] as? String)?.trim()
                 ?: currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
             val profileImageUrl = (profileData["profileImageUrl"] as? String)?.trim()
 
@@ -785,37 +767,20 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Company name is required"))
             }
 
-            // OTP-login-first flows may reach profile setup before users/{uid} exists.
-            // Bootstrap a canonical user doc so profile writes never dead-end.
-            if (!existingUserSnapshot.exists()) {
-                FirestoreUtils.ensureMinimalUserDocument(
-                    userId = currentUser.uid,
-                    role = "EMPLOYER",
-                    phoneNumber = phone,
-                    fullName = fullName
-                )
-                existingUser = userRef.get().await().data.orEmpty()
-            }
-
-            // Single-role architecture: always overwrite role to EMPLOYER on this code path.
-            val userUpdates = mutableMapOf<String, Any>(
-                "fullName" to fullName,
-                "phone" to PhoneNumberUtils.normalize(phone)
-            )
-            userUpdates.putAll(com.example.dutype.models.User.roleFieldsFor(com.example.dutype.models.UserRole.EMPLOYER))
-            // Email lives on employer_profiles, NOT users.
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: (profileData["contactEmail"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: (existingEmployer["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!profileImageUrl.isNullOrBlank()) {
-                userUpdates["profileImageUrl"] = profileImageUrl
-            }
 
             val employerProfile = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
+                "fullName" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "role" to "EMPLOYER",
+                "updatedAt" to now,
                 "companyName" to companyName
                 // Notes:
                 //  - `userId` removed: redundant with doc ID (no readers use the body field).
-                //  - `lastActiveAt` removed: redundant with users.lastActiveAt (no readers query it here).
+                //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
                 //  - isVerified / rating / totalRatings / totalHires are CF-only aggregates.
             )
             if (!email.isNullOrBlank()) {
@@ -856,10 +821,19 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val batch = firestore.batch()
-            batch.set(userRef, userUpdates, com.google.firebase.firestore.SetOptions.merge())
+            batch.set(
+                firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
+                mapOf(
+                    "phoneNumber" to PhoneNumberUtils.normalize(phone),
+                    "roles" to listOf("EMPLOYER"),
+                    "name" to fullName,
+                    "uid" to currentUser.uid,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
             batch.set(employerRef, employerProfile, com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
-            invalidateUserCache(currentUser.uid)
             
             Timber.d("🔍 ProfileCompletionService.saveEmployerProfileData - Saved profile data: ${profileData.keys}")
             Result.success(Unit)
@@ -870,18 +844,21 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Get employer profile data from users collection
+     * Get employer profile data from employer_profiles plus phoneRoles identity.
      */
     suspend fun getEmployerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
-            val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
             val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
-            val merged = userData.toMutableMap()
-            merged.putAll(employerData)
+            val phoneRoleData = currentPhoneRoleData(userId)
+            val merged = employerData.toMutableMap()
+            merged["userId"] = userId
+            (phoneRoleData["phoneNumber"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["phone"] = merged["phone"] ?: it }
+            (phoneRoleData["name"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["fullName"] = merged["fullName"] ?: it }
+            merged["role"] = merged["role"] ?: "EMPLOYER"
             
             // SECURITY FIX: Don't log sensitive data
-            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - keys: ${userData.keys}")
-            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - Has profileImage: ${userData["profileImageUrl"] != null}")
+            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - keys: ${merged.keys}")
+            Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - Has profileImage: ${merged["profileImageUrl"] != null}")
             Result.success(merged)
         } catch (e: Exception) {
             Timber.e(e, "Error getting employer profile data")
@@ -890,20 +867,23 @@ class ProfileCompletionService @Inject constructor(
     }
     
     /**
-     * Get worker profile data from users collection
+     * Get worker profile data from worker_profiles plus phoneRoles identity.
      */
     suspend fun getWorkerProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
-            val userData = getCachedUserDoc(userId)?.toMutableMap() ?: buildBasicUserFallback(userId)
             val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
-            val merged = userData.toMutableMap()
-            merged.putAll(workerData)
+            val phoneRoleData = currentPhoneRoleData(userId)
+            val merged = workerData.toMutableMap()
+            merged["userId"] = userId
+            (phoneRoleData["phoneNumber"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["phone"] = merged["phone"] ?: it }
+            (phoneRoleData["name"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["fullName"] = merged["fullName"] ?: it }
+            merged["role"] = merged["role"] ?: "WORKER"
             val skills = readWorkerSkills(workerData)
             if (skills.isNotEmpty()) {
                 merged["skills"] = skills
             }
             
-            SecureLogger.logCollectionSize("ProfileCompletionService", "Worker profile keys", userData.keys.size)
+            SecureLogger.logCollectionSize("ProfileCompletionService", "Worker profile keys", merged.keys.size)
             Result.success(merged)
         } catch (e: Exception) {
             Result.failure(e)
@@ -927,7 +907,10 @@ class ProfileCompletionService @Inject constructor(
             if (!jobId.isNullOrBlank()) payload["jobId"] = jobId
             val currentUser = auth.currentUser
                 ?: return Result.failure(IllegalStateException("Employer not authenticated"))
-            currentUser.getIdToken(false).await()
+            val token = currentUser.getIdToken(true).await().token
+            if (token.isNullOrBlank()) {
+                return Result.failure(IllegalStateException("Employer auth token unavailable"))
+            }
             // Batch-k fix: `getWorkerProfileForEmployer` is deployed via
             // `onCallSecured` which pins the function to `asia-south1`. The
             // default `FirebaseFunctions.getInstance()` targets us-central1
@@ -954,8 +937,9 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun checkExistingProfileHighLevel(userId: String): Result<Boolean> {
         return try {
-            val userData = getCachedUserDoc(userId)
-            Result.success(userData != null)
+            val hasWorker = firestore.collection(COLLECTION_WORKER_PROFILES).document(userId).get().await().exists()
+            val hasEmployer = firestore.collection(COLLECTION_EMPLOYER_PROFILES).document(userId).get().await().exists()
+            Result.success(hasWorker || hasEmployer)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -974,20 +958,17 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not authenticated"))
             }
             
-            Timber.d("🔍 checkExistingProfileByCurrentUser: Checking user document for UID: ${currentUser.uid}")
-            val userData = getCachedUserDoc(currentUser.uid)
-            
-            if (userData == null) {
-                Timber.d("🔍 checkExistingProfileByCurrentUser: User document does not exist - new user")
+            Timber.d("🔍 checkExistingProfileByCurrentUser: Checking profile document for UID: ${currentUser.uid}")
+            val phoneRoleData = currentPhoneRoleData(currentUser.uid)
+            if (phoneRoleData.isEmpty()) {
+                Timber.d("🔍 checkExistingProfileByCurrentUser: phoneRoles document does not exist - new user")
                 return Result.success(false)
             }
-            
-            val resolvedRole = (userData["role"] as? String)
-                ?: (userData["activeRole"] as? String)
-                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
+
+            val resolvedRole = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()
             val roleUpper = resolvedRole?.uppercase()
-            val hasRequiredCore = !((userData["phone"] as? String).isNullOrBlank()) &&
-                !((userData["fullName"] as? String).isNullOrBlank())
+            val hasRequiredCore = !((phoneRoleData["phoneNumber"] as? String).isNullOrBlank()) &&
+                !((phoneRoleData["name"] as? String).isNullOrBlank())
             val hasRoleData = when (roleUpper) {
                 "WORKER" -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUser.uid).get().await().exists()
                 "EMPLOYER" -> firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await().exists()
@@ -1007,8 +988,7 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun loadExistingProfileData(userId: String): Result<Map<String, Any?>> {
         return try {
-            val userData = getCachedUserDoc(userId) ?: return Result.failure(Exception("User not found"))
-            Result.success(userData)
+            getUserProfile(userId)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1024,8 +1004,7 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not authenticated"))
             }
             
-            val userData = getCachedUserDoc(currentUser.uid) ?: return Result.failure(Exception("User not found"))
-            Result.success(userData)
+            getUserProfile(currentUser.uid)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1076,28 +1055,28 @@ class ProfileCompletionService @Inject constructor(
         }
         
         return try {
-            val userData = getCachedUserDoc(userId) ?: return emptyList()
-            
             if (userRole == "WORKER") {
+                val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
                 // Check for missing fields specifically
-                if (userData["fullName"] == null || userData["fullName"].toString().isBlank()) 
+                if (workerData["fullName"] == null || workerData["fullName"].toString().isBlank())
                     missingFields.add("Full Name")
-                val phoneValue = userData["phone"]
+                val phoneValue = workerData["phone"]
                 if (phoneValue == null || phoneValue.toString().isBlank()) 
                     missingFields.add("Phone Number")
-                val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
                 if (readWorkerSkills(workerData).isEmpty())
                     missingFields.add("Skills")
-                if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
+                if (workerData["profileImageUrl"] == null || workerData["profileImageUrl"].toString().isBlank())
                     missingFields.add("Profile Picture")
             } else {
                 // Check for missing employer fields (target schema only)
                 val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
+                if (employerData["fullName"] == null || employerData["fullName"].toString().isBlank())
+                    missingFields.add("Full Name")
                 if (employerData["companyName"] == null || employerData["companyName"].toString().isBlank()) 
                     missingFields.add("Company Name")
-                if (userData["phone"] == null || userData["phone"].toString().isBlank()) 
+                if (employerData["phone"] == null || employerData["phone"].toString().isBlank())
                     missingFields.add("Phone Number")
-                if (userData["profileImageUrl"] == null || userData["profileImageUrl"].toString().isBlank()) 
+                if (employerData["profileImageUrl"] == null || employerData["profileImageUrl"].toString().isBlank())
                     missingFields.add("Profile Picture")
             }
             
@@ -1112,7 +1091,7 @@ class ProfileCompletionService @Inject constructor(
     // ============================================
     
     companion object {
-        private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_PHONE_ROLES = "phoneRoles"
         private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
         private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
         private const val COLLECTION_REFERRALS = "referrals"
@@ -1172,7 +1151,6 @@ class ProfileCompletionService @Inject constructor(
             )
 
             if (result.isSuccess) {
-                invalidateUserCache(newUserId)
                 Timber.d("REFERRAL: Code applied successfully via ReferralService")
                 Result.success(Unit)
             } else {

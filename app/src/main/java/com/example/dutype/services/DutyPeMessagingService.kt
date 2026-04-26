@@ -9,6 +9,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dutype.app.R
 import com.example.dutype.MainActivity
+import com.example.dutype.utils.LocaleHelper
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -91,7 +93,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
     }
     
     /**
-     * Save FCM token to Firestore (users.fcmToken field)
+    * Save FCM token to Firestore for server-side targeting.
      * Allows Cloud Functions to send targeted notifications
      */
     private fun saveFCMToken(token: String) {
@@ -102,13 +104,20 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             return
         }
 
-        // Save to users.fcmToken field only (schema: fcmToken)
         firestore
-            .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
+            .collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
             .document(userId)
-            .update("fcmToken", token)
+            .set(
+                mapOf(
+                    "fcmToken" to token,
+                    "language" to LocaleHelper.getLanguage(this),
+                    "platform" to "android",
+                    "updatedAt" to Timestamp.now()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
             .addOnSuccessListener {
-                Timber.d("🔔 ✅ FCM token saved to users.fcmToken")
+                Timber.d("🔔 ✅ FCM token saved to user_tokens")
             }
             .addOnFailureListener { e ->
                 val fsError = e as? FirebaseFirestoreException

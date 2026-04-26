@@ -225,8 +225,7 @@ object ReferralRewards {
 }
 
 /**
- * ReferralStats - Embedded in User document (OPTIMIZED)
- * Moved from separate collection to users.referralStats field
+ * ReferralStats - Canonical referral balance and reward state.
  */
 @Keep
 data class ReferralStats(

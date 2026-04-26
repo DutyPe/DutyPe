@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.checkPhoneExists = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -279,10 +279,10 @@ exports.sendPushNotification = functions.firestore
                 return null;
             }
         }
-        // Get recipient's FCM token from users collection
-        const userDoc = await db.collection("users").doc(recipientId).get();
-        if (!userDoc.exists) {
-            functions.logger.warn(`📬 FCM: No user found for: ${recipientId}`);
+        // Get recipient's FCM token from the canonical token collection.
+        const tokenDoc = await db.collection("user_tokens").doc(recipientId).get();
+        if (!tokenDoc.exists) {
+            functions.logger.warn(`📬 FCM: No token document found for: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
                 sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -290,8 +290,8 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const userData = userDoc.data();
-        if (!(userData === null || userData === void 0 ? void 0 : userData.fcmToken)) {
+        const tokenData = tokenDoc.data();
+        if (!(tokenData === null || tokenData === void 0 ? void 0 : tokenData.fcmToken)) {
             functions.logger.warn(`📬 FCM: No FCM token for user: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
@@ -300,7 +300,7 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const fcmToken = userData.fcmToken;
+        const fcmToken = tokenData.fcmToken;
         // Localization: if the doc carries a templateId + params, render in the
         // recipient's preferred language. Otherwise fall back to the literal
         // title/message that producers wrote (which themselves should already be
@@ -614,7 +614,7 @@ exports.detectDuplicateJob = functions.firestore
                 moderationReason: signals.join(", "),
                 fraudScore: fraudScore,
             });
-            // Create in-app notification instead of using legacy moderation queue collection.
+            // Create an in-app notification for employer review.
             const modLocale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
             const modRecipient = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
             await db.collection("notifications").add({
@@ -704,29 +704,17 @@ exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
         generatedVariants.add(variant.trim());
     }
     const variants = Array.from(generatedVariants).slice(0, 10);
-    let usersSnapshot = await db
-        .collection("users")
-        .where("phone", "in", variants)
-        .limit(1)
-        .get();
-    if (usersSnapshot.empty) {
-        usersSnapshot = await db
-            .collection("users")
-            .where("phoneNumber", "in", variants)
-            .limit(1)
-            .get();
-    }
-    if (usersSnapshot.empty) {
+    const phoneRoleDocs = await Promise.all(variants.map((variant) => db.collection("phoneRoles").doc(variant).get()));
+    const phoneRoleDoc = phoneRoleDocs.find((doc) => doc.exists);
+    if (!phoneRoleDoc) {
         return { exists: false, roleConflict: false };
     }
     // Single-role-per-phone enforcement. We expose ONLY the existing role
     // so the client can show the right error ("This number is registered as
     // an employer; please log in as an employer."). We never leak userId,
     // fullName, or other PII.
-    const userData = usersSnapshot.docs[0].data();
-    const existingRole = (userData.role ||
-        userData.activeRole ||
-        (Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
+    const userData = phoneRoleDoc.data();
+    const existingRole = ((Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
         "").toUpperCase();
     const requestedRoleRaw = String((_d = data === null || data === void 0 ? void 0 : data.requestedRole) !== null && _d !== void 0 ? _d : "").trim().toUpperCase();
     const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"
@@ -751,7 +739,7 @@ exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
 exports.processModerationDecision = functions.firestore
     .document("jobmetadata/{jobId}")
     .onUpdate(async () => {
-    // Legacy moderation queue path removed in final schema.
+    // Moderation decisions are handled by the current job status workflow.
     return null;
 });
 // ============================================
@@ -838,8 +826,7 @@ exports.processJobReport = functions.firestore
             // Deactivate the job
             jobAggregateUpdate.status = "closed";
             jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
-            // Notify employer instead of creating legacy moderation queue documents.
-            // employerId now lives in job_details (slim jobmetadata schema).
+            // Notify employer through the current inbox workflow.
             const detailsSnapForReport = await db.collection("job_details").doc(jobId).get();
             const reportEmployerId = detailsSnapForReport.exists
                 ? detailsSnapForReport.get("employerId")
@@ -943,24 +930,15 @@ exports.updateMetadataOnJobDelete = functions.firestore
     functions.logger.info("📊 METADATA: update on job delete skipped (metadata removed)");
     return null;
 });
-/**
- * Trigger to update user count when a new user registers
- */
-exports.updateMetadataOnUserCreate = functions.firestore
-    .document("users/{userId}")
-    .onCreate(async (snapshot, context) => {
-    functions.logger.info("📊 METADATA: update on user create skipped (metadata removed)");
-    return null;
-});
 // ============================================
 // ENTERPRISE REFERRAL SYSTEM EXPORTS
 // ============================================
 // Import and re-export referral system functions
 var referral_system_1 = require("./referral-system");
-Object.defineProperty(exports, "onUserProfileComplete", { enumerable: true, get: function () { return referral_system_1.onUserProfileComplete; } });
+Object.defineProperty(exports, "onWorkerProfileReferralReady", { enumerable: true, get: function () { return referral_system_1.onWorkerProfileReferralReady; } });
+Object.defineProperty(exports, "onEmployerProfileReferralReady", { enumerable: true, get: function () { return referral_system_1.onEmployerProfileReferralReady; } });
 Object.defineProperty(exports, "ensureUserReferralCode", { enumerable: true, get: function () { return referral_system_1.ensureUserReferralCode; } });
 Object.defineProperty(exports, "applyReferralCode", { enumerable: true, get: function () { return referral_system_1.applyReferralCode; } });
-Object.defineProperty(exports, "onReferredUserProfileComplete", { enumerable: true, get: function () { return referral_system_1.onReferredUserProfileComplete; } });
 Object.defineProperty(exports, "expirePendingReferrals", { enumerable: true, get: function () { return referral_system_1.expirePendingReferrals; } });
 Object.defineProperty(exports, "requestWithdrawal", { enumerable: true, get: function () { return referral_system_1.requestWithdrawal; } });
 Object.defineProperty(exports, "detectReferralFraud", { enumerable: true, get: function () { return referral_system_1.detectReferralFraud; } });

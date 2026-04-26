@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.employer.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +71,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
@@ -106,6 +108,12 @@ fun ProfessionalWorkerProfileViewScreen(
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
+        )
+    }
     
     // State management
     var workerProfile by remember { mutableStateOf<WorkerProfileData?>(null) }
@@ -114,6 +122,7 @@ fun ProfessionalWorkerProfileViewScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<ApplicationAction?>(null) }
+    var showRatingSheet by remember { mutableStateOf(false) }
     // Batch-k fix: let the Retry button actually trigger a re-fetch by
     // bumping this counter into the LaunchedEffect key set.
     var reloadTick by remember { mutableStateOf(0) }
@@ -268,6 +277,36 @@ fun ProfessionalWorkerProfileViewScreen(
             isLoading = false
         }
     }
+
+    if (showRatingSheet && application != null) {
+        RatingBottomSheet(
+            isVisible = showRatingSheet,
+            targetName = workerProfile?.fullName?.ifBlank { application?.workerName.orEmpty() } ?: "this worker",
+            targetRole = "WORKER",
+            onDismiss = { showRatingSheet = false },
+            onSubmit = { rating, review, tags ->
+                application?.let { app ->
+                    scope.launch {
+                        ratingService.submitRating(
+                            jobId = app.jobId,
+                            targetUserId = app.workerId,
+                            rating = rating,
+                            review = review,
+                            tags = tags
+                        ).fold(
+                            onSuccess = { result ->
+                                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                                if (result.success) showRatingSheet = false
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
+            }
+        )
+    }
     
     // Solid role background; no gradient.
     val backgroundGradient = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
@@ -372,7 +411,12 @@ fun ProfessionalWorkerProfileViewScreen(
         // Apr 2026: Shortlist / Reject pinned to the bottom of the screen
         // with breathing room from the system bar. Only shown once the
         // profile actually loaded.
-        if (!isLoading && error == null && workerProfile != null) {
+        val showActionBar = application?.status in setOf(
+            ApplicationStatus.APPLIED,
+            ApplicationStatus.SHORTLISTED,
+            ApplicationStatus.HIRED
+        )
+        if (!isLoading && error == null && workerProfile != null && showActionBar) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -427,12 +471,18 @@ fun ProfessionalWorkerProfileViewScreen(
                             }
                             ApplicationAction.MARK_COMPLETED -> {
                                 application?.let { app ->
-                                    jobApplicationService.updateApplicationStatus(
+                                    val updatedApplication = jobApplicationService.updateApplicationStatus(
                                         app.id,
                                         ApplicationStatus.COMPLETED,
                                         "employer"
-                                    )
-                                    application = app.copy(status = ApplicationStatus.COMPLETED)
+                                    ).getOrThrow()
+                                    application = updatedApplication.copy(status = ApplicationStatus.COMPLETED)
+                                    val alreadyRated = ratingService.hasRated(app.jobId, app.workerId)
+                                    if (alreadyRated) {
+                                        Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        showRatingSheet = true
+                                    }
                                 }
                             }
                             else -> { /* No action */ }
@@ -1024,37 +1074,39 @@ private fun ActionButtonsCard(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = { onActionClick(ApplicationAction.REJECT) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFDC2626)
-                )
+        if (application?.status == ApplicationStatus.APPLIED || application?.status == ApplicationStatus.SHORTLISTED) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodyMedium)
-            }
-            Button(
-                onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF10B981)
-                )
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Accept", style = MaterialTheme.typography.bodyMedium)
+                OutlinedButton(
+                    onClick = { onActionClick(ApplicationAction.REJECT) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFFDC2626)
+                    )
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodyMedium)
+                }
+                Button(
+                    onClick = { onActionClick(ApplicationAction.SHORTLIST) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981)
+                    )
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Accept", style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 
-        // Bug #15 fix: show "Mark Job Done" only after the candidate is
+        // Bug #15 fix: show "Mark Work Done" only after the candidate is
         // hired so the employer can complete the contract and the
         // worker's earnings move from pending â†’ paid on the Earnings tab.
         if (application?.status == ApplicationStatus.HIRED) {
@@ -1068,7 +1120,7 @@ private fun ActionButtonsCard(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Mark Job Done", style = MaterialTheme.typography.bodyMedium)
+                Text("Mark Work Done", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -1089,7 +1141,7 @@ private fun ApplicationActionDialog(
                     ApplicationAction.SHORTLIST -> "Accept Candidate"
                     ApplicationAction.REJECT -> "Reject Application"
                     ApplicationAction.SEND_MESSAGE -> "Send Message"
-                    ApplicationAction.MARK_COMPLETED -> "Mark Job Done"
+                    ApplicationAction.MARK_COMPLETED -> "Mark Work Done"
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
@@ -1102,7 +1154,7 @@ private fun ApplicationActionDialog(
                     ApplicationAction.SHORTLIST -> "Are you sure you want to accept $workerName for this position?"
                     ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
                     ApplicationAction.SEND_MESSAGE -> "Do you want to send a message to $workerName?"
-                    ApplicationAction.MARK_COMPLETED -> "Mark this job as completed for $workerName? Their earnings will be unlocked."
+                    ApplicationAction.MARK_COMPLETED -> "Mark this work as completed for $workerName? Their earnings will be unlocked."
                 },
                 style = MaterialTheme.typography.bodyMedium
             )

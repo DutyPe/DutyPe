@@ -35,8 +35,8 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             res.status(400).send("Worker ID is required");
             return;
         }
-        // Fetch worker data from Firestore
-        const workerDoc = await db.collection("users").doc(workerId).get();
+        // Fetch worker data from the canonical profile collection.
+        const workerDoc = await db.collection("worker_profiles").doc(workerId).get();
         if (!workerDoc.exists) {
             res.status(404).send("Worker not found");
             return;
@@ -56,9 +56,9 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
         const completedJobs = workerData.completedJobsCount || 0;
         const rating = workerData.averageRating || 0;
         // Format skills for display
-        const skillsList = workerSkills
-            ? workerSkills.split(",").map((s) => s.trim()).filter((s) => s).slice(0, 3)
-            : [];
+        const skillsList = Array.isArray(workerSkills)
+            ? workerSkills.map((s) => String(s).trim()).filter(Boolean).slice(0, 3)
+            : String(workerSkills || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3);
         const primarySkill = skillsList[0] || "Professional Worker";
         const skillsText = skillsList.join(", ");
         // Create description

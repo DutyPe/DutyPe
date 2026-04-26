@@ -352,7 +352,7 @@ class OtpViewModel @Inject constructor(
                     errorHandler.setUserInfo(userId, phoneNumber)
 
                     if (hasExistingProfile) {
-                        // Existing account: users/{uid} already exists, safe to register token now.
+                        // Existing canonical profile is present, safe to register token now.
                         viewModelScope.launch {
                             try {
                                 val userRole = if (existingProfileData?.get("role") != null || existingProfileData?.get("activeRole") != null) {

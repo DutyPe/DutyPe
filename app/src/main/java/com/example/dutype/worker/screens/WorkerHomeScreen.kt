@@ -248,14 +248,16 @@ fun WorkerHomeScreen(
                             launch(Dispatchers.IO) {
                                 try {
                                     val firestore = com.example.dutype.di.firestoreFromHilt(context)
-                                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).update(
+                                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).set(
                                         mapOf(
                                             "location" to mapOf(
                                                 "lat" to data.latitude,
                                                 "lng" to data.longitude
                                             ),
-                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude)
-                                        )
+                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
+                                            "updatedAt" to com.google.firebase.Timestamp.now()
+                                        ),
+                                        com.google.firebase.firestore.SetOptions.merge()
                                     ).await()
                                     Timber.d(" Location synced to Firestore")
                                 } catch (e: Exception) {

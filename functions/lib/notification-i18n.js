@@ -387,15 +387,15 @@ function tBody(templateId, locale, params) {
 }
 exports.tBody = tBody;
 /**
- * Resolves the recipient's preferred locale from `users/{uid}.language`.
- * Returns "en" when the field is absent, malformed, or the user doc is missing.
+ * Resolves the recipient's preferred locale from `user_tokens/{uid}.language`.
+ * Returns "en" when the field is absent, malformed, or the token doc is missing.
  * Caller must pass an initialised admin Firestore instance.
  */
 async function getUserLanguage(db, userId) {
     if (!userId)
         return exports.DEFAULT_LOCALE;
     try {
-        const snap = await db.collection("users").doc(userId).get();
+        const snap = await db.collection("user_tokens").doc(userId).get();
         if (!snap.exists)
             return exports.DEFAULT_LOCALE;
         return normalizeLocale(snap.get("language"));
@@ -409,35 +409,36 @@ exports.getUserLanguage = getUserLanguage;
  * Returns the recipient's display name for use in notification bodies.
  * Prefers the first word of `fullName` (e.g. "Rahul" from "Rahul Kumar")
  * so the copy reads naturally. Falls back to the supplied default when the
- * user doc is missing or has no name.
+ * profile doc is missing or has no name.
  *
  * Use this wherever a notification is addressed directly to a user so the
  * copy feels personal ("Hi Rahul, a new job matches…") instead of generic.
  */
 async function getUserDisplayName(db, userId, fallback = "") {
-    var _a, _b;
+    var _a, _b, _c;
     if (!userId)
         return fallback;
     try {
-        const snap = await db.collection("users").doc(userId).get();
-        if (!snap.exists)
-            return fallback;
-        const fullName = String((_a = snap.get("fullName")) !== null && _a !== void 0 ? _a : "").trim();
+        const [workerSnap, employerSnap] = await Promise.all([
+            db.collection("worker_profiles").doc(userId).get(),
+            db.collection("employer_profiles").doc(userId).get(),
+        ]);
+        const fullName = String((_b = (_a = workerSnap.get("fullName")) !== null && _a !== void 0 ? _a : employerSnap.get("fullName")) !== null && _b !== void 0 ? _b : "").trim();
         if (!fullName)
             return fallback;
         // First token only — keeps notification bodies concise and avoids
         // awkward surnames in the greeting.
-        const firstName = (_b = fullName.split(/\s+/)[0]) !== null && _b !== void 0 ? _b : fullName;
+        const firstName = (_c = fullName.split(/\s+/)[0]) !== null && _c !== void 0 ? _c : fullName;
         return firstName.length > 24 ? firstName.slice(0, 24) : firstName;
     }
-    catch (_c) {
+    catch (_d) {
         return fallback;
     }
 }
 exports.getUserDisplayName = getUserDisplayName;
 /**
  * Bulk-resolve languages for many users in a single round-trip.
- * Returns a map { userId -> locale }; missing users default to "en".
+ * Returns a map { userId -> locale }; missing token docs default to "en".
  */
 async function getUserLanguagesBulk(db, userIds) {
     const out = new Map();
@@ -446,7 +447,7 @@ async function getUserLanguagesBulk(db, userIds) {
     const unique = Array.from(new Set(userIds.filter(Boolean)));
     for (let i = 0; i < unique.length; i += 30) {
         const chunk = unique.slice(i, i + 30);
-        const refs = chunk.map((id) => db.collection("users").doc(id));
+        const refs = chunk.map((id) => db.collection("user_tokens").doc(id));
         const docs = await db.getAll(...refs);
         docs.forEach((doc) => {
             out.set(doc.id, doc.exists ? normalizeLocale(doc.get("language")) : exports.DEFAULT_LOCALE);

@@ -78,23 +78,19 @@ class EmployerProfileCache @Inject constructor(
         // Fetch from Firestore
         return@withLock try {
             withContext(Dispatchers.IO) {
-                val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                    .document(employerId)
-                    .get()
-                    .await()
                 val employerProfileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                     .document(employerId)
                     .get()
                     .await()
                 
-                if (userDoc.exists() || employerProfileDoc.exists()) {
+                if (employerProfileDoc.exists()) {
                     val profile = CachedProfile(
                         employerId = employerId,
                         companyName = employerProfileDoc.getString("companyName") ?: "",
-                        employerName = userDoc.getString("fullName") ?: "",
-                        contactPhone = userDoc.getString("phone") ?: "",
+                        employerName = employerProfileDoc.getString("fullName") ?: "",
+                        contactPhone = employerProfileDoc.getString("phone") ?: "",
                         trustTier = "VERIFIED",
-                        profileImageUrl = userDoc.getString("profileImageUrl") ?: "",
+                        profileImageUrl = employerProfileDoc.getString("profileImageUrl") ?: "",
                         timestamp = System.currentTimeMillis()
                     )
                     
@@ -107,7 +103,7 @@ class EmployerProfileCache @Inject constructor(
                     
                     profile
                 } else {
-                    Timber.w("📦 EMPLOYER_CACHE: User document not found for $employerId")
+                    Timber.w("📦 EMPLOYER_CACHE: Employer profile not found for $employerId")
                     null
                 }
             }

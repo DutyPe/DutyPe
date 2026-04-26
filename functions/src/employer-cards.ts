@@ -168,8 +168,7 @@ export const onApplicationWriteSyncEmployerCard = functions.firestore
 
     const cardRef = db.collection(CARDS).doc(jobId);
     try {
-      // Use set+merge so the doc is auto-created if the metadata
-      // trigger hasn't run yet (e.g. legacy jobs).
+      // Use set+merge so the doc is auto-created if the metadata trigger has not run yet.
       await cardRef.set(deltas, { merge: true });
     } catch (e: any) {
       functions.logger.error("update employer_job_card counters failed", {

@@ -1,60 +1,89 @@
 package com.example.dutype.services.firestore
 
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.User
+import com.example.dutype.models.UserRole
+import com.example.dutype.utils.PhoneNumberUtils
+import com.example.dutype.utils.RetryUtils
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import com.example.dutype.utils.RetryUtils
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * UserFirestoreService - Handles all user-related Firestore operations
- * 
- * Extracted from FirestoreService as part of architecture refactoring.
- * Single responsibility: User CRUD operations and profile management.
- * 
- * @author DutyPe Engineering Team
- * @since 2.1.0
- */
 @Singleton
 class UserFirestoreService @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-    
     companion object {
-        const val USERS_COLLECTION = "users"
+        private const val PHONE_ROLES_COLLECTION = FirestoreCollections.PHONE_ROLES
+        private const val WORKER_PROFILES_COLLECTION = FirestoreCollections.WORKER_PROFILES
+        private const val EMPLOYER_PROFILES_COLLECTION = FirestoreCollections.EMPLOYER_PROFILES
+        private const val USER_TOKENS_COLLECTION = FirestoreCollections.USER_TOKENS
     }
-    
-    /**
-     * Create or update user in Firestore (Core authentication data only)
-     */
+
     suspend fun createOrUpdateUser(user: User): Result<Unit> {
         return try {
             RetryUtils.retryWithBackoffResult {
-                val userRef = firestore.collection(USERS_COLLECTION).document(user.id)
-                Timber.d("Firestore: Saving user to path: ${USERS_COLLECTION}/${user.id}")
-                
-                val hasRealLocation = com.example.dutype.utils.GeoUtils.hasValidCoordinates(user.lat, user.lng)
-                val baseUserData = mutableMapOf<String, Any?>(
-                    "phone" to user.phone,
+                val roleName = user.role.name
+                val normalizedPhone = PhoneNumberUtils.normalize(user.phone)
+                val now = Timestamp.now()
+
+                if (normalizedPhone.isNotBlank()) {
+                    firestore.collection(PHONE_ROLES_COLLECTION)
+                        .document(normalizedPhone)
+                        .set(
+                            mapOf(
+                                "phoneNumber" to normalizedPhone,
+                                "roles" to listOf(roleName),
+                                "name" to user.fullName,
+                                "uid" to user.id,
+                                "createdAt" to Timestamp(Date(user.createdAt)),
+                                "updatedAt" to now
+                            ),
+                            SetOptions.merge()
+                        )
+                        .await()
+                }
+
+                val profileData = mutableMapOf<String, Any?>(
+                    "userId" to user.id,
+                    "phone" to normalizedPhone,
                     "fullName" to user.fullName,
                     "profileImageUrl" to user.profileImageUrl,
-                    "fcmToken" to user.fcmToken,
-                    "createdAt" to Timestamp(Date(user.createdAt))
+                    "role" to roleName,
+                    "createdAt" to Timestamp(Date(user.createdAt)),
+                    "updatedAt" to now
                 )
-                if (hasRealLocation) {
-                    baseUserData["location"] = mapOf("lat" to user.lat, "lng" to user.lng)
-                    baseUserData["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng)
+                if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(user.lat, user.lng)) {
+                    profileData["location"] = mapOf("lat" to user.lat, "lng" to user.lng)
+                    profileData["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(user.lat, user.lng)
                 }
-                val coreUserData = baseUserData + User.roleFieldsFor(user.role)
-                
-                userRef.set(coreUserData).await()
-                Timber.i("Firestore: User saved successfully to ${USERS_COLLECTION}/${user.id}")
+
+                firestore.collection(profileCollectionForRole(roleName))
+                    .document(user.id)
+                    .set(profileData.filterValues { it != null }, SetOptions.merge())
+                    .await()
+
+                if (!user.fcmToken.isNullOrBlank()) {
+                    firestore.collection(USER_TOKENS_COLLECTION)
+                        .document(user.id)
+                        .set(
+                            mapOf(
+                                "fcmToken" to user.fcmToken.trim(),
+                                "platform" to "android",
+                                "updatedAt" to now
+                            ),
+                            SetOptions.merge()
+                        )
+                        .await()
+                }
+
+                Timber.i("Firestore: Profile-backed user saved successfully for ${user.id}")
                 Result.success(Unit)
             }
         } catch (e: Exception) {
@@ -62,88 +91,83 @@ class UserFirestoreService @Inject constructor(
             Result.failure(e)
         }
     }
-    
-    /**
-     * Get user by ID
-     */
+
     suspend fun getUserById(userId: String): Result<User?> {
         return try {
-            Timber.d("🔍 UserFirestoreService.getUserById - Fetching user: $userId")
-            val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            if (document.exists()) {
-                // Log the raw data to debug field names
-                Timber.d("🔍 UserFirestoreService.getUserById - Raw data: ${document.data}")
-                Timber.d("🔍 UserFirestoreService.getUserById - fullName field: ${document.getString("fullName")}")
-                
-                val data = document.data
-                val userWithId = if (data != null) {
-                    User.fromFirestoreMap(document.id, data)
-                } else {
-                    User(id = document.id)
-                }
-                Timber.d("🔍 UserFirestoreService.getUserById - Deserialized user fullName: ${userWithId.fullName}")
-                Result.success(userWithId)
-            } else {
-                Result.success(null)
-            }
+            val profile = loadProfileData(userId) ?: return Result.success(null)
+            Result.success(User.fromFirestoreMap(userId, profile))
         } catch (e: Exception) {
-            Timber.e("🔍 UserFirestoreService.getUserById - Error: ${e.message}")
+            Timber.e(e, "UserFirestoreService.getUserById failed")
             Result.failure(e)
         }
     }
-    
-    /**
-     * Update user profile
-     */
+
     suspend fun updateUserProfile(userId: String, updates: Map<String, Any>): Result<Unit> {
         return try {
-            val sanitizedUpdates = sanitizeUserUpdates(updates)
-            if (sanitizedUpdates.isEmpty()) {
-                Timber.w("UserFirestoreService.updateUserProfile: Ignoring empty/unsupported updates for $userId")
-                return Result.success(Unit)
+            val role = updates["role"]?.toString()?.uppercase()
+                ?.takeIf { it == UserRole.WORKER.name || it == UserRole.EMPLOYER.name }
+                ?: existingRoleForUser(userId)
+                ?: UserRole.WORKER.name
+            val sanitizedUpdates = sanitizeProfileUpdates(userId, updates, role)
+
+            if (sanitizedUpdates.isNotEmpty()) {
+                firestore.collection(profileCollectionForRole(role))
+                    .document(userId)
+                    .set(sanitizedUpdates, SetOptions.merge())
+                    .await()
             }
 
-            firestore.collection(USERS_COLLECTION)
-                .document(userId)
-                .set(sanitizedUpdates, SetOptions.merge())
-                .await()
+            val fcmToken = updates["fcmToken"] as? String
+            if (!fcmToken.isNullOrBlank()) {
+                firestore.collection(USER_TOKENS_COLLECTION)
+                    .document(userId)
+                    .set(
+                        mapOf(
+                            "fcmToken" to fcmToken.trim(),
+                            "platform" to "android",
+                            "updatedAt" to Timestamp.now()
+                        ),
+                        SetOptions.merge()
+                    )
+                    .await()
+            }
+
+            val phone = sanitizedUpdates["phone"] as? String
+            val fullName = sanitizedUpdates["fullName"] as? String
+            if (!phone.isNullOrBlank() || !fullName.isNullOrBlank()) {
+                val normalizedPhone = phone ?: loadProfileData(userId)?.get("phone") as? String
+                if (!normalizedPhone.isNullOrBlank()) {
+                    val phoneRoleUpdates = mutableMapOf<String, Any>(
+                        "phoneNumber" to normalizedPhone,
+                        "roles" to listOf(role),
+                        "uid" to userId,
+                        "updatedAt" to Timestamp.now()
+                    )
+                    if (!fullName.isNullOrBlank()) phoneRoleUpdates["name"] = fullName
+                    firestore.collection(PHONE_ROLES_COLLECTION)
+                        .document(normalizedPhone)
+                        .set(phoneRoleUpdates, SetOptions.merge())
+                        .await()
+                }
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun sanitizeUserUpdates(updates: Map<String, Any>): Map<String, Any> {
+    private fun sanitizeProfileUpdates(userId: String, updates: Map<String, Any>, role: String): Map<String, Any> {
         val sanitized = mutableMapOf<String, Any>()
 
         val fullName = updates["fullName"] as? String
-        if (!fullName.isNullOrBlank()) {
-            sanitized["fullName"] = fullName.trim()
-        }
+        if (!fullName.isNullOrBlank()) sanitized["fullName"] = fullName.trim()
 
         val phone = updates["phone"] as? String
-        if (!phone.isNullOrBlank()) {
-            sanitized["phone"] = com.example.dutype.utils.PhoneNumberUtils.normalize(phone)
-        }
+        if (!phone.isNullOrBlank()) sanitized["phone"] = PhoneNumberUtils.normalize(phone)
 
         val profileImageUrl = updates["profileImageUrl"] as? String
-        if (!profileImageUrl.isNullOrBlank()) {
-            sanitized["profileImageUrl"] = profileImageUrl.trim()
-        }
-
-        // roles[] / activeRole legacy fields are dropped — only single `role` is supported.
-        val role = updates["role"]?.toString()?.trim()?.uppercase()
-        if (role == "WORKER" || role == "EMPLOYER") {
-            sanitized["role"] = role
-        }
-
-        val fcmToken = updates["fcmToken"] as? String
-        if (!fcmToken.isNullOrBlank()) {
-            sanitized["fcmToken"] = fcmToken.trim()
-        }
-
-        // Email is intentionally NOT sanitized here — email lives on
-        // worker_profiles / employer_profiles, never on the users doc.
+        if (!profileImageUrl.isNullOrBlank()) sanitized["profileImageUrl"] = profileImageUrl.trim()
 
         val locationFromMap = updates["location"] as? Map<*, *>
         val mapLat = (locationFromMap?.get("lat") as? Number)?.toDouble()
@@ -153,83 +177,97 @@ class UserFirestoreService @Inject constructor(
             sanitized["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(mapLat, mapLng)
         }
 
+        if (sanitized.isEmpty()) {
+            return emptyMap()
+        }
+
+        sanitized["userId"] = userId
+        sanitized["role"] = role
+        sanitized["updatedAt"] = Timestamp.now()
         return sanitized
     }
-    
-    /**
-     * Delete user
-     */
+
     suspend fun deleteUser(userId: String): Result<Unit> {
         return try {
-            firestore.collection(USERS_COLLECTION)
-                .document(userId)
-                .delete()
-                .await()
+            val role = existingRoleForUser(userId)
+            if (role != null) {
+                firestore.collection(profileCollectionForRole(role)).document(userId).delete().await()
+            }
+            firestore.collection(USER_TOKENS_COLLECTION).document(userId).delete().await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    /**
-     * Get user summary for list views — LIGHTWEIGHT (6 fields only)
-     * Use this instead of getUserById() when showing user cards/lists
-     */
     suspend fun getUserSummary(userId: String): Result<Map<String, Any?>?> {
         return try {
-            val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            if (document.exists()) {
-                val data = document.data ?: return Result.success(null)
-                
-                val summary = mapOf<String, Any?>(
-                    "id" to document.id,
-                    "fullName" to data["fullName"],
-                    "phone" to data["phone"],
-                    "profileImageUrl" to data["profileImageUrl"],
-                    "role" to (data["role"] ?: data["activeRole"])
-                )
-                Result.success(summary)
-            } else {
-                Result.success(null)
-            }
+            val data = loadProfileData(userId) ?: return Result.success(null)
+            Result.success(summaryFromProfile(userId, data))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
-    /**
-     * Batch get user summaries — LIGHTWEIGHT
-     */
+
     suspend fun getUserSummaries(userIds: List<String>): Result<List<Map<String, Any?>>> {
         return try {
             if (userIds.isEmpty()) return Result.success(emptyList())
-            
-            val chunks = userIds.chunked(30)
-            val allSummaries = mutableListOf<Map<String, Any?>>()
-            
-            for (chunk in chunks) {
-                val query = firestore.collection(USERS_COLLECTION)
-                    .whereIn(FieldPath.documentId(), chunk)
-                    .get()
-                    .await()
-                
-                val summariesById = query.documents.mapNotNull { doc ->
-                    val data = doc.data ?: return@mapNotNull null
-                    doc.id to mapOf<String, Any?>(
-                        "id" to doc.id,
-                        "fullName" to data["fullName"],
-                        "phone" to data["phone"],
-                        "profileImageUrl" to data["profileImageUrl"],
-                        "role" to (data["role"] ?: data["activeRole"])
-                    )
-                }.toMap()
-                allSummaries.addAll(chunk.mapNotNull { summariesById[it] })
+            val summariesById = mutableMapOf<String, Map<String, Any?>>()
+
+            for (chunk in userIds.chunked(30)) {
+                for (collection in listOf(WORKER_PROFILES_COLLECTION, EMPLOYER_PROFILES_COLLECTION)) {
+                    val query = firestore.collection(collection)
+                        .whereIn(FieldPath.documentId(), chunk)
+                        .get()
+                        .await()
+                    query.documents.forEach { doc ->
+                        if (!summariesById.containsKey(doc.id)) {
+                            summariesById[doc.id] = summaryFromProfile(doc.id, doc.data.orEmpty())
+                        }
+                    }
+                }
             }
-            
-            Result.success(allSummaries)
+
+            Result.success(userIds.mapNotNull { summariesById[it] })
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-}
 
+    private suspend fun loadProfileData(userId: String): Map<String, Any?>? {
+        for (role in listOf(UserRole.WORKER.name, UserRole.EMPLOYER.name)) {
+            val snapshot = firestore.collection(profileCollectionForRole(role)).document(userId).get().await()
+            if (snapshot.exists()) {
+                val data = snapshot.data.orEmpty().toMutableMap()
+                data["role"] = data["role"] ?: role
+                return data
+            }
+        }
+        return null
+    }
+
+    private suspend fun existingRoleForUser(userId: String): String? {
+        if (firestore.collection(WORKER_PROFILES_COLLECTION).document(userId).get().await().exists()) {
+            return UserRole.WORKER.name
+        }
+        if (firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId).get().await().exists()) {
+            return UserRole.EMPLOYER.name
+        }
+        return null
+    }
+
+    private fun profileCollectionForRole(role: String): String {
+        return if (role.uppercase() == UserRole.EMPLOYER.name) EMPLOYER_PROFILES_COLLECTION else WORKER_PROFILES_COLLECTION
+    }
+
+    private fun summaryFromProfile(userId: String, data: Map<String, Any?>): Map<String, Any?> {
+        val role = data["role"] ?: UserRole.WORKER.name
+        return mapOf(
+            "id" to userId,
+            "fullName" to (data["fullName"] ?: data["name"]),
+            "phone" to data["phone"],
+            "profileImageUrl" to data["profileImageUrl"],
+            "role" to role
+        )
+    }
+}

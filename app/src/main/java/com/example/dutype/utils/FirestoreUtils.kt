@@ -35,7 +35,7 @@ object FirestoreUtils {
     )
 
     /**
-     * Ensures a canonical users document exists without ever writing placeholder values.
+    * Ensures canonical identity/profile documents exist.
      */
     suspend fun ensureMinimalUserDocument(
         userId: String,
@@ -44,77 +44,97 @@ object FirestoreUtils {
         fullName: String? = null
     ) {
         val firestore = FirebaseFirestore.getInstance()
-        val userRef = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId)
         val roleUpper = role.uppercase()
-        val existingDoc = userRef.get().await()
-        val existingData = existingDoc.data.orEmpty()
-
-        // Single-role architecture: ignore any legacy roles[] in the existing
-        // document and overwrite with this role only.
         val resolvedPhone = phoneNumber
             ?.takeIf { it.isNotBlank() }
             ?.let(PhoneNumberUtils::normalize)
-            ?: existingData["phone"] as? String
+            ?: FirebaseAuth.getInstance().currentUser?.phoneNumber?.let(PhoneNumberUtils::normalize)
         val resolvedName = fullName
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: existingData["fullName"] as? String
+            ?: FirebaseAuth.getInstance().currentUser?.displayName?.trim()?.takeIf { it.isNotBlank() }
 
         if (resolvedPhone.isNullOrBlank() || resolvedName.isNullOrBlank()) {
-            throw IllegalStateException("Refusing to create users/$userId without fullName and phone")
+            throw IllegalStateException("Refusing to create identity docs for $userId without fullName and phone")
         }
 
-        val strictUserDoc = linkedMapOf<String, Any>(
-            "phone" to resolvedPhone,
-            "fullName" to resolvedName,
-            "role" to roleUpper,
-            "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: Timestamp.now())
+        val now = Timestamp.now()
+        val batch = firestore.batch()
+        batch.set(
+            firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(resolvedPhone),
+            mapOf(
+                "phoneNumber" to resolvedPhone,
+                "roles" to listOf(roleUpper),
+                "name" to resolvedName,
+                "uid" to userId,
+                "updatedAt" to now
+            ),
+            com.google.firebase.firestore.SetOptions.merge()
         )
+        batch.set(
+            firestore.collection(profileCollectionForRole(roleUpper)).document(userId),
+            mapOf(
+                "userId" to userId,
+                "phone" to resolvedPhone,
+                "fullName" to resolvedName,
+                "role" to roleUpper,
+                "updatedAt" to now
+            ),
+            com.google.firebase.firestore.SetOptions.merge()
+        )
+        batch.commit().await()
+    }
 
-        val existingProfileImageUrl = existingData["profileImageUrl"] as? String
-        if (!existingProfileImageUrl.isNullOrBlank()) {
-            strictUserDoc["profileImageUrl"] = existingProfileImageUrl
+    private fun profileCollectionForRole(role: String): String =
+        if (role.uppercase() == "EMPLOYER") {
+            com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
+        } else {
+            com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
         }
 
-        val existingFcmToken = existingData["fcmToken"] as? String
-        if (!existingFcmToken.isNullOrBlank()) {
-            strictUserDoc["fcmToken"] = existingFcmToken
-        }
+    private fun profileRoleFromCollections(
+        workerProfile: Map<String, Any>?,
+        employerProfile: Map<String, Any>?
+    ): String? = when {
+        !workerProfile.isNullOrEmpty() -> "WORKER"
+        !employerProfile.isNullOrEmpty() -> "EMPLOYER"
+        else -> null
+    }
 
-        val existingLocation = existingData["location"] as? Map<*, *>
-        val lat = (existingLocation?.get("lat") as? Number)?.toDouble()
-        val lng = (existingLocation?.get("lng") as? Number)?.toDouble()
-        if (lat != null && lng != null && GeoUtils.hasValidCoordinates(lat, lng)) {
-            strictUserDoc["location"] = mapOf("lat" to lat, "lng" to lng)
-            strictUserDoc["geohash"] = GeoUtils.encodeGeohash(lat, lng)
+    private fun mergeProfileForUser(
+        userId: String,
+        role: String,
+        profileData: Map<String, Any>,
+        phoneRoleData: Map<String, Any>?
+    ): Map<String, Any> {
+        return linkedMapOf<String, Any>(
+            "userId" to userId,
+            "role" to role
+        ).apply {
+            putAll(profileData)
+            (phoneRoleData?.get("phoneNumber") as? String)?.let { put("phone", it) }
+            (phoneRoleData?.get("name") as? String)?.let { put("fullName", it) }
         }
-
-        // Replace with canonical schema to remove legacy keys that violate strict Firestore rules.
-        userRef.set(strictUserDoc).await()
     }
 
     /**
-     * Check if a user exists by normalized phone number in strict users schema.
+     * Check if a user exists by normalized phone number in phoneRoles.
      */
     suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
         val firestore = FirebaseFirestore.getInstance()
-        val variants = PhoneNumberUtils.getVariants(phoneNumber)
-
-        Timber.d("Phone check: variants=$variants")
-
-        for (variant in variants) {
-            val result = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .whereEqualTo("phone", variant)
-                .limit(1)
+        val normalized = PhoneNumberUtils.normalize(phoneNumber)
+        return try {
+            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                .document(normalized)
                 .get()
                 .await()
-
-            if (result.documents.isNotEmpty()) {
-                return result.documents[0].data
+            doc.data
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code != FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.e(e, "PhoneRoles existence check failed")
             }
+            null
         }
-
-        return null
     }
 
     suspend fun doesUserExist(phoneNumber: String): Boolean {
@@ -259,17 +279,34 @@ object FirestoreUtils {
 
     suspend fun updateUserRole(userId: String, role: String) {
         try {
-            val firestore = FirebaseFirestore.getInstance()
             val roleUpper = role.uppercase()
-            val updates = com.example.dutype.models.User.roleFieldsFor(
-                runCatching { com.example.dutype.models.UserRole.valueOf(roleUpper) }
-                    .getOrDefault(com.example.dutype.models.UserRole.WORKER)
-            )
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val firestore = FirebaseFirestore.getInstance()
+            val now = Timestamp.now()
 
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .update(updates)
-                .await()
+            val batch = firestore.batch()
+            if (currentUser?.uid == userId) {
+                val normalizedPhone = currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+                if (normalizedPhone.isNotBlank()) {
+                    batch.set(
+                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
+                        mapOf(
+                            "phoneNumber" to normalizedPhone,
+                            "roles" to listOf(roleUpper),
+                            "name" to currentUser.displayName.orEmpty(),
+                            "uid" to userId,
+                            "updatedAt" to now
+                        ),
+                        com.google.firebase.firestore.SetOptions.merge()
+                    )
+                }
+            }
+            batch.set(
+                firestore.collection(profileCollectionForRole(roleUpper)).document(userId),
+                mapOf("userId" to userId, "role" to roleUpper, "updatedAt" to now),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.commit().await()
         } catch (e: Exception) {
             Timber.e(e, "Error updating user role for $userId")
             throw e
@@ -279,18 +316,18 @@ object FirestoreUtils {
     suspend fun getUserByUid(uid: String): Map<String, Any>? {
         return try {
             val firestore = FirebaseFirestore.getInstance()
-            val documentSnapshot = withTimeout(5_000L) {
-                firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                    .document(uid)
-                    .get()
-                    .await()
-            }
-
-            if (documentSnapshot.exists()) {
-                @Suppress("UNCHECKED_CAST")
-                documentSnapshot.data as? Map<String, Any>
-            } else {
-                null
+            withTimeout(5_000L) {
+                val workerDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(uid).get().await()
+                val employerDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(uid).get().await()
+                val role = profileRoleFromCollections(workerDoc.data, employerDoc.data) ?: return@withTimeout null
+                val profileData = if (role == "EMPLOYER") employerDoc.data.orEmpty() else workerDoc.data.orEmpty()
+                val phone = FirebaseAuth.getInstance().currentUser?.phoneNumber?.let(PhoneNumberUtils::normalize)
+                val phoneRoleData = phone?.takeIf { FirebaseAuth.getInstance().currentUser?.uid == uid }?.let {
+                    runCatching {
+                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await().data
+                    }.getOrNull()
+                }
+                mergeProfileForUser(uid, role, profileData, phoneRoleData)
             }
         } catch (e: Exception) {
             Timber.e(e, "Error getting user by UID: $uid")
@@ -301,15 +338,29 @@ object FirestoreUtils {
     suspend fun saveUserPhoneNumber(userId: String, phoneNumber: String, role: String) {
         try {
             val normalizedPhone = PhoneNumberUtils.normalize(phoneNumber)
-            FirebaseFirestore.getInstance()
-                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .update(
+            val firestore = FirebaseFirestore.getInstance()
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val now = Timestamp.now()
+            val batch = firestore.batch()
+            if (currentUser?.uid == userId) {
+                batch.set(
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
                     mapOf(
-                        "phone" to normalizedPhone
-                    )
+                        "phoneNumber" to normalizedPhone,
+                        "roles" to listOf(role.uppercase()),
+                        "name" to currentUser.displayName.orEmpty(),
+                        "uid" to userId,
+                        "updatedAt" to now
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
                 )
-                .await()
+            }
+            batch.set(
+                firestore.collection(profileCollectionForRole(role)).document(userId),
+                mapOf("userId" to userId, "phone" to normalizedPhone, "role" to role.uppercase(), "updatedAt" to now),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.commit().await()
         } catch (e: Exception) {
             Timber.e(e, "Error saving phone number for $userId")
             throw e
@@ -322,15 +373,30 @@ object FirestoreUtils {
             if (trimmedName.isBlank()) {
                 throw IllegalArgumentException("Full name cannot be blank")
             }
-            FirebaseFirestore.getInstance()
-                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .update(
+            val firestore = FirebaseFirestore.getInstance()
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val now = Timestamp.now()
+            val batch = firestore.batch()
+            currentUser?.phoneNumber?.takeIf { currentUser.uid == userId }?.let { phone ->
+                val normalizedPhone = PhoneNumberUtils.normalize(phone)
+                batch.set(
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
                     mapOf(
-                        "fullName" to trimmedName
-                    )
+                        "phoneNumber" to normalizedPhone,
+                        "roles" to listOf(role.uppercase()),
+                        "name" to trimmedName,
+                        "uid" to userId,
+                        "updatedAt" to now
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
                 )
-                .await()
+            }
+            batch.set(
+                firestore.collection(profileCollectionForRole(role)).document(userId),
+                mapOf("userId" to userId, "fullName" to trimmedName, "role" to role.uppercase(), "updatedAt" to now),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.commit().await()
         } catch (e: Exception) {
             Timber.e(e, "Error saving full name for $userId")
             throw e

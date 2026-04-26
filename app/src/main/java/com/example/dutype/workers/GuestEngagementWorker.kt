@@ -16,7 +16,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.dutype.app.R
 import com.example.dutype.MainActivity
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.services.NotificationChannelManager
+import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -161,18 +163,21 @@ class GuestEngagementWorker @AssistedInject constructor(
         val now = Calendar.getInstance()
         val slot = getSlot(now)
 
-        // BUG #2 FIX: Default-to-WORKER on lookup failure used to mis-target
-        // employers with worker pushes. Skip the notification entirely if we
-        // can't determine the role with confidence. Also fall back to `role`
-        // (the strict-schema field) when `activeRole` is missing — fresh
-        // signups don't have `activeRole` set (see Bug #12).
         val role = try {
-            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId).get().await()
-            val resolved = (userDoc.getString("activeRole") ?: userDoc.getString("role"))
-                ?.uppercase()
+            val normalizedPhone = user.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+            val phoneRoleDoc = normalizedPhone.takeIf { it.isNotBlank() }
+                ?.let { firestore.collection(FirestoreCollections.PHONE_ROLES).document(it).get().await() }
+            val resolved = phoneRoleDoc?.get("roles")
+                ?.let { it as? List<*> }
+                ?.mapNotNull { it?.toString()?.uppercase() }
+                ?.firstOrNull()
+                ?: when {
+                    firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().exists() -> "EMPLOYER"
+                    firestore.collection(FirestoreCollections.WORKER_PROFILES).document(userId).get().await().exists() -> "WORKER"
+                    else -> null
+                }
             if (resolved.isNullOrBlank()) {
-                Timber.w("🔔 EngagementWorker: no role on user doc, skipping (was defaulting to WORKER)")
+                Timber.w("🔔 EngagementWorker: no canonical role doc, skipping")
                 return Result.success()
             }
             resolved

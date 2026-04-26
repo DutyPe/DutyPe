@@ -2,6 +2,8 @@ package com.example.dutype.services
 
 import com.example.dutype.models.*
 import com.example.dutype.components.isValidReferralCode
+import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -54,9 +56,11 @@ class ReferralService @Inject constructor(
     companion object {
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val COLLECTION_REFERRALS = "referrals"
-        private const val COLLECTION_REFERRAL_STATS = com.example.dutype.firestore.FirestoreCollections.REFERRAL_STATS
-        private const val SUBCOLLECTION_WITHDRAWALS = com.example.dutype.firestore.FirestoreCollections.WITHDRAWALS
-        private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_REFERRAL_STATS = FirestoreCollections.REFERRAL_STATS
+        private const val COLLECTION_WORKER_PROFILES = FirestoreCollections.WORKER_PROFILES
+        private const val COLLECTION_EMPLOYER_PROFILES = FirestoreCollections.EMPLOYER_PROFILES
+        private const val COLLECTION_PHONE_ROLES = FirestoreCollections.PHONE_ROLES
+        private const val SUBCOLLECTION_WITHDRAWALS = FirestoreCollections.WITHDRAWALS
         private const val FIELD_REFERRER_ID = "referrerId"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_STATUS = "status"
@@ -77,6 +81,11 @@ class ReferralService @Inject constructor(
     @Volatile private var cachedReferrerKey: String? = null
     @Volatile private var cachedReferrer: ReferrerInfo? = null
     @Volatile private var cachedReferrerAt: Long = 0L
+
+    private data class ReferralProfile(
+        val role: String,
+        val data: Map<String, Any?>
+    )
 
     /** Invalidate caches after a write that may change the snapshot. */
     private fun invalidateReferralCaches() {
@@ -133,21 +142,84 @@ class ReferralService @Inject constructor(
         )
     }
 
+    private fun profileCollectionForRole(role: String): String {
+        return if (role.uppercase() == "EMPLOYER") COLLECTION_EMPLOYER_PROFILES else COLLECTION_WORKER_PROFILES
+    }
+
+    private suspend fun currentPhoneRoleData(userId: String): Map<String, Any?> {
+        if (auth.currentUser?.uid != userId) return emptyMap()
+        val normalizedPhone = auth.currentUser?.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+        if (normalizedPhone.isBlank()) return emptyMap()
+        return firestore.collection(COLLECTION_PHONE_ROLES)
+            .document(normalizedPhone)
+            .get()
+            .await()
+            .data
+            .orEmpty()
+    }
+
+    private suspend fun loadReferralProfile(userId: String, preferredRole: String? = null): ReferralProfile {
+        val phoneRoleData = currentPhoneRoleData(userId)
+        val roles = linkedSetOf<String>()
+        preferredRole?.takeIf { it.isNotBlank() }?.let { roles += it.uppercase() }
+        @Suppress("UNCHECKED_CAST")
+        val phoneRoles = phoneRoleData["roles"] as? List<*>
+        phoneRoles.orEmpty()
+            .mapNotNull { it as? String }
+            .map { it.uppercase() }
+            .forEach { roles += it }
+        roles += "WORKER"
+        roles += "EMPLOYER"
+
+        for (role in roles) {
+            val snapshot = firestore.collection(profileCollectionForRole(role))
+                .document(userId)
+                .get()
+                .await()
+            if (snapshot.exists()) {
+                val merged = snapshot.data.orEmpty() + phoneRoleData
+                return ReferralProfile(role, merged)
+            }
+        }
+
+        return ReferralProfile(preferredRole?.uppercase() ?: "WORKER", phoneRoleData)
+    }
+
+    private fun referralCodeFromProfile(profile: ReferralProfile): String {
+        return normalizeReferralCode(profile.data["referralCode"] as? String ?: "")
+    }
+
+    private fun displayNameFromProfile(profile: ReferralProfile): String {
+        return profile.data["fullName"] as? String
+            ?: profile.data["companyName"] as? String
+            ?: profile.data["name"] as? String
+            ?: ""
+    }
+
     private suspend fun findExistingReferralCodeForUser(userId: String): String {
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
+            val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
                 .await()
 
-            val userCode = normalizeReferralCode(userDoc.getString("referralCode") ?: "")
-            if (userCode.isNotBlank()) {
-                return userCode
+            val statsCode = normalizeReferralCode(statsDoc.getString("referralCode") ?: "")
+            if (statsCode.isNotBlank()) {
+                return statsCode
+            }
+
+            val profile = loadReferralProfile(
+                userId = userId,
+                preferredRole = statsDoc.getString("userRole")
+            )
+            val profileCode = referralCodeFromProfile(profile)
+            if (profileCode.isNotBlank()) {
+                return profileCode
             }
 
             callEnsureUserReferralCode(
-                userRole = (userDoc.getString("activeRole") ?: "WORKER").uppercase(),
-                userName = userDoc.getString("fullName") ?: ""
+                userRole = profile.role,
+                userName = displayNameFromProfile(profile)
             )
         } catch (e: Exception) {
             Timber.w(e, "🎁 REFERRAL: Unable to resolve referral code for user $userId")
@@ -222,25 +294,16 @@ class ReferralService @Inject constructor(
         }
 
         return try {
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(userId)
-                .get()
-                .await()
-
-            val referredByCode = normalizeReferralCode(userDoc.getString("referredByCode") ?: "")
-            val referredByUserId = userDoc.getString("referredByUserId") ?: ""
+            val profile = loadReferralProfile(userId)
+            val referredByCode = normalizeReferralCode(profile.data["referredByCode"] as? String ?: "")
+            val referredByUserId = profile.data["referredByUserId"] as? String ?: ""
             var referrerName = ""
             var referrerRole = ""
 
             if (referredByUserId.isNotBlank()) {
-                val referrerDoc = firestore.collection(COLLECTION_USERS)
-                    .document(referredByUserId)
-                    .get()
-                    .await()
-                if (referrerDoc.exists()) {
-                    referrerName = referrerDoc.getString("fullName") ?: referrerDoc.getString("companyName") ?: ""
-                    referrerRole = referrerDoc.getString("activeRole") ?: ""
-                }
+                val referrerProfile = loadReferralProfile(referredByUserId)
+                referrerName = displayNameFromProfile(referrerProfile)
+                referrerRole = referrerProfile.role
             }
 
             if (referrerName.isBlank() && referredByCode.isNotBlank()) {
@@ -351,21 +414,17 @@ class ReferralService @Inject constructor(
                 } else {
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
-                            val userDoc = firestore.collection(COLLECTION_USERS)
-                                .document(userId)
-                                .get()
-                                .await()
-                            val roleFromUser = (userDoc.getString("activeRole") ?: "WORKER").uppercase()
-                            val userDocCode = normalizeReferralCode(userDoc.getString("referralCode") ?: "")
-                            val resolvedCode = if (userDocCode.isNotBlank()) {
-                                userDocCode
+                            val profile = loadReferralProfile(userId)
+                            val profileCode = referralCodeFromProfile(profile)
+                            val resolvedCode = if (profileCode.isNotBlank()) {
+                                profileCode
                             } else {
                                 findExistingReferralCodeForUser(userId)
                             }
 
                             val fallbackStats = ReferralStats(
                                 userId = userId,
-                                userRole = roleFromUser,
+                                userRole = profile.role,
                                 referralCode = resolvedCode,
                                 totalReferrals = 0,
                                 successfulReferrals = 0,
@@ -571,12 +630,12 @@ class ReferralService @Inject constructor(
                 }
 
                 if (referralCode.isBlank()) {
-                    val userDoc = firestore.collection(COLLECTION_USERS).document(userId).get().await()
+                    val profile = loadReferralProfile(userId, userRole)
                     referralCode = ensureReferralCodeForUser(
                         userId = userId,
-                        userRole = (userDoc.getString("activeRole") ?: userRole).uppercase(),
-                        userName = userDoc.getString("fullName") ?: "",
-                        existingUserCode = userDoc.getString("referralCode") ?: ""
+                        userRole = profile.role,
+                        userName = displayNameFromProfile(profile),
+                        existingUserCode = referralCodeFromProfile(profile)
                     )
                 }
                 
@@ -609,13 +668,13 @@ class ReferralService @Inject constructor(
                 cachedStatsAt = now
                 stats
             } else {
-                val userDoc = firestore.collection(COLLECTION_USERS).document(userId).get().await()
-                val userRole = (userDoc.getString("activeRole") ?: "WORKER").uppercase()
+                val profile = loadReferralProfile(userId)
+                val userRole = profile.role
                 val fallbackCode = ensureReferralCodeForUser(
                     userId = userId,
                     userRole = userRole,
-                    userName = userDoc.getString("fullName") ?: "",
-                    existingUserCode = userDoc.getString("referralCode") ?: ""
+                    userName = displayNameFromProfile(profile),
+                    existingUserCode = referralCodeFromProfile(profile)
                 )
 
                 Timber.d("🎁 REFERRAL: No referral_stats doc for user $userId, returning empty stats fallback")
@@ -870,7 +929,7 @@ class ReferralService @Inject constructor(
         val userId = auth.currentUser?.uid ?: return emptyList()
         
         return try {
-            val withdrawals = firestore.collection(COLLECTION_USERS)
+            val withdrawals = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .collection(SUBCOLLECTION_WITHDRAWALS)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -1103,10 +1162,10 @@ https://play.google.com/store/apps/details?id=com.example.dutype
                 return fallbackCode
             }
 
-            val userDoc = firestore.collection(COLLECTION_USERS).document(userId).get().await()
-            val userRole = (userDoc.getString("activeRole") ?: "WORKER").uppercase()
-            val userName = userDoc.getString("fullName") ?: ""
-            val userCode = userDoc.getString("referralCode") ?: ""
+            val profile = loadReferralProfile(userId)
+            val userRole = profile.role
+            val userName = displayNameFromProfile(profile)
+            val userCode = referralCodeFromProfile(profile)
 
             val ensuredCode = ensureReferralCodeForUser(
                 userId = userId,

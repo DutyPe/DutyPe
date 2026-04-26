@@ -291,6 +291,22 @@ fun EmployerApplicationManagementScreen(
                             },
                             onRateWorker = {
                                 scope.launch {
+                                    if (application.status == ApplicationStatus.HIRED) {
+                                        val completed = viewModel.updateApplicationStatusForResult(
+                                            applicationId = application.id,
+                                            newStatus = ApplicationStatus.COMPLETED,
+                                            notes = "Marked work done from applications list"
+                                        )
+                                        if (completed.isFailure) {
+                                            Toast.makeText(
+                                                context,
+                                                completed.exceptionOrNull()?.message ?: "Failed to mark work done",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            return@launch
+                                        }
+                                    }
+
                                     val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
                                     if (alreadyRated) {
                                         Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
@@ -535,13 +551,8 @@ private fun ApplicationCard(
     onRateWorker: () -> Unit = {}
 ) {
     val workerEmail = application.workerEmail.orEmpty()
-    val threeHoursMillis = 3L * 60 * 60 * 1000
-    val ratingClockNow = remember(application.id, application.hiredAt, application.createdAt) {
-        System.currentTimeMillis()
-    }
-    val ratingAvailableFrom = application.hiredAt.takeIf { it > 0L } ?: application.createdAt
-    val canRateWorker = application.status == ApplicationStatus.HIRED &&
-        ratingClockNow - ratingAvailableFrom >= threeHoursMillis
+    val canMarkWorkDone = application.status == ApplicationStatus.HIRED
+    val canRateCompletedWork = application.status == ApplicationStatus.COMPLETED
     // Determine display name - fallback to "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
@@ -760,7 +771,7 @@ private fun ApplicationCard(
                 }
             }
 
-            if (canRateWorker) {
+            if (canMarkWorkDone || canRateCompletedWork) {
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = onRateWorker,
@@ -771,12 +782,15 @@ private fun ApplicationCard(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Star,
+                        imageVector = if (canMarkWorkDone) Icons.Default.CheckCircle else Icons.Default.Star,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Rate Worker", style = AppTypography.labelLarge)
+                    Text(
+                        if (canMarkWorkDone) "Mark Work Done" else "Rate Worker",
+                        style = AppTypography.labelLarge
+                    )
                 }
             }
             

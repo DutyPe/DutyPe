@@ -60,7 +60,40 @@ fun EmployerJobCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header with title, status, and actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                JobStatusBadge(
+                    status = jobPosting.status,
+                    isFilled = jobPosting.isFilled,
+                    expiresAt = jobPosting.expiresAt
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (showActions) {
+                        JobActionsRow(
+                            jobPosting = jobPosting,
+                            onEditClick = onEditClick,
+                            onShareClick = onShareClick
+                        )
+                    }
+
+                    Text(
+                        text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
+                        style = AppTypography.caption,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Header with title
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -121,30 +154,6 @@ fun EmployerJobCard(
                     }
                 }
 
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (showActions) {
-                        JobActionsRow(
-                            jobPosting = jobPosting,
-                            onEditClick = onEditClick,
-                            onShareClick = onShareClick
-                        )
-                    }
-
-                    JobStatusBadge(
-                        status = jobPosting.status,
-                        isFilled = jobPosting.isFilled,
-                        expiresAt = jobPosting.expiresAt
-                    )
-
-                    Text(
-                        text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
-                        style = AppTypography.caption,
-                        color = Color.Gray
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -167,8 +176,6 @@ fun EmployerJobCard(
             }
 
             // Perks display removed as per user request
-
-            HorizontalDivider(color = Color(0xFFE5E7EB))
         }
     }
     

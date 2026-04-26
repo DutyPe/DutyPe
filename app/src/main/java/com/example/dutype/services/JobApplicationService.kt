@@ -17,7 +17,6 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.utils.RetryUtils
 import com.example.dutype.utils.toJobApplicationOrNull
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -29,7 +28,6 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
-import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -440,15 +438,22 @@ class JobApplicationService @Inject constructor(
 
             Timber.d("=📋 APPLY: jobId=$jobId userId=$userId employerId=$employerId")
 
+            val workerProfileSnapshot = runCatching {
+                profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
+            }.getOrDefault(emptyMap())
             val workerName = runCatching {
-                val profile = profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
                 sequenceOf("fullName", "name", "displayName")
-                    .map { key -> profile[key]?.toString()?.trim().orEmpty() }
+                    .map { key -> workerProfileSnapshot[key]?.toString()?.trim().orEmpty() }
                     .firstOrNull { it.isNotBlank() }
                     .orEmpty()
             }.getOrDefault("").ifBlank {
                 com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName?.trim().orEmpty()
             }
+            val workerSkills = ((workerProfileSnapshot["skills"] as? List<*>).orEmpty() +
+                (workerProfileSnapshot["jobTypes"] as? List<*>).orEmpty())
+                .mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+                .distinct()
+            fun workerProfileString(key: String): String = workerProfileSnapshot[key]?.toString()?.trim().orEmpty()
 
             val application = JobApplication(
                 id = "${jobId}_${userId}",
@@ -1092,23 +1097,13 @@ class JobApplicationService @Inject constructor(
                 val currentApplication = doc.toJobApplicationOrNull()
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
                 
-                val now = System.currentTimeMillis()
-                val hiredAt = if (newStatus == ApplicationStatus.HIRED && currentApplication.hiredAt <= 0L) {
-                    now
-                } else {
-                    currentApplication.hiredAt
-                }
                 val updatedApplication = currentApplication.copy(
-                    status = newStatus,
-                    hiredAt = hiredAt
+                    status = newStatus
                 )
 
                 val updates = mutableMapOf<String, Any>(
                     "status" to newStatus.toFirestoreValue()
                 )
-                if (newStatus == ApplicationStatus.HIRED && currentApplication.hiredAt <= 0L) {
-                    updates["hiredAt"] = Timestamp(Date(now))
-                }
 
                 docRef.update(updates).await()
                 // Cloud Functions owns cross-user status notifications.

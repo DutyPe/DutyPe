@@ -42,9 +42,27 @@ class CurrentUserViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val uid = auth.currentUser?.uid ?: return@launch
-                val doc = firestore.collection(FirestoreCollections.USERS).document(uid).get().await()
-                if (!doc.exists()) return@launch
-                val data = doc.data ?: return@launch
+                val normalizedPhone = auth.currentUser?.phoneNumber
+                    ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                    .orEmpty()
+                val phoneRoleData = if (normalizedPhone.isNotBlank()) {
+                    firestore.collection(FirestoreCollections.PHONE_ROLES).document(normalizedPhone).get().await().data.orEmpty()
+                } else {
+                    emptyMap()
+                }
+                val role = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
+                val profileCollection = if (role == UserRole.EMPLOYER.name) {
+                    FirestoreCollections.EMPLOYER_PROFILES
+                } else {
+                    FirestoreCollections.WORKER_PROFILES
+                }
+                val profileDoc = firestore.collection(profileCollection).document(uid).get().await()
+                if (!profileDoc.exists() && phoneRoleData.isEmpty()) return@launch
+                val data = profileDoc.data.orEmpty().toMutableMap().apply {
+                    putIfAbsent("role", role ?: get("role") ?: UserRole.WORKER.name)
+                    (phoneRoleData["phoneNumber"] as? String)?.let { put("phone", it) }
+                    (phoneRoleData["name"] as? String)?.let { put("fullName", it) }
+                }
                 _currentUser.value = User.fromFirestoreMap(uid, data)
                 Timber.d("CurrentUserViewModel - loaded uid=%s role=%s", uid, _currentUser.value?.role)
             } catch (e: kotlinx.coroutines.CancellationException) {

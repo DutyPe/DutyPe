@@ -34,8 +34,8 @@ export const employerLanding = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    // Fetch employer data from Firestore
-    const employerDoc = await db.collection("users").doc(employerId).get();
+    // Fetch employer data from the canonical profile collection.
+    const employerDoc = await db.collection("employer_profiles").doc(employerId).get();
 
     if (!employerDoc.exists) {
       res.status(404).send("Employer not found");

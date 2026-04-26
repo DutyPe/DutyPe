@@ -4,21 +4,7 @@ import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
 
 /**
- * User â€” single-role canonical model.
- *
- * Firestore users collection (canonical fields):
- *   userId (doc ID), phone, fullName, profileImageUrl,
- *   role (single string),
- *   location{lat,lng}, geohash,
- *   fcmToken, createdAt, lastActiveAt,
- *   referralCode, referredByCode, referredByUserId
- *
- * Transient compat fields written for one migration window:
- *   roles (one-element array containing role)
- *   activeRole (mirror of role)
- *
- * The Kotlin model exposes only `role`. Read-side helpers below tolerate
- * legacy documents that still contain only `roles`/`activeRole`.
+ * User model built from canonical phoneRoles + role profile data.
  */
 @Keep
 @Immutable
@@ -42,15 +28,11 @@ data class User(
 ) {
     companion object {
         /**
-         * Parse a `users/{uid}` Firestore document into a [User].
-         *
-         * Prefers the new canonical `role` field; falls back to `activeRole`
-         * then `roles[0]` for unmigrated legacy documents.
+         * Parse canonical profile data into a [User].
          */
         @Suppress("UNCHECKED_CAST")
         fun fromFirestoreMap(uid: String, data: Map<String, Any?>): User {
             val roleStr = (data["role"] as? String)
-                ?: (data["activeRole"] as? String)
                 ?: (data["roles"] as? List<*>)?.firstOrNull()?.toString()
                 ?: UserRole.WORKER.name
             val role = runCatching { UserRole.valueOf(roleStr.uppercase()) }

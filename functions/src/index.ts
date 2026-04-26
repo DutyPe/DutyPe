@@ -302,11 +302,11 @@ export const sendPushNotification = functions.firestore
         }
       }
 
-      // Get recipient's FCM token from users collection
-      const userDoc = await db.collection("users").doc(recipientId).get();
+      // Get recipient's FCM token from the canonical token collection.
+      const tokenDoc = await db.collection("user_tokens").doc(recipientId).get();
       
-      if (!userDoc.exists) {
-        functions.logger.warn(`📬 FCM: No user found for: ${recipientId}`);
+      if (!tokenDoc.exists) {
+        functions.logger.warn(`📬 FCM: No token document found for: ${recipientId}`);
         await snapshot.ref.update({
           processing: false,
           sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -315,8 +315,8 @@ export const sendPushNotification = functions.firestore
         return null;
       }
 
-      const userData = userDoc.data();
-      if (!userData?.fcmToken) {
+      const tokenData = tokenDoc.data();
+      if (!tokenData?.fcmToken) {
         functions.logger.warn(`📬 FCM: No FCM token for user: ${recipientId}`);
         await snapshot.ref.update({
           processing: false,
@@ -326,7 +326,7 @@ export const sendPushNotification = functions.firestore
         return null;
       }
 
-      const fcmToken = userData.fcmToken;
+      const fcmToken = tokenData.fcmToken;
 
       // Localization: if the doc carries a templateId + params, render in the
       // recipient's preferred language. Otherwise fall back to the literal
@@ -694,7 +694,7 @@ export const detectDuplicateJob = functions.firestore
           fraudScore: fraudScore,
         });
         
-        // Create in-app notification instead of using legacy moderation queue collection.
+        // Create an in-app notification for employer review.
         const modLocale = await getUserLanguage(db, employerId);
         const modRecipient = await getUserDisplayName(db, employerId);
         await db.collection("notifications").add({
@@ -797,21 +797,12 @@ export const checkPhoneExists = functions.https.onCall(async (data, context) => 
 
   const variants = Array.from(generatedVariants).slice(0, 10);
 
-  let usersSnapshot = await db
-    .collection("users")
-    .where("phone", "in", variants)
-    .limit(1)
-    .get();
+  const phoneRoleDocs = await Promise.all(
+    variants.map((variant) => db.collection("phoneRoles").doc(variant).get())
+  );
+  const phoneRoleDoc = phoneRoleDocs.find((doc) => doc.exists);
 
-  if (usersSnapshot.empty) {
-    usersSnapshot = await db
-      .collection("users")
-      .where("phoneNumber", "in", variants)
-      .limit(1)
-      .get();
-  }
-
-  if (usersSnapshot.empty) {
+  if (!phoneRoleDoc) {
     return { exists: false, roleConflict: false };
   }
 
@@ -819,10 +810,8 @@ export const checkPhoneExists = functions.https.onCall(async (data, context) => 
   // so the client can show the right error ("This number is registered as
   // an employer; please log in as an employer."). We never leak userId,
   // fullName, or other PII.
-  const userData = usersSnapshot.docs[0].data() as Record<string, unknown>;
+  const userData = phoneRoleDoc.data() as Record<string, unknown>;
   const existingRole = (
-    (userData.role as string | undefined) ||
-    (userData.activeRole as string | undefined) ||
     (Array.isArray(userData.roles) ? (userData.roles[0] as string | undefined) : undefined) ||
     ""
   ).toUpperCase();
@@ -855,7 +844,7 @@ export const checkPhoneExists = functions.https.onCall(async (data, context) => 
 export const processModerationDecision = functions.firestore
   .document("jobmetadata/{jobId}")
   .onUpdate(async () => {
-    // Legacy moderation queue path removed in final schema.
+    // Moderation decisions are handled by the current job status workflow.
     return null;
   });
 
@@ -960,8 +949,7 @@ export const processJobReport = functions.firestore
         jobAggregateUpdate.status = "closed";
         jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
 
-        // Notify employer instead of creating legacy moderation queue documents.
-        // employerId now lives in job_details (slim jobmetadata schema).
+        // Notify employer through the current inbox workflow.
         const detailsSnapForReport = await db.collection("job_details").doc(jobId).get();
         const reportEmployerId = detailsSnapForReport.exists
           ? (detailsSnapForReport.get("employerId") as string | undefined)
@@ -1084,26 +1072,15 @@ export const updateMetadataOnJobDelete = functions.firestore
     return null;
   });
 
-/**
- * Trigger to update user count when a new user registers
- */
-export const updateMetadataOnUserCreate = functions.firestore
-  .document("users/{userId}")
-  .onCreate(async (snapshot, context) => {
-    functions.logger.info("📊 METADATA: update on user create skipped (metadata removed)");
-    return null;
-  });
-
-
 // ============================================
 // ENTERPRISE REFERRAL SYSTEM EXPORTS
 // ============================================
 // Import and re-export referral system functions
 export {
-  onUserProfileComplete,
+  onWorkerProfileReferralReady,
+  onEmployerProfileReferralReady,
   ensureUserReferralCode,
   applyReferralCode,
-  onReferredUserProfileComplete,
   expirePendingReferrals,
   requestWithdrawal,
   detectReferralFraud,

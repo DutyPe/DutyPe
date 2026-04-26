@@ -121,16 +121,16 @@ async function cleanupExpiredNotificationsBatch() {
 async function sendFCMNotification(userId, payload) {
     var _a;
     try {
-        // Get user's FCM token from users collection
-        const userDoc = await admin.firestore()
-            .collection('users')
+        // Get user's FCM token from the canonical token collection.
+        const tokenDoc = await admin.firestore()
+            .collection('user_tokens')
             .doc(userId)
             .get();
-        if (!userDoc.exists) {
-            console.log(`No user found for ${userId}`);
+        if (!tokenDoc.exists) {
+            console.log(`No token document found for ${userId}`);
             return false;
         }
-        const token = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
+        const token = (_a = tokenDoc.data()) === null || _a === void 0 ? void 0 : _a.fcmToken;
         if (!token) {
             console.log(`No FCM token for user ${userId}`);
             return false;
@@ -205,8 +205,9 @@ function isQuietHours() {
  * - If user is in EMPLOYER mode -> only employer notifications
  * - Birthday notifications sent to everyone regardless of active role
  */
-function userActiveRoleMatches(user, targetRole) {
-    return user.activeRole === targetRole;
+function profileRoleMatches(profile, targetRole) {
+    const role = String((profile === null || profile === void 0 ? void 0 : profile.role) || targetRole).toUpperCase();
+    return role === targetRole;
 }
 function simpleHash(input) {
     let hash = 0;
@@ -266,19 +267,18 @@ async function sendRoleSpecificSmartEngagement(slot) {
         console.log('🧠 Smart engagement: quiet hours - skipping');
         return;
     }
-    const usersSnapshot = await admin.firestore()
-        .collection('users')
-        .limit(500)
-        .get();
+    const [workerSnapshot, employerSnapshot] = await Promise.all([
+        admin.firestore().collection('worker_profiles').limit(250).get(),
+        admin.firestore().collection('employer_profiles').limit(250).get(),
+    ]);
+    const profileDocs = [
+        ...workerSnapshot.docs.map((doc) => ({ doc, role: 'WORKER' })),
+        ...employerSnapshot.docs.map((doc) => ({ doc, role: 'EMPLOYER' })),
+    ];
     let sentCount = 0;
     const dayOfMonth = new Date().getDate();
-    for (const doc of usersSnapshot.docs) {
-        const user = doc.data();
+    for (const { doc, role } of profileDocs) {
         const userId = doc.id;
-        const role = user.activeRole;
-        if (role !== 'WORKER' && role !== 'EMPLOYER') {
-            continue;
-        }
         const notificationType = `smart_engagement_${role.toLowerCase()}_${slot}`;
         const dedupeKey = `${notificationType}_${new Date().toISOString().slice(0, 10)}`;
         const alreadySentToday = await admin.firestore()
@@ -332,8 +332,8 @@ exports.workerNearbyJobsMorning = functions.pubsub
         console.log('📍 Nearby jobs: quiet hours - skipping');
         return null;
     }
-    const [usersSnapshot, jobsSnapshot] = await Promise.all([
-        admin.firestore().collection('users').where('activeRole', '==', 'WORKER').limit(200).get(),
+    const [workersSnapshot, jobsSnapshot] = await Promise.all([
+        admin.firestore().collection('worker_profiles').limit(200).get(),
         admin.firestore().collection('jobmetadata').where('status', '==', 'open').orderBy('createdAt', 'desc').limit(250).get(),
     ]);
     const jobs = jobsSnapshot.docs.map((doc) => {
@@ -342,7 +342,7 @@ exports.workerNearbyJobsMorning = functions.pubsub
         return loc ? Object.assign(Object.assign({ id: doc.id }, loc), { title: String(data.title || 'job'), city: String(data.companyCity || data.addressText || '') }) : null;
     }).filter(Boolean);
     let sentCount = 0;
-    for (const doc of usersSnapshot.docs) {
+    for (const doc of workersSnapshot.docs) {
         const userId = doc.id;
         const user = doc.data();
         const workerLocation = await getWorkerLocation(userId, user);
@@ -416,15 +416,15 @@ exports.checkBirthdays = functions.pubsub
     const todayMonth = today.getMonth() + 1;
     console.log(`[BIRTHDAY] Today's date: ${todayDay}/${todayMonth}/${today.getFullYear()}`);
     try {
-        // Query all users (admin privileges - no permission errors!)
-        const usersSnapshot = await admin.firestore()
-            .collection('users')
-            .limit(500)
-            .get();
-        console.log(`[BIRTHDAY] Checking ${usersSnapshot.size} users for birthdays`);
+        const [workersSnapshot, employersSnapshot] = await Promise.all([
+            admin.firestore().collection('worker_profiles').limit(500).get(),
+            admin.firestore().collection('employer_profiles').limit(500).get(),
+        ]);
+        const profileDocs = [...workersSnapshot.docs, ...employersSnapshot.docs];
+        console.log(`[BIRTHDAY] Checking ${profileDocs.length} profiles for birthdays`);
         let birthdayWishesSent = 0;
         let birthdaysFound = 0;
-        for (const doc of usersSnapshot.docs) {
+        for (const doc of profileDocs) {
             const user = doc.data();
             const userId = doc.id;
             const dateOfBirth = user.dateOfBirth;
@@ -514,17 +514,16 @@ exports.checkExpiringJobs = functions.pubsub
             const job = metaDoc.data() || {};
             if (job.status !== 'open')
                 continue;
-            // Get employer user document to check active role
+            // Get employer profile to verify the role still exists.
             const employerDoc = await admin.firestore()
-                .collection('users')
+                .collection('employer_profiles')
                 .doc(employerId)
                 .get();
             if (!employerDoc.exists)
                 continue;
             const employer = employerDoc.data();
-            // Only send if user's ACTIVE role is EMPLOYER
-            if (!userActiveRoleMatches(employer, 'EMPLOYER')) {
-                console.log(`[EXPIRING_JOBS] Skipping job ${jobId} - employer ${employerId} not in EMPLOYER mode`);
+            if (!profileRoleMatches(employer, 'EMPLOYER')) {
+                console.log(`[EXPIRING_JOBS] Skipping job ${jobId} - employer ${employerId} profile role mismatch`);
                 continue;
             }
             // Check if we can send notification
@@ -601,17 +600,16 @@ exports.checkPendingApplications = functions.pubsub
         console.log(`[PENDING_APPLICATIONS] Found ${employerApplications.size} employers with pending applications`);
         let sentCount = 0;
         for (const [employerId, count] of employerApplications.entries()) {
-            // Get employer user document to check active role
+            // Get employer profile to verify the role still exists.
             const employerDoc = await admin.firestore()
-                .collection('users')
+                .collection('employer_profiles')
                 .doc(employerId)
                 .get();
             if (!employerDoc.exists)
                 continue;
             const employer = employerDoc.data();
-            // Only send if user's ACTIVE role is EMPLOYER
-            if (!userActiveRoleMatches(employer, 'EMPLOYER')) {
-                console.log(`[PENDING_APPLICATIONS] Skipping employer ${employerId} - not in EMPLOYER mode`);
+            if (!profileRoleMatches(employer, 'EMPLOYER')) {
+                console.log(`[PENDING_APPLICATIONS] Skipping employer ${employerId} - profile role mismatch`);
                 continue;
             }
             // Check if we can send notification
@@ -685,15 +683,12 @@ exports.remindWorkersPendingApplications = functions.pubsub
             const applicationId = doc.id;
             const employerId = app.employerId;
             const createdAt = ((_a = app.createdAt) === null || _a === void 0 ? void 0 : _a.toMillis) ? app.createdAt.toMillis() : 0;
-            // Check if user's ACTIVE role is WORKER
-            const userDoc = await admin.firestore().collection('users').doc(workerId).get();
-            if (!userDoc.exists)
+            const workerDoc = await admin.firestore().collection('worker_profiles').doc(workerId).get();
+            if (!workerDoc.exists)
                 continue;
-            const userData = userDoc.data();
-            const activeRole = (userData === null || userData === void 0 ? void 0 : userData.activeRole) || 'WORKER';
-            // Only send to users whose ACTIVE role is WORKER
-            if (activeRole !== 'WORKER') {
-                console.log(`[WORKER_PENDING_APPLICATIONS] Skipping ${workerId} - active role is ${activeRole}, not WORKER`);
+            const workerData = workerDoc.data();
+            if (!profileRoleMatches(workerData, 'WORKER')) {
+                console.log(`[WORKER_PENDING_APPLICATIONS] Skipping ${workerId} - profile role mismatch`);
                 continue;
             }
             // Get job details
@@ -819,17 +814,15 @@ exports.reEngageInactiveWorkers = functions.pubsub
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
     const threeDaysAgoTs = admin.firestore.Timestamp.fromMillis(threeDaysAgo);
     try {
-        // Query ALL users (we'll filter by active role in code)
-        const usersSnapshot = await admin.firestore()
-            .collection('users')
+        const workersSnapshot = await admin.firestore()
+            .collection('worker_profiles')
             .limit(200)
             .get();
         let reEngagedCount = 0;
-        for (const doc of usersSnapshot.docs) {
+        for (const doc of workersSnapshot.docs) {
             const user = doc.data();
             const userId = doc.id;
-            // Check if user's ACTIVE role is WORKER
-            if (!userActiveRoleMatches(user, 'WORKER')) {
+            if (!profileRoleMatches(user, 'WORKER')) {
                 continue;
             }
             // Check if we can send notification
@@ -894,17 +887,15 @@ exports.reEngageInactiveEmployers = functions.pubsub
     }
     const fifteenDaysAgo = Date.now() - (15 * 24 * 60 * 60 * 1000);
     try {
-        // Query ALL users (we'll filter by active role in code)
-        const usersSnapshot = await admin.firestore()
-            .collection('users')
+        const employersSnapshot = await admin.firestore()
+            .collection('employer_profiles')
             .limit(200)
             .get();
         let reEngagedCount = 0;
-        for (const doc of usersSnapshot.docs) {
+        for (const doc of employersSnapshot.docs) {
             const user = doc.data();
             const userId = doc.id;
-            // Check if user's ACTIVE role is EMPLOYER
-            if (!userActiveRoleMatches(user, 'EMPLOYER')) {
+            if (!profileRoleMatches(user, 'EMPLOYER')) {
                 continue;
             }
             // Check if we can send notification
@@ -962,7 +953,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
 exports.notifyApplicationStatusUpdate = functions.firestore
     .document('applications/{applicationId}')
     .onUpdate(async (_change, context) => {
-    console.log(`[APPLICATION_STATUS] Legacy direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns application status notifications`);
+    console.log(`[APPLICATION_STATUS] Direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns application status notifications`);
     return null;
 });
 // ============================================
@@ -998,8 +989,7 @@ async function sendGuestEngagementTopicMessage() {
     const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000);
     const picked = pool[dayOfYear % pool.length];
     // Fan out to per-language topics so devices that already chose Telugu get
-    // the Telugu copy and devices on English get the English copy. Android
-    // subscribes to `guest_users_${lang}` in addition to the legacy plain topic.
+    // the Telugu copy and devices on English get the English copy.
     for (const lang of notification_i18n_1.SUPPORTED_LOCALES) {
         const title = (0, notification_i18n_1.tTitle)(picked.id, lang);
         const body = (0, notification_i18n_1.tBody)(picked.id, lang);
@@ -1070,7 +1060,7 @@ exports.guestEngagementEvening = functions.pubsub
 exports.notifyNewApplication = functions.firestore
     .document('applications/{applicationId}')
     .onCreate(async (_snapshot, context) => {
-    console.log(`[NEW_APPLICATION] Legacy direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns new application notifications`);
+    console.log(`[NEW_APPLICATION] Direct-FCM trigger skipped for ${context.params.applicationId}; notification-fanout owns new application notifications`);
     return null;
 });
 /**

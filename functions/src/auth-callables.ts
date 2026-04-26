@@ -7,17 +7,14 @@
  *   • require an `idempotencyKey` from the client (replay-safe)
  *   • run in asia-south1
  *
- * Field shapes intentionally mirror the existing `users` document layout
- * (userId / phone / fullName / roles / activeRole / referralCode /
- *  referredByCode / referredByUserId / createdAt / lastActiveAt) so that
- * existing read paths continue to work unchanged.
+ * Identity now lives in phoneRoles/{phoneE164}; role-owned profile data lives
+ * in worker_profiles/{uid} or employer_profiles/{uid}.
  *
- * #9 / #20 fix: phone_index/{phoneE164} now stores
- *   { phone, uid, role, name, createdAt }
+ * #9 / #20 fix: phoneRoles/{phoneE164} stores
+ *   { phoneNumber, roles, uid, name, createdAt, updatedAt }
  * so any phone-aware lookup is a single doc read AND the registration path
  * hard-blocks dual roles (the same phone cannot register as both worker and
- * employer). This is the schema decision documented in the user's audit
- * notes — "extend phone_index with {phone, role, uid, name}".
+ * employer).
  */
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
@@ -105,7 +102,7 @@ function alreadyExistedToEvent(alreadyExisted: boolean, _role: string): string {
 // completeRegistration
 // ────────────────────────────────────────────────────────────────────────
 // Single-role-per-phone enforcement (#9 / #20):
-//   • If phone_index/{phoneE164} already exists for a DIFFERENT uid → block.
+//   • If phoneRoles/{phoneE164} already exists for a DIFFERENT uid → block.
 //   • If it exists for the SAME uid but with a DIFFERENT role → block with
 //     `failed-precondition` so the client can show "phone is registered as
 //     EMPLOYER, please log in as employer" toast instead of silently merging.
@@ -134,13 +131,15 @@ export const completeRegistration = onCallSecured(
     const idem = await withIdempotency(uid, "completeRegistration", data?.idempotencyKey);
     if (idem.hit) return idem.result;
 
-    const userRef = db().collection("users").doc(uid);
-    const phoneIndexRef = db().collection("phone_index").doc(phoneE164);
+    const phoneRoleRef = db().collection("phoneRoles").doc(phoneE164);
+    const profileRef = db()
+      .collection(role === "WORKER" ? "worker_profiles" : "employer_profiles")
+      .doc(uid);
 
     const result = await db().runTransaction(async (tx) => {
-      const [userSnap, phoneSnap] = await Promise.all([tx.get(userRef), tx.get(phoneIndexRef)]);
+      const [phoneSnap, profileSnap] = await Promise.all([tx.get(phoneRoleRef), tx.get(profileRef)]);
 
-      // Phone uniqueness: if phone_index already maps to another uid, refuse.
+      // Phone uniqueness: if phoneRoles already maps to another uid, refuse.
       if (phoneSnap.exists) {
         const phoneData = phoneSnap.data() || {};
         const owner = phoneData.uid as string | undefined;
@@ -151,7 +150,10 @@ export const completeRegistration = onCallSecured(
           );
         }
         // Single-role-per-phone (#9 / #20): block role change on same phone.
-        const existingRole = String(phoneData.role || "").toUpperCase();
+        const existingRoles = Array.isArray(phoneData.roles)
+          ? phoneData.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
+          : [];
+        const existingRole = existingRoles[0] || "";
         if (existingRole && existingRole !== role) {
           throw new functions.https.HttpsError(
             "failed-precondition",
@@ -161,55 +163,51 @@ export const completeRegistration = onCallSecured(
       }
 
       const now = admin.firestore.Timestamp.now();
-      const existing = (userSnap.data() || {}) as Record<string, any>;
-      const existingRoles: string[] = Array.isArray(existing.roles)
-        ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
-        : [];
+      const existing = (profileSnap.data() || {}) as Record<string, any>;
+      const existingRole = String(existing.role || "").toUpperCase();
 
       // Single-role enforcement (#20). If the user already has a role and it
-      // differs from the request, refuse — even if the phone_index doc was
+      // differs from the request, refuse — even if the phoneRoles doc was
       // somehow missing (defence in depth).
-      if (existingRoles.length > 0 && !existingRoles.includes(role)) {
+      if (existingRole && existingRole !== role) {
         throw new functions.https.HttpsError(
           "failed-precondition",
-          `phone-already-registered-as:${existingRoles[0]}`
+          `phone-already-registered-as:${existingRole}`
         );
       }
 
-      const mergedRoles = Array.from(new Set([...existingRoles, role]));
-      const alreadyExisted = userSnap.exists && existingRoles.length > 0;
+      const mergedRoles = [role];
+      const alreadyExisted = phoneSnap.exists || profileSnap.exists;
 
-      const userData: Record<string, any> = {
+      const profileData: Record<string, any> = {
         userId: uid,
         phone: phoneE164,
         fullName: (existing.fullName as string | undefined)?.trim() || fullName,
-        roles: mergedRoles,
-        activeRole: role,
+        role,
         createdAt: existing.createdAt || now,
-        lastActiveAt: now,
+        updatedAt: now,
       };
-      if (existing.referralCode) userData.referralCode = existing.referralCode;
+      if (role === "EMPLOYER") profileData.companyName = existing.companyName || fullName;
+      if (existing.referralCode) profileData.referralCode = existing.referralCode;
       if (referralCode && !existing.referredByCode) {
-        userData.referredByCode = referralCode;
+        profileData.referredByCode = referralCode;
       } else if (existing.referredByCode) {
-        userData.referredByCode = existing.referredByCode;
+        profileData.referredByCode = existing.referredByCode;
       }
-      if (existing.referredByUserId) userData.referredByUserId = existing.referredByUserId;
-      if (existing.profileImageUrl) userData.profileImageUrl = existing.profileImageUrl;
-      if (existing.fcmToken) userData.fcmToken = existing.fcmToken;
+      if (existing.referredByUserId) profileData.referredByUserId = existing.referredByUserId;
+      if (existing.profileImageUrl) profileData.profileImageUrl = existing.profileImageUrl;
 
-      tx.set(userRef, userData, { merge: true });
+      tx.set(profileRef, profileData, { merge: true });
 
-      // Extended phone_index payload (#20). Stored with `merge: true` so
-      // existing legacy docs get backfilled with role/name/phone on the next
+      // Stored with `merge: true` so existing docs get backfilled on the next
       // registration touch.
       tx.set(
-        phoneIndexRef,
+        phoneRoleRef,
         {
-          phone: phoneE164,
+          phoneNumber: phoneE164,
           uid,
-          role,
-          name: userData.fullName,
+          roles: mergedRoles,
+          name: profileData.fullName,
           createdAt: phoneSnap.exists ? phoneSnap.data()?.createdAt || now : now,
           updatedAt: now,
         },
@@ -253,6 +251,7 @@ export const completeRegistration = onCallSecured(
 // granting a second role.
 export const addRole = onCallSecured({}, async (data: any, context) => {
   const uid = context.auth!.uid;
+  const phoneE164 = normalizePhoneE164(context.auth!.token?.phone_number);
   const newRole = validateEnum(
     data?.newRole,
     "newRole",
@@ -260,8 +259,8 @@ export const addRole = onCallSecured({}, async (data: any, context) => {
   ) as Role;
 
   // Look up existing role for the toast message.
-  const userSnap = await db().collection("users").doc(uid).get();
-  const existing = (userSnap.data() || {}) as Record<string, any>;
+  const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
+  const existing = (phoneSnap?.data() || {}) as Record<string, any>;
   const existingRoles: string[] = Array.isArray(existing.roles)
     ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
     : [];
@@ -287,18 +286,22 @@ export const addRole = onCallSecured({}, async (data: any, context) => {
 // rejected.
 export const switchActiveRole = onCallSecured({}, async (data: any, context) => {
   const uid = context.auth!.uid;
+  const phoneE164 = normalizePhoneE164(context.auth!.token?.phone_number);
   const newRole = validateEnum(
     data?.newRole,
     "newRole",
     VALID_ROLES as unknown as string[]
   ) as Role;
 
-  const userSnap = await db().collection("users").doc(uid).get();
-  if (!userSnap.exists) {
+  const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
+  if (!phoneSnap?.exists) {
     throw new functions.https.HttpsError("failed-precondition", "User profile not found");
   }
-  const existing = (userSnap.data() || {}) as Record<string, any>;
-  const activeRole = String(existing.activeRole || "").toUpperCase();
+  const existing = (phoneSnap.data() || {}) as Record<string, any>;
+  const roles: string[] = Array.isArray(existing.roles)
+    ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
+    : [];
+  const activeRole = roles[0] || "";
   if (activeRole === newRole) {
     return { success: true, activeRole: newRole, profileExists: true, noop: true };
   }
@@ -335,42 +338,16 @@ export const lookupPhoneRole = onCallSecured(
         ? requestedRoleRaw
         : "";
 
-    const snap = await db().collection("phone_index").doc(phoneE164).get();
-    let d = snap.data() || {};
-
+    const snap = await db().collection("phoneRoles").doc(phoneE164).get();
     if (!snap.exists) {
-      const digits = phoneE164.replace(/\D/g, "");
-      const last10 = digits.length >= 10 ? digits.slice(-10) : "";
-      const variants = Array.from(new Set([
-        phoneE164,
-        digits,
-        last10 ? `+91${last10}` : "",
-        last10 ? `91${last10}` : "",
-        last10,
-      ].filter(Boolean)));
-
-      let userSnap = await db()
-        .collection("users")
-        .where("phone", "in", variants.slice(0, 10))
-        .limit(1)
-        .get();
-
-      if (userSnap.empty) {
-        userSnap = await db()
-          .collection("users")
-          .where("phoneNumber", "in", variants.slice(0, 10))
-          .limit(1)
-          .get();
-      }
-
-      if (userSnap.empty) {
-        return { exists: false, roleConflict: false };
-      }
-
-      d = userSnap.docs[0].data() || {};
+      return { exists: false, roleConflict: false };
     }
+    const d = snap.data() || {};
 
-    const existingRole = String(d.role || "").toUpperCase();
+    const roles = Array.isArray(d.roles)
+      ? d.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
+      : [];
+    const existingRole = String(roles[0] || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict =
       !!requestedRole && !!existingRole && requestedRole !== existingRole;
@@ -432,36 +409,22 @@ export const getWorkerProfileForEmployer = onCallSecured(
       }
     }
 
-    const [userSnap, workerSnap] = await Promise.all([
-      db().collection("users").doc(workerId).get(),
-      db().collection("worker_profiles").doc(workerId).get(),
-    ]);
+    const workerSnap = await db().collection("worker_profiles").doc(workerId).get();
 
-    if (!userSnap.exists && !workerSnap.exists) {
+    if (!workerSnap.exists) {
       throw new functions.https.HttpsError("not-found", "Worker profile not found");
     }
 
-    const user = (userSnap.data() || {}) as Record<string, any>;
     const worker = (workerSnap.data() || {}) as Record<string, any>;
 
-    // Strip sensitive fields before returning.
-    const safeUser: Record<string, any> = {};
+    const safeWorker: Record<string, any> = {};
     for (const k of [
       "userId",
       "fullName",
       "phone",
-      "profileImageUrl",
-      "city",
+      "role",
       "location",
       "geohash",
-      "roles",
-      "activeRole",
-    ]) {
-      if (user[k] !== undefined) safeUser[k] = user[k];
-    }
-
-    const safeWorker: Record<string, any> = {};
-    for (const k of [
       "skills",
       "jobTypes",
       "experience",
@@ -481,8 +444,7 @@ export const getWorkerProfileForEmployer = onCallSecured(
       if (worker[k] !== undefined) safeWorker[k] = worker[k];
     }
 
-    // Merge with worker_profiles taking precedence on overlapping keys.
-    const merged = { ...safeUser, ...safeWorker, workerId };
+    const merged = { ...safeWorker, workerId };
     return { success: true, profile: merged };
   }
 );
@@ -521,29 +483,20 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
   }
 
   // Pre-checks outside the transaction (cheaper).
-  const [userSnap, workerProfileSnap, jobSnap] = await Promise.all([
-    db().collection("users").doc(uid).get(),
+  const [workerProfileSnap, jobSnap] = await Promise.all([
     db().collection("worker_profiles").doc(uid).get(),
     db().collection("jobmetadata").doc(jobId).get(),
   ]);
 
-  if (!userSnap.exists) {
-    throw new functions.https.HttpsError("failed-precondition", "User profile not found");
-  }
-  const user = (userSnap.data() || {}) as Record<string, any>;
-  const roles: string[] = Array.isArray(user.roles)
-    ? user.roles.map((r: any) => String(r).toUpperCase())
-    : [];
-  if (!roles.includes("WORKER")) {
-    throw new functions.https.HttpsError("failed-precondition", "WORKER role required");
-  }
   if (!workerProfileSnap.exists) {
     throw new functions.https.HttpsError("failed-precondition", "Worker profile not set up");
   }
-  const workerScoreRaw =
-    (workerProfileSnap.data() as Record<string, any> | undefined)?.profileScore ??
-    user.workerProfileScore ??
-    0;
+  const worker = (workerProfileSnap.data() || {}) as Record<string, any>;
+  const profileRole = String(worker.role || "WORKER").toUpperCase();
+  if (profileRole !== "WORKER") {
+    throw new functions.https.HttpsError("failed-precondition", "WORKER role required");
+  }
+  const workerScoreRaw = worker.profileScore ?? 0;
   const workerScore = Number(workerScoreRaw);
   if (!Number.isFinite(workerScore) || workerScore < MIN_WORKER_PROFILE_SCORE) {
     throw new functions.https.HttpsError(
@@ -575,19 +528,24 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
 
   const docId = `${jobId}_${uid}`;
   const appRef = db().collection("applications").doc(docId);
+  const applicationData: Record<string, any> = {
+    jobId,
+    workerId: uid,
+    employerId,
+    status: "applied",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const workerName = String(worker.fullName || worker.name || "").trim();
+  if (workerName) {
+    applicationData.workerName = workerName;
+  }
 
   const txResult = await db().runTransaction(async (tx) => {
     const existing = await tx.get(appRef);
     if (existing.exists) {
       return { alreadyApplied: true };
     }
-    tx.set(appRef, {
-      jobId,
-      workerId: uid,
-      employerId,
-      status: "applied",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    tx.set(appRef, applicationData);
     return { alreadyApplied: false };
   });
 

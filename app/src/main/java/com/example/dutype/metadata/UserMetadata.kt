@@ -223,62 +223,40 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadUserStats(userId: String) {
         try {
-            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS).document(userId).get().await()
-            
-            // Get phone number from Firebase Auth as fallback (for new users who just logged in)
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
-            
-            if (doc.exists()) {
-                val data = doc.data.orEmpty()
-                val unknownFields = data.keys.filter { it !in allowedUserFields }
-                if (unknownFields.isNotEmpty()) {
-                    Timber.w("📊 UserMetadata: Found unsupported users fields for %s: %s", userId, unknownFields)
-                }
+            val normalizedPhone = auth.currentUser?.phoneNumber
+                ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                .orEmpty()
+            val phoneRoleDoc = normalizedPhone.takeIf { auth.currentUser?.uid == userId && it.isNotBlank() }
+                ?.let { firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
+            val role = ((phoneRoleDoc?.get("roles") as? List<*>)?.firstOrNull()?.toString()
+                ?: "").uppercase()
+            val preferredCollection = when (role) {
+                "EMPLOYER" -> com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
+                else -> com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
+            }
+            var profileDoc = firestore.collection(preferredCollection).document(userId).get().await()
+            if (!profileDoc.exists() && preferredCollection != com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES) {
+                profileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await()
+            }
+            if (!profileDoc.exists() && preferredCollection != com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES) {
+                profileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await()
+            }
 
-                val firestorePhone = doc.getString("phone") ?: ""
+            if (profileDoc.exists() || phoneRoleDoc?.exists() == true) {
+                val firestorePhone = profileDoc.getString("phone") ?: phoneRoleDoc?.getString("phoneNumber") ?: ""
                 val phoneToUse = firestorePhone.ifBlank { authPhoneNumber }
 
-                var resolvedFullName = doc.getString("fullName") ?: ""
-                var resolvedProfileImageUrl = doc.getString("profileImageUrl") ?: ""
-
-                // Fallback: profile menu reads users/{uid}; the profile detail screen
-                // writes name/image into worker_profiles or employer_profiles. If the
-                // users doc is missing those fields, mirror them from the role-specific
-                // profile collection so the menu shows the latest data.
-                if (resolvedFullName.isBlank() || resolvedProfileImageUrl.isBlank()) {
-                    val role = (doc.getString("role")
-                        ?: doc.getString("activeRole")
-                        ?: (doc.get("roles") as? List<*>)?.firstOrNull()?.toString()
-                        ?: "").uppercase()
-                    val profileCollection = when (role) {
-                        "WORKER" -> com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
-                        "EMPLOYER" -> com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
-                        else -> null
-                    }
-                    if (profileCollection != null) {
-                        try {
-                            val profileDoc = firestore.collection(profileCollection).document(userId).get().await()
-                            if (profileDoc.exists()) {
-                                if (resolvedFullName.isBlank()) {
-                                    resolvedFullName = profileDoc.getString("fullName") ?: ""
-                                }
-                                if (resolvedProfileImageUrl.isBlank()) {
-                                    resolvedProfileImageUrl = profileDoc.getString("profileImageUrl") ?: ""
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.w(e, "📊 UserMetadata: profile fallback read failed for %s/%s", profileCollection, userId)
-                        }
-                    }
-                }
+                val resolvedFullName = profileDoc.getString("fullName") ?: phoneRoleDoc?.getString("name") ?: ""
+                val resolvedProfileImageUrl = profileDoc.getString("profileImageUrl") ?: ""
 
                 _userStats.value = UserStats(
                     userId = userId,
                     fullName = resolvedFullName,
                     phone = phoneToUse,
                     profileImageUrl = resolvedProfileImageUrl,
-                    createdAt = getEpochMillis(doc, "createdAt", System.currentTimeMillis()),
-                    isVerified = doc.getBoolean("isVerified") ?: false
+                    createdAt = getEpochMillis(profileDoc, "createdAt", System.currentTimeMillis()),
+                    isVerified = profileDoc.getBoolean("isVerified") ?: false
                 )
                 Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}, image=${_userStats.value.profileImageUrl.isNotBlank()}")
             } else {
@@ -312,8 +290,8 @@ class UserMetadata @Inject constructor(
         doc: DocumentSnapshot,
         authPhoneNumber: String
     ) {
-        // Disabled intentionally: profile reads must never perform users/{uid} writes.
-        // Strict-schema cleanup is handled by auth/profile services and admin migrations.
+        // Disabled intentionally: profile reads must not perform schema writes.
+        // Strict-schema cleanup is handled by auth/profile services.
         return
     }
     

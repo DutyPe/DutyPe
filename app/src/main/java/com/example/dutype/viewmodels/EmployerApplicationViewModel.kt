@@ -82,27 +82,26 @@ class EmployerApplicationViewModel @Inject constructor(
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             com.example.dutype.performance.MainThreadChecker.assertMainThread("EmployerApplicationViewModel.loadEmployerApplications")
-            
+
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
-            
+
             try {
                 Timber.d("[EmployerVM] Loading employer applications for ${currentUser.uid}")
-                
+
                 jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
                     result.fold(
                         onSuccess = { applications ->
                             val duration = System.currentTimeMillis() - startTime
                             performanceTracker.trackApiCall("load_employer_applications", duration, success = true)
-                            
+
                             Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer in ${duration}ms")
-                            
-                            // P1 FIX: Batch worker profile enrichment in parallel (was sequential N+1)
+
                             val enrichedApplications = coroutineScope {
                                 applications.map { app ->
                                     async { enrichApplicationWithWorkerProfile(app) }
                                 }.awaitAll()
                             }
-                            
+
                             _uiState.value = _uiState.value.copy(
                                 applications = enrichedApplications,
                                 allApplications = enrichedApplications,
@@ -110,14 +109,13 @@ class EmployerApplicationViewModel @Inject constructor(
                                 hasError = false,
                                 error = null
                             )
-                            
-                            // Update statistics
+
                             updateApplicationStats(enrichedApplications)
                         },
                         onFailure = { error ->
                             val duration = System.currentTimeMillis() - startTime
                             performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
-                            
+
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 hasError = true,
@@ -331,52 +329,69 @@ class EmployerApplicationViewModel @Inject constructor(
         newStatus: ApplicationStatus,
         notes: String? = null
     ) {
+        viewModelScope.launch {
+            updateApplicationStatusForResult(applicationId, newStatus, notes)
+        }
+    }
+
+    suspend fun updateApplicationStatusForResult(
+        applicationId: String,
+        newStatus: ApplicationStatus,
+        notes: String? = null
+    ): Result<JobApplication> {
         val currentUser = auth.currentUser
         if (currentUser == null) {
             _uiState.value = _uiState.value.copy(
                 hasError = true,
                 error = "Employer not authenticated"
             )
-            return
+            return Result.failure(IllegalStateException("Employer not authenticated"))
         }
-        
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isUpdating = true)
-            
-            try {
-                val result = jobApplicationService.updateApplicationStatus(
-                    applicationId = applicationId,
-                    newStatus = newStatus,
-                    updatedBy = currentUser.uid,
-                    notes = notes
-                )
-                
-                result.fold(
-                    onSuccess = { updatedApplication ->
-                        _uiState.value = _uiState.value.copy(
+
+        _uiState.value = _uiState.value.copy(isUpdating = true)
+
+        return try {
+            val result = jobApplicationService.updateApplicationStatus(
+                applicationId = applicationId,
+                newStatus = newStatus,
+                updatedBy = currentUser.uid,
+                notes = notes
+            )
+
+            result.fold(
+                onSuccess = { updatedApplication ->
+                    _uiState.update { state ->
+                        state.copy(
                             isUpdating = false,
                             hasError = false,
-                            error = null
-                        )
-                        
-                        // Refresh applications to show updated status
-                        loadEmployerApplications()
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isUpdating = false,
-                            hasError = true,
-                            error = error.message ?: "Failed to update application status"
+                            error = null,
+                            applications = state.applications.map { application ->
+                                if (application.id == applicationId) updatedApplication else application
+                            },
+                            allApplications = state.allApplications.map { application ->
+                                if (application.id == applicationId) updatedApplication else application
+                            }
                         )
                     }
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isUpdating = false,
-                    hasError = true,
-                    error = e.message ?: "Unknown error occurred"
-                )
-            }
+
+                    loadEmployerApplications()
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isUpdating = false,
+                        hasError = true,
+                        error = error.message ?: "Failed to update application status"
+                    )
+                }
+            )
+            result
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isUpdating = false,
+                hasError = true,
+                error = e.message ?: "Unknown error occurred"
+            )
+            Result.failure(e)
         }
     }
     

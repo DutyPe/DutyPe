@@ -193,18 +193,37 @@ class AuthManager @Inject constructor(
             }
             
             val userId = firebaseUser.uid
+            val normalizedPhone = firebaseUser.phoneNumber
+                ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                .orEmpty()
+            val phoneRoleData = if (normalizedPhone.isNotBlank()) {
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                    .document(normalizedPhone)
+                    .get()
+                    .await()
+                    .data
+                    .orEmpty()
+            } else {
+                emptyMap()
+            }
+            val role = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
+            val profileCollection = if (role == "EMPLOYER") {
+                com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
+            } else {
+                com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
+            }
+            val profileDoc = firestore.collection(profileCollection).document(userId).get().await()
 
-            val userDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                .document(userId)
-                .get()
-                .await()
-            
-            if (!userDoc.exists()) {
-                Timber.w("AuthManager - Cannot refresh: User document not found")
+            if (!profileDoc.exists() && phoneRoleData.isEmpty()) {
+                Timber.w("AuthManager - Cannot refresh: profile documents not found")
                 return null
             }
-            
-            val userData = userDoc.data ?: return null
+
+            val userData = profileDoc.data.orEmpty().toMutableMap().apply {
+                putIfAbsent("role", role ?: get("role") ?: "WORKER")
+                (phoneRoleData["phoneNumber"] as? String)?.let { put("phone", it) }
+                (phoneRoleData["name"] as? String)?.let { put("fullName", it) }
+            }
 
             val user = User.fromFirestoreMap(userId, userData)
 

@@ -153,26 +153,50 @@ fun MainNavGraph(
                     // User is authenticated, check their role and profile completion
                     Timber.d("🚀 MainNavGraph - User authenticated, checking role from DataStore...")
                     
-                    val userDoc = try {
+                    val db = com.example.dutype.di.firestoreFromHilt(context)
+                    val normalizedPhone = currentUser.phoneNumber
+                        ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                        .orEmpty()
+                    val phoneRoleDoc = try {
                         kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                            com.example.dutype.di.firestoreFromHilt(context)
-                                .collection(com.example.dutype.firestore.FirestoreCollections.USERS)
+                            normalizedPhone.takeIf { it.isNotBlank() }?.let {
+                                db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                                    .document(it)
+                                    .get()
+                                    .await()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, " MainNavGraph - Error reading phoneRoles doc")
+                        null
+                    }
+
+                    val firestoreRoleStr = (phoneRoleDoc?.get("roles") as? List<*>)
+                        ?.firstOrNull()
+                        ?.toString()
+
+                    val profileDocExists = try {
+                        kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                            val profileCollection = if (firestoreRoleStr?.uppercase() == "EMPLOYER") {
+                                com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
+                            } else {
+                                com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
+                            }
+                            db.collection(profileCollection)
                                 .document(currentUser.uid)
                                 .get()
                                 .await()
+                                .exists()
                         }
                     } catch (e: Exception) {
-                        Timber.e(e, " MainNavGraph - Error reading users doc")
-                        null
-                    }
+                        Timber.e(e, " MainNavGraph - Error reading role profile doc")
+                        false
+                    } == true
 
                     // Single-role architecture: trust the Firestore document as the
                     // source of truth for the user's role. Falls back to DataStore for
                     // pre-network UX, but Firestore wins on conflict.
                     var userRole: com.example.dutype.models.UserRole? = null
-                    val firestoreRoleStr = userDoc?.getString("role")
-                        ?: userDoc?.getString("activeRole")
-                        ?: (userDoc?.get("roles") as? List<*>)?.firstOrNull()?.toString()
                     if (firestoreRoleStr != null) {
                         userRole = runCatching {
                             com.example.dutype.models.UserRole.valueOf(firestoreRoleStr.uppercase())
@@ -195,7 +219,7 @@ fun MainNavGraph(
                     }
                     
                     if (userRole != null) {
-                        val localProfileComplete = userDoc?.exists() == true &&
+                        val localProfileComplete = profileDocExists &&
                             profileCompletionViewModel.isProfileComplete(userRole)
 
                         val firestoreProfileComplete = if (!localProfileComplete) {

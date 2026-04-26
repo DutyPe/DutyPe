@@ -185,8 +185,7 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val workersDeferred = async {
-                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                        .whereArrayContains("roles", "WORKER")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
                         .count()
                         .get(AggregateSource.SERVER)
                         .await()
@@ -194,8 +193,7 @@ class AppMetadata @Inject constructor(
                         .toInt()
                 }
                 val employersDeferred = async {
-                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.USERS)
-                        .whereArrayContains("roles", "EMPLOYER")
+                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
                         .count()
                         .get(AggregateSource.SERVER)
                         .await()

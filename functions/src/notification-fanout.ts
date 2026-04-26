@@ -6,7 +6,7 @@
  *   • application status transitions (shortlisted / hired / rejected) → notify worker
  *   • new application created → notify employer
  *
- * Localisation: every notification respects `users/{uid}.language`. When the
+ * Localisation: every notification respects `user_tokens/{uid}.language`. When the
  * recipient has no stored language, English is used.
  */
 import * as functions from "firebase-functions";

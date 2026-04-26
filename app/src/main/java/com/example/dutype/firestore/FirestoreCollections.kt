@@ -11,9 +11,10 @@ package com.example.dutype.firestore
  */
 object FirestoreCollections {
     // ── Core ────────────────────────────────────────────
-    const val USERS = "users"
+    const val PHONE_ROLES = "phoneRoles"
     const val WORKER_PROFILES = "worker_profiles"
     const val EMPLOYER_PROFILES = "employer_profiles"
+    const val USER_TOKENS = "user_tokens"
 
     // ── Jobs (2-collection split) ───────────────────────
     const val JOBS = "jobmetadata"             // Card data for list views
@@ -32,7 +33,7 @@ object FirestoreCollections {
     const val REFERRALS = "referrals"
     const val REFERRAL_CODES = "referral_codes"
     const val REFERRAL_STATS = "referral_stats"
-    /** Subcollection: `users/{uid}/withdrawals/{wId}`. CF-only writes. */
+    /** Subcollection: `referral_stats/{uid}/withdrawals/{wId}`. CF-only writes. */
     const val WITHDRAWALS = "withdrawals"
 
     // ── Config & Ops ────────────────────────────────────

@@ -77,7 +77,6 @@ fun EditJobScreen(
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
-    var customShiftTiming by remember { mutableStateOf("") }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
     var vacancies by remember { mutableStateOf("") }
@@ -276,12 +275,16 @@ fun EditJobScreen(
             jobImageUrl = job.jobImageUrl.orEmpty()
             jobImageUri = null
             val storedShiftTiming = job.shiftTiming.ifBlank { ShiftTiming.FLEXIBLE.displayName }
-            val matchedShift = ShiftTiming.values().firstOrNull { shift ->
+            val matchedShift = listOf(
+                ShiftTiming.MORNING,
+                ShiftTiming.NIGHT,
+                ShiftTiming.BOTH,
+                ShiftTiming.FLEXIBLE
+            ).firstOrNull { shift ->
                 shift.name.equals(storedShiftTiming, ignoreCase = true) ||
                     shift.displayName.equals(storedShiftTiming, ignoreCase = true)
             }
-            shiftTiming = matchedShift ?: ShiftTiming.CUSTOM
-            customShiftTiming = if (matchedShift == null) storedShiftTiming else ""
+            shiftTiming = matchedShift ?: ShiftTiming.FLEXIBLE
             Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$storedShiftTiming")
         }
     }
@@ -371,11 +374,7 @@ fun EditJobScreen(
                         JobUrgency.NORMAL -> "MEDIUM"
                         JobUrgency.WITHIN_MONTH -> "LOW"
                     }
-                    val finalShiftTiming = if (shiftTiming == ShiftTiming.CUSTOM) {
-                        customShiftTiming.trim().ifBlank { ShiftTiming.FLEXIBLE.displayName }
-                    } else {
-                        shiftTiming.displayName
-                    }
+                    val finalShiftTiming = shiftTiming.displayName
 
                     val updates = mapOf(
                         "title" to title,
@@ -1197,8 +1196,7 @@ fun EditJobScreen(
                                 ShiftTiming.MORNING,
                                 ShiftTiming.NIGHT,
                                 ShiftTiming.BOTH,
-                                ShiftTiming.FLEXIBLE,
-                                ShiftTiming.CUSTOM
+                                ShiftTiming.FLEXIBLE
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(shiftOptions) { option ->
@@ -1207,7 +1205,7 @@ fun EditJobScreen(
                                         onClick = { shiftTiming = option },
                                         label = {
                                             Text(
-                                                if (option == ShiftTiming.CUSTOM) customShiftTiming.ifBlank { "Custom" } else option.displayName,
+                                                option.displayName,
                                                 fontSize = 12.sp,
                                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                                             )
@@ -1231,21 +1229,6 @@ fun EditJobScreen(
                                         )
                                     )
                                 }
-                            }
-                            if (shiftTiming == ShiftTiming.CUSTOM) {
-                                OutlinedTextField(
-                                    value = customShiftTiming,
-                                    onValueChange = { customShiftTiming = it.take(120) },
-                                    label = { Text("Shift timing") },
-                                    placeholder = { Text("e.g. 9 AM - 6 PM") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF3B82F6),
-                                        unfocusedBorderColor = Color(0xFFE5E7EB)
-                                    )
-                                )
                             }
                         }
 

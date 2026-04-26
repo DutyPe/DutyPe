@@ -21,11 +21,10 @@ data class JobApplication(
     val employerId: String = "",
     val status: ApplicationStatus = ApplicationStatus.APPLIED,
     val createdAt: Long = System.currentTimeMillis(),
-    val hiredAt: Long = 0L,
 
-    // ── UI-only enrichment (hydrated by FirestoreJobApplicationMapper from
-    //    the jobs / users collections during READ). Only workerName is written
-    //    to Firestore so employer applicant cards can show the name.
+    // ── UI-only enrichment (hydrated by profile/application reads). The
+    //    Firestore application document stays minimal; worker profile details
+    //    live in worker_profiles and are loaded by workerId.
     val jobTitle: String = "",
     val jobLocation: String = "",
     val companyName: String = "",

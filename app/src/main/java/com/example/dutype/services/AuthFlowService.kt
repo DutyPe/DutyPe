@@ -31,7 +31,7 @@ class AuthFlowService @Inject constructor(
 ) {
 
     companion object {
-        private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_PHONE_ROLES = "phoneRoles"
         private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
         private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
         private const val COLLECTION_REFERRALS = "referrals"
@@ -52,20 +52,16 @@ class AuthFlowService @Inject constructor(
     )
 
     /**
-     * Live snapshot of `users/{uid}` keyed to the currently-authenticated user.
-     * Emits null when signed out or when the doc is missing. Use this as the
-     * single source of truth for `activeRole`, `roles[]`, and `workerProfileScore`
-     * instead of navigation arguments — a role switch from another device or
-     * an admin tool will propagate to every screen within one snapshot tick.
+     * Live snapshot of `phoneRoles/{phone}` keyed to the current auth phone.
      */
     fun observeCurrentUser(): Flow<Map<String, Any>?> = callbackFlow {
-        val uid = auth.currentUser?.uid
-        if (uid.isNullOrBlank()) {
+        val phone = auth.currentUser?.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
+        if (phone.isNullOrBlank()) {
             trySend(null)
             close()
             return@callbackFlow
         }
-        val registration = firestore.collection(COLLECTION_USERS).document(uid)
+        val registration = firestore.collection(COLLECTION_PHONE_ROLES).document(phone)
             .addSnapshotListener { snap, err ->
                 if (err != null) {
                     Timber.w(err, "AuthFlowService.observeCurrentUser listener failed")
@@ -78,14 +74,11 @@ class AuthFlowService @Inject constructor(
     }
 
     /**
-     * Emits the user's active role derived from the live `users/{uid}` doc.
-     * Falls back to the first entry of `roles[]` when `activeRole` is absent.
+    * Emits the user's role derived from the live `phoneRoles/{phone}` doc.
      */
     fun observeActiveRole(): Flow<String?> = observeCurrentUser()
         .map { data ->
             if (data == null) return@map null
-            val active = (data["activeRole"] as? String)?.uppercase()?.takeIf { it.isNotBlank() }
-            if (active != null) return@map active
             val roles = (data["roles"] as? List<*>)
                 ?.mapNotNull { it?.toString()?.uppercase() }
                 .orEmpty()
@@ -180,43 +173,51 @@ class AuthFlowService @Inject constructor(
             }
 
             val resolution = firestore.runTransaction { transaction ->
-                val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
-                val existingUser = transaction.get(userRef)
-                val existingData = existingUser.data.orEmpty()
+                val phoneRoleRef = firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone)
+                val profileRef = firestore.collection(
+                    if (role == "WORKER") COLLECTION_WORKER_PROFILES else COLLECTION_EMPLOYER_PROFILES
+                ).document(currentUser.uid)
+                val existingPhoneRole = transaction.get(phoneRoleRef)
+                val existingProfile = transaction.get(profileRef)
+                val existingData = existingPhoneRole.data.orEmpty()
+                val existingProfileData = existingProfile.data.orEmpty()
 
                 // Single-role architecture: an existing complete account cannot
                 // register again, regardless of which role is requested. We also
                 // tolerate legacy `activeRole` / `roles[0]` for compat reads.
-                val existingRoleRaw = (existingData["role"] as? String)
-                    ?: (existingData["activeRole"] as? String)
-                    ?: (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                val existingRoleRaw = (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                    ?: (existingProfileData["role"] as? String)
                 val existingRole = existingRoleRaw?.uppercase()
-                val existingReferralCode = (existingData["referralCode"] as? String)?.trim().orEmpty()
+                val existingReferralCode = (existingProfileData["referralCode"] as? String)?.trim().orEmpty()
                 val isExistingCompleteUser =
-                    !(existingData["phone"] as? String).isNullOrBlank() &&
-                    !(existingData["fullName"] as? String).isNullOrBlank() &&
+                    !(existingData["phoneNumber"] as? String).isNullOrBlank() &&
+                    !(existingData["name"] as? String).isNullOrBlank() &&
                     !existingRole.isNullOrBlank()
 
-                if (existingUser.exists() && isExistingCompleteUser) {
+                if (existingPhoneRole.exists() && isExistingCompleteUser) {
                     throw IllegalStateException("Account already exists")
                 }
 
                 val ownReferralCode = existingReferralCode
                 val now = Timestamp.now()
                 val referrerUserId = referrerSnapshot?.getString("userId").orEmpty()
-                val resolvedFullName = (existingData["fullName"] as? String)?.trim()
+                val resolvedFullName = (existingData["name"] as? String)?.trim()
                     .takeUnless { it.isNullOrBlank() }
                     ?: trimmedName
-                val resolvedPhone = (existingData["phone"] as? String)?.trim()
+                val resolvedPhone = (existingData["phoneNumber"] as? String)?.trim()
                     .takeUnless { it.isNullOrBlank() }
                     ?: normalizedPhone
 
                 val userData = linkedMapOf<String, Any>(
+                    "userId" to currentUser.uid,
                     "phone" to resolvedPhone,
+                    "phoneNumber" to resolvedPhone,
                     "fullName" to resolvedFullName,
-                    // Single-role architecture: one immutable role per phone.
+                    "name" to resolvedFullName,
                     "role" to role,
-                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now)
+                    "roles" to listOf(role),
+                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
+                    "updatedAt" to now
                 )
 
                 if (ownReferralCode.isNotBlank()) {
@@ -227,33 +228,24 @@ class AuthFlowService @Inject constructor(
                     userData["referredByCode"] = normalizedReferralCode
                     userData["referredByUserId"] = referrerUserId
                 } else {
-                    (existingData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                    (existingProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let {
                         userData["referredByCode"] = it
                     }
-                    (existingData["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let {
+                    (existingProfileData["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let {
                         userData["referredByUserId"] = it
                     }
                 }
 
-                // Preserve optional canonical fields when present while rebuilding the user doc.
-                (existingData["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }?.let {
-                    userData["profileImageUrl"] = it
-                }
-                (existingData["fcmToken"] as? String)?.takeIf { it.isNotBlank() }?.let {
-                    userData["fcmToken"] = it
-                }
-                val existingLocation = existingData["location"] as? Map<*, *>
-                val lat = (existingLocation?.get("lat") as? Number)?.toDouble()
-                val lng = (existingLocation?.get("lng") as? Number)?.toDouble()
-                if (lat != null && lng != null && lat in -90.0..90.0 && lng in -180.0..180.0) {
-                    userData["location"] = mapOf("lat" to lat, "lng" to lng)
-                }
-                (existingData["geohash"] as? String)?.takeIf { it.isNotBlank() }?.let {
-                    userData["geohash"] = it
-                }
-
-                // Overwrite with canonical shape to drop legacy keys that can block strict-rule updates.
-                transaction.set(userRef, userData)
+                val phoneRoleData = linkedMapOf<String, Any>(
+                    "phoneNumber" to resolvedPhone,
+                    "roles" to listOf(role),
+                    "name" to resolvedFullName,
+                    "uid" to currentUser.uid,
+                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
+                    "updatedAt" to now
+                )
+                transaction.set(phoneRoleRef, phoneRoleData)
+                transaction.set(profileRef, userData, com.google.firebase.firestore.SetOptions.merge())
 
                 // Referral reward attachment is handled by Cloud Function applyReferralCode
                 // from the registration flow, with profile-setup fallback for retries.
@@ -277,10 +269,12 @@ class AuthFlowService @Inject constructor(
         return try {
             val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
             val role = normalizeRole(requestedRole)
-            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
+            val normalizedPhone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
+                ?: return Result.failure(IllegalArgumentException("Phone number is required"))
+            val phoneRoleRef = firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone)
 
             val userSnapshot = withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                userRef.get().await()
+                phoneRoleRef.get().await()
             }
 
             if (!userSnapshot.exists()) {
@@ -288,18 +282,16 @@ class AuthFlowService @Inject constructor(
             }
 
             val userData = userSnapshot.data.orEmpty().toMutableMap()
-            // Single-role architecture: trust the existing role on the document.
-            // The requested role is only a hint used when the document does not
-            // yet exist (handled above).
-            val existingRole = ((userData["role"] as? String)
-                ?: (userData["activeRole"] as? String)
-                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()
-                )?.uppercase()
+            val existingRole = (userData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
             val effectiveRole = existingRole ?: role
+            userData["userId"] = currentUser.uid
+            userData["fullName"] = userData["name"] as? String ?: ""
+            userData["phone"] = userData["phoneNumber"] as? String ?: normalizedPhone
+            userData["role"] = effectiveRole
 
             val hasCoreFields =
-                !(userData["phone"] as? String).isNullOrBlank() &&
-                !(userData["fullName"] as? String).isNullOrBlank() &&
+                !(userData["phoneNumber"] as? String).isNullOrBlank() &&
+                !(userData["name"] as? String).isNullOrBlank() &&
                 !existingRole.isNullOrBlank()
 
             val hasRoleProfile = when (effectiveRole) {

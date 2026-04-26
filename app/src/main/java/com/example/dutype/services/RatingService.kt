@@ -47,7 +47,6 @@ class RatingService @Inject constructor(
     companion object {
         const val RATINGS_COLLECTION = "ratings"
         const val APPLICATIONS_COLLECTION = "applications"
-        const val USERS_COLLECTION = "users"
         const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         const val WORKER_PROFILES_COLLECTION = "worker_profiles"
     }
@@ -55,13 +54,6 @@ class RatingService @Inject constructor(
     private suspend fun resolveRaterIdentity(userId: String): Pair<String, String> {
         var raterName = auth.currentUser?.displayName.orEmpty().trim()
         var companyName = ""
-
-        runCatching {
-            val userDoc = firestore.collection(USERS_COLLECTION).document(userId).get().await()
-            raterName = userDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
-                ?: userDoc.getString("name")?.trim()?.takeIf { it.isNotBlank() }
-                ?: raterName
-        }
 
         runCatching {
             val workerDoc = firestore.collection(WORKER_PROFILES_COLLECTION).document(userId).get().await()
@@ -143,7 +135,7 @@ class RatingService @Inject constructor(
     /**
      * Submit a rating for a completed job.
      * Worker rates employer OR employer rates worker. `raterName` is denormalized
-     * from the users collection at write time so reviews render without an extra read.
+    * from role profile collections at write time so reviews render without an extra read.
      */
     suspend fun submitRating(
         jobId: String,

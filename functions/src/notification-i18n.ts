@@ -426,8 +426,8 @@ export function tBody(
 }
 
 /**
- * Resolves the recipient's preferred locale from `users/{uid}.language`.
- * Returns "en" when the field is absent, malformed, or the user doc is missing.
+ * Resolves the recipient's preferred locale from `user_tokens/{uid}.language`.
+ * Returns "en" when the field is absent, malformed, or the token doc is missing.
  * Caller must pass an initialised admin Firestore instance.
  */
 export async function getUserLanguage(
@@ -436,7 +436,7 @@ export async function getUserLanguage(
 ): Promise<SupportedLocale> {
   if (!userId) return DEFAULT_LOCALE;
   try {
-    const snap = await db.collection("users").doc(userId).get();
+    const snap = await db.collection("user_tokens").doc(userId).get();
     if (!snap.exists) return DEFAULT_LOCALE;
     return normalizeLocale(snap.get("language"));
   } catch {
@@ -448,7 +448,7 @@ export async function getUserLanguage(
  * Returns the recipient's display name for use in notification bodies.
  * Prefers the first word of `fullName` (e.g. "Rahul" from "Rahul Kumar")
  * so the copy reads naturally. Falls back to the supplied default when the
- * user doc is missing or has no name.
+ * profile doc is missing or has no name.
  *
  * Use this wherever a notification is addressed directly to a user so the
  * copy feels personal ("Hi Rahul, a new job matches…") instead of generic.
@@ -460,9 +460,13 @@ export async function getUserDisplayName(
 ): Promise<string> {
   if (!userId) return fallback;
   try {
-    const snap = await db.collection("users").doc(userId).get();
-    if (!snap.exists) return fallback;
-    const fullName = String(snap.get("fullName") ?? "").trim();
+    const [workerSnap, employerSnap] = await Promise.all([
+      db.collection("worker_profiles").doc(userId).get(),
+      db.collection("employer_profiles").doc(userId).get(),
+    ]);
+    const fullName = String(
+      workerSnap.get("fullName") ?? employerSnap.get("fullName") ?? ""
+    ).trim();
     if (!fullName) return fallback;
     // First token only — keeps notification bodies concise and avoids
     // awkward surnames in the greeting.
@@ -475,7 +479,7 @@ export async function getUserDisplayName(
 
 /**
  * Bulk-resolve languages for many users in a single round-trip.
- * Returns a map { userId -> locale }; missing users default to "en".
+ * Returns a map { userId -> locale }; missing token docs default to "en".
  */
 export async function getUserLanguagesBulk(
   db: admin.firestore.Firestore,
@@ -487,7 +491,7 @@ export async function getUserLanguagesBulk(
   const unique = Array.from(new Set(userIds.filter(Boolean)));
   for (let i = 0; i < unique.length; i += 30) {
     const chunk = unique.slice(i, i + 30);
-    const refs = chunk.map((id) => db.collection("users").doc(id));
+    const refs = chunk.map((id) => db.collection("user_tokens").doc(id));
     const docs = await db.getAll(...refs);
     docs.forEach((doc) => {
       out.set(doc.id, doc.exists ? normalizeLocale(doc.get("language")) : DEFAULT_LOCALE);
