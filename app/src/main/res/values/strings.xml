@@ -122,7 +122,6 @@
     <string name="job_title">Job Title</string>
     <string name="contact_number">Contact Number</string>
     <string name="active_jobs">Active Jobs</string>
-    <string name="paused_jobs">Paused Jobs</string>
     <string name="closed_jobs">Closed Jobs</string>
     <string name="total_applicants">Total Applicants</string>
     <string name="shortlisted">Shortlisted</string>
@@ -896,8 +895,6 @@
     <string name="history_no_jobs">No jobs</string>
     <string name="history_postings_appear_here">Your job postings will appear here</string>
     <string name="history_posted_date">Posted %1$s</string>
-    <string name="history_status_paused">Paused</string>
-    <string name="history_status_active">Active</string>
     <string name="notif_failed_load">Failed to load notifications</string>
     <string name="notif_retry">Retry</string>
     <string name="notif_no_notifications">No notifications yet</string>
@@ -1047,10 +1044,6 @@
     <string name="notif_application_withdrawn_msg">A worker has withdrawn their application</string>
     <string name="notif_job_posted_title">Job Posted Successfully! 🎉</string>
     <string name="notif_job_posted_msg">Your job \'%1$s\' has been posted and is now visible to workers</string>
-    <string name="notif_job_paused_title">Job Paused ⏸️</string>
-    <string name="notif_job_paused_msg">Your job \'%1$s\' has been paused and is no longer visible to workers</string>
-    <string name="notif_job_activated_title">Job Activated ▶️</string>
-    <string name="notif_job_activated_msg">Your job \'%1$s\' has been activated and is now visible to workers</string>
     <string name="notif_profile_complete_title">Welcome to DutyPe! 🎉</string>
     <string name="notif_profile_complete_employer_msg">Hi %1$s! Your profile is complete. Start posting jobs and find the best workers for your business.</string>
     <string name="notif_profile_complete_worker_msg">Hi %1$s! Your profile is complete. Start exploring jobs and apply to opportunities that match your skills.</string>

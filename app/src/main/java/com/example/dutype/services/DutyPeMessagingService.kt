@@ -220,7 +220,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
     private fun getNotificationCategory(type: String): String {
         return when (type) {
             "BIRTHDAY" -> NotificationCompat.CATEGORY_EVENT
-            "JOB_EXPIRY", "JOB_ALERT", "JOB_POSTED", "JOB_PAUSED", "JOB_UPDATE" -> NotificationCompat.CATEGORY_REMINDER
+            "JOB_EXPIRY", "JOB_ALERT", "JOB_POSTED", "JOB_UPDATE" -> NotificationCompat.CATEGORY_REMINDER
             "APPLICATION_STATUS", "APPLICATION_STATUS_UPDATE", "SHORTLISTED",
             "REJECTED", "NEW_APPLICATION", "WORKER_HIRED" -> NotificationCompat.CATEGORY_STATUS
             "PROFILE_COMPLETE", "WELCOME" -> NotificationCompat.CATEGORY_RECOMMENDATION
@@ -260,7 +260,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             }
             "PENDING_APPLICATIONS" -> {
                 // Add "View Applications" action
-                val viewIntent = createDeepLinkIntent("dutype://applications", notificationId)
+                val viewIntent = createDeepLinkIntent("dutype://employer/applications", notificationId)
                 val viewPendingIntent = PendingIntent.getActivity(
                     this,
                     notificationId + 1,
@@ -329,7 +329,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 )
                 builder.addAction(R.drawable.ic_notification, "View Job", actionPendingIntent)
             }
-            "JOB_POSTED", "JOB_PAUSED", "JOB_UPDATE", "JOB_EXPIRY_REMINDER" -> {
+            "JOB_POSTED", "JOB_UPDATE", "JOB_EXPIRY_REMINDER" -> {
                 val jobId = data["jobId"]
                 val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
                            else "dutype://employer/jobs"

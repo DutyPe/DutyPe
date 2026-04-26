@@ -143,17 +143,11 @@ function getBrowserPosition(): Promise<GeolocationPosition> {
 }
 
 function EmployerJobCard({
-  action,
-  actionLabel,
   applicantsHref,
-  busy,
   editHref,
   job
 }: {
-  action?: () => Promise<void>;
-  actionLabel?: string;
   applicantsHref?: string;
-  busy?: boolean;
   editHref?: string;
   job: ProductJob;
 }) {
@@ -167,8 +161,8 @@ function EmployerJobCard({
           <span className="card-kicker">{job.category || "JOB POST"}</span>
           <h3>{job.title}</h3>
         </div>
-        <span className={`status-pill ${job.isActive ? "success" : "neutral"}`}>
-          {job.isFilled ? "Filled" : job.isActive ? "Live" : "Paused"}
+        <span className="status-pill success">
+          {job.isFilled ? "Filled" : "Open"}
         </span>
       </div>
 
@@ -203,21 +197,7 @@ function EmployerJobCard({
 
       {editRestriction ? <div className="callout">{editRestriction}</div> : null}
 
-      {action && actionLabel ? (
-        <div className="button-row compact market-card-actions">
-          {editHref ? (
-            <Link href={editHref} className="button ghost">
-              Edit job
-            </Link>
-          ) : null}
-          <button type="button" className="button ghost" disabled={busy} onClick={() => void action()}>
-            {busy ? "Updating..." : actionLabel}
-          </button>
-          <Link href={applicantsHref ?? "/app/employer/applications"} className="button">
-            {applicantsHref ? "View applicants" : "Review applications"}
-          </Link>
-        </div>
-      ) : editHref || applicantsHref ? (
+      {editHref || applicantsHref ? (
         <div className="button-row compact market-card-actions">
           {editHref ? (
             <Link href={editHref} className="button ghost">
@@ -1321,7 +1301,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
               <span className="pill">{form.companyName || "Company pending"}</span>
               <span className="pill">{form.location || "Location pending"}</span>
               <span className="pill">{form.payAmount || "Pay pending"}</span>
-              <span className="pill">{job.isActive ? "Currently live" : "Currently paused"}</span>
+              <span className="pill">Open</span>
             </div>
             <div className="button-row compact">
               <button
@@ -1548,7 +1528,6 @@ export function EmployerJobsClient({ session }: SharedProps) {
   const [jobs, setJobs] = useState<ProductJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!services || !session.user) {
@@ -1599,36 +1578,6 @@ export function EmployerJobsClient({ session }: SharedProps) {
     };
   }, [services, session.user]);
 
-  async function handleToggleActive(job: ProductJob) {
-    if (!services) {
-      return;
-    }
-
-    try {
-      setBusyJobId(job.id);
-      const nextStatus = job.status === "open" ? "closed" : "open";
-      await updateDoc(doc(services.db, "jobs", job.id), {
-        status: nextStatus,
-        updatedAt: Date.now()
-      });
-      setJobs((current) =>
-        current.map((item) =>
-          item.id === job.id
-            ? {
-                ...item,
-                isActive: nextStatus === "open",
-                status: nextStatus
-              }
-            : item
-        )
-      );
-    } catch (toggleError) {
-      setError(toggleError instanceof Error ? toggleError.message : "Failed to update job visibility.");
-    } finally {
-      setBusyJobId(null);
-    }
-  }
-
   return (
     <div className="product-section-stack">
       {error ? <div className="callout">Jobs error: {error}</div> : null}
@@ -1656,7 +1605,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
             <span className="tag">Employer jobs</span>
             <h2>Manage posted jobs</h2>
           </div>
-          <p>Use this route to pause or reopen jobs while keeping the Android-compatible document structure.</p>
+          <p>Review posted jobs, edit details, and open applicants while keeping the Android-compatible document structure.</p>
         </div>
 
         {loading ? (
@@ -1668,10 +1617,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
             {jobs.map((job) => (
               <EmployerJobCard
                 key={job.id}
-                action={() => handleToggleActive(job)}
-                actionLabel={job.isActive ? "Pause job" : "Reopen job"}
                 applicantsHref={`/app/employer/jobs/${job.id}/applications`}
-                busy={busyJobId === job.id}
                 editHref={canEditEmployerJob(job) ? `/app/employer/jobs/${job.id}` : undefined}
                 job={job}
               />

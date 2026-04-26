@@ -446,27 +446,6 @@ class JobApplicationService @Inject constructor(
             // render the applicant card and detail screen WITHOUT querying
             // worker_profiles (which is locked down to the owner). Best-effort
             // — apply still succeeds even if the snapshot lookup fails.
-            val workerSnapshot = try {
-                profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
-            } catch (e: Exception) {
-                Timber.w(e, "Could not load worker snapshot for application denormalization")
-                emptyMap<String, Any?>()
-            }
-            val snapshotName = (workerSnapshot["fullName"] as? String).orEmpty()
-            val snapshotPhone = (workerSnapshot["phone"] as? String)?.takeIf { it.isNotBlank() }
-            val snapshotEmail = (workerSnapshot["email"] as? String)?.takeIf { it.isNotBlank() }
-            val snapshotImage = (workerSnapshot["profileImageUrl"] as? String)?.takeIf { it.isNotBlank() }
-            val snapshotGender = (workerSnapshot["gender"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
-            val snapshotExperience = (workerSnapshot["experience"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
-            val snapshotEducationQualification = (workerSnapshot["educationQualification"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
-            val snapshotDateOfBirth = (workerSnapshot["dateOfBirth"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
-            val snapshotBio = (workerSnapshot["bio"] as? String)?.takeIf { it.isNotBlank() }.orEmpty()
-            val snapshotSkills = (workerSnapshot["skills"] as? List<*>)
-                ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
-                ?.distinct()
-                ?.take(20)
-                .orEmpty()
-
             val application = JobApplication(
                 id = "${jobId}_${userId}",
                 jobId = jobId,
@@ -477,16 +456,6 @@ class JobApplicationService @Inject constructor(
                 jobTitle = jobTitle,
                 jobLocation = jobLocation,
                 companyName = companyName,
-                workerName = snapshotName,
-                workerPhone = snapshotPhone,
-                workerEmail = snapshotEmail,
-                workerProfileImageUrl = snapshotImage,
-                workerSkills = snapshotSkills,
-                workerGender = snapshotGender,
-                workerExperience = snapshotExperience,
-                workerEducationQualification = snapshotEducationQualification,
-                workerDateOfBirth = snapshotDateOfBirth,
-                workerBio = snapshotBio,
                 employerPhone = employerContactPhone,
                 coverLetter = coverLetter.orEmpty()
             )
@@ -579,7 +548,7 @@ class JobApplicationService @Inject constructor(
                     }
                 }
                 
-                Result.success(applications)
+                Result.success(enrichApplicationsWithJobDetails(applications))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -792,8 +761,9 @@ class JobApplicationService @Inject constructor(
                 }
             }
             
-            Timber.d("[JobApplicationService] Returning ${applications.size} applications for jobId: $jobId")
-            emit(Result.success(applications))
+            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
+            Timber.d("[JobApplicationService] Returning ${enrichedApplications.size} applications for jobId: $jobId")
+            emit(Result.success(enrichedApplications))
         } catch (e: Exception) {
             Timber.e(e, "[JobApplicationService] Error getting applications for jobId $jobId")
             emit(Result.failure(e))
@@ -840,7 +810,8 @@ class JobApplicationService @Inject constructor(
                 
                 Timber.d("[Applications] DEBUG: Successfully parsed ${applications.size} applications")
                 // Sort in memory by createdAt descending
-                val sortedApplications = applications.sortedByDescending { it.createdAt }
+                val sortedApplications = enrichApplicationsWithJobDetails(applications)
+                    .sortedByDescending { it.createdAt }
                 emit(Result.success(sortedApplications))
                 return@flow
             } else {
@@ -875,7 +846,8 @@ class JobApplicationService @Inject constructor(
                 }
             }
             
-            emit(Result.success(applications))
+            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
+            emit(Result.success(enrichedApplications))
         } catch (e: Exception) {
             emit(Result.failure(e))
         }
@@ -1215,7 +1187,7 @@ class JobApplicationService @Inject constructor(
                     }
                 }
                 
-                Result.success(applications)
+                Result.success(enrichApplicationsWithJobDetails(applications))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1562,7 +1534,7 @@ class JobApplicationService @Inject constructor(
                 }
             }
             
-            Result.success(applications)
+            Result.success(enrichApplicationsWithJobDetails(applications))
         } catch (e: Exception) {
             Result.failure(e)
         }

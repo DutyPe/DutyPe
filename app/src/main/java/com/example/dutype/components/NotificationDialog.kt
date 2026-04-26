@@ -202,7 +202,6 @@ private fun getNotificationDialogColor(type: NotificationType): Color {
         NotificationType.WELCOME,
         NotificationType.PROFILE_COMPLETE -> Color(0xFF06B6D4) // Cyan
         
-        NotificationType.JOB_PAUSED,
         NotificationType.APPLICATION_REMINDER,
         NotificationType.JOB_EXPIRY_REMINDER -> Color(0xFFF59E0B) // Orange
         

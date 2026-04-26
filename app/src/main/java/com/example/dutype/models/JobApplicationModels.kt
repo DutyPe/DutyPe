@@ -62,28 +62,13 @@ data class JobApplication(
      * accept these as optional on create.
      */
     fun toFirestoreMap(): Map<String, Any> {
-        val base = mutableMapOf<String, Any>(
+        return mapOf(
             "jobId" to jobId,
             "workerId" to workerId,
             "employerId" to employerId,
             "status" to status.toFirestoreValue(),
             "createdAt" to com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt())
         )
-        if (jobTitle.isNotBlank()) base["jobTitle"] = jobTitle
-        if (companyName.isNotBlank()) base["companyName"] = companyName
-        if (jobLocation.isNotBlank()) base["jobLocation"] = jobLocation
-        if (workerName.isNotBlank()) base["workerName"] = workerName
-        workerPhone?.takeIf { it.isNotBlank() }?.let { base["workerPhone"] = it }
-        workerEmail?.takeIf { it.isNotBlank() }?.let { base["workerEmail"] = it }
-        workerProfileImageUrl?.takeIf { it.isNotBlank() }?.let { base["workerProfileImageUrl"] = it }
-        if (workerSkills.isNotEmpty()) base["workerSkills"] = workerSkills.take(20)
-        if (workerGender.isNotBlank()) base["workerGender"] = workerGender
-        if (workerExperience.isNotBlank()) base["workerExperience"] = workerExperience
-        if (workerEducationQualification.isNotBlank()) base["workerEducationQualification"] = workerEducationQualification
-        if (workerDateOfBirth.isNotBlank()) base["workerDateOfBirth"] = workerDateOfBirth
-        if (workerBio.isNotBlank()) base["workerBio"] = workerBio
-        employerPhone?.takeIf { it.isNotBlank() }?.let { base["employerPhone"] = it }
-        return base
     }
 }
 

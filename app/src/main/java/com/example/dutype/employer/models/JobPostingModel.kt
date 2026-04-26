@@ -22,7 +22,6 @@ data class JobPostingModel(
     val isVerified: Boolean = false,                // From employer verification
     val employerId: String? = null,
     val employerName: String = "",
-    val isActive: Boolean = true,                   // For card display
     val applicationsReceived: Int = 0,              // For card display
     val isFilled: Boolean = false,                  // For vacancy status
     val imageUrl: String? = null                    // Bug #5: hero image for the card

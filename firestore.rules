@@ -425,18 +425,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'jobId', 'workerId', 'employerId', 'status', 'createdAt',
-          // Bug #18 / #19 fix: optional denormalized snapshot so the
-          // employer can render applicant cards without a worker_profiles
-          // read (which is owner-only). Worker writes these from their
-          // own users + worker_profiles docs at apply time.
-          'workerName', 'workerPhone', 'workerEmail', 'workerProfileImageUrl', 'workerSkills',
-          'workerGender', 'workerExperience', 'workerEducationQualification', 'workerDateOfBirth', 'workerBio',
-          'jobTitle', 'companyName', 'jobLocation',
-          // Quick-call: denormalized employer contact phone copied from
-          // job_details.contactNumber so workers can dial directly from
-          // the MyJobs card without reading employer_profiles.
-          'employerPhone'
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
         ]) &&
         request.resource.data.keys().hasAll(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
         request.resource.data.workerId == request.auth.uid &&
@@ -445,23 +434,12 @@ service cloud.firestore {
         request.resource.data.status == 'applied' &&
         request.resource.data.createdAt is timestamp &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
-        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
-        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
-        (!('workerEmail' in request.resource.data) || (request.resource.data.workerEmail is string && request.resource.data.workerEmail.size() <= 200)) &&
-        (!('workerProfileImageUrl' in request.resource.data) || (request.resource.data.workerProfileImageUrl is string && request.resource.data.workerProfileImageUrl.size() <= 1024)) &&
-        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 20)) &&
-        (!('workerGender' in request.resource.data) || (request.resource.data.workerGender is string && request.resource.data.workerGender.size() <= 20)) &&
-        (!('workerExperience' in request.resource.data) || (request.resource.data.workerExperience is string && request.resource.data.workerExperience.size() <= 500)) &&
-        (!('workerEducationQualification' in request.resource.data) || (request.resource.data.workerEducationQualification is string && request.resource.data.workerEducationQualification.size() <= 120)) &&
-        (!('workerDateOfBirth' in request.resource.data) || (request.resource.data.workerDateOfBirth is string && request.resource.data.workerDateOfBirth.size() <= 20)) &&
-        (!('workerBio' in request.resource.data) || (request.resource.data.workerBio is string && request.resource.data.workerBio.size() <= 300)) &&
-        (!('jobTitle' in request.resource.data) || (request.resource.data.jobTitle is string && request.resource.data.jobTitle.size() <= 200)) &&
-        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 200)) &&
-        (!('jobLocation' in request.resource.data) || (request.resource.data.jobLocation is string && request.resource.data.jobLocation.size() <= 200)) &&
-        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
         exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
-        get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId;
+        (
+          get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId ||
+          get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId
+        );
 
       // STATE MACHINE: only status can change, except the employer may set
       // hiredAt while moving an application into hired for rating cooldowns.

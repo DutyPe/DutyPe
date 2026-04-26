@@ -1,6 +1,8 @@
 package com.example.dutype.employer.screens
 
 import android.Manifest
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dutype.app.R
 import androidx.navigation.NavController
+import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.models.*
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.ui.theme.AppTypography
@@ -73,11 +76,50 @@ fun EditJobScreen(
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(JobCategory.COOK) }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
-    var vacancies by remember { mutableStateOf("1") }
+    var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
+    var workType by remember { mutableStateOf("Part-time") }
+    var experienceLevel by remember { mutableStateOf("No Experience Required") }
+    var educationRequired by remember { mutableStateOf("No qualification required") }
+    var gender by remember { mutableStateOf("Both") }
+    var jobImageUri by remember { mutableStateOf<Uri?>(null) }
+    var jobImageUrl by remember { mutableStateOf("") }
+    var isUploadingJobImage by remember { mutableStateOf(false) }
+
+    val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
+    val baseExperienceLevels = listOf(
+        "No Experience Required",
+        "Fresher (Educated)",
+        "1-3 years",
+        "3-5 years",
+        "5+ years"
+    )
+    val experienceLevels = remember(experienceLevel) {
+        if (experienceLevel.isNotBlank() && experienceLevel !in baseExperienceLevels) {
+            baseExperienceLevels + experienceLevel
+        } else {
+            baseExperienceLevels
+        }
+    }
+    val baseEducationRequirements = listOf(
+        "No qualification required",
+        "10th pass",
+        "12th pass",
+        "ITI",
+        "Diploma",
+        "Graduate",
+        "Any qualification"
+    )
+    val educationRequirements = remember(educationRequired) {
+        if (educationRequired.isNotBlank() && educationRequired !in baseEducationRequirements) {
+            baseEducationRequirements + educationRequired
+        } else {
+            baseEducationRequirements
+        }
+    }
+    val genders = listOf("Male", "Female", "Both")
 
     // UI state
     var isLoadingLocation by remember { mutableStateOf(false) }
@@ -197,14 +239,6 @@ fun EditJobScreen(
             locationLatitude = job.lat
             locationLongitude = job.lng
             Timber.d(" EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
-            // Convert string to enum for category - using auto-detected category
-            category = JobCategory.values().firstOrNull {
-                it.displayName.equals(job.jobType, ignoreCase = true) ||
-                    it.name.equals(job.jobType, ignoreCase = true)
-            } ?: JobCategory.values().firstOrNull {
-                it.displayName.equals(job.getCategory(), ignoreCase = true) ||
-                    it.name.equals(job.getCategory(), ignoreCase = true)
-            } ?: JobCategory.OTHER
             // Pay type from stored salaryType ("HOURLY"|"DAILY"|"MONTHLY")
             payType = PayType.values().firstOrNull {
                 it.name.equals(job.salaryType, ignoreCase = true) ||
@@ -229,6 +263,16 @@ fun EditJobScreen(
             }.toSet()
             vacancies = job.vacancies.toString()
             employerName = job.companyName
+            workType = job.workingHours.ifBlank { "Part-time" }
+            experienceLevel = job.experienceRequired.ifBlank { "No Experience Required" }
+            educationRequired = job.educationRequired.ifBlank { "No qualification required" }
+            gender = when {
+                job.gender.equals("Any", ignoreCase = true) -> "Both"
+                job.gender.isBlank() -> "Both"
+                else -> job.gender
+            }
+            jobImageUrl = job.jobImageUrl.orEmpty()
+            jobImageUri = null
             val shiftTiming = "removed"
             Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$shiftTiming")
         }
@@ -271,11 +315,15 @@ fun EditJobScreen(
 
     // Validation function
     fun validateForm(): Boolean {
+        val vacancyCount = vacancies.toIntOrNull()
         return title.isNotBlank() &&
                 payAmount.isNotBlank() &&
                 location.isNotBlank() &&
                 description.isNotBlank() &&
-                contactNumber.isNotBlank()
+                contactNumber.isNotBlank() &&
+                vacancyCount != null &&
+                vacancyCount in 1..50 &&
+                !isUploadingJobImage
     }
 
     // Update function
@@ -324,10 +372,14 @@ fun EditJobScreen(
                         "addressText" to location,
                         "description" to description,
                         "contactNumber" to contactNumber,
-                        "jobType" to category.displayName,
                         "urgency" to normalizedUrgency,
-                        "vacancies" to (vacancies.toIntOrNull() ?: 1),
-                        "benefits" to selectedPerks.map { it.displayName }
+                        "vacancies" to (vacancies.toIntOrNull() ?: return@launch),
+                        "benefits" to selectedPerks.map { it.displayName },
+                        "workingHours" to workType,
+                        "experienceRequired" to experienceLevel,
+                        "educationRequired" to educationRequired,
+                        "gender" to gender,
+                        "jobImageUrl" to jobImageUrl
                     )
                     
                     Timber.d(" EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
@@ -616,68 +668,6 @@ fun EditJobScreen(
                 }
             }
 
-            // Category Selection
-            item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(Color(0xFFF3E8FF), RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Category,
-                                    contentDescription = null,
-                                    tint = Color(0xFF9333EA),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Job Category",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
-                                    fontSize = 15.sp
-                                )
-                            )
-                        }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(JobCategory.values()) { jobCategory ->
-                                FilterChip(
-                                    onClick = { category = jobCategory },
-                                    label = {
-                                        Text(
-                                            text = "${jobCategory.icon} ${jobCategory.displayName}",
-                                            fontSize = MaterialTheme.typography.bodySmall.fontSize
-                                        )
-                                    },
-                                    selected = category == jobCategory,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                        selectedLabelColor = Color(0xFF3B82F6)
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             // Pay Information
             item {
                 Surface(
@@ -717,59 +707,56 @@ fun EditJobScreen(
                             )
                         }
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = payAmount,
-                                onValueChange = { payAmount = it },
-                                label = { Text(stringResource(R.string.amount)) },
-                                placeholder = { Text("e.g., 500", color = Color(0xFF9CA3AF)) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(2f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF3B82F6),
-                                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                                )
+                        OutlinedTextField(
+                            value = payAmount,
+                            onValueChange = { payAmount = it },
+                            label = { Text(stringResource(R.string.amount)) },
+                            placeholder = { Text("e.g., 12000 or 10000-12000", color = Color(0xFF9CA3AF)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF3B82F6),
+                                unfocusedBorderColor = Color(0xFFE5E7EB)
                             )
+                        )
 
-                            // Pay Type Dropdown
-                            var expanded by remember { mutableStateOf(false) }
-                            ExposedDropdownMenuBox(
-                                expanded = expanded,
-                                onExpandedChange = { expanded = !expanded },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                OutlinedTextField(
-                                    value = payType.displayName,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = {
-                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        Text(
+                            text = "Pay type",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569)
+                            )
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(PayType.values().toList()) { type ->
+                                val selected = payType == type
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { payType = type },
+                                    modifier = Modifier.height(34.dp),
+                                    label = {
+                                        Text(
+                                            text = type.displayName,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                        )
                                     },
-                                    modifier = Modifier.menuAnchor(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF3B82F6),
-                                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF3B82F6),
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Color.White,
+                                        labelColor = Color(0xFF374151)
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = selected,
+                                        borderColor = Color(0xFFE5E7EB),
+                                        selectedBorderColor = Color(0xFF3B82F6)
                                     )
                                 )
-                                ExposedDropdownMenu(
-                                    expanded = expanded,
-                                    onDismissRequest = { expanded = false }
-                                ) {
-                                    PayType.values().forEach { type ->
-                                        DropdownMenuItem(
-                                            text = { Text(type.displayName) },
-                                            onClick = {
-                                                payType = type
-                                                expanded = false
-                                            }
-                                        )
-                                    }
-                                }
                             }
                         }
                     }
@@ -973,6 +960,67 @@ fun EditJobScreen(
                 }
             }
 
+            // Job Image
+            item {
+                JobImageUploadSection(
+                    selectedImageUri = jobImageUri ?: jobImageUrl.takeIf { it.isNotBlank() }?.let { Uri.parse(it) },
+                    isUploading = isUploadingJobImage,
+                    onImageSelected = { uri ->
+                        jobImageUri = uri
+                        scope.launch {
+                            isUploadingJobImage = true
+                            try {
+                                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                                if (currentUser == null) {
+                                    Toast.makeText(context, "Please login to upload image", Toast.LENGTH_SHORT).show()
+                                    jobImageUri = null
+                                    return@launch
+                                }
+
+                                val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                val storagePath = "job_images/${currentUser.uid}/$fileName"
+                                val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                                    context = context,
+                                    uri = uri,
+                                    storagePath = storagePath
+                                )
+
+                                when (uploadResult) {
+                                    is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                                        jobImageUrl = uploadResult.downloadUrl
+                                        Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
+                                    }
+                                    is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                                        Timber.e(uploadResult.exception, "Edit job image upload failed: ${uploadResult.error}")
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.post_job_image_upload_failed, uploadResult.error),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        jobImageUri = null
+                                    }
+                                    else -> Unit
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "Edit job image upload failed")
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.post_job_image_upload_failed, e.message ?: ""),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                jobImageUri = null
+                            } finally {
+                                isUploadingJobImage = false
+                            }
+                        }
+                    },
+                    onImageRemoved = {
+                        jobImageUri = null
+                        jobImageUrl = ""
+                    }
+                )
+            }
+
             // Contact Information
             item {
                 Surface(
@@ -1081,6 +1129,47 @@ fun EditJobScreen(
                             )
                         }
 
+                        // Work type
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Work type",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF374151)
+                                )
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(workTypes) { type ->
+                                    val selected = workType == type
+                                    FilterChip(
+                                        onClick = { workType = type },
+                                        label = {
+                                            Text(
+                                                type,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                            )
+                                        },
+                                        selected = selected,
+                                        modifier = Modifier.height(34.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF3B82F6),
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Color.White,
+                                            labelColor = Color(0xFF374151)
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = selected,
+                                            borderColor = Color(0xFFE5E7EB),
+                                            selectedBorderColor = Color(0xFF3B82F6)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
                         // Urgency
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
@@ -1123,6 +1212,21 @@ fun EditJobScreen(
                         )
                     }
                 }
+            }
+
+            // Requirements
+            item {
+                RequirementsSection(
+                    experienceLevel = experienceLevel,
+                    onExperienceLevelChange = { experienceLevel = it },
+                    experienceLevels = experienceLevels,
+                    educationRequired = educationRequired,
+                    onEducationRequiredChange = { educationRequired = it },
+                    educationRequirements = educationRequirements,
+                    gender = gender,
+                    onGenderChange = { gender = it },
+                    genders = genders
+                )
             }
 
             // Perks Section
@@ -1360,16 +1464,6 @@ fun EditJobScreen(
                                 location = workLocation.address
                                 locationLatitude = workLocation.latitude
                                 locationLongitude = workLocation.longitude
-
-                                // Increment usage count
-                                runCatching {
-                                    savedWorkLocationsStore.add(
-                                        label = workLocation.label,
-                                        address = workLocation.address,
-                                        latitude = workLocation.latitude,
-                                        longitude = workLocation.longitude
-                                    )
-                                }
 
                                 showSavedLocationsSheet = false
                             },

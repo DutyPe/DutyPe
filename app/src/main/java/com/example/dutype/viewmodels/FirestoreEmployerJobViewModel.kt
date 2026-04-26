@@ -8,7 +8,6 @@ import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.employer.sync.JobPostingWorker
 import com.example.dutype.models.JobListing
 import com.example.dutype.repositories.FirestoreJobRepository
-import com.example.dutype.services.NotificationService
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,7 +44,6 @@ data class FirestoreEmployerJobUiState(
 class FirestoreEmployerJobViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firestoreJobRepository: FirestoreJobRepository,
-    private val notificationService: NotificationService,
     val employerProfileCache: EmployerProfileCache,
     val jobDraftDataStore: JobDraftDataStore,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker
@@ -481,73 +479,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 callback(null)
-            }
-        }
-    }
-    
-    fun toggleJobStatus(jobId: String) {
-        viewModelScope.launch {
-            try {
-                // Find the job in the current list
-                val job = _uiState.value.myJobs.find { it.id == jobId }
-                if (job == null) {
-                    Timber.w("Job not found: %s", jobId)
-                    return@launch
-                }
-                
-                // Strict schema: toggle between open/closed using status field only.
-                val newStatus = if (job.status == "open") "closed" else "open"
-                val updates = mapOf(
-                    "status" to newStatus
-                )
-                
-                Timber.d("Toggling job %s status to: %s", jobId, newStatus)
-                
-                firestoreJobRepository.updateJob(jobId, updates).collect { result ->
-                    result.fold(
-                        onSuccess = {
-                            Timber.i("Successfully toggled job status")
-                            
-                            // Send notification for job pause/activate
-                            val employerId = currentUser?.uid
-                            Timber.d("Attempting to send job pause notification")
-                            Timber.d("employerId = %s", employerId)
-                            Timber.d("job.title = %s", job.title)
-                            Timber.d("newStatus = %s", newStatus)
-                            Timber.d("isPaused = %s", newStatus != "open")
-                            
-                            if (employerId != null) {
-                                try {
-                                    Timber.d("Calling notificationService.sendJobPausedNotification")
-                                    notificationService.sendJobPausedNotification(
-                                        jobTitle = job.title,
-                                        isPaused = newStatus != "open",
-                                        employerId = employerId
-                                    )
-                                    Timber.d("Notification service call completed")
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to send notification")
-                                }
-                            } else {
-                                Timber.e("employerId is null, cannot send notification")
-                            }
-                            
-                        },
-                        onFailure = { exception ->
-                            Timber.e(exception, "Failed to toggle job status")
-                            _uiState.value = _uiState.value.copy(
-                                hasError = true,
-                                error = exception.message ?: "Failed to update job status"
-                            )
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Exception toggling job status")
-                _uiState.value = _uiState.value.copy(
-                    hasError = true,
-                    error = e.message ?: "Failed to update job status"
-                )
             }
         }
     }

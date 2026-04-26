@@ -436,7 +436,6 @@ private fun getEmployerNotificationIcon(type: NotificationType): ImageVector {
     return when (type) {
         NotificationType.NEW_APPLICATION -> Icons.Default.PersonAdd
         NotificationType.JOB_POSTED -> Icons.Default.Work
-        NotificationType.JOB_PAUSED -> Icons.Default.Pause
         NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.CheckCircle
         NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.Schedule
         NotificationType.BIRTHDAY -> Icons.Default.Cake
@@ -448,7 +447,6 @@ private fun getEmployerNotificationColor(type: NotificationType): Color {
     return when (type) {
         NotificationType.NEW_APPLICATION -> Color(0xFF10B981)
         NotificationType.JOB_POSTED -> Color(0xFF3B82F6)
-        NotificationType.JOB_PAUSED -> Color(0xFFF59E0B)
         NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF8B5CF6)
         NotificationType.INTERVIEW_SCHEDULED -> Color(0xFFEF4444)
         NotificationType.BIRTHDAY -> Color(0xFFFF69B4) // Pink

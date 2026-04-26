@@ -232,24 +232,6 @@ object NotificationNavigationHandler {
                 )
             }
             
-            // Job Paused/Unpaused
-            NotificationType.JOB_PAUSED -> {
-                val icon = if (notification.actionData["isPaused"] == "true") "⏸️" else "▶️"
-                onMarkAsRead(notification.id)
-                onShowDialog(
-                    NotificationDialogData(
-                        title = notification.title,
-                        message = notification.message,
-                        type = notification.type,
-                        icon = icon,
-                        primaryAction = NotificationDialogAction("View My Jobs") {
-                            navController.navigate(Routes.EMPLOYER_MY_JOBS)
-                        },
-                        secondaryAction = NotificationDialogAction("OK") { /* dismiss */ }
-                    )
-                )
-            }
-            
             // Referral Milestone
             NotificationType.REFERRAL_MILESTONE -> {
                 onMarkAsRead(notification.id)

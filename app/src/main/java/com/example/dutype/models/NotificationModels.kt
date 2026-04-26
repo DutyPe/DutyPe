@@ -34,7 +34,6 @@ enum class NotificationType {
     REJECTED,
     JOB_UPDATE,
     JOB_POSTED,
-    JOB_PAUSED,
     NEW_JOB_ALERT,
     JOB_RECOMMENDATION,
     JOB_EXPIRY_REMINDER,
@@ -62,7 +61,6 @@ fun NotificationType.getDisplayName(): String = when (this) {
     NotificationType.REJECTED -> "Application Rejected"
     NotificationType.JOB_UPDATE -> "Job Update"
     NotificationType.JOB_POSTED -> "Job Posted"
-    NotificationType.JOB_PAUSED -> "Job Status Update"
     NotificationType.NEW_JOB_ALERT -> "New Job Alert"
     NotificationType.JOB_RECOMMENDATION -> "Job Recommendation"
     NotificationType.JOB_EXPIRY_REMINDER -> "Job Expiry"

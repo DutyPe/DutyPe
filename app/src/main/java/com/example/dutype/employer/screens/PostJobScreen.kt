@@ -108,7 +108,6 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
-import com.example.dutype.employer.components.PayTypeDropdown
 import com.example.dutype.employer.components.PerksSelectionGrid
 import com.example.dutype.employer.components.VacanciesSection
 import com.example.dutype.employer.components.WorkScheduleSection
@@ -128,6 +127,13 @@ import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -598,7 +604,7 @@ fun PostJobScreen(
                 // Allow proceeding but show warning (don't block)
                 true
             }
-            3 -> contactNumber.isNotBlank()
+            3 -> contactNumber.isNotBlank() && vacancies.toIntOrNull()?.let { it in 1..50 } == true
             4 -> true
             else -> false
         }
@@ -626,7 +632,7 @@ fun PostJobScreen(
             category = category,
             shiftTiming = shiftTiming,
             urgency = urgency,
-            vacancies = vacancies.toIntOrNull() ?: 1,
+            vacancies = vacancies.toIntOrNull() ?: 0,
             employerId = employerId ?: "",
             employerName = employerName,
             postedTime = System.currentTimeMillis()
@@ -651,9 +657,15 @@ fun PostJobScreen(
         val normalizedUrgency = when (urgency) {
             JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
             JobUrgency.NORMAL -> "MEDIUM"
-            JobUrgency.WITHIN_MONTH -> "WITHIN_MONTH"
+            JobUrgency.WITHIN_MONTH -> "LOW"
         }
         val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
+        val vacancyCount = vacancies.toIntOrNull()
+        if (vacancyCount == null || vacancyCount !in 1..50) {
+            Toast.makeText(context, "Enter number of positions", Toast.LENGTH_SHORT).show()
+            isSubmittingJob = false
+            return
+        }
 
         // BUG #6 FIX: payAmount is a free-form field (the form/help text says
         // "Enter amount, range (10000-15000), or text (Based on experience)").
@@ -701,7 +713,7 @@ fun PostJobScreen(
                     shiftTiming.displayName
                 }
             ),
-            "vacancies" to (vacancies.toIntOrNull() ?: 1),
+            "vacancies" to vacancyCount,
             "benefits" to normalizedBenefits,
             
             // Contact information
@@ -911,7 +923,8 @@ fun PostJobScreen(
     val pageBackground = Color.White
     val basicsReady = title.isNotBlank() && description.isNotBlank()
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
-    val requirementsReady = contactNumber.isNotBlank()
+    val vacancyReady = vacancies.toIntOrNull()?.let { it in 1..50 } == true
+    val requirementsReady = contactNumber.isNotBlank() && vacancyReady
     val locationPinned = hasValidJobCoordinates
     val hasHeroImage = jobImageUrl.isNotBlank() || jobImageUri != null
     val readinessCount = listOf(
@@ -1410,6 +1423,8 @@ fun PostJobScreen(
                                             locationLongitude = lon
                                             Timber.d(" LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
                                         },
+                                        locationLatitude = locationLatitude,
+                                        locationLongitude = locationLongitude,
                                         savedLocations = savedWorkLocations
                                     )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
@@ -2610,38 +2625,65 @@ fun WorkTypeSelection(
             
             Spacer(modifier = Modifier.height(18.dp))
             
-            Row(
+            OutlinedTextField(
+                value = payAmount,
+                onValueChange = { newValue ->
+                    // Allow flexible input: numbers, ranges (10000-15000), or text
+                    onPayAmountChange(newValue)
+                },
+                label = { Text(stringResource(R.string.amount_rupees)) },
+                placeholder = { Text("e.g. 12000") },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = payAmount,
-                        onValueChange = { newValue ->
-                            // Allow flexible input: numbers, ranges (10000-15000), or text
-                            onPayAmountChange(newValue)
+                singleLine = true,
+                isError = false,
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryBlue,
+                    focusedLabelColor = primaryBlue,
+                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    cursorColor = primaryBlue
+                )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Pay type",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF475569)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PayType.values().toList()) { type ->
+                    val selected = payType == type
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onPayTypeChange(type) },
+                        modifier = Modifier.height(34.dp),
+                        label = {
+                            Text(
+                                text = type.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                            )
                         },
-                        label = { Text(stringResource(R.string.amount_rupees)) },
-                        placeholder = { Text("e.g. 12000") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        isError = false, // Remove numeric validation error
-                        shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = primaryBlue,
-                            focusedLabelColor = primaryBlue,
-                            unfocusedBorderColor = Color(0xFFE2E8F0),
-                            cursorColor = primaryBlue
+                        shape = RoundedCornerShape(10.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = primaryBlue,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Color(0xFF374151)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selected,
+                            borderColor = Color(0xFFE5E7EB),
+                            selectedBorderColor = primaryBlue
                         )
                     )
                 }
-                
-                PayTypeDropdown(
-                    selectedType = payType,
-                    onTypeSelected = onPayTypeChange,
-                    modifier = Modifier.weight(1f)
-                )
             }
             
         }
@@ -2656,6 +2698,8 @@ fun EnhancedLocationSection(
     locationError: String?,
     onLocationButtonClick: () -> Unit,
     onLocationSelected: ((Double, Double) -> Unit)? = null,
+    locationLatitude: Double = 0.0,
+    locationLongitude: Double = 0.0,
     savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
 ) {
     val context = LocalContext.current
@@ -2956,6 +3000,42 @@ fun EnhancedLocationSection(
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFF1E293B),
                             lineHeight = 20.sp
+                        )
+                    }
+                }
+            }
+
+            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(locationLatitude, locationLongitude)) {
+                Spacer(modifier = Modifier.height(12.dp))
+                val selectedLatLng = remember(locationLatitude, locationLongitude) {
+                    LatLng(locationLatitude, locationLongitude)
+                }
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(selectedLatLng, 15f)
+                }
+                LaunchedEffect(selectedLatLng) {
+                    cameraPositionState.position = CameraPosition.fromLatLngZoom(selectedLatLng, 15f)
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(170.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        uiSettings = MapUiSettings(
+                            zoomControlsEnabled = false,
+                            myLocationButtonEnabled = false,
+                            mapToolbarEnabled = false
+                        )
+                    ) {
+                        Marker(
+                            state = MarkerState(selectedLatLng),
+                            title = "Work location"
                         )
                     }
                 }

@@ -33,7 +33,6 @@ const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
   "PROFILE_COMPLETE",
   "WELCOME",
   "JOB_POSTED",
-  "JOB_PAUSED",
   "WORKER_HIRED",
   "SYSTEM_UPDATE",
   "GENERAL",
@@ -351,7 +350,7 @@ export const sendPushNotification = functions.firestore
       
       // Map notification type to Android channel ID
       const notificationType = notification.type || "general";
-      const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "JOB_PAUSED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+      const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
       const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
       let channelId = "low_priority";
       if (highPriorityTypes.includes(notificationType)) {

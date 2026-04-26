@@ -723,7 +723,7 @@ export const checkPendingApplications = functions.pubsub
             data: {
               type: 'PENDING_APPLICATIONS',
               count: count.toString(),
-              deepLink: 'dutype://applications',
+              deepLink: 'dutype://employer/applications',
               locale
             },
             priority: 'normal',
@@ -1055,16 +1055,22 @@ export const reEngageInactiveEmployers = functions.pubsub
           continue;
         }
         
-        // Check last job post (employerId now lives in job_details).
+        // Check last job post from slim jobmetadata. It carries employerId +
+        // createdAt and avoids treating detail-only documents as activity.
         const lastJobSnapshot = await admin.firestore()
-          .collection('job_details')
+          .collection('jobmetadata')
           .where('employerId', '==', userId)
           .orderBy('createdAt', 'desc')
           .limit(1)
           .get();
 
+        const rawCreatedAt = lastJobSnapshot.docs[0]?.data().createdAt;
+        const lastCreatedAtMillis =
+          typeof rawCreatedAt === 'number'
+            ? rawCreatedAt
+            : rawCreatedAt?.toMillis?.() ?? rawCreatedAt?.toDate?.()?.getTime?.() ?? 0;
         const shouldReEngage = lastJobSnapshot.empty ||
-          (lastJobSnapshot.docs[0].data().createdAt < fifteenDaysAgo);
+          lastCreatedAtMillis < fifteenDaysAgo;
         
         if (shouldReEngage) {
           const locale = await getUserLanguage(admin.firestore(), userId);
@@ -1074,7 +1080,7 @@ export const reEngageInactiveEmployers = functions.pubsub
             body: tBody('EMPLOYER_RE_ENGAGEMENT', locale, { recipient }),
             data: {
               type: 'RE_ENGAGEMENT',
-              deepLink: 'dutype://post-job',
+              deepLink: 'dutype://employer/post-job',
               locale
             },
             priority: 'normal',

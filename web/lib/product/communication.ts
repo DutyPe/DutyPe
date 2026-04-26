@@ -80,7 +80,6 @@ const workerNotificationTypes = new Set([
 
 const employerNotificationTypes = new Set([
   "GENERAL",
-  "JOB_PAUSED",
   "JOB_POSTED",
   "NEW_APPLICATION",
   "PROFILE_COMPLETE",

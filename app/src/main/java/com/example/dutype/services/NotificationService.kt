@@ -72,7 +72,6 @@ class NotificationService @Inject constructor(
     private val employerTypes = setOf(
         NotificationType.NEW_APPLICATION,
         NotificationType.JOB_POSTED,
-        NotificationType.JOB_PAUSED,
         NotificationType.JOB_EXPIRY_REMINDER
     )
     
@@ -182,32 +181,6 @@ class NotificationService @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to send job posted notification")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Send notification for job paused/unpaused
-     */
-    suspend fun sendJobPausedNotification(
-        jobTitle: String,
-        isPaused: Boolean,
-        employerId: String
-    ): Result<Unit> {
-        Timber.i("NotificationService.sendJobPausedNotification called")
-        Timber.d("jobTitle: $jobTitle")
-        Timber.d("isPaused: $isPaused")
-        Timber.d("employerId: $employerId")
-        
-        return try {
-            val notification = createJobPausedNotification(jobTitle, isPaused)
-            Timber.d("Created notification: ${notification.title}")
-            sendNotification(notification, employerId)
-            Timber.i("Notification sent successfully")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to send job paused notification")
-            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -550,32 +523,6 @@ class NotificationService @Inject constructor(
     }
     
     /**
-     * Create job paused notification
-     */
-    private fun createJobPausedNotification(jobTitle: String, isPaused: Boolean): NotificationData {
-        val titleRes = if (isPaused) R.string.notif_job_paused_title else R.string.notif_job_activated_title
-        val msgRes = if (isPaused) R.string.notif_job_paused_msg else R.string.notif_job_activated_msg
-        val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)
-        val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes, jobTitle)
-            
-        return NotificationData(
-            id = UUID.randomUUID().toString(),
-            recipientId = "", // Will be set when sending
-            title = title,
-            message = message,
-            type = NotificationType.JOB_PAUSED,
-            targetRole = "EMPLOYER",
-            data = mapOf(
-                "jobTitle" to jobTitle,
-                "isPaused" to isPaused.toString(),
-                "action" to "view_job"
-            ),
-            createdAt = System.currentTimeMillis(),
-            isRead = false
-        )
-    }
-    
-    /**
      * Create profile complete notification (welcome message)
      */
     private fun createProfileCompleteNotification(userName: String, userRole: String): NotificationData {
@@ -701,7 +648,7 @@ class NotificationService @Inject constructor(
         )
         
         // Show local notification immediately for the current user (self-notifications such as
-        // profile complete, job posted, job paused, worker hired confirmation, etc.)
+        // profile complete, job posted, worker hired confirmation, etc.)
         // Cross-user notifications (employer ← new application, worker ← status update) are
         // delivered to the OTHER device via Cloud Function → FCM.
         val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid

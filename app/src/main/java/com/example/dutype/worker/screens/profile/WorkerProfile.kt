@@ -76,7 +76,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -991,6 +993,18 @@ private fun ModernEditDialog(
     var newAddress by remember { mutableStateOf(personalInfo.address) }
     var newDateOfBirth by remember { mutableStateOf(personalInfo.dateOfBirth) }
     var newGender by remember { mutableStateOf(personalInfo.gender) }
+    fun formatDob(raw: String): String {
+        val digits = raw.filter { it.isDigit() }.take(8)
+        return buildString {
+            digits.forEachIndexed { idx, c ->
+                if (idx == 2 || idx == 4) append('/')
+                append(c)
+            }
+        }
+    }
+    var dobInput by remember {
+        mutableStateOf(TextFieldValue(newDateOfBirth, selection = TextRange(newDateOfBirth.length)))
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1061,26 +1075,6 @@ private fun ModernEditDialog(
                     
                     item {
                         OutlinedTextField(
-                            value = newEmail,
-                            onValueChange = { /* Email cannot be changed */ },
-                            label = { Text(stringResource(R.string.email_address)) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Email, contentDescription = null)
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(0.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = false,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = Color(0xFF666666),
-                                disabledBorderColor = Color(0xFFE0E0E0),
-                                disabledLabelColor = Color(0xFF999999)
-                            )
-                        )
-                    }
-                    
-                    item {
-                        OutlinedTextField(
                             value = newPhone,
                             onValueChange = { /* Phone cannot be changed */ },
                             label = { Text(stringResource(R.string.phone_number)) },
@@ -1127,8 +1121,12 @@ private fun ModernEditDialog(
                     
                     item {
                         OutlinedTextField(
-                            value = newDateOfBirth,
-                            onValueChange = { newDateOfBirth = it },
+                            value = dobInput,
+                            onValueChange = {
+                                val formatted = formatDob(it.text)
+                                newDateOfBirth = formatted
+                                dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
+                            },
                             label = { Text(stringResource(R.string.date_of_birth)) },
                             placeholder = { Text(stringResource(R.string.dob_placeholder)) },
                             leadingIcon = {

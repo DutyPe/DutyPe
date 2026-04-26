@@ -34,8 +34,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -151,6 +153,7 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
                     val savedPhone = existingData["phone"] as? String
+                    val savedEmail = existingData["email"] as? String
                     val savedDateOfBirth = existingData["dateOfBirth"] as? String
                     val savedGender = existingData["gender"] as? String
                     val savedExperience = existingData["experience"] as? String
@@ -173,6 +176,11 @@ fun MandatoryWorkerProfileSetupScreen(
                         // Clean phone number (remove country code if present)
                         phoneNumber = savedPhone.replace("+91", "").trim()
                         Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
+                    }
+                    if (email.isBlank() && !savedEmail.isNullOrBlank()) {
+                        email = savedEmail
+                        isEmailLoaded = true
+                        Timber.d("PREFILL: email restored")
                     }
                     if (skills.isBlank() && savedSkills.isNotEmpty()) {
                         skills = savedSkills.joinToString(", ")
@@ -1418,16 +1426,28 @@ private fun AdditionalDetailsStep(
             // Apr 2026: replaced the heavy Material calendar picker with a
             // plain text input. Workers type their DOB as DD/MM/YYYY
             // (auto-inserts slashes) - simpler and faster on low-end phones.
-            OutlinedTextField(
-                value = dateOfBirth,
-                onValueChange = { raw ->
-                    val digits = raw.filter { it.isDigit() }.take(8)
-                    val formatted = buildString {
-                        digits.forEachIndexed { idx, c ->
-                            if (idx == 2 || idx == 4) append('/')
-                            append(c)
-                        }
+            fun formatDob(raw: String): String {
+                val digits = raw.filter { it.isDigit() }.take(8)
+                return buildString {
+                    digits.forEachIndexed { idx, c ->
+                        if (idx == 2 || idx == 4) append('/')
+                        append(c)
                     }
+                }
+            }
+            var dobInput by remember {
+                mutableStateOf(TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length)))
+            }
+            LaunchedEffect(dateOfBirth) {
+                if (dateOfBirth != dobInput.text) {
+                    dobInput = TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length))
+                }
+            }
+            OutlinedTextField(
+                value = dobInput,
+                onValueChange = { raw ->
+                    val formatted = formatDob(raw.text)
+                    dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
                     onDateOfBirthChange(formatted)
                 },
                 modifier = Modifier.fillMaxWidth(),

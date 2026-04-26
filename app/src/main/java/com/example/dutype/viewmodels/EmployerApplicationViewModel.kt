@@ -274,7 +274,7 @@ class EmployerApplicationViewModel @Inject constructor(
         return try {
             // Bug #19 fix: rules block direct employer reads of worker_profiles —
             // route through the authorising callable.
-            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
+            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId, application.jobId)
             profileResult.fold(
                 onSuccess = { profile ->
                     // Cache the profile
@@ -304,11 +304,22 @@ class EmployerApplicationViewModel @Inject constructor(
         val workerName = profile["fullName"] as? String ?: application.workerName
         val workerPhone = profile["phone"] as? String ?: application.workerPhone
         val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
+        val workerSkills = ((profile["skills"] as? List<*>).orEmpty() + (profile["jobTypes"] as? List<*>).orEmpty())
+            .mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
+            .distinct()
 
         return application.copy(
             workerName = workerName,
             workerPhone = workerPhone,
-            workerProfileImageUrl = workerProfileImageUrl
+            workerEmail = (profile["email"] as? String)?.takeIf { it.isNotBlank() } ?: application.workerEmail,
+            workerProfileImageUrl = workerProfileImageUrl,
+            workerSkills = workerSkills.ifEmpty { application.workerSkills },
+            workerGender = (profile["gender"] as? String).orEmpty().ifBlank { application.workerGender },
+            workerExperience = (profile["experience"] as? String).orEmpty().ifBlank { application.workerExperience },
+            workerEducationQualification = (profile["educationQualification"] as? String).orEmpty()
+                .ifBlank { application.workerEducationQualification },
+            workerDateOfBirth = (profile["dateOfBirth"] as? String).orEmpty().ifBlank { application.workerDateOfBirth },
+            workerBio = (profile["bio"] as? String).orEmpty().ifBlank { application.workerBio }
         )
     }
     

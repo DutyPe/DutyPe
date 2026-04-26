@@ -625,7 +625,7 @@ exports.checkPendingApplications = functions.pubsub
                     data: {
                         type: 'PENDING_APPLICATIONS',
                         count: count.toString(),
-                        deepLink: 'dutype://applications',
+                        deepLink: 'dutype://employer/applications',
                         locale
                     },
                     priority: 'normal',
@@ -884,6 +884,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
     .schedule('every 12 hours')
     .timeZone('Asia/Kolkata')
     .onRun(async (context) => {
+    var _a, _b, _c, _d, _e, _f, _g;
     console.log('[EMPLOYER_RE_ENGAGEMENT] ========== EMPLOYER RE-ENGAGEMENT START ==========');
     console.log('[EMPLOYER_RE_ENGAGEMENT] Role: EMPLOYER (active role only)');
     // Skip during quiet hours
@@ -910,15 +911,20 @@ exports.reEngageInactiveEmployers = functions.pubsub
             if (!await canSendNotification(userId, 're_engagement', 24 * 60 * 60 * 1000)) {
                 continue;
             }
-            // Check last job post (employerId now lives in job_details).
+            // Check last job post from slim jobmetadata. It carries employerId +
+            // createdAt and avoids treating detail-only documents as activity.
             const lastJobSnapshot = await admin.firestore()
-                .collection('job_details')
+                .collection('jobmetadata')
                 .where('employerId', '==', userId)
                 .orderBy('createdAt', 'desc')
                 .limit(1)
                 .get();
+            const rawCreatedAt = (_a = lastJobSnapshot.docs[0]) === null || _a === void 0 ? void 0 : _a.data().createdAt;
+            const lastCreatedAtMillis = typeof rawCreatedAt === 'number'
+                ? rawCreatedAt
+                : (_g = (_c = (_b = rawCreatedAt === null || rawCreatedAt === void 0 ? void 0 : rawCreatedAt.toMillis) === null || _b === void 0 ? void 0 : _b.call(rawCreatedAt)) !== null && _c !== void 0 ? _c : (_f = (_e = (_d = rawCreatedAt === null || rawCreatedAt === void 0 ? void 0 : rawCreatedAt.toDate) === null || _d === void 0 ? void 0 : _d.call(rawCreatedAt)) === null || _e === void 0 ? void 0 : _e.getTime) === null || _f === void 0 ? void 0 : _f.call(_e)) !== null && _g !== void 0 ? _g : 0;
             const shouldReEngage = lastJobSnapshot.empty ||
-                (lastJobSnapshot.docs[0].data().createdAt < fifteenDaysAgo);
+                lastCreatedAtMillis < fifteenDaysAgo;
             if (shouldReEngage) {
                 const locale = await (0, notification_i18n_1.getUserLanguage)(admin.firestore(), userId);
                 const recipient = await (0, notification_i18n_1.getUserDisplayName)(admin.firestore(), userId);
@@ -927,7 +933,7 @@ exports.reEngageInactiveEmployers = functions.pubsub
                     body: (0, notification_i18n_1.tBody)('EMPLOYER_RE_ENGAGEMENT', locale, { recipient }),
                     data: {
                         type: 'RE_ENGAGEMENT',
-                        deepLink: 'dutype://post-job',
+                        deepLink: 'dutype://employer/post-job',
                         locale
                     },
                     priority: 'normal',

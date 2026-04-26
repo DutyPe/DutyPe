@@ -70,7 +70,6 @@ fun AnalyticsScreen(navController: NavController) {
     
     // Calculate stats directly from JobListing
     val activeJobs = uiState.myJobs.count { it.status == "open" }
-    val pausedJobs = uiState.myJobs.count { it.status != "open" }
     val totalJobs = uiState.myJobs.size
     val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.createdAt) }
     val totalApplications = appStats.totalApplications
@@ -113,7 +112,6 @@ fun AnalyticsScreen(navController: NavController) {
                 OverviewStatsSection(
                     jobStats = jobStats,
                     activeJobs = activeJobs,
-                    pausedJobs = pausedJobs
                 )
             }
             
@@ -142,8 +140,7 @@ fun AnalyticsScreen(navController: NavController) {
 @Composable
 fun OverviewStatsSection(
     jobStats: JobStats,
-    activeJobs: Int,
-    pausedJobs: Int
+    activeJobs: Int
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -164,10 +161,10 @@ fun OverviewStatsSection(
                 modifier = Modifier.weight(1f)
             )
             StatCard(
-                title = stringResource(R.string.paused_jobs),
-                value = pausedJobs.toString(),
-                icon = Icons.Default.Pause,
-                color = Color(0xFFF59E0B),
+                title = stringResource(R.string.total_jobs),
+                value = jobStats.totalJobs.toString(),
+                icon = Icons.Default.Analytics,
+                color = Color(0xFF8B5CF6),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -179,13 +176,6 @@ fun OverviewStatsSection(
                 value = jobStats.todayJobs.toString(),
                 icon = Icons.Default.CalendarToday,
                 color = Color(0xFF3B82F6),
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = stringResource(R.string.total_jobs),
-                value = jobStats.totalJobs.toString(),
-                icon = Icons.Default.Analytics,
-                color = Color(0xFF8B5CF6),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -415,16 +405,15 @@ private fun JobActivityItem(job: JobListing) {
             modifier = Modifier
                 .size(40.dp)
                 .background(
-                    if (job.status == "open") Color(0xFF10B981).copy(alpha = 0.1f) 
-                    else Color(0xFFF59E0B).copy(alpha = 0.1f),
+                    Color(0xFF10B981).copy(alpha = 0.1f),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (job.status == "open") Icons.Default.Work else Icons.Default.Pause,
+                imageVector = Icons.Default.Work,
                 contentDescription = null,
-                tint = if (job.status == "open") Color(0xFF10B981) else Color(0xFFF59E0B),
+                tint = Color(0xFF10B981),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -453,16 +442,16 @@ private fun JobActivityItem(job: JobListing) {
         Box(
             modifier = Modifier
                 .background(
-                    if (job.status == "open") Color(0xFFD1FAE5) else Color(0xFFFEF3C7),
+                    Color(0xFFD1FAE5),
                     RoundedCornerShape(4.dp)
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                text = if (job.status == "open") "Active" else "Paused",
+                text = "Open",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
-                    color = if (job.status == "open") Color(0xFF059669) else Color(0xFFD97706)
+                    color = Color(0xFF059669)
                 )
             )
         }

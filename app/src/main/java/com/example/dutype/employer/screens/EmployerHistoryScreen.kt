@@ -309,7 +309,7 @@ private fun TimelineJobCard(
 ) {
     val lineColor = Color(0xFFE5E7EB)
     val isExpired = job.isExpired() // Use calculated expiry
-    val isPaused = job.status != "open"
+    val isClosed = job.status != "open"
     
     Row(
         modifier = Modifier
@@ -338,7 +338,7 @@ private fun TimelineJobCard(
                     .background(
                         when {
                             isExpired -> Color(0xFFEF4444)
-                            isPaused -> Color(0xFF6B7280)
+                            isClosed -> Color(0xFF6B7280)
                             else -> Color(0xFF10B981)
                         }
                     ),
@@ -347,7 +347,7 @@ private fun TimelineJobCard(
                 Icon(
                     imageVector = when {
                         isExpired -> Icons.Default.EventBusy
-                        isPaused -> Icons.Default.Pause
+                        isClosed -> Icons.Default.Cancel
                         else -> Icons.Default.CheckCircle
                     },
                     contentDescription = null,
@@ -367,7 +367,7 @@ private fun TimelineJobCard(
                 .clickable { onClick() },
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isExpired || isPaused) Color(0xFFF9FAFB) else Color.White
+                containerColor = if (isExpired || isClosed) Color(0xFFF9FAFB) else Color.White
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -381,7 +381,7 @@ private fun TimelineJobCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     JobStatusBadge(
-                        isActive = job.status == "open",
+                        isClosed = isClosed,
                         isExpired = isExpired
                     )
                     
@@ -400,7 +400,7 @@ private fun TimelineJobCard(
                     text = job.title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (isExpired || isPaused) Color(0xFF6B7280) else Color(0xFF111827)
+                        color = if (isExpired || isClosed) Color(0xFF6B7280) else Color(0xFF111827)
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -551,7 +551,7 @@ private fun HistoryJobCard(
     onClick: () -> Unit
 ) {
     val isExpired = job.isExpired() // Use calculated expiry
-    val isPaused = job.status != "open"
+    val isClosed = job.status != "open"
     
     Card(
         modifier = Modifier
@@ -559,7 +559,7 @@ private fun HistoryJobCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isExpired || isPaused) Color(0xFFF9FAFB) else Color.White
+            containerColor = if (isExpired || isClosed) Color(0xFFF9FAFB) else Color.White
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -576,7 +576,7 @@ private fun HistoryJobCard(
                         text = job.title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = if (isExpired || isPaused) Color(0xFF6B7280) else Color(0xFF111827)
+                            color = if (isExpired || isClosed) Color(0xFF6B7280) else Color(0xFF111827)
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -590,7 +590,7 @@ private fun HistoryJobCard(
                 }
                 
                 JobStatusBadge(
-                    isActive = job.status == "open",
+                    isClosed = isClosed,
                     isExpired = isExpired
                 )
             }
@@ -674,13 +674,13 @@ private fun HistoryJobCard(
 
 @Composable
 private fun JobStatusBadge(
-    isActive: Boolean,
+    isClosed: Boolean,
     isExpired: Boolean
 ) {
     val (color, text, icon) = when {
         isExpired -> Triple(Color(0xFFEF4444), stringResource(R.string.history_expired), Icons.Default.EventBusy)
-        !isActive -> Triple(Color(0xFF6B7280), stringResource(R.string.history_status_paused), Icons.Default.Pause)
-        else -> Triple(Color(0xFF10B981), stringResource(R.string.history_status_active), Icons.Default.CheckCircle)
+        isClosed -> Triple(Color(0xFF6B7280), "Closed", Icons.Default.Cancel)
+        else -> Triple(Color(0xFF10B981), "Open", Icons.Default.CheckCircle)
     }
     
     Surface(

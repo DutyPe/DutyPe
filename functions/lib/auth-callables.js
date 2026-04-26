@@ -304,7 +304,6 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
 // only if the caller has at least one application from this worker
 // (optionally scoped to a specific jobId).
 exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
-    var _a;
     const uid = context.auth.uid;
     const workerId = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.workerId, "workerId", {
         required: true,
@@ -324,7 +323,8 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, a
         // Tightest scope: docId is `${jobId}_${workerId}`.
         const docId = `${jobId}_${workerId}`;
         const direct = await db().collection("applications").doc(docId).get();
-        if (!direct.exists || ((_a = direct.data()) === null || _a === void 0 ? void 0 : _a.employerId) !== uid) {
+        const directData = (direct.data() || {});
+        if (!direct.exists || directData.employerId !== uid || directData.workerId !== workerId) {
             throw new functions.https.HttpsError("permission-denied", "Caller is not the employer of this application");
         }
     }
@@ -390,7 +390,7 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, a
 const MIN_WORKER_PROFILE_SCORE = 80;
 const MAX_APPLICATIONS_PER_HOUR = 10;
 exports.submitApplication = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
+    var _a, _b, _c;
     const uid = context.auth.uid;
     const jobId = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.jobId, "jobId", {
         required: true,
@@ -452,30 +452,6 @@ exports.submitApplication = (0, secure_callable_1.onCallSecured)({}, async (data
     }
     const docId = `${jobId}_${uid}`;
     const appRef = db().collection("applications").doc(docId);
-    // Build snapshots at create time so list screens render with zero fan-out.
-    const worker = (workerProfileSnap.data() || {});
-    const jobTypes = Array.isArray(worker.jobTypes) ? worker.jobTypes : [];
-    const workerSnapshot = {
-        workerId: uid,
-        fullName: String((_d = user.fullName) !== null && _d !== void 0 ? _d : ""),
-        profileImageUrl: String((_e = user.profileImageUrl) !== null && _e !== void 0 ? _e : ""),
-        primarySkill: jobTypes.length > 0 ? String(jobTypes[0]) : "",
-        experience: String((_f = worker.experience) !== null && _f !== void 0 ? _f : ""),
-        city: String((_j = (_h = (_g = user.location) === null || _g === void 0 ? void 0 : _g.city) !== null && _h !== void 0 ? _h : user.city) !== null && _j !== void 0 ? _j : ""),
-        ratingAvg: Number((_l = (_k = worker.rating) !== null && _k !== void 0 ? _k : worker.ratingAvg) !== null && _l !== void 0 ? _l : 0),
-        totalJobs: Number((_m = worker.totalJobs) !== null && _m !== void 0 ? _m : 0),
-    };
-    const jobSnapshot = {
-        jobId,
-        title: String((_o = job.title) !== null && _o !== void 0 ? _o : ""),
-        companyName: String((_p = job.companyName) !== null && _p !== void 0 ? _p : ""),
-        jobType: String((_q = job.jobType) !== null && _q !== void 0 ? _q : ""),
-        salary: String((_r = job.salary) !== null && _r !== void 0 ? _r : ""),
-        salaryType: String((_s = job.salaryType) !== null && _s !== void 0 ? _s : ""),
-        addressText: String((_t = job.addressText) !== null && _t !== void 0 ? _t : ""),
-        status: String((_u = job.status) !== null && _u !== void 0 ? _u : ""),
-        geohash: String((_v = job.geohash) !== null && _v !== void 0 ? _v : ""),
-    };
     const txResult = await db().runTransaction(async (tx) => {
         const existing = await tx.get(appRef);
         if (existing.exists) {
@@ -487,8 +463,6 @@ exports.submitApplication = (0, secure_callable_1.onCallSecured)({}, async (data
             employerId,
             status: "applied",
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            workerSnapshot,
-            jobSnapshot,
         });
         return { alreadyApplied: false };
     });

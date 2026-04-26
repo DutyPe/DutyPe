@@ -92,11 +92,6 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         private val EMPLOYER_MESSAGES = listOf(
             Triple(
-                "\uD83D\uDC40 Candidates are waiting for your review",
-                "Open applications now to avoid losing quality workers.",
-                "dutype://applications"
-            ),
-            Triple(
                 "\uD83D\uDE80 Fast response improves hiring outcomes",
                 "Take one hiring action now and improve conversion.",
                 "dutype://employer/home"

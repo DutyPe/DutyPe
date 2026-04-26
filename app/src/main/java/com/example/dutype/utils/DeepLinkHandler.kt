@@ -36,6 +36,7 @@ object DeepLinkHandler {
     private const val HOST_HOME = "home"
     private const val HOST_JOBS = "jobs"
     private const val HOST_APPLICATIONS = "applications"
+    private const val HOST_POST_JOB = "post-job"
     
     // Web URLs - Android App Links (opens Android app directly)
     private const val WEB_DOMAIN = "dutype.in"  // Custom domain
@@ -241,6 +242,12 @@ object DeepLinkHandler {
                 true
             }
 
+            // Legacy app scheme: dutype://post-job
+            data.scheme == SCHEME && data.host == HOST_POST_JOB -> {
+                navigateToEmployerPostJob(navController)
+                true
+            }
+
             // App scheme: dutype://jobs
             data.scheme == SCHEME && data.host == HOST_JOBS -> {
                 navigateToWorkerJobs(navController)
@@ -365,19 +372,19 @@ object DeepLinkHandler {
     }
     
     private fun navigateToEmployerApplication(navController: NavController, applicationId: String) {
-        safeNavigate(navController, Routes.EMPLOYER_APPLICATIONS, "employer-application:$applicationId")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_APPLICATIONS, "employer-application:$applicationId")
     }
 
     private fun navigateToEmployerApplications(navController: NavController) {
-        safeNavigate(navController, Routes.EMPLOYER_APPLICATIONS, "employer-applications")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_APPLICATIONS, "employer-applications")
     }
     
     private fun navigateToEmployerJob(navController: NavController, jobId: String) {
-        safeNavigate(navController, "${Routes.EMPLOYER_MY_JOBS}?jobId=$jobId", "employer-job:$jobId")
+        safeNavigateEmployerInner(navController, Routes.employerJobPreviewRoute(jobId), "employer-job:$jobId")
     }
 
     private fun navigateToEmployerJobs(navController: NavController) {
-        safeNavigate(navController, Routes.EMPLOYER_MY_JOBS, "employer-jobs")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_MY_JOBS, "employer-jobs")
     }
     
     private fun navigateToProfile(navController: NavController) {
@@ -393,7 +400,7 @@ object DeepLinkHandler {
     }
     
     private fun navigateToEmployerNotifications(navController: NavController) {
-        safeNavigate(navController, Routes.EMPLOYER_NOTIFICATIONS, "employer-notifications")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_NOTIFICATIONS, "employer-notifications")
     }
     
     private fun navigateToHome(navController: NavController) {
@@ -409,11 +416,29 @@ object DeepLinkHandler {
     }
     
     private fun navigateToEmployerProfile(navController: NavController) {
-        safeNavigate(navController, Routes.EMPLOYER_PROFILE, "employer-profile")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_PROFILE, "employer-profile")
     }
     
     private fun navigateToEmployerPostJob(navController: NavController) {
-        safeNavigate(navController, Routes.EMPLOYER_POST_JOB, "employer-post-job")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_POST_JOB, "employer-post-job")
+    }
+
+    private fun safeNavigateEmployerInner(navController: NavController, route: String, label: String) {
+        try {
+            navController.navigate(route) { launchSingleTop = true }
+            Timber.i("DEEP LINK: employer inner $label navigation successful")
+        } catch (e: IllegalArgumentException) {
+            com.example.dutype.navigation.EmployerInnerNavQueue.setPending(route)
+            runCatching {
+                navController.navigate(Routes.EMPLOYER_HOME) { launchSingleTop = true }
+            }.onSuccess {
+                Timber.w(e, "DEEP LINK: queued employer inner route $route via EMPLOYER_HOME")
+            }.onFailure { fallback ->
+                Timber.e(fallback, "DEEP LINK: failed employer inner fallback for $label")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "DEEP LINK: failed employer inner navigation for $label")
+        }
     }
     
     private fun navigateToWorkerProfile(navController: NavController) {

@@ -387,17 +387,6 @@ fun EmployerProfileScreen(
                                             )
                                         )
                                     }
-                                    if (companyEmail.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = companyEmail,
-                                            style = AppTypography.bodySmall.copy(
-                                                color = WorkerColors.TextSecondary
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
                                 } else {
                                     // Show guest CTA when not logged in
                                     Button(
@@ -492,8 +481,17 @@ fun EmployerProfileScreen(
                                     pendingMenuAction = "locations"
                                     showLoginBottomSheet = true
                                 } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) 
+                                    try {
+                                        val navControllerToUse = localNavController ?: rootNavController
+                                        navControllerToUse.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+                                    } catch (e: Exception) {
+                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_MANAGE_ADDRESSES")
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Unable to open Work Locations. Please try again.",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             }
                         )
@@ -669,7 +667,11 @@ fun EmployerProfileScreen(
             when (pendingMenuAction) {
                 "profile" -> localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS) ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
                 "job_posts" -> localNavController?.navigate(Routes.EMPLOYER_HISTORY) ?: rootNavController.navigate(Routes.EMPLOYER_HISTORY)
-                "locations" -> localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+                "locations" -> runCatching {
+                    localNavController?.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES) ?: rootNavController.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
+                }.onFailure {
+                    timber.log.Timber.e(it, "Error navigating to pending locations action")
+                }
                 "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
             }
             pendingMenuAction = null

@@ -155,7 +155,10 @@ fun ProfessionalWorkerProfileViewScreen(
 
             // Always attempt the callable to get full profile (callable is
             // region-pinned to asia-south1 by ProfileCompletionService).
-            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId)
+            val profileResult = profileCompletionService.getWorkerProfileForEmployer(
+                workerId = workerId,
+                jobId = application?.jobId?.takeIf { it.isNotBlank() }
+            )
             profileResult.fold(
                 onSuccess = { data ->
                     val locationMap = data["location"] as? Map<*, *>

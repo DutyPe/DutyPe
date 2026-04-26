@@ -56,7 +56,7 @@ function notificationRoute(role: ProductRole, notification: ProductNotification)
     return { href: "/app/employer/applications", label: "Review applications" };
   }
 
-  if (role === "EMPLOYER" && ["JOB_POSTED", "JOB_PAUSED"].includes(notification.type)) {
+  if (role === "EMPLOYER" && notification.type === "JOB_POSTED") {
     return { href: "/app/employer/jobs", label: "Manage jobs" };
   }
 

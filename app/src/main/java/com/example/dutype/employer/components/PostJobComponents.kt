@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -38,6 +40,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -253,7 +257,10 @@ fun PerksSelectionGrid(
                     onClick = onAddOwnPerkClick,
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    modifier = Modifier.padding(start = 4.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp)
+                        .height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "Add your own perk +",
@@ -408,22 +415,9 @@ private fun UrgencyChip(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val backgroundColor = when {
-        isSelected -> when (urgency) {
-            JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
-            JobUrgency.URGENT -> Color(0xFFEA580C)
-            JobUrgency.NORMAL -> Color(0xFF3B82F6)
-            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
-        }
-        else -> Color.White
-    }
-
-    val textColor = if (isSelected) Color.White else when (urgency) {
-        JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
-        JobUrgency.URGENT -> Color(0xFFEA580C)
-        JobUrgency.NORMAL -> Color(0xFF3B82F6)
-        JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
-    }
+    val selectedColor = Color(0xFF3B82F6)
+    val backgroundColor = if (isSelected) selectedColor else Color.White
+    val textColor = if (isSelected) Color.White else Color(0xFF374151)
 
     Card(
         modifier = Modifier
@@ -431,7 +425,10 @@ private fun UrgencyChip(
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, textColor)
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) selectedColor else Color(0xFFE5E7EB)
+        )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
@@ -657,34 +654,61 @@ fun PaymentSection(
                 fontWeight = FontWeight.Bold
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = payAmount,
-                    onValueChange = onPayAmountChange,
-                    label = { Text(stringResource(R.string.amount)) },
-                    placeholder = { Text("e.g., 10000 or 11000-15000") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    modifier = Modifier.weight(2f),
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(Icons.Default.CurrencyRupee, contentDescription = null)
-                    },
-                    supportingText = {
-                        Text(
-                            text = "Enter amount, range (10000-15000), or text (Based on experience)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
+            OutlinedTextField(
+                value = payAmount,
+                onValueChange = onPayAmountChange,
+                label = { Text(stringResource(R.string.amount)) },
+                placeholder = { Text("e.g., 10000 or 11000-15000") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Default.CurrencyRupee, contentDescription = null)
+                },
+                supportingText = {
+                    Text(
+                        text = "Enter amount, range (10000-15000), or text (Based on experience)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            )
 
-                PayTypeDropdown(
-                    selectedType = payType,
-                    onTypeSelected = onPayTypeChange,
-                    modifier = Modifier.weight(1f)
-                )
+            Text(
+                text = stringResource(R.string.pay_type),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF475569)
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PayType.values().toList()) { type ->
+                    val selected = payType == type
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onPayTypeChange(type) },
+                        modifier = Modifier.height(34.dp),
+                        label = {
+                            Text(
+                                text = type.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                            )
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF3B82F6),
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Color(0xFF374151)
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selected,
+                            borderColor = Color(0xFFE5E7EB),
+                            selectedBorderColor = Color(0xFF3B82F6)
+                        )
+                    )
+                }
             }
         }
     }

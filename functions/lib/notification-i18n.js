@@ -321,15 +321,15 @@ exports.SE_WORKER_POOL = [
     { id: "SE_WORKER_UNREAD_UPDATES", deepLink: "dutype://notifications" },
 ];
 exports.SE_EMPLOYER_POOL = [
-    { id: "SE_EMPLOYER_REVIEW_CANDIDATES", deepLink: "dutype://applications" },
-    { id: "SE_EMPLOYER_NEW_APPLICATIONS", deepLink: "dutype://applications" },
-    { id: "SE_EMPLOYER_DONT_WAIT", deepLink: "dutype://applications" },
-    { id: "SE_EMPLOYER_REFRESH_POST", deepLink: "dutype://post-job" },
+    { id: "SE_EMPLOYER_REVIEW_CANDIDATES", deepLink: "dutype://employer/applications" },
+    { id: "SE_EMPLOYER_NEW_APPLICATIONS", deepLink: "dutype://employer/applications" },
+    { id: "SE_EMPLOYER_DONT_WAIT", deepLink: "dutype://employer/applications" },
+    { id: "SE_EMPLOYER_REFRESH_POST", deepLink: "dutype://employer/post-job" },
     { id: "SE_EMPLOYER_PERFORMANCE", deepLink: "dutype://employer/home" },
-    { id: "SE_EMPLOYER_TIP_SALARY", deepLink: "dutype://post-job" },
+    { id: "SE_EMPLOYER_TIP_SALARY", deepLink: "dutype://employer/post-job" },
     { id: "SE_EMPLOYER_HIRE_FASTER", deepLink: "dutype://employer/home" },
-    { id: "SE_EMPLOYER_FOLLOWUP", deepLink: "dutype://applications" },
-    { id: "SE_EMPLOYER_RESPOND_24H", deepLink: "dutype://applications" },
+    { id: "SE_EMPLOYER_FOLLOWUP", deepLink: "dutype://employer/applications" },
+    { id: "SE_EMPLOYER_RESPOND_24H", deepLink: "dutype://employer/applications" },
 ];
 exports.SE_GUEST_POOL = [
     { id: "SE_GUEST_MORNING_NEW_JOBS", timeOfDay: "morning" },

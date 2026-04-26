@@ -415,7 +415,8 @@ export const getWorkerProfileForEmployer = onCallSecured(
       // Tightest scope: docId is `${jobId}_${workerId}`.
       const docId = `${jobId}_${workerId}`;
       const direct = await db().collection("applications").doc(docId).get();
-      if (!direct.exists || (direct.data() as any)?.employerId !== uid) {
+      const directData = (direct.data() || {}) as Record<string, any>;
+      if (!direct.exists || directData.employerId !== uid || directData.workerId !== workerId) {
         throw new functions.https.HttpsError(
           "permission-denied",
           "Caller is not the employer of this application"
@@ -575,31 +576,6 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
   const docId = `${jobId}_${uid}`;
   const appRef = db().collection("applications").doc(docId);
 
-  // Build snapshots at create time so list screens render with zero fan-out.
-  const worker = (workerProfileSnap.data() || {}) as Record<string, any>;
-  const jobTypes: any[] = Array.isArray(worker.jobTypes) ? worker.jobTypes : [];
-  const workerSnapshot = {
-    workerId: uid,
-    fullName: String(user.fullName ?? ""),
-    profileImageUrl: String(user.profileImageUrl ?? ""),
-    primarySkill: jobTypes.length > 0 ? String(jobTypes[0]) : "",
-    experience: String(worker.experience ?? ""),
-    city: String(user.location?.city ?? user.city ?? ""),
-    ratingAvg: Number(worker.rating ?? worker.ratingAvg ?? 0),
-    totalJobs: Number(worker.totalJobs ?? 0),
-  };
-  const jobSnapshot = {
-    jobId,
-    title: String(job.title ?? ""),
-    companyName: String(job.companyName ?? ""),
-    jobType: String(job.jobType ?? ""),
-    salary: String(job.salary ?? ""),
-    salaryType: String(job.salaryType ?? ""),
-    addressText: String(job.addressText ?? ""),
-    status: String(job.status ?? ""),
-    geohash: String(job.geohash ?? ""),
-  };
-
   const txResult = await db().runTransaction(async (tx) => {
     const existing = await tx.get(appRef);
     if (existing.exists) {
@@ -611,8 +587,6 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
       employerId,
       status: "applied",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      workerSnapshot,
-      jobSnapshot,
     });
     return { alreadyApplied: false };
   });

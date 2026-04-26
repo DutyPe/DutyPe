@@ -238,7 +238,6 @@ private fun getActionButton(notification: Notification): ActionButtonData? {
             if (!jobId.isNullOrEmpty()) ActionButtonData("VIEW_JOB_DETAILS", Icons.Default.Visibility, "job_detail")
             else ActionButtonData("BROWSE_JOBS", Icons.Default.Search, "all_jobs")
         }
-        NotificationType.JOB_PAUSED -> ActionButtonData("VIEW_APPLICATIONS", Icons.Default.Work, "my_jobs")
         else -> null
     }
 }
@@ -253,7 +252,6 @@ private fun getNotificationDetailIcon(type: NotificationType): ImageVector {
         NotificationType.NEW_JOB_ALERT -> Icons.Default.Work
         NotificationType.JOB_RECOMMENDATION -> Icons.Default.ThumbUp
         NotificationType.JOB_POSTED -> Icons.Default.AddCircle
-        NotificationType.JOB_PAUSED -> Icons.Default.Pause
         NotificationType.SYSTEM_UPDATE -> Icons.Default.Info
         else -> Icons.Default.Notifications
     }
@@ -269,7 +267,6 @@ private fun getNotificationDetailColor(type: NotificationType): Color {
         NotificationType.NEW_JOB_ALERT -> Color(0xFFF59E0B)
         NotificationType.JOB_RECOMMENDATION -> Color(0xFF06B6D4)
         NotificationType.JOB_POSTED -> Color(0xFF10B981)
-        NotificationType.JOB_PAUSED -> Color(0xFFF59E0B)
         NotificationType.SYSTEM_UPDATE -> Color(0xFF6B7280)
         else -> Color(0xFF6B7280)
     }
@@ -286,7 +283,6 @@ private fun getNotificationTypeLabel(type: NotificationType): String {
         NotificationType.NEW_JOB_ALERT -> stringResource(R.string.notif_type_new_job)
         NotificationType.JOB_RECOMMENDATION -> stringResource(R.string.notif_type_recommended)
         NotificationType.JOB_POSTED -> stringResource(R.string.notif_type_job_posted)
-        NotificationType.JOB_PAUSED -> stringResource(R.string.notif_type_job_update)
         NotificationType.SYSTEM_UPDATE -> stringResource(R.string.notif_type_system)
         else -> stringResource(R.string.notif_type_notification)
     }

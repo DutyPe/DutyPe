@@ -29,7 +29,6 @@ fun EmployerJobCard(
     jobPosting: JobPostingModel,
     onEditClick: (String) -> Unit = {},
     onViewApplicationsClick: (String) -> Unit = {},
-    onToggleActiveClick: (String) -> Unit = {},
     onShareClick: (String) -> Unit = {},
     showActions: Boolean = true,
     onViewTrack: (String) -> Unit = {},
@@ -137,7 +136,6 @@ fun EmployerJobCard(
                     
                     // Status indicator
                     JobStatusBadge(
-                        isActive = jobPosting.isActive,
                         urgency = jobPosting.urgency
                     )
                 }
@@ -170,7 +168,6 @@ fun EmployerJobCard(
                 showActions = showActions,
                 onEditClick = onEditClick,
                 onViewApplicationsClick = onViewApplicationsClick,
-                onToggleActiveClick = onToggleActiveClick,
                 onShareClick = onShareClick,
                 onShowManagementDialog = { showJobManagementDialog = true }
             )
@@ -190,10 +187,6 @@ fun EmployerJobCard(
                 showJobManagementDialog = false
                 onViewApplicationsClick(jobPosting.jobId)
             },
-            onToggleActiveClick = { 
-                showJobManagementDialog = false
-                onToggleActiveClick(jobPosting.jobId)
-            },
             onShareClick = { 
                 showJobManagementDialog = false
                 onShareClick(jobPosting.jobId)
@@ -204,14 +197,12 @@ fun EmployerJobCard(
 
 @Composable
 private fun JobStatusBadge(
-    isActive: Boolean,
     urgency: JobUrgency
 ) {
     val (backgroundColor, textColor, statusText, icon) = when {
-        !isActive -> Quadruple(Color(0xFFEF4444), Color.White, "Paused", Icons.Default.Pause)
         urgency == JobUrgency.IMMEDIATE -> Quadruple(Color(0xFFEF4444), Color.White, "Urgent", Icons.Default.Warning)
         urgency == JobUrgency.URGENT -> Quadruple(Color(0xFFF59E0B), Color.White, "Priority", Icons.Default.PriorityHigh)
-        else -> Quadruple(Color(0xFF10B981), Color.White, "Active", Icons.Default.CheckCircle)
+        else -> Quadruple(Color(0xFF10B981), Color.White, "Open", Icons.Default.CheckCircle)
     }
 
     Row(
@@ -356,7 +347,6 @@ private fun JobCardFooter(
     showActions: Boolean,
     onEditClick: (String) -> Unit,
     onViewApplicationsClick: (String) -> Unit,
-    onToggleActiveClick: (String) -> Unit,
     onShareClick: (String) -> Unit,
     onShowManagementDialog: () -> Unit = {}
 ) {
@@ -379,7 +369,6 @@ private fun JobCardFooter(
                 JobActionsRow(
                     jobPosting = jobPosting,
                     onEditClick = onEditClick,
-                    onToggleActiveClick = onToggleActiveClick,
                     onShareClick = onShareClick
                 )
             }
@@ -421,7 +410,6 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
 private fun JobActionsRow(
     jobPosting: JobPostingModel,
     onEditClick: (String) -> Unit,
-    onToggleActiveClick: (String) -> Unit,
     onShareClick: (String) -> Unit
 ) {
     Row(
@@ -438,19 +426,6 @@ private fun JobActionsRow(
                 imageVector = Icons.Default.Edit,
                 contentDescription = "Edit job",
                 tint = Color(0xFF6B7280),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-
-        // Toggle active/inactive
-        IconButton(
-            onClick = { onToggleActiveClick(jobPosting.jobId) },
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                imageVector = if (jobPosting.isActive) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (jobPosting.isActive) "Pause job" else "Activate job",
-                tint = if (jobPosting.isActive) Color(0xFFF59E0B) else Color(0xFF10B981),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -477,7 +452,6 @@ private fun JobManagementDialog(
     onDismiss: () -> Unit,
     onEditClick: () -> Unit,
     onViewApplicationsClick: () -> Unit,
-    onToggleActiveClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
     AlertDialog(
@@ -509,11 +483,6 @@ private fun JobManagementDialog(
                             text = "${jobPosting.applicationsReceived} applications received",
                             style = AppTypography.bodyMedium,
                             color = Color.Gray
-                        )
-                        Text(
-                            text = "Status: ${if (jobPosting.isActive) "Active" else "Paused"}",
-                            style = AppTypography.caption,
-                            color = if (jobPosting.isActive) Color(0xFF10B981) else Color(0xFFF59E0B)
                         )
                     }
                 }

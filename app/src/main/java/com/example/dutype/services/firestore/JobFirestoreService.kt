@@ -328,7 +328,9 @@ class JobFirestoreService @Inject constructor(
             val companyCity = extractCityFromAddress(addressText)
             val vacancies = (jobData["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(jobData["vacancies"]).toIntOrNull()
-                ?: 1
+            if (vacancies == null || vacancies !in 1..50) {
+                return Result.failure(IllegalArgumentException("Vacancy count is required"))
+            }
             val benefits = parseBenefits(jobData["benefits"])
             val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
 
@@ -805,6 +807,8 @@ class JobFirestoreService @Inject constructor(
                 val v = normalizeString(data["jobImageUrl"])
                 if (v.isNotBlank()) {
                     cardUpdates["jobImageUrl"] = v
+                } else {
+                    cardUpdates["jobImageUrl"] = FieldValue.delete()
                 }
             }
             // Details-only fields (must match firestore.rules for job_details).
@@ -836,7 +840,9 @@ class JobFirestoreService @Inject constructor(
             }
             if (data.containsKey("vacancies")) {
                 val v = (data["vacancies"] as? Number)?.toInt()
-                    ?: normalizeString(data["vacancies"]).toIntOrNull() ?: 1
+                    ?: normalizeString(data["vacancies"]).toIntOrNull()
+                    ?: return Result.failure(IllegalArgumentException("Vacancy count is required"))
+                if (v !in 1..50) return Result.failure(IllegalArgumentException("Vacancy count must be between 1 and 50"))
                 // Mirror onto the slim card payload so list views keep up.
                 cardUpdates["vacancies"] = v
             }

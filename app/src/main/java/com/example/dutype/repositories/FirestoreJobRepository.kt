@@ -55,10 +55,10 @@ class FirestoreJobRepository @Inject constructor(
                 // SINGLE SOURCE OF TRUTH: Send notification here (only place)
                 val jobTitle = jobData["title"] as? String ?: "New Job"
                 val employerId = jobData["employerId"] as? String
-                if (employerId != null) {
+                if (false && employerId != null) {
                     try {
                         Timber.d("📬 Repository: Sending job posted notification for '$jobTitle'")
-                        notificationService.sendJobPostedNotification(jobTitle, employerId)
+                        notificationService.sendJobPostedNotification(jobTitle, employerId.orEmpty())
                         Timber.d("📬 Repository: Job posted notification sent successfully")
                     } catch (e: Exception) {
                         Timber.e(e, "📬 Repository: Failed to send job posted notification")

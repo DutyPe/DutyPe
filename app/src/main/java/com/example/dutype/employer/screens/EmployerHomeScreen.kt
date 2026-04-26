@@ -173,9 +173,8 @@ fun EmployerHomeScreen(
     var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }
     var showBirthdayBanner by remember { mutableStateOf(false) }
     
-    // State for sharing and job actions
+    // State for sharing job actions
     var jobToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var jobToToggle by remember { mutableStateOf<String?>(null) }
     
     // Permission handling - Check permissions only once
     var hasNotificationPermission by remember { 
@@ -269,16 +268,7 @@ fun EmployerHomeScreen(
         }
     }
     
-    // Handle job toggle
-    LaunchedEffect(jobToToggle) {
-        jobToToggle?.let { jobId ->
-            viewModel.toggleJobStatus(jobId)
-            jobToToggle = null
-        }
-    }
-    
     // Helper functions to handle job actions
-    val handleJobToggle = remember { { jobId: String -> jobToToggle = jobId } }
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
     // Bug fix: status bar now matches the calm employer surface instead of
@@ -401,7 +391,6 @@ fun EmployerHomeScreen(
                 navController = navController,
                 viewModel = viewModel,
                 scrollStateManager = scrollStateManager,
-                onToggleJob = handleJobToggle,
                 onShareJob = handleJobShare,
                 context = context,
                 applicationCountsByJobId = employerJobUiState.applicationCountsByJobId
@@ -469,7 +458,6 @@ fun DashboardContent(
     navController: NavController,
     viewModel: FirestoreEmployerJobViewModel,
     scrollStateManager: ScrollStateManager? = null,
-    onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     applicationCountsByJobId: Map<String, Int> = emptyMap(),
@@ -516,7 +504,6 @@ fun DashboardContent(
                         navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
                     },
                     onTabSwitch = { /* No longer needed */ },
-                    onToggleJob = onToggleJob,
                     onShareJob = onShareJob,
                     context = context,
                     applicationCountsByJobId = applicationCountsByJobId
@@ -840,7 +827,6 @@ fun RecentJobsSection(
     isRefreshing: Boolean = false,
     onViewAllClick: () -> Unit,
     onTabSwitch: (Int) -> Unit,
-    onToggleJob: (String) -> Unit = {},
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     applicationCountsByJobId: Map<String, Int> = emptyMap()
@@ -945,7 +931,6 @@ fun RecentJobsSection(
                         employerName = job.companyName,
                         postedTime = job.createdAt,
                         contactNumber = job.contactNumber,
-                        isActive = job.status == "open",
                         applicationsReceived = applicationCountsByJobId[job.id] ?: 0,
                         isFilled = job.status == "closed",
                         imageUrl = job.jobImageUrl
@@ -990,10 +975,6 @@ fun RecentJobsSection(
                                 Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
-                            onToggleActiveClick = { jobId ->
-                                // Toggle job active status
-                                onToggleJob(jobId)
-                            },
                             onShareClick = { jobId ->
                                 // Share job functionality
                                 Timber.d(" SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
@@ -1233,7 +1214,6 @@ fun ApplicationAnalyticsSection(
     // Calculate real analytics from job data and application stats
     val totalApplications = appStats.totalApplications
     val activeJobs = uiState.myJobs.count { it.status == "open" }
-    val pausedJobs = uiState.myJobs.count { it.status != "open" }
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -1282,12 +1262,11 @@ fun ApplicationAnalyticsSection(
                     color = Color(0xFF10B981),
                     modifier = Modifier.weight(1f)
                 )
-                // Paused Jobs
                 AnalyticsItem(
-                    label = stringResource(R.string.paused_jobs),
-                    value = pausedJobs.toString(),
-                    icon = Icons.Default.Pause,
-                    color = Color(0xFFF59E0B),
+                    label = stringResource(R.string.total_jobs),
+                    value = uiState.myJobs.size.toString(),
+                    icon = Icons.Default.Analytics,
+                    color = Color(0xFF8B5CF6),
                     modifier = Modifier.weight(1f)
                 )
             }

@@ -48,7 +48,6 @@ import com.example.dutype.employer.screens.settings.EmployerAddressManagementScr
 
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.PostJobScreen
-import com.example.dutype.employer.screens.PostedJobsScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
@@ -230,8 +229,11 @@ fun EmployerMainScreen(
                         )
                     }
                     composable(Routes.EMPLOYER_MY_JOBS) {
-                        PostedJobsScreen(
-                            navController = navController
+                        com.example.dutype.employer.screens.EmployerHistoryScreen(
+                            navController = navController,
+                            onStatusBarColorChange = { color: Color ->
+                                currentStatusBarColor = color
+                            }
                         )
                     }
                     

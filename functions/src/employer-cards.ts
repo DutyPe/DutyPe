@@ -84,7 +84,7 @@ async function buildDenormFromJob(jobId: string): Promise<DenormPayload | null> 
     addressText: String(meta.addressText ?? ""),
     geohash: String(meta.geohash ?? ""),
     jobImageUrl: meta.jobImageUrl ? String(meta.jobImageUrl) : null,
-    vacancies: Number(details.vacancies ?? 1),
+    vacancies: Number(meta.vacancies ?? details.vacancies ?? 1),
     urgency: String(meta.urgency ?? "MEDIUM"),
     companyName: String(meta.companyName ?? ""),
     contactNumber: String(details.contactNumber ?? ""),

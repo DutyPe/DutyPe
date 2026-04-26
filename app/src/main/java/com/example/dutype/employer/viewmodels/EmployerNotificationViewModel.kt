@@ -23,7 +23,6 @@ class EmployerNotificationViewModel @Inject constructor(
         return notifications.filter { notification ->
             when (notification.type) {
                 NotificationType.JOB_POSTED,
-                NotificationType.JOB_PAUSED,
                 NotificationType.NEW_APPLICATION,
                 NotificationType.PROFILE_COMPLETE,
                 NotificationType.WORKER_HIRED,

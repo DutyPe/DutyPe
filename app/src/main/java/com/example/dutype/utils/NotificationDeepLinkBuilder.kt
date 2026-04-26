@@ -38,7 +38,6 @@ object NotificationDeepLinkBuilder {
             }
             
             NotificationType.JOB_POSTED,
-            NotificationType.JOB_PAUSED,
             NotificationType.JOB_UPDATE,
             NotificationType.JOB_EXPIRY_REMINDER -> {
                 val jobId = data["jobId"] ?: data["job_id"]

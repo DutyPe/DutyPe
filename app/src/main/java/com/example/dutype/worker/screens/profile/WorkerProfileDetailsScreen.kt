@@ -30,7 +30,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -673,6 +675,24 @@ private fun EditablePersonalInfoCard(
     gender: String,
     onGenderChange: (String) -> Unit
 ) {
+    fun formatDob(raw: String): String {
+        val digits = raw.filter { it.isDigit() }.take(8)
+        return buildString {
+            digits.forEachIndexed { idx, c ->
+                if (idx == 2 || idx == 4) append('/')
+                append(c)
+            }
+        }
+    }
+    var dobInput by remember {
+        mutableStateOf(TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length)))
+    }
+    LaunchedEffect(dateOfBirth) {
+        if (dateOfBirth != dobInput.text) {
+            dobInput = TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length))
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -707,12 +727,42 @@ private fun EditablePersonalInfoCard(
                 enabled = false
             )
             
-            ProfileTextField(
-                label = stringResource(R.string.date_of_birth),
-                value = dateOfBirth,
-                onValueChange = onDateOfBirthChange,
-                placeholder = stringResource(R.string.dd_mm_yyyy)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.date_of_birth),
+                    style = AppTypography.caption,
+                    color = WorkerColors.TextSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                OutlinedTextField(
+                    value = dobInput,
+                    onValueChange = {
+                        val formatted = formatDob(it.text)
+                        dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
+                        onDateOfBirthChange(formatted)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.dd_mm_yyyy),
+                            style = AppTypography.bodyMedium,
+                            color = WorkerColors.TextSecondary.copy(alpha = 0.6f)
+                        )
+                    },
+                    textStyle = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = WorkerColors.Primary,
+                        unfocusedBorderColor = WorkerColors.Divider
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
             
             ProfileTextField(
                 label = stringResource(R.string.gender),

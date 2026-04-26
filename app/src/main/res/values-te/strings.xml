@@ -121,7 +121,6 @@
     <string name="job_title">ఉద్యోగ శీర్షిక</string>
     <string name="contact_number">సంప్రదింపు నంబర్</string>
     <string name="active_jobs">యాక్టివ్ ఉద్యోగాలు</string>
-    <string name="paused_jobs">పాజ్ చేసిన ఉద్యోగాలు</string>
     <string name="closed_jobs">మూసివేసిన ఉద్యోగాలు</string>
     <string name="total_applicants">మొత్తం దరఖాస్తుదారులు</string>
     <string name="shortlisted">షార్ట్‌లిస్ట్ చేయబడినవి</string>
@@ -889,8 +888,6 @@
     <string name="history_no_jobs">ఉద్యోగాలు లేవు</string>
     <string name="history_postings_appear_here">మీ ఉద్యోగ పోస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి</string>
     <string name="history_posted_date">%1$s న పోస్ట్ చేయబడింది</string>
-    <string name="history_status_paused">పాజ్ చేయబడింది</string>
-    <string name="history_status_active">యాక్టివ్</string>
     <string name="notif_failed_load">నోటిఫికేషన్‌లను లోడ్ చేయడం విఫలమైంది</string>
     <string name="notif_retry">మళ్ళీ ప్రయత్నించండి</string>
     <string name="notif_no_notifications">ఇంకా నోటిఫికేషన్‌లు లేవు</string>
@@ -1039,10 +1036,6 @@
     <string name="notif_application_withdrawn_msg">ఒక కార్మికుడు తన దరఖాస్తును ఉపసంహరించుకున్నారు</string>
     <string name="notif_job_posted_title">ఉద్యోగం విజయవంతంగా పోస్ట్ అయింది! 🎉</string>
     <string name="notif_job_posted_msg">మీ \'%1$s\' ఉద్యోగం పోస్ట్ చేయబడింది మరియు ఇప్పుడు కార్మికులకు కనిపిస్తుంది</string>
-    <string name="notif_job_paused_title">ఉద్యోగం నిలిపివేయబడింది ⏸️</string>
-    <string name="notif_job_paused_msg">మీ \'%1$s\' ఉద్యోగం నిలిపివేయబడింది మరియు ఇకపై కార్మికులకు కనిపించదు</string>
-    <string name="notif_job_activated_title">ఉద్యోగం యాక్టివేట్ చేయబడింది ▶️</string>
-    <string name="notif_job_activated_msg">మీ \'%1$s\' ఉద్యోగం యాక్టివేట్ చేయబడింది మరియు ఇప్పుడు కార్మికులకు కనిపిస్తుంది</string>
     <string name="notif_profile_complete_title">DutyPeకి స్వాగతం! 🎉</string>
     <string name="notif_profile_complete_employer_msg">హాయ్ %1$s! మీ ప్రొఫైల్ పూర్తయింది. ఉద్యోగాలు పోస్ట్ చేయడం ప్రారంభించండి మరియు మీ వ్యాపారానికి ఉత్తమ కార్మికులను కనుగొనండి.</string>
     <string name="notif_profile_complete_worker_msg">హాయ్ %1$s! మీ ప్రొఫైల్ పూర్తయింది. ఉద్యోగాలను అన్వేషించడం ప్రారంభించండి మరియు మీ నైపుణ్యాలకు సరిపోయే అవకాశాలకు దరఖాస్తు చేయండి.</string>
