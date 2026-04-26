@@ -375,7 +375,7 @@ fun JobApplicationCard(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "View Details",
+                                    text = "Details",
                                     style = AppTypography.buttonSmall.copy(
                                         color = Color.White
                                     )
@@ -515,27 +515,42 @@ private fun ApplicationTimeline(
                 ApplicationStatus.REJECTED -> "Cancelled"
                 ApplicationStatus.WITHDRAWN -> "Withdrawn"
             },
-            isCompleted = status == ApplicationStatus.SHORTLISTED || status == ApplicationStatus.HIRED,
+            isCompleted = status == ApplicationStatus.SHORTLISTED ||
+                status == ApplicationStatus.HIRED ||
+                status == ApplicationStatus.COMPLETED,
             isCurrent = status == ApplicationStatus.SHORTLISTED,
             isFailure = status == ApplicationStatus.REJECTED
         ),
         TimelineStepData(
             stepNumber = 3,
-            label = when (status) {
-                ApplicationStatus.HIRED -> "Hired"
-                ApplicationStatus.REJECTED -> "Rejected"
-                ApplicationStatus.WITHDRAWN -> "Withdrawn"
-                else -> "Decision"
-            },
+            label = "Decision",
             statusText = when (status) {
                 ApplicationStatus.HIRED -> "Completed"
+                ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Completed"
                 ApplicationStatus.WITHDRAWN -> "Completed"
                 else -> "Pending"
             },
-            isCompleted = status == ApplicationStatus.HIRED || status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN,
+            isCompleted = status == ApplicationStatus.HIRED ||
+                status == ApplicationStatus.COMPLETED ||
+                status == ApplicationStatus.REJECTED ||
+                status == ApplicationStatus.WITHDRAWN,
             isCurrent = false,
-            isSuccess = status == ApplicationStatus.HIRED,
+            isSuccess = status == ApplicationStatus.HIRED || status == ApplicationStatus.COMPLETED,
+            isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
+        ),
+        TimelineStepData(
+            stepNumber = 4,
+            label = "Complete",
+            statusText = when (status) {
+                ApplicationStatus.COMPLETED -> "Completed"
+                ApplicationStatus.REJECTED -> "Cancelled"
+                ApplicationStatus.WITHDRAWN -> "Withdrawn"
+                else -> "Pending"
+            },
+            isCompleted = status == ApplicationStatus.COMPLETED,
+            isCurrent = status == ApplicationStatus.HIRED,
+            isSuccess = status == ApplicationStatus.COMPLETED,
             isFailure = status == ApplicationStatus.REJECTED || status == ApplicationStatus.WITHDRAWN
         )
     )

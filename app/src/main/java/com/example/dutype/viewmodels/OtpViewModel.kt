@@ -527,7 +527,9 @@ class OtpViewModel @Inject constructor(
                             } else {
                                 PostOtpDestination.HOME
                             },
-                            role = role
+                            role = runCatching {
+                                UserRole.valueOf(resolution.roleForFcm.uppercase())
+                            }.getOrDefault(role)
                         )
                     )
                 },

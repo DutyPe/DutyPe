@@ -70,6 +70,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -816,26 +817,46 @@ private fun JobDetailsContent(
     ) {
         if (!heroImageUrl.isNullOrBlank()) {
             item {
+                var isHeroImageLoading by remember(heroImageUrl) { mutableStateOf(true) }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(220.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
                     shape = RoundedCornerShape(10.dp),
                     elevation = CardDefaults.cardElevation(0.dp),
                     border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(heroImageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Job image",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(10.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(heroImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Job image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop,
+                            onLoading = { isHeroImageLoading = true },
+                            onSuccess = { isHeroImageLoading = false },
+                            onError = { isHeroImageLoading = false }
+                        )
+                        if (isHeroImageLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color(0xFFF9FAFB)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF1F2937),
+                                    strokeWidth = 2.5.dp,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -888,6 +909,7 @@ private fun JobDetailsContent(
             // Working hours — not in schema, show N/A
             val displayLocation = job.addressText.ifBlank { job.location }
             val workingHoursDisplay = job.workingHours.ifBlank { "Not specified" }
+            val shiftTimingDisplay = job.shiftTiming.ifBlank { "Not specified" }
             val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
             // Employer joined time should be fetched from employer profile if needed
             
@@ -981,6 +1003,9 @@ private fun JobDetailsContent(
 
                     // Working Hours
                     JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Working Hours:", workingHoursDisplay)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    JobDetailRow(Icons.Default.AccessTime, Color(0xFF6366F1), "Shift:", shiftTimingDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
                     
                     // Payment Cycle

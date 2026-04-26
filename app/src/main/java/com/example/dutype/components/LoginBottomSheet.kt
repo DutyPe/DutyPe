@@ -207,7 +207,7 @@ fun LoginBottomSheet(
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
                                 email = "",
                                 name = registerName.trim(),
-                                role = role
+                                role = outcome.role
                             )
 
                             val shouldGoToProfileSetup =
@@ -224,7 +224,7 @@ fun LoginBottomSheet(
                                 navController != null
                             ) {
                                 // New registrations must always finish profile setup before reaching the home screen.
-                                val target = when (role) {
+                                val target = when (outcome.role) {
                                     UserRole.EMPLOYER -> Routes.EMPLOYER_PROFILE_SETUP
                                     else -> Routes.PROFILE_SETUP
                                 }

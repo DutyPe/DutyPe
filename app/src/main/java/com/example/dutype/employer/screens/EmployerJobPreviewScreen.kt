@@ -306,6 +306,7 @@ private fun HeroBlock(
     onUploadClick: () -> Unit
 ) {
     val imageUrl = job.jobImageUrl
+    var isImageLoading by remember(imageUrl) { mutableStateOf(!imageUrl.isNullOrBlank()) }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -318,8 +319,25 @@ private fun HeroBlock(
                     model = imageUrl,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    onLoading = { isImageLoading = true },
+                    onSuccess = { isImageLoading = false },
+                    onError = { isImageLoading = false }
                 )
+                if (isImageLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFF9FAFB)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF2563EB),
+                            strokeWidth = 2.5.dp,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
                 OutlinedButton(
                     onClick = onUploadClick,
                     enabled = !isUploading,

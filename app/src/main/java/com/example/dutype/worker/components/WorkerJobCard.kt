@@ -73,6 +73,7 @@ fun JobCard(
             job.title,
             job.description
         ),
+        urgencyLabel = formatUrgencyLabel(job.urgency),
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
@@ -125,7 +126,12 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
-        workTypeLabel = null,
+        workTypeLabel = extractWorkTypeLabel(
+            job.workingHours,
+            job.title,
+            ""
+        ),
+        urgencyLabel = formatUrgencyLabel(job.urgency),
         isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
@@ -155,6 +161,7 @@ private fun JobCardInternal(
     locationDisplay: String,
     vacancies: Int,
     workTypeLabel: String?,
+    urgencyLabel: String?,
     isUrgent: Boolean,
     isClosed: Boolean,
     isSaved: Boolean,
@@ -249,12 +256,6 @@ private fun JobCardInternal(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Business,
-                                contentDescription = null,
-                                tint = Color(0xFF7C3AED),
-                                modifier = Modifier.size(14.dp)
-                            )
                             Text(
                                 text = companyName,
                                 style = MaterialTheme.typography.bodySmall.copy(
@@ -365,8 +366,11 @@ private fun JobCardInternal(
                     CompactChip(text = workTypeLabel, chipType = ChipType.JOB_TYPE)
                 }
 
-                if (isUrgent) {
-                    CompactChip(text = "Urgent Hiring", chipType = ChipType.URGENT)
+                if (!urgencyLabel.isNullOrBlank()) {
+                    CompactChip(
+                        text = urgencyLabel,
+                        chipType = if (isUrgent) ChipType.URGENT else ChipType.DEFAULT
+                    )
                 }
             }
         }
@@ -459,6 +463,15 @@ private enum class ChipType {
  */
 private fun formatPayDisplay(salary: String, salaryType: String): String =
     com.example.dutype.utils.SalaryFormatter.display(salary, salaryType)
+
+private fun formatUrgencyLabel(urgency: String): String? {
+    return when (urgency.trim().uppercase()) {
+        "HIGH" -> "Urgent"
+        "MEDIUM" -> "Normal"
+        "LOW" -> "Low urgency"
+        else -> null
+    }
+}
 
 /**
  * Format location with distance.

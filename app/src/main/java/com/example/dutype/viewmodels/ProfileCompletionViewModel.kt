@@ -194,9 +194,10 @@ class ProfileCompletionViewModel @Inject constructor(
         Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
         
         if (!currentUserCheck) {
-            // No profile exists at all
-            Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: No basic profile found")
-            return false
+            // Phone-role identity can be briefly unavailable on cold start.
+            // Continue to the role profile read so completed users are not
+            // sent back to setup just because the identity pre-check missed.
+            Timber.d("ProfileCompletionViewModel.checkExistingProfileHighLevel: Basic identity check false; continuing with role profile check")
         }
         
         // Profile exists, now check ROLE-SPECIFIC completion
@@ -226,14 +227,26 @@ class ProfileCompletionViewModel @Inject constructor(
                 hasEmployerProfile
             }
             UserRole.WORKER -> {
-                // For WORKER: Check if worker-specific fields are complete (fullName and phone are mandatory)
+                // For WORKER: Check the same mandatory fields used by the
+                // worker setup flow. This keeps cold-start routing aligned
+                // with the profile form instead of sending completed workers
+                // back to setup after reopening the app.
                 val workerProfileResult = profileCompletionService.getWorkerProfileData(currentUser.uid)
                 val hasWorkerProfile = workerProfileResult.fold(
                     onSuccess = { data ->
                         val fullName = data["fullName"] as? String
                         val phone = data["phone"] as? String
-                        val hasRequiredFields = !fullName.isNullOrBlank() && !phone.isNullOrBlank()
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phone: $phone, hasRequiredFields: $hasRequiredFields")
+                        val bio = data["bio"] as? String
+                        val skills = when (val rawSkills = data["skills"]) {
+                            is List<*> -> rawSkills.filterIsInstance<String>()
+                            is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            else -> emptyList()
+                        }
+                        val hasRequiredFields = !fullName.isNullOrBlank() &&
+                            !phone.isNullOrBlank() &&
+                            skills.isNotEmpty() &&
+                            !bio.isNullOrBlank()
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phone: $phone, skills=${skills.size}, hasBio=${!bio.isNullOrBlank()}, hasRequiredFields: $hasRequiredFields")
                         hasRequiredFields
                     },
                     onFailure = { 
@@ -404,3 +417,4 @@ class ProfileCompletionViewModel @Inject constructor(
             }
         }
     }
+

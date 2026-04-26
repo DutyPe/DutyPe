@@ -64,7 +64,8 @@ class RatingService @Inject constructor(
         runCatching {
             val employerDoc = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(userId).get().await()
             companyName = employerDoc.getString("companyName")?.trim().orEmpty()
-            raterName = employerDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
+            raterName = companyName.takeIf { it.isNotBlank() }
+                ?: employerDoc.getString("fullName")?.trim()?.takeIf { it.isNotBlank() }
                 ?: employerDoc.getString("name")?.trim()?.takeIf { it.isNotBlank() }
                 ?: raterName
         }

@@ -2039,7 +2039,7 @@ private fun ProfessionalInformationStep(
             var experienceExpanded by remember { mutableStateOf(false) }
             val experienceLevels = listOf(
                 "Less than a year",
-                "1-2 years",
+                "1-3 years",
                 "3-5 years",
                 "More than 5 years"
             )

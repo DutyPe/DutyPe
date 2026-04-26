@@ -315,6 +315,8 @@ fun EmployerApplicationManagementScreen(
                                             ).show()
                                             return@launch
                                         }
+                                        Toast.makeText(context, "Work marked as done. You can rate this worker now.", Toast.LENGTH_SHORT).show()
+                                        return@launch
                                     }
 
                                     val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
@@ -785,26 +787,48 @@ private fun ApplicationCard(
 
             if (canMarkWorkDone || canRateCompletedWork) {
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = onRateWorker,
-                    enabled = canMarkWorkDone || !hasAlreadyRated,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFF59E0B),
-                        disabledContentColor = Color(0xFF059669)
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = if (hasAlreadyRated) Color(0xFFF0FDF4) else Color(0xFFFFFBEB),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp)
                 ) {
-                    Icon(
-                        imageVector = if (canMarkWorkDone) Icons.Default.CheckCircle else Icons.Default.Star,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
-                        style = AppTypography.labelLarge
+                        text = if (canMarkWorkDone) {
+                            "Work completed?"
+                        } else if (hasAlreadyRated) {
+                            "Review given"
+                        } else {
+                            "Rate this worker"
+                        },
+                        style = AppTypography.labelLarge,
+                        color = if (hasAlreadyRated) Color(0xFF059669) else Color(0xFFB45309)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onRateWorker,
+                        enabled = canMarkWorkDone || !hasAlreadyRated,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFF59E0B),
+                            disabledContentColor = Color(0xFF059669)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (canMarkWorkDone) Icons.Default.CheckCircle else Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
+                            style = AppTypography.labelLarge
+                        )
+                    }
                 }
             }
             

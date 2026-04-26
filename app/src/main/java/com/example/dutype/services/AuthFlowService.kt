@@ -51,6 +51,41 @@ class AuthFlowService @Inject constructor(
         val roleForFcm: String
     )
 
+    private data class RoleProfileState(
+        val workerExists: Boolean,
+        val employerExists: Boolean
+    ) {
+        fun profileExistsFor(role: String): Boolean = when (role) {
+            "WORKER" -> workerExists
+            "EMPLOYER" -> employerExists
+            else -> false
+        }
+
+        fun singleExistingRole(): String? = when {
+            workerExists && !employerExists -> "WORKER"
+            employerExists && !workerExists -> "EMPLOYER"
+            else -> null
+        }
+    }
+
+    private suspend fun readRoleProfileState(userId: String): RoleProfileState {
+        val workerExists = withTimeout(LOGIN_READ_TIMEOUT_MS) {
+            firestore.collection(COLLECTION_WORKER_PROFILES)
+                .document(userId)
+                .get()
+                .await()
+                .exists()
+        }
+        val employerExists = withTimeout(LOGIN_READ_TIMEOUT_MS) {
+            firestore.collection(COLLECTION_EMPLOYER_PROFILES)
+                .document(userId)
+                .get()
+                .await()
+                .exists()
+        }
+        return RoleProfileState(workerExists = workerExists, employerExists = employerExists)
+    }
+
     /**
      * Live snapshot of `phoneRoles/{phone}` keyed to the current auth phone.
      */
@@ -288,40 +323,23 @@ class AuthFlowService @Inject constructor(
                 phoneRoleRef.get().await()
             }
 
-            if (!userSnapshot.exists()) {
-                return Result.success(LoginResolution(null, true, role))
-            }
-
+            val roleProfileState = readRoleProfileState(currentUser.uid)
             val userData = userSnapshot.data.orEmpty().toMutableMap()
             val existingRole = (userData["role"] as? String)?.uppercase()
-            val effectiveRole = existingRole ?: role
+            val effectiveRole = existingRole
+                ?: roleProfileState.singleExistingRole()
+                ?: role
             userData["userId"] = currentUser.uid
             userData["fullName"] = userData["name"] as? String ?: ""
             userData["phone"] = userData["phoneNumber"] as? String ?: normalizedPhone
             userData["role"] = effectiveRole
 
             val hasCoreFields =
-                !(userData["phoneNumber"] as? String).isNullOrBlank() &&
-                !(userData["name"] as? String).isNullOrBlank() &&
+                !(userData["phone"] as? String).isNullOrBlank() &&
                 !existingRole.isNullOrBlank()
 
-            val hasRoleProfile = when (effectiveRole) {
-                "WORKER" -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                    firestore.collection(COLLECTION_WORKER_PROFILES)
-                        .document(currentUser.uid)
-                        .get()
-                        .await()
-                        .exists()
-                }
-                "EMPLOYER" -> withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                    firestore.collection(COLLECTION_EMPLOYER_PROFILES)
-                        .document(currentUser.uid)
-                        .get()
-                        .await()
-                        .exists()
-                }
-                else -> false
-            }
+            val hasRoleProfile = roleProfileState.profileExistsFor(effectiveRole)
+            val shouldRouteToProfileSetup = !hasRoleProfile && !(hasCoreFields && userSnapshot.exists())
 
             // Login resolution complete — no lastActiveAt write to minimize
             // per-login write costs at scale.
@@ -329,7 +347,7 @@ class AuthFlowService @Inject constructor(
             Result.success(
                 LoginResolution(
                     userData = userData,
-                    shouldRouteToProfileSetup = !(hasCoreFields && hasRoleProfile),
+                    shouldRouteToProfileSetup = shouldRouteToProfileSetup,
                     roleForFcm = effectiveRole
                 )
             )

@@ -239,11 +239,11 @@ export const completeRegistration = onCallSecured(
 // ────────────────────────────────────────────────────────────────────────
 // lookupPhoneRole — single-doc, role-aware phone lookup (#11 / #20)
 // ────────────────────────────────────────────────────────────────────────
-// Public (App-Check enforced, auth NOT required) so the LOGIN screen can
+// Public (auth/App Check NOT required) so the LOGIN screen can
 // pre-check before triggering OTP. Returns only the existing role/name —
 // never the uid — to keep the surface privacy-safe.
 export const lookupPhoneRole = onCallSecured(
-  { requireAuth: false },
+  { requireAuth: false, enforceAppCheck: false },
   async (data: any, _context) => {
     const phoneE164 = normalizePhoneE164(data?.phone);
     if (!phoneE164) {

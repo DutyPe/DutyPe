@@ -298,7 +298,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = jobPosting.shiftDisplayText(),
+                text = "Shift: ${jobPosting.shiftDisplayText()}",
                 style = AppTypography.bodyMedium,
                 color = Color.Gray
             )

@@ -314,6 +314,28 @@ fun MainNavGraph(
             runCatching { onReady() }
         }
     }
+
+    LaunchedEffect(navigationDetermined, isLoading, startDestination) {
+        if (!navigationDetermined || isLoading) return@LaunchedEffect
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        val correctableRoute = currentRoute in setOf(
+            Routes.PROFILE_SETUP,
+            Routes.EMPLOYER_PROFILE_SETUP,
+            Routes.ONBOARDING,
+            Routes.SELECT_ROLE
+        )
+        if (correctableRoute && currentRoute != startDestination) {
+            Timber.i("MainNavGraph - Correcting cached start route from $currentRoute to $startDestination")
+            runCatching {
+                navController.navigate(startDestination) {
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }.onFailure {
+                Timber.w(it, "MainNavGraph - Cached start route correction failed")
+            }
+        }
+    }
     
     // Handle startup deep links + notification clicks after NavHost is ready.
     LaunchedEffect(notificationData, notificationIntent, navigationDetermined, isLoading) {

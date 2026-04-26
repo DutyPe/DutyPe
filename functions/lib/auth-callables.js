@@ -190,10 +190,10 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
 // ────────────────────────────────────────────────────────────────────────
 // lookupPhoneRole — single-doc, role-aware phone lookup (#11 / #20)
 // ────────────────────────────────────────────────────────────────────────
-// Public (App-Check enforced, auth NOT required) so the LOGIN screen can
+// Public (auth/App Check NOT required) so the LOGIN screen can
 // pre-check before triggering OTP. Returns only the existing role/name —
 // never the uid — to keep the surface privacy-safe.
-exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: false }, async (data, _context) => {
+exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false }, async (data, _context) => {
     const phoneE164 = normalizePhoneE164(data === null || data === void 0 ? void 0 : data.phone);
     if (!phoneE164) {
         throw new functions.https.HttpsError("invalid-argument", "phone must be in E.164 format (e.g. +919876543210)");

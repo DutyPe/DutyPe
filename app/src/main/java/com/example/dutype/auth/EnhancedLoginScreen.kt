@@ -188,14 +188,14 @@ private fun OtpLoginScreen(
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
                                 email = "",
                                 name = "",
-                                role = role
+                                role = outcome.role
                             )
                             if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
-                                profileCompletionViewModel.markProfileComplete(role)
-                                profileCompletionViewModel.markProfileSetupAsShown(role)
-                                navigateToHome(role, navController)
+                                profileCompletionViewModel.markProfileComplete(outcome.role)
+                                profileCompletionViewModel.markProfileSetupAsShown(outcome.role)
+                                navigateToHome(outcome.role, navController)
                             } else {
-                                navigateToProfileSetup(role, navController)
+                                navigateToProfileSetup(outcome.role, navController)
                             }
                         },
                         onFailure = { error ->
