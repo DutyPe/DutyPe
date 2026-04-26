@@ -162,6 +162,11 @@ class ReferralService @Inject constructor(
         val phoneRoleData = currentPhoneRoleData(userId)
         val roles = linkedSetOf<String>()
         preferredRole?.takeIf { it.isNotBlank() }?.let { roles += it.uppercase() }
+        (phoneRoleData["role"] as? String)
+            ?.trim()
+            ?.uppercase()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { roles += it }
         @Suppress("UNCHECKED_CAST")
         val phoneRoles = phoneRoleData["roles"] as? List<*>
         phoneRoles.orEmpty()

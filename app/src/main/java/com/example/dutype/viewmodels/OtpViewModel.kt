@@ -429,6 +429,7 @@ class OtpViewModel @Inject constructor(
 
         val hasRoleData = when {
             userData["activeRole"] is String -> true
+            (userData["role"] as? String)?.isNotBlank() == true -> true
             (userData["roles"] as? List<*>)?.isNotEmpty() == true -> true
             else -> false
         }

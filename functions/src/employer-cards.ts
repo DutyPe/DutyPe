@@ -20,7 +20,7 @@
  *     salary, salaryType,
  *     location: { lat, lng },
  *     addressText, geohash, jobImageUrl?,
- *     vacancies, urgency,
+ *     vacancies, urgency, workingHours, shiftTiming,
  *     applicationCount, shortlistedCount, hiredCount,
  *     completedCount, rejectedCount,
  *     lastApplicationAt?,
@@ -49,6 +49,8 @@ interface DenormPayload {
   jobImageUrl: string | null;
   vacancies: number;
   urgency: string;
+  workingHours: string;
+  shiftTiming: string;
   companyName: string;
   contactNumber: string;
   createdAt: admin.firestore.Timestamp | null;
@@ -86,6 +88,8 @@ async function buildDenormFromJob(jobId: string): Promise<DenormPayload | null> 
     jobImageUrl: meta.jobImageUrl ? String(meta.jobImageUrl) : null,
     vacancies: Number(meta.vacancies ?? details.vacancies ?? 1),
     urgency: String(meta.urgency ?? "MEDIUM"),
+    workingHours: String(meta.workingHours ?? ""),
+    shiftTiming: String(details.shiftTiming ?? meta.shiftTiming ?? "Flexible"),
     companyName: String(meta.companyName ?? ""),
     contactNumber: String(details.contactNumber ?? ""),
     createdAt: (meta.createdAt as admin.firestore.Timestamp) ?? null,

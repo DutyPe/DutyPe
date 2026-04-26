@@ -14,7 +14,7 @@ exports.submitApplication = exports.getWorkerProfileForEmployer = exports.lookup
  * in worker_profiles/{uid} or employer_profiles/{uid}.
  *
  * #9 / #20 fix: phoneRoles/{phoneE164} stores
- *   { phoneNumber, roles, uid, name, createdAt, updatedAt }
+ *   { phoneNumber, role, uid, name, createdAt, updatedAt }
  * so any phone-aware lookup is a single doc read AND the registration path
  * hard-blocks dual roles (the same phone cannot register as both worker and
  * employer).
@@ -125,7 +125,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
             const existingRoles = Array.isArray(phoneData.roles)
                 ? phoneData.roles.map((value) => String(value).toUpperCase()).filter(Boolean)
                 : [];
-            const existingRole = existingRoles[0] || "";
+            const existingRole = String(phoneData.role || existingRoles[0] || "").toUpperCase();
             if (existingRole && existingRole !== role) {
                 throw new functions.https.HttpsError("failed-precondition", `phone-already-registered-as:${existingRole}`);
             }
@@ -139,7 +139,6 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         if (existingRole && existingRole !== role) {
             throw new functions.https.HttpsError("failed-precondition", `phone-already-registered-as:${existingRole}`);
         }
-        const mergedRoles = [role];
         const alreadyExisted = phoneSnap.exists || profileSnap.exists;
         const profileData = {
             userId: uid,
@@ -164,21 +163,19 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         if (existing.profileImageUrl)
             profileData.profileImageUrl = existing.profileImageUrl;
         tx.set(profileRef, profileData, { merge: true });
-        // Stored with `merge: true` so existing docs get backfilled on the next
-        // registration touch.
         tx.set(phoneRoleRef, {
             phoneNumber: phoneE164,
             uid,
-            roles: mergedRoles,
+            role,
             name: profileData.fullName,
             createdAt: phoneSnap.exists ? ((_b = phoneSnap.data()) === null || _b === void 0 ? void 0 : _b.createdAt) || now : now,
             updatedAt: now,
-        }, { merge: true });
-        return { alreadyExisted, mergedRoles };
+        });
+        return { alreadyExisted };
     });
     await logUserEvent(uid, alreadyExistedToEvent(result.alreadyExisted, role), role, {
         role,
-        rolesCount: result.mergedRoles.length,
+        rolesCount: 1,
         hasReferral: !!referralCode,
     });
     if (referralCode) {
@@ -207,13 +204,13 @@ exports.addRole = (0, secure_callable_1.onCallSecured)({}, async (data, context)
     // Look up existing role for the toast message.
     const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
     const existing = ((phoneSnap === null || phoneSnap === void 0 ? void 0 : phoneSnap.data()) || {});
-    const existingRoles = Array.isArray(existing.roles)
+    const legacyRoles = Array.isArray(existing.roles)
         ? existing.roles.map((r) => String(r).toUpperCase()).filter(Boolean)
         : [];
-    if (existingRoles.includes(newRole)) {
-        return { success: true, roles: existingRoles, activeRole: newRole, noop: true };
+    const existingRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
+    if (existingRole === newRole) {
+        return { success: true, role: existingRole, activeRole: newRole, noop: true };
     }
-    const existingRole = existingRoles[0] || "";
     throw new functions.https.HttpsError("failed-precondition", existingRole
         ? `phone-already-registered-as:${existingRole}`
         : "dual-role-not-supported");
@@ -234,12 +231,12 @@ exports.switchActiveRole = (0, secure_callable_1.onCallSecured)({}, async (data,
         throw new functions.https.HttpsError("failed-precondition", "User profile not found");
     }
     const existing = (phoneSnap.data() || {});
-    const roles = Array.isArray(existing.roles)
+    const legacyRoles = Array.isArray(existing.roles)
         ? existing.roles.map((r) => String(r).toUpperCase()).filter(Boolean)
         : [];
-    const activeRole = roles[0] || "";
+    const activeRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
     if (activeRole === newRole) {
-        return { success: true, activeRole: newRole, profileExists: true, noop: true };
+        return { success: true, role: activeRole, activeRole: newRole, profileExists: true, noop: true };
     }
     const existingRole = activeRole || "";
     throw new functions.https.HttpsError("failed-precondition", existingRole
@@ -266,10 +263,10 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
         return { exists: false, roleConflict: false };
     }
     const d = snap.data() || {};
-    const roles = Array.isArray(d.roles)
+    const legacyRoles = Array.isArray(d.roles)
         ? d.roles.map((value) => String(value).toUpperCase()).filter(Boolean)
         : [];
-    const existingRole = String(roles[0] || "").toUpperCase();
+    const existingRole = String(d.role || legacyRoles[0] || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
     return {
@@ -287,7 +284,7 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
 // callable bridges that gap: returns the merged user + worker_profile data
 // only if the caller has at least one application from this worker
 // (optionally scoped to a specific jobId).
-exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
+exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (data, context) => {
     const uid = context.auth.uid;
     const workerId = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.workerId, "workerId", {
         required: true,

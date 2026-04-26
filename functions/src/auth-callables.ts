@@ -11,7 +11,7 @@
  * in worker_profiles/{uid} or employer_profiles/{uid}.
  *
  * #9 / #20 fix: phoneRoles/{phoneE164} stores
- *   { phoneNumber, roles, uid, name, createdAt, updatedAt }
+ *   { phoneNumber, role, uid, name, createdAt, updatedAt }
  * so any phone-aware lookup is a single doc read AND the registration path
  * hard-blocks dual roles (the same phone cannot register as both worker and
  * employer).
@@ -153,7 +153,7 @@ export const completeRegistration = onCallSecured(
         const existingRoles = Array.isArray(phoneData.roles)
           ? phoneData.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
           : [];
-        const existingRole = existingRoles[0] || "";
+        const existingRole = String(phoneData.role || existingRoles[0] || "").toUpperCase();
         if (existingRole && existingRole !== role) {
           throw new functions.https.HttpsError(
             "failed-precondition",
@@ -176,7 +176,6 @@ export const completeRegistration = onCallSecured(
         );
       }
 
-      const mergedRoles = [role];
       const alreadyExisted = phoneSnap.exists || profileSnap.exists;
 
       const profileData: Record<string, any> = {
@@ -199,22 +198,19 @@ export const completeRegistration = onCallSecured(
 
       tx.set(profileRef, profileData, { merge: true });
 
-      // Stored with `merge: true` so existing docs get backfilled on the next
-      // registration touch.
       tx.set(
         phoneRoleRef,
         {
           phoneNumber: phoneE164,
           uid,
-          roles: mergedRoles,
+          role,
           name: profileData.fullName,
           createdAt: phoneSnap.exists ? phoneSnap.data()?.createdAt || now : now,
           updatedAt: now,
-        },
-        { merge: true }
+        }
       );
 
-      return { alreadyExisted, mergedRoles };
+      return { alreadyExisted };
     });
 
     await logUserEvent(
@@ -223,7 +219,7 @@ export const completeRegistration = onCallSecured(
       role,
       {
         role,
-        rolesCount: result.mergedRoles.length,
+        rolesCount: 1,
         hasReferral: !!referralCode,
       }
     );
@@ -261,15 +257,15 @@ export const addRole = onCallSecured({}, async (data: any, context) => {
   // Look up existing role for the toast message.
   const phoneSnap = phoneE164 ? await db().collection("phoneRoles").doc(phoneE164).get() : null;
   const existing = (phoneSnap?.data() || {}) as Record<string, any>;
-  const existingRoles: string[] = Array.isArray(existing.roles)
+  const legacyRoles: string[] = Array.isArray(existing.roles)
     ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
     : [];
+  const existingRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
 
-  if (existingRoles.includes(newRole)) {
-    return { success: true, roles: existingRoles, activeRole: newRole, noop: true };
+  if (existingRole === newRole) {
+    return { success: true, role: existingRole, activeRole: newRole, noop: true };
   }
 
-  const existingRole = existingRoles[0] || "";
   throw new functions.https.HttpsError(
     "failed-precondition",
     existingRole
@@ -298,12 +294,12 @@ export const switchActiveRole = onCallSecured({}, async (data: any, context) => 
     throw new functions.https.HttpsError("failed-precondition", "User profile not found");
   }
   const existing = (phoneSnap.data() || {}) as Record<string, any>;
-  const roles: string[] = Array.isArray(existing.roles)
+  const legacyRoles: string[] = Array.isArray(existing.roles)
     ? existing.roles.map((r: any) => String(r).toUpperCase()).filter(Boolean)
     : [];
-  const activeRole = roles[0] || "";
+  const activeRole = String(existing.role || legacyRoles[0] || "").toUpperCase();
   if (activeRole === newRole) {
-    return { success: true, activeRole: newRole, profileExists: true, noop: true };
+    return { success: true, role: activeRole, activeRole: newRole, profileExists: true, noop: true };
   }
 
   const existingRole = activeRole || "";
@@ -344,10 +340,10 @@ export const lookupPhoneRole = onCallSecured(
     }
     const d = snap.data() || {};
 
-    const roles = Array.isArray(d.roles)
+    const legacyRoles = Array.isArray(d.roles)
       ? d.roles.map((value: any) => String(value).toUpperCase()).filter(Boolean)
       : [];
-    const existingRole = String(roles[0] || "").toUpperCase();
+    const existingRole = String(d.role || legacyRoles[0] || "").toUpperCase();
     const name = String(d.name || "");
     const roleConflict =
       !!requestedRole && !!existingRole && requestedRole !== existingRole;
@@ -370,7 +366,7 @@ export const lookupPhoneRole = onCallSecured(
 // only if the caller has at least one application from this worker
 // (optionally scoped to a specific jobId).
 export const getWorkerProfileForEmployer = onCallSecured(
-  {},
+  { enforceAppCheck: false },
   async (data: any, context) => {
     const uid = context.auth!.uid;
     const workerId = validateString(data?.workerId, "workerId", {

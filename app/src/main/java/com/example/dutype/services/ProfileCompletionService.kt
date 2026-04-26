@@ -506,7 +506,7 @@ class ProfileCompletionService @Inject constructor(
                 firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone),
                 mapOf(
                     "phoneNumber" to normalizedPhone,
-                    "roles" to listOf(normalizedRole),
+                    "role" to normalizedRole,
                     "name" to name.trim(),
                     "uid" to currentUser.uid,
                     "updatedAt" to now
@@ -562,7 +562,7 @@ class ProfileCompletionService @Inject constructor(
                 firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone),
                 mapOf(
                     "phoneNumber" to normalizedPhone,
-                    "roles" to listOf(role.name),
+                    "role" to role.name,
                     "name" to currentUser.displayName.orEmpty(),
                     "uid" to currentUser.uid,
                     "updatedAt" to now
@@ -708,7 +708,7 @@ class ProfileCompletionService @Inject constructor(
                 firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
                 mapOf(
                     "phoneNumber" to PhoneNumberUtils.normalize(phone),
-                    "roles" to listOf("WORKER"),
+                    "role" to "WORKER",
                     "name" to fullName,
                     "uid" to currentUser.uid,
                     "updatedAt" to now
@@ -825,7 +825,7 @@ class ProfileCompletionService @Inject constructor(
                 firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
                 mapOf(
                     "phoneNumber" to PhoneNumberUtils.normalize(phone),
-                    "roles" to listOf("EMPLOYER"),
+                    "role" to "EMPLOYER",
                     "name" to fullName,
                     "uid" to currentUser.uid,
                     "updatedAt" to now
@@ -965,7 +965,8 @@ class ProfileCompletionService @Inject constructor(
                 return Result.success(false)
             }
 
-            val resolvedRole = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()
+            val resolvedRole = (phoneRoleData["role"] as? String)
+                ?: (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()
             val roleUpper = resolvedRole?.uppercase()
             val hasRequiredCore = !((phoneRoleData["phoneNumber"] as? String).isNullOrBlank()) &&
                 !((phoneRoleData["name"] as? String).isNullOrBlank())

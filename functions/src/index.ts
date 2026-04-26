@@ -812,6 +812,7 @@ export const checkPhoneExists = functions.https.onCall(async (data, context) => 
   // fullName, or other PII.
   const userData = phoneRoleDoc.data() as Record<string, unknown>;
   const existingRole = (
+    (typeof userData.role === "string" ? userData.role : undefined) ||
     (Array.isArray(userData.roles) ? (userData.roles[0] as string | undefined) : undefined) ||
     ""
   ).toUpperCase();

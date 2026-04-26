@@ -64,7 +64,7 @@ object FirestoreUtils {
             firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(resolvedPhone),
             mapOf(
                 "phoneNumber" to resolvedPhone,
-                "roles" to listOf(roleUpper),
+                "role" to roleUpper,
                 "name" to resolvedName,
                 "uid" to userId,
                 "updatedAt" to now
@@ -292,7 +292,7 @@ object FirestoreUtils {
                         firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
                         mapOf(
                             "phoneNumber" to normalizedPhone,
-                            "roles" to listOf(roleUpper),
+                            "role" to roleUpper,
                             "name" to currentUser.displayName.orEmpty(),
                             "uid" to userId,
                             "updatedAt" to now
@@ -347,7 +347,7 @@ object FirestoreUtils {
                     firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
                     mapOf(
                         "phoneNumber" to normalizedPhone,
-                        "roles" to listOf(role.uppercase()),
+                        "role" to role.uppercase(),
                         "name" to currentUser.displayName.orEmpty(),
                         "uid" to userId,
                         "updatedAt" to now
@@ -383,7 +383,7 @@ object FirestoreUtils {
                     firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
                     mapOf(
                         "phoneNumber" to normalizedPhone,
-                        "roles" to listOf(role.uppercase()),
+                        "role" to role.uppercase(),
                         "name" to trimmedName,
                         "uid" to userId,
                         "updatedAt" to now

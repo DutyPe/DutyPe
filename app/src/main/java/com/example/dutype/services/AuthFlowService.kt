@@ -79,6 +79,9 @@ class AuthFlowService @Inject constructor(
     fun observeActiveRole(): Flow<String?> = observeCurrentUser()
         .map { data ->
             if (data == null) return@map null
+            (data["role"] as? String)?.trim()?.uppercase()?.takeIf { it in VALID_ROLES }?.let {
+                return@map it
+            }
             val roles = (data["roles"] as? List<*>)
                 ?.mapNotNull { it?.toString()?.uppercase() }
                 .orEmpty()
@@ -185,7 +188,8 @@ class AuthFlowService @Inject constructor(
                 // Single-role architecture: an existing complete account cannot
                 // register again, regardless of which role is requested. We also
                 // tolerate legacy `activeRole` / `roles[0]` for compat reads.
-                val existingRoleRaw = (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
+                val existingRoleRaw = (existingData["role"] as? String)
+                    ?: (existingData["roles"] as? List<*>)?.firstOrNull()?.toString()
                     ?: (existingProfileData["role"] as? String)
                 val existingRole = existingRoleRaw?.uppercase()
                 val existingReferralCode = (existingProfileData["referralCode"] as? String)?.trim().orEmpty()
@@ -215,37 +219,52 @@ class AuthFlowService @Inject constructor(
                     "fullName" to resolvedFullName,
                     "name" to resolvedFullName,
                     "role" to role,
-                    "roles" to listOf(role),
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
+                    "updatedAt" to now
+                )
+
+                val profileData = linkedMapOf<String, Any>(
+                    "userId" to currentUser.uid,
+                    "phone" to resolvedPhone,
+                    "fullName" to resolvedFullName,
+                    "role" to role,
+                    "createdAt" to ((existingProfileData["createdAt"] as? Timestamp)
+                        ?: (existingData["createdAt"] as? Timestamp)
+                        ?: now),
                     "updatedAt" to now
                 )
 
                 if (ownReferralCode.isNotBlank()) {
                     userData["referralCode"] = ownReferralCode
+                    profileData["referralCode"] = ownReferralCode
                 }
 
                 if (normalizedReferralCode != null && referrerUserId.isNotBlank()) {
                     userData["referredByCode"] = normalizedReferralCode
                     userData["referredByUserId"] = referrerUserId
+                    profileData["referredByCode"] = normalizedReferralCode
+                    profileData["referredByUserId"] = referrerUserId
                 } else {
                     (existingProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let {
                         userData["referredByCode"] = it
+                        profileData["referredByCode"] = it
                     }
                     (existingProfileData["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let {
                         userData["referredByUserId"] = it
+                        profileData["referredByUserId"] = it
                     }
                 }
 
                 val phoneRoleData = linkedMapOf<String, Any>(
                     "phoneNumber" to resolvedPhone,
-                    "roles" to listOf(role),
+                    "role" to role,
                     "name" to resolvedFullName,
                     "uid" to currentUser.uid,
                     "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
                     "updatedAt" to now
                 )
                 transaction.set(phoneRoleRef, phoneRoleData)
-                transaction.set(profileRef, userData, com.google.firebase.firestore.SetOptions.merge())
+                transaction.set(profileRef, profileData, com.google.firebase.firestore.SetOptions.merge())
 
                 // Referral reward attachment is handled by Cloud Function applyReferralCode
                 // from the registration flow, with profile-setup fallback for retries.
@@ -282,7 +301,8 @@ class AuthFlowService @Inject constructor(
             }
 
             val userData = userSnapshot.data.orEmpty().toMutableMap()
-            val existingRole = (userData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
+            val existingRole = (userData["role"] as? String)?.uppercase()
+                ?: (userData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
             val effectiveRole = existingRole ?: role
             userData["userId"] = currentUser.uid
             userData["fullName"] = userData["name"] as? String ?: ""

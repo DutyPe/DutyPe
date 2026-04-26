@@ -714,7 +714,8 @@ exports.checkPhoneExists = functions.https.onCall(async (data, context) => {
     // an employer; please log in as an employer."). We never leak userId,
     // fullName, or other PII.
     const userData = phoneRoleDoc.data();
-    const existingRole = ((Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
+    const existingRole = ((typeof userData.role === "string" ? userData.role : undefined) ||
+        (Array.isArray(userData.roles) ? userData.roles[0] : undefined) ||
         "").toUpperCase();
     const requestedRoleRaw = String((_d = data === null || data === void 0 ? void 0 : data.requestedRole) !== null && _d !== void 0 ? _d : "").trim().toUpperCase();
     const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"

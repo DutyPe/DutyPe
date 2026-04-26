@@ -18,7 +18,7 @@ import java.io.ByteArrayOutputStream
  * Also includes image compression to reduce bandwidth usage.
  * 
  * Features:
- * - Image compression (max 2MB file size while maintaining quality)
+ * - Image compression (small job-card friendly payload while maintaining quality)
  * - Retry with exponential backoff (max 3 retries)
  * - Progress tracking
  * - Automatic cleanup on failure
@@ -33,9 +33,9 @@ object ImageUploadUtils {
     // backoff configuration combined with Firebase Storage's internal
     // exponential backoff (≈30s) was producing minute-long stalls on Wi-Fi
     // hiccups and blocking the post-job flow.
-    private const val MAX_WIDTH = 800
-    private const val JPEG_QUALITY = 75
-    private const val MAX_FILE_SIZE_BYTES = 400 * 1024  // 400KB max
+    private const val MAX_WIDTH = 720
+    private const val JPEG_QUALITY = 78
+    private const val MAX_FILE_SIZE_BYTES = 320 * 1024  // 320KB target
     private const val MAX_RETRIES = 2
     private const val INITIAL_DELAY_MS = 600L
     private const val MAX_DELAY_MS = 3_000L
@@ -56,7 +56,7 @@ object ImageUploadUtils {
     
     /**
      * Compress image before upload
-     * Ensures image is under 2MB while maintaining acceptable quality
+     * Keeps images lightweight for job cards/descriptions while maintaining acceptable quality.
      * Uses adaptive quality reduction if needed
      */
     fun compressImage(
@@ -109,7 +109,7 @@ object ImageUploadUtils {
                 bitmap
             }
             
-            // Compress to JPEG with adaptive quality to ensure under 2MB
+            // Compress to JPEG with adaptive quality to hit the lightweight target.
             var currentQuality = quality
             var compressedBytes: ByteArray
             val outputStream = ByteArrayOutputStream()
@@ -124,7 +124,7 @@ object ImageUploadUtils {
                 
                 Timber.d("📸 COMPRESS: Quality $currentQuality -> ${sizeKB}KB (${String.format("%.2f", sizeMB)}MB)")
                 
-                // If still over 2MB and quality can be reduced, try again
+                // If still over target and quality can be reduced, try again.
                 if (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality > 50) {
                     currentQuality -= 10
                     Timber.d("📸 COMPRESS: File too large, reducing quality to $currentQuality")
@@ -142,7 +142,7 @@ object ImageUploadUtils {
             Timber.d("📸 COMPRESS: Final: ${originalWidth}x${originalHeight} -> ${finalSizeKB}KB (${String.format("%.2f", finalSizeMB)}MB) at quality $currentQuality")
             
             if (compressedBytes.size > MAX_FILE_SIZE_BYTES) {
-                Timber.w("📸 COMPRESS: Warning - Image still over 2MB after compression (${String.format("%.2f", finalSizeMB)}MB)")
+                Timber.w("📸 COMPRESS: Warning - Image still over target after compression (${String.format("%.2f", finalSizeMB)}MB)")
             }
             
             compressedBytes

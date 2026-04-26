@@ -50,7 +50,8 @@ class CurrentUserViewModel @Inject constructor(
                 } else {
                     emptyMap()
                 }
-                val role = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
+                val role = (phoneRoleData["role"] as? String)?.uppercase()
+                    ?: (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
                 val profileCollection = if (role == UserRole.EMPLOYER.name) {
                     FirestoreCollections.EMPLOYER_PROFILES
                 } else {

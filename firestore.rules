@@ -64,7 +64,7 @@ service cloud.firestore {
       return role is string && (role == 'WORKER' || role == 'EMPLOYER');
     }
 
-    function validSingleRoleList(roles) {
+    function validLegacySingleRoleList(roles) {
       return roles is list && roles.size() == 1 && validRole(roles[0]);
     }
 
@@ -79,22 +79,20 @@ service cloud.firestore {
     match /phoneRoles/{phone} {
       allow read, write: if isAdmin();
 
-      allow get: if isSignedIn() &&
-        phoneMatchesAuth(phone) &&
-        resource.data.uid == request.auth.uid;
+      allow get: if isSignedIn() && phoneMatchesAuth(phone);
       allow list: if false;
 
       allow create: if isSignedIn() &&
         phoneMatchesAuth(phone) &&
         request.resource.data.keys().hasOnly([
-          'phoneNumber', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
+          'phoneNumber', 'role', 'name', 'uid', 'createdAt', 'updatedAt'
         ]) &&
-        request.resource.data.keys().hasAll(['phoneNumber', 'roles', 'name', 'uid']) &&
+        request.resource.data.keys().hasAll(['phoneNumber', 'role', 'name', 'uid']) &&
         request.resource.data.phoneNumber == phone &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.name is string &&
         request.resource.data.name.size() <= 120 &&
-        validSingleRoleList(request.resource.data.roles) &&
+        validRole(request.resource.data.role) &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
@@ -104,11 +102,14 @@ service cloud.firestore {
         request.resource.data.uid == resource.data.uid &&
         request.resource.data.phoneNumber == phone &&
         request.resource.data.keys().hasOnly([
-          'phoneNumber', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
+          'phoneNumber', 'role', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
         ]) &&
         request.resource.data.name is string &&
         request.resource.data.name.size() <= 120 &&
-        validSingleRoleList(request.resource.data.roles) &&
+        validRole(request.resource.data.role) &&
+        (!('roles' in request.resource.data) ||
+          (validLegacySingleRoleList(request.resource.data.roles) &&
+            request.resource.data.roles[0] == request.resource.data.role)) &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
@@ -310,7 +311,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'shiftTiming', 'urgency', 'status', 'createdAt', 'employerId',
+          'workingHours', 'urgency', 'status', 'createdAt', 'employerId',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
           'jobImageUrl',
@@ -340,8 +341,8 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
-        (!('shiftTiming' in request.resource.data) ||
-          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
+        (!('workingHours' in request.resource.data) ||
+          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
@@ -354,7 +355,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'shiftTiming', 'urgency', 'status', 'createdAt', 'employerId',
+          'workingHours', 'urgency', 'status', 'createdAt', 'employerId',
           'jobImageUrl',
           'vacancies'
         ]) &&
@@ -372,8 +373,8 @@ service cloud.firestore {
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
-        (!('shiftTiming' in request.resource.data) ||
-          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
+        (!('workingHours' in request.resource.data) ||
+          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
@@ -412,7 +413,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'employerId', 'createdAt', 'expiresAt', 'idempotencyKey',
           'description', 'contactNumber',
-          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'workingHours',
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming',
           'benefits', 'applicationCount'
         ]) &&
         request.resource.data.keys().hasAll([
@@ -433,22 +434,29 @@ service cloud.firestore {
         (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
         (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
-        (!('workingHours' in request.resource.data) || request.resource.data.workingHours is string);
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120));
 
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'description', 'contactNumber',
-          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'workingHours',
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming', 'workingHours',
           'benefits', 'applicationCount', 'expiresAt'
         ]) &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
         (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
         (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
         (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
+        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
+        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
         (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
+        (!('workingHours' in request.resource.data) ||
+          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
         (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
 
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
@@ -600,12 +608,12 @@ service cloud.firestore {
         (
           (
             exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
-            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status == 'hired' &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId
           ) ||
           (
             exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
-            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status == 'hired' &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId
           )

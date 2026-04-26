@@ -39,7 +39,7 @@ class UserFirestoreService @Inject constructor(
                         .set(
                             mapOf(
                                 "phoneNumber" to normalizedPhone,
-                                "roles" to listOf(roleName),
+                                "role" to roleName,
                                 "name" to user.fullName,
                                 "uid" to user.id,
                                 "createdAt" to Timestamp(Date(user.createdAt)),
@@ -139,7 +139,7 @@ class UserFirestoreService @Inject constructor(
                 if (!normalizedPhone.isNullOrBlank()) {
                     val phoneRoleUpdates = mutableMapOf<String, Any>(
                         "phoneNumber" to normalizedPhone,
-                        "roles" to listOf(role),
+                        "role" to role,
                         "uid" to userId,
                         "updatedAt" to Timestamp.now()
                     )

@@ -284,6 +284,8 @@ private fun PerkChip(
     Card(
         modifier = Modifier
             .padding(end = 4.dp)
+            .height(34.dp)
+            .defaultMinSize(minWidth = 0.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF10B981).copy(alpha = 0.1f) else Color.White
@@ -379,6 +381,8 @@ private fun ShiftChip(
     Card(
         modifier = Modifier
             .padding(end = 4.dp)
+            .height(32.dp)
+            .defaultMinSize(minWidth = 0.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) Color(0xFF3B82F6) else Color.White

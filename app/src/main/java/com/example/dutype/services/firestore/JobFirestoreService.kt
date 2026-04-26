@@ -11,6 +11,7 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -180,6 +181,7 @@ class JobFirestoreService @Inject constructor(
             "jobType" to summaryJobType(data),
             "createdAt" to createdAtMillis,
             "expiresAt" to toEpochMillis(data["expiresAt"]),
+            "workingHours" to normalizeString(data["workingHours"]),
             "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
             "addressText" to addressDisplay,  // Full address for job card display
@@ -228,7 +230,8 @@ class JobFirestoreService @Inject constructor(
             "salary" to toSalaryString(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
-            "shiftTiming" to normalizeString(coreData["shiftTiming"]).ifBlank { "Flexible" },
+            "shiftTiming" to "Flexible",
+            "workingHours" to normalizeString(coreData["workingHours"]),
             "gender" to "Any",
             "experienceRequired" to "No Experience Required",
             "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
@@ -270,6 +273,17 @@ class JobFirestoreService @Inject constructor(
             val workingHours = normalizeString(details["workingHours"]).ifBlank {
                 (merged["workingHours"] as? String).orEmpty()
             }
+            val shiftTiming = normalizeString(details["shiftTiming"]).ifBlank {
+                normalizeString(coreData["shiftTiming"]).ifBlank {
+                    (merged["shiftTiming"] as? String).orEmpty()
+                }
+            }
+            val gender = normalizeString(details["gender"]).ifBlank {
+                (merged["gender"] as? String).orEmpty()
+            }
+            val experienceRequired = normalizeString(details["experienceRequired"]).ifBlank {
+                (merged["experienceRequired"] as? String).orEmpty()
+            }
             val educationRequired = normalizeString(details["educationRequired"]).ifBlank {
                 (merged["educationRequired"] as? String).orEmpty()
             }
@@ -287,6 +301,9 @@ class JobFirestoreService @Inject constructor(
             merged["companyCity"] = companyCity
             merged["jobType"] = jobType
             merged["vacancies"] = vacancies
+            if (shiftTiming.isNotBlank()) merged["shiftTiming"] = shiftTiming
+            if (gender.isNotBlank()) merged["gender"] = gender
+            if (experienceRequired.isNotBlank()) merged["experienceRequired"] = experienceRequired
             if (workingHours.isNotBlank()) merged["workingHours"] = workingHours
             if (educationRequired.isNotBlank()) merged["educationRequired"] = educationRequired
             merged["benefits"] = benefits
@@ -383,7 +400,7 @@ class JobFirestoreService @Inject constructor(
                 "location" to location,
                 "geohash" to geohash,
                 "addressText" to addressText,
-                "shiftTiming" to shiftTiming,
+                "workingHours" to (workingHours ?: ""),
                 "urgency" to urgency,
                 "status" to "open",
                 "createdAt" to createdAt,
@@ -414,11 +431,11 @@ class JobFirestoreService @Inject constructor(
                 "gender" to gender,
                 "experienceRequired" to experienceRequired,
                 "educationRequired" to educationRequired,
+                "shiftTiming" to shiftTiming,
                 "companyCity" to companyCity,
                 "benefits" to benefits,
                 "applicationCount" to 0
             )
-            workingHours?.let { detailsData["workingHours"] = it }
 
             Timber.d(" Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
@@ -688,14 +705,18 @@ class JobFirestoreService @Inject constructor(
                 }
                 
                 if (snapshot != null) {
-                    val jobs = snapshot.documents.mapNotNull { doc ->
-                        doc.data?.toMutableMap()?.apply {
-                            put("jobId", doc.id)
-                        }
-                    }.sortedByDescending { (it["createdAt"] as? Number)?.toLong() ?: 0L }
-                    
-                    Timber.d("Real-time update: ${jobs.size} jobs for employer $employerId")
-                    trySend(Result.success(jobs))
+                    launch {
+                        val jobs = snapshot.documents.mapNotNull { doc ->
+                            val core = doc.data ?: return@mapNotNull null
+                            val details = runCatching {
+                                firestore.collection(JOB_DETAILS_COLLECTION).document(doc.id).get().await().data
+                            }.getOrNull()
+                            mergeJobWithDetails(doc.id, core, details)
+                        }.sortedByDescending { toEpochMillis(it["createdAt"]) }
+
+                        Timber.d("Real-time update: ${jobs.size} jobs for employer $employerId")
+                        trySend(Result.success(jobs))
+                    }
                 }
             }
         
@@ -759,7 +780,8 @@ class JobFirestoreService @Inject constructor(
                 "gender",
                 "experienceRequired",
                 "educationRequired",
-                "companyCity"
+                "companyCity",
+                "shiftTiming"
             ).forEach { cardUpdates[it] = FieldValue.delete() }
 
             if (data.containsKey("title")) {
@@ -797,7 +819,8 @@ class JobFirestoreService @Inject constructor(
             if (data.containsKey("shiftTiming")) {
                 val v = normalizeString(data["shiftTiming"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Shift timing is required"))
-                cardUpdates["shiftTiming"] = v
+                cardUpdates["shiftTiming"] = FieldValue.delete()
+                detailsUpdates["shiftTiming"] = v
             }
             (data["status"] as? String)?.let {
                 val v = it.lowercase()
@@ -854,7 +877,12 @@ class JobFirestoreService @Inject constructor(
                 // Mirror onto the slim card payload so list views keep up.
                 cardUpdates["vacancies"] = v
             }
-            data["workingHours"]?.let { normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v -> detailsUpdates["workingHours"] = v } }
+            data["workingHours"]?.let {
+                normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v ->
+                    cardUpdates["workingHours"] = v
+                    detailsUpdates["workingHours"] = FieldValue.delete()
+                }
+            }
             if (data.containsKey("benefits")) {
                 val v = parseBenefits(data["benefits"])
                 detailsUpdates["benefits"] = v

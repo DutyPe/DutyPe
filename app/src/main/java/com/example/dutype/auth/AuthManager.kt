@@ -206,7 +206,8 @@ class AuthManager @Inject constructor(
             } else {
                 emptyMap()
             }
-            val role = (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
+            val role = (phoneRoleData["role"] as? String)?.uppercase()
+                ?: (phoneRoleData["roles"] as? List<*>)?.firstOrNull()?.toString()?.uppercase()
             val profileCollection = if (role == "EMPLOYER") {
                 com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
             } else {
