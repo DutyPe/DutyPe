@@ -265,7 +265,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'urgency', 'status', 'createdAt', 'employerId',
+          'shiftTiming', 'urgency', 'status', 'createdAt', 'employerId',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
           'jobImageUrl',
@@ -295,6 +295,8 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
@@ -307,7 +309,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'urgency', 'status', 'createdAt', 'employerId',
+          'shiftTiming', 'urgency', 'status', 'createdAt', 'employerId',
           'jobImageUrl',
           'vacancies'
         ]) &&
@@ -325,6 +327,8 @@ service cloud.firestore {
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
         request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
@@ -425,7 +429,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'jobId', 'workerId', 'employerId', 'status', 'createdAt'
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt', 'workerName'
         ]) &&
         request.resource.data.keys().hasAll(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
         request.resource.data.workerId == request.auth.uid &&
@@ -433,6 +437,8 @@ service cloud.firestore {
         request.resource.data.employerId is string &&
         request.resource.data.status == 'applied' &&
         request.resource.data.createdAt is timestamp &&
+        (!('workerName' in request.resource.data) ||
+          (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
         exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&

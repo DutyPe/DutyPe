@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -422,6 +423,8 @@ private fun UrgencyChip(
     Card(
         modifier = Modifier
             .padding(end = 4.dp)
+            .height(32.dp)
+            .defaultMinSize(minWidth = 0.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         shape = RoundedCornerShape(12.dp),
@@ -442,7 +445,8 @@ private fun UrgencyChip(
                     fontWeight = FontWeight.Medium
                 ),
                 fontSize = 11.sp,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 1
             )
         }
     }

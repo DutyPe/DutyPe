@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import timber.log.Timber
 
 /**
@@ -50,39 +50,38 @@ fun LocationAutocompleteField(
     showCurrentLocationButton: Boolean = false,
     onCurrentLocationClick: (() -> Unit)? = null
 ) {
-    val scope = rememberCoroutineScope()
-    
     // Autocomplete state
     var placeSuggestions by remember { mutableStateOf<List<com.example.dutype.models.PlaceSuggestion>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var showSuggestions by remember { mutableStateOf(false) }
+
+    LaunchedEffect(value, enabled, showSuggestions) {
+        if (!enabled || value.length < 3 || !showSuggestions) {
+            isSearching = false
+            placeSuggestions = emptyList()
+            return@LaunchedEffect
+        }
+
+        delay(300)
+        isSearching = true
+        try {
+            val suggestions = locationService.searchPlaces(value)
+            placeSuggestions = suggestions
+            Timber.d("LocationAutocomplete: Found ${suggestions.size} suggestions for: $value")
+        } catch (e: Exception) {
+            Timber.e(e, "LocationAutocomplete: Failed to search places")
+            placeSuggestions = emptyList()
+        } finally {
+            isSearching = false
+        }
+    }
     
     Column(modifier = modifier) {
         OutlinedTextField(
             value = value,
             onValueChange = { query ->
                 onValueChange(query)
-                
-                // Trigger autocomplete search
-                if (query.length >= 3) {
-                    isSearching = true
-                    showSuggestions = true
-                    scope.launch {
-                        try {
-                            val suggestions = locationService.searchPlaces(query)
-                            placeSuggestions = suggestions
-                            isSearching = false
-                            Timber.d("📍 LocationAutocomplete: Found ${suggestions.size} suggestions for: $query")
-                        } catch (e: Exception) {
-                            Timber.e(e, "❌ LocationAutocomplete: Failed to search places")
-                            isSearching = false
-                            placeSuggestions = emptyList()
-                        }
-                    }
-                } else {
-                    showSuggestions = false
-                    placeSuggestions = emptyList()
-                }
+                showSuggestions = query.length >= 3
             },
             label = { Text(label) },
             placeholder = { Text(placeholder) },
@@ -145,7 +144,7 @@ fun LocationAutocompleteField(
                                     )
                                     showSuggestions = false
                                     placeSuggestions = emptyList()
-                                    Timber.d("📍 LocationAutocomplete: Selected - ${suggestion.description}")
+                                    Timber.d("LocationAutocomplete: Selected - ${suggestion.description}")
                                 }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically

@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
  *
  * Firestore applications collection:
  *   id (doc ID = jobId_workerId), jobId, workerId,
- *   employerId, status, createdAt
+ *   employerId, status, createdAt, optional workerName
  */
 @Keep
 @Immutable
@@ -24,9 +24,8 @@ data class JobApplication(
     val hiredAt: Long = 0L,
 
     // ── UI-only enrichment (hydrated by FirestoreJobApplicationMapper from
-    //    the jobs / users collections during READ). NEVER written to Firestore —
-    //    `toFirestoreMap()` is the single write path and enforces the strict
-    //    6-field canonical schema.
+    //    the jobs / users collections during READ). Only workerName is written
+    //    to Firestore so employer applicant cards can show the name.
     val jobTitle: String = "",
     val jobLocation: String = "",
     val companyName: String = "",
@@ -55,20 +54,18 @@ data class JobApplication(
     val coverLetter: String = ""
 ) {
     /**
-     * Canonical write path. Includes the denormalized worker snapshot fields
-     * (workerName, workerPhone, workerProfileImageUrl, workerSkills, jobTitle,
-     * companyName, jobLocation) when present so the employer can render the
-     * applicant card without an extra worker_profiles read. Firestore rules
-     * accept these as optional on create.
+     * Canonical write path. Keeps the application document strict and only
+     * includes workerName as the allowed denormalized display field.
      */
     fun toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "jobId" to jobId,
-            "workerId" to workerId,
-            "employerId" to employerId,
-            "status" to status.toFirestoreValue(),
-            "createdAt" to com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt())
-        )
+        return buildMap {
+            put("jobId", jobId)
+            put("workerId", workerId)
+            put("employerId", employerId)
+            put("status", status.toFirestoreValue())
+            put("createdAt", com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt()))
+            workerName.trim().takeIf { it.isNotBlank() }?.let { put("workerName", it) }
+        }
     }
 }
 

@@ -526,14 +526,14 @@ private fun PhoneInputSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 13.dp),
+            .padding(top = 0.dp),
         horizontalAlignment = Alignment.Start
     ) {
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
                 .offset(x = (-12).dp)
-                .padding(bottom = 8.dp)
+                .padding(bottom = 4.dp)
                 .size(40.dp)
         ) {
             Icon(

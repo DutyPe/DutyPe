@@ -16,6 +16,7 @@ data class JobPostingModel(
     val contactNumber: String,                      // Direct contact
     val category: JobCategory,                      // Category (Cook, Maid, Driver, etc.)
     val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
+    val shiftTimingText: String? = null,
     val urgency: JobUrgency = JobUrgency.NORMAL,
     val vacancies: Int = 1,                         // Default 1
     val postedTime: Long = System.currentTimeMillis(),
@@ -24,6 +25,8 @@ data class JobPostingModel(
     val employerName: String = "",
     val applicationsReceived: Int = 0,              // For card display
     val isFilled: Boolean = false,                  // For vacancy status
+    val status: String = "open",
+    val expiresAt: Long? = null,
     val imageUrl: String? = null                    // Bug #5: hero image for the card
 )
 

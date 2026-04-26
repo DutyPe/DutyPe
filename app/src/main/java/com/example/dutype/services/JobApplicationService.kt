@@ -440,12 +440,16 @@ class JobApplicationService @Inject constructor(
 
             Timber.d("=📋 APPLY: jobId=$jobId userId=$userId employerId=$employerId")
 
-            // Bug #18 / #19 fix: pull a thin worker snapshot (name, phone,
-            // photo, skills) from the worker's own users + worker_profiles so
-            // the application doc carries enough context for the employer to
-            // render the applicant card and detail screen WITHOUT querying
-            // worker_profiles (which is locked down to the owner). Best-effort
-            // — apply still succeeds even if the snapshot lookup fails.
+            val workerName = runCatching {
+                val profile = profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
+                sequenceOf("fullName", "name", "displayName")
+                    .map { key -> profile[key]?.toString()?.trim().orEmpty() }
+                    .firstOrNull { it.isNotBlank() }
+                    .orEmpty()
+            }.getOrDefault("").ifBlank {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName?.trim().orEmpty()
+            }
+
             val application = JobApplication(
                 id = "${jobId}_${userId}",
                 jobId = jobId,
@@ -453,6 +457,7 @@ class JobApplicationService @Inject constructor(
                 employerId = employerId,
                 status = ApplicationStatus.APPLIED,
                 createdAt = System.currentTimeMillis(),
+                workerName = workerName,
                 jobTitle = jobTitle,
                 jobLocation = jobLocation,
                 companyName = companyName,
@@ -1247,69 +1252,7 @@ class JobApplicationService @Inject constructor(
      * DEDUPLICATION FIX: Notifications sent by updateApplicationStatus() only
      */
     suspend fun acceptApplication(applicationId: String, employerId: String): Result<JobApplication> {
-        return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
-            }
-            
-            val currentApplication = doc.toJobApplicationOrNull()
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            // Check if vacancies are still available before accepting
-            val canAcceptResult = canAcceptMoreApplications(currentApplication.jobId)
-            if (canAcceptResult.isFailure) {
-                return Result.failure(canAcceptResult.exceptionOrNull() ?: Exception("Failed to check vacancy status"))
-            }
-            
-            if (canAcceptResult.getOrNull() != true) {
-                return Result.failure(Exception("All vacancies for this job have been filled. Cannot accept more applications."))
-            }
-            
-            val hiredAt = System.currentTimeMillis()
-            val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.HIRED,
-                hiredAt = hiredAt
-            )
-            
-            docRef.update(
-                mapOf(
-                    "status" to ApplicationStatus.HIRED.toFirestoreValue(),
-                    "hiredAt" to Timestamp(Date(hiredAt))
-                )
-            ).await()
-            
-            // DEDUPLICATION FIX: Send notifications here since this is the primary accept method
-            // updateApplicationStatus() is for generic status changes
-            if (false) notificationService.sendApplicationStatusNotification(
-                updatedApplication, 
-                ApplicationStatus.HIRED, 
-                updatedApplication.workerId
-            )
-            
-            // Send hired notification to both worker and employer
-            try {
-                if (false) notificationService.sendWorkerHiredNotification(
-                    workerName = "Worker",
-                    jobTitle = getJobTitle(updatedApplication.jobId),
-                    workerId = updatedApplication.workerId,
-                    employerId = updatedApplication.employerId,
-                    jobId = updatedApplication.jobId
-                )
-                Timber.d("Worker hired notification sent")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to send worker hired notification")
-            }
-            
-            // Update job vacancy status if needed
-            updateJobVacancyStatusIfNeeded(currentApplication.jobId)
-            
-            Result.success(updatedApplication)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return updateApplicationStatus(applicationId, ApplicationStatus.HIRED, employerId)
     }
     
     /**

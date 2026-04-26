@@ -5,7 +5,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -228,56 +232,68 @@ fun JobApplicationScreen(
                 }
             }
             else -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    // Job Summary Card
-                    JobSummaryCard(job = displayJob)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = 132.dp)
+                    ) {
+                        // Job Summary Card
+                        JobSummaryCard(job = displayJob)
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    // Batch-l: replaced the bulky "Your Profile" card +
-                    // duplicate "What employer will see" list with a
-                    // single compact share notice.
-                    ShareProfileNotice()
+                        // Batch-l: replaced the bulky "Your Profile" card +
+                        // duplicate "What employer will see" list with a
+                        // single compact share notice.
+                        ShareProfileNotice()
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    // Cover Letter Section
-                    CoverLetterSection(
-                        coverLetter = coverLetter,
-                        onCoverLetterChange = { coverLetter = it },
-                        coverLetterFileName = coverLetterFileName,
-                        isUploading = isUploadingCoverLetter,
-                        onUploadClick = { coverLetterPickerLauncher.launch("application/*") },
-                        onRemoveFile = {
-                            coverLetterFileUri = null
-                            coverLetterFileName = null
-                            coverLetterUploadUrl = null
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Submit Button
-                    SubmitApplicationButton(
-                        isSubmitting = applicationUiState.isApplying || isUploadingCoverLetter,
-                        onSubmit = {
-                            val finalCoverLetter = when {
-                                coverLetterUploadUrl != null -> "[FILE] $coverLetterUploadUrl"
-                                coverLetter.isNotBlank() -> coverLetter
-                                else -> null
+                        // Cover Letter Section
+                        CoverLetterSection(
+                            coverLetter = coverLetter,
+                            onCoverLetterChange = { coverLetter = it },
+                            coverLetterFileName = coverLetterFileName,
+                            isUploading = isUploadingCoverLetter,
+                            onUploadClick = { coverLetterPickerLauncher.launch("application/*") },
+                            onRemoveFile = {
+                                coverLetterFileUri = null
+                                coverLetterFileName = null
+                                coverLetterUploadUrl = null
                             }
-                            applicationViewModel.applyForJob(
-                                jobId = jobId,
-                                coverLetter = finalCoverLetter
-                            )
-                        }
-                    )
+                        )
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth(),
+                        color = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground,
+                        shadowElevation = 8.dp
+                    ) {
+                        SubmitApplicationButton(
+                            modifier = Modifier.padding(
+                                top = 12.dp,
+                                bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                            ),
+                            isSubmitting = applicationUiState.isApplying || isUploadingCoverLetter,
+                            onSubmit = {
+                                val finalCoverLetter = when {
+                                    coverLetterUploadUrl != null -> "[FILE] $coverLetterUploadUrl"
+                                    coverLetter.isNotBlank() -> coverLetter
+                                    else -> null
+                                }
+                                applicationViewModel.applyForJob(
+                                    jobId = jobId,
+                                    coverLetter = finalCoverLetter
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -856,11 +872,12 @@ private fun WhatEmployerWillSeeSection() {
 
 @Composable
 private fun SubmitApplicationButton(
+    modifier: Modifier = Modifier,
     isSubmitting: Boolean,
     onSubmit: () -> Unit
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
@@ -871,16 +888,29 @@ private fun SubmitApplicationButton(
                 .height(52.dp),
             enabled = !isSubmitting,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1F2937),
+                containerColor = Color(0xFF374151),
                 disabledContainerColor = Color(0xFF9CA3AF)
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (isSubmitting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
+                val pulse = rememberInfiniteTransition(label = "submit_check_pulse")
+                val scale by pulse.animateFloat(
+                    initialValue = 0.9f,
+                    targetValue = 1.12f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 600),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "submit_check_scale"
+                )
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .scale(scale)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(

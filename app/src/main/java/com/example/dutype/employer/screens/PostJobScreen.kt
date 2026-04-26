@@ -1394,6 +1394,7 @@ fun PostJobScreen(
                                     EnhancedLocationSection(
                                         location = location,
                                         onLocationChange = { location = it },
+                                        locationService = locationService,
                                         isLoadingLocation = isLoadingLocation,
                                         locationError = locationError,
                                         onLocationButtonClick = {
@@ -2694,6 +2695,7 @@ fun WorkTypeSelection(
 fun EnhancedLocationSection(
     location: String,
     onLocationChange: (String) -> Unit,
+    locationService: com.example.dutype.utils.LocationService,
     isLoadingLocation: Boolean,
     locationError: String?,
     onLocationButtonClick: () -> Unit,
@@ -2702,7 +2704,6 @@ fun EnhancedLocationSection(
     locationLongitude: Double = 0.0,
     savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
 ) {
-    val context = LocalContext.current
     val primaryBlue = Color(0xFF2563EB)
     val successGreen = Color(0xFF10B981)
     val scope = rememberCoroutineScope()
@@ -2720,42 +2721,22 @@ fun EnhancedLocationSection(
             
             scope.launch {
                 try {
-                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        geocoder.getFromLocationName(location, 5) { addresses ->
-                            searchSuggestions = addresses.mapIndexed { index, address ->
-                                LocationSuggestion(
-                                    placeId = "geocoder_$index",
-                                    displayName = address.getAddressLine(0) ?: location,
-                                    city = address.locality ?: address.subAdminArea ?: "",
-                                    state = address.adminArea ?: "",
-                                    country = address.countryName ?: "India",
-                                    area = address.subLocality ?: "",
-                                    latitude = address.latitude,
-                                    longitude = address.longitude
-                                )
-                            }
-                            isSearching = false
-                        }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        val addresses = geocoder.getFromLocationName(location, 5)
-                        searchSuggestions = addresses?.mapIndexed { index, address ->
+                    searchSuggestions = locationService.searchPlaces(location, maxResults = 5)
+                        .map { suggestion ->
                             LocationSuggestion(
-                                placeId = "geocoder_$index",
-                                displayName = address.getAddressLine(0) ?: location,
-                                city = address.locality ?: address.subAdminArea ?: "",
-                                state = address.adminArea ?: "",
-                                country = address.countryName ?: "India",
-                                area = address.subLocality ?: "",
-                                latitude = address.latitude,
-                                longitude = address.longitude
+                                placeId = suggestion.placeId,
+                                displayName = suggestion.description,
+                                city = "",
+                                state = "",
+                                country = "India",
+                                area = suggestion.description.substringBefore(",").trim(),
+                                latitude = suggestion.latitude,
+                                longitude = suggestion.longitude
                             )
-                        } ?: emptyList()
-                        isSearching = false
-                    }
+                        }
                 } catch (e: Exception) {
                     searchSuggestions = emptyList()
+                } finally {
                     isSearching = false
                 }
             }

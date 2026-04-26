@@ -14,6 +14,7 @@ import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.crashlytics.crashlytics
 import com.google.firebase.initialize
+import com.google.android.libraries.places.api.Places
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
@@ -405,7 +406,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
     private fun initializeNonCriticalComponents() {
         CrashReportingHelper.initialize(this)
         initializeCrashlytics()
-        logMapsApiStatus()
+        initializeGoogleMapsServices()
         initializeMetadata()
     }
     
@@ -423,13 +424,20 @@ class DutyPeApplication : Application(), Configuration.Provider {
         }
     }
     
-    private fun logMapsApiStatus() {
+    private fun initializeGoogleMapsServices() {
         val mapsKey = try {
             BuildConfig::class.java.getField("MAPS_API_KEY").get(null) as? String ?: ""
         } catch (e: Exception) { "" }
         
         if (mapsKey.isNotBlank() && mapsKey != "YOUR_GOOGLE_MAPS_API_KEY_HERE") {
-            Timber.d("✅ Google Maps API configured")
+            try {
+                if (!Places.isInitialized()) {
+                    Places.initializeWithNewPlacesApiEnabled(applicationContext, mapsKey)
+                }
+                Timber.d("Google Maps and Places APIs configured")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to initialize Google Places SDK")
+            }
         }
     }
     

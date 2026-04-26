@@ -1024,30 +1024,10 @@ private fun ActionButtonsCard(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Actions",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1F2937)
-            )
-        )
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Button(
-                onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF10B981)
-                )
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Accept", style = MaterialTheme.typography.bodyMedium)
-            }
             OutlinedButton(
                 onClick = { onActionClick(ApplicationAction.REJECT) },
                 modifier = Modifier.weight(1f),
@@ -1059,6 +1039,18 @@ private fun ActionButtonsCard(
                 Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodyMedium)
+            }
+            Button(
+                onClick = { onActionClick(ApplicationAction.SHORTLIST) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF10B981)
+                )
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Accept", style = MaterialTheme.typography.bodyMedium)
             }
         }
 

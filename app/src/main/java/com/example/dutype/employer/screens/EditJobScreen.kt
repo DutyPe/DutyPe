@@ -76,6 +76,8 @@ fun EditJobScreen(
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
+    var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
+    var customShiftTiming by remember { mutableStateOf("") }
     var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
     var vacancies by remember { mutableStateOf("") }
@@ -273,8 +275,14 @@ fun EditJobScreen(
             }
             jobImageUrl = job.jobImageUrl.orEmpty()
             jobImageUri = null
-            val shiftTiming = "removed"
-            Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$shiftTiming")
+            val storedShiftTiming = job.shiftTiming.ifBlank { ShiftTiming.FLEXIBLE.displayName }
+            val matchedShift = ShiftTiming.values().firstOrNull { shift ->
+                shift.name.equals(storedShiftTiming, ignoreCase = true) ||
+                    shift.displayName.equals(storedShiftTiming, ignoreCase = true)
+            }
+            shiftTiming = matchedShift ?: ShiftTiming.CUSTOM
+            customShiftTiming = if (matchedShift == null) storedShiftTiming else ""
+            Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$storedShiftTiming")
         }
     }
 
@@ -363,6 +371,11 @@ fun EditJobScreen(
                         JobUrgency.NORMAL -> "MEDIUM"
                         JobUrgency.WITHIN_MONTH -> "LOW"
                     }
+                    val finalShiftTiming = if (shiftTiming == ShiftTiming.CUSTOM) {
+                        customShiftTiming.trim().ifBlank { ShiftTiming.FLEXIBLE.displayName }
+                    } else {
+                        shiftTiming.displayName
+                    }
 
                     val updates = mapOf(
                         "title" to title,
@@ -376,6 +389,7 @@ fun EditJobScreen(
                         "vacancies" to (vacancies.toIntOrNull() ?: return@launch),
                         "benefits" to selectedPerks.map { it.displayName },
                         "workingHours" to workType,
+                        "shiftTiming" to finalShiftTiming,
                         "experienceRequired" to experienceLevel,
                         "educationRequired" to educationRequired,
                         "gender" to gender,
@@ -1170,6 +1184,71 @@ fun EditJobScreen(
                             }
                         }
 
+                        // Shift
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Shift",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF374151)
+                                )
+                            )
+                            val shiftOptions = listOf(
+                                ShiftTiming.MORNING,
+                                ShiftTiming.NIGHT,
+                                ShiftTiming.BOTH,
+                                ShiftTiming.FLEXIBLE,
+                                ShiftTiming.CUSTOM
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(shiftOptions) { option ->
+                                    val selected = shiftTiming == option
+                                    FilterChip(
+                                        onClick = { shiftTiming = option },
+                                        label = {
+                                            Text(
+                                                if (option == ShiftTiming.CUSTOM) customShiftTiming.ifBlank { "Custom" } else option.displayName,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                            )
+                                        },
+                                        selected = selected,
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .defaultMinSize(minWidth = 0.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF3B82F6),
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Color.White,
+                                            labelColor = Color(0xFF374151)
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = selected,
+                                            borderColor = Color(0xFFE5E7EB),
+                                            selectedBorderColor = Color(0xFF3B82F6)
+                                        )
+                                    )
+                                }
+                            }
+                            if (shiftTiming == ShiftTiming.CUSTOM) {
+                                OutlinedTextField(
+                                    value = customShiftTiming,
+                                    onValueChange = { customShiftTiming = it.take(120) },
+                                    label = { Text("Shift timing") },
+                                    placeholder = { Text("e.g. 9 AM - 6 PM") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF3B82F6),
+                                        unfocusedBorderColor = Color(0xFFE5E7EB)
+                                    )
+                                )
+                            }
+                        }
+
                         // Urgency
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
@@ -1187,6 +1266,10 @@ fun EditJobScreen(
                                         onClick = { urgency = jobUrgency },
                                         label = { Text(jobUrgency.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
                                         selected = urgency == jobUrgency,
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .defaultMinSize(minWidth = 0.dp),
+                                        shape = RoundedCornerShape(10.dp),
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
                                             selectedLabelColor = Color(0xFF3B82F6)

@@ -903,6 +903,16 @@ fun RecentJobsSection(
                     .take(5) // Show more recent jobs
                     .map { job ->
                     // Convert JobListing to JobPostingModel for display
+                    val shiftDisplay = job.shiftTiming.ifBlank { ShiftTiming.FLEXIBLE.displayName }
+                    val shiftEnum = ShiftTiming.values().firstOrNull { shift ->
+                        shift.name.equals(shiftDisplay, ignoreCase = true) ||
+                            shift.displayName.equals(shiftDisplay, ignoreCase = true)
+                    } ?: ShiftTiming.FLEXIBLE
+                    val urgencyEnum = when (job.urgency.uppercase()) {
+                        "HIGH" -> JobUrgency.URGENT
+                        "LOW" -> JobUrgency.WITHIN_MONTH
+                        else -> JobUrgency.NORMAL
+                    }
                     val jobPosting = JobPostingModel(
                         jobId = job.id,
                         title = job.title,
@@ -920,8 +930,9 @@ fun RecentJobsSection(
                             else -> PayType.DAILY
                         },
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
-                        shiftTiming = ShiftTiming.FLEXIBLE,
-                        urgency = JobUrgency.NORMAL,
+                        shiftTiming = shiftEnum,
+                        shiftTimingText = shiftDisplay,
+                        urgency = urgencyEnum,
                         // Batch-p #8: surface the actual posted vacancies +
                         // application count instead of hard-coding 0. The
                         // job card was reading 0 positions / 0 applications
@@ -933,6 +944,8 @@ fun RecentJobsSection(
                         contactNumber = job.contactNumber,
                         applicationsReceived = applicationCountsByJobId[job.id] ?: 0,
                         isFilled = job.status == "closed",
+                        status = job.status,
+                        expiresAt = job.expiresAt,
                         imageUrl = job.jobImageUrl
                     )
                     

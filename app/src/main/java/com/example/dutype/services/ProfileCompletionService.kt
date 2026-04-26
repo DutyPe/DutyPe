@@ -925,6 +925,9 @@ class ProfileCompletionService @Inject constructor(
         return try {
             val payload = mutableMapOf<String, Any>("workerId" to workerId)
             if (!jobId.isNullOrBlank()) payload["jobId"] = jobId
+            val currentUser = auth.currentUser
+                ?: return Result.failure(IllegalStateException("Employer not authenticated"))
+            currentUser.getIdToken(false).await()
             // Batch-k fix: `getWorkerProfileForEmployer` is deployed via
             // `onCallSecured` which pins the function to `asia-south1`. The
             // default `FirebaseFunctions.getInstance()` targets us-central1

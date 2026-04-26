@@ -16,17 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.dutype.app.BuildConfig
 import com.example.dutype.models.JobListing
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import timber.log.Timber
-import java.net.URL
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 
@@ -123,8 +118,8 @@ fun GoogleMapView(
  * Uber-Style Enhanced Google Maps View
  * Features:
  * - Auto-zoom based on nearest job distance
- * - Actual navigation route using Google Directions API
- * - Auto-show route to nearest job on load
+ * - Direct route preview without requiring Directions or Routes API
+ * - Auto-show direct route to nearest job on load
  * - Job info chips with name + vacancy (vertical layout)
  */
 @Composable
@@ -152,33 +147,17 @@ fun EnhancedGoogleMapView(
     // Job to show route for (selected or nearest)
     val routeJob = selectedJob ?: nearestJob
     
-    // Route points from Directions API
+    // Route points use a direct line so this screen only needs Maps SDK for Android.
     var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var isLoadingRoute by remember { mutableStateOf(false) }
     
-    // Fetch actual navigation route when job changes
+    // Update route preview when job changes.
     LaunchedEffect(routeJob, userLatitude, userLongitude) {
         if (routeJob != null && userLatitude != null && userLongitude != null) {
-            isLoadingRoute = true
-            try {
-                val points = fetchDirectionsRoute(
-                    originLat = userLatitude,
-                    originLng = userLongitude,
-                    destLat = routeJob.lat,
-                    destLng = routeJob.lng
-                )
-                routePoints = points
-                Timber.d("📍 Route fetched with ${points.size} points")
-            } catch (e: Exception) {
-                Timber.e(e, "📍 Failed to fetch route, using straight line")
-                // Fallback to straight line
-                routePoints = listOf(
-                    LatLng(userLatitude, userLongitude),
-                    LatLng(routeJob.lat, routeJob.lng)
-                )
-            } finally {
-                isLoadingRoute = false
-            }
+            routePoints = listOf(
+                LatLng(userLatitude, userLongitude),
+                LatLng(routeJob.lat, routeJob.lng)
+            )
+            Timber.d("Map route preview updated with direct line")
         } else {
             routePoints = emptyList()
         }
@@ -273,10 +252,9 @@ fun EnhancedGoogleMapView(
             onMapReady()
         }
     ) {
-        // User location marker (blue dot)
         if (userLatitude != null && userLongitude != null) {
             val userPosition = LatLng(userLatitude, userLongitude)
-            
+
             Marker(
                 state = MarkerState(position = userPosition),
                 title = stringResource(R.string.you_are_here),
@@ -285,21 +263,18 @@ fun EnhancedGoogleMapView(
                 zIndex = 100f
             )
         }
-        
-        // Navigation route polyline (Uber-style dark route)
+
         if (routePoints.isNotEmpty()) {
-            // White border/shadow for visibility
             Polyline(
                 points = routePoints,
-                color = Color(0xFFFFFFFF),
+                color = Color.White,
                 width = 16f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
                 endCap = RoundCap(),
                 zIndex = 0f
             )
-            
-            // Main dark route line (Uber-style black)
+
             Polyline(
                 points = routePoints,
                 color = Color(0xFF1A1A1A),
@@ -310,136 +285,36 @@ fun EnhancedGoogleMapView(
                 zIndex = 1f
             )
         }
-        
-        // Job markers with info chips
+
         jobs.forEach { job ->
             val position = LatLng(job.lat, job.lng)
             val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
             val isNearby = job.distance != null && job.distance!! < 1.0
             val isSelected = selectedJob?.id == job.id
             val isRouteTarget = routeJob?.id == job.id
-            
-            // Custom marker with job info chip
+
             val markerIcon = createJobMarkerChip(
                 context = context,
                 jobTitle = job.title.take(14) + if (job.title.length > 14) ".." else "",
-                vacancy = 1, // vacancies not in schema — show 1 as default
+                vacancy = 1,
                 isUrgent = isUrgent,
                 isNearby = isNearby,
                 isSelected = isSelected || isRouteTarget
             )
-            
+
             Marker(
                 state = MarkerState(position = position),
                 icon = markerIcon,
                 anchor = Offset(0.5f, 1f),
                 zIndex = if (isSelected || isRouteTarget) 99f else if (isUrgent) 50f else 10f,
                 onClick = {
-                    Timber.d("📍 Marker clicked: ${job.title}")
+                    Timber.d("Map marker clicked: ${job.title}")
                     onMarkerClick(job)
                     true
                 }
             )
         }
     }
-}
-
-/**
- * Fetch actual navigation route from Google Directions API
- */
-private suspend fun fetchDirectionsRoute(
-    originLat: Double,
-    originLng: Double,
-    destLat: Double,
-    destLng: Double
-): List<LatLng> = withContext(Dispatchers.IO) {
-    try {
-        val apiKey = BuildConfig.MAPS_API_KEY
-        if (apiKey.isBlank() || apiKey == "YOUR_GOOGLE_MAPS_API_KEY_HERE") {
-            Timber.w("📍 No valid Maps API key, using straight line")
-            return@withContext listOf(
-                LatLng(originLat, originLng),
-                LatLng(destLat, destLng)
-            )
-        }
-        
-        val url = "https://maps.googleapis.com/maps/api/directions/json?" +
-                "origin=$originLat,$originLng" +
-                "&destination=$destLat,$destLng" +
-                "&mode=driving" +
-                "&key=$apiKey"
-        
-        val response = URL(url).readText()
-        val json = JSONObject(response)
-        
-        val status = json.getString("status")
-        if (status != "OK") {
-            Timber.w("📍 Directions API status: $status")
-            return@withContext listOf(
-                LatLng(originLat, originLng),
-                LatLng(destLat, destLng)
-            )
-        }
-        
-        val routes = json.getJSONArray("routes")
-        if (routes.length() == 0) {
-            return@withContext listOf(
-                LatLng(originLat, originLng),
-                LatLng(destLat, destLng)
-            )
-        }
-        
-        val route = routes.getJSONObject(0)
-        val overviewPolyline = route.getJSONObject("overview_polyline")
-        val encodedPoints = overviewPolyline.getString("points")
-        
-        // Decode polyline
-        decodePolyline(encodedPoints)
-    } catch (e: Exception) {
-        Timber.e(e, "📍 Error fetching directions")
-        listOf(
-            LatLng(originLat, originLng),
-            LatLng(destLat, destLng)
-        )
-    }
-}
-
-/**
- * Decode Google's encoded polyline format
- */
-private fun decodePolyline(encoded: String): List<LatLng> {
-    val poly = mutableListOf<LatLng>()
-    var index = 0
-    val len = encoded.length
-    var lat = 0
-    var lng = 0
-    
-    while (index < len) {
-        var b: Int
-        var shift = 0
-        var result = 0
-        do {
-            b = encoded[index++].code - 63
-            result = result or (b and 0x1f shl shift)
-            shift += 5
-        } while (b >= 0x20)
-        val dlat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
-        lat += dlat
-        
-        shift = 0
-        result = 0
-        do {
-            b = encoded[index++].code - 63
-            result = result or (b and 0x1f shl shift)
-            shift += 5
-        } while (b >= 0x20)
-        val dlng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
-        lng += dlng
-        
-        poly.add(LatLng(lat / 1E5, lng / 1E5))
-    }
-    
-    return poly
 }
 
 /**

@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobPostingModel
-import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.ui.theme.AppTypography
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,7 +60,7 @@ fun EmployerJobCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header with title and status
+            // Header with title, status, and actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -122,21 +121,28 @@ fun EmployerJobCard(
                     }
                 }
 
-                // Posted time and status indicator
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Posted time
+                    if (showActions) {
+                        JobActionsRow(
+                            jobPosting = jobPosting,
+                            onEditClick = onEditClick,
+                            onShareClick = onShareClick
+                        )
+                    }
+
+                    JobStatusBadge(
+                        status = jobPosting.status,
+                        isFilled = jobPosting.isFilled,
+                        expiresAt = jobPosting.expiresAt
+                    )
+
                     Text(
                         text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
                         style = AppTypography.caption,
                         color = Color.Gray
-                    )
-                    
-                    // Status indicator
-                    JobStatusBadge(
-                        urgency = jobPosting.urgency
                     )
                 }
             }
@@ -162,15 +168,7 @@ fun EmployerJobCard(
 
             // Perks display removed as per user request
 
-            // Footer with stats and actions
-            JobCardFooter(
-                jobPosting = jobPosting,
-                showActions = showActions,
-                onEditClick = onEditClick,
-                onViewApplicationsClick = onViewApplicationsClick,
-                onShareClick = onShareClick,
-                onShowManagementDialog = { showJobManagementDialog = true }
-            )
+            HorizontalDivider(color = Color(0xFFE5E7EB))
         }
     }
     
@@ -197,102 +195,116 @@ fun EmployerJobCard(
 
 @Composable
 private fun JobStatusBadge(
-    urgency: JobUrgency
+    status: String,
+    isFilled: Boolean,
+    expiresAt: Long?
 ) {
-    val (backgroundColor, textColor, statusText, icon) = when {
-        urgency == JobUrgency.IMMEDIATE -> Quadruple(Color(0xFFEF4444), Color.White, "Urgent", Icons.Default.Warning)
-        urgency == JobUrgency.URGENT -> Quadruple(Color(0xFFF59E0B), Color.White, "Priority", Icons.Default.PriorityHigh)
-        else -> Quadruple(Color(0xFF10B981), Color.White, "Open", Icons.Default.CheckCircle)
+    val normalizedStatus = status.lowercase()
+    val expiresAtMillis = expiresAt ?: 0L
+    val isExpired = normalizedStatus == "expired" || (expiresAtMillis > 0L && expiresAtMillis <= System.currentTimeMillis())
+    val isClosed = isFilled || normalizedStatus == "closed"
+    val (color, statusText, icon) = when {
+        isExpired -> Triple(Color(0xFFEF4444), "Expired", Icons.Default.EventBusy)
+        isClosed -> Triple(Color(0xFF6B7280), "Closed", Icons.Default.Cancel)
+        else -> Triple(Color(0xFF10B981), "Active", Icons.Default.CheckCircle)
     }
 
-    Row(
-        modifier = Modifier
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = color.copy(alpha = 0.1f)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = textColor,
-            modifier = Modifier.size(12.dp)
-        )
-        Text(
-            text = statusText,
-            style = AppTypography.status,
-            color = textColor
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = statusText,
+                style = AppTypography.status,
+                color = color
+            )
+        }
     }
 }
 
-// Helper data class for quadruple values
-private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
-
 @Composable
 private fun JobDetailsRow(jobPosting: JobPostingModel) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Left column - Pay and Location
-        Column(modifier = Modifier.weight(1f)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CurrencyRupee,
-                    contentDescription = null,
-                    tint = Color(0xFF0F172A),
-                    modifier = Modifier.size(16.dp)
-                )
-                // Bug #3 fix: dropped the literal '₹' from the text — the icon
-                // already renders the rupee symbol, so the text was producing two.
-                Text(
-                    text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
-                    style = AppTypography.price,
-                    color = Color(0xFF0F172A)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = jobPosting.location,
-                    style = AppTypography.bodyMedium,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CurrencyRupee,
+                contentDescription = null,
+                tint = Color(0xFF0F172A),
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
+                style = AppTypography.price,
+                color = Color(0xFF0F172A)
+            )
         }
 
-        // Right column - Vacancies and Timing
-        Column(horizontalAlignment = Alignment.End) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = jobPosting.location,
+                style = AppTypography.bodyMedium,
+                color = Color.Gray,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.People,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
             Text(
                 text = "${jobPosting.vacancies} position${if (jobPosting.vacancies != 1) "s" else ""}",
-                style = AppTypography.labelLarge
+                style = AppTypography.bodyMedium,
+                color = Color.Gray
             )
+        }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Schedule,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
             Text(
-                text = jobPosting.shiftTiming.displayName,
-                style = AppTypography.caption,
+                text = jobPosting.shiftTimingText?.takeIf { it.isNotBlank() } ?: jobPosting.shiftTiming.displayName,
+                style = AppTypography.bodyMedium,
                 color = Color.Gray
             )
         }

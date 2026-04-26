@@ -228,6 +228,7 @@ class JobFirestoreService @Inject constructor(
             "salary" to toSalaryString(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
             "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
+            "shiftTiming" to normalizeString(coreData["shiftTiming"]).ifBlank { "Flexible" },
             "gender" to "Any",
             "experienceRequired" to "No Experience Required",
             "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
@@ -325,6 +326,7 @@ class JobFirestoreService @Inject constructor(
             val gender = normalizeString(jobData["gender"]).ifBlank { "Any" }
             val experienceRequired = normalizeString(jobData["experienceRequired"]).ifBlank { "No Experience Required" }
             val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { "No qualification required" }
+            val shiftTiming = normalizeString(jobData["shiftTiming"]).ifBlank { "Flexible" }
             val companyCity = extractCityFromAddress(addressText)
             val vacancies = (jobData["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(jobData["vacancies"]).toIntOrNull()
@@ -381,6 +383,7 @@ class JobFirestoreService @Inject constructor(
                 "location" to location,
                 "geohash" to geohash,
                 "addressText" to addressText,
+                "shiftTiming" to shiftTiming,
                 "urgency" to urgency,
                 "status" to "open",
                 "createdAt" to createdAt,
@@ -790,6 +793,11 @@ class JobFirestoreService @Inject constructor(
             (data["urgency"] as? String)?.let {
                 val v = it.uppercase().let { u -> if (u in listOf("LOW", "MEDIUM", "HIGH")) u else "MEDIUM" }
                 cardUpdates["urgency"] = v
+            }
+            if (data.containsKey("shiftTiming")) {
+                val v = normalizeString(data["shiftTiming"])
+                if (v.isBlank()) return Result.failure(IllegalArgumentException("Shift timing is required"))
+                cardUpdates["shiftTiming"] = v
             }
             (data["status"] as? String)?.let {
                 val v = it.lowercase()

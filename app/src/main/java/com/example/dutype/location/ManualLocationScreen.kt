@@ -79,13 +79,6 @@ fun ManualLocationScreen(navController: NavController) {
     val locationService = jobViewModel.locationService
     val scope = rememberCoroutineScope()
     
-    // Azure Maps service
-    val azureMapsService = remember {
-        if (LocationSearchConfig.isAzureMapsEnabled()) {
-            AzureMapsService(LocationSearchConfig.AZURE_MAPS_KEY)
-        } else null
-    }
-
     var searchText by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
@@ -136,65 +129,6 @@ fun ManualLocationScreen(navController: NavController) {
         }
     }
     
-    // Search with Azure Maps
-    suspend fun searchWithAzureMaps(query: String): List<LocationSuggestion> {
-        if (azureMapsService == null) {
-            Timber.w("Azure Maps not configured")
-            return emptyList()
-        }
-        return try {
-            val result = azureMapsService.searchLocations(query, limit = 8)
-            result.getOrNull()?.map { it.toLocationSuggestion() } ?: emptyList()
-        } catch (e: Exception) {
-            Timber.e(e, "Azure Maps search failed")
-            emptyList()
-        }
-    }
-    
-    // Fallback geocoder search
-    suspend fun searchWithGeocoder(query: String): List<LocationSuggestion> {
-        return try {
-            val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-                    geocoder.getFromLocationName(query, 5) { addresses ->
-                        val results = addresses.mapIndexed { index, address ->
-                            LocationSuggestion(
-                                placeId = "geocoder_$index",
-                                displayName = address.getAddressLine(0) ?: query,
-                                city = address.locality ?: address.subAdminArea ?: "",
-                                state = address.adminArea ?: "",
-                                country = address.countryName ?: "India",
-                                area = address.subLocality ?: "",
-                                latitude = address.latitude,
-                                longitude = address.longitude
-                            )
-                        }
-                        continuation.resume(results) {}
-                    }
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                val addresses = geocoder.getFromLocationName(query, 5)
-                addresses?.mapIndexed { index, address ->
-                    LocationSuggestion(
-                        placeId = "geocoder_$index",
-                        displayName = address.getAddressLine(0) ?: query,
-                        city = address.locality ?: address.subAdminArea ?: "",
-                        state = address.adminArea ?: "",
-                        country = address.countryName ?: "India",
-                        area = address.subLocality ?: "",
-                        latitude = address.latitude,
-                        longitude = address.longitude
-                    )
-                } ?: emptyList()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Geocoder search failed")
-            emptyList()
-        }
-    }
-
     // Search effect
     LaunchedEffect(searchText) {
         if (searchText.isNotEmpty() && searchText.length >= 2) {
@@ -203,30 +137,14 @@ fun ManualLocationScreen(navController: NavController) {
             errorMessage = ""
             
             scope.launch {
-                // Try Azure Maps first
-                if (azureMapsService != null) {
-                    Timber.d("Searching with Azure Maps: $searchText")
-                    val azureResults = searchWithAzureMaps(searchText)
-                    if (azureResults.isNotEmpty()) {
-                        suggestions = azureResults
-                        errorMessage = ""
-                        isSearching = false
-                        return@launch
-                    }
-                }
-                
-                // Fallback to Geocoder
-                val geocoderResults = searchWithGeocoder(searchText)
-                if (geocoderResults.isNotEmpty()) {
-                    suggestions = geocoderResults
+                val placeResults = locationService.searchPlaces(searchText, maxResults = 8)
+                    .map { it.toLocationSuggestion() }
+                if (placeResults.isNotEmpty()) {
+                    suggestions = placeResults
                     errorMessage = ""
                 } else {
                     suggestions = emptyList()
-                    errorMessage = if (azureMapsService == null) {
-                        "Azure Maps not configured. Add your API key."
-                    } else {
-                        "No locations found. Try a different search."
-                    }
+                    errorMessage = "No locations found. Try a different search."
                 }
                 isSearching = false
             }
@@ -515,3 +433,17 @@ data class LocationSuggestion(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0
 )
+
+private fun com.example.dutype.models.PlaceSuggestion.toLocationSuggestion(): LocationSuggestion {
+    val firstPart = description.substringBefore(",").trim()
+    return LocationSuggestion(
+        placeId = placeId,
+        displayName = description,
+        city = "",
+        state = "",
+        country = "India",
+        area = firstPart,
+        latitude = latitude,
+        longitude = longitude
+    )
+}
