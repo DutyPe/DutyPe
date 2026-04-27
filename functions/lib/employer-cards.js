@@ -36,7 +36,7 @@ const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
 const CARDS = "employer_job_cards";
 async function buildDenormFromJob(jobId) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
     const [metaSnap, detailsSnap] = await Promise.all([
         db.collection("jobmetadata").doc(jobId).get(),
         db.collection("job_details").doc(jobId).get(),
@@ -68,12 +68,10 @@ async function buildDenormFromJob(jobId) {
         geohash: String((_l = meta.geohash) !== null && _l !== void 0 ? _l : ""),
         jobImageUrl: meta.jobImageUrl ? String(meta.jobImageUrl) : null,
         vacancies: Number((_o = (_m = meta.vacancies) !== null && _m !== void 0 ? _m : details.vacancies) !== null && _o !== void 0 ? _o : 1),
-        urgency: String((_p = meta.urgency) !== null && _p !== void 0 ? _p : "MEDIUM"),
-        workingHours: String((_q = meta.workingHours) !== null && _q !== void 0 ? _q : ""),
-        shiftTiming: String((_s = (_r = details.shiftTiming) !== null && _r !== void 0 ? _r : meta.shiftTiming) !== null && _s !== void 0 ? _s : "Flexible"),
-        companyName: String((_t = meta.companyName) !== null && _t !== void 0 ? _t : ""),
-        contactNumber: String((_u = details.contactNumber) !== null && _u !== void 0 ? _u : ""),
-        createdAt: (_v = meta.createdAt) !== null && _v !== void 0 ? _v : null,
+        shiftTiming: String((_q = (_p = details.shiftTiming) !== null && _p !== void 0 ? _p : meta.shiftTiming) !== null && _q !== void 0 ? _q : "Flexible"),
+        companyName: String((_r = meta.companyName) !== null && _r !== void 0 ? _r : ""),
+        contactNumber: String((_s = details.contactNumber) !== null && _s !== void 0 ? _s : ""),
+        createdAt: (_t = meta.createdAt) !== null && _t !== void 0 ? _t : null,
     };
 }
 /**

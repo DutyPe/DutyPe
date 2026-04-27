@@ -83,8 +83,6 @@ import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
-import com.example.dutype.employer.models.JobUrgency
-import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
@@ -908,11 +906,6 @@ fun RecentJobsSection(
                         shift.name.equals(shiftDisplay, ignoreCase = true) ||
                             shift.displayName.equals(shiftDisplay, ignoreCase = true)
                     } ?: ShiftTiming.FLEXIBLE
-                    val urgencyEnum = when (job.urgency.uppercase()) {
-                        "HIGH" -> JobUrgency.URGENT
-                        "LOW" -> JobUrgency.WITHIN_MONTH
-                        else -> JobUrgency.NORMAL
-                    }
                     val jobPosting = JobPostingModel(
                         jobId = job.id,
                         title = job.title,
@@ -932,7 +925,6 @@ fun RecentJobsSection(
                         category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
                         shiftTiming = shiftEnum,
                         shiftTimingText = shiftDisplay,
-                        urgency = urgencyEnum,
                         // Batch-p #8: surface the actual posted vacancies +
                         // application count instead of hard-coding 0. The
                         // job card was reading 0 positions / 0 applications

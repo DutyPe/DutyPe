@@ -36,7 +36,6 @@ export type ProductJob = {
   salaryType: string;
   location: { lat: number; lng: number };
   geohash: string;
-  urgency: string;
   status: "open" | "closed" | "expired";
   createdAt: unknown;
   expiresAt: unknown;
@@ -118,7 +117,6 @@ export function normalizeProductJob(
     salaryType,
     location: { lat, lng },
     geohash: String(data.geohash ?? ""),
-    urgency: String(data.urgency ?? "NORMAL"),
     status,
     createdAt: data.createdAt,
     expiresAt: data.expiresAt,

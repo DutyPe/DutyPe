@@ -180,20 +180,14 @@ export async function PATCH(request: NextRequest) {
     const db = getFirebaseAdminDb();
     const auth = getFirebaseAdminAuth();
     const ref = db.collection("users").doc(userId);
-    const snap = await ref.get();
-
-    const raw = asRecord(snap.data());
-    const currentRoles = Array.isArray(raw.roles)
-      ? raw.roles.filter((item): item is string => typeof item === "string")
-      : [];
 
     const payload: Record<string, unknown> = {};
 
     if (hasRoleUpdate && newRole) {
-      const nextRoles = [...new Set([...currentRoles, newRole])];
+      // Single-role schema: the live `users` collection only stores `role`
+      // (and `activeRole` for compat). No `roles[]` array.
       payload.role = newRole;
       payload.activeRole = newRole;
-      payload.roles = nextRoles.length > 0 ? nextRoles : [newRole];
     }
 
     if (fullName !== undefined) {

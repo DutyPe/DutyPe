@@ -86,6 +86,42 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
 
+            // ---------------------------------------------------------------
+            // Play update-size churn fix (see docs/FEATURE_RELEASE_MAPS_ROUTING.md
+            // step 3: "Reuse R8 mapping from previous release"). Without this,
+            // R8 renames every class/method on every build, so even a 1-line
+            // colour change rewrites most of classes.dex and Play patch size
+            // stays around ~18 MB. With it, names stay stable across versions
+            // and the binary diff Play ships drops to roughly the size of the
+            // actual code change.
+            //
+            // Workflow:
+            //   1. Build release once. After the build, app/mapping/
+            //      release-mapping.txt is created/updated automatically (see
+            //      the `archiveReleaseMapping` task at the bottom of this file).
+            //   2. COMMIT app/mapping/release-mapping.txt alongside the
+            //      versionCode bump for that release.
+            //   3. On the next release build, R8 reads it via `setMappingFile`
+            //      below and reuses the same obfuscated names.
+            //
+            // Safe to enable from the very first build — when the mapping
+            // file does not exist yet we simply skip applyMapping. We do this
+            // by generating a tiny proguard fragment in build/ that contains
+            // `-applymapping <abs path>` and feeding it to R8 via
+            // proguardFiles. R8 itself reads the mapping at obfuscation time.
+            val previousMappingFile = file("mapping/release-mapping.txt")
+            if (previousMappingFile.exists()) {
+                val applyMappingRules = layout.buildDirectory
+                    .file("intermediates/dutype/applyMapping.pro")
+                    .get()
+                    .asFile
+                applyMappingRules.parentFile.mkdirs()
+                applyMappingRules.writeText(
+                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
+                )
+                proguardFiles(applyMappingRules)
+            }
+
             // Enable debug symbols for crash analysis
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
@@ -189,6 +225,37 @@ android {
 // must be committed so MigrationTestHelper can validate future Migration objects.
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// ---------------------------------------------------------------------------
+// Play update-size churn fix, part 2: after every release minify task, copy
+// the fresh R8 mapping.txt into app/mapping/release-mapping.txt so the next
+// release can apply it (see the buildTypes.release block above).
+//
+// Why: R8 writes the mapping into
+//   app/build/outputs/mapping/release/mapping.txt
+// We mirror it under source-controlled app/mapping/ so that bumping
+// versionCode + committing the new mapping is the only step a developer
+// has to remember between releases.
+// ---------------------------------------------------------------------------
+val archiveReleaseMapping by tasks.registering(Copy::class) {
+    val sourceMapping = layout.buildDirectory.file("outputs/mapping/release/mapping.txt")
+    from(sourceMapping)
+    into(layout.projectDirectory.dir("mapping"))
+    rename { "release-mapping.txt" }
+    onlyIf { sourceMapping.get().asFile.exists() }
+    description = "Archives the release R8 mapping for reuse on the next build (keeps Play patch sizes small)."
+}
+
+androidComponents.onVariants { variant ->
+    if (variant.name == "release") {
+        // `minifyReleaseWithR8` is created lazily by AGP; configureEach
+        // ensures we hook it whenever it gets registered without forcing
+        // task realization at configuration time.
+        tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
+            finalizedBy(archiveReleaseMapping)
+        }
+    }
 }
 
 dependencies {

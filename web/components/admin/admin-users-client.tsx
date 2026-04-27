@@ -34,14 +34,21 @@ export function AdminUsersClient() {
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
-  const [editDrafts, setEditDrafts] = useState<Record<string, { fullName: string; phone: string; role: string }>>({});
+  // The live `users` collection only stores a single `role` field. We
+  // keep the draft minimal: name, phone, role.
+  const [editDrafts, setEditDrafts] = useState<
+    Record<string, { fullName: string; phone: string; role: string }>
+  >({});
 
   function createDraftMap(rows: UserRow[]) {
-    return rows.reduce<Record<string, { fullName: string; phone: string; role: string }>>((acc, row) => {
+    return rows.reduce<
+      Record<string, { fullName: string; phone: string; role: string }>
+    >((acc, row) => {
+      const current = primaryRole(row);
       acc[row.id] = {
         fullName: displayUserName(row),
         phone: row.phone ?? "",
-        role: row.activeRole ?? row.role ?? "WORKER"
+        role: current === "EMPLOYER" ? "EMPLOYER" : "WORKER"
       };
       return acc;
     }, {});
@@ -104,7 +111,11 @@ export function AdminUsersClient() {
     }
   }
 
-  function setDraftValue(userId: string, key: "fullName" | "phone" | "role", value: string) {
+  function setDraftField(
+    userId: string,
+    key: "fullName" | "phone" | "role",
+    value: string
+  ) {
     setEditDrafts((prev) => ({
       ...prev,
       [userId]: {
@@ -151,8 +162,7 @@ export function AdminUsersClient() {
                 name: draft.fullName,
                 phone: draft.phone,
                 role: draft.role,
-                activeRole: draft.role,
-                roles: [...new Set([...(u.roles ?? []), draft.role])]
+                activeRole: draft.role
               }
             : u
         )
@@ -200,12 +210,8 @@ export function AdminUsersClient() {
     }
   }
 
-  const workerCount = users.filter((user) => hasRole(user, "WORKER")).length;
-  const employerCount = users.filter((user) => hasRole(user, "EMPLOYER")).length;
-  const dualRoleCount = users.filter((user) => {
-    const roles = normalizedRoles(user);
-    return roles.includes("WORKER") && roles.includes("EMPLOYER");
-  }).length;
+  const workerCount = users.filter((user) => primaryRole(user) === "WORKER").length;
+  const employerCount = users.filter((user) => primaryRole(user) === "EMPLOYER").length;
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -214,11 +220,7 @@ export function AdminUsersClient() {
       (user.phone ?? "").includes(searchTerm) ||
       (user.email ?? "").toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesRole =
-      roleFilter === "ALL" ||
-      (roleFilter === "DUAL"
-        ? normalizedRoles(user).includes("WORKER") && normalizedRoles(user).includes("EMPLOYER")
-        : hasRole(user, roleFilter));
+    const matchesRole = roleFilter === "ALL" || primaryRole(user) === roleFilter;
 
     return matchesSearch && matchesRole;
   });
@@ -252,10 +254,6 @@ export function AdminUsersClient() {
           <strong>{employerCount}</strong>
           <span>Employers</span>
         </div>
-        <div className="admin-stat-card compact">
-          <strong>{dualRoleCount}</strong>
-          <span>Dual-Role</span>
-        </div>
       </div>
 
       {/* Toolbar */}
@@ -275,7 +273,6 @@ export function AdminUsersClient() {
           <option value="ALL">All roles</option>
           <option value="WORKER">Workers</option>
           <option value="EMPLOYER">Employers</option>
-          <option value="DUAL">Dual-role</option>
         </select>
         <span className="admin-count">{filteredUsers.length} users</span>
       </div>
@@ -285,8 +282,12 @@ export function AdminUsersClient() {
       {filteredUsers.length === 0 ? (
         <div className="admin-empty"><p>No users match your filters.</p></div>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
+        // Cap the table height so it scrolls vertically once the list grows.
+        // The thead is sticky inside `.admin-users-table-wrap` so column
+        // headers stay visible while the admin scrolls through hundreds of
+        // rows. Horizontal overflow stays available for narrow viewports.
+        <div className="table-wrap admin-users-table-wrap">
+          <table className="data-table admin-users-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -306,7 +307,7 @@ export function AdminUsersClient() {
                       type="text"
                       className="admin-search"
                       value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
-                      onChange={(e) => setDraftValue(user.id, "fullName", e.target.value)}
+                      onChange={(e) => setDraftField(user.id, "fullName", e.target.value)}
                       placeholder="Full name"
                     />
                     <div className="admin-cell-sub">{shortId(user.id)}</div>
@@ -316,16 +317,17 @@ export function AdminUsersClient() {
                       type="text"
                       className="admin-search"
                       value={editDrafts[user.id]?.phone ?? user.phone ?? ""}
-                      onChange={(e) => setDraftValue(user.id, "phone", e.target.value)}
+                      onChange={(e) => setDraftField(user.id, "phone", e.target.value)}
                       placeholder="Phone"
                     />
                   </td>
                   <td>{user.email || "Not provided"}</td>
                   <td>
+                    {/* Single-role: the live `users` doc has only one `role`. */}
                     <select
                       className="admin-inline-select"
-                      value={editDrafts[user.id]?.role ?? user.activeRole ?? user.role ?? "WORKER"}
-                      onChange={(e) => setDraftValue(user.id, "role", e.target.value)}
+                      value={editDrafts[user.id]?.role ?? primaryRole(user)}
+                      onChange={(e) => setDraftField(user.id, "role", e.target.value)}
                     >
                       <option value="WORKER">Worker</option>
                       <option value="EMPLOYER">Employer</option>
@@ -380,11 +382,14 @@ export function AdminUsersClient() {
 
 function normalizedRoles(user: UserRow) {
   const values = [user.activeRole, user.role, ...(Array.isArray(user.roles) ? user.roles : [])];
-  return [...new Set(values.map((value) => value?.trim()).filter(Boolean) as string[])];
+  return [...new Set(values.map((value) => value?.trim().toUpperCase()).filter(Boolean) as string[])];
 }
 
-function hasRole(user: UserRow, targetRole: string) {
-  return normalizedRoles(user).includes(targetRole);
+function primaryRole(user: UserRow) {
+  const direct = (user.role ?? user.activeRole ?? "").trim().toUpperCase();
+  if (direct === "WORKER" || direct === "EMPLOYER" || direct === "ADMIN") return direct;
+  const fallback = normalizedRoles(user)[0];
+  return fallback === "EMPLOYER" ? "EMPLOYER" : "WORKER";
 }
 
 function shortId(value: string) {

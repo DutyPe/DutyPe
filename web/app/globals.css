@@ -1032,10 +1032,15 @@ button {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  overflow: auto;
   border-radius: 22px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.7);
+  /* Cap height across all admin tables so headers stay visible while
+     paging through long lists. Individual screens can override with
+     `.admin-users-table-wrap` etc. when they need a custom cap. */
+  max-height: calc(100vh - 320px);
+  min-height: 360px;
 }
 
 .data-table {
@@ -1052,12 +1057,18 @@ button {
   vertical-align: top;
 }
 
-.data-table th {
-  background: rgba(239, 239, 235, 0.86);
+.data-table thead th {
+  background: rgba(239, 239, 235, 0.96);
   color: var(--muted);
   font-size: 0.84rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  /* Sticky header so column titles stay visible while admins scroll
+     through hundreds of rows. Works inside any .table-wrap. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: inset 0 -1px 0 rgba(9, 9, 9, 0.08);
 }
 
 .data-table tbody tr:hover {
@@ -4418,6 +4429,24 @@ button.product-chip {
   background: #ffffff;
   font-size: 0.82rem;
   cursor: pointer;
+}
+
+/* Users screen — scrollable, sticky-header table. The fixed max-height
+   keeps the toolbar/stats visible even when there are hundreds of users
+   so the page stays usable instead of becoming an endless scroll. */
+.admin-users-table-wrap {
+  max-height: calc(100vh - 320px);
+  min-height: 360px;
+  overflow: auto;
+}
+
+.admin-users-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Solid background so rows don't show through behind the sticky header. */
+  background: #efefeb;
+  box-shadow: inset 0 -1px 0 rgba(9, 9, 9, 0.08);
 }
 
 .admin-route-grid {

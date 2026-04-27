@@ -8,8 +8,6 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.dutype.employer.models.JobCategory
-import com.example.dutype.employer.models.JobPerk
-import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 import com.google.gson.reflect.TypeToken
@@ -63,8 +61,6 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_VACANCIES = stringPreferencesKey("draft_vacancies")
         private val KEY_CONTACT_NUMBER = stringPreferencesKey("draft_contact_number")
         private val KEY_SHIFT_TIMING = stringPreferencesKey("draft_shift_timing")
-        private val KEY_URGENCY = stringPreferencesKey("draft_urgency")
-        private val KEY_PERKS = stringPreferencesKey("draft_perks")
         private val KEY_WORK_TYPE = stringPreferencesKey("draft_work_type")
         private val KEY_EXPERIENCE_LEVEL = stringPreferencesKey("draft_experience_level")
         private val KEY_EDUCATION_REQUIRED = stringPreferencesKey("draft_education_required")
@@ -94,15 +90,12 @@ class JobDraftDataStore @Inject constructor(
         val vacancies: String = "",
         val contactNumber: String = "",
         val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
-        val urgency: JobUrgency = JobUrgency.NORMAL,
-        val perks: Set<JobPerk> = emptySet(),
         val workType: String = "Part-time",
         val experienceLevel: String = "No Experience Required",
         val educationRequired: String = "No qualification required",
         val gender: String = "Any",
         val landmark: String = "",
         val requirements: String = "",
-        val benefits: String = "",
         val timestamp: Long = 0L,
         val employerId: String = ""
     ) {
@@ -126,8 +119,6 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_VACANCIES] = draft.vacancies
         prefs[KEY_CONTACT_NUMBER] = draft.contactNumber
         prefs[KEY_SHIFT_TIMING] = draft.shiftTiming.name
-        prefs[KEY_URGENCY] = draft.urgency.name
-        prefs[KEY_PERKS] = gson.toJson(draft.perks.map { it.name })
         prefs[KEY_WORK_TYPE] = draft.workType
         prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
         prefs[KEY_EDUCATION_REQUIRED] = draft.educationRequired
@@ -161,17 +152,7 @@ class JobDraftDataStore @Inject constructor(
                     Timber.d(" JOB_DRAFT: Draft expired, clearing...")
                     return@map null
                 }
-                
-                val perksJson = prefs[KEY_PERKS] ?: "[]"
-                val perkNames: List<String> = try {
-                    val type = object : TypeToken<List<String>>() {}.type
-                    gson.fromJson(perksJson, type) ?: emptyList()
-                } catch (e: Exception) { emptyList() }
-                
-                val perks = perkNames.mapNotNull { name ->
-                    try { JobPerk.valueOf(name) } catch (e: Exception) { null }
-                }.toSet()
-                
+
                 JobDraft(
                     title = prefs[KEY_TITLE] ?: "",
                     description = prefs[KEY_DESCRIPTION] ?: "",
@@ -186,9 +167,6 @@ class JobDraftDataStore @Inject constructor(
                     contactNumber = prefs[KEY_CONTACT_NUMBER] ?: "",
                     shiftTiming = try { ShiftTiming.valueOf(prefs[KEY_SHIFT_TIMING] ?: "FLEXIBLE") } 
                         catch (e: Exception) { ShiftTiming.FLEXIBLE },
-                    urgency = try { JobUrgency.valueOf(prefs[KEY_URGENCY] ?: "FLEXIBLE") } 
-                        catch (e: Exception) { JobUrgency.NORMAL },
-                    perks = perks,
                     workType = prefs[KEY_WORK_TYPE] ?: "Part-time",
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
                     educationRequired = prefs[KEY_EDUCATION_REQUIRED] ?: "No qualification required",

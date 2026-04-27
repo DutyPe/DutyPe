@@ -212,11 +212,6 @@ fun EmployerJobPreviewScreen(
                             DescriptionCard(description = j.description)
                         }
 
-                        if (j.benefits.isNotEmpty()) {
-                            Spacer(Modifier.height(12.dp))
-                            BenefitsCard(benefits = j.benefits)
-                        }
-
                         // Bottom space so sticky Edit doesn't cover content
                         Spacer(Modifier.height(96.dp))
                     }
@@ -311,7 +306,10 @@ private fun HeroBlock(
         modifier = Modifier
             .fillMaxWidth()
             .height(260.dp),
-        color = Color(0xFF111827)
+        // Neutral background so the full image is visible without edge
+        // cropping (ContentScale.Fit). Replaces the previous near-black
+        // surface that visually merged with cropped edges.
+        color = Color(0xFFF3F4F6)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!imageUrl.isNullOrBlank()) {
@@ -319,7 +317,9 @@ private fun HeroBlock(
                     model = imageUrl,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    // Show the full uploaded image (every corner) instead of
+                    // cropping. Matches what the worker sees in JobDescriptionScreen.
+                    contentScale = ContentScale.Fit,
                     onLoading = { isImageLoading = true },
                     onSuccess = { isImageLoading = false },
                     onError = { isImageLoading = false }
@@ -547,42 +547,6 @@ private fun DescriptionCard(description: String) {
                 color = Color(0xFF374151),
                 lineHeight = 22.sp
             )
-        }
-    }
-}
-
-@Composable
-private fun BenefitsCard(benefits: List<String>) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Benefits",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F172A)
-            )
-            Spacer(Modifier.height(8.dp))
-            benefits.forEach { perk ->
-                Row(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = "•",
-                        fontSize = 14.sp,
-                        color = Color(0xFF2563EB),
-                        modifier = Modifier.width(16.dp)
-                    )
-                    Text(
-                        text = perk,
-                        fontSize = 14.sp,
-                        color = Color(0xFF374151)
-                    )
-                }
-            }
         }
     }
 }

@@ -56,9 +56,7 @@ data class JobListing(
     val addressText: String = "",
     val contactNumber: String = "",
     val vacancies: Int = 1,
-    val workingHours: String = "",
     val educationRequired: String = "",
-    val benefits: List<String> = emptyList(),
 
     // --- RUNTIME ONLY (computed, never stored) ---
     var distance: Double? = null,

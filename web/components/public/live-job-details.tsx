@@ -16,7 +16,6 @@ type JobDoc = {
   vacancies?: number;
   isActive?: boolean;
   jobType?: string;
-  urgency?: string;
 };
 
 export function LiveJobDetails({ jobId }: { jobId: string }) {
@@ -93,10 +92,6 @@ export function LiveJobDetails({ jobId }: { jobId: string }) {
           <li>
             <strong>Status</strong>
             <span>{job.isActive ? "Active" : "Inactive or hidden"}</span>
-          </li>
-          <li>
-            <strong>Urgency</strong>
-            <span>{job.urgency ?? "N/A"}</span>
           </li>
         </ul>
       </article>

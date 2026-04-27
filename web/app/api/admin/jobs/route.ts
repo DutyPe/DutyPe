@@ -7,9 +7,10 @@ import { encodeGeohash, hasValidCoordinates } from "@/lib/firebase/geohash";
 
 export const runtime = "nodejs";
 
-const VALID_URGENCY = new Set(["LOW", "MEDIUM", "HIGH"]);
-const VALID_SALARY_TYPE = new Set(["HOURLY", "DAILY", "WEEKLY", "MONTHLY", "FIXED"]);
-const VALID_GENDER = new Set(["Any", "Male", "Female"]);
+const VALID_SALARY_TYPE = new Set(["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "TASK", "FIXED"]);
+// Mirrors Android gender chips (Male / Female / Both). "Any" is kept for
+// backward compat with older jobs already in Firestore.
+const VALID_GENDER = new Set(["Male", "Female", "Both", "Any"]);
 
 function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
@@ -21,16 +22,6 @@ function extractCityFromAddress(address: string): string {
   if (parts.length === 0) return "";
   if (parts.length >= 2) return parts[parts.length - 2];
   return parts[0];
-}
-
-function parseBenefits(input: unknown): string[] {
-  if (Array.isArray(input)) {
-    return input.map((i) => String(i).trim()).filter(Boolean).slice(0, 20);
-  }
-  if (typeof input === "string") {
-    return input.split(/[,\n]/).map((p) => p.trim()).filter(Boolean).slice(0, 20);
-  }
-  return [];
 }
 
 export async function GET(request: NextRequest) {
@@ -85,18 +76,16 @@ type CreateJobBody = {
   jobImageUrl?: string;
   salary?: number | string;
   salaryType?: string;
+  shiftTiming?: string;
   addressText?: string;
   latitude?: number | string;
   longitude?: number | string;
-  urgency?: string;
   description?: string;
   contactNumber?: string;
   gender?: string;
   experienceRequired?: string;
   educationRequired?: string;
-  workingHours?: string;
   vacancies?: number | string;
-  benefits?: string[] | string;
   expiresInDays?: number;
   employerId?: string;
 };
@@ -117,26 +106,27 @@ export async function POST(request: NextRequest) {
   const addressText = body.addressText?.trim() ?? "";
   const description = body.description?.trim() ?? "";
   const contactNumber = body.contactNumber?.trim() ?? "";
-  const workingHours = body.workingHours?.trim() || undefined;
   const experienceRequired = body.experienceRequired?.trim() || "No Experience Required";
   const educationRequired = body.educationRequired?.trim() || "No qualification required";
   const jobImageUrl = body.jobImageUrl?.trim() || undefined;
+  // jobType is the JobCategory.displayName like Android writes ("Cook",
+  // "Driver", or the admin's custom category for "Other").
+  const jobType = body.jobType?.trim() || undefined;
+  // shiftTiming is the ShiftTiming.displayName ("Day shift", "Any shift")
+  // or "start - end" for custom shifts — same shape as Android.
+  const shiftTiming = (body as { shiftTiming?: string }).shiftTiming?.trim() || undefined;
 
   const salary = String(body.salary ?? "").trim();
   const salaryTypeRaw = (body.salaryType?.trim() || "DAILY").toUpperCase();
   const salaryType = VALID_SALARY_TYPE.has(salaryTypeRaw) ? salaryTypeRaw : "DAILY";
 
-  const urgencyRaw = (body.urgency?.trim() || "MEDIUM").toUpperCase();
-  const urgency = VALID_URGENCY.has(urgencyRaw) ? urgencyRaw : "MEDIUM";
-
-  const genderRaw = body.gender?.trim() || "Any";
-  const gender = VALID_GENDER.has(genderRaw) ? genderRaw : "Any";
+  const genderRaw = body.gender?.trim() || "Both";
+  const gender = VALID_GENDER.has(genderRaw) ? genderRaw : "Both";
 
   const latitude = Number(body.latitude);
   const longitude = Number(body.longitude);
 
   const vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
-  const benefits = parseBenefits(body.benefits);
   const expiresInDays = Math.max(1, Math.min(60, Number(body.expiresInDays) || 15));
   const employerId = body.employerId?.trim() || "admin";
 
@@ -190,13 +180,18 @@ export async function POST(request: NextRequest) {
       location: { lat: latitude, lng: longitude },
       geohash,
       addressText,
-      urgency,
       status: "open",
       createdAt: Timestamp.fromDate(now),
       vacancies
     };
     if (jobImageUrl) {
       cardData.jobImageUrl = jobImageUrl;
+    }
+    if (jobType) {
+      cardData.jobType = jobType;
+    }
+    if (shiftTiming) {
+      cardData.shiftTiming = shiftTiming;
     }
 
     const detailsData: Record<string, unknown> = {
@@ -208,10 +203,8 @@ export async function POST(request: NextRequest) {
       experienceRequired,
       educationRequired,
       companyCity,
-      benefits,
       applicationCount: 0
     };
-    if (workingHours) detailsData.workingHours = workingHours;
 
     const batch = db.batch();
     batch.set(jobRef, cardData);
@@ -236,16 +229,13 @@ type UpdateJobBody = {
   addressText?: string;
   latitude?: number | string;
   longitude?: number | string;
-  urgency?: string;
   status?: string;
   description?: string;
   contactNumber?: string;
   gender?: string;
   experienceRequired?: string;
   educationRequired?: string;
-  workingHours?: string;
   vacancies?: number | string;
-  benefits?: string[] | string;
 };
 
 export async function PATCH(request: NextRequest) {
@@ -267,7 +257,6 @@ export async function PATCH(request: NextRequest) {
   const legacyMetadataFields = [
     "jobType",
     "description",
-    "benefits",
     "gender",
     "experienceRequired",
     "educationRequired",
@@ -306,10 +295,6 @@ export async function PATCH(request: NextRequest) {
       cardPayload.geohash = encodeGeohash(lat, lng, 6);
     }
   }
-  if (body.urgency !== undefined) {
-    const v = String(body.urgency).trim().toUpperCase();
-    if (VALID_URGENCY.has(v)) cardPayload.urgency = v;
-  }
   if (body.status !== undefined) {
     const v = String(body.status).trim().toLowerCase();
     cardPayload.status = ["open", "closed", "expired"].includes(v) ? v : "open";
@@ -317,7 +302,6 @@ export async function PATCH(request: NextRequest) {
 
   if (body.description !== undefined) detailsPayload.description = String(body.description).trim();
   if (body.contactNumber !== undefined) detailsPayload.contactNumber = String(body.contactNumber).trim();
-  if (body.workingHours !== undefined) detailsPayload.workingHours = String(body.workingHours).trim();
   if (body.experienceRequired !== undefined) detailsPayload.experienceRequired = String(body.experienceRequired).trim();
   if (body.educationRequired !== undefined) detailsPayload.educationRequired = String(body.educationRequired).trim();
   if (body.gender !== undefined) {
@@ -327,9 +311,6 @@ export async function PATCH(request: NextRequest) {
   if (body.vacancies !== undefined) {
     const vacancies = Math.max(1, Math.min(1000, Number(body.vacancies) || 1));
     cardPayload.vacancies = vacancies;
-  }
-  if (body.benefits !== undefined) {
-    detailsPayload.benefits = parseBenefits(body.benefits);
   }
 
   try {

@@ -17,7 +17,6 @@ data class JobPostingModel(
     val category: JobCategory,                      // Category (Cook, Maid, Driver, etc.)
     val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
     val shiftTimingText: String? = null,
-    val urgency: JobUrgency = JobUrgency.NORMAL,
     val vacancies: Int = 1,                         // Default 1
     val postedTime: Long = System.currentTimeMillis(),
     val isVerified: Boolean = false,                // From employer verification

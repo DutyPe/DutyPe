@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -804,9 +805,15 @@ private fun JobDetailsContent(
     val heroImageUrl = remember(job.jobImageUrl) {
         job.jobImageUrl?.takeIf { it.isNotBlank() }
     }
-    
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
+
+    // Fullscreen image preview state. Tapping the hero image opens the
+    // viewer; tapping the viewer or pressing back closes it.
+    var showFullscreenImage by remember(heroImageUrl) { mutableStateOf(false) }
+    BackHandler(enabled = showFullscreenImage) { showFullscreenImage = false }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+        modifier = Modifier.fillMaxSize(),
         state = listState,
         // Bug #10 fix: leave room at the bottom so the report banner and
         // similar-jobs cards stay fully visible above the sticky
@@ -821,8 +828,13 @@ private fun JobDetailsContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                        .height(220.dp)
+                        // Tap to open fullscreen viewer.
+                        .clickable { showFullscreenImage = true },
+                    // Neutral background so portrait/landscape uploads sit on
+                    // a clean surface when ContentScale.Fit leaves bars
+                    // around the edges.
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
                     shape = RoundedCornerShape(10.dp),
                     elevation = CardDefaults.cardElevation(0.dp),
                     border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
@@ -837,7 +849,10 @@ private fun JobDetailsContent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop,
+                            // Show the full uploaded image — every corner —
+                            // instead of cropping the edges. Matches what the
+                            // employer sees in the preview screen.
+                            contentScale = ContentScale.Fit,
                             onLoading = { isHeroImageLoading = true },
                             onSuccess = { isHeroImageLoading = false },
                             onError = { isHeroImageLoading = false }
@@ -899,16 +914,11 @@ private fun JobDetailsContent(
                 "MONTHLY" -> "per month"
                 else -> "per day"
             }
-            val paymentCycle = when (job.salaryType.uppercase()) {
-                "HOURLY" -> "Hourly"
-                "MONTHLY" -> "Monthly"
-                else -> "Daily"
-            }
             val payAmount = salaryStr
             
-            // Working hours — not in schema, show N/A
+            // Job type (Full-time / Part-time / etc.).
             val displayLocation = job.addressText.ifBlank { job.location }
-            val workingHoursDisplay = job.workingHours.ifBlank { "Not specified" }
+            val jobTypeDisplay = job.jobType.ifBlank { "Not specified" }
             val shiftTimingDisplay = job.shiftTiming.ifBlank { "Not specified" }
             val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
             // Employer joined time should be fetched from employer profile if needed
@@ -976,13 +986,7 @@ private fun JobDetailsContent(
                         }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    
-                    // Posted time
-                    if (job.createdAt > 0) {
-                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF3B82F6), "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-                    
+
                     // Salary/Pay
                     JobDetailRow(Icons.Default.Payments, Color(0xFF10B981), "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1001,15 +1005,11 @@ private fun JobDetailsContent(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Working Hours
-                    JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Working Hours:", workingHoursDisplay)
+                    // Job Type (Full-time / Part-time)
+                    JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Job Type:", jobTypeDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
 
                     JobDetailRow(Icons.Default.AccessTime, Color(0xFF6366F1), "Shift:", shiftTimingDisplay)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
-                    // Payment Cycle
-                    JobDetailRow(Icons.Filled.CalendarToday, Color(0xFFF472B6), "Payment Cycle:", paymentCycle)
 
                     // Category row removed — redundant with the Job Type row above.
 
@@ -1026,6 +1026,12 @@ private fun JobDetailsContent(
                         "Gender:",
                         job.gender.ifBlank { "Any" }
                     )
+
+                    // Posted time — shown last, after gender
+                    if (job.createdAt > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF3B82F6), "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
+                    }
                     
                     /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
                     // These fields should be fetched from employer profile if needed in the future
@@ -1064,32 +1070,6 @@ private fun JobDetailsContent(
                         }
                     }
 
-                    if (job.benefits.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(
-                            "Benefits",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            job.benefits.forEach { benefit ->
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    Text("-", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(benefit, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
-                                }
-                            }
-                        }
-                    }
-                    
                     // Requirements Section - REMOVED (requirements field no longer exists in JobListing)
                     // if (job.requirements.isNotEmpty()) {
                     //     Spacer(modifier = Modifier.height(16.dp))
@@ -1235,6 +1215,55 @@ private fun JobDetailsContent(
         }
         
         item { Spacer(modifier = Modifier.height(24.dp)) }
+        }
+
+        // Fullscreen image preview overlay. Sits above the LazyColumn so it
+        // covers the entire screen (including any sticky bottom bar). Tap
+        // anywhere or press back to dismiss.
+        if (showFullscreenImage && !heroImageUrl.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.96f))
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    ) { showFullscreenImage = false },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(heroImageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Job image fullscreen",
+                    modifier = Modifier.fillMaxSize(),
+                    // Fit so every corner of the image is visible \u2014 no edge
+                    // cropping in the fullscreen view either.
+                    contentScale = ContentScale.Fit
+                )
+
+                // Small close affordance in the top-right so users discover
+                // the dismiss gesture even without the back button.
+                IconButton(
+                    onClick = { showFullscreenImage = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close image",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import android.Manifest
 import android.R.attr.category
@@ -108,13 +108,10 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
-import com.example.dutype.employer.components.PerksSelectionGrid
 import com.example.dutype.employer.components.VacanciesSection
 import com.example.dutype.employer.components.WorkScheduleSection
 import com.example.dutype.employer.models.JobCategory
-import com.example.dutype.employer.models.JobPerk
 import com.example.dutype.employer.models.JobPostingModel
-import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.location.LocationSuggestion
@@ -149,7 +146,7 @@ import timber.log.Timber
  * using simple keyword matching. Returns null when nothing recognisable is in
  * the title so we don't silently overwrite the employer's pick.
  *
- * Order matters â€” more specific keywords come first.
+ * Order matters — more specific keywords come first.
  */
 private fun inferCategoryFromTitle(title: String): JobCategory? {
     val t = title.lowercase().trim()
@@ -224,7 +221,7 @@ fun PostJobScreen(
     var payAmount by remember { mutableStateOf("") }
     // Batch-p #11.1: default pay type is daily (matches Indian gig market
     // mental model better than HOURLY for the typical job categories on
-    // DutyPe — cook, maid, helper, driver, delivery).
+    // DutyPe � cook, maid, helper, driver, delivery).
     var payType by remember { mutableStateOf(PayType.DAILY) }
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -241,17 +238,12 @@ fun PostJobScreen(
     // persisted as the job's shiftTiming value.
     var customShiftStart by remember { mutableStateOf("") }
     var customShiftEnd by remember { mutableStateOf("") }
-    var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
     
     // Enhanced fields for hyper-local jobs
-    var selectedPerks by remember { mutableStateOf(setOf<JobPerk>()) }
-    // Custom perks the employer has typed manually (e.g. "Gym membership").
-    // These are merged with selectedPerks.displayName when persisting.
-    var customPerks by remember { mutableStateOf(listOf<String>()) }
-    var workType by remember { mutableStateOf("Part-time") }
+    var workType by remember { mutableStateOf("Full-time") }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var educationRequired by remember { mutableStateOf("No qualification required") }
     var gender by remember { mutableStateOf("Both") }
@@ -355,14 +347,11 @@ fun PostJobScreen(
                     vacancies.isNotBlank() ||
                     contactNumber.isNotBlank() ||
                     customCategory.isNotBlank() ||
-                    selectedPerks.isNotEmpty() ||
-                    customPerks.isNotEmpty() ||
                     experienceLevel != "No Experience Required" ||
                     educationRequired != "No qualification required" ||
                     gender != "Both" ||
                     shiftTiming != ShiftTiming.FLEXIBLE ||
-                    urgency != JobUrgency.NORMAL ||
-                    workType != "Part-time"
+                    workType != "Full-time"
 
                 if (hasDraftContent) {
                     val draft = JobDraftDataStore.JobDraft(
@@ -378,17 +367,14 @@ fun PostJobScreen(
                         vacancies = vacancies,
                         contactNumber = contactNumber,
                         shiftTiming = shiftTiming,
-                        urgency = urgency,
-                        perks = selectedPerks,
                         workType = workType,
                         experienceLevel = experienceLevel,
                         educationRequired = educationRequired,
                         gender = gender,
-                        requirements = "",
-                        benefits = ""
+                        requirements = ""
                     )
                     employerJobViewModel.saveDraft(draft)
-                    Timber.d(" AUTO-SAVE: Draft saved")
+                    Timber.d("� AUTO-SAVE: Draft saved")
                 }
             }
     }
@@ -405,9 +391,6 @@ fun PostJobScreen(
         vacancies,
         contactNumber,
         shiftTiming,
-        urgency,
-        selectedPerks,
-        customPerks,
         workType,
         experienceLevel,
         educationRequired,
@@ -422,7 +405,7 @@ fun PostJobScreen(
             location = cachedLocation.getFullAddress()
             locationLatitude = cachedLocation.latitude
             locationLongitude = cachedLocation.longitude
-            Timber.d(" LOCATION DEBUG: Using recent cached location immediately")
+            Timber.d("� LOCATION DEBUG: Using recent cached location immediately")
         }
 
         val refinedLocation = locationRepository.getHighAccuracy(
@@ -434,12 +417,12 @@ fun PostJobScreen(
             location = refinedLocation.getFullAddress()
             locationLatitude = refinedLocation.latitude
             locationLongitude = refinedLocation.longitude
-            Timber.d(" LOCATION DEBUG: âœ… Refined location fetched (${refinedLocation.accuracy}m)")
+            Timber.d("� LOCATION DEBUG: ✅ Refined location fetched (${refinedLocation.accuracy}m)")
         } else if (cachedLocation == null) {
-            Timber.w(" LOCATION DEBUG: No cached or refined location available")
+            Timber.w("� LOCATION DEBUG: No cached or refined location available")
             locationError = "Unable to get current location"
         } else {
-            Timber.w(" LOCATION DEBUG: Refinement timed out, keeping cached location")
+            Timber.w("� LOCATION DEBUG: Refinement timed out, keeping cached location")
         }
     }
 
@@ -447,23 +430,23 @@ fun PostJobScreen(
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        Timber.d(" LOCATION DEBUG: Permission result - isGranted: $isGranted")
+        Timber.d("� LOCATION DEBUG: Permission result - isGranted: $isGranted")
         if (isGranted) {
             isLoadingLocation = true
             locationError = null
             scope.launch {
                 try {
-                    Timber.d(" LOCATION DEBUG: Fetching fast-first location...")
+                    Timber.d("� LOCATION DEBUG: Fetching fast-first location...")
                     fetchWorkLocationFast()
                 } catch (e: Exception) {
-                    Timber.e(e, " LOCATION DEBUG: Error getting location")
+                    Timber.e(e, "� LOCATION DEBUG: Error getting location")
                     locationError = "Error getting location: ${e.message}"
                 } finally {
                     isLoadingLocation = false
                 }
             }
         } else {
-            Timber.w(" LOCATION DEBUG: Permission denied")
+            Timber.w("� LOCATION DEBUG: Permission denied")
             locationError = "Location permission denied"
         }
     }
@@ -481,7 +464,7 @@ fun PostJobScreen(
             try {
                 val savedDraft = employerJobViewModel.getSavedDraft()
                 if (savedDraft != null && savedDraft.hasContent()) {
-                    Timber.d(" Restoring job draft (device-scoped)...")
+                    Timber.d("� Restoring job draft (device-scoped)...")
                     title = savedDraft.title
                     description = savedDraft.description
                     payAmount = savedDraft.payAmount
@@ -498,8 +481,6 @@ fun PostJobScreen(
                         contactNumber = savedDraft.contactNumber
                     }
                     shiftTiming = savedDraft.shiftTiming
-                    urgency = savedDraft.urgency
-                    selectedPerks = savedDraft.perks
                     workType = savedDraft.workType
                     experienceLevel = savedDraft.experienceLevel
                     educationRequired = savedDraft.educationRequired
@@ -508,10 +489,10 @@ fun PostJobScreen(
                     } else {
                         savedDraft.gender
                     }
-                    Timber.d("âœ… Draft restored successfully")
+                    Timber.d("✅ Draft restored successfully")
                 }
             } catch (e: Exception) {
-                Timber.e(e, "âŒ Error restoring job draft")
+                Timber.e(e, "❌ Error restoring job draft")
             }
         }
     }
@@ -528,18 +509,18 @@ fun PostJobScreen(
                         // Load from cache (fast path)
                         if (cachedProfile.companyName.isNotBlank()) {
                             companyName = cachedProfile.companyName
-                            Timber.d("âœ… Company name loaded from CACHE: $companyName")
+                            Timber.d("✅ Company name loaded from CACHE: $companyName")
                         }
                         if (cachedProfile.employerName.isNotBlank()) {
                             employerName = cachedProfile.employerName
                         }
                         if (cachedProfile.contactPhone.isNotBlank()) {
                             contactNumber = cachedProfile.contactPhone
-                            Timber.d("âœ… Contact number loaded from CACHE: $contactNumber")
+                            Timber.d("✅ Contact number loaded from CACHE: $contactNumber")
                         }
                         if (cachedProfile.trustTier.isNotBlank()) {
                             employerTrustTier = cachedProfile.trustTier
-                            Timber.d("âœ… Trust tier loaded from CACHE: $employerTrustTier")
+                            Timber.d("✅ Trust tier loaded from CACHE: $employerTrustTier")
                         }
                     } else {
                         // Fallback to direct Firestore fetch (cache miss)
@@ -569,7 +550,7 @@ fun PostJobScreen(
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "âŒ Error loading employer profile")
+                    Timber.e(e, "❌ Error loading employer profile")
                 }
             }
         }
@@ -580,7 +561,7 @@ fun PostJobScreen(
         val prefs = context.getSharedPreferences("dutype_prefs", android.content.Context.MODE_PRIVATE)
         val shouldJumpToLastStep = prefs.getBoolean("jump_to_post_job_last_step", false)
         if (shouldJumpToLastStep) {
-            Timber.d(" Clearing legacy post-job step redirect flag")
+            Timber.d("� Clearing legacy post-job step redirect flag")
             prefs.edit().remove("jump_to_post_job_last_step").apply()
         }
     }
@@ -634,7 +615,6 @@ fun PostJobScreen(
             contactNumber = contactNumber,
             category = category,
             shiftTiming = shiftTiming,
-            urgency = urgency,
             vacancies = vacancies.toIntOrNull() ?: 0,
             employerId = employerId ?: "",
             employerName = employerName,
@@ -646,23 +626,12 @@ fun PostJobScreen(
     fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
         // Double-check to prevent duplicate submissions
         if (employerJobUiState.isCreatingJob) {
-            Timber.w(" JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
+            Timber.w("� JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
             return
         }
         
-        Timber.d(" JOB POSTING DEBUG: Creating job posting...")
+        Timber.d("� JOB POSTING DEBUG: Creating job posting...")
         val jobPosting = createJobPosting()
-        val normalizedJobType = if (category == JobCategory.OTHER && customCategory.isNotBlank()) {
-            customCategory.trim()
-        } else {
-            category.displayName
-        }
-        val normalizedUrgency = when (urgency) {
-            JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
-            JobUrgency.NORMAL -> "MEDIUM"
-            JobUrgency.WITHIN_MONTH -> "LOW"
-        }
-        val normalizedBenefits = (selectedPerks.map { it.displayName } + customPerks).distinct()
         val vacancyCount = vacancies.toIntOrNull()
         if (vacancyCount == null || vacancyCount !in 1..50) {
             Toast.makeText(context, "Enter number of positions", Toast.LENGTH_SHORT).show()
@@ -678,7 +647,7 @@ fun PostJobScreen(
         // a positive numeric for filtering and surfaces the original text in
         // the description so workers still see "Pay: 15000-20000" or
         // "Pay: Negotiable".
-        // Bug #6 fix: salary is a String â€” the employer's exact text
+        // Bug #6 fix: salary is a String — the employer's exact text
         // ("Negotiable" / "1000-2000" / "2000+" / "5000") is sent
         // verbatim to Firestore. The card layer formats for display via
         // SalaryFormatter; numeric filters parse the lower bound.
@@ -689,7 +658,10 @@ fun PostJobScreen(
         val jobData = mapOf(
             // Core job information
             "title" to jobPosting.title,
-            "jobType" to normalizedJobType,
+            // Job type stores the work mode (Full-time / Part-time / �).
+            // Category is auto-detected from title for filtering and is not
+            // persisted as a separate field.
+            "jobType" to workType,
             
             // Location information
             "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
@@ -717,15 +689,10 @@ fun PostJobScreen(
                 }
             ),
             "vacancies" to vacancyCount,
-            "benefits" to normalizedBenefits,
             
             // Contact information
             "contactNumber" to jobPosting.contactNumber,
-            "workingHours" to workType,
-            
-            // Job metadata â€” createdAt/expiresAt set by JobFirestoreService.createJob()
-            "urgency" to normalizedUrgency,
-            
+
             // System fields
             "employerId" to (employerId ?: ""),
 
@@ -735,9 +702,9 @@ fun PostJobScreen(
         )
         
         // DEBUG: Log all job data being sent to Firestore
-        Timber.d(" JOB POSTING DEBUG: Job Data to be saved:")
+        Timber.d("� JOB POSTING DEBUG: Job Data to be saved:")
         jobData.forEach { (key, value) ->
-            Timber.d("   - $key: $value")
+            Timber.d("�   - $key: $value")
         }
         
         employerJobViewModel.createJob(jobData as Map<String, Any>) { success, newJobId, message ->
@@ -745,7 +712,7 @@ fun PostJobScreen(
             isSubmittingJob = false
             
             if (success) {
-                Timber.i(" JOB POSTING DEBUG: âœ… Job posted successfully!")
+                Timber.i("� JOB POSTING DEBUG: ✅ Job posted successfully!")
                 Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
                 
                 // Trigger in-app review after successful job posting
@@ -768,7 +735,7 @@ fun PostJobScreen(
                     }
                 }
             } else {
-                Timber.e(" JOB POSTING DEBUG: âŒ Job posting failed: $message")
+                Timber.e("� JOB POSTING DEBUG: ❌ Job posting failed: $message")
                 Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
             }
         }
@@ -776,12 +743,12 @@ fun PostJobScreen(
 
     // Submit job function - handles login check, profile check, and geocoding
     fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
-        Timber.d(" JOB POSTING DEBUG: submitJob() called")
+        Timber.d("� JOB POSTING DEBUG: submitJob() called")
         
         // STEP 1: Check if user is logged in
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            Timber.d(" JOB POSTING DEBUG: User not logged in, showing login sheet")
+            Timber.d("� JOB POSTING DEBUG: User not logged in, showing login sheet")
             showLoginBottomSheet = true
             return
         }
@@ -790,12 +757,12 @@ fun PostJobScreen(
         // Prevents race condition from dual guards desynchronizing
         // Check and set atomically (in practice, Compose state updates are on main thread)
         if (employerJobUiState.isCreatingJob) {
-            Timber.w(" JOB POSTING DEBUG: Already creating job (ViewModel guard), ignoring duplicate call")
+            Timber.w("� JOB POSTING DEBUG: Already creating job (ViewModel guard), ignoring duplicate call")
             return
         }
         
         if (!validateStep(4)) {
-            Timber.w(" JOB POSTING DEBUG: Step 4 validation failed")
+            Timber.w("� JOB POSTING DEBUG: Step 4 validation failed")
             return
         }
         
@@ -809,7 +776,7 @@ fun PostJobScreen(
             try {
                 // Use cached result if already checked in this session
                 val checkResult = if (profileCheckResult != null && profileCheckResult!!.canPost) {
-                    Timber.d("âœ… PROFILE CHECK: Using cached result - ${profileCheckResult!!.completionPercentage}% complete")
+                    Timber.d("✅ PROFILE CHECK: Using cached result - ${profileCheckResult!!.completionPercentage}% complete")
                     profileCheckResult!!
                 } else {
                     val result = profileCompletionService.preJobPostCheck(currentUser.uid)
@@ -820,13 +787,13 @@ fun PostJobScreen(
                 isCheckingProfile = false
                 
                 if (!checkResult.canPost) {
-                    Timber.w("âš ï¸ PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
+                    Timber.w("⚠️ PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
                     // SENIOR FIX: ViewModel state resets automatically; no need for local flag
                     showProfileIncompleteDialog = true
                     return@launch
                 }
                 
-                Timber.d("âœ… PROFILE CHECK: Employer can post jobs - ${checkResult.completionPercentage}% complete")
+                Timber.d("✅ PROFILE CHECK: Employer can post jobs - ${checkResult.completionPercentage}% complete")
                 
                 // Validate that company name is available (MANDATORY)
                 if (companyName.isBlank()) {
@@ -840,7 +807,7 @@ fun PostJobScreen(
                     }
                     
                     if (companyName.isBlank()) {
-                        Timber.w(" JOB POSTING DEBUG: Company name is blank - redirecting to profile")
+                        Timber.w("� JOB POSTING DEBUG: Company name is blank - redirecting to profile")
                         // SENIOR FIX: ViewModel state resets automatically; no need for local flag
                         val navToUse = rootNavController ?: navController
                         navToUse.navigate(
@@ -857,14 +824,14 @@ fun PostJobScreen(
                 var finalLongitude = locationLongitude
                 
                 if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
-                    Timber.d(" JOB POSTING DEBUG: Geocoding manual location: $location")
+                    Timber.d("� JOB POSTING DEBUG: Geocoding manual location: $location")
                     val geocodedLocation = locationService.getCoordinatesFromAddress(location)
                     if (geocodedLocation != null) {
                         finalLatitude = geocodedLocation.latitude
                         finalLongitude = geocodedLocation.longitude
-                        Timber.d(" JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
+                        Timber.d("� JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
                     } else {
-                        Timber.w(" JOB POSTING DEBUG: Geocoding failed")
+                        Timber.w("� JOB POSTING DEBUG: Geocoding failed")
                     }
                 }
 
@@ -891,16 +858,16 @@ fun PostJobScreen(
                                     finalLatitude, finalLongitude
                                 )
                                 
-                                Timber.d("¸ ANTI-FRAUD: Location consistency check - Distance: ${String.format("%.2f", distance)} km")
+                                Timber.d("�� ANTI-FRAUD: Location consistency check - Distance: ${String.format("%.2f", distance)} km")
                                 
                                 // Log suspicious activity but don't block posting
                                 if (distance > 50.0) {
-                                    Timber.w("¸ ANTI-FRAUD: âš ï¸ Suspicious location detected (${String.format("%.2f", distance)} km away)")
+                                    Timber.w("�� ANTI-FRAUD: ⚠️ Suspicious location detected (${String.format("%.2f", distance)} km away)")
                                     // TODO: Send to fraud detection system
                                 }
                             }
                         } catch (e: Exception) {
-                            Timber.w(e, "¸ ANTI-FRAUD: Background location check failed")
+                            Timber.w(e, "�� ANTI-FRAUD: Background location check failed")
                         }
                     }
                 }
@@ -909,7 +876,7 @@ fun PostJobScreen(
                 pendingJobSubmission = false
                 submitJobWithCoordinates(finalLatitude, finalLongitude)
             } catch (e: Exception) {
-                Timber.e(e, " JOB POSTING DEBUG: Error in submitJob")
+                Timber.e(e, "� JOB POSTING DEBUG: Error in submitJob")
                 // SENIOR FIX: ViewModel state resets automatically on error; only reset UI flags
                 isCheckingProfile = false
                 Toast.makeText(context, context.getString(R.string.post_job_error, e.message ?: ""), Toast.LENGTH_SHORT).show()
@@ -951,9 +918,9 @@ fun PostJobScreen(
         locationPinned
 
     // Apr 2026: Apna-style 3-step wizard. Steps:
-    //   0 → Job details   (title, work type, description, image)
-    //   1 → Pay & where   (compensation + location)
-    //   2 → Requirements & contact (people, schedule, perks, contact, review)
+    //   0 ? Job details   (title, work type, description, image)
+    //   1 ? Pay & where   (compensation + location)
+    //   2 ? Requirements & contact (people, schedule, perks, contact, review)
     var currentStep by remember { mutableIntStateOf(0) }
     val totalSteps = 3
     // Per-step Next gate. Mirrors the publish checklist but scoped to
@@ -1207,9 +1174,9 @@ fun PostJobScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             // Apr 2026: stepper restored. Bottom bar morphs based on step:
-            // step 0   → [Next]
-            // step 1   → [Back] [Next]
-            // step 2   → [Back] [Post job]
+            // step 0   ? [Next]
+            // step 1   ? [Back] [Next]
+            // step 2   ? [Back] [Post job]
             PostJobStepNavBar(
                 currentStep = currentStep,
                 totalSteps = totalSteps,
@@ -1280,7 +1247,7 @@ fun PostJobScreen(
                         // a tall empty band at the top.
                     }
 
-                    // Group 1: Job Details (title, work type, description, image) — STEP 0
+                    // Group 1: Job Details (title, work type, description, image) � STEP 0
                     if (currentStep == 0) item {
                         StudioGroupCard(
                             stepNumber = 1,
@@ -1346,11 +1313,11 @@ fun PostJobScreen(
                                                         when (uploadResult) {
                                                             is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
                                                                 jobImageUrl = uploadResult.downloadUrl
-                                                                Timber.d(" JOB IMAGE: âœ… Upload successful!")
+                                                                Timber.d(" JOB IMAGE: ✅ Upload successful!")
                                                                 Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
                                                             }
                                                             is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
-                                                                Timber.e(uploadResult.exception, " JOB IMAGE: âŒ Upload failed: ${uploadResult.error}")
+                                                                Timber.e(uploadResult.exception, " JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
                                                                 Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
                                                                 jobImageUri = null
                                                                 jobImageUrl = ""
@@ -1360,7 +1327,7 @@ fun PostJobScreen(
                                                         }
                                                     }
                                                 } catch (e: Exception) {
-                                                    Timber.e(e, " JOB IMAGE: âŒ Upload failed")
+                                                    Timber.e(e, " JOB IMAGE: ❌ Upload failed")
                                                     Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
                                                     jobImageUri = null
                                                     jobImageUrl = ""
@@ -1380,7 +1347,7 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 2: Pay & Location — STEP 1
+                    // Group 2: Pay & Location � STEP 1
                     if (currentStep == 1) item {
                         StudioGroupCard(
                             stepNumber = 2,
@@ -1401,31 +1368,31 @@ fun PostJobScreen(
                                         isLoadingLocation = isLoadingLocation,
                                         locationError = locationError,
                                         onLocationButtonClick = {
-                                            Timber.d(" LOCATION BUTTON: Clicked - checking permission...")
+                                            Timber.d("� LOCATION BUTTON: Clicked - checking permission...")
                                             if (locationService.hasLocationPermission()) {
-                                                Timber.d(" LOCATION BUTTON: Permission granted, fetching fast-first location...")
+                                                Timber.d("� LOCATION BUTTON: Permission granted, fetching fast-first location...")
                                                 isLoadingLocation = true
                                                 locationError = null
                                                 scope.launch {
                                                     try {
                                                         fetchWorkLocationFast()
-                                                        Timber.d(" LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
+                                                        Timber.d("� LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
                                                     } catch (e: Exception) {
-                                                        Timber.e(e, " LOCATION BUTTON: Error getting location")
+                                                        Timber.e(e, "� LOCATION BUTTON: Error getting location")
                                                         locationError = "Error getting location"
                                                     } finally {
                                                         isLoadingLocation = false
                                                     }
                                                 }
                                             } else {
-                                                Timber.d(" LOCATION BUTTON: Requesting permission...")
+                                                Timber.d("� LOCATION BUTTON: Requesting permission...")
                                                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                             }
                                         },
                                         onLocationSelected = { lat, lon ->
                                             locationLatitude = lat
                                             locationLongitude = lon
-                                            Timber.d(" LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
+                                            Timber.d("� LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
                                         },
                                         locationLatitude = locationLatitude,
                                         locationLongitude = locationLongitude,
@@ -1457,7 +1424,7 @@ fun PostJobScreen(
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Text(
-                                                text = stringResource(R.string.post_job_schedule_urgency),
+                                                text = "Schedule",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color(0xFF1E293B)
@@ -1467,8 +1434,6 @@ fun PostJobScreen(
                                         WorkScheduleSection(
                                             selectedShift = shiftTiming,
                                             onShiftSelected = { shiftTiming = it },
-                                            selectedUrgency = urgency,
-                                            onUrgencySelected = { urgency = it },
                                             customStart = customShiftStart,
                                             onCustomStartChange = { customShiftStart = it },
                                             customEnd = customShiftEnd,
@@ -1480,7 +1445,7 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 3: People, Schedule & Perks — STEP 2
+                    // Group 3: People, Schedule & Perks � STEP 2
                     if (currentStep == 2) item {
                         StudioGroupCard(
                             stepNumber = 3,
@@ -1510,19 +1475,12 @@ fun PostJobScreen(
                                         onGenderChange = { gender = it },
                                         genders = genders
                                     )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
-                                    PerksSelectionSection(
-                                        selectedPerks = selectedPerks,
-                                        onPerksChanged = { selectedPerks = it },
-                                        customPerks = customPerks,
-                                        onCustomPerksChanged = { customPerks = it }
-                                    )
                                     // Group 3 close
                                 }
                         }
                     }
 
-                    // Standalone: Contact details — STEP 2
+                    // Standalone: Contact details � STEP 2
                     if (currentStep == 2) item {
                         ContactSection(
                             contactNumber = contactNumber,
@@ -1705,7 +1663,7 @@ private fun PostJobHeroCard(
                     text = if (companyName.isBlank()) {
                         "Add company and role details to make the listing feel legitimate immediately."
                     } else {
-                        "$companyName â€¢ ${employerTrustTier.replace('_', ' ')} employer"
+                        "$companyName • ${employerTrustTier.replace('_', ' ')} employer"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.82f),
@@ -2008,7 +1966,7 @@ private fun PostJobPublishBar(
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Publishing…", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("Publishing�", color = Color.White, fontWeight = FontWeight.SemiBold)
                 } else {
                     Text(
                         text = "Publish Job",
@@ -2369,7 +2327,7 @@ fun StudioGroupCard(
  * ANTI-FRAUD FEATURE: Structured Job Titles
  * 
  * Employers CANNOT type a job title freely. They must select from a pre-set list.
- * This eliminates "Earn â‚¹50,000/day working from home" scams instantly.
+ * This eliminates "Earn ₹50,000/day working from home" scams instantly.
  * 
  * Implemented: December 27, 2025
  */
@@ -2387,7 +2345,7 @@ fun EnhancedJobTitleSection(
     var titleError by remember { mutableStateOf<String?>(null) }
 
     // Apr 2026 redesign: title is a free-text field. Predefined titles
-    // appear as wrapping chips below the field — tap a chip to fill,
+    // appear as wrapping chips below the field � tap a chip to fill,
     // or type your own. Whatever the employer types is what workers see
     // on the job card; no more "Other" placeholder hiding the real title.
     val suggestedTitles = remember {
@@ -2517,7 +2475,7 @@ fun EnhancedJobTitleSection(
                 )
             )
 
-            // Apr 2026: title-suggestion chips removed — employer types the
+            // Apr 2026: title-suggestion chips removed � employer types the
             // title directly. Keeps the section compact and frees vertical
             // space for the description below.
         }
@@ -3310,174 +3268,6 @@ private fun RequirementChipSection(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(stringResource(R.string.add_button))
-            }
-        }
-    }
-}
-
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-fun PerksSelectionSection(
-    selectedPerks: Set<JobPerk>,
-    onPerksChanged: (Set<JobPerk>) -> Unit,
-    customPerks: List<String> = emptyList(),
-    onCustomPerksChanged: (List<String>) -> Unit = {}
-) {
-    var newPerkText by remember { mutableStateOf("") }
-    var showCustomPerkInput by remember { mutableStateOf(false) }
-    val totalCount = selectedPerks.size + customPerks.size
-
-    PolishedCard {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CardGiftcard,
-                            contentDescription = null,
-                            tint = Color(0xFF16A34A),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Perks & Benefits",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
-                        )
-                        Text(
-                            text = stringResource(R.string.post_job_attract_candidates),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
-                        )
-                    }
-                }
-                
-                // Selected count badge
-                if (totalCount > 0) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF10B981)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.post_job_selected_count, totalCount),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            PerksSelectionGrid(
-                selectedPerks = selectedPerks,
-                onPerksChanged = onPerksChanged,
-                onAddOwnPerkClick = { showCustomPerkInput = true }
-            )
-
-            if (showCustomPerkInput) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = newPerkText,
-                        onValueChange = { if (it.length <= 40) newPerkText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("e.g. Free meals", fontSize = 13.sp) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF10B981),
-                            unfocusedBorderColor = Color(0xFFCBD5E1)
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            val trimmed = newPerkText.trim()
-                            if (trimmed.isNotEmpty() &&
-                                customPerks.none { it.equals(trimmed, ignoreCase = true) } &&
-                                selectedPerks.none { it.displayName.equals(trimmed, ignoreCase = true) }
-                            ) {
-                                onCustomPerksChanged(customPerks + trimmed)
-                                newPerkText = ""
-                                showCustomPerkInput = false
-                            }
-                        },
-                        enabled = newPerkText.trim().isNotEmpty(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF10B981),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFE2E8F0),
-                            disabledContentColor = Color(0xFF94A3B8)
-                        ),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text(stringResource(R.string.add_button), fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            if (customPerks.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(14.dp))
-                androidx.compose.foundation.layout.FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    customPerks.forEach { perk ->
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFECFDF5),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = perk,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color(0xFF065F46),
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                IconButton(
-                                    onClick = { onCustomPerksChanged(customPerks - perk) },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Remove $perk",
-                                        tint = Color(0xFF065F46),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }

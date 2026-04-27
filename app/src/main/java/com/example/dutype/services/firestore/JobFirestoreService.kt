@@ -106,15 +106,6 @@ class JobFirestoreService @Inject constructor(
     
     private fun normalizeString(value: Any?): String = value?.toString()?.trim().orEmpty()
 
-    private fun parseBenefits(value: Any?): List<String> {
-        return when (value) {
-            is List<*> -> value.mapNotNull { it?.toString()?.trim() }
-            is String -> value.split(",").map { it.trim() }
-            else -> emptyList()
-        }.filter { it.isNotBlank() }
-            .distinct()
-    }
-
     private fun deriveJobType(title: String, description: String = ""): String {
         return com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
     }
@@ -181,8 +172,6 @@ class JobFirestoreService @Inject constructor(
             "jobType" to summaryJobType(data),
             "createdAt" to createdAtMillis,
             "expiresAt" to toEpochMillis(data["expiresAt"]),
-            "workingHours" to normalizeString(data["workingHours"]),
-            "urgency" to normalizeString(data["urgency"]).ifBlank { "MEDIUM" },
             "status" to normalizeReadStatus(data),
             "addressText" to addressDisplay,  // Full address for job card display
             "vacancies" to ((data["vacancies"] as? Number)?.toInt()
@@ -229,9 +218,7 @@ class JobFirestoreService @Inject constructor(
             "title" to coreTitle,
             "salary" to toSalaryString(coreData["salary"]),
             "salaryType" to normalizeString(coreData["salaryType"]).uppercase().ifBlank { "DAILY" },
-            "urgency" to normalizeString(coreData["urgency"]).ifBlank { "MEDIUM" },
             "shiftTiming" to "Flexible",
-            "workingHours" to normalizeString(coreData["workingHours"]),
             "gender" to "Any",
             "experienceRequired" to "No Experience Required",
             "applicationCount" to ((coreData["applicationCount"] as? Number)?.toInt() ?: 0),
@@ -245,7 +232,6 @@ class JobFirestoreService @Inject constructor(
             "addressText" to coreAddressText,
             "jobType" to coreJobType,
             "vacancies" to coreVacancies,
-            "benefits" to emptyList<String>(),
             "companyCity" to coreCompanyCity,
             // #5 fix: pass the hero image URL through the merged map so
             // JobListing hydration picks it up.
@@ -270,9 +256,6 @@ class JobFirestoreService @Inject constructor(
             val vacancies = (details["vacancies"] as? Number)?.toInt()
                 ?: normalizeString(details["vacancies"]).toIntOrNull()
                 ?: ((merged["vacancies"] as? Number)?.toInt() ?: 1)
-            val workingHours = normalizeString(details["workingHours"]).ifBlank {
-                (merged["workingHours"] as? String).orEmpty()
-            }
             val shiftTiming = normalizeString(details["shiftTiming"]).ifBlank {
                 normalizeString(coreData["shiftTiming"]).ifBlank {
                     (merged["shiftTiming"] as? String).orEmpty()
@@ -286,9 +269,6 @@ class JobFirestoreService @Inject constructor(
             }
             val educationRequired = normalizeString(details["educationRequired"]).ifBlank {
                 (merged["educationRequired"] as? String).orEmpty()
-            }
-            val benefits = parseBenefits(details["benefits"]).ifEmpty {
-                parseBenefits(merged["benefits"])
             }
             val companyCity = normalizeString(details["companyCity"]).ifBlank {
                 (merged["companyCity"] as? String).orEmpty().ifBlank {
@@ -304,9 +284,7 @@ class JobFirestoreService @Inject constructor(
             if (shiftTiming.isNotBlank()) merged["shiftTiming"] = shiftTiming
             if (gender.isNotBlank()) merged["gender"] = gender
             if (experienceRequired.isNotBlank()) merged["experienceRequired"] = experienceRequired
-            if (workingHours.isNotBlank()) merged["workingHours"] = workingHours
             if (educationRequired.isNotBlank()) merged["educationRequired"] = educationRequired
-            merged["benefits"] = benefits
         }
 
         if (!merged.containsKey("jobType")) {
@@ -315,7 +293,6 @@ class JobFirestoreService @Inject constructor(
         if (!merged.containsKey("description")) merged["description"] = ""
         if (!merged.containsKey("contactNumber")) merged["contactNumber"] = ""
         if (!merged.containsKey("addressText")) merged["addressText"] = ""
-        if (!merged.containsKey("benefits")) merged["benefits"] = emptyList<String>()
 
         return merged
     }
@@ -338,8 +315,6 @@ class JobFirestoreService @Inject constructor(
             val addressText = normalizeString(jobData["addressText"])
             val salary = toSalaryString(jobData["salary"])
             val salaryType = normalizeString(jobData["salaryType"]).uppercase().ifBlank { "DAILY" }
-            val urgency = normalizeString(jobData["urgency"]).uppercase().ifBlank { "MEDIUM" }
-                .let { if (it in listOf("LOW", "MEDIUM", "HIGH")) it else "MEDIUM" }
             val gender = normalizeString(jobData["gender"]).ifBlank { "Any" }
             val experienceRequired = normalizeString(jobData["experienceRequired"]).ifBlank { "No Experience Required" }
             val educationRequired = normalizeString(jobData["educationRequired"]).ifBlank { "No qualification required" }
@@ -350,8 +325,7 @@ class JobFirestoreService @Inject constructor(
             if (vacancies == null || vacancies !in 1..50) {
                 return Result.failure(IllegalArgumentException("Vacancy count is required"))
             }
-            val benefits = parseBenefits(jobData["benefits"])
-            val workingHours = normalizeString(jobData["workingHours"]).ifBlank { null }
+            val jobType = normalizeString(jobData["jobType"]).ifBlank { "Part-time" }
 
             val providedLocation = jobData["location"] as? Map<*, *>
             val latitude = (providedLocation?.get("lat") as? Number)?.toDouble()
@@ -400,8 +374,7 @@ class JobFirestoreService @Inject constructor(
                 "location" to location,
                 "geohash" to geohash,
                 "addressText" to addressText,
-                "workingHours" to (workingHours ?: ""),
-                "urgency" to urgency,
+                "jobType" to jobType,
                 "status" to "open",
                 "createdAt" to createdAt,
                 // BUG #14 FIX: `getJobsByEmployer` queries `jobmetadata` by
@@ -433,7 +406,6 @@ class JobFirestoreService @Inject constructor(
                 "educationRequired" to educationRequired,
                 "shiftTiming" to shiftTiming,
                 "companyCity" to companyCity,
-                "benefits" to benefits,
                 "applicationCount" to 0
             )
 
@@ -776,7 +748,6 @@ class JobFirestoreService @Inject constructor(
             listOf(
                 "jobType",
                 "description",
-                "benefits",
                 "gender",
                 "experienceRequired",
                 "educationRequired",
@@ -812,10 +783,6 @@ class JobFirestoreService @Inject constructor(
                 cardUpdates["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             }
 
-            (data["urgency"] as? String)?.let {
-                val v = it.uppercase().let { u -> if (u in listOf("LOW", "MEDIUM", "HIGH")) u else "MEDIUM" }
-                cardUpdates["urgency"] = v
-            }
             if (data.containsKey("shiftTiming")) {
                 val v = normalizeString(data["shiftTiming"])
                 if (v.isBlank()) return Result.failure(IllegalArgumentException("Shift timing is required"))
@@ -877,15 +844,13 @@ class JobFirestoreService @Inject constructor(
                 // Mirror onto the slim card payload so list views keep up.
                 cardUpdates["vacancies"] = v
             }
-            data["workingHours"]?.let {
+            // jobType is the work-type bucket (Full-time / Part-time / …).
+            data["jobType"]?.let {
                 normalizeString(it).takeIf { s -> s.isNotBlank() }?.let { v ->
-                    cardUpdates["workingHours"] = v
+                    cardUpdates["jobType"] = v
+                    cardUpdates["workingHours"] = FieldValue.delete()
                     detailsUpdates["workingHours"] = FieldValue.delete()
                 }
-            }
-            if (data.containsKey("benefits")) {
-                val v = parseBenefits(data["benefits"])
-                detailsUpdates["benefits"] = v
             }
 
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {

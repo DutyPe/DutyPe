@@ -48,8 +48,6 @@ interface DenormPayload {
   geohash: string;
   jobImageUrl: string | null;
   vacancies: number;
-  urgency: string;
-  workingHours: string;
   shiftTiming: string;
   companyName: string;
   contactNumber: string;
@@ -87,8 +85,6 @@ async function buildDenormFromJob(jobId: string): Promise<DenormPayload | null> 
     geohash: String(meta.geohash ?? ""),
     jobImageUrl: meta.jobImageUrl ? String(meta.jobImageUrl) : null,
     vacancies: Number(meta.vacancies ?? details.vacancies ?? 1),
-    urgency: String(meta.urgency ?? "MEDIUM"),
-    workingHours: String(meta.workingHours ?? ""),
     shiftTiming: String(details.shiftTiming ?? meta.shiftTiming ?? "Flexible"),
     companyName: String(meta.companyName ?? ""),
     contactNumber: String(details.contactNumber ?? ""),

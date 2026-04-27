@@ -39,22 +39,3 @@ enum class ShiftTiming(val displayName: String, val icon: String) {
     CUSTOM("Any shift", "🕒"),
     FLEXIBLE("Any shift", "⏳")
 }
-
-enum class JobUrgency(val displayName: String) {
-    IMMEDIATE("Today"),
-    URGENT("Within 3days"),
-    NORMAL("Within 1week"),
-    WITHIN_MONTH("Within month")
-    // Batch-p #11.3: removed FLEXIBLE — every job has a hiring window.
-}
-
-enum class JobPerk(val displayName: String, val icon: String) {
-    MEALS("Free Meals", "🍽️"),
-    TRANSPORT("Transport Provided", "🚌"),
-    ACCOMMODATION("Accommodation", "🏠"),
-    OVERTIME_PAY("Overtime Pay", "💰"),
-    BONUS("Performance Bonus", "🎯"),
-    MEDICAL("Medical Benefits", "🏥"),
-    PAID_LEAVES("Paid Leaves", "📅"),
-    TRAINING("Training Provided", "📚")
-}

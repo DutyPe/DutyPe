@@ -33,13 +33,10 @@ fun JobSummaryCard(
     payType: PayType,
     location: String,
     vacancies: String,
-    urgency: JobUrgency,
     shiftTiming: ShiftTiming,
-    description: String,
-    selectedPerks: Set<JobPerk> = emptySet()
+    description: String
 ) {
     val primaryBlue = Color(0xFF2563EB)
-    val successGreen = Color(0xFF10B981)
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -139,73 +136,7 @@ fun JobSummaryCard(
                         )
                     }
 
-                    // Urgency badge
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        val urgencyColor = when (urgency) {
-                            JobUrgency.IMMEDIATE -> Color(0xFFDC2626)
-                            JobUrgency.URGENT -> Color(0xFFF59E0B)
-                            JobUrgency.NORMAL -> primaryBlue
-                            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    urgencyColor.copy(alpha = 0.1f),
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = urgency.displayName,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = urgencyColor
-                            )
-                        }
-                    }
-                    
-                    // Perks & Benefits section
-                    if (selectedPerks.isNotEmpty()) {
-                        HorizontalDivider(color = Color(0xFFE2E8F0))
-                        
-                        Text(
-                            text = "Perks & Benefits",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF1E293B)
-                        )
-                        
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(selectedPerks.toList()) { perk ->
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            successGreen.copy(alpha = 0.1f),
-                                            RoundedCornerShape(16.dp)
-                                        )
-                                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(text = perk.icon, fontSize = 12.sp)
-                                        Text(
-                                            text = perk.displayName,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = successGreen,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Perks & Benefits section removed.
 
                     // Description preview
                     if (description.isNotBlank()) {

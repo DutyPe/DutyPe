@@ -77,8 +77,6 @@ fun EditJobScreen(
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
-    var urgency by remember { mutableStateOf(JobUrgency.NORMAL) }
-    var selectedPerks by remember { mutableStateOf<Set<JobPerk>>(emptySet()) }
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
     var workType by remember { mutableStateOf("Part-time") }
@@ -245,26 +243,10 @@ fun EditJobScreen(
                 it.name.equals(job.salaryType, ignoreCase = true) ||
                     it.displayName.equals(job.salaryType, ignoreCase = true)
             } ?: PayType.DAILY
-            // Urgency from stored "LOW"|"MEDIUM"|"HIGH"
-            urgency = when (job.urgency.uppercase()) {
-                "HIGH" -> JobUrgency.URGENT
-                "MEDIUM" -> JobUrgency.NORMAL
-                "LOW" -> JobUrgency.NORMAL
-                else -> JobUrgency.values().firstOrNull {
-                    it.name.equals(job.urgency, ignoreCase = true) ||
-                        it.displayName.equals(job.urgency, ignoreCase = true)
-                } ?: JobUrgency.NORMAL
-            }
-            // Perks/benefits from stored displayNames or enum names
-            selectedPerks = job.benefits.mapNotNull { stored ->
-                JobPerk.values().firstOrNull {
-                    it.displayName.equals(stored, ignoreCase = true) ||
-                        it.name.equals(stored, ignoreCase = true)
-                }
-            }.toSet()
             vacancies = job.vacancies.toString()
             employerName = job.companyName
-            workType = job.workingHours.ifBlank { "Part-time" }
+            // Job type stored on `jobType` (Full-time / Part-time / …).
+            workType = job.jobType.ifBlank { "Part-time" }
             experienceLevel = job.experienceRequired.ifBlank { "No Experience Required" }
             educationRequired = job.educationRequired.ifBlank { "No qualification required" }
             gender = when {
@@ -285,7 +267,7 @@ fun EditJobScreen(
                     shift.displayName.equals(storedShiftTiming, ignoreCase = true)
             }
             shiftTiming = matchedShift ?: ShiftTiming.FLEXIBLE
-            Timber.d(" EditJob: prefilled payType=$payType urgency=$urgency perks=${selectedPerks.size} shift=$storedShiftTiming")
+            Timber.d(" EditJob: prefilled payType=$payType shift=$storedShiftTiming")
         }
     }
 
@@ -369,11 +351,6 @@ fun EditJobScreen(
                         return@launch
                     }
 
-                    val normalizedUrgency = when (urgency) {
-                        JobUrgency.IMMEDIATE, JobUrgency.URGENT -> "HIGH"
-                        JobUrgency.NORMAL -> "MEDIUM"
-                        JobUrgency.WITHIN_MONTH -> "LOW"
-                    }
                     val finalShiftTiming = shiftTiming.displayName
 
                     val updates = mapOf(
@@ -384,10 +361,10 @@ fun EditJobScreen(
                         "addressText" to location,
                         "description" to description,
                         "contactNumber" to contactNumber,
-                        "urgency" to normalizedUrgency,
                         "vacancies" to (vacancies.toIntOrNull() ?: return@launch),
-                        "benefits" to selectedPerks.map { it.displayName },
-                        "workingHours" to workType,
+                        // Save the chosen work mode (Part-time / Full-time / …)
+                        // as `jobType`.
+                        "jobType" to workType,
                         "shiftTiming" to finalShiftTiming,
                         "experienceRequired" to experienceLevel,
                         "educationRequired" to educationRequired,
@@ -1232,35 +1209,7 @@ fun EditJobScreen(
                             }
                         }
 
-                        // Urgency
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "Urgency",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF374151)
-                                )
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(JobUrgency.values()) { jobUrgency ->
-                                    FilterChip(
-                                        onClick = { urgency = jobUrgency },
-                                        label = { Text(jobUrgency.displayName, fontSize = MaterialTheme.typography.bodySmall.fontSize) },
-                                        selected = urgency == jobUrgency,
-                                        modifier = Modifier
-                                            .height(34.dp)
-                                            .defaultMinSize(minWidth = 0.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                            selectedLabelColor = Color(0xFF3B82F6)
-                                        )
-                                    )
-                                }
-                            }
-                        }
+                        // Urgency removed.
 
                         // Vacancies
                         OutlinedTextField(
@@ -1293,93 +1242,6 @@ fun EditJobScreen(
                     onGenderChange = { gender = it },
                     genders = genders
                 )
-            }
-
-            // Perks Section
-            item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
-                    shadowElevation = 1.dp,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(Color(0xFFDCFCE7), RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFF16A34A),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Perks & Benefits",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
-                                    fontSize = 15.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "(Optional)",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF9CA3AF)
-                                )
-                            )
-                        }
-
-                        val perksList = JobPerk.values().toList()
-                        val chunkedPerks = perksList.chunked(2)
-                        
-                        chunkedPerks.forEach { perkRow ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                perkRow.forEach { perk ->
-                                    FilterChip(
-                                        onClick = {
-                                            selectedPerks = if (selectedPerks.contains(perk)) {
-                                                selectedPerks - perk
-                                            } else {
-                                                selectedPerks + perk
-                                            }
-                                        },
-                                        label = {
-                                            Text(
-                                                text = "${perk.icon} ${perk.displayName}",
-                                                fontSize = MaterialTheme.typography.bodySmall.fontSize
-                                            )
-                                        },
-                                        selected = selectedPerks.contains(perk),
-                                        modifier = Modifier.weight(1f),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.1f),
-                                            selectedLabelColor = Color(0xFF10B981)
-                                        )
-                                    )
-                                }
-                                // Fill remaining space if odd number of perks in row
-                                if (perkRow.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             // Bottom spacing

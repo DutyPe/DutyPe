@@ -27,18 +27,6 @@ object JobPostingHelpers {
     }
 
     /**
-     * Get color for job urgency
-     */
-    fun getUrgencyColor(urgency: JobUrgency): Color {
-        return when (urgency) {
-            JobUrgency.IMMEDIATE -> Color(0xFFE53E3E)
-            JobUrgency.URGENT -> Color(0xFFFF8C00)
-            JobUrgency.NORMAL -> Color(0xFF3B82F6)
-            JobUrgency.WITHIN_MONTH -> Color(0xFF14B8A6)
-        }
-    }
-
-    /**
      * Format time ago from timestamp
      * Uses centralized DateTimeUtils for consistency
      */
@@ -100,14 +88,6 @@ object JobPostingHelpers {
      */
     fun getEstimatedApplications(jobPosting: JobPostingModel): IntRange {
         var baseCount = 10
-
-        // Adjust based on urgency
-        when (jobPosting.urgency) {
-            JobUrgency.IMMEDIATE -> baseCount += 15
-            JobUrgency.URGENT -> baseCount += 10
-            JobUrgency.NORMAL -> baseCount += 5
-            JobUrgency.WITHIN_MONTH -> baseCount += 2
-        }
 
         // Perks adjustment removed as per user request
 

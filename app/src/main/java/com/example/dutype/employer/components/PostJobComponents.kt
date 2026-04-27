@@ -69,8 +69,6 @@ import androidx.compose.ui.unit.sp
 import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobCategory
-import com.example.dutype.employer.models.JobPerk
-import com.example.dutype.employer.models.JobUrgency
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 
@@ -229,102 +227,9 @@ private fun CategoryChip(
 }
 
 @Composable
-fun PerksSelectionGrid(
-    selectedPerks: Set<JobPerk>,
-    onPerksChanged: (Set<JobPerk>) -> Unit,
-    onAddOwnPerkClick: (() -> Unit)? = null
-) {
-    androidx.compose.foundation.lazy.LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        items(JobPerk.values().toList()) { perk ->
-            PerkChip(
-                perk = perk,
-                isSelected = selectedPerks.contains(perk),
-                onClick = {
-                    onPerksChanged(
-                        if (selectedPerks.contains(perk)) {
-                            selectedPerks - perk
-                        } else {
-                            selectedPerks + perk
-                        }
-                    )
-                }
-            )
-        }
-
-        if (onAddOwnPerkClick != null) {
-            item {
-                OutlinedButton(
-                    onClick = onAddOwnPerkClick,
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    modifier = Modifier
-                        .padding(start = 4.dp)
-                        .height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Add your own perk +",
-                        fontSize = 11.sp,
-                        color = Color(0xFF334155)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PerkChip(
-    perk: JobPerk,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .height(34.dp)
-            .defaultMinSize(minWidth = 0.dp)
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF10B981).copy(alpha = 0.1f) else Color.White
-        ),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) Color(0xFF10B981) else Color(0xFFE5E7EB)
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = perk.icon,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(
-                text = perk.displayName,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (isSelected) Color(0xFF10B981) else Color(0xFF374151),
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 10.sp
-            )
-        }
-    }
-}
-
-@Composable
 fun WorkScheduleSection(
     selectedShift: ShiftTiming,
     onShiftSelected: (ShiftTiming) -> Unit,
-    selectedUrgency: JobUrgency,
-    onUrgencySelected: (JobUrgency) -> Unit,
     customStart: String = "",
     onCustomStartChange: (String) -> Unit = {},
     customEnd: String = "",
@@ -346,26 +251,6 @@ fun WorkScheduleSection(
                     shift = shift,
                     isSelected = selectedShift == shift,
                     onClick = { onShiftSelected(shift) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Urgency
-        Text(
-            text = "Hiring Urgency",
-            style = MaterialTheme.typography.labelLarge
-        )
-
-        androidx.compose.foundation.lazy.LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            items(JobUrgency.values().toList()) { urgency ->
-                UrgencyChip(
-                    urgency = urgency,
-                    isSelected = selectedUrgency == urgency,
-                    onClick = { onUrgencySelected(urgency) }
                 )
             }
         }
@@ -412,50 +297,6 @@ private fun ShiftChip(
                 ),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun UrgencyChip(
-    urgency: JobUrgency,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val selectedColor = Color(0xFF3B82F6)
-    val backgroundColor = if (isSelected) selectedColor else Color.White
-    val textColor = if (isSelected) Color.White else Color(0xFF374151)
-
-    Card(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .height(32.dp)
-            .defaultMinSize(minWidth = 0.dp)
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) selectedColor else Color(0xFFE5E7EB)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = urgency.displayName,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = textColor,
-                    fontWeight = FontWeight.Medium
-                ),
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                maxLines = 1
             )
         }
     }

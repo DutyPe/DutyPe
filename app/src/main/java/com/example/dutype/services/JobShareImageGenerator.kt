@@ -425,9 +425,6 @@ class JobShareImageGenerator @Inject constructor() {
             currentY += 140f
         }
 
-        drawModernInfoCard(canvas, "⚡", "Urgency", job.urgency, x, currentY, width, Color.parseColor("#9F7AEA"))
-        currentY += 140f
-
         return currentY + 30f
     }
     

@@ -51,7 +51,6 @@ type EditingJob = {
   description: string;
   category: string;
   shift: string;
-  urgency: string;
   gender: string;
   isActive: boolean;
 };
@@ -172,7 +171,6 @@ export function AdminJobsClient() {
       description: job.description ?? "",
       category: job.category ?? job.jobType ?? "",
       shift: job.shift ?? job.shiftTiming ?? "",
-      urgency: (job as JobRow & { urgency?: string }).urgency ?? "MEDIUM",
       gender: (job as JobRow & { gender?: string }).gender ?? "Any",
       isActive: (job.status ?? (job.isActive ? "open" : "closed")) === "open"
     });
@@ -200,7 +198,6 @@ export function AdminJobsClient() {
           jobType: editing.category,
           shift: editing.shift,
           shiftTiming: editing.shift,
-          urgency: editing.urgency,
           gender: editing.gender,
           status: editing.isActive ? "open" : "closed"
         })
@@ -303,17 +300,6 @@ export function AdminJobsClient() {
                     value={editing.shift}
                     onChange={(e) => setEditing({ ...editing, shift: e.target.value })}
                   />
-                </label>
-                <label className="admin-field">
-                  <span>Urgency</span>
-                  <select
-                    value={editing.urgency}
-                    onChange={(e) => setEditing({ ...editing, urgency: e.target.value })}
-                  >
-                    <option value="LOW">🟢 Low</option>
-                    <option value="MEDIUM">🟡 Medium</option>
-                    <option value="HIGH">🔴 High</option>
-                  </select>
                 </label>
                 <label className="admin-field">
                   <span>Gender</span>

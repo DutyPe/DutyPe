@@ -167,7 +167,7 @@ class AllJobsViewModel @Inject constructor(
     private fun matchesWorkType(job: JobListing, selectedWorkType: String): Boolean {
         if (selectedWorkType.equals("Any", ignoreCase = true)) return true
 
-        val text = listOf(job.workingHours, job.shiftTiming, job.title, job.description)
+        val text = listOf(job.jobType, job.shiftTiming, job.title, job.description)
             .joinToString(" ")
             .lowercase()
 

@@ -316,48 +316,6 @@ private fun JobPostingModel.shiftDisplayText(): String {
 }
 
 @Composable
-private fun PerksDisplay(perks: List<com.example.dutype.employer.models.JobPerk>) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        perks.take(3).forEach { perk ->
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = Color(0xFFF3F4F6),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "${perk.icon} ${perk.displayName}",
-                    style = AppTypography.caption,
-                    color = Color.Gray
-                )
-            }
-        }
-
-        if (perks.size > 3) {
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = Color(0xFFF3F4F6),
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "+${perks.size - 3} more",
-                    style = AppTypography.caption,
-                    color = Color.Gray
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun JobCardFooter(
     jobPosting: JobPostingModel,
     showActions: Boolean,

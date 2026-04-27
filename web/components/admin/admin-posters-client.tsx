@@ -25,13 +25,10 @@ type PosterJob = {
   jobType?: string;
   shift?: string;
   shiftTiming?: string;
-  workingHours?: string;
   experienceRequired?: string;
   gender?: string;
-  benefits?: string[];
   contactNumber?: string;
   whatsappNumber?: string;
-  urgency?: string;
   status?: string;
 };
 
@@ -102,14 +99,6 @@ function cleanSiteUrl() {
   return SITE_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
-function renderUrgency(value?: string) {
-  const normalized = value?.toUpperCase();
-  if (normalized === "HIGH") return "Hiring today";
-  if (normalized === "MEDIUM") return "Hiring within 3 days";
-  if (normalized === "LOW") return "Hiring within 1 week";
-  return "Hiring now";
-}
-
 function jobDetails(job: PosterJob) {
   const details = [
     ["Pay", formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)],
@@ -117,12 +106,9 @@ function jobDetails(job: PosterJob) {
     ["Location", renderLocation(job)],
     ["Vacancies", job.vacancies ? String(job.vacancies) : "Multiple openings"],
     ["Experience", job.experienceRequired || "Open to suitable workers"],
-    ["Gender", job.gender || "Any"],
-    ["Urgency", renderUrgency(job.urgency)]
+    ["Gender", job.gender || "Any"]
   ];
 
-  if (job.workingHours) details.push(["Hours", job.workingHours]);
-  if (job.benefits?.length) details.push(["Benefits", job.benefits.slice(0, 4).join(", ")]);
   if (job.contactNumber) details.push(["Contact", job.contactNumber]);
 
   return details;

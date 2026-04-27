@@ -23,11 +23,8 @@ const JOB_ALLOWED_FIELDS: ReadonlyArray<string> = [
   "location",   // { lat, lng }
   "geohash",
   "addressText",
-  "urgency",
   "expiresAt",  // ms since epoch or ISO — converted to Timestamp server-side
 ];
-
-const URGENCY_ENUM = new Set(["LOW", "MEDIUM", "HIGH"]);
 
 function assertString(v: unknown, field: string, min: number, max: number): string {
   if (typeof v !== "string" || v.length < min || v.length > max) {
@@ -93,10 +90,6 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
   const salaryType = assertString(rest.salaryType, "salaryType", 1, 40);
   const geohash = assertString(rest.geohash, "geohash", 1, 20);
   const addressText = assertString(rest.addressText, "addressText", 1, 300);
-  const urgencyRaw = assertString(rest.urgency, "urgency", 1, 20);
-  if (!URGENCY_ENUM.has(urgencyRaw)) {
-    throw new functions.https.HttpsError("invalid-argument", "urgency invalid");
-  }
   const location = assertLatLng(rest.location);
   const expiresAt = toTimestamp(rest.expiresAt, "expiresAt");
 
@@ -126,7 +119,6 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
         location,
         geohash,
         addressText,
-        urgency: urgencyRaw,
         status: "open",
         createdAt,
       });

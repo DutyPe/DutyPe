@@ -311,7 +311,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'workingHours', 'urgency', 'status', 'createdAt', 'employerId',
+          'jobType', 'status', 'createdAt', 'employerId',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
           'jobImageUrl',
@@ -321,7 +321,7 @@ service cloud.firestore {
         request.resource.data.keys().hasAll([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'urgency', 'status', 'createdAt', 'employerId'
+          'jobType', 'status', 'createdAt', 'employerId'
         ]) &&
         // Ownership is enforced via the sibling job_details doc created in the same batch.
         existsAfter(/databases/$(database)/documents/job_details/$(jobId)) &&
@@ -341,9 +341,7 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
-        (!('workingHours' in request.resource.data) ||
-          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
-        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80 &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
@@ -355,7 +353,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
-          'workingHours', 'urgency', 'status', 'createdAt', 'employerId',
+          'jobType', 'status', 'createdAt', 'employerId',
           'jobImageUrl',
           'vacancies'
         ]) &&
@@ -373,9 +371,8 @@ service cloud.firestore {
         validLatLng(request.resource.data.location) &&
         request.resource.data.geohash is string &&
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
-        (!('workingHours' in request.resource.data) ||
-          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
-        request.resource.data.urgency in ['LOW', 'MEDIUM', 'HIGH'] &&
+        (!('jobType' in request.resource.data) ||
+          (request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80)) &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
@@ -403,7 +400,7 @@ service cloud.firestore {
       allow read, write: if isAdmin();
 
       // Public single-doc reads so guests can see the full job description
-      // (description, benefits, gender, experience,
+      // (description, gender, experience,
       // contactNumber). Listing is still blocked — workers must arrive via
       // a known jobId from the public jobmetadata card.
       allow get: if true;
@@ -414,10 +411,10 @@ service cloud.firestore {
           'employerId', 'createdAt', 'expiresAt', 'idempotencyKey',
           'description', 'contactNumber',
           'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming',
-          'benefits', 'applicationCount'
+          'applicationCount'
         ]) &&
         request.resource.data.keys().hasAll([
-          'employerId', 'expiresAt', 'description', 'contactNumber', 'benefits'
+          'employerId', 'expiresAt', 'description', 'contactNumber'
         ]) &&
         request.resource.data.employerId == request.auth.uid &&
         request.resource.data.expiresAt is timestamp &&
@@ -427,8 +424,6 @@ service cloud.firestore {
         request.resource.data.description.size() <= 5000 &&
         request.resource.data.contactNumber is string &&
         request.resource.data.contactNumber.size() <= 20 &&
-        request.resource.data.benefits is list &&
-        request.resource.data.benefits.size() <= 20 &&
         (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
         (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
         (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
@@ -442,12 +437,11 @@ service cloud.firestore {
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'description', 'contactNumber',
-          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming', 'workingHours',
-          'benefits', 'applicationCount', 'expiresAt'
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming',
+          'applicationCount', 'expiresAt'
         ]) &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
         (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
-        (!('benefits' in request.resource.data) || (request.resource.data.benefits is list && request.resource.data.benefits.size() <= 20)) &&
         (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
         (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
         (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
@@ -455,8 +449,6 @@ service cloud.firestore {
         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         (!('shiftTiming' in request.resource.data) ||
           (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
-        (!('workingHours' in request.resource.data) ||
-          (request.resource.data.workingHours is string && request.resource.data.workingHours.size() <= 120)) &&
         (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
 
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;

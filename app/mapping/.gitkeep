@@ -1,0 +1,4 @@
+# This folder holds the previous release's R8 mapping (`release-mapping.txt`).
+# It is read at build time so R8 can keep obfuscated names stable across
+# releases, which is what makes Play patch sizes small for tiny code changes.
+# See docs/FEATURE_RELEASE_MAPS_ROUTING.md and app/build.gradle.kts for details.

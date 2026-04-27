@@ -58,7 +58,6 @@ fun JobCard(
     val locationDisplay = remember(job.addressText, job.location, job.distance) {
         formatLocationWithDistance(job.addressText.ifBlank { job.location }, job.distance)
     }
-    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
 
     JobCardInternal(
@@ -69,12 +68,10 @@ fun JobCard(
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
         workTypeLabel = extractWorkTypeLabel(
-            job.workingHours,
+            job.jobType,
             job.title,
             job.description
         ),
-        urgencyLabel = formatUrgencyLabel(job.urgency),
-        isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
@@ -116,7 +113,6 @@ fun JobCard(
             job.distance
         )
     }
-    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
 
     JobCardInternal(
@@ -127,12 +123,10 @@ fun JobCard(
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
         workTypeLabel = extractWorkTypeLabel(
-            job.workingHours,
+            job.jobType,
             job.title,
             ""
         ),
-        urgencyLabel = formatUrgencyLabel(job.urgency),
-        isUrgent = isUrgent,
         isClosed = isClosed,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
@@ -161,8 +155,6 @@ private fun JobCardInternal(
     locationDisplay: String,
     vacancies: Int,
     workTypeLabel: String?,
-    urgencyLabel: String?,
-    isUrgent: Boolean,
     isClosed: Boolean,
     isSaved: Boolean,
     jobImageUrl: String? = null,
@@ -365,13 +357,6 @@ private fun JobCardInternal(
                 if (!workTypeLabel.isNullOrBlank()) {
                     CompactChip(text = workTypeLabel, chipType = ChipType.JOB_TYPE)
                 }
-
-                if (!urgencyLabel.isNullOrBlank()) {
-                    CompactChip(
-                        text = urgencyLabel,
-                        chipType = if (isUrgent) ChipType.URGENT else ChipType.DEFAULT
-                    )
-                }
             }
         }
         }
@@ -464,15 +449,6 @@ private enum class ChipType {
 private fun formatPayDisplay(salary: String, salaryType: String): String =
     com.example.dutype.utils.SalaryFormatter.display(salary, salaryType)
 
-private fun formatUrgencyLabel(urgency: String): String? {
-    return when (urgency.trim().uppercase()) {
-        "HIGH" -> "Urgent"
-        "MEDIUM" -> "Normal"
-        "LOW" -> "Low urgency"
-        else -> null
-    }
-}
-
 /**
  * Format location with distance.
  * addressText comes from job_details (runtime only), distance is computed client-side.
@@ -517,34 +493,87 @@ private fun extractWorkTypeLabel(vararg candidates: String?): String? {
 }
 
 /**
- * Get emoji for job category - lightweight alternative to Lottie animations
+ * Get emoji for job category - lightweight alternative to Lottie animations.
+ *
+ * Ordering matters: more specific matches must come before generic ones
+ * (e.g. "sales executive" before "executive", "care taker" before "care").
+ * Covers the full Android JobCategory list plus the long-tail of common
+ * full-time / part-time roles (teacher, nurse, technician, sales exec, etc.).
  */
 private fun getJobEmoji(jobTitle: String): String {
+    val t = jobTitle.lowercase()
     return when {
-        jobTitle.contains("delivery", true) || jobTitle.contains("courier", true) -> "🚚"
-        jobTitle.contains("driver", true) || jobTitle.contains("driving", true) -> "🚗"
-        jobTitle.contains("cook", true) || jobTitle.contains("chef", true) || jobTitle.contains("kitchen", true) -> "👨‍🍳"
-        jobTitle.contains("clean", true) || jobTitle.contains("housekeep", true) || jobTitle.contains("maid", true) -> "🧹"
-        jobTitle.contains("waiter", true) || jobTitle.contains("server", true) || jobTitle.contains("restaurant", true) -> "🍽️"
-        jobTitle.contains("security", true) || jobTitle.contains("guard", true) -> "🛡️"
-        jobTitle.contains("painter", true) || jobTitle.contains("paint", true) -> "🎨"
-        jobTitle.contains("electric", true) || jobTitle.contains("electrician", true) -> "⚡"
-        jobTitle.contains("plumb", true) || jobTitle.contains("plumber", true) -> "🔧"
-        jobTitle.contains("carpenter", true) || jobTitle.contains("wood", true) -> "🪚"
-        jobTitle.contains("helper", true) || jobTitle.contains("labour", true) || jobTitle.contains("labor", true) -> "💪"
-        jobTitle.contains("office", true) || jobTitle.contains("admin", true) || jobTitle.contains("data entry", true) -> "💼"
-        jobTitle.contains("sales", true) || jobTitle.contains("marketing", true) -> "📊"
-        jobTitle.contains("retail", true) || jobTitle.contains("shop", true) || jobTitle.contains("store", true) -> "🏪"
-        jobTitle.contains("warehouse", true) || jobTitle.contains("packing", true) || jobTitle.contains("loading", true) -> "📦"
-        jobTitle.contains("construction", true) || jobTitle.contains("mason", true) || jobTitle.contains("building", true) -> "🏗️"
-        jobTitle.contains("garden", true) || jobTitle.contains("landscap", true) -> "🌱"
-        jobTitle.contains("tailor", true) || jobTitle.contains("sewing", true) || jobTitle.contains("stitch", true) -> "🧵"
-        jobTitle.contains("beauty", true) || jobTitle.contains("salon", true) || jobTitle.contains("parlour", true) -> "💇"
-        jobTitle.contains("teach", true) || jobTitle.contains("tutor", true) || jobTitle.contains("education", true) -> "📚"
-        jobTitle.contains("nurse", true) || jobTitle.contains("medical", true) || jobTitle.contains("health", true) -> "🏥"
-        jobTitle.contains("ac", true) || jobTitle.contains("technician", true) || jobTitle.contains("repair", true) -> "🔨"
-        jobTitle.contains("event", true) || jobTitle.contains("catering", true) -> "🎉"
-        else -> "💼" // Default briefcase for general jobs
+        // Food & hospitality
+        t.contains("chef") || t.contains("cook") || t.contains("kitchen") || t.contains("tandoor") || t.contains("biryani") -> "👨‍🍳"
+        t.contains("baker") || t.contains("bakery") || t.contains("pastry") -> "🧁"
+        t.contains("barista") || t.contains("coffee") || t.contains("cafe") -> "☕"
+        t.contains("bartender") || t.contains("bar tender") -> "🍸"
+        t.contains("waiter") || t.contains("waitress") || t.contains("server") || t.contains("steward") || t.contains("restaurant") -> "🍽️"
+        t.contains("catering") || t.contains("event") -> "🎉"
+
+        // Driving & delivery
+        t.contains("delivery") || t.contains("courier") || t.contains("rider") || t.contains("swiggy") || t.contains("zomato") || t.contains("dunzo") || t.contains("parcel") -> "📦"
+        t.contains("truck") || t.contains("lorry") -> "🚛"
+        t.contains("auto driver") || t.contains("auto-rickshaw") || t.contains("rickshaw") -> "🛵"
+        t.contains("bike") || t.contains("two wheeler") || t.contains("two-wheeler") || t.contains("scooter") -> "🏍️"
+        t.contains("driver") || t.contains("chauffeur") || t.contains("uber") || t.contains("ola") || t.contains("cab") || t.contains("taxi") || t.contains("driving") -> "🚗"
+
+        // Home help / personal services
+        t.contains("nanny") || t.contains("babysit") || t.contains("ayah") -> "👶"
+        t.contains("care taker") || t.contains("caretaker") || t.contains("caregiver") || t.contains("elder care") || t.contains("old age") -> "🧑‍🦽"
+        t.contains("maid") || t.contains("house help") || t.contains("housekeep") || t.contains("cleaner") || t.contains("cleaning") || t.contains("janitor") || t.contains("sweeper") -> "🧹"
+        t.contains("laundry") || t.contains("dhobi") || t.contains("ironing") -> "🧺"
+        t.contains("beauty") || t.contains("salon") || t.contains("parlour") || t.contains("parlor") || t.contains("makeup") -> "💇"
+        t.contains("barber") || t.contains("hair") -> "💇‍♂️"
+        t.contains("tailor") || t.contains("sewing") || t.contains("stitch") -> "🧵"
+
+        // Trades / construction
+        t.contains("electrician") || t.contains("electric") || t.contains("wiring") -> "⚡"
+        t.contains("plumber") || t.contains("plumbing") || t.contains("pipe") -> "🔧"
+        t.contains("carpenter") || t.contains("woodwork") || t.contains("furniture") -> "🪚"
+        t.contains("painter") || t.contains("painting") -> "🎨"
+        t.contains("mason") || t.contains("construction") || t.contains("building") -> "🏗️"
+        t.contains("welder") || t.contains("welding") -> "🔥"
+        t.contains("mechanic") || t.contains("garage") || t.contains("workshop") -> "🔩"
+        t.contains("ac ") || t.contains("a.c.") || t.contains("hvac") -> "❄️"
+        t.contains("technician") || t.contains("techincian") || t.contains("techinitcina") || t.contains("repair") -> "🛠️"
+
+        // Outdoor / agri
+        t.contains("gardener") || t.contains("garden") || t.contains("landscap") || t.contains("horticult") -> "🌱"
+        t.contains("farm") || t.contains("agri") || t.contains("dairy") -> "🌾"
+
+        // Security / logistics
+        t.contains("security") || t.contains("guard") || t.contains("watchman") || t.contains("bouncer") -> "🛡️"
+        t.contains("warehouse") || t.contains("godown") || t.contains("inventory") || t.contains("loader") || t.contains("packer") || t.contains("packing") -> "📦"
+
+        // Office / front-of-house
+        t.contains("receptionist") || t.contains("front desk") || t.contains("front-desk") -> "💼"
+        t.contains("office boy") || t.contains("office assistant") || t.contains("peon") -> "🗂️"
+        t.contains("data entry") || t.contains("typing") || t.contains("computer operator") -> "⌨️"
+        t.contains("telecaller") || t.contains("tele caller") || t.contains("call center") || t.contains("callcenter") || t.contains("bpo") || t.contains("customer support") || t.contains("customer service") -> "☎️"
+        t.contains("cashier") || t.contains("billing") -> "💵"
+        t.contains("accountant") || t.contains("accounts") || t.contains("bookkeep") || t.contains("tally") -> "🧮"
+        t.contains("hr ") || t.contains("recruit") || t.contains("talent") -> "🤝"
+
+        // Sales / retail
+        t.contains("sales executive") || t.contains("sales exec") || t.contains("sales exacurtin") -> "💼"
+        t.contains("field sales") || t.contains("sales") || t.contains("salesman") || t.contains("marketing") -> "📊"
+        t.contains("retail") || t.contains("shop") || t.contains("store") || t.contains("showroom") -> "🏪"
+
+        // Education / care
+        t.contains("teacher") || t.contains("teach") || t.contains("tutor") || t.contains("trainer") || t.contains("faculty") || t.contains("educator") || t.contains("education") -> "👩‍🏫"
+        t.contains("nurse") || t.contains("medical") || t.contains("hospital") || t.contains("clinic") || t.contains("healthcare") || t.contains("health care") -> "👩‍⚕️"
+        t.contains("pharmacist") || t.contains("pharmacy") -> "💊"
+        t.contains("doctor") -> "🩺"
+
+        // Tech
+        t.contains("developer") || t.contains("software") || t.contains("engineer") || t.contains("programmer") || t.contains("coder") -> "💻"
+        t.contains("designer") || t.contains("graphic") -> "🎨"
+
+        // Misc labour / generic
+        t.contains("helper") || t.contains("assistant") || t.contains("labour") || t.contains("labor") || t.contains("worker") -> "💪"
+
+        else -> "💼"
     }
 }
 
@@ -583,18 +612,20 @@ private fun JobImageOrAnimation(
             modifier = modifier.clip(CircleShape)
         )
     } else {
+        // Priority 2: pick a category-specific emoji from the job title so
+        // the card never feels generic when the employer skipped the image
+        // upload. Falls back to a briefcase for unmatched titles.
+        val emoji = getJobEmoji(jobTitle)
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(Color.White)
-                .border(1.dp, Color(0xFFE5E7EB), CircleShape),
+                .background(Color(0xFFFEF3C7))
+                .border(1.dp, Color(0xFFFDE68A), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Business,
-                contentDescription = "Company",
-                tint = Color(0xFF6B7280),
-                modifier = Modifier.size(22.dp)
+            Text(
+                text = emoji,
+                fontSize = 22.sp
             )
         }
     }
