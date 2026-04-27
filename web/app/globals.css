@@ -5992,6 +5992,25 @@ button.product-chip {
   font-style: italic;
 }
 
+.admin-job-image-preview-wrap {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafaf8;
+}
+
+.admin-job-image-preview {
+  width: 100%;
+  max-width: 420px;
+  max-height: 240px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  object-fit: cover;
+}
+
 /* ============================================================
    Marketing UI v2 — hero, sticky sidebar, search, modern cards
    ============================================================ */

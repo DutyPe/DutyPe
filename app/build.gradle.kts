@@ -21,6 +21,7 @@ plugins {
     // P1-1: Baseline Profile consumer plugin. Pairs with the :baselineprofile
     // module to produce + bundle baseline profiles into the release AAB.
     alias(libs.plugins.androidx.baselineprofile)
+    id("com.autonomousapps.dependency-analysis")
 }
 
 // Load keystore properties
@@ -45,8 +46,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 43
-        versionName = "2.6.4"
+        versionCode = 45
+        versionName = "2.6.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -118,8 +119,6 @@ android {
         jniLibs {
             // Use uncompressed native libraries (required for 16KB page size)
             useLegacyPackaging = false
-            // Keep debug symbols for crash analysis
-            keepDebugSymbols += "**/*.so"
         }
     }
     
@@ -213,7 +212,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.firebase.auth)
     implementation(libs.androidx.compose.foundation)
     debugImplementation(libs.firebase.appcheck.debug)
     testImplementation(libs.junit)
@@ -224,13 +222,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Android 12+ Splash Screen API (MODERN 2024-2026 STANDARD)
-    // Official Google recommendation for all apps targeting Android 12+
-    // Provides consistent splash screen experience across all Android versions
-    implementation("androidx.core:core-splashscreen:1.0.1")
-
-    // Material3 - Single version to avoid conflicts
-    implementation("androidx.compose.material3:material3:1.3.2")
+    // Material3 window size classes
     implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
 
     // Navigation
@@ -276,9 +268,6 @@ dependencies {
     
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")
-    
-    // SafetyNet for reCAPTCHA (CRITICAL for Phone Auth rate limiting)
-    implementation("com.google.android.gms:play-services-safetynet:18.1.0")
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")

@@ -13,10 +13,19 @@ import {
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { getStorage } from "firebase-admin/storage";
 
 import { firebaseConfig } from "@/lib/firebase/config";
 
 const DEFAULT_APP_NAME = "[DEFAULT]";
+
+function resolveStorageBucketName() {
+  return (
+    process.env.FIREBASE_STORAGE_BUCKET ??
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??
+    firebaseConfig.storageBucket
+  );
+}
 
 type RawServiceAccount = Partial<ServiceAccount> & {
   project_id?: string;
@@ -126,7 +135,8 @@ export function getFirebaseAdminApp() {
   if (serviceAccount) {
     return initializeApp({
       credential: cert(serviceAccount),
-      projectId: serviceAccount.projectId
+      projectId: serviceAccount.projectId,
+      storageBucket: resolveStorageBucketName()
     });
   }
 
@@ -137,7 +147,8 @@ export function getFirebaseAdminApp() {
         process.env.FIREBASE_ADMIN_PROJECT_ID ??
         process.env.GOOGLE_CLOUD_PROJECT ??
         process.env.GCLOUD_PROJECT ??
-        firebaseConfig.projectId
+        firebaseConfig.projectId,
+      storageBucket: resolveStorageBucketName()
     });
   }
 
@@ -156,4 +167,12 @@ export function getFirebaseAdminDb() {
 
 export function getFirebaseAdminMessaging() {
   return getMessaging(getFirebaseAdminApp());
+}
+
+export function getFirebaseAdminStorageBucket() {
+  const bucketName = resolveStorageBucketName();
+  if (!bucketName) {
+    throw new Error("Firebase Storage bucket is not configured.");
+  }
+  return getStorage(getFirebaseAdminApp()).bucket(bucketName);
 }

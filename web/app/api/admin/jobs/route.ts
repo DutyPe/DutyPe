@@ -82,6 +82,7 @@ type CreateJobBody = {
   title?: string;
   companyName?: string;
   jobType?: string;
+  jobImageUrl?: string;
   salary?: number | string;
   salaryType?: string;
   addressText?: string;
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
   const workingHours = body.workingHours?.trim() || undefined;
   const experienceRequired = body.experienceRequired?.trim() || "No Experience Required";
   const educationRequired = body.educationRequired?.trim() || "No qualification required";
+  const jobImageUrl = body.jobImageUrl?.trim() || undefined;
 
   const salary = String(body.salary ?? "").trim();
   const salaryTypeRaw = (body.salaryType?.trim() || "DAILY").toUpperCase();
@@ -147,6 +149,9 @@ export async function POST(request: NextRequest) {
   if (!addressText) return NextResponse.json({ error: "Address is required." }, { status: 400 });
   if (!salary || salary.length > 60) {
     return NextResponse.json({ error: "Salary is required and must be 60 characters or less." }, { status: 400 });
+  }
+  if (jobImageUrl && jobImageUrl.length > 2000) {
+    return NextResponse.json({ error: "Job image URL is too long." }, { status: 400 });
   }
   if (!hasValidCoordinates(latitude, longitude)) {
     return NextResponse.json(
@@ -190,6 +195,9 @@ export async function POST(request: NextRequest) {
       createdAt: Timestamp.fromDate(now),
       vacancies
     };
+    if (jobImageUrl) {
+      cardData.jobImageUrl = jobImageUrl;
+    }
 
     const detailsData: Record<string, unknown> = {
       employerId,
@@ -222,6 +230,7 @@ type UpdateJobBody = {
   title?: string;
   companyName?: string;
   jobType?: string;
+  jobImageUrl?: string;
   salary?: number | string;
   salaryType?: string;
   addressText?: string;
@@ -272,6 +281,10 @@ export async function PATCH(request: NextRequest) {
 
   if (body.title !== undefined) cardPayload.title = String(body.title).trim();
   if (body.companyName !== undefined) cardPayload.companyName = String(body.companyName).trim();
+  if (body.jobImageUrl !== undefined) {
+    const imageUrl = String(body.jobImageUrl).trim();
+    cardPayload.jobImageUrl = imageUrl || FieldValue.delete();
+  }
   if (body.salary !== undefined) {
     const v = String(body.salary).trim();
     if (v.length > 0 && v.length <= 60) cardPayload.salary = v;

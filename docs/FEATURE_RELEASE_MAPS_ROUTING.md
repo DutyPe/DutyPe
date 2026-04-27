@@ -4,6 +4,48 @@
 
 This note records what Google Maps Platform APIs DutyPe should use for current location features and the future worker-to-job route overlay feature.
 
+## Play Update Size: Why It Is Still ~18.8 MB
+
+Observed in Play Console:
+
+- New install size: about 24.6 MB
+- Update size: about 18.8 MB
+- Difference vs previous release: only about -46.6 KB
+
+Meaning:
+
+- The package is slightly smaller, but Play patch size is still large because most of the base split changed between versions.
+- In this app, a small UI change still touches the base module build graph, so many bytes in DEX/resources are different.
+
+Already fixed:
+
+- Removed JNI keepDebugSymbols packaging from release in app module.
+
+Why that did not fully solve it:
+
+- The app still has heavy SDKs in the base module (Ads, Maps/Places, multiple Firebase modules, SQLCipher).
+- R8/resource shrink output churn causes larger binary diff for small code changes.
+
+One-by-one action order (practical):
+
+1. Keep current fix (done): no keepDebugSymbols in packaged release JNI libs.
+2. Run a no-code-change experiment:
+    - Build a release from the same commit with only versionCode/versionName change.
+    - Upload to Internal testing and check update size.
+    - If update is still large, this confirms binary churn (not feature size) is the dominant issue.
+3. Reuse R8 mapping from previous release during obfuscation:
+    - This reduces symbol/name churn between versions.
+    - Expected: smaller patch size for minor changes.
+4. Remove or isolate unused heavy dependencies from base:
+    - SafetyNet appears to have no direct source usage; validate in QA, then remove if safe.
+    - Keep Ads, Maps/Places, Firebase modules only where actually needed.
+5. Move heavy optional features out of base module:
+    - Candidate first: Ads feature.
+    - Next: map-heavy screens if not core for all users.
+6. Re-measure every release:
+    - Track both New install size and Size for updates in Play Console.
+    - Compare only against immediately previous production release.
+
 ## Current Location APIs
 
 Keep these enabled for the Android app:

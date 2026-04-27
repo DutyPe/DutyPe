@@ -18,8 +18,8 @@ plugins {
     alias(libs.plugins.androidx.baselineprofile) apply false
     alias(libs.plugins.android.test) apply false
 
-    // P3-6: Dependency Analysis plugin. Run `./gradlew buildHealth` to surface
-    // unused, misused, and transitive-leaked dependencies. Off the critical
-    // path of the regular build; only runs when its tasks are invoked.
-    id("com.autonomousapps.dependency-analysis") version "2.5.0"
+    // P3-6: Dependency Analysis plugin. Declared here and applied in app module
+    // so `:app:projectHealth` can surface unused, misused, and transitive-leaked
+    // dependencies without impacting normal build tasks.
+    id("com.autonomousapps.dependency-analysis") version "2.5.0" apply false
 }

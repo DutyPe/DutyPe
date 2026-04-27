@@ -84,6 +84,15 @@ const EXPERIENCE_LEVELS = [
   "3-5 years",
   "5+ years"
 ];
+const EDUCATION_REQUIREMENTS = [
+  "No qualification required",
+  "10th pass",
+  "12th pass",
+  "ITI",
+  "Diploma",
+  "Graduate",
+  "Any qualification"
+];
 const COMMON_BENEFITS = [
   "Food",
   "Transport",
@@ -111,14 +120,19 @@ const initialForm = {
   whatsappNumber: "",
   gender: "Any",
   experienceRequired: "No Experience Required",
+  educationRequired: "No qualification required",
   shiftTiming: "Flexible",
   workingHours: "",
   vacancies: "1",
   benefits: [] as string[],
   customBenefits: "",
   expiresInDays: "30",
+  jobImageUrl: "",
   whatsappSameAsPhone: true
 };
+
+const MAX_JOB_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const SUPPORTED_JOB_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function AdminPostJobClient() {
   const router = useRouter();
@@ -132,8 +146,12 @@ export function AdminPostJobClient() {
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingLocation, setSearchingLocation] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -200,6 +218,87 @@ export function AdminPostJobClient() {
         ? prev.benefits.filter((b) => b !== value)
         : [...prev.benefits, value]
     }));
+  }
+
+  function updatePreviewUrl(nextUrl: string | null) {
+    setImagePreviewUrl((previousUrl) => {
+      if (previousUrl && previousUrl.startsWith("blob:") && previousUrl !== nextUrl) {
+        URL.revokeObjectURL(previousUrl);
+      }
+      return nextUrl;
+    });
+  }
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl && imagePreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
+  function clearJobImage() {
+    setSelectedImageFile(null);
+    updatePreviewUrl(null);
+    update("jobImageUrl", "");
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  }
+
+  function handleImageFileSelect(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    if (!SUPPORTED_JOB_IMAGE_TYPES.has(file.type)) {
+      setError("Only JPG, PNG, and WEBP images are supported.");
+      return;
+    }
+
+    if (file.size > MAX_JOB_IMAGE_SIZE_BYTES) {
+      setError("Image must be 5 MB or smaller.");
+      return;
+    }
+
+    setError(null);
+    setSelectedImageFile(file);
+    update("jobImageUrl", "");
+    updatePreviewUrl(URL.createObjectURL(file));
+  }
+
+  async function uploadJobImageIfNeeded() {
+    if (!selectedImageFile) {
+      return form.jobImageUrl.trim() || undefined;
+    }
+
+    setUploadingImage(true);
+    try {
+      const payload = new FormData();
+      payload.append("image", selectedImageFile);
+      payload.append("employerId", "admin");
+
+      const response = await adminApiFetch("/api/admin/jobs/upload-image", {
+        method: "POST",
+        body: payload
+      });
+
+      const result = (await response.json()) as { error?: string; url?: string };
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Failed to upload job image.");
+      }
+
+      update("jobImageUrl", result.url);
+      setSelectedImageFile(null);
+      updatePreviewUrl(result.url);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+      }
+
+      return result.url;
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   async function handleGeocode() {
@@ -271,6 +370,7 @@ export function AdminPostJobClient() {
 
     try {
       setSubmitting(true);
+      const jobImageUrl = await uploadJobImageIfNeeded();
       const response = await adminApiFetch("/api/admin/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -289,11 +389,13 @@ export function AdminPostJobClient() {
           whatsappNumber: (form.whatsappSameAsPhone ? form.contactNumber : form.whatsappNumber).trim() || undefined,
           gender: form.gender,
           experienceRequired: form.experienceRequired,
+          educationRequired: form.educationRequired,
           shiftTiming: form.shiftTiming,
           workingHours: form.workingHours.trim() || undefined,
           vacancies: Number(form.vacancies) || 1,
           benefits,
-          expiresInDays: Number(form.expiresInDays) || 30
+          expiresInDays: Number(form.expiresInDays) || 30,
+          jobImageUrl
         })
       });
 
@@ -304,6 +406,11 @@ export function AdminPostJobClient() {
       setForm(initialForm);
       setJobTypeManuallySet(false);
       setShowCoordOverride(false);
+      setSelectedImageFile(null);
+      updatePreviewUrl(null);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to post job.");
     } finally {
@@ -448,6 +555,12 @@ export function AdminPostJobClient() {
               {EXPERIENCE_LEVELS.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           </label>
+          <label className="admin-field">
+            <span>Education required</span>
+            <select value={form.educationRequired} onChange={(e) => update("educationRequired", e.target.value)}>
+              {EDUCATION_REQUIREMENTS.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
         </div>
 
         <div className="admin-field">
@@ -473,7 +586,38 @@ export function AdminPostJobClient() {
       </div>
 
       <div className="admin-form-section">
-        <h3>4. Location *</h3>
+        <h3>4. Job image (optional)</h3>
+        <label className="admin-field">
+          <span>Upload job image (like Android post-job)</span>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => handleImageFileSelect(event.target.files?.[0] ?? null)}
+          />
+          <small style={{ marginTop: 6, opacity: 0.75 }}>
+            Supported: JPG, PNG, WEBP. Max size: 5 MB.
+          </small>
+        </label>
+
+        {(imagePreviewUrl || form.jobImageUrl) && (
+          <div className="admin-job-image-preview-wrap">
+            <img
+              src={imagePreviewUrl || form.jobImageUrl}
+              alt="Job preview"
+              className="admin-job-image-preview"
+            />
+            <div className="admin-form-actions" style={{ gap: 8 }}>
+              <button type="button" className="button ghost" onClick={clearJobImage}>
+                Remove image
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="admin-form-section">
+        <h3>5. Location *</h3>
         <label className="admin-field" style={{ position: "relative" }}>
           <span>Address (start typing — we’ll find the spot for you)</span>
           <input
@@ -548,7 +692,7 @@ export function AdminPostJobClient() {
       </div>
 
       <div className="admin-form-section">
-        <h3>5. Description & contact</h3>
+        <h3>6. Description & contact</h3>
         <label className="admin-field">
           <span>Description *</span>
           <textarea
@@ -586,8 +730,8 @@ export function AdminPostJobClient() {
       </div>
 
       <div className="admin-form-actions">
-        <button type="submit" className="button" disabled={submitting}>
-          {submitting ? "Posting..." : "Publish job"}
+        <button type="submit" className="button" disabled={submitting || uploadingImage}>
+          {uploadingImage ? "Uploading image..." : submitting ? "Posting..." : "Publish job"}
         </button>
         <button type="button" className="button ghost" onClick={() => router.push("/admin/jobs")}>Cancel</button>
       </div>
