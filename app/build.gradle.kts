@@ -100,7 +100,10 @@ android {
             //      release-mapping.txt is created/updated automatically (see
             //      the `archiveReleaseMapping` task at the bottom of this file).
             //   2. COMMIT app/mapping/release-mapping.txt alongside the
-            //      versionCode bump for that release.
+            //      versionCode bump for that release. NOTE: this file can be
+            //      large (200+ MB for big apps) — it is tracked via Git LFS
+            //      (see .gitattributes). Run `git lfs install` once on a fresh
+            //      clone before building.
             //   3. On the next release build, R8 reads it via `setMappingFile`
             //      below and reuses the same obfuscated names.
             //
