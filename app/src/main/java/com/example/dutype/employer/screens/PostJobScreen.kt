@@ -3291,7 +3291,7 @@ private fun PostJobTopStepper(
     val mutedText = Color(0xFF94A3B8)
     val connector = Color(0xFFE2E8F0)
 
-    Surface(color = Color.White, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = com.example.dutype.ui.theme.EmployerColors.CardBackground, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

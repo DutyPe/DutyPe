@@ -72,9 +72,9 @@ fun WorkerMainScreen(
     val statusBarColor = if (currentRoute == WorkerBottomRoutes.HOME) {
         com.example.dutype.worker.screens.WorkerHomeHeaderTopColor
     } else {
-        Color.White
+        com.example.dutype.ui.theme.WorkerColors.ScreenBackground
     }
-    val navigationBarColor = Color.White // White navigation bar with dark icons
+    val navigationBarColor = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
     // This replaces deprecated window.statusBarColor and window.navigationBarColor

@@ -125,8 +125,7 @@ import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.rememberPagerState
+
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -460,7 +459,7 @@ internal fun ErrorContent(
 }
 
 
-@OptIn(ExperimentalPagerApi::class, ExperimentalAnimationApi::class)
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun HomeSectionsContent(
     jobListings: List<JobListing>,
@@ -791,7 +790,7 @@ internal fun TopLocationChipsSection(
         Text(
             text = "Top locations",
             style = MaterialTheme.typography.titleSmall.copy(
-                color = Color.Black,
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 fontWeight = FontWeight.SemiBold
             ),
             modifier = Modifier.padding(horizontal = 4.dp)
@@ -851,7 +850,7 @@ fun RecommendedJobsSection(
                 text = sectionTitle ?: stringResource(R.string.jobs_near_you),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,  // Changed to black
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     fontSize = 17.sp
                 )
             )
@@ -860,7 +859,7 @@ fun RecommendedJobsSection(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "View All",
-                tint = Color.Black.copy(alpha = 0.6f),  // Changed to black
+                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                 modifier = Modifier
                     .size(IconSizes.Standard)
                     .clickable { onViewAllClick() }
@@ -931,7 +930,7 @@ fun BrowseCategoriesSection(
             Text(
                 text = stringResource(R.string.categories),
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color.Black,  // Changed to black
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -943,7 +942,7 @@ fun BrowseCategoriesSection(
                 Text(
                     text = "See all",
                     style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color.Black.copy(alpha = 0.7f),  // Changed to black
+                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -951,7 +950,7 @@ fun BrowseCategoriesSection(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = "View All Categories",
-                    tint = Color.Black.copy(alpha = 0.6f),  // Changed to black
+                    tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                     modifier = Modifier.size(IconSizes.Standard)
                 )
             }
@@ -1031,7 +1030,7 @@ internal fun CategoryChip(
         Text(
             text = category.name,
             style = MaterialTheme.typography.labelSmall.copy(
-                color = Color.Black,  // Changed to black
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
                 fontSize = 10.sp
             ),

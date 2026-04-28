@@ -305,17 +305,11 @@ dependencies {
     // Note: WebP is natively supported on Android 4.0+ (API 14+)
 
     // Compose and Lifecycle
-    implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") 
     
     implementation("androidx.compose.animation:animation:1.6.0")
 
-    // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
-
     // Accompanist libraries - Only keep what's needed
-    implementation("com.google.accompanist:accompanist-pager:0.28.0")
-    implementation("com.google.accompanist:accompanist-pager-indicators:0.28.0")
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
 
     // Material Design
@@ -359,9 +353,6 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.0")
-
-    // Animations - Lottie
-    implementation("com.airbnb.android:lottie-compose:6.0.0")
 
     // Hilt for Dependency Injection
     implementation(libs.hilt.android)

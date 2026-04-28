@@ -1,7 +1,5 @@
 [versions]
 agp = "8.7.3"
-androidxMaterial3Version = "1.0.0"
-coilCompose = "2.4.0"
 kotlin = "2.0.21"
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -10,37 +8,16 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.09.00"
-navigationCompose = "2.8.9"
-foundation = "1.9.0"
-uiText = "1.9.0"
-foundationVersion = "1.9.1"
-material3 = "1.3.2"
-foundationLayout = "1.9.1"
-ui = "1.9.3"
 androidxTestExt = "1.2.1"
 androidxTestUiautomator = "2.3.0"
 androidxBenchmarkMacro = "1.2.4"
 androidxProfileinstaller = "1.3.1"
 androidxBaselineProfile = "1.2.4"
-firebaseAuth = "24.0.1"
 firebaseAppcheckDebug = "19.0.1"
 hilt = "2.52"
-androidxFoundation = "1.10.1"
-uiTextVersion = "1.10.3"
-
-# P2-3: Jetpack Navigation 3 — stable since Nov 2025.
-# Declarations only; not wired into :app yet because Nav3 requires `compileSdk = 36`
-# (current project is on 35). Bump compileSdk in a dedicated change before consuming
-# these libraries. See `docs/android-scale-audit/02_brutal_issue_list.md` §P2-3.
-nav3Core = "1.0.0"
-lifecycleViewmodelNav3 = "2.10.0-rc01"
 
 [libraries]
-androidx-compose-material3-material33 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3Version" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
-androidx-x-x-x = { module = "androidx.compose.material3:1.2.0" }
-coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -54,28 +31,14 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
-androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
-material3 = { group = "androidx.compose.material3.com", name = "material3", version.ref = "material3" }
-androidx-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidxTestUiautomator" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "androidxBenchmarkMacro" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "androidxProfileinstaller" }
-firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug", version.ref = "firebaseAppcheckDebug" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "androidxFoundation" }
-androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiTextVersion" }
-
-# P2-3: Navigation 3 (stable). See note next to nav3Core above for the
-# compileSdk prerequisite before these can be implementation()-wired.
-androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
-androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
-androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

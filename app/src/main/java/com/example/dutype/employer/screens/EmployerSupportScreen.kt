@@ -49,7 +49,7 @@ fun EmployerSupportScreen(
     }
     
     // Clean white background for professional look
-    val backgroundColor = Color.White
+    val backgroundColor = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
     
     // FAQ items
     var expandedFaqIndex by remember { mutableStateOf(-1) }

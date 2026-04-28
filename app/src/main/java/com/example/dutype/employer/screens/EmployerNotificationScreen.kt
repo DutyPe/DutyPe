@@ -130,7 +130,7 @@ fun EmployerNotificationScreen(
         com.example.dutype.components.CommonHeader(
             title = stringResource(R.string.notifications),
             onBackClick = onBackClick,
-            backgroundColor = Color.White,
+            backgroundColor = com.example.dutype.ui.theme.EmployerColors.ScreenBackground,
             titleColor = Color(0xFF1F2937)
         )
 

@@ -179,7 +179,7 @@ fun WorkerNotificationScreen(
                         Icon(
                             Icons.Default.Notifications,
                             contentDescription = "Error",
-                            tint = Color.Black,
+                            tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
@@ -227,7 +227,7 @@ fun WorkerNotificationScreen(
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "No notifications",
-                                tint = Color.Black,
+                                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -238,7 +238,7 @@ fun WorkerNotificationScreen(
                             Text(
                                 text = stringResource(R.string.notif_no_notifications),
                                 style = MaterialTheme.typography.headlineSmall.copy(
-                                    color = Color.Black,
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             )

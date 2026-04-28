@@ -113,7 +113,7 @@ fun EmployerReferEarnScreen(
             title = stringResource(R.string.refer_earn),
             subtitle = stringResource(R.string.invite_employers_earn),
             onBackClick = { navController.popBackStack() },
-            backgroundColor = Color.White
+            backgroundColor = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
             // Removed: QR Code icon button from actions
         )
         
@@ -428,7 +428,7 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
         }
     }
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(20.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier = Modifier.size(48.dp).background(Color(0xFFFEF3C7), CircleShape),
@@ -474,7 +474,7 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, totalEarnings: Double, availableBalance: Double) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.your_stats), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -510,7 +510,7 @@ private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, tot
 
 @Composable
 private fun EmployerStatItem(title: String, value: String, icon: ImageVector, color: Color, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = Color.White, shape = RoundedCornerShape(12.dp)) {
+    Surface(modifier = modifier, color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
             Spacer(Modifier.height(4.dp))
@@ -522,7 +522,7 @@ private fun EmployerStatItem(title: String, value: String, icon: ImageVector, co
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.available_to_withdraw), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
@@ -541,7 +541,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
     val bonus = ReferralRewards.getMilestoneBonus(nextMilestone)
     val freePostings = ReferralRewards.getEmployerFreePostings(nextMilestone)
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Text(stringResource(R.string.next_milestone), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(12.dp))
@@ -569,7 +569,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
 
 @Composable
 private fun EmployerHowItWorksCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.how_it_works), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -598,7 +598,7 @@ private fun EmployerHowItWorksCard() {
 
 @Composable
 private fun EmployerRewardsCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.rewards_milestones), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -630,7 +630,7 @@ private fun EmployerRewardsCard() {
 
 @Composable
 private fun EmployerRedemptionInstructionsCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.how_to_redeem), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -677,7 +677,7 @@ private fun EmployerRedemptionInstructionsCard() {
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.recent_referrals), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -773,7 +773,7 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
 
 @Composable
 private fun EmployerWithdrawalHistoryCard(withdrawals: List<WithdrawalRequest>) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.withdrawal_history), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
@@ -812,7 +812,7 @@ private fun EmployerWithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
 private fun EmployerReferrerInfoCard(referrerInfo: ReferrerInfo) {
     if (referrerInfo.referredByCode.isBlank() && referrerInfo.referredByUserId.isBlank()) return
 
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.who_referred_you), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(8.dp))
@@ -880,7 +880,7 @@ data class EmployerReferralItem(
 @SuppressLint("DefaultLocale")
 @Composable
 private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))

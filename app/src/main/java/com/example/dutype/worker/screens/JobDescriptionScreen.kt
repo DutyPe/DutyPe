@@ -726,9 +726,9 @@ private fun RowScope.ActionButtonsContent(
         border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        Icon(Icons.Default.Phone, null, tint = Color.Black, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+        Icon(Icons.Default.Phone, null, tint = com.example.dutype.ui.theme.WorkerColors.TextPrimary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.call), color = Color.Black, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(stringResource(R.string.call), color = com.example.dutype.ui.theme.WorkerColors.TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 
     // Apply Now Button - Shows different states based on application status
@@ -968,7 +968,7 @@ private fun JobDetailsContent(
                                     displayLocation.ifBlank { "Not specified" },
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.SemiBold, 
-                                        color = Color.Black
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                     )
                                 )
                             }
@@ -1289,7 +1289,7 @@ private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, val
             value, 
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold, 
-                color = Color.Black
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
         )
     }
