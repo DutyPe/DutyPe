@@ -160,16 +160,12 @@ fun MyJobsScreen(
     val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
     val myJobsBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
 
-    // Status bar color management based on current tab
-    val statusBarColor = when (selectedTabIndex) {
-        0 -> Color.White // Applied Jobs - White
-        1 -> Color.White // Saved Jobs - White
-        else -> Color.White
-    }
+    // Status bar matches screen background (theme-aware: white in light, dark in dark mode)
+    val statusBarColor = myJobsBackground
 
-    // Update status bar color - White for non-home screens
-    LaunchedEffect(selectedTabIndex) {
-        onStatusBarColorChange(Color.White)
+    // Update status bar color whenever the theme-aware screen background changes
+    LaunchedEffect(selectedTabIndex, statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
         
         // Refresh applications when switching to Applied Jobs tab
         if (selectedTabIndex == 0) {
@@ -217,7 +213,7 @@ fun MyJobsScreen(
                     Text(
                         text = stringResource(R.string.my_jobs),
                         style = com.example.dutype.ui.theme.AppTypography.screenTitle.copy(
-                            color = Color(0xFF111827)
+                            color = WorkerColors.TextPrimary
                         )
                     )
                 }
@@ -228,11 +224,11 @@ fun MyJobsScreen(
                 ScrollableTabRow(
                     selectedTabIndex = selectedTabIndex,
                     containerColor = Color.Transparent,
-                    contentColor = Color(0xFF1F2937),
+                    contentColor = WorkerColors.TextPrimary,
                     indicator = { tabPositions ->
                         TabRowDefaults.Indicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = Color.Black,
+                            color = WorkerColors.TextPrimary,
                             height = 3.dp
                         )
                     }
@@ -250,12 +246,12 @@ fun MyJobsScreen(
                                         imageVector = tabIcons[index],
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp),
-                                        tint = if (selectedTabIndex == index) Color.Black else Color(0xFF6B7280)
+                                        tint = if (selectedTabIndex == index) WorkerColors.TextPrimary else WorkerColors.TextSecondary
                                     )
                                     Text(
                                         text = title,
                                         fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selectedTabIndex == index) Color.Black else Color(0xFF6B7280)
+                                        color = if (selectedTabIndex == index) WorkerColors.TextPrimary else WorkerColors.TextSecondary
                                     )
                                 }
                             },

@@ -64,8 +64,11 @@ fun WorkerHistoryScreen(
         stringResource(R.string.tab_all_history)
     )
     
+    val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
+    LaunchedEffect(screenBg) {
+        onStatusBarColorChange(screenBg)
+    }
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
         jobApplicationViewModel.loadMyApplications()
     }
     

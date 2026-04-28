@@ -75,8 +75,9 @@ fun WorkerReferEarnScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // Load data on screen launch
+    val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+        onStatusBarColorChange(screenBg)
 
         // Kick off the referral data fetch IMMEDIATELY so the code/stats are
         // ready by the time the profile-completion gate resolves. Previously

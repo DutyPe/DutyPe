@@ -213,10 +213,10 @@ private fun JobCardInternal(
                         .clip(CircleShape)
                         // Solid surface for the job icon — no gradient.
                         .background(
-                            color = Color.White,
+                            color = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                             shape = CircleShape
                         )
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape),
+                        .border(1.dp, com.example.dutype.ui.theme.WorkerColors.Border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     JobImageOrAnimation(

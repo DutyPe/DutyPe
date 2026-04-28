@@ -66,8 +66,9 @@ fun EmployerProfileScreen(
     localNavController: NavController? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange?.invoke(Color.White)
+    val screenBg = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
+    LaunchedEffect(screenBg) {
+        onStatusBarColorChange?.invoke(screenBg)
     }
     
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }

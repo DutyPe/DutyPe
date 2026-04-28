@@ -78,9 +78,10 @@ fun EmployerAddressManagementScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit
 ) {
-    // Set white status bar once on screen enter
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+    // Set status bar to match screen background (theme-aware)
+    val screenBg = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
+    LaunchedEffect(screenBg) {
+        onStatusBarColorChange(screenBg)
     }
     
     val context = LocalContext.current
@@ -504,7 +505,7 @@ private fun AddressCard(
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (address.isActive) Color.White else Color(0xFFF9FAFB)
+            containerColor = if (address.isActive) com.example.dutype.ui.theme.EmployerColors.CardBackground else com.example.dutype.ui.theme.EmployerColors.ScreenBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
