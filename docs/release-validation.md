@@ -10,6 +10,48 @@ crash that shows up — lives in this file.
 
 ---
 
+## 0. Production-correctness fixes shipped on top of the R8 rewrite
+
+After the proguard rewrite landed, an audit against official Android / Firebase
+guidance turned up three production gaps. All three are now fixed:
+
+1. **Mobile Ads SDK was never initialized.** `AdManager.initialize()` existed
+   but had zero call sites — `MobileAds` was relying on lazy auto-init on the
+   first ad load, delaying the first ad and skipping proper SDK setup. Now
+   `AdManager` is `@Inject`ed into `DutyPeApplication` and initialized from
+   `initializeNonCriticalComponents()` on a background coroutine.
+   - **NOT yet fixed**: Google UMP (User Messaging Platform) consent. EU/UK/
+     Brazil traffic will receive non-personalized ads until a UMP `ConsentForm`
+     is wired into `MainActivity.onCreate`. AdMob TOS technically requires
+     this for that traffic. Tracked as a separate UI change.
+2. **Crashlytics mapping-file upload was disabled** in `app/build.gradle.kts`
+   via a `tasks.findByName("uploadCrashlyticsMappingFileRelease")?.enabled = false`
+   workaround for a DNS issue. That meant every release stack trace in the
+   Crashlytics console was obfuscated. The disable line is removed; the build
+   now uploads mappings normally. If your local network blocks
+   `firebasecrashlyticssymbols.googleapis.com`, the build still succeeds — run
+   `./gradlew :app:uploadCrashlyticsMappingFileRelease` later from a network
+   that works, or run release builds from CI.
+3. **Firebase Analytics + Performance SDKs shipped but never used.** Zero
+   `logEvent(...)` calls, zero `Trace.start(...)` calls. Now there's a tiny
+   `com.example.dutype.analytics.Analytics` helper that wraps
+   `FirebaseAnalytics`, initialized once from `initializeNonCriticalComponents()`,
+   with four typed events instrumented at the highest-leverage business
+   actions:
+   - `job_apply` — `JobApplicationService.submitApplication` success path.
+   - `job_post` — `JobFirestoreService.createJob` success path.
+   - `otp_verified` — `OtpViewModel.signInWithPhoneAuthCredential` success path.
+   - `rewarded_ad_completed` — both employer and worker rewarded-ad earned
+     callbacks in `AdManager`.
+
+   Auto-collected events (`first_open`, `session_start`, `screen_view`) start
+   flowing as soon as `Analytics.init(this)` runs. Performance SDK is left on
+   the classpath because it auto-records app-start, screen-rendering and HTTP
+   metrics with no code; remove it from `app/build.gradle.kts` if nobody opens
+   the Firebase Performance dashboard.
+
+---
+
 ## 1. What changed and why
 
 ### 1.1 The rewrite (commit `c1197b6`)

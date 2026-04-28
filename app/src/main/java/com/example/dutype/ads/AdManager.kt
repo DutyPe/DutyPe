@@ -2,6 +2,7 @@ package com.example.dutype.ads
 
 import android.app.Activity
 import android.content.Context
+import com.example.dutype.analytics.Analytics
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -254,6 +255,7 @@ class AdManager @Inject constructor() {
         
         ad.show(activity) { rewardItem ->
             Timber.d("📺 Employer earned reward: ${rewardItem.amount} ${rewardItem.type}")
+            Analytics.rewardedAdCompleted(placement = "employer_contact_unlock")
             onRewarded()
         }
     }
@@ -328,6 +330,7 @@ class AdManager @Inject constructor() {
         
         ad.show(activity) { rewardItem ->
             Timber.d("📺 Worker earned reward: ${rewardItem.amount} ${rewardItem.type}")
+            Analytics.rewardedAdCompleted(placement = "worker_job_description_unlock")
             onRewarded()
         }
     }

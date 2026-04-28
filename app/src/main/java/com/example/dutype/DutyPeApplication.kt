@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.dutype.app.BuildConfig
+import com.example.dutype.ads.AdManager
+import com.example.dutype.analytics.Analytics
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
@@ -98,7 +100,10 @@ class DutyPeApplication : Application(), Configuration.Provider {
     
     @Inject
     lateinit var anrHandler: com.example.dutype.performance.ANRHandler
-    
+
+    @Inject
+    lateinit var adManager: AdManager
+
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
     
@@ -408,6 +413,40 @@ class DutyPeApplication : Application(), Configuration.Provider {
         initializeCrashlytics()
         initializeGoogleMapsServices()
         initializeMetadata()
+        initializeAnalytics()
+        initializeMobileAds()
+    }
+
+    /**
+     * Touch FirebaseAnalytics once so auto-collected events (first_open,
+     * session_start, screen_view) start flowing. Custom events use
+     * [Analytics.jobApply] / [Analytics.jobPost] / [Analytics.otpVerified] /
+     * [Analytics.rewardedAdCompleted] from the action sites.
+     */
+    private fun initializeAnalytics() {
+        try {
+            Analytics.init(this)
+        } catch (e: Exception) {
+            Timber.w(e, "📈 Analytics init skipped")
+        }
+    }
+
+    /**
+     * Initialize the Mobile Ads SDK on a background thread per Google's
+     * "App Startup Latency" guidance. Without this, MobileAds lazy-auto-inits
+     * on the first ad load, which delays the first ad and skips proper SDK
+     * setup.
+     *
+     * NOTE: This does NOT request UMP consent. EU/UK/Brazil traffic will
+     * receive non-personalized ads until a UMP ConsentForm is wired into
+     * MainActivity.onCreate (separate change — needs UI work).
+     */
+    private fun initializeMobileAds() {
+        try {
+            adManager.initialize(this)
+        } catch (e: Exception) {
+            Timber.w(e, "📺 MobileAds init skipped")
+        }
     }
     
     /**

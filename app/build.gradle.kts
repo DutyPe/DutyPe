@@ -428,8 +428,10 @@ dependencies {
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
 
-afterEvaluate {
-    // Temporary workaround: Disable Crashlytics mapping-file upload due to network/DNS issues
-    // with firebasecrashlyticssymbols.googleapis.com. This allows the release build to complete locally.
-    tasks.findByName("uploadCrashlyticsMappingFileRelease")?.enabled = false
-}
+// Crashlytics mapping-file upload is intentionally LEFT ENABLED (default).
+// Without it, every release stack trace in the Crashlytics console is
+// obfuscated and effectively unreadable. If your local network blocks
+// firebasecrashlyticssymbols.googleapis.com, the build will still succeed;
+// upload the mapping manually afterwards with:
+//   ./gradlew :app:uploadCrashlyticsMappingFileRelease
+// or run the build from a CI runner with unrestricted DNS.
