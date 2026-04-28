@@ -153,7 +153,7 @@ fun EmployerSupportScreen(
                     Text(
                         text = stringResource(R.string.employer_help_title),
                         style = AppTypography.pageTitle.copy(
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         ),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
@@ -255,7 +255,7 @@ fun EmployerSupportScreen(
             Text(
                 text = stringResource(R.string.employer_user_guide_header),
                 style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -293,7 +293,7 @@ fun EmployerSupportScreen(
             Text(
                 text = stringResource(R.string.employer_faq_header),
                 style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -365,7 +365,7 @@ fun EmployerSupportScreen(
             Text(
                 text = stringResource(R.string.employer_quick_links_header),
                 style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -409,7 +409,7 @@ fun EmployerSupportScreen(
             Text(
                 text = stringResource(R.string.employer_legal_header),
                 style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -522,7 +522,7 @@ private fun ContactOptionCard(
             Text(
                 text = title,
                 style = AppTypography.labelLarge.copy(
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             Text(
@@ -567,7 +567,7 @@ private fun GuideItemCard(
                     text = guide.title,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
             }
@@ -619,7 +619,7 @@ private fun FaqItemCard(
                 text = faq.question,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -665,7 +665,7 @@ private fun QuickLinkItem(
         Text(
             text = title,
             style = AppTypography.listItemTitle.copy(
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
             ),
             modifier = Modifier.weight(1f)
         )

@@ -1241,7 +1241,7 @@ fun ApplicationAnalyticsSection(
                     text = "Job Analytics",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 TextButton(

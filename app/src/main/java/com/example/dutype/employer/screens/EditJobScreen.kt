@@ -469,7 +469,7 @@ fun EditJobScreen(
                     Text(
                         text = "Edit Job",
                         style = AppTypography.screenTitle.copy(
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -637,7 +637,7 @@ fun EditJobScreen(
                                 text = "Job Title",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )
@@ -691,7 +691,7 @@ fun EditJobScreen(
                                 text = stringResource(R.string.payment_details),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )
@@ -786,7 +786,7 @@ fun EditJobScreen(
                                 text = "Job Location",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )
@@ -927,7 +927,7 @@ fun EditJobScreen(
                                 text = "Job Description",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )
@@ -1044,7 +1044,7 @@ fun EditJobScreen(
                                 text = "Contact Information",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )
@@ -1113,7 +1113,7 @@ fun EditJobScreen(
                                 text = "Additional Details",
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                     fontSize = 15.sp
                                 )
                             )

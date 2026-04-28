@@ -79,7 +79,7 @@ fun PostJobStepIndicator(
                         text = stepLabels.getOrElse(currentStep - 1) { "" },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(

@@ -82,6 +82,7 @@ fun SelectRoleScreen(
     navController: NavHostController,
     onRoleSelected: ((String) -> Unit)? = null
 ) {
+    com.example.dutype.ui.theme.ForceLightTheme {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isVisible by remember { mutableStateOf(false) }
@@ -396,6 +397,7 @@ fun SelectRoleScreen(
                 }
             }
         }
+    }
     }
 }
 

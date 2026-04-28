@@ -197,7 +197,7 @@ fun EmployerAddressManagementScreen(
                     Text(
                         text = "Add New Address",
                         style = AppTypography.sectionHeader.copy(
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         )
                     )
                     
@@ -335,7 +335,7 @@ fun EmployerAddressManagementScreen(
                                             Text(
                                                 text = suggestion.description,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = Color(0xFF1F2937)
+                                                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                                             )
                                         }
                                     }
@@ -429,7 +429,7 @@ fun EmployerAddressManagementScreen(
                 Text(
                     text = "Saved Addresses",
                     style = AppTypography.sectionHeader.copy(
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     ),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )

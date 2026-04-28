@@ -444,7 +444,7 @@ private fun JobsList(
                         if (uiState.isLoadingMore) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(IconSizes.Standard), // Material Design 3: 24dp
-                                color = Color(0xFF1F2937),
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -624,7 +624,7 @@ private fun JobFilterBottomSheet(
                     text = stringResource(R.string.jobs_filter_title),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
                 )
                 TextButton(onClick = {

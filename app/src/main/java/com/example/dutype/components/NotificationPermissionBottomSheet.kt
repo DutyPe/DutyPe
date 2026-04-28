@@ -92,7 +92,7 @@ fun NotificationPermissionBottomSheet(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     ),
                     textAlign = TextAlign.Center
                 )

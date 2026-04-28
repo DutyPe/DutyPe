@@ -651,7 +651,7 @@ private fun ApplicationCard(
                     Column {
                         Text(
                             text = displayName,
-                            style = AppTypography.cardTitle.copy(color = Color(0xFF1F2937)),
+                            style = AppTypography.cardTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -881,7 +881,7 @@ private fun EmptyApplicationsState() {
         
         Text(
             text = "No Applications Yet",
-            style = AppTypography.emptyStateTitle.copy(color = Color(0xFF1F2937))
+            style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
         )
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -979,7 +979,7 @@ private fun ContactUnlockDialog(
                 text = stringResource(R.string.unlock_contact),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
         },

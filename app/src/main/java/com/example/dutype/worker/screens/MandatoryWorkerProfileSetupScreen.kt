@@ -974,7 +974,7 @@ private fun PersonalInformationStep(
                     text = "Personal Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                         fontSize = 18.sp
                     )
                 )
@@ -1235,7 +1235,7 @@ private fun AdditionalDetailsStep(
                     text = "Additional Details",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                         fontSize = 18.sp
                     )
                 )
@@ -1264,7 +1264,7 @@ private fun AdditionalDetailsStep(
                     text = "Address *",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
                 )
                 
@@ -1419,7 +1419,7 @@ private fun AdditionalDetailsStep(
                 text = "Date of Birth *",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 )
             )
 
@@ -1479,8 +1479,8 @@ private fun AdditionalDetailsStep(
                     focusedBorderColor = Color(0xFF111111),
                     unfocusedBorderColor = Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626),
-                    focusedTextColor = Color(0xFF1F2937),
-                    unfocusedTextColor = Color(0xFF1F2937)
+                    focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                    unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 )
             )
 
@@ -1567,7 +1567,7 @@ private fun ProfessionalInformationStep(
                     text = "Professional Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                         fontSize = 18.sp
                     )
                 )
@@ -1587,7 +1587,7 @@ private fun ProfessionalInformationStep(
                 text = "Skills * (Select all that apply)",
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937),
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     fontSize = 13.sp,
                     letterSpacing = 0.5.sp
                 ),
@@ -1705,7 +1705,7 @@ private fun ProfessionalInformationStep(
                                     shape = RoundedCornerShape(14.dp),
                                     colors = FilterChipDefaults.filterChipColors(
                                         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                        labelColor = Color(0xFF1F2937),
+                                        labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                         selectedContainerColor = Color(0xFF111111),
                                         selectedLabelColor = Color.White,
                                         selectedLeadingIconColor = Color.White
@@ -1762,7 +1762,7 @@ private fun ProfessionalInformationStep(
                             shape = RoundedCornerShape(14.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                labelColor = Color(0xFF1F2937),
+                                labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 selectedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                 selectedLabelColor = Color(0xFF1F2937),
                                 selectedLeadingIconColor = Color(0xFF111111)
@@ -1834,8 +1834,8 @@ private fun ProfessionalInformationStep(
                             unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                             focusedBorderColor = Color(0xFF111111),
                             unfocusedBorderColor = Color(0xFFD1D5DB),
-                            focusedTextColor = Color(0xFF1F2937),
-                            unfocusedTextColor = Color(0xFF1F2937)
+                            focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                            unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         ),
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -1891,7 +1891,7 @@ private fun ProfessionalInformationStep(
                                     shape = RoundedCornerShape(12.dp),
                                     colors = AssistChipDefaults.assistChipColors(
                                         containerColor = Color(0xFFF3F4F6),
-                                        labelColor = Color(0xFF1F2937)
+                                        labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                     ),
                                     border = BorderStroke(1.dp, Color(0xFFD1D5DB))
                                 )
@@ -1927,7 +1927,7 @@ private fun ProfessionalInformationStep(
                 text = "Education qualification (optional)",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 10.dp)
             )
@@ -2001,7 +2001,7 @@ private fun ProfessionalInformationStep(
                 text = "Short bio *",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -2048,7 +2048,7 @@ private fun ProfessionalInformationStep(
                 text = "Experience Level *",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -2085,7 +2085,7 @@ private fun ProfessionalInformationStep(
                 ) {
                     experienceLevels.forEach { level ->
                         DropdownMenuItem(
-                            text = { Text(level, color = Color(0xFF1F2937)) },
+                            text = { Text(level, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary) },
                             onClick = {
                                 onExperienceChange(level)
                                 experienceExpanded = false
@@ -2122,7 +2122,7 @@ private fun GenderSelectionField(
             text = "Gender *",
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             ),
             modifier = Modifier.padding(bottom = 12.dp)
         )
@@ -2157,7 +2157,7 @@ private fun GenderSelectionField(
                         text = gender,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 8.dp),
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
                 }
             }

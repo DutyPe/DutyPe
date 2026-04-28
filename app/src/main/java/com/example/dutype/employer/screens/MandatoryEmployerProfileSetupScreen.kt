@@ -882,7 +882,7 @@ private fun CompanyInformationStep(
                     text = "Company Information",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                         fontSize = 18.sp
                     )
                 )
@@ -1114,7 +1114,7 @@ private fun ContactDetailsStep(
                     text = "Contact Details",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                         fontSize = 18.sp
                     )
                 )
@@ -1201,7 +1201,7 @@ private fun ContactDetailsStep(
                     text = "Work Location *",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 
@@ -1281,7 +1281,7 @@ private fun ContactDetailsStep(
                 text = "Gender *",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
@@ -1317,7 +1317,7 @@ private fun ContactDetailsStep(
                             text = genderOption,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(start = 8.dp),
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         )
                     }
                 }

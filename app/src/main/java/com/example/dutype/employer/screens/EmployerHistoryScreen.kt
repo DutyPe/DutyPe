@@ -293,7 +293,7 @@ private fun MonthHeader(monthYear: String) {
             text = monthYear,
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937),
+                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                 letterSpacing = 1.sp
             )
         )

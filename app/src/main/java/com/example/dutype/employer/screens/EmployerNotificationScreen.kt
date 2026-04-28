@@ -202,7 +202,7 @@ fun EmployerNotificationScreen(
                             Text(
                                 text = stringResource(R.string.notif_no_notifications),
                                 style = MaterialTheme.typography.headlineSmall,
-                                color = Color(0xFF1F2937),
+                                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(

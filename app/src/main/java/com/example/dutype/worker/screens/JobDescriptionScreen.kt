@@ -384,7 +384,7 @@ fun JobDescriptionScreen(
                 onBackClick = { handleBackNavigation() },
                 showBackButton = true,
                 backgroundColor = WorkerColors.CardBackground,
-                titleColor = Color.Black,
+                titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 actions = {
                     // Save/Favorite Button
                     job?.let {
@@ -865,7 +865,7 @@ private fun JobDetailsContent(
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                     strokeWidth = 2.5.dp,
                                     modifier = Modifier.size(30.dp)
                                 )
@@ -1334,7 +1334,7 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
                 Box(modifier = Modifier.size(80.dp).scale(errorAnimation).background(Color(0xFFEF4444).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.Error, "Error", tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                 }
-                Text(stringResource(R.string.oops_something_wrong), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1F2937)), textAlign = TextAlign.Center)
+                Text(stringResource(R.string.oops_something_wrong), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary), textAlign = TextAlign.Center)
                 Text(error, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
                 Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

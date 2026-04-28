@@ -159,7 +159,7 @@ fun LocationAutocompleteField(
                             Text(
                                 text = suggestion.description,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF1F2937)
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         }
                     }

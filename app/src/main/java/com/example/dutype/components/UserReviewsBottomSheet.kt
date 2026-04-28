@@ -134,7 +134,7 @@ fun UserReviewsBottomSheet(
                             .padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF1F2937))
+                        CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
                     }
                 }
                 selectedReviews.isEmpty() -> {

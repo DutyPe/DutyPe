@@ -437,7 +437,7 @@ private fun RegisterInputSection(
     var hasRequestedPhoneHint by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-    val policyLinkColor = Color(0xFF1F2937)
+    val policyLinkColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
     val requestPhoneNumberHint = rememberPhoneNumberHintRequester(
         onPhoneNumberReceived = { selectedPhoneNumber ->
             hasPhoneInteracted = true

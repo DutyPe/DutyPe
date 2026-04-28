@@ -118,7 +118,7 @@ fun WorkerHistoryScreen(
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = Color(0xFF1F2937),
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     height = 3.dp
                 )
             }
@@ -143,7 +143,7 @@ fun WorkerHistoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF1F2937))
+                CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             }
         } else if (filteredApplications.isEmpty()) {
             EmptyHistoryState(selectedTab = selectedTab)
@@ -245,7 +245,7 @@ private fun MonthHeader(monthYear: String) {
             text = monthYear,
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937),
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 letterSpacing = 1.sp
             )
         )

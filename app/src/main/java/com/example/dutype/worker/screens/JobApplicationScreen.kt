@@ -228,7 +228,7 @@ fun JobApplicationScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF1F2937))
+                    CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
                 }
             }
             else -> {
@@ -674,7 +674,7 @@ private fun CoverLetterSection(
                             style = AppTypography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp,
-                                color = Color(0xFF1F2937)
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

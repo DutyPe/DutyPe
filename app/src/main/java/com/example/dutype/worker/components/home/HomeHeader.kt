@@ -59,7 +59,7 @@ fun HomeHeader(
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 22.sp,
-                        color = Color(0xFF1F2937),
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                         letterSpacing = (-0.5).sp
                     )
                 )

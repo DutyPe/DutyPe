@@ -128,7 +128,7 @@ private fun LogoutBottomSheetContent(
         Text(
             text = "Sign Out",
             style = AppTypography.pageTitle.copy(
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             ),
             textAlign = TextAlign.Center
         )

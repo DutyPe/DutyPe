@@ -181,7 +181,7 @@ fun EmptyListState(
                         ) {
                             Text(
                                 text = it.label,
-                                color = Color(0xFF1F2937),
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -547,7 +547,7 @@ fun EmptyStateButtons(
             ) {
                 Text(
                     text = it.label,
-                    color = Color(0xFF1F2937),
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             }

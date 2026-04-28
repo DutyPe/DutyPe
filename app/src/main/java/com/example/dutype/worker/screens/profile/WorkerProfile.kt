@@ -1055,7 +1055,7 @@ private fun ModernEditDialog(
                         text = stringResource(R.string.profile_edit_profile),
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         )
                     )
                     IconButton(onClick = onDismiss) {

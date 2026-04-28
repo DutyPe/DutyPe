@@ -583,7 +583,7 @@ private fun ApplicationTimeline(
                         Text(
                             text = stepData.label,
                             style = AppTypography.labelMedium.copy(
-                                color = Color(0xFF1F2937),
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 fontWeight = FontWeight.SemiBold
                             ),
                             textAlign = TextAlign.Center,
@@ -730,7 +730,7 @@ private fun StepIndicatorDot(
                         .background(Color(0xFFEBF4FF), CircleShape)
                         .border(
                             width = 1.5.dp,
-                            color = Color(0xFF1F2937),
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center

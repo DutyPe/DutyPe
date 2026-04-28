@@ -147,7 +147,7 @@ fun OverviewStatsSection(
             text = "Job Overview",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
             )
         )
         
@@ -199,7 +199,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 text = "Application Summary",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             
@@ -282,7 +282,7 @@ fun RecentApplicationsSection(
                     text = "Recent Applications",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 TextButton(
@@ -354,7 +354,7 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
                 text = "Recent Job Activity",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             
@@ -425,7 +425,7 @@ private fun JobActivityItem(job: JobListing) {
                 text = job.title,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

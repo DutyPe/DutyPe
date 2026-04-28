@@ -93,6 +93,7 @@ val onboardingPagesData = listOf(
 
 @Composable
 fun OnboardingScreen(navController: NavController) {
+    com.example.dutype.ui.theme.ForceLightTheme {
     val context = LocalContext.current
     var showLanguageSelection by remember { mutableStateOf(!hasLanguageBeenSelected(context)) }
     
@@ -114,6 +115,7 @@ fun OnboardingScreen(navController: NavController) {
         )
     } else {
         OnboardingContent(navController = navController)
+    }
     }
 }
 

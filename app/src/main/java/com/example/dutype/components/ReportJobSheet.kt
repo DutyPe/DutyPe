@@ -100,7 +100,7 @@ fun ReportJobSheet(
                                 text = "Report Job",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                             Text(
                                 text = "Help us keep DutyPe safe",
@@ -157,7 +157,7 @@ fun ReportJobSheet(
                                 text = jobTitle,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF1F2937),
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 maxLines = 1
                             )
                             Text(
@@ -484,7 +484,7 @@ private fun SuccessContent(
             text = "Report Submitted",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF1F2937)
+            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
         )
         
         Spacer(modifier = Modifier.height(8.dp))

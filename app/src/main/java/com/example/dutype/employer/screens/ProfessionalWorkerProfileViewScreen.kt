@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -645,7 +645,7 @@ private fun ApplicationStatusCard(
                     text = "Application Status",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 
@@ -813,7 +813,7 @@ private fun PersonalInformationCard(
                 text = "Personal Information",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
 
@@ -906,7 +906,7 @@ private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
                 text = "Work Experience",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             
@@ -938,7 +938,7 @@ private fun ExperienceItem(experience: WorkExperienceDisplay) {
                     text = experience.position,
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 Text(
@@ -982,7 +982,7 @@ private fun SkillsCard(skills: List<String>) {
                 text = "Skills",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             
@@ -1028,7 +1028,7 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
                 text = "Additional Information",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
             
@@ -1242,7 +1242,7 @@ private fun ErrorWorkerProfileState(
                     text = "Failed to load worker profile",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1F2937)
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     )
                 )
                 Text(

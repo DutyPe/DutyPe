@@ -129,3 +129,33 @@ fun dutypeTheme(
         )
     }
 }
+
+/**
+ * Forces a light Material theme + light token palette for screens that should
+ * NEVER follow the global dark/light setting (e.g. first-run onboarding,
+ * language picker, role selection). All `WorkerColors` / `EmployerColors`
+ * tokens read inside [content] return their light values, and the
+ * MaterialTheme color scheme is locked to [LightColorScheme]. The status bar
+ * is also forced to white with dark icons while in this scope.
+ */
+@Composable
+fun ForceLightTheme(content: @Composable () -> Unit) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            window.statusBarColor = LightColorScheme.background.toArgb()
+            window.navigationBarColor = LightColorScheme.background.toArgb()
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightNavigationBars = true
+        }
+    }
+    CompositionLocalProvider(LocalDarkMode provides false) {
+        MaterialTheme(
+            colorScheme = LightColorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
+}

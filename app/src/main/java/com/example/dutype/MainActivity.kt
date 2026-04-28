@@ -549,7 +549,7 @@ private fun MaintenanceModeSheet() {
                 text = "Under Maintenance",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
             Text(
                 text = "We're making DutyPe even better for you. Please check back in a few minutes.",
@@ -585,7 +585,7 @@ private fun ForceUpdateSheet(onUpdateClick: () -> Unit) {
                 text = "Update Required",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F2937)
+                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
             Text(
                 text = "A new version of DutyPe is available with important updates. Please update to continue.",

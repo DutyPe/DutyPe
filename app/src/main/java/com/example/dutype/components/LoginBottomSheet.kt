@@ -547,7 +547,7 @@ private fun PhoneInputContent(
     val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
     val referralConfig by appConfigViewModel.referralConfig.collectAsState()
     val signupBonusInt = referralConfig.signupBonus.toInt()
-    val policyLinkColor = Color(0xFF1F2937)
+    val policyLinkColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
     val scope = rememberCoroutineScope()
     var hasInteracted by remember { mutableStateOf(false) }
     var hasRequestedPhoneHint by remember { mutableStateOf(false) }

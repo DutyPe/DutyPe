@@ -240,7 +240,7 @@ fun EmptyJobsState(
                 text = if (isAppliedAllVariant) "You are on top of it!" else "No jobs $locationLabel",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1F2937)
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -672,7 +672,7 @@ fun HomeSectionsContent(
                                     Text(
                                         text = "${hire.workerName} got ${hire.jobTitle}",
                                         style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFF1F2937),
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Medium
                                         ),
@@ -819,7 +819,7 @@ internal fun TopLocationChipsSection(
                     },
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                        labelColor = Color(0xFF1F2937)
+                        labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
                 )
             }

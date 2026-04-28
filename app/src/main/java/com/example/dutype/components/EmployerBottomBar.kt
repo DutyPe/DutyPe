@@ -120,7 +120,7 @@ fun EmployerBottomBar(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = Color.White,
+            color = backgroundColor,
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
@@ -130,7 +130,7 @@ fun EmployerBottomBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(Color(0xFFE5E7EB))
+                        .background(com.example.dutype.ui.theme.WorkerColors.Border)
                 )
 
                 Row(

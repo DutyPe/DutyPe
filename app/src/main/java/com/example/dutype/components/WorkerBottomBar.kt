@@ -56,9 +56,9 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 @Composable
 fun WorkerBottomBar(
     navController: NavController,
-    backgroundColor: Color = Color.White,
-    selectedItemColor: Color = Color.Black, // Black for selected (Worker)
-    unselectedItemColor: Color = Color(0xFF9CA3AF), // Light gray for unselected
+    backgroundColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground,
+    selectedItemColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavSelected,
+    unselectedItemColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -105,7 +105,7 @@ fun WorkerBottomBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(Color(0xFFE5E7EB))
+                        .background(com.example.dutype.ui.theme.WorkerColors.Border)
                 )
                 
                 Row(

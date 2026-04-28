@@ -402,7 +402,7 @@ private fun PhoneInputSection(
 ) {
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-    val policyLinkColor = Color(0xFF1F2937)
+    val policyLinkColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
 
     var hasInteracted by remember { mutableStateOf(false) }
     var hasRequestedPhoneHint by remember { mutableStateOf(false) }

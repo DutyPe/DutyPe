@@ -147,7 +147,7 @@ fun FeedbackBottomSheet(
                             text = "Thank You! 🙏",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                         
@@ -177,7 +177,7 @@ fun FeedbackBottomSheet(
                         text = "Share Your Feedback",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1F2937)
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         )
                     )
                     

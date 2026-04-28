@@ -323,7 +323,7 @@ private fun JobsListSection(
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(32.dp),
-                    color = Color(0xFF1F2937),
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     strokeWidth = 2.dp
                 )
             }
@@ -402,7 +402,7 @@ private fun JobsListSection(
                             if (isLoadingMore) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
-                                    color = Color(0xFF1F2937),
+                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                     strokeWidth = 2.dp
                                 )
                             } else {
