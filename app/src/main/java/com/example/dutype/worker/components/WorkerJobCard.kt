@@ -88,7 +88,7 @@ fun JobCard(
 }
 
 /**
- * PERFORMANCE OPTIMIZED: JobCard that accepts JobListingSummary
+ * PERFORMANCE OPTIMIZED: JobCard that accepts JobListingSummary.....
  * Uses only card fields: title, companyName, salary, salaryType, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
