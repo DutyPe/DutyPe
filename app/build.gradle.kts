@@ -123,6 +123,30 @@ android {
                     "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
                 )
                 proguardFiles(applyMappingRules)
+
+                // Loud reminder: stale mappings are the #1 reason Play update
+                // sizes balloon. If the on-disk mapping is older than 14 days,
+                // there's a strong chance the developer forgot to commit the
+                // mapping after the previous release upload — every release
+                // since has been diffing against the same frozen names while
+                // R8 keeps assigning fresh names to new code.
+                val ageDays = ((System.currentTimeMillis() - previousMappingFile.lastModified()) /
+                    (1000L * 60 * 60 * 24))
+                if (ageDays > 14) {
+                    logger.warn(
+                        "[dutype] WARNING: app/mapping/release-mapping.txt is " +
+                            "$ageDays days old. After every Play upload, copy " +
+                            "app/build/outputs/mapping/release/mapping.txt over " +
+                            "app/mapping/release-mapping.txt and commit it, or " +
+                            "Play update sizes will keep growing release-over-release."
+                    )
+                }
+            } else {
+                logger.warn(
+                    "[dutype] WARNING: no app/mapping/release-mapping.txt found. " +
+                        "First release will obfuscate from scratch and ship a large " +
+                        "Play update. Commit the resulting mapping after this build."
+                )
             }
 
             // Enable debug symbols for crash analysis
