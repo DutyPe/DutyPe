@@ -216,13 +216,17 @@ fun EmployerProfileScreen(
                             )
                         }
 
-                        // Theme (light / dark / system) Icon
-                        IconButton(onClick = { showThemeBottomSheet = true }) {
-                            androidx.compose.material3.Text(
-                                text = "🌗",
-                                fontSize = 22.sp,
-                            )
-                        }
+                        // TEMP: Dark mode picker disabled until the dark palette
+                        // is fully validated across all screens. Re-enable by
+                        // uncommenting this IconButton + the matching
+                        // ThemeModeBottomSheet block below, and by removing
+                        // the `darkTheme = false` override in dutypeTheme().
+                        // IconButton(onClick = { showThemeBottomSheet = true }) {
+                        //     androidx.compose.material3.Text(
+                        //         text = "\uD83C\uDF17",
+                        //         fontSize = 22.sp,
+                        //     )
+                        // }
                         
                         // WhatsApp Support Button - Icon only with WhatsApp green color
                         IconButton(onClick = {
@@ -664,16 +668,16 @@ fun EmployerProfileScreen(
         )
     }
 
-    // Theme (light / dark / system) Bottom Sheet
-    if (showThemeBottomSheet) {
-        val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
-            skipPartiallyExpanded = true
-        )
-        com.example.dutype.components.ThemeModeBottomSheet(
-            sheetState = themeSheetState,
-            onDismiss = { showThemeBottomSheet = false },
-        )
-    }
+    // TEMP: Theme picker disabled — see comment near the IconButton above.
+    // if (showThemeBottomSheet) {
+    //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+    //         skipPartiallyExpanded = true
+    //     )
+    //     com.example.dutype.components.ThemeModeBottomSheet(
+    //         sheetState = themeSheetState,
+    //         onDismiss = { showThemeBottomSheet = false },
+    //     )
+    // }
     
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(

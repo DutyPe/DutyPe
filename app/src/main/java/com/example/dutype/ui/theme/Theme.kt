@@ -91,11 +91,17 @@ fun dutypeTheme(
     }
     val themeMode by themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
     val systemDark = isSystemInDarkTheme()
-    val darkTheme = when (themeMode) {
+    // TEMP: Dark mode disabled app-wide. Even if the device is in dark mode
+    // or the user previously picked DARK in settings, force LIGHT until the
+    // dark palette is fully validated across all screens. The picker UI is
+    // also commented out in WorkerProfile.kt and EmployerProfileScreen.kt.
+    @Suppress("UNUSED_VARIABLE")
+    val storedDark = when (themeMode) {
         ThemeMode.SYSTEM -> systemDark
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
     }
+    val darkTheme = false
 
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
