@@ -425,10 +425,12 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
     
     private fun initializeGoogleMapsServices() {
-        val mapsKey = try {
-            BuildConfig::class.java.getField("MAPS_API_KEY").get(null) as? String ?: ""
-        } catch (e: Exception) { "" }
-        
+        // Read MAPS_API_KEY directly. R8 inlines BuildConfig String constants
+        // into call sites, so reflective `BuildConfig::class.java.getField(...)`
+        // throws NoSuchFieldException in release builds and Places never
+        // initializes (silent breakage). Direct access is also faster.
+        val mapsKey = BuildConfig.MAPS_API_KEY
+
         if (mapsKey.isNotBlank() && mapsKey != "YOUR_GOOGLE_MAPS_API_KEY_HERE") {
             try {
                 if (!Places.isInitialized()) {
