@@ -123,6 +123,20 @@ testing, then walk this list:
 13. **Maps tile loading** on the job-details map preview.
 14. **Rewarded ads** (if surfaced in your test account) — confirm `AdManager`
     serves an ad.
+15. **Size regression check.** After any `proguard-rules.pro` edit, run
+    `./gradlew :app:bundleRelease` and confirm the new AAB's total dex is still
+    around 17 MB. PowerShell:
+
+    ```powershell
+    $aab = "app\build\outputs\bundle\release\app-release.aab"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::OpenRead((Resolve-Path $aab)).Entries |
+      Where-Object { $_.FullName -like "*.dex" } |
+      Select-Object FullName, @{N='MB';E={[math]::Round($_.Length/1MB,2)}}
+    ```
+
+    If total dex jumped by more than ~1 MB versus the c1197b6 baseline, your
+    last `-keep` rule is too broad. Revert it and reread §4.0.
 
 If any step hangs, crashes, or silently no-ops, jump to §4 to find the surgical
 fix.
@@ -134,21 +148,57 @@ fix.
 > All edits below go into `app/proguard-rules.pro`. After editing, rerun
 > `./gradlew :app:bundleRelease` and re-test.
 
+### 4.0 SIZE DISCIPLINE — read this before adding any rule
+
+The whole point of commit `c1197b6` was that **broad `-keep` rules silently
+undo R8** and bring the 17–18 MB Play update size back. Every recipe in this
+section is written to keep R8 effective. Apply them as written.
+
+**Hard rules — never break these:**
+
+1. **No package wildcards on third-party libraries.** Never write
+   `-keep class androidx.**`, `com.google.firebase.**`, `com.google.android.gms.**`,
+   `androidx.compose.**`, `androidx.lifecycle.**`, `androidx.navigation.**`,
+   `coil.**`, `com.airbnb.lottie.**`, `com.google.accompanist.**`,
+   `com.google.android.libraries.places.**`, `com.google.android.gms.maps.**`,
+   or `kotlin.**`. These libraries already ship their own `consumer-rules.pro`.
+   Adding a wildcard on top is what created the original 32 MB of dead dex.
+2. **`-keep class com.example.dutype.** { *; }` is forbidden.** Keep only the
+   specific model / entry-point / worker that fails.
+3. **Always prefer `-keepclassmembers` over `-keep`.** `-keep` keeps the class
+   AND its members AND blocks renaming. `-keepclassmembers` only keeps members
+   on classes R8 already kept for other reasons — much cheaper.
+4. **Never add `-dontobfuscate` or `-dontshrink` or `-dontoptimize`.** These
+   are size killers. They're not in the current file; keep it that way.
+5. **One rule per crash, not preemptive.** Don't add rules "just in case".
+   Wait for an actual stack trace, then add the narrowest rule that fixes it.
+6. **After adding any rule, re-check size.** Run `./gradlew :app:bundleRelease`
+   and confirm `app/build/outputs/bundle/release/app-release.aab` total dex
+   (`unzip -l app-release.aab | grep dex`) is still ~17 MB, not 30 MB+.
+   If it grew by more than ~500 KB, your rule is too broad — narrow it.
+
+If your fix needs more than 5 lines added to `proguard-rules.pro`, you are
+almost certainly doing it wrong. Stop and reread §4.0.
+
 ### 4.1 `ClassNotFoundException: com.foo.bar.Baz` at app start
 
 R8 stripped a class loaded by reflection, JNI, the manifest, or a service
-loader. Add the most surgical keep that covers it:
+loader. Always add the **single class**, never the package:
 
 ```pro
 -keep class com.foo.bar.Baz { *; }
 ```
 
-If it's a whole package needed by a third-party SDK that ships no consumer
-rules:
+**Forbidden** (will re-bloat dex):
 
 ```pro
+# DO NOT DO THIS
 -keep class com.foo.bar.** { *; }
 ```
+
+If the SDK genuinely needs many of its own classes kept, that means it forgot
+to ship a `consumer-rules.pro`. File a bug against the SDK, then keep ONLY
+the specific subpackage that the stack trace points at — never the SDK root.
 
 ### 4.2 Firestore warning: `No setter/field for X found on class Y`
 
@@ -176,36 +226,42 @@ current rules. If a brand-new Hilt entry-point still fails, add it explicitly:
 (WorkManager / Hilt-Work)
 
 The `@HiltWorker` class was renamed and Hilt's `WorkerAssistedFactory` lookup
-fails. Safety net:
+fails. Keep ONLY the specific worker that crashed (the stack trace names it):
 
 ```pro
--keep class * extends androidx.work.ListenableWorker { <init>(...); }
--keep @dagger.hilt.android.AndroidEntryPoint class *
--keep @androidx.hilt.work.HiltWorker class *
+-keep class com.example.dutype.workers.PendingApplicationNotificationWorker { <init>(...); }
 ```
 
-(Workers in this app: `PendingApplicationNotificationWorker`,
-`GuestEngagementWorker`, `JobSyncWorker`, `JobPostingWorker`.)
+The four workers in this app are: `PendingApplicationNotificationWorker`,
+`GuestEngagementWorker`, `JobSyncWorker`, `JobPostingWorker`. Add a rule for
+each one ONLY if it actually crashes. Do **not** preemptively add the broad
+`-keep class * extends androidx.work.ListenableWorker { <init>(...); }` —
+that keeps every worker class in every transitively-pulled library and grows
+dex unnecessarily.
 
 ### 4.5 FCM push not delivered
 
-Confirm `DutyPeMessagingService` is still in the manifest (it is, line 115).
-If R8 ever renames it (would only happen if you change manifest to use a class
-literal), add:
+The service is declared by fully-qualified name in the manifest (line 115),
+so R8 already keeps it via the manifest reference. If you ever switch to a
+class-literal manifest reference and it breaks, add ONLY this one line:
 
 ```pro
 -keep class com.example.dutype.services.DutyPeMessagingService { *; }
 ```
 
+Do **not** add `-keep class com.example.dutype.services.** { *; }` — most
+classes in that package don't need full member retention.
+
 ### 4.6 `RuntimeException: Unable to get provider ...MobileAdsInitProvider`
 
-Already kept. If you ever swap ads SDK versions and break it again:
-
-```pro
--keep class com.google.android.gms.ads.MobileAdsInitProvider { *; }
--keep class com.google.android.gms.ads.identifier.AdvertisingIdClient { *; }
--keep class com.google.android.gms.common.internal.safeparcel.** { *; }
-```
+Already kept in the current rules — there should be nothing to do. If a future
+ads SDK upgrade ever breaks it again, the existing three lines in
+`proguard-rules.pro` (`MobileAdsInitProvider`, `AdvertisingIdClient`,
+`com.google.android.gms.common.internal.safeparcel.**`) are the maximum that
+should ever be there. **Do not add `-keep class com.google.android.gms.ads.** { *; }`
+or `-keep class com.google.android.gms.** { *; }`** — the play-services-ads
+library ships its own consumer rules and a wildcard here will add several MB
+back to dex.
 
 ### 4.7 Maps: blank tiles / autocomplete returns empty
 
