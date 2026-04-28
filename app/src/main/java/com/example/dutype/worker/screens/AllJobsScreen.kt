@@ -282,7 +282,7 @@ fun AllJobsScreen(
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF1F2937),
                         selectedLabelColor = Color.White,
-                        containerColor = Color.White,
+                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                         labelColor = Color(0xFF374151)
                     ),
                     shape = RoundedCornerShape(20.dp),
@@ -605,7 +605,7 @@ private fun JobFilterBottomSheet(
     
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
         Column(

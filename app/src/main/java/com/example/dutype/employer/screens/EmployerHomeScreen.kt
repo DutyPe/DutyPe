@@ -270,9 +270,11 @@ fun EmployerHomeScreen(
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
     // Bug fix: status bar now matches the calm employer surface instead of
-    // the previous jarring black header.
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(com.example.dutype.ui.theme.EmployerRoleColors.screenBackground)
+    // the previous jarring black header. Reads the dark-mode-aware token so
+    // it follows the user's theme choice.
+    val employerSurface = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
+    LaunchedEffect(employerSurface) {
+        onStatusBarColorChange(employerSurface)
     }
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
@@ -678,7 +680,7 @@ fun WelcomeHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(com.example.dutype.ui.theme.EmployerRoleColors.screenBackground)
+            .background(com.example.dutype.ui.theme.EmployerColors.ScreenBackground)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -777,7 +779,7 @@ private fun GlassStatCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f))
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground.copy(alpha = 0.85f))
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -1002,7 +1004,7 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f))
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground.copy(alpha = 0.9f))
     ) {
         Column(
             modifier = Modifier
@@ -1223,7 +1225,7 @@ fun ApplicationAnalyticsSection(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(

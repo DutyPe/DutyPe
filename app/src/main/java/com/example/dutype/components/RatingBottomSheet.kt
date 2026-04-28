@@ -53,7 +53,7 @@ fun RatingBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
     ) {
         Column(

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.components
+package com.example.dutype.employer.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -400,7 +400,7 @@ fun JobTitleSection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -496,7 +496,7 @@ fun PaymentSection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -552,7 +552,7 @@ fun PaymentSection(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF3B82F6),
                             selectedLabelColor = Color.White,
-                            containerColor = Color.White,
+                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                             labelColor = Color(0xFF374151)
                         ),
                         border = FilterChipDefaults.filterChipBorder(
@@ -578,7 +578,7 @@ fun LocationSection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

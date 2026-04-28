@@ -427,7 +427,7 @@ fun MandatoryWorkerProfileSetupScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -449,7 +449,7 @@ fun MandatoryWorkerProfileSetupScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -480,7 +480,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 spotColor = Color(0xFF1F2937).copy(alpha = 0.15f)
                             ),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White
+                            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                         ),
                         shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
                     ) {
@@ -1474,8 +1474,8 @@ private fun AdditionalDetailsStep(
                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     focusedBorderColor = Color(0xFF111111),
                     unfocusedBorderColor = Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626),
@@ -1704,7 +1704,7 @@ private fun ProfessionalInformationStep(
                                         ),
                                     shape = RoundedCornerShape(14.dp),
                                     colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = Color.White,
+                                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                         labelColor = Color(0xFF1F2937),
                                         selectedContainerColor = Color(0xFF111111),
                                         selectedLabelColor = Color.White,
@@ -1761,9 +1761,9 @@ private fun ProfessionalInformationStep(
                                 ),
                             shape = RoundedCornerShape(14.dp),
                             colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color.White,
+                                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                 labelColor = Color(0xFF1F2937),
-                                selectedContainerColor = Color.White,
+                                selectedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                 selectedLabelColor = Color(0xFF1F2937),
                                 selectedLeadingIconColor = Color(0xFF111111)
                             ),
@@ -1830,8 +1830,8 @@ private fun ProfessionalInformationStep(
                         },
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
+                            focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                            unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                             focusedBorderColor = Color(0xFF111111),
                             unfocusedBorderColor = Color(0xFFD1D5DB),
                             focusedTextColor = Color(0xFF1F2937),
@@ -1990,8 +1990,8 @@ private fun ProfessionalInformationStep(
                     focusedBorderColor = Color(0xFF111111),
                     unfocusedBorderColor = Color(0xFFE5E7EB),
                     cursorColor = Color(0xFF111111),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
+                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 )
             )
         }
@@ -2021,9 +2021,9 @@ private fun ProfessionalInformationStep(
                     unfocusedBorderColor = Color(0xFFE5E7EB),
                     errorBorderColor = Color(0xFFDC2626),
                     cursorColor = Color(0xFF111111),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    errorContainerColor = Color.White
+                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                    errorContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
                 supportingText = {
                     Text(
@@ -2073,15 +2073,15 @@ private fun ProfessionalInformationStep(
                         focusedBorderColor = Color(0xFF1F2937),
                         unfocusedBorderColor = Color(0xFFE5E7EB),
                         errorBorderColor = Color(0xFFDC2626),
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
+                        unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                     )
                 )
                 
                 ExposedDropdownMenu(
                     expanded = experienceExpanded,
                     onDismissRequest = { experienceExpanded = false },
-                    modifier = Modifier.background(Color.White)
+                    modifier = Modifier.background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                 ) {
                     experienceLevels.forEach { level ->
                         DropdownMenuItem(

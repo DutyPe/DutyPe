@@ -88,6 +88,7 @@ fun EmployerProfileScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
+    var showThemeBottomSheet by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     
@@ -211,6 +212,14 @@ fun EmployerProfileScreen(
                                 contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else stringResource(R.string.language),
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        // Theme (light / dark / system) Icon
+                        IconButton(onClick = { showThemeBottomSheet = true }) {
+                            androidx.compose.material3.Text(
+                                text = "🌗",
+                                fontSize = 22.sp,
                             )
                         }
                         
@@ -651,6 +660,17 @@ fun EmployerProfileScreen(
     if (showLanguageBottomSheet) {
         com.example.dutype.components.LanguageSelectionBottomSheet(
             onDismiss = { showLanguageBottomSheet = false }
+        )
+    }
+
+    // Theme (light / dark / system) Bottom Sheet
+    if (showThemeBottomSheet) {
+        val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+        com.example.dutype.components.ThemeModeBottomSheet(
+            sheetState = themeSheetState,
+            onDismiss = { showThemeBottomSheet = false },
         )
     }
     

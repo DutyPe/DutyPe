@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import android.widget.Toast
 import android.annotation.SuppressLint
@@ -168,7 +168,7 @@ fun WorkerReferEarnScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White
+                            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         shape = RoundedCornerShape(16.dp)
@@ -331,7 +331,7 @@ fun WorkerReferEarnScreen(
                         }
                     }
                     
-                    // Withdraw Button — always visible once data is loaded
+                    // Withdraw Button � always visible once data is loaded
                     item {
                         val balance = uiState.stats?.availableBalance ?: 0.0
                         val minWithdrawal = referralConfig.minWithdrawal
@@ -499,11 +499,11 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     val tierName = ReferralRewards.getTierDisplayName(tier)
     val tierEmoji = when (tier) {
-        ReferralTier.BRONZE -> "🥉"
-        ReferralTier.SILVER -> "🥈"
-        ReferralTier.GOLD -> "🥇"
-        ReferralTier.PLATINUM -> "💎"
-        ReferralTier.DIAMOND -> "👑"
+        ReferralTier.BRONZE -> "??"
+        ReferralTier.SILVER -> "??"
+        ReferralTier.GOLD -> "??"
+        ReferralTier.PLATINUM -> "??"
+        ReferralTier.DIAMOND -> "??"
     }
     val tierColor = when (tier) {
         ReferralTier.BRONZE -> Color(0xFFCD7F32)
@@ -516,7 +516,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
@@ -574,7 +574,7 @@ private fun ReferralCodeSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -590,7 +590,7 @@ private fun ReferralCodeSection(
                     .background(Color(0xFFFEF3C7), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("🎁", fontSize = 24.sp)
+                Text("??", fontSize = 24.sp)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -772,7 +772,7 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                 Spacer(modifier = Modifier.height(8.dp))
                 val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
                 Text(
-                    text = "Earn ₹${String.format("%.0f", remaining)} more to unlock withdrawal (min ₹${String.format("%.0f", minWithdrawal)})",
+                    text = "Earn ?${String.format("%.0f", remaining)} more to unlock withdrawal (min ?${String.format("%.0f", minWithdrawal)})",
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)),
                     modifier = Modifier.fillMaxWidth()
                 )

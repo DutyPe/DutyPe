@@ -235,8 +235,8 @@ fun EmployerSupportScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EmployerSecondaryBlue,
                     unfocusedBorderColor = Color(0xFFCBD5E1),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
+                    focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
+                    unfocusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
                 )
             )
 
@@ -330,7 +330,7 @@ fun EmployerSupportScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -458,7 +458,7 @@ private fun EmployerQuickActionTile(
     Card(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(

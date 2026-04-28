@@ -1,5 +1,6 @@
 package com.example.dutype.ui.theme
 
+import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -8,20 +9,36 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import com.example.dutype.data.ThemeMode
+import com.example.dutype.data.ThemePreferenceStore
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.flowOf
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryBlue,
-    secondary = SecondaryTeal,
+    primary = Color(0xFF8B5CF6),
+    secondary = Color(0xFF38BDF8),
     tertiary = TertiaryGold,
-    background = DarkBackground,
-    surface = SurfaceDark,
+    background = Color(0xFF0B1220),
+    surface = Color(0xFF1A2233),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White
+    onBackground = Color(0xFFF1F5F9),
+    onSurface = Color(0xFFF1F5F9),
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -34,31 +51,81 @@ private val LightColorScheme = lightColorScheme(
     onSecondary = Color.White,
     onTertiary = Color.White,
     onBackground = Color.Black,
-    onSurface = Color.Black
+    onSurface = Color.Black,
 )
 
-// Updated Theme - Make system bars transparent
+/**
+ * Hilt entry-point so `dutypeTheme` (a top-level @Composable, not a Hilt
+ * component) can pull the singleton [ThemePreferenceStore] off the
+ * application context.
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ThemePrefEntryPoint {
+    fun themePreferenceStore(): ThemePreferenceStore
+}
+
+/**
+ * CompositionLocal exposing the user's current [ThemeMode] so any screen
+ * (e.g. settings) can read or mutate it without re-injecting the store.
+ */
+val LocalThemeMode = compositionLocalOf { ThemeMode.SYSTEM }
+
 @Composable
 fun dutypeTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Disabled by default: dynamic colour pulls from the device wallpaper and
-    // can override our brand palette (and our role-based backgrounds via
-    // MaterialTheme.colorScheme.background). Keep our own palette consistent.
+    // Disabled by default: dynamic colour pulls from the device wallpaper
+    // and overrides our brand palette. Keep our own palette consistent.
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val store = remember(context) {
+        runCatching {
+            EntryPointAccessors
+                .fromApplication(context.applicationContext, ThemePrefEntryPoint::class.java)
+                .themePreferenceStore()
+        }.getOrNull()
+    }
+    val themeModeFlow = remember(store) {
+        store?.themeMode ?: flowOf(ThemeMode.SYSTEM)
+    }
+    val themeMode by themeModeFlow.collectAsState(initial = ThemeMode.SYSTEM)
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            // Status bar tint matches the chosen surface; icons flip light/dark.
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalDarkMode provides darkTheme,
+        LocalThemeMode provides themeMode,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }

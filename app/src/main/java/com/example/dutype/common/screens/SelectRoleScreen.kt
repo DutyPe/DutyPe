@@ -447,7 +447,7 @@ fun RoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 4.dp,

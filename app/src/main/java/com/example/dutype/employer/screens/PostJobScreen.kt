@@ -889,8 +889,8 @@ fun PostJobScreen(
     val successGreen = Color(0xFF059669)
     val accentOrange = Color(0xFFFF8A3D)
     val darkText = Color(0xFF0F172A)
-    // Full white canvas for all post-job steps.
-    val pageBackground = Color.White
+    // Theme-aware canvas for all post-job steps.
+    val pageBackground = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
     val basicsReady = title.isNotBlank() && description.isNotBlank()
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
     val vacancyReady = vacancies.toIntOrNull()?.let { it in 1..50 } == true
@@ -1995,7 +1995,7 @@ private fun PostJobStepperBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
         Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         Row(
@@ -2083,7 +2083,7 @@ private fun PostJobLaunchBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
         Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
         Row(
@@ -2315,7 +2315,7 @@ fun StudioGroupCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
             ) {
                 content()
             }
@@ -2470,8 +2470,8 @@ fun EnhancedJobTitleSection(
                     focusedLabelColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
                     unfocusedBorderColor = if (titleError != null) Color(0xFFDC2626) else Color(0xFFE2E8F0),
                     cursorColor = primaryBlue,
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White
+                    unfocusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
+                    focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
                 )
             )
 
@@ -2635,7 +2635,7 @@ fun WorkTypeSelection(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = primaryBlue,
                             selectedLabelColor = Color.White,
-                            containerColor = Color.White,
+                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                             labelColor = Color(0xFF374151)
                         ),
                         border = FilterChipDefaults.filterChipBorder(
@@ -2846,7 +2846,7 @@ fun EnhancedLocationSection(
                     unfocusedBorderColor = Color(0xFFE2E8F0),
                     cursorColor = primaryBlue,
                     unfocusedContainerColor = Color(0xFFFAFAFA),
-                    focusedContainerColor = Color.White
+                    focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
                 )
             )
             
@@ -2856,7 +2856,7 @@ fun EnhancedLocationSection(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(

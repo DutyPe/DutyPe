@@ -1064,7 +1064,7 @@ private fun ContactUnlockDialog(
             }
         },
         shape = RoundedCornerShape(20.dp),
-        containerColor = Color.White
+        containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
     )
 }
 

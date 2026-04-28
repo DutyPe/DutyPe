@@ -162,7 +162,7 @@ fun ManualLocationScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -190,7 +190,7 @@ fun ManualLocationScreen(navController: NavController) {
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                             .shadow(4.dp, RoundedCornerShape(16.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         ReusableSearchBar(
@@ -228,7 +228,7 @@ fun ManualLocationScreen(navController: NavController) {
                                     )
                                 }
                             },
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Row(
@@ -284,7 +284,7 @@ fun ManualLocationScreen(navController: NavController) {
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .shadow(4.dp, RoundedCornerShape(16.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Column {

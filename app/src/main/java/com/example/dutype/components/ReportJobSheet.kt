@@ -57,7 +57,7 @@ fun ReportJobSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        containerColor = Color.White,
+        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -144,7 +144,7 @@ fun EmployerReferEarnScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White
+                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         shape = RoundedCornerShape(16.dp)
@@ -374,11 +374,11 @@ fun EmployerReferEarnScreen(
 private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     val tierName = ReferralRewards.getTierDisplayName(tier)
     val tierEmoji = when (tier) {
-        ReferralTier.BRONZE -> "🥉"
-        ReferralTier.SILVER -> "🥈"
-        ReferralTier.GOLD -> "🥇"
-        ReferralTier.PLATINUM -> "💎"
-        ReferralTier.DIAMOND -> "👑"
+        ReferralTier.BRONZE -> "??"
+        ReferralTier.SILVER -> "??"
+        ReferralTier.GOLD -> "??"
+        ReferralTier.PLATINUM -> "??"
+        ReferralTier.DIAMOND -> "??"
     }
     val tierColor = when (tier) {
         ReferralTier.BRONZE -> Color(0xFFCD7F32)
@@ -391,7 +391,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
@@ -433,7 +433,7 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
             Box(
                 modifier = Modifier.size(48.dp).background(Color(0xFFFEF3C7), CircleShape),
                 contentAlignment = Alignment.Center
-            ) { Text("🎁", fontSize = 24.sp) }
+            ) { Text("??", fontSize = 24.sp) }
 
             Spacer(Modifier.height(12.dp))
 

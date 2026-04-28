@@ -406,7 +406,7 @@ internal fun ErrorContent(
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
 //            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -658,7 +658,7 @@ fun HomeSectionsContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 16.dp, vertical = 10.dp),
-                                        .background(Color.White)
+                                        .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -818,7 +818,7 @@ internal fun TopLocationChipsSection(
                         }
                     },
                     colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.White,
+                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                         labelColor = Color(0xFF1F2937)
                     )
                 )
@@ -1009,7 +1009,7 @@ internal fun CategoryChip(
         Card(
             modifier = Modifier.size(60.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
             ),
             shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

@@ -69,7 +69,7 @@ fun NotificationDialog(
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                 ),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = 8.dp

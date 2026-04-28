@@ -148,7 +148,7 @@ fun CategoriesScreen(
                     modifier = Modifier
                         .width(90.dp)
                         .fillMaxHeight()
-                        .background(Color.White)
+                        .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                 )
                 
                 // Divider

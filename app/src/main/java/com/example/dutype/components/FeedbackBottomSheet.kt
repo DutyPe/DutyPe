@@ -93,7 +93,7 @@ fun FeedbackBottomSheet(
                 }
             },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = Color.White,
+            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             // Success Animation Overlay

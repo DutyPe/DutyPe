@@ -116,7 +116,7 @@ fun EmployerHistoryScreen(
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White,
+            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
             contentColor = Color(0xFF3B82F6),
             edgePadding = 16.dp,
             indicator = { tabPositions ->

@@ -61,7 +61,7 @@ fun InAppNotificationBanner(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clickable { onClick() },
             colors = CardDefaults.cardColors(
-                containerColor = Color.White
+                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 8.dp

@@ -53,7 +53,7 @@ fun PostJobStepIndicator(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         // Current step info card

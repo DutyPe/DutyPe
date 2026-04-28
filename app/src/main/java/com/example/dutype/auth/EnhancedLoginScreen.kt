@@ -240,7 +240,7 @@ private fun OtpLoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)  // White background for login screen
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)  // White background for login screen
     ) {
         Column(
             modifier = Modifier

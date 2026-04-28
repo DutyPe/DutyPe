@@ -595,7 +595,7 @@ fun EditJobScreen(
                 }
             }
         },
-        containerColor = Color.White
+        containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -737,7 +737,7 @@ fun EditJobScreen(
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = Color(0xFF3B82F6),
                                         selectedLabelColor = Color.White,
-                                        containerColor = Color.White,
+                                        containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                                         labelColor = Color(0xFF374151)
                                     ),
                                     border = FilterChipDefaults.filterChipBorder(
@@ -1146,7 +1146,7 @@ fun EditJobScreen(
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = Color(0xFF3B82F6),
                                             selectedLabelColor = Color.White,
-                                            containerColor = Color.White,
+                                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                                             labelColor = Color(0xFF374151)
                                         ),
                                         border = FilterChipDefaults.filterChipBorder(
@@ -1195,7 +1195,7 @@ fun EditJobScreen(
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = Color(0xFF3B82F6),
                                             selectedLabelColor = Color.White,
-                                            containerColor = Color.White,
+                                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                                             labelColor = Color(0xFF374151)
                                         ),
                                         border = FilterChipDefaults.filterChipBorder(

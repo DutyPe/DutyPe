@@ -362,7 +362,7 @@ fun JobMapScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = if (selectedJob != null) 220.dp else 16.dp),
-            containerColor = Color.White,
+            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
             contentColor = primaryBlue,
             shape = CircleShape
         ) {
@@ -387,7 +387,7 @@ fun JobMapScreen(
                     }
                 },
                 modifier = Modifier.size(44.dp),
-                containerColor = Color.White,
+                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                 contentColor = Color(0xFF1E293B),
                 shape = CircleShape
             ) {
@@ -405,7 +405,7 @@ fun JobMapScreen(
                     }
                 },
                 modifier = Modifier.size(44.dp),
-                containerColor = Color.White,
+                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                 contentColor = Color(0xFF1E293B),
                 shape = CircleShape
             ) {

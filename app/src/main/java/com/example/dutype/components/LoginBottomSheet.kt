@@ -280,7 +280,7 @@ fun LoginBottomSheet(
         sheetState = sheetState,
         dragHandle = null,
         scrimColor = Color.Black.copy(alpha = 0.32f),
-        containerColor = Color.White,
+        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         sheetMaxWidth = Dp.Unspecified
     ) {
@@ -607,7 +607,7 @@ private fun PhoneInputContent(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
                 modifier = Modifier.width(65.dp).height(54.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
+                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     contentColor = WorkerColors.TextPrimary
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -659,7 +659,7 @@ private fun PhoneInputContent(
                     focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Info,  // Purple when focused
                     unfocusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Border,
                     cursorColor = WorkerColors.Info,  // Purple cursor
-                    focusedContainerColor = Color.White,  // Pure white when focused
+                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,  // Pure white when focused
                     unfocusedContainerColor = WorkerColors.CardBackground
                 ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -701,7 +701,7 @@ private fun PhoneInputContent(
                     focusedBorderColor = WorkerColors.Info,
                     unfocusedBorderColor = WorkerColors.Border,
                     cursorColor = WorkerColors.Info,
-                    focusedContainerColor = Color.White,
+                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     unfocusedContainerColor = WorkerColors.CardBackground
                 ),
                 keyboardOptions = KeyboardOptions(

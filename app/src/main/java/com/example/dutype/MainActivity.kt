@@ -533,7 +533,7 @@ private fun MaintenanceModeSheet() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -569,7 +569,7 @@ private fun ForceUpdateSheet(onUpdateClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground),
         contentAlignment = Alignment.Center
     ) {
         Column(

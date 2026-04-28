@@ -133,7 +133,7 @@ fun ProfileShimmer(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
             .padding(16.dp)
     ) {
         Spacer(modifier = Modifier.height(13.dp))
@@ -210,7 +210,7 @@ fun ApplicationDetailShimmer(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
     ) {
         // Header shimmer
         Row(
@@ -267,7 +267,7 @@ private fun WorkerProfileCardShimmer() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -290,7 +290,7 @@ private fun WorkerProfileCardShimmer() {
 private fun ContactCardShimmer() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -334,7 +334,7 @@ private fun SectionCardShimmer(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -355,7 +355,7 @@ private fun SectionCardShimmer(
 private fun SkillsCardShimmer() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -376,7 +376,7 @@ private fun ApplicationActionBarShimmer() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
             .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -400,7 +400,7 @@ private fun ApplicationActionBarShimmer() {
 fun ApplicationListItemShimmer() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -438,7 +438,7 @@ fun ApplicationManagementShimmer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -451,7 +451,7 @@ fun ApplicationManagementShimmer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -486,7 +486,7 @@ fun NotificationItemShimmer() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
             .padding(16.dp),
         verticalAlignment = Alignment.Top
     ) {
@@ -513,7 +513,7 @@ fun NotificationShimmer(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
     ) {
         // Header
         Row(
@@ -589,7 +589,7 @@ private fun WorkerHomeAnnouncementShimmer() {
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.92f)),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground.copy(alpha = 0.92f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -654,7 +654,7 @@ private fun WorkerHomeCategoryChipShimmer() {
     ) {
         Card(
             modifier = Modifier.size(60.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
             shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {

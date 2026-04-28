@@ -68,7 +68,7 @@ fun ProfessionalLogoutDialog(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
             scrimColor = Color.Black.copy(alpha = 0.32f),
-            containerColor = Color.White,
+            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             sheetMaxWidth = Dp.Unspecified
         ) {

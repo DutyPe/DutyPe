@@ -63,7 +63,7 @@ fun UserReviewsBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White
+        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
     ) {
         Column(
             modifier = Modifier

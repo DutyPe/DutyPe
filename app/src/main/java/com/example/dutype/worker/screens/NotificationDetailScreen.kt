@@ -46,7 +46,7 @@ fun NotificationDetailScreen(
     }
     
     Column(
-        modifier = Modifier.fillMaxSize().background(Color.White)
+        modifier = Modifier.fillMaxSize().background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
     ) {
         com.example.dutype.components.CommonHeader(
             title = stringResource(R.string.notification_label),

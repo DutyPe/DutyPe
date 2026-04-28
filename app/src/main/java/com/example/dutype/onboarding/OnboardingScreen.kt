@@ -143,7 +143,7 @@ private fun FirstTimeLanguageSelection(
     } else {
         "You can change this later from Settings"
     }
-    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+    Box(modifier = Modifier.fillMaxSize().background(com.example.dutype.ui.theme.WorkerColors.CardBackground)) {
         // Batch-n #3: cleaner, professional Select Language screen.
         // Removed the busy gradient backdrop + decorative floating shapes
         // (LanguageSelectionBackdrop / LanguageScreenDecor) so the screen
@@ -376,7 +376,7 @@ private fun SimpleLanguageCard(
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -714,7 +714,7 @@ private fun OnboardingPage(
                     .offset(x = (-12).dp, y = 24.dp)
                     .size(width = 56.dp, height = 18.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color.White)
+                    .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                     .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
                     .shadow(2.dp, RoundedCornerShape(999.dp))
             )
@@ -854,7 +854,7 @@ private fun BottomControls(
                 modifier = Modifier.size(width = 56.dp, height = 56.dp),
                 shape = CircleShape,
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.95f)),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground.copy(alpha = 0.95f)),
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Icon(

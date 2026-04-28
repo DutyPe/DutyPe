@@ -3,6 +3,7 @@ package com.example.dutype.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
@@ -11,17 +12,10 @@ import androidx.compose.ui.graphics.Color
  * inside a worker/employer flow can read the correct background, card colour,
  * status-bar tint, etc. without hard-coding values per screen.
  *
- * Design rules (do not violate):
- *  - One single SOLID `screenBackground` per role. No gradients for general
- *    screens. Gradients are reserved for the onboarding / role-selection
- *    promotional surfaces only.
- *  - One single SOLID `cardBackground` per role used by every Card / Surface
- *    that wants to show as an elevated container.
- *  - `secondaryBackground` is the subtle bg for chip rails, search bars,
- *    secondary sections — also solid.
- *
- * Worker visual identity  : clean white surface, dark text, purple accents.
- * Employer visual identity : faint sky-blue surface, slate text, blue accents.
+ * Now dark-mode aware: every field reads from [WorkerColors]/[EmployerColors]
+ * which themselves switch on [LocalDarkMode], so flipping the dark-mode flag
+ * automatically repaints every screen wrapped in DutyPeWorkerTheme /
+ * DutyPeEmployerTheme.
  */
 @Immutable
 data class RoleColorScheme(
@@ -39,18 +33,17 @@ data class RoleColorScheme(
 )
 
 /**
- * Worker palette — keep the worker side feeling like a clean, premium
- * marketplace (Meesho / Apna-style). Background stays pure white so the
- * dark hero header on the Home screen stands out without adding gradients
- * elsewhere.
+ * Worker palette built from [WorkerColors]. Reads dark-mode-aware tokens, so
+ * worker screens flip to a deep-slate surface in dark mode automatically.
  */
-val WorkerRoleColors: RoleColorScheme = RoleColorScheme(
-    // Pure white surfaces across every worker screen.
-    screenBackground = Color(0xFFFFFFFF),
-    cardBackground = Color(0xFFFFFFFF),
-    secondaryBackground = Color(0xFFFFFFFF),
-    statusBar = Color(0xFFFFFFFF),
-    navigationBar = Color(0xFFFFFFFF),
+@Composable
+@ReadOnlyComposable
+fun workerRoleColors(): RoleColorScheme = RoleColorScheme(
+    screenBackground = WorkerColors.ScreenBackground,
+    cardBackground = WorkerColors.CardBackground,
+    secondaryBackground = WorkerColors.ScreenBackground,
+    statusBar = WorkerColors.StatusBarColor,
+    navigationBar = WorkerColors.BottomNavBackground,
     primary = WorkerColors.Primary,
     onPrimary = Color.White,
     textPrimary = WorkerColors.TextPrimary,
@@ -60,17 +53,16 @@ val WorkerRoleColors: RoleColorScheme = RoleColorScheme(
 )
 
 /**
- * Employer palette — uses a subtle, intentional light-blue surface so the
- * employer flow feels visually distinct from the worker flow at a glance,
- * while still reading as part of the same brand. Solid, no gradient.
+ * Employer palette built from [EmployerColors]. Reads dark-mode-aware tokens.
  */
-val EmployerRoleColors: RoleColorScheme = RoleColorScheme(
-    // Keep employer screens on a single white background for consistency.
-    screenBackground = Color(0xFFFFFFFF),
-    cardBackground = Color(0xFFFFFFFF),
-    secondaryBackground = Color(0xFFFFFFFF),
-    statusBar = Color(0xFFFFFFFF),
-    navigationBar = Color(0xFFFFFFFF),
+@Composable
+@ReadOnlyComposable
+fun employerRoleColors(): RoleColorScheme = RoleColorScheme(
+    screenBackground = EmployerColors.ScreenBackground,
+    cardBackground = EmployerColors.CardBackground,
+    secondaryBackground = EmployerColors.ScreenBackground,
+    statusBar = EmployerColors.StatusBarColor,
+    navigationBar = EmployerColors.BottomNavBackground,
     primary = EmployerColors.Primary,
     onPrimary = Color.White,
     textPrimary = EmployerColors.TextPrimary,
@@ -80,28 +72,52 @@ val EmployerRoleColors: RoleColorScheme = RoleColorScheme(
 )
 
 /**
+ * Static fallback (light worker palette) so any composable rendered outside
+ * a role wrapper still gets sensible defaults instead of crashing. Real
+ * screens are wrapped in DutyPeWorkerTheme/DutyPeEmployerTheme below which
+ * publish a dark-mode-aware scheme.
+ */
+private val FallbackWorkerRoleColors = RoleColorScheme(
+    screenBackground = Color(0xFFFFFFFF),
+    cardBackground = Color(0xFFFFFFFF),
+    secondaryBackground = Color(0xFFFFFFFF),
+    statusBar = Color(0xFFFFFFFF),
+    navigationBar = Color(0xFFFFFFFF),
+    primary = Color(0xFF570DF8),
+    onPrimary = Color.White,
+    textPrimary = Color(0xFF1F2937),
+    textSecondary = Color(0xFF6B7280),
+    divider = Color(0xFFF3F4F6),
+    border = Color(0xFFE5E7EB),
+)
+
+/**
  * CompositionLocal for the active role colour scheme. Falls back to the
  * worker palette so any composable rendered outside a role wrapper still
  * gets sensible defaults rather than crashing.
  */
-val LocalRoleColors = staticCompositionLocalOf { WorkerRoleColors }
+val LocalRoleColors = staticCompositionLocalOf { FallbackWorkerRoleColors }
 
 /**
- * Wrap any worker-side subtree to publish [WorkerRoleColors] via
+ * Wrap any worker-side subtree to publish the worker palette via
  * [LocalRoleColors]. Used by `WorkerMainScreen` so every nested screen and
  * card can pull its background / card / divider colour from the theme.
+ *
+ * Dark-mode aware: rebuilds on every theme change so screens repaint
+ * instantly when the user toggles light/dark.
  */
 @Composable
 fun DutyPeWorkerTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalRoleColors provides WorkerRoleColors, content = content)
+    val scheme = workerRoleColors()
+    CompositionLocalProvider(LocalRoleColors provides scheme, content = content)
 }
 
 /**
- * Wrap any employer-side subtree to publish [EmployerRoleColors] via
- * [LocalRoleColors]. Used by `EmployerMainScreen` so every nested screen and
- * card can pull its background / card / divider colour from the theme.
+ * Wrap any employer-side subtree to publish the employer palette via
+ * [LocalRoleColors].
  */
 @Composable
 fun DutyPeEmployerTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalRoleColors provides EmployerRoleColors, content = content)
+    val scheme = employerRoleColors()
+    CompositionLocalProvider(LocalRoleColors provides scheme, content = content)
 }

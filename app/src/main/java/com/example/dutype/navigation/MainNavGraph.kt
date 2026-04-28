@@ -765,7 +765,7 @@ fun MainNavGraph(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White),
+                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground),
             contentAlignment = Alignment.Center
         ) {
             // Blank white screen - NavHost will be shown immediately once destination is determined

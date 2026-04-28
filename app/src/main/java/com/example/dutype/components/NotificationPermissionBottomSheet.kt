@@ -59,7 +59,7 @@ fun NotificationPermissionBottomSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             modifier = modifier,
-            containerColor = Color.White,
+            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
             contentColor = Color.Black,
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {

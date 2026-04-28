@@ -259,7 +259,7 @@ private fun RegisterContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier

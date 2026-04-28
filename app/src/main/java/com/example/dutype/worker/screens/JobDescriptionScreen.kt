@@ -1055,7 +1055,7 @@ private fun JobDetailsContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     // Job Description Section
-                    Text(stringResource(R.string.job_description_label), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
+                    Text(stringResource(R.string.job_description_label), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     

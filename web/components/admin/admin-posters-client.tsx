@@ -99,18 +99,15 @@ function cleanSiteUrl() {
   return SITE_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
-function jobDetails(job: PosterJob) {
-  const details = [
-    ["Pay", formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)],
-    ["Shift", job.shiftTiming || job.shift || "Flexible"],
-    ["Location", renderLocation(job)],
-    ["Vacancies", job.vacancies ? String(job.vacancies) : "Multiple openings"],
-    ["Experience", job.experienceRequired || "Open to suitable workers"],
-    ["Gender", job.gender || "Any"]
+function jobDetails(job: PosterJob): Array<{ icon: string; label: string; value: string }> {
+  const details: Array<{ icon: string; label: string; value: string }> = [
+    { icon: "💼", label: "Job type", value: job.jobType || "Full-time" },
+    { icon: "🕐", label: "Shift", value: job.shiftTiming || job.shift || "Flexible" },
+    { icon: "👥", label: "Vacancies", value: job.vacancies ? String(job.vacancies) : "Multiple openings" },
+    { icon: "🎯", label: "Experience", value: job.experienceRequired || "Freshers welcome" },
+    { icon: "👤", label: "Gender", value: job.gender || "Any" }
   ];
-
-  if (job.contactNumber) details.push(["Contact", job.contactNumber]);
-
+  if (job.contactNumber) details.push({ icon: "📞", label: "Call", value: job.contactNumber });
   return details;
 }
 
@@ -187,41 +184,61 @@ export function AdminPostersClient({ initialJobId }: { initialJobId?: string }) 
 
   function renderJobPoster(job: PosterJob) {
     const targetId = printIdFor("jobs", job.id);
-    const description = job.description?.trim() || "Job details are available in the DutyPe app.";
+    const description = job.description?.trim() || "Job details, photos and how to apply are inside the DutyPe app.";
+    const payValue = formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType);
+    const locationValue = renderLocation(job);
+    const details = jobDetails(job);
 
     return (
       <article className={`print-poster job-print-poster ${printingId === targetId ? "poster-print-target" : ""}`}>
-        <div className="poster-brand-row">
-          <span className="poster-brand-mark">DP</span>
-          <div>
-            <strong>DutyPe</strong>
-            <span>Local jobs near you</span>
+        <header className="poster-hero">
+          <div className="poster-hero-bg" aria-hidden="true" />
+          <div className="poster-hero-content">
+            <div className="poster-brand-row light">
+              <span className="poster-brand-mark">DP</span>
+              <div>
+                <strong>DutyPe</strong>
+                <span>Local jobs near you</span>
+              </div>
+            </div>
+            <span className="poster-hero-pill">🔥 Hiring now</span>
           </div>
-        </div>
+        </header>
 
-        <div className="poster-main-copy">
-          <span className="poster-eyebrow">Hiring now</span>
+        <div className="poster-headline-block">
           <h2>{job.title || "Job opening"}</h2>
           <p className="poster-company">{job.companyName || "Employer on DutyPe"}</p>
-          <p className="poster-description">{description}</p>
+          <p className="poster-location-line"><span aria-hidden="true">📍</span> {locationValue}</p>
         </div>
 
+        <div className="poster-pay-card">
+          <span className="poster-pay-label">Salary</span>
+          <strong className="poster-pay-value">{payValue || "Best in market"}</strong>
+        </div>
+
+        {description && (
+          <p className="poster-description">{description}</p>
+        )}
+
         <dl className="poster-detail-grid">
-          {jobDetails(job).map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
+          {details.map((item) => (
+            <div key={item.label}>
+              <dt><span className="poster-detail-icon" aria-hidden="true">{item.icon}</span>{item.label}</dt>
+              <dd>{item.value}</dd>
             </div>
           ))}
         </dl>
 
-        <div className="poster-bottom-band">
-          <div>
-            <strong>Apply or share in DutyPe</strong>
-            <span>{cleanSiteUrl()}/jobs/{job.id}</span>
+        <footer className="poster-cta-band">
+          <div className="poster-cta-copy">
+            <strong>Apply free in DutyPe</strong>
+            <span>Open the app · Search this job · Tap Apply</span>
           </div>
-          <div className="poster-app-badge">Free app</div>
-        </div>
+          <div className="poster-cta-link">
+            <span className="poster-cta-link-label">Visit</span>
+            <span className="poster-cta-link-url">{cleanSiteUrl()}/jobs/{job.id}</span>
+          </div>
+        </footer>
       </article>
     );
   }
@@ -231,33 +248,41 @@ export function AdminPostersClient({ initialJobId }: { initialJobId?: string }) 
 
     return (
       <article className={`print-poster static-print-poster ${printingId === targetId ? "poster-print-target" : ""}`}>
-        <div className="poster-brand-row">
-          <span className="poster-brand-mark">DP</span>
-          <div>
-            <strong>DutyPe</strong>
-            <span>{siteMeta.strapline}</span>
+        <header className="poster-hero">
+          <div className="poster-hero-bg" aria-hidden="true" />
+          <div className="poster-hero-content">
+            <div className="poster-brand-row light">
+              <span className="poster-brand-mark">DP</span>
+              <div>
+                <strong>DutyPe</strong>
+                <span>{siteMeta.strapline}</span>
+              </div>
+            </div>
+            <span className="poster-hero-pill">{poster.eyebrow}</span>
           </div>
-        </div>
+        </header>
 
-        <div className="poster-main-copy">
-          <span className="poster-eyebrow">{poster.eyebrow}</span>
+        <div className="poster-headline-block">
           <h2>{poster.headline}</h2>
           <p className="poster-description large">{poster.subhead}</p>
         </div>
 
         <ul className="poster-bullet-list">
           {poster.bullets.map((bullet) => (
-            <li key={bullet}>{bullet}</li>
+            <li key={bullet}><span aria-hidden="true">✓</span> {bullet}</li>
           ))}
         </ul>
 
-        <div className="poster-bottom-band">
-          <div>
+        <footer className="poster-cta-band">
+          <div className="poster-cta-copy">
             <strong>{poster.footerTitle}</strong>
             <span>{poster.footerBody}</span>
           </div>
-          <div className="poster-app-badge">{cleanSiteUrl()}</div>
-        </div>
+          <div className="poster-cta-link">
+            <span className="poster-cta-link-label">Visit</span>
+            <span className="poster-cta-link-url">{cleanSiteUrl()}</span>
+          </div>
+        </footer>
       </article>
     );
   }

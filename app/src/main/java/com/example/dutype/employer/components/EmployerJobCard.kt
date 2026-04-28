@@ -53,7 +53,7 @@ fun EmployerJobCard(
                 }
             },
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(0.5.dp, Color(0xFFE5E7EB)),

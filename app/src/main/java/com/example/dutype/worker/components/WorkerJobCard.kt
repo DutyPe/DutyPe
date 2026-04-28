@@ -168,7 +168,7 @@ private fun JobCardInternal(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onCardClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -176,7 +176,7 @@ private fun JobCardInternal(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
         ) {
             Box(
                 modifier = Modifier
@@ -270,7 +270,7 @@ private fun JobCardInternal(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                 ) {
                     Icon(
