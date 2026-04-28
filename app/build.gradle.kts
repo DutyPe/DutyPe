@@ -56,17 +56,7 @@ android {
 
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
-
-        // Limit resources to languages we actually ship.
-        // The app only has values/ (default English) and values-te/ (Telugu).
-        // Without this, Firebase, Maps, Places, Play services, Mobile Ads etc.
-        // pull in 70+ language translations of their own strings, all of which
-        // get bundled into the AAB and shipped as per-language config splits.
-        // Filtering here drops every other locale at build time, shrinks the
-        // base APK / install size, and reduces resources.arsc churn between
-        // releases (a known Play update-size contributor).
-        resourceConfigurations += listOf("en", "te")
-
+        
         // 16 KB Page Size Support for Android 15+ (Required by Google Play from Nov 1, 2025)
         // Ensures native libraries work on devices with 16KB page sizes
         ndk {
