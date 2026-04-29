@@ -566,13 +566,13 @@ class JobFirestoreService @Inject constructor(
                 Timber.d(" âš ï¸ No user location - fetching all jobs (no distance sorting)")
             }
             
-            // Strict schema: query by jobType + createdAt.
+            // Strict schema: query by category + createdAt.
             var query: Query = firestore.collection(JOBS_COLLECTION)
             
-            // Category input maps to strict jobType field.
+            // Category input maps to the strict worker-facing category field.
             // Apply server-side filter so a 10-row page actually returns 10 matching jobs
             // instead of dropping non-matches client-side and returning a near-empty page.
-            // Required composite index: (jobType ASC, createdAt DESC) on jobmetadata.
+            // Required composite index: (category ASC, createdAt DESC) on jobmetadata.
             if (!category.isNullOrBlank() && category.uppercase() != "ALL" && category != "All Jobs") {
                 val categoryUpper = category.uppercase()
                 query = query.whereEqualTo("category", categoryUpper)
@@ -634,6 +634,7 @@ class JobFirestoreService @Inject constructor(
             val currentTime = System.currentTimeMillis()
             var filteredByStatus = 0
             var filteredByExpiry = 0
+            var filteredByCategory = 0
             
             // Client-side filtering by status.
             // NOTE: We intentionally do NOT drop by expiry in this list endpoint.
@@ -658,7 +659,8 @@ class JobFirestoreService @Inject constructor(
 
                 val summary = buildJobSummary(doc.id, data, currentTime)
                 val categoryUpper = category?.uppercase()?.takeIf { it != "ALL" && it != "ALL JOBS" }
-                if (categoryUpper != null && summary["jobType"].toString().uppercase() != categoryUpper) {
+                if (categoryUpper != null && summary["category"].toString().uppercase() != categoryUpper) {
+                    filteredByCategory++
                     return@mapNotNull null
                 }
                 summary
@@ -666,21 +668,21 @@ class JobFirestoreService @Inject constructor(
             
             Timber.d(" ========== CLIENT-SIDE FILTERING ==========")
             Timber.d(" Firestore returned: ${snapshot.documents.size} documents")
-            Timber.d(" After filtering (status=open, not expired): ${jobs.size} jobs")
+            Timber.d(" After filtering (status=open, category match): ${jobs.size} jobs")
             Timber.d(" Filtered out: ${snapshot.documents.size - jobs.size} jobs")
-            Timber.d(" Filter reasons: status=$filteredByStatus, expired=$filteredByExpiry")
+            Timber.d(" Filter reasons: status=$filteredByStatus, expiredObserved=$filteredByExpiry, category=$filteredByCategory")
             
             if (jobs.isNotEmpty()) {
                 Timber.d(" Sample job categories:")
                 jobs.take(5).forEach { job ->
-                    Timber.d("   - ${job["title"]}: jobType='${job["jobType"]}'")
+                    Timber.d("   - ${job["title"]}: category='${job["category"]}', jobType='${job["jobType"]}'")
                 }
             } else {
                 Timber.w(" âš ï¸ NO JOBS RETURNED after filtering!")
                 Timber.w(" Possible reasons:")
                 Timber.w("   1. No jobs with status=open")
-                Timber.w("   2. All open jobs are expired")
-                Timber.w("   3. jobType filter too restrictive")
+                Timber.w("   2. category field missing/mismatched")
+                Timber.w("   3. query returned only docs posted by the current user")
             }
             
             Timber.d(" ========== QUERY COMPLETE ==========")
@@ -1074,23 +1076,20 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun getJobsByCategory(category: String, limit: Long = 20L): Result<List<Map<String, Any>>> {
         return try {
+            val categoryUpper = category.uppercase()
             val query = firestore.collection(JOBS_COLLECTION)
-                .whereEqualTo("status", "open")
+                .whereEqualTo("category", categoryUpper)
                 .limit(limit * 2)
                 .get()
                 .await()
             
-            val categoryUpper = category.uppercase()
             val jobs = query.documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
+                if (normalizeReadStatus(data) != "open") return@mapNotNull null
                 val summary = buildJobSummary(doc.id, data)
-                if (summary["jobType"].toString().uppercase() != categoryUpper) return@mapNotNull null
+                if (summary["category"].toString().uppercase() != categoryUpper) return@mapNotNull null
                 summary
             }
-                .filter {
-                    val expiresAt = toEpochMillis(it["expiresAt"])
-                    expiresAt == 0L || expiresAt > System.currentTimeMillis()
-                }
                 .sortedByDescending { toEpochMillis(it["createdAt"]) }
                 .take(limit.toInt())
             Result.success(jobs)
