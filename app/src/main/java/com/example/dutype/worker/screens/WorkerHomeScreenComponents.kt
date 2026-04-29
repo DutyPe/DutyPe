@@ -912,7 +912,17 @@ fun BrowseCategoriesSection(
         CategoryItem("Driver", "\uD83D\uDE97"),
         CategoryItem("Security", "\uD83D\uDC82"),
         CategoryItem("Electrician", "\uD83D\uDCA1"),
-        CategoryItem("Plumber", "\uD83D\uDD27")
+        CategoryItem("Plumber", "\uD83D\uDD27"),
+        CategoryItem("Sales", "🛍️"),
+        CategoryItem("Telecaller", "📞"),
+        CategoryItem("Teacher", "📚"),
+        CategoryItem("Office Staff", "🗂️"),
+        CategoryItem("Customer Support", "🎧"),
+        CategoryItem("Field Work", "🧭"),
+        CategoryItem("Finance", "🏦"),
+        CategoryItem("Data Entry", "⌨️"),
+        CategoryItem("Healthcare", "⚕️"),
+        CategoryItem("Beautician", "💇")
     )
     
     Column(

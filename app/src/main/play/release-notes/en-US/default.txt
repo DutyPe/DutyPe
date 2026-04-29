@@ -1,12 +1,7 @@
-v2.6.2 — Faster, smarter, more local.
+v2.6.5 - Smarter local jobs & hiring
 
-✨ Notifications now greet you by name
-💬 WhatsApp same-as-phone option when posting jobs
-🎁 Bigger referral rewards & cleaner Refer & Earn screen
-📢 Sharper announcement banners
-🔔 Improved Telugu language support
-⚡ Faster startup, smoother scrolling
-🔒 Stronger account security
-🐞 Bug fixes & stability improvements
-
-Update now for thousands of fresh jobs added daily near you!
+Find nearby jobs faster with improved Categories and All Jobs search.
+New roles added: teacher, telecaller, sales, office staff, data entry, field work and more.
+Employers can post faster while DutyPe auto-tags job categories in the background.
+After calling an employer, workers can tell us if the job is filled or still available.
+Includes search, filter and stability fixes for local job discovery.

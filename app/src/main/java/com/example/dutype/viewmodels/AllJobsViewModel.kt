@@ -8,6 +8,7 @@ import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.JobCategoryResolver
 import com.example.dutype.utils.toJobListing
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -81,6 +82,7 @@ data class AllJobsUiState(
     // P2-1: Filter inputs folded into the same UiState.
     val selectedChip: String = "All Jobs",
     val searchQuery: String = "",
+    val searchResultsQuery: String = "",
     val filters: JobFilters = JobFilters(),
     val initialCategory: String? = null
 )
@@ -126,28 +128,13 @@ class AllJobsViewModel @Inject constructor(
         val raw = value?.trim().orEmpty()
         if (raw.isBlank()) return ""
 
-        return when (raw.uppercase()) {
-            "SHOP HELPER", "CONSTRUCTION", "HELPER" -> "HELPER"
-            "HOUSEKEEPING", "MAID" -> "MAID"
-            "KITCHEN", "COOK" -> "COOK"
-            "EVENTS", "WAITER" -> "WAITER"
-            else -> raw.uppercase().replace(' ', '_')
-        }
+        return JobCategoryResolver.enumNameForDisplay(raw) ?: raw.uppercase().replace(' ', '_')
     }
 
     private fun matchesCategoryByKeywords(job: JobListing, categoryToken: String): Boolean {
         val text = (job.title + " " + job.description).lowercase()
-        val keywords = when (categoryToken) {
-            "DELIVERY" -> listOf("delivery", "courier", "logistics", "rider")
-            "HELPER" -> listOf("helper", "assistant", "support")
-            "MAID" -> listOf("maid", "housekeeping", "cleaning")
-            "COOK" -> listOf("cook", "chef", "kitchen")
-            "WAITER" -> listOf("waiter", "steward", "server")
-            "DRIVER" -> listOf("driver", "driving", "cab", "taxi")
-            "SECURITY" -> listOf("security", "guard", "watchman")
-            else -> emptyList()
-        }
-        return keywords.any { text.contains(it) }
+        return JobCategoryResolver.matchesCategory(job.title, job.description, categoryToken) ||
+            JobCategoryResolver.displayNameForName(categoryToken).lowercase().let { it.isNotBlank() && text.contains(it) }
     }
 
     private fun currentQueryCategory(): String? = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }
@@ -258,7 +245,21 @@ class AllJobsViewModel @Inject constructor(
         "Carpenter" to "CARPENTER",
         "Receptionist" to "RECEPTIONIST",
         "Cashier" to "CASHIER",
-        "Packer" to "PACKER"
+        "Packer" to "PACKER",
+        "Sales" to "SALES",
+        "Telecaller" to "TELECALLER",
+        "Teacher" to "TEACHER",
+        "Office Staff" to "OFFICE_STAFF",
+        "Customer Support" to "CUSTOMER_SUPPORT",
+        "Field Work" to "FIELD_EXECUTIVE",
+        "Marketing" to "MARKETING",
+        "Finance" to "FINANCE",
+        "Healthcare" to "HEALTHCARE",
+        "Beautician" to "BEAUTICIAN",
+        "Tailor" to "TAILOR",
+        "Mechanic" to "MECHANIC",
+        "Data Entry" to "DATA_ENTRY",
+        "Legal" to "LEGAL"
     )
     
     // SENIOR FIX: Debounced search query — delays recomputation only on user input, not on initial load
@@ -345,6 +346,7 @@ class AllJobsViewModel @Inject constructor(
     ) { state, inputs ->
         val chip = inputs.chip
         val query = inputs.query
+        val normalizedSearchQuery = query.trim()
         val filters = inputs.filters
         val initialCategory = inputs.initialCategory
         val savedJobIds = inputs.savedJobIds
@@ -366,6 +368,11 @@ class AllJobsViewModel @Inject constructor(
         // If not loading and no jobs, return empty
         if (state.jobs.isEmpty()) {
             Timber.d("🔍 filteredJobs: No jobs loaded")
+            return@combine emptyList()
+        }
+
+        if (normalizedSearchQuery.length >= 2 && state.searchResultsQuery != normalizedSearchQuery) {
+            Timber.d("🔍 filteredJobs: Waiting for database search results for query='$normalizedSearchQuery'")
             return@combine emptyList()
         }
         
@@ -489,9 +496,9 @@ class AllJobsViewModel @Inject constructor(
         
         // INDUSTRY STANDARD: When search is active (2+ chars), use database search results
         // No client-side filtering - trust the database query
-        val searchFiltered = if (query.length >= 2) {
+        val searchFiltered = if (normalizedSearchQuery.length >= 2) {
             // Database search active - results already filtered and sorted by relevance
-            Timber.d("🔍 filteredJobs: Using database search results for query='$query' (${advancedFiltered.size} jobs)")
+            Timber.d("🔍 filteredJobs: Using database search results for query='$normalizedSearchQuery' (${advancedFiltered.size} jobs)")
             advancedFiltered
         } else {
             // No search - show all filtered jobs
@@ -584,7 +591,23 @@ class AllJobsViewModel @Inject constructor(
     }
     
     fun setSearchQuery(query: String) {
-        _uiState.update { it.copy(searchQuery = query) }
+        val normalizedQuery = query.trim()
+        _uiState.update {
+            if (normalizedQuery.length >= 2) {
+                it.copy(
+                    searchQuery = query,
+                    jobs = emptyList(),
+                    isLoading = true,
+                    hasMore = false,
+                    lastDocumentId = null,
+                    searchResultsQuery = "",
+                    error = null,
+                    hasError = false
+                )
+            } else {
+                it.copy(searchQuery = query)
+            }
+        }
         savedStateHandle[KEY_SEARCH_QUERY] = query
         Timber.d("🔍 AllJobsVM: Search query changed to: $query")
         
@@ -592,14 +615,15 @@ class AllJobsViewModel @Inject constructor(
         searchJob?.cancel()
         
         // Trigger database search when query is not blank
-        if (query.isNotBlank() && query.length >= 2) {
+        if (normalizedQuery.length >= 2) {
             // Debounce: Wait 500ms before searching to avoid excessive queries
             searchJob = viewModelScope.launch {
                 kotlinx.coroutines.delay(500)
-                searchJobsInDatabase(query)
+                searchJobsInDatabase(normalizedQuery)
             }
         } else if (query.isBlank()) {
             // Reset to show all jobs when search is cleared
+            _uiState.update { it.copy(searchResultsQuery = "") }
             loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
         }
     }
@@ -997,8 +1021,12 @@ class AllJobsViewModel @Inject constructor(
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             
-            // Don't show loading spinner for search - keep existing jobs visible
             _uiState.value = _uiState.value.copy(
+                jobs = emptyList(),
+                isLoading = true,
+                hasMore = false,
+                lastDocumentId = null,
+                searchResultsQuery = "",
                 error = null,
                 hasError = false
             )
@@ -1010,6 +1038,11 @@ class AllJobsViewModel @Inject constructor(
                 firestoreJobRepository.searchJobs(query, limit = 100L).collect { result ->
                     result.fold(
                         onSuccess = { searchResults ->
+                            if (_uiState.value.searchQuery.trim() != query) {
+                                Timber.d("🔍 AllJobsVM: Ignoring stale search results for '$query'")
+                                return@fold
+                            }
+
                             val duration = System.currentTimeMillis() - startTime
                             Timber.d("✅ AllJobsVM: Database search returned ${searchResults.size} jobs in ${duration}ms")
                             
@@ -1028,7 +1061,8 @@ class AllJobsViewModel @Inject constructor(
                                 isLoading = false,
                                 totalJobs = processedJobs.size,
                                 hasMore = false, // Search results don't support pagination
-                                lastDocumentId = null
+                                lastDocumentId = null,
+                                searchResultsQuery = query
                             )
                         },
                         onFailure = { exception ->

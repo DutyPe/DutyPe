@@ -25,6 +25,20 @@ enum class JobCategory(val displayName: String, val icon: String) {
     RECEPTIONIST("Receptionist", "💼"),
     CASHIER("Cashier", "💵"),
     PACKER("Packer", "📦"),
+    SALES("Sales", "🛍️"),
+    TELECALLER("Telecaller", "📞"),
+    TEACHER("Teacher", "📚"),
+    OFFICE_STAFF("Office Staff", "🗂️"),
+    CUSTOMER_SUPPORT("Customer Support", "🎧"),
+    FIELD_EXECUTIVE("Field Work", "🧭"),
+    MARKETING("Marketing", "📣"),
+    FINANCE("Finance", "🏦"),
+    HEALTHCARE("Healthcare", "⚕️"),
+    BEAUTICIAN("Beautician", "💇"),
+    TAILOR("Tailor", "🧵"),
+    MECHANIC("Mechanic", "🔩"),
+    DATA_ENTRY("Data Entry", "⌨️"),
+    LEGAL("Legal", "⚖️"),
     OTHER("Other", "📋")
 }
 

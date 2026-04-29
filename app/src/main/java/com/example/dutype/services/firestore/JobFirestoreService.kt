@@ -3,6 +3,7 @@
 import com.example.dutype.analytics.Analytics
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
+import com.example.dutype.utils.JobCategoryResolver
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -120,6 +121,35 @@ class JobFirestoreService @Inject constructor(
         )
     }
 
+    private fun summaryCategory(data: Map<String, Any>): String {
+        return JobCategoryResolver.inferCategoryName(
+            title = normalizeString(data["title"]),
+            description = normalizeString(data["description"]),
+            explicit = normalizeString(data["category"])
+        )
+    }
+
+    private fun buildSearchKeywords(data: Map<String, Any>, category: String): List<String> {
+        val locationValue = data["location"]
+        val locationText = if (locationValue is String) locationValue else ""
+        return JobCategoryResolver.buildSearchKeywords(
+            normalizeString(data["title"]),
+            normalizeString(data["description"]),
+            normalizeString(data["companyName"]),
+            normalizeString(data["company"]),
+            normalizeString(data["employerName"]),
+            normalizeString(data["businessName"]),
+            normalizeString(data["company_name"]),
+            normalizeString(data["companyCity"]),
+            normalizeString(data["addressText"]),
+            normalizeString(data["address"]),
+            locationText,
+            normalizeString(data["jobType"]),
+            category,
+            JobCategoryResolver.displayNameForName(category)
+        )
+    }
+
     private fun buildJobSummary(
         docId: String,
         data: Map<String, Any>,
@@ -153,6 +183,8 @@ class JobFirestoreService @Inject constructor(
             extractCityFromAddress(addressDisplay)
         }
 
+        val category = summaryCategory(data)
+
         return mapOf(
             "jobId" to docId,
             "employerId" to normalizeString(data["employerId"]),
@@ -171,6 +203,10 @@ class JobFirestoreService @Inject constructor(
             "salary" to salary,
             "salaryType" to salaryType,
             "jobType" to summaryJobType(data),
+            // Worker-facing category (UPPERCASE enum name) used by the categories screen
+            // server-side filter. Required composite index: (category ASC, createdAt DESC).
+            "category" to category,
+            "searchKeywords" to buildSearchKeywords(data, category),
             "createdAt" to createdAtMillis,
             "expiresAt" to toEpochMillis(data["expiresAt"]),
             "status" to normalizeReadStatus(data),
@@ -363,6 +399,11 @@ class JobFirestoreService @Inject constructor(
             val geohash = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             val createdAt = Timestamp(Date(currentTime))
             val expiresAt = Timestamp(Date(currentTime + (15L * 24 * 60 * 60 * 1000L)))
+            val category = JobCategoryResolver.inferCategoryName(
+                title = title,
+                description = description,
+                explicit = normalizeString(jobData["category"])
+            )
 
             // 2-COLLECTION ARCHITECTURE
             // jobmetadata = card data only (~200 bytes), job_details = full data (~1KB)
@@ -376,6 +417,7 @@ class JobFirestoreService @Inject constructor(
                 "geohash" to geohash,
                 "addressText" to addressText,
                 "jobType" to jobType,
+                "category" to category,
                 "status" to "open",
                 "createdAt" to createdAt,
                 // BUG #14 FIX: `getJobsByEmployer` queries `jobmetadata` by
@@ -397,6 +439,10 @@ class JobFirestoreService @Inject constructor(
             normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
                 cardData["jobImageUrl"] = it
             }
+            cardData["searchKeywords"] = buildSearchKeywords(
+                cardData + mapOf("description" to description, "companyCity" to companyCity),
+                category
+            )
             val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
                 "expiresAt" to expiresAt,
@@ -435,7 +481,7 @@ class JobFirestoreService @Inject constructor(
      */
     suspend fun getAllJobs(limit: Long = 50L, lastCreatedAt: Long? = null): Result<List<Map<String, Any>>> {
         return try {
-            var query = firestore.collection(JOBS_COLLECTION)
+            var query: Query = firestore.collection(JOBS_COLLECTION)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
             
@@ -524,14 +570,16 @@ class JobFirestoreService @Inject constructor(
             var query: Query = firestore.collection(JOBS_COLLECTION)
             
             // Category input maps to strict jobType field.
+            // Apply server-side filter so a 10-row page actually returns 10 matching jobs
+            // instead of dropping non-matches client-side and returning a near-empty page.
+            // Required composite index: (jobType ASC, createdAt DESC) on jobmetadata.
             if (!category.isNullOrBlank() && category.uppercase() != "ALL" && category != "All Jobs") {
                 val categoryUpper = category.uppercase()
-                Timber.d("Category filter deferred to client-side summary job type: $categoryUpper")
-                Timber.d(" âœ… Category filter APPLIED: jobType == '$categoryUpper'")
-                Timber.d(" Required index: (jobType ASC, createdAt DESC)")
+                query = query.whereEqualTo("category", categoryUpper)
+                Timber.d(" Category filter APPLIED server-side: category == '$categoryUpper'")
+                Timber.d(" Required index: (category ASC, createdAt DESC)")
             } else {
-                Timber.d(" âš ï¸ Category filter NOT applied (fetching ALL categories)")
-                Timber.d(" Required index: none (single-field createdAt)")
+                Timber.d(" Category filter NOT applied (fetching ALL categories)")
             }
             
             // NOTE: Server-side geohash range filter is disabled.
@@ -743,8 +791,9 @@ class JobFirestoreService @Inject constructor(
         return try {
             val data = updates.toMutableMap()
             val jobRef = firestore.collection(JOBS_COLLECTION).document(jobId)
-            jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
             val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
+            val existingCard = jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
+            val existingDetails = detailsRef.get().await().data.orEmpty()
 
             val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()
@@ -812,6 +861,14 @@ class JobFirestoreService @Inject constructor(
                     cardUpdates["jobImageUrl"] = FieldValue.delete()
                 }
             }
+            if (data.containsKey("category")) {
+                val categoryName = JobCategoryResolver.enumNameForDisplay(normalizeString(data["category"]))
+                    ?: JobCategoryResolver.inferCategoryName(
+                        title = normalizeString(data["title"] ?: existingCard["title"]),
+                        description = normalizeString(data["description"] ?: existingDetails["description"])
+                    )
+                cardUpdates["category"] = categoryName
+            }
             // Details-only fields (must match firestore.rules for job_details).
             if (data.containsKey("description")) {
                 val v = normalizeString(data["description"])
@@ -856,6 +913,23 @@ class JobFirestoreService @Inject constructor(
                 }
             }
 
+            val shouldRefreshSearch = data.keys.any {
+                it in setOf(
+                    "title", "description", "companyName", "companyCity", "addressText",
+                    "location", "jobType", "category", "salary", "salaryType"
+                )
+            }
+            if (shouldRefreshSearch) {
+                val searchSource = mutableMapOf<String, Any>()
+                searchSource.putAll(existingCard)
+                searchSource.putAll(existingDetails)
+                cardUpdates.forEach { (key, value) -> if (value !is FieldValue) searchSource[key] = value }
+                detailsUpdates.forEach { (key, value) -> if (value !is FieldValue) searchSource[key] = value }
+                val refreshedCategory = normalizeString(cardUpdates["category"]).ifBlank { summaryCategory(searchSource) }
+                cardUpdates["category"] = refreshedCategory
+                cardUpdates["searchKeywords"] = buildSearchKeywords(searchSource, refreshedCategory)
+            }
+
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
                 val batch = firestore.batch()
                 if (cardUpdates.isNotEmpty()) batch.set(jobRef, cardUpdates, com.google.firebase.firestore.SetOptions.merge())
@@ -891,8 +965,8 @@ class JobFirestoreService @Inject constructor(
      * 1. Use Algolia/Elasticsearch for full-text search (production apps)
      * 2. For simple apps: Use array-contains with keywords field
      * 
-     * Current implementation: Fetch active jobs, filter client-side
-     * This is acceptable for <10K jobs (your current scale)
+        * Current implementation: query the lightweight `searchKeywords` array on
+        * jobmetadata, then score the small candidate set locally.
      * 
      * When to upgrade to Algolia:
      * - When you have >10K jobs
@@ -905,45 +979,73 @@ class JobFirestoreService @Inject constructor(
     suspend fun searchJobs(query: String, limit: Long = 100L): Result<List<Map<String, Any>>> {
         return try {
             val lowercaseQuery = query.lowercase().trim()
-            Timber.d(" Search: '$lowercaseQuery'")
+            val searchTokens = JobCategoryResolver.searchQueryTokens(lowercaseQuery)
+            Timber.d("Search: '$lowercaseQuery'")
+            if (searchTokens.isEmpty()) return Result.success(emptyList())
+            val categorySearchName = (JobCategoryResolver.enumNameForDisplay(lowercaseQuery)
+                ?: JobCategoryResolver.inferCategory(lowercaseQuery)?.name)
+                ?.takeIf { it != "OTHER" }
+            val queryLimit = limit.coerceIn(20L, MAX_JOB_QUERY_LIMIT)
             
-            // Strict schema: fetch open jobs and filter client-side by searchable text fields.
-            val snapshot = firestore.collection(JOBS_COLLECTION)
-                .whereEqualTo("status", "open")
-                .limit(limit)
+            val keywordSnapshot = firestore.collection(JOBS_COLLECTION)
+                .whereArrayContainsAny("searchKeywords", searchTokens)
+                .limit(queryLimit)
                 .get()
                 .await()
+
+            val categoryDocuments = if (!categorySearchName.isNullOrBlank()) {
+                firestore.collection(JOBS_COLLECTION)
+                    .whereEqualTo("category", categorySearchName)
+                    .limit(queryLimit)
+                    .get()
+                    .await()
+                    .documents
+            } else {
+                emptyList()
+            }
+            val candidateDocuments = (keywordSnapshot.documents + categoryDocuments).distinctBy { it.id }
             
             val currentTime = System.currentTimeMillis()
             
             // Filter: open, not expired, matches query
-            val results = snapshot.documents.mapNotNull { doc ->
+            val results = candidateDocuments.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
+                if (normalizeReadStatus(data) != "open") return@mapNotNull null
                 
                 val expiresAt = toEpochMillis(data["expiresAt"])
                 if (expiresAt > 0L && expiresAt < currentTime) return@mapNotNull null
 
                 val summary = buildJobSummary(doc.id, data, currentTime).toMutableMap()
+                val searchKeywords = (data["searchKeywords"] as? List<*>)
+                    .orEmpty()
+                    .mapNotNull { it?.toString()?.lowercase()?.trim() }
+                    .filter { it.isNotBlank() }
+                    .toSet()
                 val title = summary["title"].toString().lowercase()
                 val companyName = summary["companyName"].toString().lowercase()
                 val companyCity = summary["companyCity"].toString().lowercase()
                 val addressText = summary["addressText"].toString().lowercase()
                 val jobType = summary["jobType"].toString().lowercase()
+                val category = summary["category"].toString().lowercase()
+                val categoryLabel = JobCategoryResolver.displayNameForName(summary["category"].toString()).lowercase()
+                val searchableText = listOf(title, companyName, companyCity, addressText, jobType, category, categoryLabel)
+                    .joinToString(" ")
 
-                val matches = title.contains(lowercaseQuery) ||
-                    companyName.contains(lowercaseQuery) ||
-                    companyCity.contains(lowercaseQuery) ||
-                    addressText.contains(lowercaseQuery) ||
-                    jobType.contains(lowercaseQuery)
+                val tokenHits = searchTokens.count { token ->
+                    searchableText.contains(token) || searchKeywords.contains(token)
+                }
+                val matches = tokenHits > 0
 
                 if (matches) {
                     val score = when {
-                        title.startsWith(lowercaseQuery) -> 100
-                        title.contains(lowercaseQuery) -> 90
-                        companyName.contains(lowercaseQuery) -> 80
-                        addressText.contains(lowercaseQuery) || companyCity.contains(lowercaseQuery) -> 70
-                        jobType.contains(lowercaseQuery) -> 60
-                        else -> 40
+                        title.startsWith(lowercaseQuery) -> 120
+                        title.contains(lowercaseQuery) -> 110
+                        searchTokens.all { title.contains(it) } -> 100
+                        companyName.contains(lowercaseQuery) -> 90
+                        category.contains(lowercaseQuery) || categoryLabel.contains(lowercaseQuery) -> 85
+                        addressText.contains(lowercaseQuery) || companyCity.contains(lowercaseQuery) -> 80
+                        jobType.contains(lowercaseQuery) -> 70
+                        else -> 50 + tokenHits
                     }
 
                     summary.apply {
@@ -1063,20 +1165,19 @@ class JobFirestoreService @Inject constructor(
             Timber.d(" ========== P0 FIX: SERVER-SIDE FILTERING ==========")
             Timber.d(" Filters: category=$category, salary=$minSalary-$maxSalary, payType=$payType, gender=$gender, jobType=$jobType")
             
-            // Build optimized query with server-side filters
-            var query = firestore.collection(JOBS_COLLECTION)
-                .whereEqualTo("status", "open")
+            // Keep this query index-light: category + createdAt uses the deployed index,
+            // and the remaining filters run over that small page locally.
+            var query: Query = firestore.collection(JOBS_COLLECTION)
             
             // Apply category filter (most selective first)
             if (!category.isNullOrBlank() && category.uppercase() != "ALL") {
-                Timber.d("Client-side category filter will use derived job type: $category")
+                query = query.whereEqualTo("category", category.uppercase())
                 Timber.d(" âœ… Category filter: $category")
             }
             
             // Apply pay type filter
             if (!payType.isNullOrBlank()) {
-                query = query.whereEqualTo("salaryType", payType.uppercase())
-                Timber.d(" âœ… PayType filter: $payType")
+                Timber.d("Client-side payType filter: $payType")
             }
             
             // Apply job type filter
@@ -1112,11 +1213,19 @@ class JobFirestoreService @Inject constructor(
             // and expiry check
             val jobs = snapshot.documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
+                if (normalizeReadStatus(data) != "open") return@mapNotNull null
                 
                 // Check expiry
                 val expiresAt = (data["expiresAt"] as? Number)?.toLong() ?: 0L
                 val isNotExpired = expiresAt == 0L || expiresAt > currentTime
                 if (!isNotExpired) return@mapNotNull null
+
+                if (!payType.isNullOrBlank()) {
+                    val summarySalaryType = normalizeString(data["salaryType"])
+                        .ifBlank { normalizeString(data["payType"]) }
+                        .uppercase()
+                    if (summarySalaryType != payType.uppercase()) return@mapNotNull null
+                }
                 
                 // Salary filter (client-side)
                 if (minSalary != null || maxSalary != null) {
@@ -1127,9 +1236,10 @@ class JobFirestoreService @Inject constructor(
                 }
 
                 val summary = buildJobSummary(doc.id, data, currentTime)
+                val summaryCategory = summary["category"].toString()
                 val summaryJobType = summary["jobType"].toString()
                 if (!category.isNullOrBlank() && category.uppercase() != "ALL" &&
-                    summaryJobType.uppercase() != category.uppercase()
+                    summaryCategory.uppercase() != category.uppercase()
                 ) {
                     return@mapNotNull null
                 }
@@ -1259,8 +1369,8 @@ class JobFirestoreService @Inject constructor(
                 }
 
                 // Category filter - applied client-side (no server-side filter on geohash range query)
-                val jobType = summaryJobType(data)
-                if (categoryUpper != null && jobType.uppercase() != categoryUpper) {
+                val jobCategory = summaryCategory(data)
+                if (categoryUpper != null && jobCategory.uppercase() != categoryUpper) {
                     filteredCategory++
                     return@mapNotNull null
                 }

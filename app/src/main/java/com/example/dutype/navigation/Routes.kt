@@ -93,7 +93,7 @@ object Routes {
     }
     
     fun categoriesRoute(category: String? = null): String {
-        return if (category != null) "worker_categories/$category" else "worker_categories"
+        return if (category != null) "worker_categories/${android.net.Uri.encode(category)}" else "worker_categories"
     }
     
     fun profileSetupWithReturnRoute(returnRoute: String): String {

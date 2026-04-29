@@ -1,6 +1,8 @@
 package com.example.dutype.worker.screens
 
 import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOutQuart
@@ -78,9 +80,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -122,6 +126,7 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.navigation.Routes
+import com.example.dutype.services.JobAvailabilityFeedback
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.viewmodels.ConnectivityViewModel
@@ -204,6 +209,34 @@ fun JobDescriptionScreen(
 
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
+    val jobCallFeedbackService = smartApplicationViewModel.jobCallFeedbackService
+    var pendingCallFeedbackJob by remember { mutableStateOf<JobListing?>(null) }
+    var showCallFeedbackSheet by remember { mutableStateOf(false) }
+    val callLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (pendingCallFeedbackJob != null) {
+            showCallFeedbackSheet = true
+        }
+    }
+    val launchEmployerDialer: (JobListing) -> Unit = { currentJob ->
+        val phone = currentJob.contactNumber.trim()
+        if (phone.isNotEmpty()) {
+            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                data = android.net.Uri.parse("tel:$phone")
+            }
+            try {
+                pendingCallFeedbackJob = currentJob
+                callLauncher.launch(intent)
+            } catch (e: Exception) {
+                pendingCallFeedbackJob = null
+                Timber.e(e, "Failed to start dialer for $phone")
+                android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Guest mode - Login bottom sheet state
     var showLoginBottomSheet by remember { mutableStateOf(false) }
@@ -464,6 +497,13 @@ fun JobDescriptionScreen(
                 pendingAction = action
                 showLoginBottomSheet = true
             }
+            val handleCallClick: (JobListing) -> Unit = { currentJob ->
+                if (currentUser == null) {
+                    handleLoginRequired("call")
+                } else {
+                    launchEmployerDialer(currentJob)
+                }
+            }
 
             Box(modifier = Modifier.fillMaxSize().weight(1f).graphicsLayer(alpha = contentAlpha)) {
                 when {
@@ -493,6 +533,7 @@ fun JobDescriptionScreen(
                                 navController = navController,
                                 hasApplied = hasApplied,
                                 applicationStatus = applicationStatus,
+                                onCallClick = handleCallClick,
                                 onApplyClick = handleApplyClick,
                                 onLoginRequired = handleLoginRequired,
                             )
@@ -518,6 +559,7 @@ fun JobDescriptionScreen(
                         jobId = jobId,
                         hasApplied = hasApplied,
                         applicationStatus = applicationStatus,
+                        onCallClick = handleCallClick,
                         onApplyClick = handleApplyClick,
                         onLoginRequired = handleLoginRequired,
                     )
@@ -584,33 +626,10 @@ fun JobDescriptionScreen(
                     }
                 }
                 "call" -> {
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
-                            data = android.net.Uri.parse("tel:$phone") 
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to start dialer for $phone")
-                            android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    job?.let(launchEmployerDialer)
                 }
                 "message" -> {
-                    // Chat feature removed - default to call
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { 
-                            data = android.net.Uri.parse("tel:$phone") 
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to start dialer for $phone")
-                            android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    job?.let(launchEmployerDialer)
                 }
                 "whatsapp" -> {
                     val phone = job?.contactNumber ?: ""
@@ -650,6 +669,35 @@ fun JobDescriptionScreen(
             else -> "Please login to continue"
         }
     )
+
+    if (showCallFeedbackSheet && pendingCallFeedbackJob != null) {
+        JobCallFeedbackSheet(
+            jobTitle = pendingCallFeedbackJob?.title.orEmpty(),
+            companyName = pendingCallFeedbackJob?.companyName.orEmpty(),
+            onDismiss = {
+                showCallFeedbackSheet = false
+                pendingCallFeedbackJob = null
+            },
+            onSubmit = { spokeWithEmployer, availability ->
+                val feedbackJob = pendingCallFeedbackJob
+                if (feedbackJob == null) {
+                    Result.failure(Exception("Job not found"))
+                } else {
+                    jobCallFeedbackService.submitCallFeedback(
+                        job = feedbackJob,
+                        spokeWithEmployer = spokeWithEmployer,
+                        availability = availability
+                    )
+                }
+            },
+            onSubmitted = {
+                showCallFeedbackSheet = false
+                pendingCallFeedbackJob = null
+                snackbarMessage = "Thanks, your update helps keep jobs fresh."
+                showSnackbar = true
+            }
+        )
+    }
 }
 
 @Composable
@@ -661,6 +709,7 @@ private fun BottomActionBar(
     jobId: String,
     hasApplied: Boolean = false,
     applicationStatus: String? = null,
+    onCallClick: (JobListing) -> Unit = {},
     onApplyClick: () -> Unit = {},
     onLoginRequired: (String) -> Unit = {} // Callback for guest mode login
 ) {
@@ -677,6 +726,7 @@ private fun BottomActionBar(
                 navController = navController,
                 hasApplied = hasApplied,
                 applicationStatus = applicationStatus,
+                onCallClick = onCallClick,
                 onApplyClick = onApplyClick,
                 onLoginRequired = onLoginRequired,
             )
@@ -698,6 +748,7 @@ private fun RowScope.ActionButtonsContent(
     navController: NavController,
     hasApplied: Boolean,
     applicationStatus: String?,
+    onCallClick: (JobListing) -> Unit,
     onApplyClick: () -> Unit,
     onLoginRequired: (String) -> Unit,
 ) {
@@ -707,18 +758,7 @@ private fun RowScope.ActionButtonsContent(
             if (currentUser == null) {
                 onLoginRequired("call")
             } else {
-                val phone = job.contactNumber
-                if (phone.isNotEmpty()) {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply { data = android.net.Uri.parse("tel:$phone") }
-                    try {
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        Timber.e(e, "Failed to start dialer for $phone")
-                        android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
-                }
+                onCallClick(job)
             }
         },
         modifier = Modifier.weight(1f).height(50.dp),
@@ -785,6 +825,191 @@ private fun RowScope.ActionButtonsContent(
         ) {
             Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JobCallFeedbackSheet(
+    jobTitle: String,
+    companyName: String,
+    onDismiss: () -> Unit,
+    onSubmit: suspend (Boolean, JobAvailabilityFeedback) -> Result<Unit>,
+    onSubmitted: () -> Unit
+) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var spokeWithEmployer by remember { mutableStateOf<Boolean?>(null) }
+    var availability by remember { mutableStateOf<JobAvailabilityFeedback?>(null) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = WorkerColors.CardBackground,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(Color(0xFFEFF6FF), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(21.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Quick call update",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = WorkerColors.TextPrimary
+                        )
+                        Text(
+                            text = "Helps us close filled jobs faster",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF6B7280)
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss, enabled = !isSubmitting) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF6B7280))
+                }
+            }
+
+            if (jobTitle.isNotBlank() || companyName.isNotBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    elevation = CardDefaults.cardElevation(0.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        if (jobTitle.isNotBlank()) {
+                            Text(jobTitle, color = WorkerColors.TextPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (companyName.isNotBlank()) {
+                            Text(companyName, color = Color(0xFF6B7280), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Did you speak with the employer?",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = Color(0xFF374151)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                FeedbackChoiceButton(
+                    text = "Yes, spoke",
+                    selected = spokeWithEmployer == true,
+                    onClick = { spokeWithEmployer = true },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSubmitting
+                )
+                FeedbackChoiceButton(
+                    text = "No answer",
+                    selected = spokeWithEmployer == false,
+                    onClick = { spokeWithEmployer = false },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSubmitting
+                )
+            }
+
+            Text(
+                text = "Is the job still available?",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = Color(0xFF374151)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                JobAvailabilityFeedback.entries.forEach { option ->
+                    FeedbackChoiceButton(
+                        text = option.displayName,
+                        selected = availability == option,
+                        onClick = { availability = option },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSubmitting
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = errorMessage != null) {
+                Text(
+                    text = errorMessage.orEmpty(),
+                    color = Color(0xFFDC2626),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Button(
+                onClick = {
+                    val spoke = spokeWithEmployer
+                    val selectedAvailability = availability
+                    if (spoke == null || selectedAvailability == null) return@Button
+                    scope.launch {
+                        isSubmitting = true
+                        errorMessage = null
+                        val result = onSubmit(spoke, selectedAvailability)
+                        isSubmitting = false
+                        result.fold(
+                            onSuccess = { onSubmitted() },
+                            onFailure = { error -> errorMessage = error.message ?: "Could not save feedback. Try again." }
+                        )
+                    }
+                },
+                enabled = !isSubmitting && spokeWithEmployer != null && availability != null,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text("Submit update", color = Color.White, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedbackChoiceButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (selected) Color(0xFF2563EB) else Color(0xFFE5E7EB)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (selected) Color(0xFFEFF6FF) else Color.White,
+            contentColor = if (selected) Color(0xFF1D4ED8) else Color(0xFF374151)
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp)
+    ) {
+        if (selected) {
+            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

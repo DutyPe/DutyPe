@@ -365,6 +365,7 @@ fun EditJobScreen(
                         // Save the chosen work mode (Part-time / Full-time / …)
                         // as `jobType`.
                         "jobType" to workType,
+                        "category" to com.example.dutype.utils.JobCategoryResolver.inferCategoryName(title, description),
                         "shiftTiming" to finalShiftTiming,
                         "experienceRequired" to experienceLevel,
                         "educationRequired" to educationRequired,

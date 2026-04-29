@@ -40,6 +40,7 @@ class SmartJobApplicationViewModel @Inject constructor(
     private val applicationStateManager: ApplicationStateManager,
     private val auth: FirebaseAuth,
     val reportingService: com.example.dutype.services.ReportingService,
+    val jobCallFeedbackService: com.example.dutype.services.JobCallFeedbackService,
     val adManager: AdManager,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {

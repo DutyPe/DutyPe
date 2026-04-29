@@ -4,6 +4,14 @@
       "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "geohash", "order": "ASCENDING" },
         { "fieldPath": "jobType", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },

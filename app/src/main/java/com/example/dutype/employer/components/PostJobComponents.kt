@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,12 +60,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
-import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 
@@ -128,100 +123,6 @@ fun PayTypeDropdown(
                     }
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun CategorySelectionGrid(
-    selectedCategory: JobCategory,
-    onCategorySelected: (JobCategory) -> Unit,
-    customCategory: String = "",
-    onCustomCategoryChange: ((String) -> Unit)? = null
-) {
-    val primaryBlue = Color(0xFF3B82F6)
-    
-    Column {
-        Text(
-            text = "Select Job Category",
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.height(280.dp)
-        ) {
-            items(JobCategory.values().toList()) { category ->
-                CategoryChip(
-                    category = category,
-                    isSelected = selectedCategory == category,
-                    onClick = { onCategorySelected(category) }
-                )
-            }
-        }
-        
-        // Show custom category input when "Other" is selected
-        if (selectedCategory == JobCategory.OTHER && onCustomCategoryChange != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            androidx.compose.material3.OutlinedTextField(
-                value = customCategory,
-                onValueChange = onCustomCategoryChange,
-                label = { Text(stringResource(R.string.enter_job_type)) },
-                placeholder = { Text("e.g., Tailor, Mechanic, Tutor, Beautician") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryBlue,
-                    focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
-                    cursorColor = primaryBlue
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun CategoryChip(
-    category: JobCategory,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF3B82F6) else Color(0xFFF8FAFC)
-        ),
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 1.dp
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = category.icon,
-                fontSize = 18.sp
-            )
-            Text(
-                text = category.displayName,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (isSelected) Color.White else Color(0xFF374151),
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                ),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 11.sp
-            )
         }
     }
 }
@@ -394,9 +295,7 @@ fun StepHeader(title: String, subtitle: String) {
 @Composable
 fun JobTitleSection(
     title: String,
-    onTitleChange: (String) -> Unit,
-    category: JobCategory,
-    onCategoryChange: (JobCategory) -> Unit
+    onTitleChange: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -422,16 +321,6 @@ fun JobTitleSection(
                 }
             )
 
-            Text(
-                text = "Job Category",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            CategorySelectionGrid(
-                selectedCategory = category,
-                onCategorySelected = onCategoryChange
-            )
         }
     }
 }

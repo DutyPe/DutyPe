@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.CurrencyRupee
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -74,7 +75,7 @@ fun JobSummaryCard(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Header with category icon and title
+                    // Header with generic job icon and title. Category stays internal.
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -87,9 +88,11 @@ fun JobSummaryCard(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = category.icon,
-                                style = MaterialTheme.typography.headlineSmall
+                            Icon(
+                                imageVector = Icons.Default.Work,
+                                contentDescription = null,
+                                tint = primaryBlue,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(14.dp))
@@ -99,11 +102,6 @@ fun JobSummaryCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1E293B)
-                            )
-                            Text(
-                                text = category.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF6B7280)
                             )
                         }
                     }

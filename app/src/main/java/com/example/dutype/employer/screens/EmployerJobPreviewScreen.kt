@@ -484,7 +484,7 @@ private fun DetailsCard(job: JobListing) {
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider(color = Color(0xFFEDF2F7))
 
-                    InfoRow("Job category", job.jobType.ifBlank { "—" })
+                    InfoRow("Work type", job.jobType.ifBlank { "—" })
                     InfoRow("Salary", job.salary.ifBlank { "—" })
                     if (job.salaryType.isNotBlank()) {
                         InfoRow("Pay type", job.salaryType.lowercase().replaceFirstChar { it.titlecase() })

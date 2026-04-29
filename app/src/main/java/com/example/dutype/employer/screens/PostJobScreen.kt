@@ -141,41 +141,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-/**
- * Maps free-form job titles (typed by the employer) to a likely [JobCategory]
- * using simple keyword matching. Returns null when nothing recognisable is in
- * the title so we don't silently overwrite the employer's pick.
- *
- * Order matters — more specific keywords come first.
- */
-private fun inferCategoryFromTitle(title: String): JobCategory? {
-    val t = title.lowercase().trim()
-    if (t.length < 3) return null
-    val rules: List<Pair<List<String>, JobCategory>> = listOf(
-        listOf("delivery", "courier", "rider", "swiggy", "zomato", "dunzo", "parcel") to JobCategory.DELIVERY,
-        listOf("driver", "chauffeur", "uber", "ola", "cab", "taxi", "truck") to JobCategory.DRIVER,
-        listOf("cook", "chef", "kitchen", "tandoor", "biryani") to JobCategory.COOK,
-        listOf("waiter", "server", "steward") to JobCategory.WAITER,
-        listOf("maid", "house help", "housekeep", "babysit", "nanny", "ayah") to JobCategory.MAID,
-        listOf("security", "guard", "watchman", "bouncer") to JobCategory.SECURITY,
-        listOf("electrician", "wiring", "electrical") to JobCategory.ELECTRICIAN,
-        listOf("plumber", "plumbing", "pipe") to JobCategory.PLUMBER,
-        listOf("painter", "painting") to JobCategory.PAINTER,
-        listOf("carpenter", "woodwork") to JobCategory.CARPENTER,
-        listOf("gardener", "garden", "landscap", "horticult") to JobCategory.GARDENER,
-        listOf("caretaker", "care taker", "caregiver") to JobCategory.CARETAKER,
-        listOf("receptionist", "front desk") to JobCategory.RECEPTIONIST,
-        listOf("cashier", "billing") to JobCategory.CASHIER,
-        listOf("packer", "packing", "loader") to JobCategory.PACKER,
-        listOf("cleaner", "cleaning", "janitor", "sweeper") to JobCategory.MAID,
-        listOf("helper", "assistant", "labour", "labor") to JobCategory.HELPER
-    )
-    for ((words, category) in rules) {
-        if (words.any { t.contains(it) }) return category
-    }
-    return null
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostJobScreen(
@@ -226,12 +191,8 @@ fun PostJobScreen(
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(JobCategory.COOK) }
+    var category by remember { mutableStateOf(JobCategory.OTHER) }
     var customCategory by remember { mutableStateOf("") }
-    // Track whether the employer hand-picked a category. Auto-detection from
-    // the title only runs while this stays false so we never clobber an
-    // explicit choice.
-    var categoryManuallySet by remember { mutableStateOf(false) }
     var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
     // Batch-p #3: when shiftTiming == CUSTOM the employer types their own
     // start/end timing into these two fields; the merged display string is
@@ -320,15 +281,11 @@ fun PostJobScreen(
     // LazyList state for the single-canvas studio layout
     val listState = rememberLazyListState()
 
-    // Auto-detect the job category from a free-form title (e.g. "Need a
-    // delivery boy in Madhapur" -> DELIVERY). Skipped once the employer has
-    // explicitly chosen a category from the dropdown.
-    LaunchedEffect(title, categoryManuallySet) {
-        if (categoryManuallySet) return@LaunchedEffect
-        val inferred = inferCategoryFromTitle(title)
-        if (inferred != null && inferred != category) {
-            category = inferred
-        }
+    // Category is internal only. Employers type the role; the app derives the
+    // worker-facing category for filtering without showing a category picker.
+    LaunchedEffect(title, description) {
+        val inferred = com.example.dutype.utils.JobCategoryResolver.inferCategory(title, description) ?: JobCategory.OTHER
+        if (inferred != category) category = inferred
     }
 
     // P2 FIX: Auto-save draft on field changes (debounced 2 seconds)
@@ -653,15 +610,18 @@ fun PostJobScreen(
         // SalaryFormatter; numeric filters parse the lower bound.
         val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
         val descriptionWithPayText = jobPosting.description
+        val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
+            title = jobPosting.title,
+            description = descriptionWithPayText
+        )
 
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
         val jobData = mapOf(
             // Core job information
             "title" to jobPosting.title,
             // Job type stores the work mode (Full-time / Part-time / �).
-            // Category is auto-detected from title for filtering and is not
-            // persisted as a separate field.
             "jobType" to workType,
+            "category" to inferredCategoryName,
             
             // Location information
             "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
@@ -1263,14 +1223,10 @@ fun PostJobScreen(
                                 ) {
                                     EnhancedJobTitleSection(
                                         title = title,
-                                        onTitleChange = { title = it },
-                                        category = category,
-                                        onCategoryChange = {
-                                            category = it
-                                            categoryManuallySet = true
-                                        },
-                                        customCategory = customCategory,
-                                        onCustomCategoryChange = { customCategory = it }
+                                        onTitleChange = {
+                                            title = it
+                                            customCategory = it.trim()
+                                        }
                                     )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     WorkTypeSelection(
@@ -2335,69 +2291,10 @@ fun StudioGroupCard(
 @Composable
 fun EnhancedJobTitleSection(
     title: String,
-    onTitleChange: (String) -> Unit,
-    category: JobCategory,
-    onCategoryChange: (JobCategory) -> Unit,
-    customCategory: String = "",
-    onCustomCategoryChange: (String) -> Unit = {}
+    onTitleChange: (String) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
     var titleError by remember { mutableStateOf<String?>(null) }
-
-    // Apr 2026 redesign: title is a free-text field. Predefined titles
-    // appear as wrapping chips below the field � tap a chip to fill,
-    // or type your own. Whatever the employer types is what workers see
-    // on the job card; no more "Other" placeholder hiding the real title.
-    val suggestedTitles = remember {
-        listOf(
-            "Cook" to "\uD83D\uDC68\u200D\uD83C\uDF73",
-            "Chef" to "\uD83D\uDC69\u200D\uD83C\uDF73",
-            "Maid" to "\uD83E\uDDF9",
-            "House Cleaner" to "\uD83C\uDFE0",
-            "Driver" to "\uD83D\uDE97",
-            "Security Guard" to "\uD83D\uDEE1\uFE0F",
-            "Delivery Executive" to "\uD83D\uDCE6",
-            "Waiter" to "\uD83C\uDF7D\uFE0F",
-            "Helper" to "\uD83E\uDD1D",
-            "Electrician" to "\u26A1",
-            "Plumber" to "\uD83D\uDD27",
-            "Painter" to "\uD83C\uDFA8",
-            "Carpenter" to "\uD83E\uDE9A",
-            "Gardener" to "\uD83C\uDF31",
-            "Caretaker" to "\uD83D\uDC76",
-            "Nanny" to "\uD83D\uDC69\u200D\uD83C\uDF7C",
-            "Receptionist" to "\uD83D\uDCBC",
-            "Cashier" to "\uD83D\uDCB5",
-            "Packer" to "\uD83D\uDCE6",
-            "Office Boy" to "\uD83C\uDFE2",
-            "Factory Worker" to "\uD83C\uDFED",
-            "Construction Worker" to "\uD83D\uDC77",
-            "Shop Assistant" to "\uD83D\uDED2",
-            "Kitchen Helper" to "\uD83C\uDF73",
-            "AC Technician" to "\u2744\uFE0F",
-            "Tailor" to "\uD83E\uDDF5"
-        )
-    }
-
-    fun categoryFor(t: String): JobCategory = when (t.trim()) {
-        "Cook", "Chef", "Kitchen Helper" -> JobCategory.COOK
-        "Maid", "House Cleaner", "Housekeeping Staff" -> JobCategory.MAID
-        "Driver" -> JobCategory.DRIVER
-        "Security Guard", "Watchman" -> JobCategory.SECURITY
-        "Delivery Executive" -> JobCategory.DELIVERY
-        "Waiter", "Server" -> JobCategory.WAITER
-        "Electrician" -> JobCategory.ELECTRICIAN
-        "Plumber" -> JobCategory.PLUMBER
-        "Painter" -> JobCategory.PAINTER
-        "Carpenter" -> JobCategory.CARPENTER
-        "Gardener" -> JobCategory.GARDENER
-        "Caretaker", "Nanny" -> JobCategory.CARETAKER
-        "Receptionist" -> JobCategory.RECEPTIONIST
-        "Cashier" -> JobCategory.CASHIER
-        "Packer", "Loader" -> JobCategory.PACKER
-        "" -> JobCategory.OTHER
-        else -> JobCategory.OTHER
-    }
 
     PolishedCard {
         Column(
@@ -2447,11 +2344,6 @@ fun EnhancedJobTitleSection(
                 value = title,
                 onValueChange = { newValue ->
                     onTitleChange(newValue)
-                    // Keep customCategory in sync for legacy draft saves;
-                    // submitJobWithCoordinates uses it when category=OTHER.
-                    onCustomCategoryChange(newValue.trim())
-                    val matched = categoryFor(newValue)
-                    onCategoryChange(matched)
                     titleError = null
                 },
                 label = { Text(stringResource(R.string.enter_job_title)) },

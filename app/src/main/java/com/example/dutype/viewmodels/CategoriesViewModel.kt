@@ -8,6 +8,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.location.LocationPreferences
+import com.example.dutype.utils.JobCategoryResolver
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.LocationService
 import com.example.dutype.utils.toJobListing
@@ -288,11 +289,26 @@ class CategoriesViewModel @Inject constructor(
             "Carpenter" to "CARPENTER",
             "Receptionist" to "RECEPTIONIST",
             "Cashier" to "CASHIER",
-            "Packer" to "PACKER"
+            "Packer" to "PACKER",
+            "Sales" to "SALES",
+            "Telecaller" to "TELECALLER",
+            "Teacher" to "TEACHER",
+            "Office Staff" to "OFFICE_STAFF",
+            "Customer Support" to "CUSTOMER_SUPPORT",
+            "Field Work" to "FIELD_EXECUTIVE",
+            "Marketing" to "MARKETING",
+            "Finance" to "FINANCE",
+            "Healthcare" to "HEALTHCARE",
+            "Beautician" to "BEAUTICIAN",
+            "Tailor" to "TAILOR",
+            "Mechanic" to "MECHANIC",
+            "Data Entry" to "DATA_ENTRY",
+            "Legal" to "LEGAL"
         )
         
         // Try mapping first, then try JobCategory enum, then fallback to uppercase
         val categoryQuery = categoryMapping[category] 
+            ?: JobCategoryResolver.enumNameForDisplay(category)
             ?: JobCategory.entries.find { it.displayName.equals(category, ignoreCase = true) }?.name 
             ?: category.uppercase()
         

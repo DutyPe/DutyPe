@@ -1,12 +1,8 @@
-v2.6.2 — तेज़, स्मार्ट, और भी लोकल।
+v2.6.5 - लोकल जॉब सर्च बेहतर
 
-✨ नोटिफिकेशन अब आपके नाम से हेलो कहेंगे
-💬 जॉब पोस्ट करते समय फोन = WhatsApp विकल्प
-🎁 बड़े रेफरल रिवॉर्ड्स और बेहतर Refer & Earn स्क्रीन
-📢 बेहतर अनाउंसमेंट बैनर
-🔔 बेहतर तेलुगु भाषा सपोर्ट
-⚡ तेज़ स्टार्टअप, स्मूद स्क्रोलिंग
-🔒 मज़बूत अकाउंट सिक्योरिटी
-🐞 बग फिक्स और स्थिरता
-
-अभी अपडेट करें — हर दिन हज़ारों नई नौकरियाँ!
+Nearby jobs और local jobs अब तेजी से खोजें.
+• Categories और All Jobs search बेहतर
+• नई roles: teacher, telecaller, sales, office staff, data entry, field work
+• Employer job post में category auto-save होगी
+• Call के बाद worker बता सकता है job filled है या available
+• Search, filters और stability fixes

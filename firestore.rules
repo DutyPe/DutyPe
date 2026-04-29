@@ -648,6 +648,61 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── job_call_feedback ─────────────────────────────────────────────
+    // Deterministic doc id: {workerId}_{jobId}. Workers update their latest
+    // post-call signal; admins use this for stale/filled-job moderation.
+    match /job_call_feedback/{feedbackId} {
+      function feedbackIdOwnedByCaller() {
+        return feedbackId.matches('^' + request.auth.uid + '_.+$');
+      }
+
+      function validCallFeedbackData(data) {
+        return data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId',
+          'spokeWithEmployer', 'jobAvailability', 'source',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'jobId', 'workerId', 'spokeWithEmployer', 'jobAvailability', 'source', 'updatedAt'
+        ]) &&
+        feedbackId == (request.auth.uid + '_' + data.jobId) &&
+        data.jobId is string &&
+        data.workerId == request.auth.uid &&
+        (!('employerId' in data) || data.employerId is string) &&
+        data.spokeWithEmployer is bool &&
+        data.jobAvailability in ['STILL_AVAILABLE', 'FILLED', 'NOT_SURE'] &&
+        data.source == 'JOB_DESCRIPTION_CALL_RETURN' &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        data.updatedAt is timestamp &&
+        exists(/databases/$(database)/documents/jobmetadata/$(data.jobId));
+      }
+
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && resource.data.workerId == request.auth.uid) ||
+          (resource == null && feedbackIdOwnedByCaller())
+        );
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll(['createdAt']) &&
+        validCallFeedbackData(request.resource.data);
+
+      allow update: if isSignedIn() &&
+        resource.data.workerId == request.auth.uid &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.jobId == resource.data.jobId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'employerId', 'spokeWithEmployer', 'jobAvailability', 'source', 'updatedAt'
+        ]) &&
+        validCallFeedbackData(request.resource.data);
+
+      allow delete: if false;
+    }
+
     // ── referrals ─────────────────────────────────────────────────────
     // Rewards are server-derived; no money fields client-writable.
     match /referrals/{referralId} {
