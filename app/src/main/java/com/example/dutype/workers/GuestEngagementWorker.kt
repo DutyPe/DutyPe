@@ -18,6 +18,7 @@ import com.dutype.app.R
 import com.example.dutype.MainActivity
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.services.NotificationChannelManager
+import com.example.dutype.services.NotificationIcons
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -280,6 +281,7 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotificationIcons.tintColor(context))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -288,6 +290,9 @@ class GuestEngagementWorker @AssistedInject constructor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .apply {
+                NotificationIcons.largeIcon(context)?.let { setLargeIcon(it) }
+            }
             .addAction(R.drawable.ic_notification, if (role == "EMPLOYER") "Review Now" else "Explore Jobs", actionPendingIntent)
             .build()
 

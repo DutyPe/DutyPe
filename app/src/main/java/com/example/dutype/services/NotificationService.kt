@@ -781,6 +781,7 @@ class NotificationService @Inject constructor(
 
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotificationIcons.tintColor(context))
             .setContentTitle(notification.title)
             .setContentText(notification.message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(notification.message))
@@ -788,6 +789,9 @@ class NotificationService @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .apply {
+                NotificationIcons.largeIcon(context)?.let { setLargeIcon(it) }
+            }
 
         try {
             notificationManager.notify(notificationId, notificationBuilder.build())
