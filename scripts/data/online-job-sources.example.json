@@ -1,0 +1,40 @@
+{
+  "sources": [
+    {
+      "name": "Authorized company careers page",
+      "url": "https://www.example.com/careers/jobs",
+      "disabled": true,
+      "notes": "Replace with a source you are allowed to crawl or an official employer page/RSS/API.",
+      "defaultCompanyName": "Example Employer",
+      "defaultJobType": "FULL_TIME",
+      "defaultSalary": "Negotiable",
+      "defaultSalaryType": "MONTHLY",
+      "defaultShiftTiming": "Flexible",
+      "defaultExperienceRequired": "Not specified",
+      "defaultEducationRequired": "Not specified",
+      "defaultLocation": {
+        "addressText": "Hyderabad, Telangana",
+        "lat": 17.385,
+        "lng": 78.4867,
+        "companyCity": "Hyderabad"
+      }
+    },
+    {
+      "name": "Manual public listing with employer phone",
+      "url": "https://www.example.com/jobs/public-listing-123",
+      "disabled": true,
+      "notes": "Use contactNumber only when the employer publicly listed it for applications.",
+      "contactNumber": "9876543210",
+      "defaultCompanyName": "Local Employer",
+      "defaultJobType": "PART_TIME",
+      "defaultSalary": "15000-18000",
+      "defaultSalaryType": "MONTHLY",
+      "defaultLocation": {
+        "addressText": "Secunderabad, Hyderabad, Telangana",
+        "lat": 17.4399,
+        "lng": 78.4983,
+        "companyCity": "Hyderabad"
+      }
+    }
+  ]
+}

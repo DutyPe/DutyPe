@@ -26,10 +26,12 @@ serviceAccountKey.json
 # Build outputs and logs
 *_output.txt
 *.log
+scripts/output/
 
 # Temporary files
 *.tmp
 *.bak
+scripts/data/online-job-sources.json
 
 # Node.js
 node_modules/

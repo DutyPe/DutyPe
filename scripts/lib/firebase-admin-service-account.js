@@ -4,8 +4,15 @@ const path = require('path');
 function loadServiceAccount() {
   const inlineJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON;
   if (inlineJson) {
-    return JSON.parse(inlineJson);
+    return normalizeServiceAccount(JSON.parse(inlineJson));
   }
+
+  const fromParts = normalizeServiceAccount({
+    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'dutype-860ac',
+    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY
+  });
+  if (fromParts) return fromParts;
 
   const targetProjectId =
     process.env.FIREBASE_ADMIN_PROJECT_ID ||
@@ -28,7 +35,7 @@ function loadServiceAccount() {
       : path.resolve(candidatePath);
 
     if (fs.existsSync(resolvedPath)) {
-      return JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+      return normalizeServiceAccount(JSON.parse(fs.readFileSync(resolvedPath, 'utf8')));
     }
   }
 
@@ -49,7 +56,7 @@ function loadServiceAccount() {
 
         if (!isServiceAccount) continue;
         if (!projectId || projectId === targetProjectId) {
-          return parsed;
+          return normalizeServiceAccount(parsed);
         }
       } catch (_) {
         // Ignore invalid JSON candidates and continue scanning.
@@ -61,6 +68,23 @@ function loadServiceAccount() {
     `No Firebase service account file was found for project '${targetProjectId}'. ` +
       'Set FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH or FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON.'
   );
+}
+
+function normalizeServiceAccount(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const projectId = raw.project_id || raw.projectId;
+  const clientEmail = raw.client_email || raw.clientEmail;
+  const privateKey = String(raw.private_key || raw.privateKey || '').replace(/\\n/g, '\n');
+
+  if (!projectId || !clientEmail || !privateKey) return null;
+
+  return {
+    ...raw,
+    project_id: projectId,
+    client_email: clientEmail,
+    private_key: privateKey
+  };
 }
 
 module.exports = {
