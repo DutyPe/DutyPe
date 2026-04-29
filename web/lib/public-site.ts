@@ -206,6 +206,7 @@ export type LegacyPageDescriptor = {
   intro: string;
   highlights: string[];
   blocks: LegacyPageBlock[];
+  seoKeywords?: string[];
   ctaTitle?: string;
   ctaCopy?: string;
   ctaHref?: string;
@@ -311,6 +312,129 @@ const cityNames: Record<string, string> = {
   ranchi: "Ranchi",
   bhubaneswar: "Bhubaneswar",
   dehradun: "Dehradun"
+};
+
+const cityLocalAreas: Record<string, string[]> = {
+  hyderabad: [
+    "Madhapur",
+    "Gachibowli",
+    "Kondapur",
+    "Kukatpally",
+    "Miyapur",
+    "Ameerpet",
+    "LB Nagar",
+    "Uppal",
+    "Secunderabad",
+    "Banjara Hills",
+    "Jubilee Hills",
+    "Manikonda"
+  ],
+  vijayawada: [
+    "Benz Circle",
+    "Auto Nagar",
+    "Governorpet",
+    "Patamata",
+    "Moghalrajpuram",
+    "Kanuru",
+    "Poranki",
+    "Bhavanipuram"
+  ],
+  warangal: [
+    "Hanamkonda",
+    "Kazipet",
+    "Subedari",
+    "Nakkalagutta",
+    "Kothawada",
+    "Fort Warangal"
+  ],
+  khammam: [
+    "Wyra Road",
+    "Mamillagudem",
+    "Khanapuram Haveli",
+    "Burhanpuram",
+    "Mustafa Nagar",
+    "Nehru Nagar"
+  ],
+  karimnagar: [
+    "Mukrampura",
+    "Kothirampur",
+    "Jyothi Nagar",
+    "Mankammathota",
+    "Srinagar Colony",
+    "Rekurthi"
+  ],
+  kurnool: [
+    "Nandyal Road",
+    "Kallur",
+    "Ashok Nagar",
+    "B Camp",
+    "Budhwar Peta",
+    "Joharapuram"
+  ],
+  visakhapatnam: [
+    "Dwaraka Nagar",
+    "MVP Colony",
+    "Gajuwaka",
+    "Madhurawada",
+    "Akkayyapalem",
+    "Seethammadhara"
+  ],
+  guntur: [
+    "Brodipet",
+    "Arundelpet",
+    "Lakshmipuram",
+    "Kothapeta",
+    "Nallapadu",
+    "Amaravathi Road"
+  ],
+  tirupati: [
+    "Tiruchanur",
+    "Renigunta Road",
+    "Korlagunta",
+    "M R Palli",
+    "Leela Mahal Circle",
+    "Alipiri"
+  ],
+  kakinada: [
+    "Jagannaickpur",
+    "Sarpavaram",
+    "Bhanugudi",
+    "Ramanayyapeta",
+    "Indrapalem",
+    "Port Area"
+  ],
+  nellore: [
+    "Dargamitta",
+    "Balaji Nagar",
+    "Stonehouse Pet",
+    "Magunta Layout",
+    "Haranathapuram",
+    "Nawabpet"
+  ],
+  nizamabad: [
+    "Bodhan Road",
+    "Kanteshwar",
+    "Dichpally",
+    "Armoor Road",
+    "Subhash Nagar",
+    "Vinayak Nagar"
+  ],
+  rajahmundry: [
+    "Danavaipeta",
+    "AV Appa Rao Road",
+    "Kambala Cheruvu",
+    "Morampudi",
+    "Alcot Gardens",
+    "Seethampeta"
+  ],
+  anantapur: [
+    "Sapthagiri Circle",
+    "Ram Nagar",
+    "Old Town",
+    "Rudrampeta",
+    "Srinivas Nagar",
+    "Housing Board"
+  ]
 };
 
 const categoryDetails: Record<string, CategoryDetails> = {
@@ -1225,6 +1349,66 @@ function normalizeCity(citySlug: string) {
   return cityNames[citySlug] ?? titleCaseFromSlug(citySlug);
 }
 
+function getCityLocalAreas(citySlug: string) {
+  return cityLocalAreas[citySlug] ?? [];
+}
+
+function buildCitySeoKeywords(city: string, areas: string[]) {
+  return [
+    `jobs in ${city}`,
+    `${city} jobs near me`,
+    `part time jobs in ${city}`,
+    `local jobs in ${city}`,
+    `job vacancy in ${city}`,
+    `daily wage jobs in ${city}`,
+    `delivery jobs in ${city}`,
+    `driver jobs in ${city}`,
+    `maid jobs in ${city}`,
+    `cook jobs in ${city}`,
+    `security guard jobs in ${city}`,
+    `warehouse jobs in ${city}`,
+    ...areas.flatMap((area) => [
+      `jobs near ${area}`,
+      `part time jobs in ${area}`,
+      `delivery jobs in ${area}`,
+      `driver jobs in ${area}`,
+      `maid jobs in ${area}`,
+      `cook jobs in ${area}`
+    ])
+  ];
+}
+
+function buildCategorySeoKeywords(details: CategoryDetails, cityLabel: string | null, areas: string[]) {
+  const roleTerms = details.roles.flatMap((role) => [
+    `${role.toLowerCase()} jobs`,
+    `${role.toLowerCase()} vacancy`
+  ]);
+
+  if (!cityLabel) {
+    return [
+      `${details.shortLabel.toLowerCase()} jobs near me`,
+      `${details.shortLabel.toLowerCase()} vacancy near me`,
+      `part time ${details.shortLabel.toLowerCase()} jobs near me`,
+      `${details.shortLabel.toLowerCase()} jobs for freshers`,
+      ...roleTerms
+    ];
+  }
+
+  return [
+    `${details.shortLabel.toLowerCase()} jobs in ${cityLabel}`,
+    `${details.shortLabel.toLowerCase()} vacancy in ${cityLabel}`,
+    `${details.shortLabel.toLowerCase()} jobs near me ${cityLabel}`,
+    `part time ${details.shortLabel.toLowerCase()} jobs in ${cityLabel}`,
+    `${details.shortLabel.toLowerCase()} jobs for freshers in ${cityLabel}`,
+    ...roleTerms.map((term) => `${term} in ${cityLabel}`),
+    ...areas.flatMap((area) => [
+      `${details.shortLabel.toLowerCase()} jobs in ${area}`,
+      `${details.shortLabel.toLowerCase()} vacancy near ${area}`,
+      `part time ${details.shortLabel.toLowerCase()} jobs in ${area}`
+    ])
+  ];
+}
+
 function getCategorySlug(slug: string) {
   const keys = Object.keys(categoryDetails).sort((left, right) => right.length - left.length);
   for (const key of keys) {
@@ -1245,13 +1429,14 @@ function getCategorySlug(slug: string) {
 function generateCityJobsPage(slug: string): LegacyPageDescriptor {
   const citySlug = slug.replace(/^jobs-in-/, "");
   const city = normalizeCity(citySlug);
+  const localAreas = getCityLocalAreas(citySlug);
 
   const categoryList = Object.entries(categoryDetails);
   const topCategories = categoryList.slice(0, 8);
 
   return {
     slug,
-    title: `Jobs in ${city} — Local Hiring Near You | DutyPe`,
+    title: `Jobs in ${city} — Local Hiring Near You`,
     description: `Find ${topCategories.map(([, d]) => d.shortLabel.toLowerCase()).join(", ")} and other local jobs in ${city}. Apply free on DutyPe — no middlemen, no fees, verified employers.`,
     eyebrow: `${city} Jobs`,
     intro:
@@ -1261,6 +1446,7 @@ function generateCityJobsPage(slug: string): LegacyPageDescriptor {
       "No registration fees. No middlemen. Direct employer contact.",
       "Get notified instantly when a new job is posted near you."
     ],
+    seoKeywords: buildCitySeoKeywords(city, localAreas),
     blocks: [
       {
         kind: "table",
@@ -1325,7 +1511,35 @@ function generateCityJobsPage(slug: string): LegacyPageDescriptor {
           `Daily wage jobs in ${city}`,
           `Jobs in ${city} for women`
         ]
-      }
+      },
+      ...(localAreas.length
+        ? [
+            {
+              kind: "list" as const,
+              title: `Jobs by local area in ${city}`,
+              intro: `Use these area searches to find jobs closer to your commute in ${city}:`,
+              items: localAreas.flatMap((area) => [
+                `Jobs near ${area}`,
+                `Part time jobs in ${area}`,
+                `Delivery, driver, cook, maid, helper, retail, and security jobs in ${area}`
+              ])
+            },
+            {
+              kind: "faq" as const,
+              title: `${city} local job search FAQ`,
+              items: [
+                {
+                  question: `Can I search jobs by area in ${city}?`,
+                  answer: `Yes. DutyPe is built for nearby hiring, so workers can search around local areas like ${localAreas.slice(0, 4).join(", ")} and other neighborhoods in ${city}.`
+                },
+                {
+                  question: `Which ${city} areas are useful for local job search?`,
+                  answer: `Popular search areas include ${localAreas.join(", ")}. Open the app and enable location to see the closest verified openings.`
+                }
+              ]
+            }
+          ]
+        : [])
     ],
     ctaTitle: `Find jobs in ${city} now`,
     ctaCopy: `Download DutyPe and see live job openings near you in ${city}. Free for all workers.`,
@@ -1347,6 +1561,20 @@ function generateJobsNearMePage(): LegacyPageDescriptor {
       "Nearby roles reduce commute friction.",
       "Workers need clear pay, location, and trust cues.",
       "100 percent free for job seekers."
+    ],
+    seoKeywords: [
+      "jobs near me",
+      "part time jobs near me",
+      "delivery jobs near me",
+      "driver jobs near me",
+      "maid jobs near me",
+      "cook jobs near me",
+      "security jobs near me",
+      "warehouse jobs near me",
+      "daily wage jobs near me",
+      "jobs hiring immediately near me",
+      "10th pass jobs near me",
+      "freshers jobs near me"
     ],
     blocks: [
       {
@@ -1477,9 +1705,10 @@ function generateCategoryPage(
 ): LegacyPageDescriptor {
   const details = categoryDetails[category];
   const cityLabel = city ? normalizeCity(city) : null;
+  const cityAreas = city ? getCityLocalAreas(city) : [];
   const title = cityLabel
-    ? `${details.label} in ${cityLabel} — Apply Free | DutyPe`
-    : `${details.label} — Find ${details.shortLabel} Work Near You | DutyPe`;
+    ? `${details.label} in ${cityLabel} — Apply Free`
+    : `${details.label} — Find ${details.shortLabel} Work Near You`;
   const locationLabel = cityLabel ?? "your area";
 
   return {
@@ -1497,6 +1726,7 @@ function generateCategoryPage(
       `Apply to ${details.shortLabel.toLowerCase()} jobs in ${locationLabel} with one tap — no forms, no calls.`,
       "100% free for workers. Verified employers only."
     ],
+    seoKeywords: buildCategorySeoKeywords(details, cityLabel, cityAreas),
     blocks: [
       {
         kind: "table",
@@ -1522,6 +1752,29 @@ function generateCategoryPage(
           "Safety first — report suspicious listings and DutyPe reviews within 24 hours."
         ]
       },
+      ...(cityLabel && cityAreas.length
+        ? [
+            {
+              kind: "list" as const,
+              title: `${details.shortLabel} jobs by area in ${cityLabel}`,
+              intro: `Search by neighborhood to find ${details.shortLabel.toLowerCase()} work closer to your commute in ${cityLabel}:`,
+              items: cityAreas.flatMap((area) => [
+                `${details.shortLabel} jobs in ${area}`,
+                `Part time ${details.shortLabel.toLowerCase()} jobs in ${area}`,
+                `${details.shortLabel} vacancy near ${area}`
+              ])
+            },
+            {
+              kind: "copy" as const,
+              title: `Common ${cityLabel} ${details.shortLabel.toLowerCase()} searches`,
+              paragraphs: [
+                `Common searches include ${details.shortLabel.toLowerCase()} jobs near me in ${cityLabel}, ${details.shortLabel.toLowerCase()} vacancy in ${cityLabel}, and part time ${details.shortLabel.toLowerCase()} jobs near ${cityAreas.slice(0, 3).join(", ")}.`,
+                `Workers can compare nearby openings by pay, shift, and area before applying. Employers can reach candidates who already want this role in the same city.`
+              ],
+              tone: "highlight" as const
+            }
+          ]
+        : []),
       {
         kind: "faq",
         title: `${details.shortLabel} jobs — common questions`,

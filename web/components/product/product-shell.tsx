@@ -115,10 +115,9 @@ export function ProductRoleBoundary({
         <div className="page-wrap">
           <section className="hero product-hero">
             <span className="eyebrow">Product sign-in required</span>
-            <h1 className="headline">Open the app routes with a Firebase product session.</h1>
+            <h1 className="headline">Sign in to open this workspace.</h1>
             <p className="lede">
-              Android parity routes are gated because apply, save, post-job, and profile
-              flows need a real authenticated user.
+              Apply, save, post-job, and profile tools need a real DutyPe account.
             </p>
             <div className="button-row">
               <Link href={`/app/auth?role=${requiredRole}`} className="button">
@@ -143,10 +142,9 @@ export function ProductRoleBoundary({
           <section className="section">
             <div className="detail-panel">
               <span className="card-kicker">Role mismatch</span>
-              <h3>Your current Firebase user is not configured for {productRoleLabel(requiredRole)} mode.</h3>
+              <h3>Your current account is not configured for {productRoleLabel(requiredRole)} mode.</h3>
               <p>
-                The web product shell follows the Android role split. This account only
-                has access to: {session.availableRoles.map(productRoleLabel).join(", ") || "no roles"}.
+                This account has access to: {session.availableRoles.map(productRoleLabel).join(", ") || "no roles"}.
               </p>
               <div className="button-row">
                 <button type="button" className="button" onClick={() => router.push("/app")}>
@@ -235,6 +233,7 @@ export function ProductAppShell({
                 key={item.href}
                 href={item.href}
                 className={currentPath === item.href ? "active" : undefined}
+                aria-current={currentPath === item.href ? "page" : undefined}
               >
                 {item.label}
               </Link>
@@ -276,8 +275,8 @@ export function ProductAppShell({
         <div className="product-main">
           <section className="product-header">
             <div className="product-header-top">
-              <span className="eyebrow">Android parity slice</span>
-              <span className="product-header-note">App-backed web flow</span>
+              <span className="eyebrow">{productRoleLabel(role)} workspace</span>
+              <span className="product-header-note">Live Firebase session</span>
             </div>
             <h1>{title}</h1>
             <p>{description}</p>

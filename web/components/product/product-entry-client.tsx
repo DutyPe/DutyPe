@@ -15,12 +15,12 @@ const roleHighlights = {
   WORKER: [
     "Browse nearby jobs with saved and applied states.",
     "Track profile completion before you start applying.",
-    "Use the same worker-first flow as the Android app."
+    "Keep job search, saves, and applications together."
   ],
   EMPLOYER: [
-    "Post jobs directly into Firestore-backed collections.",
+    "Post jobs with clear role, pay, and location details.",
     "Review workers and update application states live.",
-    "Manage openings and hiring status from one shell."
+    "Manage openings and hiring status from one workspace."
   ]
 } as const;
 
@@ -52,11 +52,11 @@ export function ProductEntryClient() {
         <section className="hero product-hero">
           <div className="hero-grid product-hero-grid">
             <div className="hero-copy">
-              <span className="eyebrow">DutyPe app routes</span>
-              <h1 className="headline">Use the web app like the Android product, role by role.</h1>
+              <span className="eyebrow">DutyPe web app</span>
+              <h1 className="headline">Open your worker or employer workspace.</h1>
               <p className="lede">
-                This route tree is the parity track: worker and employer entry, live jobs,
-                apply/save flow, post-job flow, and profile management in one React surface.
+                Workers can browse, save, and apply to jobs. Employers can post openings,
+                review applications, and keep hiring work organized.
               </p>
 
               <div className="button-row">
@@ -81,11 +81,11 @@ export function ProductEntryClient() {
               <div className="brand-stat-row">
                 <div className="stat-card">
                   <strong>{session.user ? "Live" : "Ready"}</strong>
-                  <span>Firebase-backed web app shell</span>
+                  <span>Account-backed web workspace</span>
                 </div>
                 <div className="stat-card">
                   <strong>2 roles</strong>
-                  <span>Worker and employer parity tracks</span>
+                  <span>Worker and employer modes</span>
                 </div>
                 <div className="stat-card">
                   <strong>{session.user ? session.availableRoles.length : 1}</strong>
@@ -96,7 +96,7 @@ export function ProductEntryClient() {
 
             <aside className="hero-panel">
               <span className="card-kicker">What this web app already does</span>
-              <h3>Inside the parity slice</h3>
+              <h3>What you can do here</h3>
               <ul className="detail-list">
                 <li>
                   <strong>Worker path</strong>
@@ -124,7 +124,7 @@ export function ProductEntryClient() {
               </div>
               <p>
                 Signed in as {displayProfileName(session.profile)}. The role cards below
-                map the same worker/employer split used in Android navigation.
+                show the worker and employer modes available on this account.
               </p>
             </div>
 

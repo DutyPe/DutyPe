@@ -4,18 +4,20 @@ Use these steps from a machine or agent that has Firebase Admin credentials for 
 
 ## Goal
 
-Push the prepared online job review file into the active DutyPe job posting schema.
+Push only the cleaned Telangana/Andhra Pradesh online job review file into the active DutyPe job posting schema.
+
+Do not use the old 502-row merged review file. It contained high salaries, suspicious repeated vacancy values, and default/missing gender values.
 
 Prepared file:
 
 ```text
-scripts/output/india-fresh-phone-verified-merged-strict-validated.json
+scripts/output/telangana-ap-strict-cleaned-salary-gender-vacancy-validated.json
 ```
 
 Expected prepared count:
 
 ```text
-502 valid jobs
+4 valid jobs
 0 skipped jobs
 ```
 
@@ -23,6 +25,10 @@ Expected prepared count:
 
 - Do not scrape again.
 - Do not invent, rewrite, or enrich job fields.
+- Import only Telangana/Andhra Pradesh jobs for now.
+- Salary values must not exceed `50000`.
+- Gender must be exact source-backed `Male` or `Female`; do not import blank gender or default `Any`.
+- Vacancy count must be source-backed and must not use the suspicious repeated `10` value.
 - Do not write to the old `jobs` collection.
 - Do not write to `job_cards`.
 - Do not write to audit/import collections.
@@ -130,20 +136,20 @@ Run this first. It must not write to Firestore.
 
 ```powershell
 node scripts\import-online-jobs.js `
-  --from-review scripts\output\india-fresh-phone-verified-merged-strict-validated.json `
-  --review-out scripts\output\india-fresh-phone-verified-merged-strict-preapply.json
+  --from-review scripts\output\telangana-ap-strict-cleaned-salary-gender-vacancy-validated.json `
+  --review-out scripts\output\telangana-ap-strict-cleaned-salary-gender-vacancy-preapply.json
 ```
 
 Expected output:
 
 ```text
-Review file: ...india-fresh-phone-verified-merged-strict-preapply.json
-Valid jobs: 502
+Review file: ...telangana-ap-strict-cleaned-salary-gender-vacancy-preapply.json
+Valid jobs: 4
 Skipped: 0
 Dry-run only. No Firestore writes were made.
 ```
 
-Stop if the output is not `Valid jobs: 502` and `Skipped: 0`.
+Stop if the output is not `Valid jobs: 4` and `Skipped: 0`.
 
 ## Step 6: Apply To Firebase
 
@@ -151,23 +157,23 @@ Run the apply command only after the dry validation passes.
 
 ```powershell
 node scripts\import-online-jobs.js `
-  --from-review scripts\output\india-fresh-phone-verified-merged-strict-validated.json `
-  --review-out scripts\output\india-fresh-phone-verified-merged-strict-applied.json `
+  --from-review scripts\output\telangana-ap-strict-cleaned-salary-gender-vacancy-validated.json `
+  --review-out scripts\output\telangana-ap-strict-cleaned-salary-gender-vacancy-applied.json `
   --apply
 ```
 
 Expected output shape:
 
 ```text
-Review file: ...india-fresh-phone-verified-merged-strict-applied.json
-Valid jobs: 502
+Review file: ...telangana-ap-strict-cleaned-salary-gender-vacancy-applied.json
+Valid jobs: 4
 Skipped: 0
 Created: <number>
 Duplicates skipped: <number>
 Invalid skipped at write time: 0
 ```
 
-`Created + Duplicates skipped` should equal `502`.
+`Created + Duplicates skipped` should equal `4`.
 
 If `Invalid skipped at write time` is not `0`, stop and inspect the invalid rows before retrying.
 
@@ -176,7 +182,7 @@ If `Invalid skipped at write time` is not `0`, stop and inspect the invalid rows
 Pick a few `jobId` values from:
 
 ```text
-scripts/output/india-fresh-phone-verified-merged-strict-validated.json
+scripts/output/telangana-ap-strict-cleaned-salary-gender-vacancy-validated.json
 ```
 
 For each sample `jobId`, verify:
@@ -186,6 +192,10 @@ For each sample `jobId`, verify:
 - `jobmetadata/{jobId}` does not contain `contactNumber`.
 - `job_details/{jobId}` contains `contactNumber`.
 - `jobmetadata/{jobId}.status` is `open`.
+- `jobmetadata/{jobId}.salary` has no numeric value over `50000`.
+- `jobmetadata/{jobId}.vacancies` is not `10`.
+- `job_details/{jobId}.gender` is `Male` or `Female`, not blank or `Any`.
+- `job_details/{jobId}.companyCity` is in Telangana/Andhra Pradesh source locations for this cleaned file.
 - No documents were created in old `jobs`.
 - No documents were created in `job_cards`.
 - No audit/import collection was created by this import.
@@ -193,13 +203,13 @@ For each sample `jobId`, verify:
 Optional verification command for the credentialed environment:
 
 ```powershell
-node -e "const fs=require('fs'); const admin=require('firebase-admin'); const {loadServiceAccount}=require('./scripts/lib/firebase-admin-service-account'); if(!admin.apps.length) admin.initializeApp({credential:admin.credential.cert(loadServiceAccount())}); const db=admin.firestore(); const r=JSON.parse(fs.readFileSync('scripts/output/india-fresh-phone-verified-merged-strict-validated.json','utf8')); (async()=>{const sample=(r.jobs||[]).slice(0,10); let ok=0; for(const job of sample){const [m,d]=await Promise.all([db.collection('jobmetadata').doc(job.jobId).get(), db.collection('job_details').doc(job.jobId).get()]); const meta=m.data()||{}; const details=d.data()||{}; if(m.exists&&d.exists&&!('contactNumber' in meta)&&details.contactNumber&&meta.status==='open') ok++; else console.log('bad', job.jobId, {metaExists:m.exists, detailsExists:d.exists, metaHasPhone:'contactNumber' in meta, detailsHasPhone:!!details.contactNumber, status:meta.status}); } console.log('verifiedSamples', ok, 'of', sample.length); process.exit(ok===sample.length?0:1);})().catch(e=>{console.error(e); process.exit(1);});"
+node -e "const fs=require('fs'); const admin=require('firebase-admin'); const {loadServiceAccount}=require('./scripts/lib/firebase-admin-service-account'); if(!admin.apps.length) admin.initializeApp({credential:admin.credential.cert(loadServiceAccount())}); const db=admin.firestore(); const r=JSON.parse(fs.readFileSync('scripts/output/telangana-ap-strict-cleaned-salary-gender-vacancy-validated.json','utf8')); const nums=s=>String(s||'').match(/\d[\d,]*/g)?.map(x=>Number(x.replace(/,/g,''))).filter(Number.isFinite)||[]; (async()=>{const sample=r.jobs||[]; let ok=0; for(const job of sample){const [m,d]=await Promise.all([db.collection('jobmetadata').doc(job.jobId).get(), db.collection('job_details').doc(job.jobId).get()]); const meta=m.data()||{}; const details=d.data()||{}; const salaryOk=nums(meta.salary).length&&Math.max(...nums(meta.salary))<=50000; const genderOk=/^(Male|Female)$/.test(String(details.gender||'')); const vacancyOk=Number(meta.vacancies)!==10&&Number(meta.vacancies)>=1&&Number(meta.vacancies)<=50; if(m.exists&&d.exists&&!('contactNumber' in meta)&&details.contactNumber&&meta.status==='open'&&salaryOk&&genderOk&&vacancyOk) ok++; else console.log('bad', job.jobId, {metaExists:m.exists, detailsExists:d.exists, metaHasPhone:'contactNumber' in meta, detailsHasPhone:!!details.contactNumber, status:meta.status, salary:meta.salary, gender:details.gender, vacancies:meta.vacancies}); } console.log('verifiedSamples', ok, 'of', sample.length); process.exit(ok===sample.length?0:1);})().catch(e=>{console.error(e); process.exit(1);});"
 ```
 
 Expected output:
 
 ```text
-verifiedSamples 10 of 10
+verifiedSamples 4 of 4
 ```
 
 ## Step 8: Clean Credential Environment Variables

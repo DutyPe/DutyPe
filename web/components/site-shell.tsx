@@ -21,8 +21,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
 
+            <Link href="/jobs" className="topbar-search" aria-label="Browse DutyPe jobs">
+              <span>Search jobs</span>
+              <strong>Role, city, category</strong>
+            </Link>
+
             <div className="topbar-actions">
-              <span className="topbar-note">Workers apply free. Employers hire faster.</span>
+              <span className="topbar-note">Free for workers. Direct hiring for employers.</span>
+              <Link href="/app/employer/post-job" className="button ghost topbar-button">
+                Post Job
+              </Link>
               <a
                 href={PLAY_STORE_URL}
                 className="button topbar-button"
@@ -84,7 +92,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
           <div className="footer-bottom-line">
             <span>© 2026 DutyPe. Operated by {siteMeta.companyName}.</span>
-            <span>Built for local hiring across India.</span>
+            <span>Local hiring across India.</span>
           </div>
         </footer>
       </div>

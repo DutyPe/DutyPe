@@ -31,13 +31,13 @@ const initialState = {
 const roleHighlights = {
   WORKER: [
     "Open nearby jobs fast with saved and applied tracking.",
-    "Complete the worker profile fields used by the Android app.",
-    "Keep job actions inside the product shell instead of the public site."
+    "Complete profile details before applying.",
+    "Keep saved jobs, applications, and profile actions in one place."
   ],
   EMPLOYER: [
-    "Create live jobs in Firestore with the Android-compatible shape.",
-    "Review worker applications and update status from the employer shell.",
-    "Keep hiring operations inside one product workspace."
+    "Create live jobs with clear pay, location, and role details.",
+    "Review worker applications and update hiring status.",
+    "Manage hiring operations from one employer workspace."
   ]
 } as const;
 
@@ -177,11 +177,11 @@ export function ProductAuthClient() {
         <section className="hero product-hero">
           <div className="auth-shell-grid">
             <div className="hero-copy">
-              <span className="eyebrow">DutyPe app auth</span>
-              <h1 className="headline">Open the worker or employer product flow, not just the public site.</h1>
+              <span className="eyebrow">DutyPe account</span>
+              <h1 className="headline">Sign in to manage local jobs.</h1>
               <p className="lede">
-                This is the first Android-parity auth slice in web. It creates or reuses a
-                Firebase user and routes into the worker or employer app shell.
+                Workers can track saved jobs and applications. Employers can post roles,
+                review candidates, and manage hiring from one workspace.
               </p>
 
               <div className="product-tab-row">
@@ -277,8 +277,7 @@ export function ProductAuthClient() {
                 </label>
 
                 <div className="product-form-wide callout">
-                  First parity slice note: this web auth currently uses Firebase email/password.
-                  Phone auth, Google auth, and richer onboarding are still separate follow-up work.
+                  Use the email and password linked to your DutyPe account.
                 </div>
 
                 <div className="product-form-wide button-row">
@@ -295,7 +294,7 @@ export function ProductAuthClient() {
                 </div>
               </form>
 
-              {error ? <div className="callout">Auth error: {error}</div> : null}
+              {error ? <div className="callout">Could not continue: {error}</div> : null}
             </div>
           </div>
         </section>

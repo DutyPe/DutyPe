@@ -1605,7 +1605,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
             <span className="tag">Employer jobs</span>
             <h2>Manage posted jobs</h2>
           </div>
-          <p>Review posted jobs, edit details, and open applicants while keeping the Android-compatible document structure.</p>
+          <p>Review posted jobs, edit details, and open applicants from one hiring workspace.</p>
         </div>
 
         {loading ? (

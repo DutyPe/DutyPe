@@ -108,7 +108,7 @@ export function AdminLoginClient() {
       <div className="page-ambient ambient-b" />
 
       <div className="page-wrap">
-        <section className="hero">
+        <section className="hero admin-login-hero">
           <span className="eyebrow">Admin login</span>
           <h1 className="headline">DutyPe Admin</h1>
 

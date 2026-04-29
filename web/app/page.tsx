@@ -255,6 +255,20 @@ export default function HomePage() {
               warehouse, retail, and part-time roles with clear location-first discovery.
             </p>
 
+            <form className="hero-search" action="/jobs">
+              <label>
+                <span>What job?</span>
+                <input name="q" type="search" placeholder="Delivery, driver, cook" />
+              </label>
+              <label>
+                <span>Where?</span>
+                <input name="city" type="search" placeholder="Hyderabad, Khammam" />
+              </label>
+              <button type="submit" className="button hero-search-button">
+                Search Jobs
+              </button>
+            </form>
+
             <div className="button-row">
               <a href={PLAY_STORE_URL} className="button" target="_blank" rel="noopener noreferrer">
                 Download App

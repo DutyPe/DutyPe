@@ -7,7 +7,7 @@ export default function EmployerPostJobPage() {
   return (
     <ProductRoleBoundary
       currentPath="/app/employer/post-job"
-      description="Create a live job post with the same core fields the Android app writes."
+      description="Create a live job post with clear pay, location, and role details."
       requiredRole="EMPLOYER"
       title="Post a job"
     >

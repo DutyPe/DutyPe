@@ -210,6 +210,7 @@ export function generateMetadata({ params }: Props): Metadata {
       ...coreSeoKeywords,
       ...locationKeywords,
       ...categoryKeywords,
+      ...(page.seoKeywords ?? []),
       `${slugPhrase}`,
       `${slugPhrase} near me`,
       "local hiring",
@@ -231,7 +232,9 @@ export default function LegacyContentPage({ params }: Props) {
     notFound();
   }
 
-  const icon = pageIcons[page.slug] ?? "📄";
+  const isJobSeoPage =
+    params.slug === "jobs-near-me" || params.slug.startsWith("jobs-in-") || page.eyebrow.includes("Jobs");
+  const icon = pageIcons[page.slug] ?? (isJobSeoPage ? "💼" : "📄");
   const isLegal = page.eyebrow === "Legal";
   const isSafety = page.eyebrow === "Safety";
   const isSupport = page.eyebrow === "Support";
@@ -276,7 +279,7 @@ export default function LegacyContentPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <section className="hero">
+      <section className={`hero ${isJobSeoPage ? "local-seo-hero" : ""}`}>
         <div className="hero-grid">
           <div className="hero-copy">
             <div className="eyebrow-group">
@@ -323,7 +326,7 @@ export default function LegacyContentPage({ params }: Props) {
         </div>
       </section>
 
-      <section className="section">
+      <section className={`section ${isJobSeoPage ? "local-seo-section" : ""}`}>
         <div className="section-header">
           <div>
             <span className="tag">{page.eyebrow}</span>
@@ -335,7 +338,7 @@ export default function LegacyContentPage({ params }: Props) {
         <div className="section-grid legacy-grid">{page.blocks.map((block) => renderBlock(block))}</div>
 
         {page.ctaTitle && page.ctaCopy ? (
-          <div className="callout" style={{ marginTop: "clamp(14px, 2vw, 18px)" }}>
+          <div className="callout legacy-cta-callout">
             <strong>{page.ctaTitle}</strong>
             <span>{page.ctaCopy}</span>
             {page.ctaHref && page.ctaLabel ? (

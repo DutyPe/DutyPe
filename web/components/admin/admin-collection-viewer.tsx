@@ -82,6 +82,9 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
         )
       )
     : rows;
+  const populatedFieldCount = allFields.filter((field) =>
+    rows.some((row) => row[field] !== null && row[field] !== undefined && renderCellValue(row[field]) !== "—")
+  ).length;
 
   if (loading) {
     return (
@@ -110,14 +113,32 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
           <p>{allFields.length} fields detected across all documents.</p>
         </div>
 
-        <div className="form-group">
+        <div className="admin-collection-summary">
+          <div className="admin-stat-card compact">
+            <strong>{rows.length}</strong>
+            <span>Total documents</span>
+          </div>
+          <div className="admin-stat-card compact">
+            <strong>{filtered.length}</strong>
+            <span>Visible rows</span>
+          </div>
+          <div className="admin-stat-card compact">
+            <strong>{populatedFieldCount}</strong>
+            <span>Fields with data</span>
+          </div>
+        </div>
+
+        <div className="admin-toolbar admin-toolbar-card">
           <input
             type="text"
-            className="form-input"
+            className="admin-search"
             placeholder={`Search ${label}…`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <span className="admin-count">
+            {search ? `${filtered.length} matches` : `${rows.length} rows`}
+          </span>
         </div>
 
         {filtered.length === 0 ? (
@@ -125,7 +146,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
             {rows.length === 0 ? `No ${label} found.` : "No matches for your search."}
           </div>
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll admin-collection-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>

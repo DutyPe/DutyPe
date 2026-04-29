@@ -20,13 +20,23 @@ const allCategories = [
 ];
 
 const allCities = [
-  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Vijayawada", "Warangal",
-  "Tirupati", "Guntur", "Kakinada", "Karimnagar", "Nellore", "Anantapur",
-  "Nizamabad", "Rajahmundry", "Khammam"
+  { label: "Hyderabad", slug: "hyderabad", areas: "Madhapur, Gachibowli, Kondapur, Kukatpally" },
+  { label: "Vijayawada", slug: "vijayawada", areas: "Benz Circle, Auto Nagar, Governorpet, Patamata" },
+  { label: "Warangal", slug: "warangal", areas: "Hanamkonda, Kazipet, Subedari, Nakkalagutta" },
+  { label: "Khammam", slug: "khammam", areas: "Wyra Road, Mamillagudem, Burhanpuram, Khanapuram Haveli" },
+  { label: "Karimnagar", slug: "karimnagar", areas: "Mukrampura, Kothirampur, Jyothi Nagar, Mankammathota" },
+  { label: "Visakhapatnam", slug: "visakhapatnam", areas: "Dwaraka Nagar, MVP Colony, Gajuwaka, Madhurawada" },
+  { label: "Guntur", slug: "guntur", areas: "Brodipet, Arundelpet, Lakshmipuram, Kothapeta" },
+  { label: "Tirupati", slug: "tirupati", areas: "Tiruchanur, Renigunta Road, M R Palli, Alipiri" },
+  { label: "Kakinada", slug: "kakinada", areas: "Bhanugudi, Sarpavaram, Ramanayyapeta, Port Area" },
+  { label: "Nellore", slug: "nellore", areas: "Dargamitta, Balaji Nagar, Stonehouse Pet, Magunta Layout" },
+  { label: "Nizamabad", slug: "nizamabad", areas: "Bodhan Road, Kanteshwar, Armoor Road, Subhash Nagar" },
+  { label: "Rajahmundry", slug: "rajahmundry", areas: "Danavaipeta, Morampudi, Alcot Gardens, Seethampeta" },
+  { label: "Anantapur", slug: "anantapur", areas: "Sapthagiri Circle, Ram Nagar, Old Town, Rudrampeta" }
 ];
 
 export const metadata = {
-  title: "Jobs - Browse by Category and City | DutyPe",
+  title: "Jobs - Browse by Category and City",
   description: "Browse local jobs by category and city on DutyPe. Find delivery, driver, maid, cook, helper, security, and warehouse jobs near you.",
   keywords: [
     ...coreSeoKeywords,
@@ -35,7 +45,13 @@ export const metadata = {
     "delivery boy jobs",
     "driver vacancy near me",
     "maid jobs near me",
-    "part time job openings"
+    "part time job openings",
+    "jobs in Hyderabad",
+    "jobs in Vijayawada",
+    "jobs in Warangal",
+    "jobs in Khammam",
+    "jobs in Andhra Pradesh",
+    "jobs in Telangana"
   ]
 };
 
@@ -47,13 +63,13 @@ export default function JobsHubPage() {
           <div className="hero-copy">
             <div className="eyebrow-group">
               <span className="eyebrow">📍 All jobs</span>
-              <span className="hero-note">13 categories · 15 cities</span>
+              <span className="hero-note">13 categories · Telangana and AP cities</span>
             </div>
             <h1 className="headline">Browse Jobs by Category and City</h1>
             <p className="lede">
               Find local jobs across delivery, driving, housekeeping, cooking, security,
-              warehouse, and many more categories. Browse by job type or by your city —
-              all jobs are verified with clear pay and location details.
+              warehouse, and many more categories. Browse by job type or by local
+              city pages for Hyderabad, Vijayawada, Warangal, Khammam, and nearby areas.
             </p>
             <div className="button-row">
               <Link href="/jobs-near-me" className="button">
@@ -78,7 +94,7 @@ export default function JobsHubPage() {
                 <strong>13 job categories — driver, delivery, maid, cook, helper, and more</strong>
               </li>
               <li>
-                <strong>15 cities — Hyderabad, Bangalore, Delhi, Mumbai, and more</strong>
+                <strong>City pages for Telangana and Andhra Pradesh job searches</strong>
               </li>
               <li>
                 <strong>No experience needed — many openings welcome freshers</strong>
@@ -109,7 +125,7 @@ export default function JobsHubPage() {
               <span className="card-kicker">{category.icon}</span>
               <h3>{category.label}</h3>
               <p>{category.desc}</p>
-              <p className="route-note">Browse →</p>
+              <p className="route-note">Browse</p>
             </Link>
           ))}
         </div>
@@ -118,22 +134,26 @@ export default function JobsHubPage() {
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Cities</span>
-            <h2>Jobs by city</h2>
+            <span className="tag">City pages</span>
+            <h2>Telangana and AP jobs by city</h2>
           </div>
           <p>
-            Find local openings in your city. Click any city below to see available jobs.
+            Find role-based pages for city and area searches like jobs in Hyderabad,
+            delivery jobs in Vijayawada, and part time jobs near Khammam.
           </p>
         </div>
 
-        <div className="pill-row">
+        <div className="route-grid local-city-grid">
           {allCities.map((city) => (
             <Link
-              key={city}
-              href={`/jobs-in-${city.toLowerCase()}`}
-              className="pill pill-link"
+              key={city.slug}
+              href={`/jobs-in-${city.slug}`}
+              className="route-card local-city-card"
             >
-              Jobs in {city}
+              <span className="card-kicker">Jobs in</span>
+              <h3>{city.label}</h3>
+              <p>{city.areas}</p>
+              <p className="route-note">Browse {city.label} jobs</p>
             </Link>
           ))}
         </div>
