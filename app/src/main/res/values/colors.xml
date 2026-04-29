@@ -9,5 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <color name="icon_stroke">#FF000000</color>
     <color name="splash_blue">#FF0066FF</color>
+    <color name="notification_icon_color">#31D08F</color>
 
 </resources>

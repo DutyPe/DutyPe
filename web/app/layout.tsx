@@ -37,7 +37,14 @@ export const metadata: Metadata = {
   ],
   applicationName: "DutyPe",
   icons: {
-    icon: "/icon.svg"
+    icon: [
+      {
+        url: "/icon.webp",
+        type: "image/webp",
+        sizes: "192x192"
+      }
+    ],
+    shortcut: "/icon.webp"
   },
   alternates: {
     canonical: "/"

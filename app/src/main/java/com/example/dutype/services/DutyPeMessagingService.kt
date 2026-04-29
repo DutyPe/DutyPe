@@ -166,7 +166,8 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         
         // Build notification
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.drawable.ic_notification) // Make sure this exists
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotificationIcons.tintColor(this))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -177,6 +178,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             .setCategory(getNotificationCategory(type))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .apply {
+                NotificationIcons.largeIcon(this@DutyPeMessagingService)?.let { setLargeIcon(it) }
                 // Add action buttons based on type
                 addActionsForType(this, type, data, notificationId)
             }
