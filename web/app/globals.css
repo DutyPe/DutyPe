@@ -6213,11 +6213,115 @@ button.product-chip {
   cursor: pointer;
 }
 .admin-autocomplete-item:hover { background: #f3f4f6; }
+.admin-autocomplete-item strong,
+.admin-autocomplete-item small {
+  display: block;
+}
+.admin-autocomplete-item small {
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
 .admin-autocomplete-empty {
   padding: 8px 12px;
   font-size: 0.8rem;
   color: #6b7280;
   font-style: italic;
+}
+
+.admin-location-pin-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fafaf8;
+}
+
+.admin-location-map-preview {
+  width: 100%;
+  height: 220px;
+  border: 0;
+  border-radius: 10px;
+  background: #eef2f7;
+}
+
+.admin-pin-controls {
+  display: grid;
+  grid-template-columns: repeat(4, 40px);
+  gap: 8px;
+}
+
+.admin-pin-controls button {
+  width: 40px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.admin-pin-controls button:hover {
+  background: #f3f4f6;
+}
+
+.location-search-field {
+  position: relative;
+}
+
+.location-autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.location-autocomplete-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.location-autocomplete-list button:hover {
+  background: #f3f4f6;
+}
+
+.location-autocomplete-list strong,
+.location-autocomplete-list small {
+  display: block;
+}
+
+.location-autocomplete-list strong {
+  color: #111827;
+  font-size: 0.88rem;
+}
+
+.location-autocomplete-list small,
+.location-autocomplete-empty {
+  color: #6b7280;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.location-autocomplete-empty {
+  padding: 9px 12px;
 }
 
 .admin-job-image-preview-wrap {

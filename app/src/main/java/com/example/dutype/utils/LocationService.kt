@@ -116,7 +116,7 @@ sealed class LocationState {
  * Enhanced Location Service with real-time updates and better error handling
  * 
  * Uses a hybrid approach:
- * - Azure Maps for reverse geocoding (better Indian address support)
+ * - Google Places and Google Geocoding for precise Indian place/address support
  * - Android Geocoder as fallback
  * - FusedLocationProvider for GPS coordinates
  */
@@ -222,7 +222,7 @@ class LocationService(private val context: Context) {
             Timber.e(e, "LocationService: Google Places SDK initialization failed")
         }.getOrNull()
     }
-    
+
     /**
      * UBER/SWIGGY STRATEGY: Get location instantly using hybrid approach
      * 
@@ -684,7 +684,10 @@ class LocationService(private val context: Context) {
         return if (address != null) {
             // Extract address components (simplified for job search)
             val city = address.locality ?: address.subAdminArea ?: ""
-            val area = address.subLocality ?: ""
+            val area = address.subLocality
+                ?: address.featureName?.takeIf { it != city }
+                ?: address.thoroughfare
+                ?: ""
             val state = address.adminArea ?: ""
             val country = address.countryName ?: "India"
             
@@ -743,7 +746,7 @@ class LocationService(private val context: Context) {
     
     /**
      * Process raw coordinates into LocationInfo with geocoding
-     * Uses Azure Maps as primary, Android Geocoder as fallback
+        * Uses Google Geocoding when configured, then Android Geocoder fallback.
      */
     private fun processLocation(latitude: Double, longitude: Double, callback: (LocationInfo?) -> Unit) {
         // Delegate to the accuracy version with 0 accuracy
@@ -769,7 +772,10 @@ class LocationService(private val context: Context) {
         return if (address != null) {
             // Extract address components (simplified for job search)
             val city = address.locality ?: address.subAdminArea ?: ""
-            val area = address.subLocality ?: ""
+            val area = address.subLocality
+                ?: address.featureName?.takeIf { it != city }
+                ?: address.thoroughfare
+                ?: ""
             val state = address.adminArea ?: ""
             val country = address.countryName ?: "India"
             
@@ -807,12 +813,19 @@ class LocationService(private val context: Context) {
     private fun getFormattedAddress(address: Address): String {
         val addressParts = mutableListOf<String>()
 
-        // Sub-locality/Area/Neighborhood
-        address.subLocality?.let { addressParts.add(it) }
-        // Locality/City
-        address.locality?.let { addressParts.add(it) }
-        // Admin area (State)
-        address.adminArea?.let { addressParts.add(it) }
+        listOf(
+            address.featureName?.takeUnless { it == address.locality || it == address.subLocality },
+            listOfNotNull(address.subThoroughfare, address.thoroughfare).joinToString(" ").takeIf { it.isNotBlank() },
+            address.subLocality,
+            address.locality,
+            address.adminArea,
+            address.postalCode
+        ).forEach { part ->
+            val normalized = part?.trim().orEmpty()
+            if (normalized.isNotBlank() && addressParts.none { it.equals(normalized, ignoreCase = true) }) {
+                addressParts.add(normalized)
+            }
+        }
 
         return if (addressParts.isNotEmpty()) {
             addressParts.joinToString(", ")
@@ -1045,6 +1058,13 @@ class LocationService(private val context: Context) {
                 return@withContext googleResults
             }
 
+            googleMapsApiKey()?.let { apiKey ->
+                val geocodingResults = searchPlacesWithGoogleGeocoding(query, maxResults, apiKey)
+                if (geocodingResults.isNotEmpty()) {
+                    return@withContext geocodingResults
+                }
+            }
+
             searchPlacesWithAndroidGeocoder(query, maxResults)
         } catch (e: Exception) {
             Timber.e(e, "❌ LocationService: Failed to search places for query: $query")
@@ -1108,6 +1128,45 @@ class LocationService(private val context: Context) {
         }.onFailure { e ->
             Timber.e(e, "LocationService: Google Place details failed")
         }.getOrNull()
+    }
+
+    private suspend fun searchPlacesWithGoogleGeocoding(
+        query: String,
+        maxResults: Int,
+        apiKey: String
+    ): List<com.example.dutype.models.PlaceSuggestion> = withContext(Dispatchers.IO) {
+        val encodedAddress = URLEncoder.encode(query, "UTF-8")
+        val url = "https://maps.googleapis.com/maps/api/geocode/json?address=$encodedAddress&components=country:IN&region=in&key=$apiKey"
+        executeGoogleMapsRequest(url)?.let { response ->
+            parseGoogleGeocodingSearchResponse(response, maxResults)
+        } ?: emptyList()
+    }
+
+    private fun parseGoogleGeocodingSearchResponse(
+        response: String,
+        maxResults: Int
+    ): List<com.example.dutype.models.PlaceSuggestion> {
+        val json = JSONObject(response)
+        if (json.optString("status") != "OK") return emptyList()
+        val results = json.optJSONArray("results") ?: return emptyList()
+        val suggestions = mutableListOf<com.example.dutype.models.PlaceSuggestion>()
+        for (index in 0 until minOf(results.length(), maxResults)) {
+            val result = results.optJSONObject(index) ?: continue
+            val location = result.optJSONObject("geometry")?.optJSONObject("location") ?: continue
+            val latitude = location.optDouble("lat")
+            val longitude = location.optDouble("lng")
+            val formattedAddress = result.optString("formatted_address")
+            if (formattedAddress.isBlank() || !GeoUtils.hasValidCoordinates(latitude, longitude)) continue
+            suggestions.add(
+                com.example.dutype.models.PlaceSuggestion(
+                    placeId = result.optString("place_id", "$latitude,$longitude"),
+                    description = formattedAddress,
+                    latitude = latitude,
+                    longitude = longitude
+                )
+            )
+        }
+        return suggestions
     }
 
     private suspend fun searchPlacesWithAndroidGeocoder(

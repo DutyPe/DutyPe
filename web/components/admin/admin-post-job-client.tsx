@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
+import {
+  searchIndianLocations,
+  type WebLocationSuggestion
+} from "@/lib/product/location-search";
 
 // Mirrors the Android app's PostJobScreen exactly: same JobCategory /
 // PayType / ShiftTiming / JobUrgency / JobPerk enums, same gender /
@@ -61,11 +65,7 @@ function detectCategoryFromTitle(title: string): string | null {
   return null;
 }
 
-type LocationSuggestion = {
-  display_name: string;
-  lat: string;
-  lon: string;
-};
+type LocationSuggestion = WebLocationSuggestion;
 
 // PayType enum from Android (JobEnums.kt).
 const SALARY_TYPES: { value: string; label: string }[] = [
@@ -149,6 +149,17 @@ const initialForm = {
 const MAX_JOB_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const SUPPORTED_JOB_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+function mapPreviewUrl(latitude: number, longitude: number): string {
+  const delta = 0.006;
+  const bbox = [
+    longitude - delta,
+    latitude - delta,
+    longitude + delta,
+    latitude + delta
+  ].join(",");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`;
+}
+
 export function AdminPostJobClient() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -197,13 +208,11 @@ export function AdminPostJobClient() {
         const controller = new AbortController();
         abortRef.current = controller;
         setSearchingLocation(true);
-        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&countrycodes=in&q=${encodeURIComponent(query)}`;
-        const response = await fetch(url, {
-          signal: controller.signal,
-          headers: { "Accept-Language": "en" }
+        const results = await searchIndianLocations(query, {
+          limit: 8,
+          signal: controller.signal
         });
-        const results = (await response.json()) as LocationSuggestion[];
-        setSuggestions(Array.isArray(results) ? results.slice(0, 5) : []);
+        setSuggestions(results);
       } catch {
         // Aborted or failed — keep silent; admin can still type lat/lng manually.
       } finally {
@@ -218,12 +227,23 @@ export function AdminPostJobClient() {
   function pickSuggestion(item: LocationSuggestion) {
     setForm((prev) => ({
       ...prev,
-      addressText: item.display_name,
-      latitude: item.lat,
-      longitude: item.lon
+      addressText: item.fullAddress,
+      latitude: item.latitude,
+      longitude: item.longitude
     }));
     setSuggestions([]);
     setShowSuggestions(false);
+  }
+
+  function nudgePin(latitudeDelta: number, longitudeDelta: number) {
+    const latitude = Number(form.latitude);
+    const longitude = Number(form.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    setForm((prev) => ({
+      ...prev,
+      latitude: (latitude + latitudeDelta).toFixed(6),
+      longitude: (longitude + longitudeDelta).toFixed(6)
+    }));
   }
 
   function updatePreviewUrl(nextUrl: string | null) {
@@ -315,16 +335,18 @@ export function AdminPostJobClient() {
     try {
       setGeocoding(true);
       setError(null);
-      // Free Nominatim geocoder — same provider many web apps use.
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(form.addressText.trim())}`;
-      const response = await fetch(url, { headers: { "Accept-Language": "en" } });
-      const results = (await response.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+      const results = await searchIndianLocations(form.addressText.trim(), { limit: 1 });
       if (!results.length) {
         setError("No coordinates found for that address. Paste lat/lng manually.");
         return;
       }
-      const { lat, lon } = results[0];
-      setForm((prev) => ({ ...prev, latitude: lat, longitude: lon }));
+      const location = results[0];
+      setForm((prev) => ({
+        ...prev,
+        addressText: location.fullAddress,
+        latitude: location.latitude,
+        longitude: location.longitude
+      }));
     } catch {
       setError("Geocoding failed. Paste latitude and longitude manually.");
     } finally {
@@ -439,6 +461,13 @@ export function AdminPostJobClient() {
       setSubmitting(false);
     }
   }
+
+  const selectedLatitude = Number(form.latitude);
+  const selectedLongitude = Number(form.longitude);
+  const hasSelectedCoordinates =
+    Number.isFinite(selectedLatitude) &&
+    Number.isFinite(selectedLongitude) &&
+    (selectedLatitude !== 0 || selectedLongitude !== 0);
 
   if (success) {
     return (
@@ -661,7 +690,7 @@ export function AdminPostJobClient() {
                 <li className="admin-autocomplete-empty">Searching…</li>
               )}
               {suggestions.map((item) => (
-                <li key={`${item.lat},${item.lon}`}>
+                <li key={item.id}>
                   <button
                     type="button"
                     className="admin-autocomplete-item"
@@ -670,7 +699,8 @@ export function AdminPostJobClient() {
                       pickSuggestion(item);
                     }}
                   >
-                    📍 {item.display_name}
+                    <strong>{item.label}</strong>
+                    <small>{item.fullAddress}</small>
                   </button>
                 </li>
               ))}
@@ -682,6 +712,33 @@ export function AdminPostJobClient() {
             </small>
           )}
         </label>
+        {hasSelectedCoordinates && (
+          <div className="admin-location-pin-panel">
+            <iframe
+              className="admin-location-map-preview"
+              title="Selected job location map preview"
+              src={mapPreviewUrl(selectedLatitude, selectedLongitude)}
+              loading="lazy"
+            />
+            <div className="admin-pin-controls" aria-label="Adjust selected job coordinates">
+              <button type="button" title="Move pin north" aria-label="Move pin north" onClick={() => nudgePin(0.0001, 0)}>
+                ↑
+              </button>
+              <button type="button" title="Move pin west" aria-label="Move pin west" onClick={() => nudgePin(0, -0.0001)}>
+                ←
+              </button>
+              <button type="button" title="Move pin east" aria-label="Move pin east" onClick={() => nudgePin(0, 0.0001)}>
+                →
+              </button>
+              <button type="button" title="Move pin south" aria-label="Move pin south" onClick={() => nudgePin(-0.0001, 0)}>
+                ↓
+              </button>
+            </div>
+            <small>
+              Exact pin: {selectedLatitude.toFixed(6)}, {selectedLongitude.toFixed(6)}
+            </small>
+          </div>
+        )}
         <div className="admin-form-actions" style={{ gap: 8 }}>
           <button
             type="button"

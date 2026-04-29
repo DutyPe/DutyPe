@@ -70,6 +70,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -105,6 +106,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.employer.components.ContactSection
 import com.example.dutype.employer.components.JobDescriptionSection
 import com.example.dutype.employer.components.JobImageUploadSection
@@ -124,13 +126,7 @@ import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -2563,8 +2559,10 @@ fun EnhancedLocationSection(
     
     // Location search state
     var isSearching by remember { mutableStateOf(false) }
+    var isResolvingPinnedAddress by remember { mutableStateOf(false) }
     var searchSuggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
     var showSuggestions by remember { mutableStateOf(false) }
+    var pendingPinnedLocation by remember { mutableStateOf<LatLng?>(null) }
     
     // Search for locations when user types
     LaunchedEffect(location) {
@@ -2596,6 +2594,25 @@ fun EnhancedLocationSection(
         } else {
             searchSuggestions = emptyList()
             showSuggestions = false
+        }
+    }
+
+    LaunchedEffect(pendingPinnedLocation) {
+        val pinnedLocation = pendingPinnedLocation ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(350)
+        isResolvingPinnedAddress = true
+        try {
+            val resolvedLocation = locationService.getLocationFromCoordinates(
+                pinnedLocation.latitude,
+                pinnedLocation.longitude
+            )
+            val resolvedAddress = resolvedLocation
+                ?.getFullAddress()
+                ?.takeIf { it.isNotBlank() }
+                ?: String.format("%.6f, %.6f", pinnedLocation.latitude, pinnedLocation.longitude)
+            onLocationChange(resolvedAddress)
+        } finally {
+            isResolvingPinnedAddress = false
         }
     }
     
@@ -2841,37 +2858,43 @@ fun EnhancedLocationSection(
 
             if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(locationLatitude, locationLongitude)) {
                 Spacer(modifier = Modifier.height(12.dp))
-                val selectedLatLng = remember(locationLatitude, locationLongitude) {
-                    LatLng(locationLatitude, locationLongitude)
-                }
-                val cameraPositionState = rememberCameraPositionState {
-                    position = CameraPosition.fromLatLngZoom(selectedLatLng, 15f)
-                }
-                LaunchedEffect(selectedLatLng) {
-                    cameraPositionState.position = CameraPosition.fromLatLngZoom(selectedLatLng, 15f)
-                }
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(170.dp),
+                        .height(210.dp),
                     shape = RoundedCornerShape(14.dp),
                     color = Color(0xFFF8FAFC),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
-                    GoogleMap(
+                    SelectableLocationMap(
+                        latitude = locationLatitude,
+                        longitude = locationLongitude,
                         modifier = Modifier.fillMaxSize(),
-                        cameraPositionState = cameraPositionState,
-                        uiSettings = MapUiSettings(
-                            zoomControlsEnabled = false,
-                            myLocationButtonEnabled = false,
-                            mapToolbarEnabled = false
-                        )
-                    ) {
-                        Marker(
-                            state = MarkerState(selectedLatLng),
-                            title = "Work location"
-                        )
-                    }
+                        markerTitle = "Work location",
+                        markerSnippet = location.takeIf { it.isNotBlank() },
+                        onLocationPicked = { latitude, longitude ->
+                            onLocationSelected?.invoke(latitude, longitude)
+                            pendingPinnedLocation = LatLng(latitude, longitude)
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isResolvingPinnedAddress) {
+                        "Updating exact address..."
+                    } else {
+                        String.format("Exact pin: %.6f, %.6f", locationLatitude, locationLongitude)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B)
+                )
+                if (isResolvingPinnedAddress) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = primaryBlue,
+                        trackColor = Color(0xFFE2E8F0)
+                    )
                 }
             }
             

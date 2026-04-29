@@ -52,7 +52,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
-        buildConfigField("String", "AZURE_MAPS_KEY", "\"${localProperties.getProperty("AZURE_MAPS_KEY", "")}\"")
 
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
@@ -410,7 +409,7 @@ dependencies {
     // Timber
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // OkHttp for Azure Maps API calls
+    // OkHttp for Google Geocoding HTTP fallback calls.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Gson for JSON serialization

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
@@ -9,6 +9,11 @@ import {
   hasValidCoordinates,
   workerLocationFromProfile
 } from "@/lib/product/location";
+import {
+  reverseGeocodeIndianLocation,
+  searchIndianLocations,
+  type WebLocationSuggestion
+} from "@/lib/product/location-search";
 
 import type { ProductSession } from "./use-product-session";
 
@@ -58,6 +63,10 @@ export function WorkerLocationClient({ session }: SharedProps) {
   const [locating, setLocating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<WebLocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setForm({
@@ -70,6 +79,47 @@ export function WorkerLocationClient({ session }: SharedProps) {
 
   const savedLocation = workerLocationFromProfile(session.profile);
 
+  useEffect(() => {
+    const query = form.currentLocationAddress.trim();
+    if (!showLocationSuggestions || query.length < 3) {
+      setLocationSuggestions([]);
+      setSearchingLocation(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        if (searchAbortRef.current) searchAbortRef.current.abort();
+        const controller = new AbortController();
+        searchAbortRef.current = controller;
+        setSearchingLocation(true);
+        const results = await searchIndianLocations(query, {
+          limit: 8,
+          signal: controller.signal
+        });
+        setLocationSuggestions(results);
+      } catch {
+        setLocationSuggestions([]);
+      } finally {
+        setSearchingLocation(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [form.currentLocationAddress, showLocationSuggestions]);
+
+  function pickLocationSuggestion(suggestion: WebLocationSuggestion) {
+    setForm((current) => ({
+      ...current,
+      currentLocationAddress: suggestion.fullAddress,
+      currentLocationLabel: suggestion.label,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude
+    }));
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
+  }
+
   async function handleUseCurrentLocation() {
     try {
       setLocating(true);
@@ -79,13 +129,23 @@ export function WorkerLocationClient({ session }: SharedProps) {
       const position = await getBrowserPosition();
       const nextLatitude = position.coords.latitude.toFixed(6);
       const nextLongitude = position.coords.longitude.toFixed(6);
+      const resolvedLocation = await reverseGeocodeIndianLocation(
+        position.coords.latitude,
+        position.coords.longitude
+      ).catch(() => null);
 
       setForm((current) => ({
         ...current,
-        currentLocationLabel: current.currentLocationLabel || "Current location",
+        currentLocationAddress:
+          resolvedLocation?.fullAddress ||
+          current.currentLocationAddress ||
+          `${nextLatitude}, ${nextLongitude}`,
+        currentLocationLabel: resolvedLocation?.label || current.currentLocationLabel || "Current location",
         latitude: nextLatitude,
         longitude: nextLongitude
       }));
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
     } catch (locationError) {
       setError(
         locationError instanceof Error
@@ -301,18 +361,44 @@ export function WorkerLocationClient({ session }: SharedProps) {
             />
           </label>
 
-          <label className="editor-form-wide">
+          <label className="editor-form-wide location-search-field">
             <span>Address details</span>
             <input
               value={form.currentLocationAddress}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  currentLocationAddress: event.target.value
-                }))
+                {
+                  setForm((current) => ({
+                    ...current,
+                    currentLocationAddress: event.target.value
+                  }));
+                  setShowLocationSuggestions(true);
+                }
               }
+              onFocus={() => setShowLocationSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowLocationSuggestions(false), 200)}
               placeholder="Near metro, opposite main road, flat area landmark"
             />
+            {showLocationSuggestions && (searchingLocation || locationSuggestions.length > 0) ? (
+              <ul className="location-autocomplete-list">
+                {searchingLocation && locationSuggestions.length === 0 ? (
+                  <li className="location-autocomplete-empty">Searching...</li>
+                ) : null}
+                {locationSuggestions.map((suggestion) => (
+                  <li key={suggestion.id}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        pickLocationSuggestion(suggestion);
+                      }}
+                    >
+                      <strong>{suggestion.label}</strong>
+                      <small>{suggestion.fullAddress}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </label>
 
           <div className="editor-form-actions button-row">
