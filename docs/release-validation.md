@@ -357,6 +357,35 @@ git push origin <branch>
 The build will warn at configure time if `app/mapping/release-mapping.txt` is
 missing or older than 14 days.
 
+### 5.1 Why a tiny UI change can still show a ~7 MB update
+
+If Play Console shows a ~7 MB update after a color/text-only change, first check
+the release mapping, not images. In the April 30, 2026 release artifact,
+compressed dex is ~7.16 MB, while app resources are only ~1.2 MB. So a mapping
+mistake makes Play patch the dex split and the update looks much larger than the
+source edit.
+
+Quick checks:
+
+```powershell
+git status --short app\mapping\release-mapping.txt app\build.gradle.kts
+Get-Item app\mapping\release-mapping.txt
+```
+
+If `app/mapping/release-mapping.txt` is modified after `bundleRelease`, commit
+it with the same release/versionCode change before starting the next hotfix:
+
+```powershell
+git add app\build.gradle.kts app\mapping\release-mapping.txt
+git commit -m "chore(release): refresh mapping for v2.6.X"
+git push origin <branch>
+```
+
+Do not expect Play updates to be literally the number of source-code bytes
+changed. The goal is to avoid rewriting the whole dex split. With a fresh
+committed mapping, no-code repeat builds keep `classes.dex` stable; without it,
+small UI changes can still look like multi-MB updates.
+
 ---
 
 ## 6. Rollback
