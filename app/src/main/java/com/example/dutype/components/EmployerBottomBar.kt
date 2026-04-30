@@ -63,7 +63,7 @@ import timber.log.Timber
 fun EmployerBottomBar(
     navController: NavController,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = Color(0xFF2563EB), // Blue for selected (Employer)
+    selectedItemColor: Color = Color(0xFF275DF5),
     unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {

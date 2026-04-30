@@ -365,7 +365,7 @@ class MainActivity : ComponentActivity() {
                                 onAnimationEnd = { showAnimatedSplash = false }
                             )
                         }
-                        
+
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {
                             MaintenanceModeSheet()

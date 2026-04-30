@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Fully transparent 108dp drawable used as windowSplashScreenAnimatedIcon
-    so the system splash on Android 12+ shows only a black background
-    (and never the launcher icon). The Compose AnimatedSplashScreen draws
-    the only visible "DutyPe" branding.
+    so the system splash shows only the brand-blue background. The Compose
+    AnimatedSplashScreen draws the visible "DutyPe" branding.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">

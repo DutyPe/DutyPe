@@ -57,7 +57,7 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 fun WorkerBottomBar(
     navController: NavController,
     backgroundColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavSelected,
+    selectedItemColor: Color = Color(0xFF275DF5),
     unselectedItemColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {

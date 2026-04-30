@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +46,7 @@ fun AnimatedSplashScreen(
     onAnimationEnd: () -> Unit
 ) {
     val splashBlue = Color(0xFF275DF5)
-    val logoProgress = remember { Animatable(0f) }
+    val logoProgress = remember { Animatable(0.92f) }
     var visible by remember { mutableStateOf(true) }
 
     val view = LocalView.current
@@ -55,9 +55,15 @@ fun AnimatedSplashScreen(
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         val previousLightStatus = controller?.isAppearanceLightStatusBars
         val previousLightNav = controller?.isAppearanceLightNavigationBars
+        val previousStatusColor = window?.statusBarColor
+        val previousNavColor = window?.navigationBarColor
+        window?.statusBarColor = splashBlue.toArgb()
+        window?.navigationBarColor = splashBlue.toArgb()
         controller?.isAppearanceLightStatusBars = false
         controller?.isAppearanceLightNavigationBars = false
         onDispose {
+            previousStatusColor?.let { window.statusBarColor = it }
+            previousNavColor?.let { window.navigationBarColor = it }
             previousLightStatus?.let { controller.isAppearanceLightStatusBars = it }
             previousLightNav?.let { controller.isAppearanceLightNavigationBars = it }
         }
@@ -66,18 +72,18 @@ fun AnimatedSplashScreen(
     LaunchedEffect(Unit) {
         logoProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
         )
-        delay(650L)
+        delay(260L)
         visible = false
-        delay(180L)
+        delay(100L)
         onAnimationEnd()
     }
 
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(animationSpec = tween(0)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing))
+        exit = fadeOut(animationSpec = tween(durationMillis = 100, easing = LinearOutSlowInEasing))
     ) {
         Box(
             modifier = Modifier
@@ -86,19 +92,18 @@ fun AnimatedSplashScreen(
             contentAlignment = Alignment.Center
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .alpha(logoProgress.value)
                     .graphicsLayer {
-                        scaleX = 0.92f + (logoProgress.value * 0.08f)
-                        scaleY = 0.92f + (logoProgress.value * 0.08f)
+                        scaleX = logoProgress.value
+                        scaleY = logoProgress.value
                     }
             ) {
                 Image(
-                    painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                    painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
                     contentDescription = null,
-                    modifier = Modifier.size(84.dp)
+                    modifier = Modifier.size(65.dp)
                 )
                 Text(
                     text = "DutyPe",
