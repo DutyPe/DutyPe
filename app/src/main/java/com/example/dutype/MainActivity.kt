@@ -356,9 +356,9 @@ class MainActivity : ComponentActivity() {
                             notificationIntent = intent
                         )
 
-                        // Compose-side static splash overlay. The system splash
-                        // drops once MainNavGraph is ready; this keeps the
-                        // logo + DutyPe splash visible briefly with no animation.
+                        // Compose-side animated splash overlay. The platform
+                        // splash is visually hidden by the launch theme, so
+                        // this is the only branded splash the user sees.
                         var showAnimatedSplash by remember { mutableStateOf(true) }
                         if (showAnimatedSplash) {
                             com.example.dutype.components.AnimatedSplashScreen(

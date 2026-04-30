@@ -968,8 +968,9 @@ fun BrowseCategoriesSection(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Categories Grid - 5 per row (original layout)
-        val chunkedCategories = categories.chunked(5)
+        // Home preview keeps categories compact: 2 rows, then "See all".
+        val visibleCategories = categories.take(10)
+        val chunkedCategories = visibleCategories.chunked(5)
         
         Column(
             modifier = Modifier
@@ -1168,14 +1169,11 @@ internal fun DynamicHeader(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                // Batch-o #3: gradient purple wash. The status bar is
-                // pinned to the top colour (#6D28D9) in WorkerHomeScreen,
-                // so the system bar visually merges into the header.
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF6D28D9),
-                        Color(0xFF7C3AED),
-                        Color(0xFF8B5CF6)
+                        WorkerHomeHeaderTopColor,
+                        WorkerHomeHeaderMidColor,
+                        Color(0xFF5E86FF)
                     )
                 ),
                 shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)

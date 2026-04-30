@@ -452,8 +452,8 @@ fun RoleCard(
             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 4.dp,
-                pressedElevation = 1.dp
+                defaultElevation = 1.dp,
+                pressedElevation = 0.dp
             ),
             border = androidx.compose.foundation.BorderStroke(
                 width = 1.dp,

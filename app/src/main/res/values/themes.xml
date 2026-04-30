@@ -11,16 +11,16 @@
         -->
     </style>
 
-    <!-- Modern splash screen: blue background with the app icon. -->
+    <!-- Platform splash is visually hidden so only the Compose app-icon splash is seen. -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/splash_blue</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenBackground">#275DF5</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/splash_icon_transparent</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/splash_blue</item>
+        <item name="windowSplashScreenIconBackgroundColor">#275DF5</item>
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
-        <item name="android:statusBarColor">@color/splash_blue</item>
-        <item name="android:navigationBarColor">@color/splash_blue</item>
+        <item name="android:statusBarColor">#275DF5</item>
+        <item name="android:navigationBarColor">#275DF5</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
