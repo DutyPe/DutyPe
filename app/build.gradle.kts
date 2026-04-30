@@ -267,15 +267,16 @@ ksp {
 }
 
 // ---------------------------------------------------------------------------
-// Play update-size churn fix, part 2: after every release minify task, copy
-// the fresh R8 mapping.txt into app/mapping/release-mapping.txt so the next
-// release can apply it (see the buildTypes.release block above).
+// Play update-size churn fix, part 2: keep a manual task that copies the fresh
+// R8 mapping.txt into app/mapping/release-mapping.txt after Play accepts a
+// release. Do not run this automatically during bundleRelease: the production
+// build must consume the previous release mapping as its baseline, and only
+// then should the newly generated mapping be archived for the next release.
 //
 // Why: R8 writes the mapping into
 //   app/build/outputs/mapping/release/mapping.txt
-// We mirror it under source-controlled app/mapping/ so that bumping
-// versionCode + committing the new mapping is the only step a developer
-// has to remember between releases.
+// We mirror it under source-controlled app/mapping/ only after upload/approval
+// so the next versionCode can reuse the exact production baseline.
 // ---------------------------------------------------------------------------
 val archiveReleaseMapping by tasks.registering(Copy::class) {
     val sourceMapping = layout.buildDirectory.file("outputs/mapping/release/mapping.txt")
@@ -283,18 +284,8 @@ val archiveReleaseMapping by tasks.registering(Copy::class) {
     into(layout.projectDirectory.dir("mapping"))
     rename { "release-mapping.txt" }
     onlyIf { sourceMapping.get().asFile.exists() }
-    description = "Archives the release R8 mapping for reuse on the next build (keeps Play patch sizes small)."
-}
-
-androidComponents.onVariants { variant ->
-    if (variant.name == "release") {
-        // `minifyReleaseWithR8` is created lazily by AGP; configureEach
-        // ensures we hook it whenever it gets registered without forcing
-        // task realization at configuration time.
-        tasks.matching { it.name == "minifyReleaseWithR8" }.configureEach {
-            finalizedBy(archiveReleaseMapping)
-        }
-    }
+    group = "release"
+    description = "Manually archives the release R8 mapping after Play accepts the uploaded release."
 }
 
 dependencies {
