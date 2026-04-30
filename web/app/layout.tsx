@@ -39,12 +39,13 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/icon.webp",
-        type: "image/webp",
-        sizes: "192x192"
+        url: "/playstore.png",
+        type: "image/png",
+        sizes: "512x512"
       }
     ],
-    shortcut: "/icon.webp"
+    shortcut: "/playstore.png",
+    apple: "/playstore.png"
   },
   alternates: {
     canonical: "/"
