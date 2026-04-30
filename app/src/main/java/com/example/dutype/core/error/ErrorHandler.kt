@@ -119,7 +119,7 @@ class ErrorHandler @Inject constructor(
         metadata: Map<String, String>
     ) {
         val logMessage = buildString {
-            append("❌ ERROR [${error.errorCode}] in $context")
+            append("Error [${error.errorCode}] in $context")
             append("\n  Message: ${error.message}")
             append("\n  User Message: ${error.userMessage}")
             append("\n  Retryable: ${error.isRetryable}")

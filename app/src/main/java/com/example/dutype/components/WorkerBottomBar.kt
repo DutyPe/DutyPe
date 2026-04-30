@@ -32,17 +32,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.theme.ComponentHeights
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.IconSizes
-import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Worker Bottom Bar - PhonePe/Paytm style bottom navigation
@@ -56,9 +54,9 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 @Composable
 fun WorkerBottomBar(
     navController: NavController,
-    backgroundColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = Color(0xFF275DF5),
-    unselectedItemColor: Color = com.example.dutype.ui.theme.WorkerColors.BottomNavUnselected,
+    backgroundColor: Color = WorkerColors.BottomNavBackground,
+    selectedItemColor: Color = WorkerColors.Primary,
+    unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
@@ -105,7 +103,7 @@ fun WorkerBottomBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(com.example.dutype.ui.theme.WorkerColors.Border)
+                        .background(WorkerColors.Border)
                 )
                 
                 Row(
@@ -143,7 +141,7 @@ fun WorkerBottomBar(
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = label,
-                                    modifier = Modifier.size(26.dp), // Increased from 24dp
+                                    modifier = Modifier.size(IconSizes.Standard),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
                             } else {
@@ -153,7 +151,7 @@ fun WorkerBottomBar(
                                     Icon(
                                         painter = painterResource(id = iconRes),
                                         contentDescription = label,
-                                        modifier = Modifier.size(26.dp), // Increased from 24dp
+                                        modifier = Modifier.size(IconSizes.Standard),
                                         tint = if (isSelected) selectedItemColor else unselectedItemColor
                                     )
                                 }
@@ -164,9 +162,7 @@ fun WorkerBottomBar(
                             // Label - Clean, lightweight text
                             Text(
                                 text = label,
-                                fontFamily = MeeshoFontFamily,
-                                fontSize = 11.sp, // Slightly smaller for better fit
-                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                                style = if (isSelected) AppTypography.bottomNavLabelSelected else AppTypography.bottomNavLabel,
                                 color = if (isSelected) selectedItemColor else unselectedItemColor,
                                 maxLines = 1
                             )

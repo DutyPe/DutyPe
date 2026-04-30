@@ -49,7 +49,7 @@ val Typography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
-        letterSpacing = (-0.25).sp
+        letterSpacing = 0.sp
     ),
     displayMedium = TextStyle(
         fontFamily = SoraFamily,
@@ -164,13 +164,10 @@ val Typography = Typography(
 // ============================================
 
 /**
- * DutyPe App Typography System - Meesho Inspired
- * Single font family (SansSerif/Roboto) for consistency
- * 
- * Based on Meesho app design:
- * - Clean, readable fonts
- * - Consistent weight hierarchy
- * - Proper line heights for readability
+ * DutyPe App Typography System.
+ * Uses Sora for display moments and IBM Plex Sans for dense app UI.
+ * Keep this hierarchy quiet and scan-friendly; most screens are operational
+ * job workflows, not landing pages.
  * 
  * Usage: Import AppTypography and use like AppTypography.screenTitle
  */
@@ -187,10 +184,10 @@ object AppTypography {
      */
     val screenTitle = TextStyle(
         fontFamily = SoraFamily,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.5.sp,
-        lineHeight = 22.sp
+        fontSize = 17.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.sp,
+        lineHeight = 24.sp
     )
     
     /**
@@ -199,10 +196,10 @@ object AppTypography {
      */
     val displayTitle = TextStyle(
         fontFamily = SoraFamily,
-        fontSize = 24.sp,
+        fontSize = 22.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
-        lineHeight = 32.sp
+        lineHeight = 30.sp
     )
     
     /**
@@ -212,7 +209,7 @@ object AppTypography {
     val pageTitle = TextStyle(
         fontFamily = SoraFamily,
         fontSize = 20.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
         lineHeight = 28.sp
     )
@@ -241,7 +238,7 @@ object AppTypography {
     val subsectionHeader = TextStyle(
         fontFamily = MeeshoFontFamily,
         fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.sp,
         lineHeight = 20.sp
     )

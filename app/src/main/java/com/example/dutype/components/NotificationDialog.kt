@@ -11,11 +11,22 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -23,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.dutype.models.NotificationType
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.NotificationDialogData
 
 /**
@@ -30,7 +43,7 @@ import com.example.dutype.utils.NotificationDialogData
  * 
  * Features:
  * - Smooth animations (Material 3 Expressive)
- * - Emoji icons for visual appeal
+ * - Material icons for clear, native Android presentation
  * - Primary and optional secondary actions
  * - Type-based color theming
  * 
@@ -92,28 +105,30 @@ fun NotificationDialog(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = data.icon,
-                            fontSize = 36.sp
+                        Icon(
+                            imageVector = getNotificationDialogIcon(data.type),
+                            contentDescription = null,
+                            tint = getNotificationDialogColor(data.type),
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                     
                     // Title
                     Text(
                         text = data.title,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = AppTypography.pageTitle,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
+                        color = WorkerColors.TextPrimary,
                         textAlign = TextAlign.Center
                     )
                     
                     // Message
                     Text(
                         text = data.message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color(0xFF4B5563),
+                        style = AppTypography.bodyMedium,
+                        color = WorkerColors.TextSecondary,
                         textAlign = TextAlign.Center,
-                        lineHeight = 24.sp
+                        lineHeight = 22.sp
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))
@@ -155,11 +170,11 @@ fun NotificationDialog(
                                     .fillMaxWidth()
                                     .height(48.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF6B7280)
+                                    contentColor = WorkerColors.TextSecondary
                                 ),
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
-                                    Color(0xFFE5E7EB)
+                                    WorkerColors.Border
                                 ),
                                 shape = RoundedCornerShape(16.dp)
                             ) {
@@ -207,4 +222,22 @@ private fun getNotificationDialogColor(type: NotificationType): Color {
         
         else -> Color(0xFF6B7280) // Gray
     }
+}
+
+private fun getNotificationDialogIcon(type: NotificationType): ImageVector = when (type) {
+    NotificationType.APPLICATION_STATUS,
+    NotificationType.APPLICATION_STATUS_UPDATE,
+    NotificationType.SHORTLISTED,
+    NotificationType.PROFILE_COMPLETE -> Icons.Default.CheckCircle
+    NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.EventAvailable
+    NotificationType.NEW_APPLICATION -> Icons.Default.PersonAdd
+    NotificationType.WORKER_HIRED,
+    NotificationType.JOB_POSTED,
+    NotificationType.NEW_JOB_ALERT,
+    NotificationType.JOB_RECOMMENDATION -> Icons.Default.Work
+    NotificationType.REJECTED -> Icons.Default.Error
+    NotificationType.BIRTHDAY -> Icons.Default.Cake
+    NotificationType.REFERRAL_MILESTONE -> Icons.Default.Campaign
+    NotificationType.WELCOME -> Icons.Default.Info
+    else -> Icons.Default.Notifications
 }

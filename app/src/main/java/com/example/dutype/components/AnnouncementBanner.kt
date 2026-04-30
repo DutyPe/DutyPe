@@ -17,14 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.dutype.models.Announcement
 import com.example.dutype.models.AnnouncementType
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -32,62 +31,50 @@ import kotlinx.coroutines.launch
  * Get announcement styling based on type
  */
 private data class AnnouncementStyle(
-    val gradient: Brush,
-    val iconColor: Color,
+    val containerColor: Color,
+    val accentColor: Color,
+    val iconContainerColor: Color,
     val icon: ImageVector,
-    val emoji: String
 )
 
 @Composable
 private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
     return when (type) {
         AnnouncementType.INFO -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFF3B82F6), Color(0xFF2563EB))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFEFF6FF),
+            accentColor = Color(0xFF2563EB),
+            iconContainerColor = Color(0xFFDBEAFE),
             icon = Icons.Default.Info,
-            emoji = "ℹ️"
         )
         AnnouncementType.SUCCESS -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFF10B981), Color(0xFF059669))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFECFDF5),
+            accentColor = Color(0xFF059669),
+            iconContainerColor = Color(0xFFD1FAE5),
             icon = Icons.Default.CheckCircle,
-            emoji = "✅"
         )
         AnnouncementType.WARNING -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFFFBBF24), Color(0xFFF59E0B))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFFFFBEB),
+            accentColor = Color(0xFFD97706),
+            iconContainerColor = Color(0xFFFEF3C7),
             icon = Icons.Default.Warning,
-            emoji = "⚠️"
         )
         AnnouncementType.ERROR -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFFEF4444), Color(0xFFDC2626))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFFEF2F2),
+            accentColor = Color(0xFFDC2626),
+            iconContainerColor = Color(0xFFFEE2E2),
             icon = Icons.Default.Error,
-            emoji = "❌"
         )
         AnnouncementType.FEATURE -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFF8B5CF6), Color(0xFF7C3AED))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFF5F3FF),
+            accentColor = Color(0xFF7C3AED),
+            iconContainerColor = Color(0xFFEDE9FE),
             icon = Icons.Default.Star,
-            emoji = "✨"
         )
         AnnouncementType.PROMOTION -> AnnouncementStyle(
-            gradient = Brush.horizontalGradient(
-                colors = listOf(Color(0xFFF97316), Color(0xFFEA580C))
-            ),
-            iconColor = Color.White,
+            containerColor = Color(0xFFFFF7ED),
+            accentColor = Color(0xFFEA580C),
+            iconContainerColor = Color(0xFFFFEDD5),
             icon = Icons.Default.LocalOffer,
-            emoji = "🎁"
         )
     }
 }
@@ -116,14 +103,15 @@ fun AnnouncementCard(
                     Modifier
                 }
             ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = style.containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(style.gradient)
-                .padding(16.dp)
+                .background(style.containerColor)
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -132,16 +120,16 @@ fun AnnouncementCard(
                 // Icon with background
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.2f)),
+                        .background(style.iconContainerColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = style.icon,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        tint = style.accentColor,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 
@@ -154,18 +142,14 @@ fun AnnouncementCard(
                 ) {
                     Text(
                         text = announcement.title,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        style = AppTypography.cardTitle.copy(color = WorkerColors.TextPrimary)
                     )
                     
                     if (announcement.message.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = announcement.message,
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.95f),
-                            lineHeight = 18.sp
+                            style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
                         )
                     }
                     

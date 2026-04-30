@@ -103,12 +103,12 @@ fun AnimatedSplashScreen(
                 Image(
                     painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
                     contentDescription = null,
-                    modifier = Modifier.size(65.dp)
+                    modifier = Modifier.size(60.dp)
                 )
                 Text(
                     text = "DutyPe",
                     color = Color.White,
-                    fontSize = 42.sp,
+                    fontSize = 36.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

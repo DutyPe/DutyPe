@@ -14,6 +14,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -22,12 +34,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
+
+private fun aboutIconFor(symbol: String): ImageVector = when (symbol) {
+    "💰" -> Icons.Default.Payments
+    "❤️" -> Icons.Default.Favorite
+    "🚀" -> Icons.Default.TrendingUp
+    "🛡️", "🔒" -> Icons.Default.Security
+    "👥", "🤝" -> Icons.Default.Groups
+    "🏢" -> Icons.Default.Business
+    "🎯" -> Icons.Default.Flag
+    "💡" -> Icons.Default.Lightbulb
+    "✅" -> Icons.Default.CheckCircle
+    else -> Icons.Default.Info
+}
 
 /**
  * Hero block at the top of an About screen — colored badge + title + tagline.
@@ -57,24 +85,26 @@ fun AboutHero(
                     .background(accentColor.copy(alpha = 0.12f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = badgeEmoji, fontSize = 26.sp)
+                Icon(
+                    imageVector = aboutIconFor(badgeEmoji),
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(26.dp)
+                )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge.copy(
+                    style = AppTypography.pageTitle.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     )
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        lineHeight = 20.sp
-                    )
+                    style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                 )
             }
         }
@@ -115,14 +145,19 @@ fun AboutSectionCard(
                             .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = icon, fontSize = 16.sp)
+                        Icon(
+                            imageVector = aboutIconFor(icon),
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = AppTypography.sectionHeader.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF111827)
+                            color = WorkerColors.TextPrimary
                         )
                     )
                 }
@@ -150,10 +185,7 @@ fun AboutBullet(text: String, accentColor: Color) {
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF374151),
-                lineHeight = 22.sp
-            )
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary)
         )
     }
 }
@@ -165,10 +197,7 @@ fun AboutBullet(text: String, accentColor: Color) {
 fun AboutParagraph(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium.copy(
-            color = Color(0xFF374151),
-            lineHeight = 22.sp
-        )
+        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary)
     )
 }
 
@@ -183,8 +212,8 @@ fun AboutFooter(version: String) {
     ) {
         Text(
             text = stringResource(R.string.about_made_in_bharat),
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280),
+            style = AppTypography.bodyMedium.copy(
+                color = WorkerColors.TextSecondary,
                 fontWeight = FontWeight.Medium
             ),
             textAlign = TextAlign.Center
@@ -192,9 +221,7 @@ fun AboutFooter(version: String) {
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.about_version_format, version),
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF9CA3AF)
-            ),
+            style = AppTypography.bodySmall.copy(color = WorkerColors.TextTertiary),
             textAlign = TextAlign.Center
         )
     }

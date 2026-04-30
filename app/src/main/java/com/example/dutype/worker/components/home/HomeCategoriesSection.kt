@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
+import com.example.dutype.components.CategoryIcon
+import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
@@ -32,7 +35,7 @@ import com.example.dutype.ui.theme.WorkerColors
 
 data class CategoryItem(
     val name: String,
-    val emoji: String
+    val icon: ImageVector
 )
 
 @Composable
@@ -41,18 +44,17 @@ fun HomeCategoriesSection(
     onViewAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Categories with emojis
     val categories = listOf(
-        CategoryItem("Delivery", "\uD83D\uDEB4"),
-        CategoryItem("Shop Helper", "\uD83C\uDFEA"),
-        CategoryItem("Housekeeping", "\uD83E\uDDF9"),
-        CategoryItem("Construction", "\uD83D\uDC77"),
-        CategoryItem("Events", "\uD83C\uDFAA"),
-        CategoryItem("Kitchen", "\uD83C\uDF73"),
-        CategoryItem("Driver", "\uD83D\uDE97"),
-        CategoryItem("Security", "\uD83D\uDC82"),
-        CategoryItem("Electrician", "\uD83D\uDCA1"),
-        CategoryItem("Plumber", "\uD83D\uDD27")
+        CategoryItem("Delivery", CategoryIcon.forDisplayName("Delivery")),
+        CategoryItem("Shop Helper", CategoryIcon.forDisplayName("Shop Helper")),
+        CategoryItem("Housekeeping", CategoryIcon.forDisplayName("Housekeeping")),
+        CategoryItem("Construction", CategoryIcon.forDisplayName("Construction")),
+        CategoryItem("Events", CategoryIcon.forDisplayName("Events")),
+        CategoryItem("Kitchen", CategoryIcon.forDisplayName("Kitchen")),
+        CategoryItem("Driver", CategoryIcon.forDisplayName("Driver")),
+        CategoryItem("Security", CategoryIcon.forDisplayName("Security")),
+        CategoryItem("Electrician", CategoryIcon.forDisplayName("Electrician")),
+        CategoryItem("Plumber", CategoryIcon.forDisplayName("Plumber"))
     )
     
     Column(modifier = modifier.fillMaxWidth()) {
@@ -73,10 +75,9 @@ fun HomeCategoriesSection(
             ) {
                 Text(
                     text = stringResource(R.string.view_all),
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = AppTypography.buttonSmall.copy(
                         color = Color(0xFF6B7280),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp
+                        fontWeight = FontWeight.Medium
                     )
                 )
                 Icon(
@@ -145,9 +146,11 @@ private fun CategoryChip(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = category.emoji,
-                    fontSize = 26.sp
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = category.name,
+                    tint = WorkerColors.IconAccent,
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
@@ -157,7 +160,7 @@ private fun CategoryChip(
         // Category name
         Text(
             text = category.name,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = AppTypography.labelSmall.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
                 fontSize = 10.sp

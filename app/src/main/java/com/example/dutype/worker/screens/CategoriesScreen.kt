@@ -23,12 +23,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.CategoryIcon
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.employer.models.JobCategory
@@ -187,9 +188,9 @@ private fun CategorySidebar(
     
     // All categories - no job counts shown
     val categories = listOf(
-        CategoryDisplayItem("All", "📋")
+        CategoryDisplayItem("All", CategoryIcon.forDisplayName("All"))
     ) + JobCategory.entries.map { cat ->
-        CategoryDisplayItem(cat.displayName, cat.icon)
+        CategoryDisplayItem(cat.displayName, CategoryIcon.forJobCategory(cat))
     }
     
     LazyColumn(
@@ -232,10 +233,11 @@ private fun CategoryItemView(
             .padding(vertical = 12.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Emoji icon
-        Text(
-            text = category.icon,
-            fontSize = 24.sp
+        Icon(
+            imageVector = category.icon,
+            contentDescription = category.name,
+            tint = if (isSelected) WorkerColors.Primary else WorkerColors.IconSecondary,
+            modifier = Modifier.size(24.dp)
         )
         
         Spacer(modifier = Modifier.height(4.dp))
@@ -427,5 +429,5 @@ private fun JobsListSection(
 // Data class for category display
 private data class CategoryDisplayItem(
     val name: String,
-    val icon: String
+    val icon: ImageVector
 )

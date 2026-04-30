@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.ui.theme.AppTypography
@@ -49,7 +49,7 @@ fun CommonHeader(
     onBackClick: (() -> Unit)? = null,
     showBackButton: Boolean = true,
     backgroundColor: Color = Color.White,
-    titleColor: Color = Color.Black,
+    titleColor: Color = Color(0xFF0F172A),
     subtitle: String? = null,
     subtitleColor: Color = Color(0xFF6B7280),
     actions: @Composable (() -> Unit)? = null,
@@ -68,7 +68,7 @@ fun CommonHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Back button - only show if showBackButton is true
@@ -83,7 +83,7 @@ fun CommonHeader(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = "Back",
                         tint = titleColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))
@@ -94,7 +94,10 @@ fun CommonHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = AppTypography.screenTitle.copy(color = titleColor)
+                    style = AppTypography.screenTitle.copy(
+                        color = titleColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
                 if (subtitle != null) {
                     Text(

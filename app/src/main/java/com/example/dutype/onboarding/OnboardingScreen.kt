@@ -181,8 +181,7 @@ private fun FirstTimeLanguageSelection(
                 text = title,
                 style = AppTypography.displayTitle.copy(
                     color = Color(0xFF0F172A),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Start
                 )
             )
@@ -753,11 +752,10 @@ private fun OnboardingPage(
             Text(
                 text = title,
                 style = AppTypography.displayTitle.copy(
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     color = GlassTextPrimary,
                     textAlign = TextAlign.Center,
-                    fontSize = 30.sp,
-                    lineHeight = 36.sp
+                    lineHeight = 30.sp
                 )
             )
 
@@ -780,53 +778,7 @@ private fun OnboardingPage(
 @Composable
 fun OnboardingBackdrop(pageFactor: Float) {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        // Clean white base matching language selection
         drawRect(color = Color(0xFFF8FAFC))
-
-        // Warm amber glow top-left
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(0xFFF59E0B).copy(alpha = 0.10f),
-                    Color.Transparent
-                )
-            ),
-            center = Offset(
-                x = size.width * (0.1f + pageFactor * 0.08f),
-                y = size.height * (0.08f - pageFactor * 0.02f)
-            ),
-            radius = size.width * 0.5f
-        )
-
-        // Soft blue glow top-right
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(0xFF60A5FA).copy(alpha = 0.10f),
-                    Color.Transparent
-                )
-            ),
-            center = Offset(
-                x = size.width * (0.88f - pageFactor * 0.06f),
-                y = size.height * (0.16f)
-            ),
-            radius = size.width * 0.4f
-        )
-
-        // Subtle violet bottom
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color(0xFFA78BFA).copy(alpha = 0.06f),
-                    Color.Transparent
-                )
-            ),
-            center = Offset(
-                x = size.width * (0.5f + pageFactor * 0.05f),
-                y = size.height * 0.92f
-            ),
-            radius = size.width * 0.5f
-        )
     }
 }
 

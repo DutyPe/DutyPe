@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,10 +121,10 @@ fun HelpMainScreen(
     var expandedFaqIndex by remember { mutableStateOf(-1) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val accent = androidx.compose.ui.graphics.Color(0xFF2563EB)
-    val accentSoft = androidx.compose.ui.graphics.Color(0xFFDBEAFE)
-    val ink = androidx.compose.ui.graphics.Color(0xFF0F172A)
-    val muted = androidx.compose.ui.graphics.Color(0xFF64748B)
+    val accent = WorkerColors.Primary
+    val accentSoft = WorkerColors.PrimaryLight
+    val ink = WorkerColors.TextPrimary
+    val muted = WorkerColors.TextSecondary
 
     val guideItems = listOf(
         HelpExpandableItem(
@@ -196,7 +198,7 @@ fun HelpMainScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color(0xFFF8FAFC))
+            .background(WorkerColors.ScreenBackground)
     ) {
         CommonHeader(
             title = stringResource(R.string.help_faqs),
@@ -213,9 +215,10 @@ fun HelpMainScreen(
             // Hero
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                color = androidx.compose.ui.graphics.Color.White,
-                shadowElevation = 4.dp
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                color = WorkerColors.CardBackground,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -245,13 +248,13 @@ fun HelpMainScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             stringResource(R.string.help_hero_title),
-                            style = MaterialTheme.typography.titleLarge,
+                            style = AppTypography.pageTitle,
                             fontWeight = FontWeight.Bold,
                             color = ink
                         )
                         Text(
                             stringResource(R.string.help_hero_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = AppTypography.bodyMedium,
                             color = muted
                         )
                     }
@@ -276,9 +279,9 @@ fun HelpMainScreen(
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = accent,
-                    unfocusedBorderColor = androidx.compose.ui.graphics.Color(0xFFCBD5E1),
-                    focusedContainerColor = androidx.compose.ui.graphics.Color.White,
-                    unfocusedContainerColor = androidx.compose.ui.graphics.Color.White
+                    unfocusedBorderColor = WorkerColors.Border,
+                    focusedContainerColor = WorkerColors.CardBackground,
+                    unfocusedContainerColor = WorkerColors.CardBackground
                 )
             )
 
@@ -291,8 +294,8 @@ fun HelpMainScreen(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Phone,
                     label = stringResource(R.string.whatsapp_label),
-                    bg = androidx.compose.ui.graphics.Color(0xFFDCFCE7),
-                    tint = androidx.compose.ui.graphics.Color(0xFF16A34A)
+                    bg = WorkerColors.SuccessLight,
+                    tint = WorkerColors.Success
                 ) {
                     val msg = context.getString(R.string.whatsapp_worker_message)
                     val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
@@ -313,8 +316,8 @@ fun HelpMainScreen(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.BugReport,
                     label = stringResource(R.string.report),
-                    bg = androidx.compose.ui.graphics.Color(0xFFFFE4E6),
-                    tint = androidx.compose.ui.graphics.Color(0xFFE11D48)
+                    bg = WorkerColors.ErrorLight,
+                    tint = WorkerColors.Error
                 ) {
                     navController.navigate(com.example.dutype.navigation.Routes.REPORT)
                 }
@@ -326,8 +329,8 @@ fun HelpMainScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    color = androidx.compose.ui.graphics.Color.White,
-                    shadowElevation = 2.dp
+                    color = WorkerColors.CardBackground,
+                    shadowElevation = 0.dp
                 ) {
                     Column(modifier = Modifier.padding(vertical = 6.dp)) {
                         filteredGuides.forEachIndexed { index, item ->
@@ -353,8 +356,8 @@ fun HelpMainScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    color = androidx.compose.ui.graphics.Color.White,
-                    shadowElevation = 2.dp
+                    color = WorkerColors.CardBackground,
+                    shadowElevation = 0.dp
                 ) {
                     Column(modifier = Modifier.padding(vertical = 6.dp)) {
                         filteredFaqs.forEachIndexed { index, item ->
@@ -378,7 +381,7 @@ fun HelpMainScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    color = androidx.compose.ui.graphics.Color.White
+                    color = WorkerColors.CardBackground
                 ) {
                     Column(
                         modifier = Modifier
@@ -424,8 +427,8 @@ private fun QuickActionTile(
     Surface(
         modifier = modifier.clickable { onClick() },
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        color = androidx.compose.ui.graphics.Color.White,
-        shadowElevation = 2.dp
+        color = WorkerColors.CardBackground,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -446,7 +449,7 @@ private fun QuickActionTile(
                 label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = androidx.compose.ui.graphics.Color(0xFF0F172A)
+                color = WorkerColors.TextPrimary
             )
         }
     }
@@ -460,9 +463,9 @@ private fun SectionLabel(title: String, count: Int, accent: androidx.compose.ui.
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = AppTypography.sectionHeader,
             fontWeight = FontWeight.Bold,
-            color = androidx.compose.ui.graphics.Color(0xFF0F172A)
+            color = WorkerColors.TextPrimary
         )
         Spacer(modifier = Modifier.width(8.dp))
         Surface(
@@ -472,7 +475,7 @@ private fun SectionLabel(title: String, count: Int, accent: androidx.compose.ui.
             Text(
                 text = count.toString(),
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                style = MaterialTheme.typography.labelSmall,
+                style = AppTypography.labelSmall,
                 color = accent,
                 fontWeight = FontWeight.Bold
             )
@@ -510,15 +513,15 @@ private fun ExpandableHelpRow(
             }
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = AppTypography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = androidx.compose.ui.graphics.Color(0xFF0F172A),
+                color = WorkerColors.TextPrimary,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = androidx.compose.ui.graphics.Color(0xFF64748B)
+                tint = WorkerColors.IconSecondary
             )
         }
 
@@ -526,9 +529,8 @@ private fun ExpandableHelpRow(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = item.content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = androidx.compose.ui.graphics.Color(0xFF475569),
-                lineHeight = androidx.compose.ui.unit.TextUnit(20f, androidx.compose.ui.unit.TextUnitType.Sp),
+                style = AppTypography.bodyMedium,
+                color = WorkerColors.TextSecondary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = if (item.icon != null) 46.dp else 0.dp)

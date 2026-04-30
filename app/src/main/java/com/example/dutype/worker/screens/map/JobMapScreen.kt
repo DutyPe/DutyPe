@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,13 +68,13 @@ import com.dutype.app.R
  */
 
 // Distance filter options
-enum class DistanceFilter(val meters: Int, val label: String, val icon: String) {
-    WALKING_500M(500, "500m", "🚶"),
-    WALKING_1KM(1000, "1km", "🚶"),
-    CYCLING_2KM(2000, "2km", "🚴"),
-    NEARBY_5KM(5000, "5km", "📍"),
-    WITHIN_10KM(10000, "10km", "🚗"),
-    ALL(Int.MAX_VALUE, "All", "🌍")
+enum class DistanceFilter(val meters: Int, val label: String, val icon: ImageVector) {
+    WALKING_500M(500, "500m", Icons.Default.DirectionsWalk),
+    WALKING_1KM(1000, "1km", Icons.Default.DirectionsWalk),
+    CYCLING_2KM(2000, "2km", Icons.Default.DirectionsBike),
+    NEARBY_5KM(5000, "5km", Icons.Default.LocationOn),
+    WITHIN_10KM(10000, "10km", Icons.Default.DirectionsCar),
+    ALL(Int.MAX_VALUE, "All", Icons.Default.Public)
 }
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
@@ -492,7 +493,12 @@ fun JobMapScreen(
                     modifier = Modifier.padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("🔍", fontSize = 48.sp)
+                    Icon(
+                        imageVector = Icons.Default.SearchOff,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(56.dp)
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = stringResource(R.string.no_jobs_within_distance, when(selectedDistanceFilter) {
@@ -610,7 +616,11 @@ private fun DistanceFilterChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(filter.icon, fontSize = 14.sp)
+            Icon(
+                imageVector = filter.icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
             Text(
                 text = when(filter) {
                     DistanceFilter.WALKING_500M -> stringResource(R.string.map_500m)

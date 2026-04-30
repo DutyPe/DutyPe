@@ -24,7 +24,7 @@ val SecondaryTeal = Color(0xFF0D9488)
 val TertiaryGold = Color(0xFFD97706)
 
 val DarkBackground = Color(0xFF0F172A)
-val LightBackground = Color(0xFFFFFFFF)
+val LightBackground = Color(0xFFF8FAFC)
 val SurfaceDark = Color(0xFF1E293B)
 val SurfaceLight = Color(0xFFFFFFFF)
 
@@ -66,34 +66,34 @@ object WorkerColors {
 
     val StatusBarColor: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)
 
     val TextPrimary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFF1F5F9) else Color(0xFF1F2937)
+            if (isAppInDarkTheme()) Color(0xFFF1F5F9) else Color(0xFF0F172A)
     val TextSecondary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFB6C0CC) else Color(0xFF6B7280)
+            if (isAppInDarkTheme()) Color(0xFFB6C0CC) else Color(0xFF475569)
     val TextTertiary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF9CA3AF)
+            if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF64748B)
     val TextDisabled: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF4B5563) else Color(0xFFD1D5DB)
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8B5CF6) else Color(0xFF570DF8)
+            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF2A1A4D) else Color(0xFFE8DEFF)
+            if (isAppInDarkTheme()) Color(0xFF0F2A4D) else Color(0xFFDBEAFE)
     val Secondary: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFFFF8585) else Color(0xFFFF6B6B)
@@ -134,7 +134,7 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF334155) else Color(0xFFE5E7EB)
     val BorderFocused: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8B5CF6) else Color(0xFF570DF8)
+            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
 
     val IconPrimary: Color
         @Composable @ReadOnlyComposable get() =
@@ -144,11 +144,11 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF9CA3AF)
     val IconAccent: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8B5CF6) else Color(0xFF570DF8)
+            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
 
     val BadgeNew: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8B5CF6) else Color(0xFF570DF8)
+            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
     val BadgeHot: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFFF87171) else Color(0xFFEF4444)
@@ -161,13 +161,13 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF1F2937) else Color(0xFFF3F4F6)
     val ChipSelectedBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF2A1A4D) else Color(0xFFE8DEFF)
+            if (isAppInDarkTheme()) Color(0xFF0F2A4D) else Color(0xFFDBEAFE)
     val ChipText: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFFE5E7EB) else Color(0xFF374151)
     val ChipSelectedText: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFC4B5FD) else Color(0xFF570DF8)
+            if (isAppInDarkTheme()) Color(0xFFBFDBFE) else Color(0xFF1D4ED8)
 
     val ShimmerBase: Color
         @Composable @ReadOnlyComposable get() =
@@ -214,7 +214,7 @@ object EmployerColors {
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)

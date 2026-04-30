@@ -34,9 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -44,7 +42,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
 import com.example.dutype.ads.AdManager
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.theme.MeeshoFontFamily
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.AdViewModel
 import timber.log.Timber
@@ -63,7 +62,7 @@ import timber.log.Timber
 fun EmployerBottomBar(
     navController: NavController,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = Color(0xFF275DF5),
+    selectedItemColor: Color = WorkerColors.Primary,
     unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {
@@ -174,15 +173,13 @@ fun EmployerBottomBar(
                         Icon(
                             painter = painterResource(id = R.drawable.post_job),
                             contentDescription = stringResource(id = R.string.bottom_nav_post),
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(IconSizes.Standard),
                             tint = if (postSelected) selectedItemColor else unselectedItemColor
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = stringResource(id = R.string.bottom_nav_post),
-                            fontFamily = MeeshoFontFamily,
-                            fontSize = 11.sp,
-                            fontWeight = if (postSelected) FontWeight.Medium else FontWeight.Normal,
+                            style = if (postSelected) AppTypography.bottomNavLabelSelected else AppTypography.bottomNavLabel,
                             color = if (postSelected) selectedItemColor else unselectedItemColor,
                             maxLines = 1
                         )
@@ -234,15 +231,13 @@ private fun RowScope.EmployerBottomTab(
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = label,
-            modifier = Modifier.size(26.dp),
+            modifier = Modifier.size(IconSizes.Standard),
             tint = if (isSelected) selectedItemColor else unselectedItemColor
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            fontFamily = MeeshoFontFamily,
-            fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            style = if (isSelected) AppTypography.bottomNavLabelSelected else AppTypography.bottomNavLabel,
             color = if (isSelected) selectedItemColor else unselectedItemColor,
             maxLines = 1
         )

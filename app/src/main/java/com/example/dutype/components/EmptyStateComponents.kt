@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import androidx.compose.ui.res.stringResource
@@ -111,14 +110,14 @@ fun EmptyListState(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9)),
+                    .background(WorkerColors.ChipBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
-                    tint = Color(0xFF9CA3AF)
+                    tint = WorkerColors.IconSecondary
                 )
             }
 
@@ -130,14 +129,14 @@ fun EmptyListState(
                 Text(
                     text = title,
                     style = AppTypography.emptyStateTitle.copy(
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     ),
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = subtitle,
                     style = AppTypography.emptyStateSubtitle.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -156,7 +155,7 @@ fun EmptyListState(
                         Button(
                             onClick = it.onClick,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF1F2937)
+                                containerColor = WorkerColors.Primary
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -273,17 +272,17 @@ fun EmptyLocationState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Icon emoji
-            Text(
-                text = "📍",
-                fontSize = 48.sp
+            EmptyStateIcon(
+                imageVector = Icons.Default.LocationOn,
+                tint = WorkerColors.Primary,
+                size = 72
             )
 
             // Title
             Text(
                 text = "No $categoryFilter nearby",
                 style = AppTypography.emptyStateTitle.copy(
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextPrimary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -292,7 +291,7 @@ fun EmptyLocationState(
             Text(
                 text = humorMessage,
                 style = AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     textAlign = TextAlign.Center
                 )
             )
@@ -347,14 +346,14 @@ fun EmptyActionState(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9)),
+                    .background(WorkerColors.ChipBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = Color(0xFF9CA3AF)
+                    tint = WorkerColors.IconSecondary
                 )
             }
 
@@ -366,14 +365,14 @@ fun EmptyActionState(
                 Text(
                     text = title,
                     style = AppTypography.emptyStateTitle.copy(
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     ),
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = subtitle,
                     style = AppTypography.emptyStateSubtitle.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -383,7 +382,7 @@ fun EmptyActionState(
             Button(
                 onClick = onAction,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F2937)
+                    containerColor = WorkerColors.Primary
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(0.7f)
@@ -456,14 +455,14 @@ data class EmptyStateAction(
 fun EmptyStateIcon(
     imageVector: ImageVector,
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF9CA3AF),
+    tint: Color = WorkerColors.IconSecondary,
     size: Int = 72
 ) {
     Box(
         modifier = modifier
             .size(size.dp)
             .clip(CircleShape)
-            .background(Color(0xFFF1F5F9)),
+            .background(WorkerColors.ChipBackground),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -483,8 +482,8 @@ fun EmptyStateText(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
-    titleColor: Color = Color(0xFF111827),
-    subtitleColor: Color = Color(0xFF6B7280)
+    titleColor: Color = WorkerColors.TextPrimary,
+    subtitleColor: Color = WorkerColors.TextSecondary
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -522,7 +521,7 @@ fun EmptyStateButtons(
             Button(
                 onClick = it.onClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F2937)
+                    containerColor = WorkerColors.Primary
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()

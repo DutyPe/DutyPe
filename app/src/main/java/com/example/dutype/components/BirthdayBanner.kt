@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,9 +25,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.dutype.ui.theme.AppTypography
 
 /**
- * Birthday Banner - A cheerful banner to wish users on their birthday! 🎂
+ * Birthday Banner - a cheerful, compact birthday greeting.
  * Shows at the top of the home screen with confetti animation
  */
 @Composable
@@ -37,7 +39,7 @@ fun BirthdayBanner(
 ) {
     var isVisible by remember { mutableStateOf(true) }
     
-    // Bounce animation for cake emoji
+    // Bounce animation for the birthday icon.
     val infiniteTransition = rememberInfiniteTransition(label = "birthday")
     val bounce by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -110,29 +112,22 @@ fun BirthdayBanner(
                         .padding(end = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Animated emojis
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .graphicsLayer {
+                                translationY = bounce
+                                alpha = sparkle
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "🎉",
-                            fontSize = 24.sp,
-                            modifier = Modifier.graphicsLayer { alpha = sparkle }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "🎂",
-                            fontSize = 32.sp,
-                            modifier = Modifier.graphicsLayer { 
-                                translationY = bounce 
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "🎉",
-                            fontSize = 24.sp,
-                            modifier = Modifier.graphicsLayer { alpha = sparkle }
+                        Icon(
+                            imageVector = Icons.Default.Cake,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
                         )
                     }
                     
@@ -140,10 +135,9 @@ fun BirthdayBanner(
                     
                     // Birthday message
                     Text(
-                        text = "Happy Birthday, $userName! 🎈",
+                        text = "Happy Birthday, $userName!",
                         color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold),
                         textAlign = TextAlign.Center
                     )
                     
@@ -152,16 +146,16 @@ fun BirthdayBanner(
                     Text(
                         text = "Wishing you a wonderful day filled with joy!",
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 14.sp,
+                        style = AppTypography.bodySmall,
                         textAlign = TextAlign.Center
                     )
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "- Team DutyPe 💝",
+                        text = "Team DutyPe",
                         color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 12.sp,
+                        style = AppTypography.labelSmall,
                         fontWeight = FontWeight.Medium
                     )
                 }
