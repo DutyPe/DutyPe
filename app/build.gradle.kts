@@ -51,8 +51,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 51
-        versionName = "2.6.5"
+        versionCode = 52
+        versionName = "2.6.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -193,6 +193,16 @@ android {
         // JNI libs configuration for 16KB page size support
         jniLibs {
             // Use uncompressed native libraries (required for 16KB page size)
+            useLegacyPackaging = false
+        }
+
+        // Play update-size fix:
+        // Keep DEX files uncompressed/aligned in generated APK splits. When DEX
+        // is deflated, even a tiny Kotlin/Compose edit can reshuffle the
+        // compressed stream and Play may report a ~7 MB update because the dex
+        // split patches poorly. Uncompressed DEX gives Play a stable byte stream
+        // to delta, so small fixes patch closer to their real binary change.
+        dex {
             useLegacyPackaging = false
         }
     }

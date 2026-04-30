@@ -365,12 +365,26 @@ compressed dex is ~7.16 MB, while app resources are only ~1.2 MB. So a mapping
 mistake makes Play patch the dex split and the update looks much larger than the
 source edit.
 
+Also keep `packaging.dex.useLegacyPackaging = false` enabled in
+`app/build.gradle.kts`. This stores dex files uncompressed/aligned in generated
+APK splits. Deflated dex is bad for tiny hotfix patches because a small code
+edit can reshuffle the compressed stream and make Play report a multi-MB update.
+
 Quick checks:
 
 ```powershell
 git status --short app\mapping\release-mapping.txt app\build.gradle.kts
 Get-Item app\mapping\release-mapping.txt
 ```
+
+Verify release APK dex storage after build:
+
+```powershell
+./gradlew :app:assembleRelease
+```
+
+Then inspect `app/build/outputs/apk/release/app-release.apk`; both
+`classes.dex` files should be stored, not deflated.
 
 If `app/mapping/release-mapping.txt` is modified after `bundleRelease`, commit
 it with the same release/versionCode change before starting the next hotfix:
