@@ -31,6 +31,11 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val hasReleaseSigningConfig = keystorePropertiesFile.exists() &&
+    listOf("keyAlias", "keyPassword", "storeFile", "storePassword").all { key ->
+        !keystoreProperties.getProperty(key).isNullOrBlank()
+    } && file(keystoreProperties.getProperty("storeFile")).exists()
+
 // Load local properties for API keys
 val localPropertiesFile = rootProject.file("local.properties")
 val localProperties = Properties()
@@ -66,11 +71,11 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+            if (hasReleaseSigningConfig) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
             }
         }
     }
@@ -83,7 +88,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "[dutype] WARNING: release signing is not configured on this machine. " +
+                        "bundleRelease will produce an unsigned verification bundle; add " +
+                        "keystore.properties to create a Play-uploadable signed bundle."
+                )
+            }
 
             // ---------------------------------------------------------------
             // Play update-size churn fix (see docs/FEATURE_RELEASE_MAPS_ROUTING.md
