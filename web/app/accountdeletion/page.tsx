@@ -54,168 +54,79 @@ const retainedData = [
 
 export default function AccountDeletionPage() {
   return (
-    <SiteShell>
-      {/* Hero */}
-      <section className="hero">
-        <div className="hero-grid">
-          <div className="hero-copy">
-            <span className="eyebrow">🗑️ Privacy</span>
-            <h1 className="headline">Request Account Deletion</h1>
-            <p className="lede">
-              You have the right to request deletion of your DutyPe account and
-              personal data at any time. Send us an email and we will process
-              your request.
-            </p>
-            <div className="button-row">
-              <a
-                href={`mailto:${SUPPORT_EMAIL}?subject=Account%20Deletion%20Request`}
-                className="button"
-              >
-                Request Deletion via Email
-              </a>
-            </div>
-          </div>
-
-          <aside className="hero-panel hero-panel-enhanced">
-            <span className="card-kicker">Key points</span>
-            <h3>What to expect</h3>
-            <ul className="detail-list detail-list-enhanced">
-              <li>
-                <strong>Processed within 7 business days</strong>
-              </li>
-              <li>
-                <strong>All personal data permanently removed</strong>
-              </li>
-              <li>
-                <strong>This action cannot be undone</strong>
-              </li>
-            </ul>
-          </aside>
-        </div>
-      </section>
-
-      {/* Steps */}
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">How it works</span>
-            <h2>Deletion process</h2>
-          </div>
-          <p>Follow these steps to delete your account and data.</p>
-        </div>
-
-        <div className="section-grid">
-          {deletionSteps.map((s) => (
-            <article key={s.step} className="detail-panel">
-              <span className="card-kicker">Step {s.step}</span>
-              <h3>{s.title}</h3>
-              <p>{s.detail}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* What gets deleted */}
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Data scope</span>
-            <h2>What gets deleted</h2>
-          </div>
+    <SiteShell plain>
+      <article className="policy-page">
+        <header className="policy-header">
+          <p className="policy-eyebrow">Privacy</p>
+          <h1>Request Account Deletion</h1>
           <p>
-            When your account is deleted, the following data is permanently
-            removed.
+            You have the right to request deletion of your DutyPe account and personal data at any time.
+            Send us an email and we will process your request.
           </p>
-        </div>
+        </header>
 
-        <div className="section-grid">
-          <article className="detail-panel tone-highlight">
-            <span className="card-kicker">Permanently removed</span>
-            <h3>Your data</h3>
-            <ul className="detail-list detail-list-enhanced">
+        <div className="policy-content">
+          <section className="policy-section">
+            <h2>Deletion process</h2>
+            <ol className="policy-list">
+              {deletionSteps.map((s) => (
+                <li key={s.step}>
+                  <strong>{s.title}.</strong> {s.detail}
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="policy-section">
+            <h2>What gets deleted</h2>
+            <p>When your account is deleted, the following data is permanently removed.</p>
+            <ul className="policy-list">
               {deletedData.map((d) => (
-                <li key={d}>
-                  <strong>{d}</strong>
-                </li>
+                <li key={d}>{d}</li>
               ))}
             </ul>
-          </article>
+          </section>
 
-          <article className="detail-panel tone-neutral">
-            <span className="card-kicker">Legal retention</span>
-            <h3>What we may retain</h3>
-            <p>
-              Certain data may be retained for legal and compliance purposes:
-            </p>
-            <ul className="detail-list detail-list-enhanced">
+          <section className="policy-section">
+            <h2>What we may retain</h2>
+            <p>Certain data may be retained for legal and compliance purposes.</p>
+            <ul className="policy-list">
               {retainedData.map((d) => (
-                <li key={d}>
-                  <strong>{d}</strong>
-                </li>
+                <li key={d}>{d}</li>
               ))}
             </ul>
-          </article>
-        </div>
-      </section>
+          </section>
 
-      {/* Important notes */}
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Important</span>
+          <section className="policy-section">
             <h2>Before you proceed</h2>
-          </div>
+            <p>
+              Account deletion is permanent and cannot be reversed. You will need to create a new account
+              if you wish to use DutyPe again.
+            </p>
+            <p>
+              If you have any pending payments or active disputes, those must be resolved before your
+              account can be deleted. For employer accounts, all active job postings will be closed and
+              applicants will be notified.
+            </p>
+          </section>
+
+          <section className="policy-section policy-support-section">
+            <h2>Request deletion</h2>
+            <p>
+              Send an email to {SUPPORT_EMAIL} with the subject &quot;Account Deletion Request&quot; and your
+              registered phone number.
+            </p>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}?subject=Account%20Deletion%20Request`}
+              className="policy-action"
+            >
+              Request deletion via email
+            </a>
+          </section>
         </div>
 
-        <div className="section-grid">
-          <article className="detail-panel tone-warning">
-            <span className="card-kicker">Warning</span>
-            <h3>Permanent action</h3>
-            <p>
-              Account deletion is permanent and cannot be reversed. You will
-              need to create a new account if you wish to use DutyPe again.
-            </p>
-          </article>
-
-          <article className="detail-panel">
-            <span className="card-kicker">Note</span>
-            <h3>Pending items</h3>
-            <p>
-              If you have any pending payments or active disputes, those must be
-              resolved before your account can be deleted. For employer accounts,
-              all active job postings will be closed and applicants will be
-              notified.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <div className="callout">
-        <strong>Ready to delete your account?</strong>
-        <span>
-          Send an email to {SUPPORT_EMAIL} with the subject &quot;Account
-          Deletion Request&quot; and your registered phone number.
-        </span>
-        <a
-          href={`mailto:${SUPPORT_EMAIL}?subject=Account%20Deletion%20Request`}
-          className="callout-action"
-        >
-          Request deletion
-        </a>
-      </div>
-
-      {/* Company footer note */}
-      <p
-        style={{
-          textAlign: "center",
-          fontSize: "0.85rem",
-          color: "var(--text-muted)",
-          padding: "1.5rem 1rem 0",
-        }}
-      >
-        Operated by {siteMeta.companyName}
-      </p>
+        <p className="policy-footer-note">Operated by {siteMeta.companyName}</p>
+      </article>
     </SiteShell>
   );
 }

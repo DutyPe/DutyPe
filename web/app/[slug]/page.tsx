@@ -27,6 +27,8 @@ const pageIcons: Record<string, string> = {
   faq: "❓"
 };
 
+const plainPolicySlugs = new Set(["privacy", "terms", "refund", "safety"]);
+
 function renderBlock(block: LegacyPageBlock) {
   if (block.kind === "copy") {
     return (
@@ -130,6 +132,91 @@ function renderBlock(block: LegacyPageBlock) {
         </table>
       </div>
     </article>
+  );
+}
+
+function renderPlainBlock(block: LegacyPageBlock) {
+  if (block.kind === "copy") {
+    return (
+      <section key={block.title} className="policy-section">
+        <h2>{block.title}</h2>
+        {block.paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </section>
+    );
+  }
+
+  if (block.kind === "list") {
+    return (
+      <section key={block.title} className="policy-section">
+        <h2>{block.title}</h2>
+        {block.intro ? <p>{block.intro}</p> : null}
+        <ul className="policy-list">
+          {block.items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
+  if (block.kind === "faq") {
+    return (
+      <section key={block.title} className="policy-section">
+        <h2>{block.title}</h2>
+        <div className="policy-faq-list">
+          {block.items.map((item) => (
+            <details key={item.question} className="policy-faq-item">
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (block.kind === "contact") {
+    return (
+      <section key={block.title} className="policy-section">
+        <h2>{block.title}</h2>
+        <div className="policy-contact-list">
+          {block.items.map((item) => (
+            <p key={item.label}>
+              <strong>{item.label}:</strong>{" "}
+              {item.href ? <a href={item.href}>{item.value}</a> : item.value}
+              {item.note ? <span> - {item.note}</span> : null}
+            </p>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section key={block.title} className="policy-section">
+      <h2>{block.title}</h2>
+      {block.intro ? <p>{block.intro}</p> : null}
+      <div className="policy-table-wrap">
+        <table className="policy-table">
+          <thead>
+            <tr>
+              <th>{block.columns[0]}</th>
+              <th>{block.columns[1]}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row) => (
+              <tr key={row[0]}>
+                <td>{row[0]}</td>
+                <td>{row[1]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -272,6 +359,43 @@ export default function LegacyContentPage({ params }: Props) {
   }
 
   const jsonLd = { "@context": "https://schema.org", "@graph": structuredData };
+
+  if (plainPolicySlugs.has(page.slug)) {
+    return (
+      <SiteShell plain>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <article className="policy-page">
+          <header className="policy-header">
+            <p className="policy-eyebrow">{page.eyebrow}</p>
+            <h1>{page.title}</h1>
+            <p>{page.intro}</p>
+            {isLegal ? <span>Last updated: January 11, 2026</span> : null}
+          </header>
+
+          <div className="policy-content">
+            {page.blocks.map((block) => renderPlainBlock(block))}
+
+            {page.ctaTitle && page.ctaCopy ? (
+              <section className="policy-section policy-support-section">
+                <h2>{page.ctaTitle}</h2>
+                <p>{page.ctaCopy}</p>
+                {page.ctaHref && page.ctaLabel ? (
+                  page.ctaHref.startsWith("mailto:") ? (
+                    <a href={page.ctaHref} className="policy-action">{page.ctaLabel}</a>
+                  ) : (
+                    <Link href={page.ctaHref} className="policy-action">{page.ctaLabel}</Link>
+                  )
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+        </article>
+      </SiteShell>
+    );
+  }
 
   return (
     <SiteShell>

@@ -3,12 +3,16 @@ import { ReactNode } from "react";
 
 import { PLAY_STORE_URL, footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
-export function SiteShell({ children }: { children: ReactNode }) {
+export function SiteShell({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
   return (
-    <div className="page-shell">
-      <div className="page-ambient ambient-a" />
-      <div className="page-ambient ambient-b" />
-      <div className="page-ambient ambient-c" />
+    <div className={plain ? "page-shell page-shell-plain" : "page-shell"}>
+      {!plain ? (
+        <>
+          <div className="page-ambient ambient-a" />
+          <div className="page-ambient ambient-b" />
+          <div className="page-ambient ambient-c" />
+        </>
+      ) : null}
 
       <div className="page-wrap">
         <header className="topbar">
@@ -62,16 +66,18 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 Find local jobs near you. Connect workers with employers instantly. No
                 middlemen, no fees.
               </p>
-              <div className="footer-meta-grid">
-                <div className="footer-meta-card">
-                  <span className="footer-meta-label">Registered company</span>
-                  <strong>{siteMeta.companyName}</strong>
+              {!plain ? (
+                <div className="footer-meta-grid">
+                  <div className="footer-meta-card">
+                    <span className="footer-meta-label">Registered company</span>
+                    <strong>{siteMeta.companyName}</strong>
+                  </div>
+                  <div className="footer-meta-card">
+                    <span className="footer-meta-label">Support</span>
+                    <a href={`mailto:${siteMeta.supportEmail}`}>{siteMeta.supportEmail}</a>
+                  </div>
                 </div>
-                <div className="footer-meta-card">
-                  <span className="footer-meta-label">Support</span>
-                  <a href={`mailto:${siteMeta.supportEmail}`}>{siteMeta.supportEmail}</a>
-                </div>
-              </div>
+              ) : null}
             </div>
           </div>
 

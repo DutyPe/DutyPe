@@ -87,6 +87,65 @@ button {
   gap: clamp(22px, 3vw, 30px);
 }
 
+.page-shell-plain .page-wrap {
+  width: min(1080px, calc(100% - clamp(20px, 4vw, 56px)));
+}
+
+.page-shell-plain .topbar {
+  position: static;
+  padding: 14px 0 16px;
+  border: 0;
+  border-bottom: 1px solid rgba(16, 24, 40, 0.1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.page-shell-plain .topbar-search,
+.page-shell-plain .topbar-actions {
+  display: none;
+}
+
+.page-shell-plain .brand-mark {
+  display: none;
+}
+
+.page-shell-plain .nav-links {
+  gap: 18px;
+  padding-top: 8px;
+}
+
+.page-shell-plain .nav-link-pill {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.page-shell-plain .nav-link-pill:hover {
+  background: transparent;
+  color: var(--text);
+  transform: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.page-shell-plain .site-footer {
+  padding-inline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.page-shell-plain .footer-top-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .page-ambient {
   position: fixed;
   z-index: 0;
@@ -7243,6 +7302,177 @@ button.product-chip {
 
 .legacy-cta-callout {
   margin-top: clamp(14px, 2vw, 18px);
+}
+
+.policy-page {
+  width: min(calc(100% - 32px), 860px);
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 88px) 0 clamp(56px, 8vw, 96px);
+}
+
+.policy-header {
+  display: grid;
+  gap: 14px;
+  padding-bottom: clamp(24px, 4vw, 34px);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.12);
+}
+
+.policy-eyebrow {
+  margin: 0;
+  color: var(--brand-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.policy-header h1 {
+  margin: 0;
+  max-width: 760px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2.1rem, 5vw, 4.2rem);
+  line-height: 0.98;
+  color: var(--text);
+}
+
+.policy-header p {
+  margin: 0;
+  max-width: 720px;
+  color: #4b5563;
+  font-size: clamp(1rem, 2vw, 1.12rem);
+  line-height: 1.72;
+}
+
+.policy-header span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.policy-content {
+  display: grid;
+  gap: clamp(26px, 4vw, 38px);
+  margin-top: clamp(30px, 5vw, 44px);
+}
+
+.policy-section {
+  padding-bottom: clamp(24px, 4vw, 34px);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.1);
+}
+
+.policy-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.policy-section h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.25rem, 2.6vw, 1.75rem);
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.policy-section p {
+  margin: 0 0 12px;
+  color: #4b5563;
+  line-height: 1.72;
+}
+
+.policy-section p:last-child {
+  margin-bottom: 0;
+}
+
+.policy-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding-left: 1.2rem;
+  color: #4b5563;
+  line-height: 1.68;
+}
+
+.policy-list li::marker {
+  color: var(--brand-strong);
+}
+
+.policy-faq-list,
+.policy-contact-list {
+  display: grid;
+  gap: 12px;
+}
+
+.policy-faq-item {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(16, 24, 40, 0.08);
+}
+
+.policy-faq-item summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.policy-faq-item p {
+  margin-top: 10px;
+}
+
+.policy-contact-list a,
+.policy-section a {
+  color: var(--brand-strong);
+  font-weight: 800;
+}
+
+.policy-action {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.policy-table-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.policy-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #4b5563;
+}
+
+.policy-table th,
+.policy-table td {
+  padding: 12px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(16, 24, 40, 0.1);
+}
+
+.policy-table th {
+  color: var(--text);
+  font-size: 0.84rem;
+  text-transform: uppercase;
+}
+
+.policy-footer-note {
+  margin: clamp(26px, 4vw, 36px) 0 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(16, 24, 40, 0.1);
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .policy-page {
+    width: min(calc(100% - 24px), 860px);
+    padding-top: 36px;
+  }
+
+  .policy-header h1 {
+    line-height: 1.04;
+  }
 }
 
 .local-seo-hero .hero-panel-enhanced {
