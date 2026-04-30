@@ -9,7 +9,7 @@
 DutyPe is a hyperlocal blue/grey-collar jobs marketplace for India. Workers find nearby jobs and apply with one tap; small employers post jobs and hire fast. Android-first product, Firebase backend, Next.js for SEO + admin.
 
 - **Target user:** Indian hyperlocal workers + small employers (shops, kitchens, sites, drivers).
-- **Why it can win:** location-first ranking, phone-only auth, low-data offline-first app, viral referrals.
+- **Why it can win:** location-first ranking, phone-only auth, low-data offline-first app, viral referrals.....
 
 ---
 
