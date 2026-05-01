@@ -51,6 +51,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -69,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -78,6 +80,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.components.NotificationPermissionBottomSheet
@@ -108,10 +111,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-// Status bar matches the top of the worker home header.
-internal val WorkerHomeHeaderTopColor = Color(0xFF275DF5)
-internal val WorkerHomeHeaderMidColor = Color(0xFF275DF5)
-internal val WorkerHomeHeaderBottomColor = Color(0xFFFFFFFF)
+// Status bar matches the top of the worker home header. These are Android
+// resources so color-only release tweaks do not rewrite classes.dex.
+internal val WorkerHomeHeaderTopColor: Color
+    @Composable @ReadOnlyComposable get() = colorResource(R.color.worker_home_header_top)
+internal val WorkerHomeHeaderMidColor: Color
+    @Composable @ReadOnlyComposable get() = colorResource(R.color.worker_home_header_mid)
+internal val WorkerHomeHeaderBottomColor: Color
+    @Composable @ReadOnlyComposable get() = colorResource(R.color.worker_home_header_bottom)
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -394,9 +401,11 @@ fun WorkerHomeScreen(
         }
     }
 
+    val workerHomeHeaderTopColor = WorkerHomeHeaderTopColor
+
     // Update status bar color (was previously also keyed on pagerState.currentPage; pager removed in P1-2).
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange(WorkerHomeHeaderTopColor)
+    LaunchedEffect(workerHomeHeaderTopColor) {
+        onStatusBarColorChange(workerHomeHeaderTopColor)
     }
 
 
@@ -519,7 +528,7 @@ fun WorkerHomeScreen(
                                     userEmail = currentUser?.email ?: "",
                                     userSkills = emptyList(),
                                     onScrollOffsetChange = { offset ->
-                                        onStatusBarColorChange(WorkerHomeHeaderTopColor)
+                                        onStatusBarColorChange(workerHomeHeaderTopColor)
                                     },
                                     onLocationBarAlphaChange = { alpha ->
                                         locationBarAlpha = alpha

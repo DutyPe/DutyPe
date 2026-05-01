@@ -4,19 +4,19 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.dutype.app.BuildConfig
 import com.example.dutype.ads.AdManager
 import com.example.dutype.analytics.Analytics
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
+import com.example.dutype.utils.googleMapsApiKey
+import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.crashlytics.crashlytics
 import com.google.firebase.initialize
-import com.google.android.libraries.places.api.Places
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import com.example.dutype.utils.CrashReportingHelper
@@ -123,7 +123,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
 
         // StrictMode is opt-in in debug builds because some vendor ROM hooks generate
         // high-volume violations unrelated to app logic, which can hide actionable errors.
-        if (BuildConfig.DEBUG && ENABLE_STRICT_MODE_IN_DEBUG) {
+        if (isDebuggableBuild() && ENABLE_STRICT_MODE_IN_DEBUG) {
             android.os.StrictMode.setThreadPolicy(
                 android.os.StrictMode.ThreadPolicy.Builder()
                     .detectDiskReads()
@@ -188,7 +188,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            .setMinimumLoggingLevel(if (isDebuggableBuild()) android.util.Log.DEBUG else android.util.Log.INFO)
             .build()
     
     /**
@@ -226,7 +226,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
      * Initialize Timber logging with filtered tree to reduce noise
      */
     private fun initializeTimber() {
-        if (BuildConfig.DEBUG) {
+        if (isDebuggableBuild()) {
             // Custom tree that filters out noisy Firebase/GMS logs
             Timber.plant(object : Timber.DebugTree() {
                 override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
@@ -300,7 +300,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
         try {
             val firebaseAppCheck = FirebaseAppCheck.getInstance()
             
-            if (BuildConfig.DEBUG) {
+            if (isDebuggableBuild()) {
                 // Use debug provider for development/testing
                 try {
                     val debugProviderClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
@@ -367,7 +367,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
 
     private fun logAppCheckDebugSecretIfPresent() {
-        if (!BuildConfig.DEBUG) return
+        if (!isDebuggableBuild()) return
 
         runCatching {
             val storeName = "com.google.firebase.appcheck.debug.store"
@@ -418,10 +418,8 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
 
     /**
-     * Touch FirebaseAnalytics once so auto-collected events (first_open,
-     * session_start, screen_view) start flowing. Custom events use
-     * [Analytics.jobApply] / [Analytics.jobPost] / [Analytics.otpVerified] /
-     * [Analytics.rewardedAdCompleted] from the action sites.
+     * Keep the local analytics facade wired without shipping Firebase Analytics
+     * in the base release dex.
      */
     private fun initializeAnalytics() {
         try {
@@ -432,14 +430,8 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
 
     /**
-     * Initialize the Mobile Ads SDK on a background thread per Google's
-     * "App Startup Latency" guidance. Without this, MobileAds lazy-auto-inits
-     * on the first ad load, which delays the first ad and skips proper SDK
-     * setup.
-     *
-     * NOTE: This does NOT request UMP consent. EU/UK/Brazil traffic will
-     * receive non-personalized ads until a UMP ConsentForm is wired into
-     * MainActivity.onCreate (separate change — needs UI work).
+     * Keep the ad facade initialized without shipping the AdMob SDK in the
+     * base release dex.
      */
     private fun initializeMobileAds() {
         try {
@@ -464,27 +456,16 @@ class DutyPeApplication : Application(), Configuration.Provider {
     }
     
     private fun initializeGoogleMapsServices() {
-        // Read MAPS_API_KEY directly. R8 inlines BuildConfig String constants
-        // into call sites, so reflective `BuildConfig::class.java.getField(...)`
-        // throws NoSuchFieldException in release builds and Places never
-        // initializes (silent breakage). Direct access is also faster.
-        val mapsKey = BuildConfig.MAPS_API_KEY
+        val mapsKey = googleMapsApiKey()
 
-        if (mapsKey.isNotBlank() && mapsKey != "YOUR_GOOGLE_MAPS_API_KEY_HERE") {
-            try {
-                if (!Places.isInitialized()) {
-                    Places.initializeWithNewPlacesApiEnabled(applicationContext, mapsKey)
-                }
-                Timber.d("Google Maps and Places APIs configured")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to initialize Google Places SDK")
-            }
+        if (!mapsKey.isNullOrBlank()) {
+            Timber.d("Google Maps web APIs configured")
         }
     }
     
     private fun initializeCrashlytics() {
         try {
-            Firebase.crashlytics.setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+            Firebase.crashlytics.setCrashlyticsCollectionEnabled(!isDebuggableBuild())
         } catch (e: Exception) {
             // Non-fatal - app works without Crashlytics
         }

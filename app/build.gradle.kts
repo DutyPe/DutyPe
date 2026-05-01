@@ -10,7 +10,6 @@ plugins {
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
     id("com.google.firebase.crashlytics")
-    id("com.google.firebase.firebase-perf")
 
     // P2-3: kotlinx.serialization powers `@Serializable` NavKey-style destination classes
     // in `navigation/destinations/`. Plugin was already declared `apply false` at the
@@ -51,13 +50,11 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 52
-        versionName = "2.6.6"
+        versionCode = 60
+        versionName = "2.6.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
-
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
@@ -255,7 +252,7 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
+        buildConfig = false
     }
     
     // Lint configuration - disable problematic checks
@@ -277,16 +274,15 @@ ksp {
 }
 
 // ---------------------------------------------------------------------------
-// Play update-size churn fix, part 2: keep a manual task that copies the fresh
-// R8 mapping.txt into app/mapping/release-mapping.txt after Play accepts a
-// release. Do not run this automatically during bundleRelease: the production
-// build must consume the previous release mapping as its baseline, and only
-// then should the newly generated mapping be archived for the next release.
+// Play update-size churn fix, part 2: after each release bundle, copy the fresh
+// R8 mapping.txt into app/mapping/release-mapping.txt. The current build still
+// consumes the previous mapping in buildTypes.release; this task runs after R8
+// has produced the next baseline, so the following hotfix can reuse it.
 //
 // Why: R8 writes the mapping into
 //   app/build/outputs/mapping/release/mapping.txt
-// We mirror it under source-controlled app/mapping/ only after upload/approval
-// so the next versionCode can reuse the exact production baseline.
+// We mirror it under source-controlled app/mapping/ so the versionCode bump and
+// matching mapping update are visible together in git before the next release.
 // ---------------------------------------------------------------------------
 val archiveReleaseMapping by tasks.registering(Copy::class) {
     val sourceMapping = layout.buildDirectory.file("outputs/mapping/release/mapping.txt")
@@ -295,7 +291,13 @@ val archiveReleaseMapping by tasks.registering(Copy::class) {
     rename { "release-mapping.txt" }
     onlyIf { sourceMapping.get().asFile.exists() }
     group = "release"
-    description = "Manually archives the release R8 mapping after Play accepts the uploaded release."
+    description = "Archives the release R8 mapping for reuse on the next build."
+}
+
+tasks.configureEach {
+    if (name == "bundleRelease") {
+        finalizedBy(archiveReleaseMapping)
+    }
 }
 
 dependencies {
@@ -338,7 +340,6 @@ dependencies {
 
     // P1 FIX: Image loading with WebP support (30% smaller images)
     implementation("io.coil-kt:coil-compose:2.4.0")
-    implementation("io.coil-kt:coil-gif:2.4.0") // GIF support
     // Note: WebP is natively supported on Android 4.0+ (API 14+)
 
     // Compose and Lifecycle
@@ -354,7 +355,6 @@ dependencies {
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
-    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx")
     
     implementation("com.google.firebase:firebase-firestore-ktx")
@@ -365,7 +365,6 @@ dependencies {
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
     implementation("com.google.firebase:firebase-functions-ktx") // For Cloud Functions calls
-    implementation("com.google.firebase:firebase-perf-ktx") // Performance Monitoring
     
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")
@@ -386,7 +385,6 @@ dependencies {
     // Google Maps for Map-First Interface
     implementation("com.google.maps.android:maps-compose:4.3.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("com.google.android.libraries.places:places:3.5.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.0")
@@ -394,9 +392,9 @@ dependencies {
     // Hilt for Dependency Injection
     implementation(libs.hilt.android)
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    
-    // Guava - explicitly include to prevent R8 issues with Hilt
+    // Required by WorkManager ListenableFuture APIs used by JobPostingWorker.
     implementation("com.google.guava:guava:33.0.0-android")
+    
     ksp(libs.hilt.compiler)
 
     // Room Database
@@ -429,16 +427,6 @@ dependencies {
     // Gson for JSON serialization
     implementation("com.google.code.gson:gson:2.10.1")
     
-    // Google Play In-App Review API
-    implementation("com.google.android.play:review:2.0.1")
-    implementation("com.google.android.play:review-ktx:2.0.1")
-    
-    // Google Play In-App Update API
-    implementation("com.google.android.play:app-update:2.1.0")
-    implementation("com.google.android.play:app-update-ktx:2.1.0")
-    
-    // Google Mobile Ads SDK (AdMob)
-    implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
 
 // Crashlytics mapping-file upload is intentionally LEFT ENABLED (default).

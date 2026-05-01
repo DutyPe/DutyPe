@@ -2,7 +2,7 @@ package com.example.dutype.performance
 
 import android.content.Context
 import android.os.Looper
-import com.dutype.app.BuildConfig
+import com.example.dutype.utils.isDebuggableBuild
 import timber.log.Timber
 
 /**
@@ -83,7 +83,7 @@ object MainThreadChecker {
             val threadName = getCurrentThreadName()
             val stackTrace = Exception().stackTraceToString()
             
-            if (BuildConfig.DEBUG) {
+            if (appContext?.isDebuggableBuild() == true) {
                 // DEBUG: Throw exception to catch bugs early
                 val error = IllegalStateException(
                     "❌ THREAD VIOLATION: $operation must NOT run on main thread (potential ANR)"

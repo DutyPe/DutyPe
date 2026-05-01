@@ -2,7 +2,7 @@ package com.example.dutype.performance
 
 import android.app.AlertDialog
 import android.content.Context
-import com.dutype.app.BuildConfig
+import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import timber.log.Timber
 import javax.inject.Inject
@@ -46,7 +46,7 @@ class ANRHandler @Inject constructor(
             ANRRiskException(operationName, threadName, stackTrace)
         )
         
-        if (BuildConfig.DEBUG) {
+        if (context?.isDebuggableBuild() == true) {
             // DEBUG: Show developer dialog with technical details
             context?.let { showDeveloperDialog(it, operationName, threadName, stackTrace) }
         } else {

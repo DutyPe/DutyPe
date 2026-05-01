@@ -2,46 +2,24 @@ package com.example.dutype.analytics
 
 import android.content.Context
 import android.os.Bundle
-import com.google.firebase.analytics.FirebaseAnalytics
 import timber.log.Timber
 
 /**
- * Thin wrapper around FirebaseAnalytics so the SDK we already ship actually
- * earns its weight in the APK (cold-start ContentProvider + ~300-600 KB dex).
+ * Lightweight analytics facade.
  *
- * Auto-collected events (`first_open`, `session_start`, `screen_view`) flow
- * automatically once `FirebaseAnalytics.getInstance(...)` is touched. The
- * methods below add the few high-leverage business events (job_apply,
- * job_post, otp_verified, rewarded_ad_completed) that drive the marketplace
- * funnel and FCM audience targeting.
- *
- * Call [init] exactly once from `Application.onCreate` (deferred is fine).
- * After that the helpers below are no-ops if [init] was missed, so they will
- * never crash a release build.
+ * Firebase Analytics was removed from the Android binary to keep the Play
+ * update dex chunk below the 7 MB threshold. Server-side/referral analytics
+ * remain intact; these app-side hooks are intentionally no-op logs.
  */
 object Analytics {
-
-    @Volatile
-    private var firebaseAnalytics: FirebaseAnalytics? = null
-
     fun init(context: Context) {
-        if (firebaseAnalytics == null) {
-            firebaseAnalytics = FirebaseAnalytics.getInstance(context.applicationContext)
-            Timber.d("📈 FirebaseAnalytics initialized")
-        }
+        Timber.d("Analytics facade initialized for %s", context.packageName)
     }
 
     private fun log(name: String, params: Bundle? = null) {
-        val fa = firebaseAnalytics ?: return
-        try {
-            fa.logEvent(name, params)
-        } catch (t: Throwable) {
-            // Analytics must never crash the app.
-            Timber.w(t, "📈 logEvent(%s) failed", name)
-        }
+        Timber.d("Analytics event=%s params=%s", name, params?.keySet()?.joinToString())
     }
 
-    /** Worker successfully submitted an application to a job. */
     fun jobApply(jobId: String, employerId: String) {
         log(
             "job_apply",
@@ -52,7 +30,6 @@ object Analytics {
         )
     }
 
-    /** Employer successfully posted a job. */
     fun jobPost(jobId: String, employerId: String) {
         log(
             "job_post",
@@ -63,7 +40,6 @@ object Analytics {
         )
     }
 
-    /** Phone OTP verified and user signed in. Called once per successful sign-in. */
     fun otpVerified(role: String, isNewUser: Boolean) {
         log(
             "otp_verified",
@@ -74,7 +50,6 @@ object Analytics {
         )
     }
 
-    /** User watched a rewarded ad to completion and earned the reward. */
     fun rewardedAdCompleted(placement: String) {
         log(
             "rewarded_ad_completed",

@@ -100,15 +100,6 @@
 }
 
 # -----------------------------------------------------------------------------
-# Mobile Ads — uses dynamic loading, the SDK consumer rules are not always
-# sufficient. Keep ad-related entry points only (not the whole gms namespace).
-# -----------------------------------------------------------------------------
--keep public class com.google.android.gms.ads.MobileAdsInitProvider
--keep public class com.google.android.gms.ads.identifier.AdvertisingIdClient { *; }
--keep public class com.google.android.gms.ads.identifier.AdvertisingIdClient$Info { *; }
--keep class com.google.android.gms.common.internal.safeparcel.SafeParcelable
-
-# -----------------------------------------------------------------------------
 # Optimization aggressiveness
 # -----------------------------------------------------------------------------
 -allowaccessmodification

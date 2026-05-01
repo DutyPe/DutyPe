@@ -341,18 +341,11 @@ You forgot to upload the new mapping. Run §5.
 ## 5. Mapping-file discipline (must do after every Play upload)
 
 The `applymapping` reuse logic in `app/build.gradle.kts` reads
-`app/mapping/release-mapping.txt`. After Play accepts the new release, copy
-the freshly-generated mapping into that path so the **next** release diffs
-against it (this is what keeps "Size for updates" small).
-
-PowerShell (Windows):
-
-```powershell
-Copy-Item app\build\outputs\mapping\release\mapping.txt app\mapping\release-mapping.txt -Force
-git add app/mapping/release-mapping.txt
-git commit -m "chore(release): refresh mapping for v2.6.X reuse"
-git push origin <branch>
-```
+`app/mapping/release-mapping.txt`. `bundleRelease` now runs
+`archiveReleaseMapping` after the bundle is produced, so the freshly-generated
+mapping is copied into that path automatically. Commit that mapping with the
+same versionCode/versionName change so the **next** release diffs against it
+(this is what keeps "Size for updates" small).
 
 The build will warn at configure time if `app/mapping/release-mapping.txt` is
 missing or older than 14 days.

@@ -494,7 +494,6 @@ private fun OnboardingContent(navController: NavController) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
-                pageLabel = "${pagerState.currentPage + 1}/${pagerState.pageCount}",
                 onSkip = {
                     Timber.d("🎯 OnboardingScreen - Skip clicked")
                     completeOnboardingAndNavigate()
@@ -559,38 +558,13 @@ fun lerp(start: Float, stop: Float, fraction: Float): Float {
 @Composable
 private fun TopBar(
     modifier: Modifier = Modifier,
-    pageLabel: String,
     onSkip: () -> Unit
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.White.copy(alpha = 0.92f))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryOrange)
-            )
-            Text(
-                text = pageLabel,
-                style = AppTypography.caption.copy(
-                    color = GlassTextPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-        }
-
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))

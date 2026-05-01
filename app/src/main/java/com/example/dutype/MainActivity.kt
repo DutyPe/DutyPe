@@ -52,13 +52,15 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.dutype.app.BuildConfig
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
+import com.example.dutype.utils.InAppUpdateManager
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
+import com.example.dutype.utils.buildVariantName
+import com.example.dutype.utils.appVersionName
 import com.example.dutype.utils.rememberWindowSizeClass
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
@@ -82,7 +84,6 @@ class MainActivity : ComponentActivity() {
      * trace captures everything from `super.onCreate` through the first usable frame, which
      * is the metric we actually optimize.
      */
-    private var coldStartTrace: com.google.firebase.perf.metrics.Trace? = null
     
     // PERF: Removed unused eager @Inject fields (jobApplicationService, reviewManager,
     // metadataManager). They were declared but never referenced in this Activity, yet
@@ -102,7 +103,7 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var deepLinkBus: com.example.dutype.navigation.DeepLinkBus
     
-    // Activity result launcher for in-app updates
+    // Activity result launcher kept for the update manager API.
     private val updateResultLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -130,12 +131,6 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         // P2-7: start cold-start trace before any other work in onCreate.
-        coldStartTrace = runCatching {
-            com.google.firebase.perf.FirebasePerformance.getInstance()
-                .newTrace("app_cold_start")
-                .also { it.start() }
-        }.getOrNull()
-
         // MODERN SPLASH SCREEN API (Android 12+)
         // CRITICAL: Must be called BEFORE super.onCreate()
         //
@@ -193,13 +188,10 @@ class MainActivity : ComponentActivity() {
             Timber.plant(Timber.DebugTree())
         }
         
-        // Initialize Google Mobile Ads SDK
-        // AdsManager.initializeMobileAds(this) // DISABLED FOR TESTING
-        
         Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")
-        Timber.d("App version: ${BuildConfig.VERSION_NAME}")
-        Timber.d("Build variant: ${BuildConfig.BUILD_TYPE}")
+        Timber.d("App version: ${appVersionName()}")
+        Timber.d("Build variant: ${buildVariantName()}")
         
         // Log notification intent if present
         if (intent?.getBooleanExtra("from_notification", false) == true) {
@@ -398,10 +390,6 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         reportFullyDrawn()
                         // P2-7: stop the cold-start Perf trace at first usable frame.
-                        runCatching {
-                            coldStartTrace?.stop()
-                            coldStartTrace = null
-                        }
                         Timber.d("✅ MainActivity - Report fully drawn")
                     }
                 }
@@ -472,16 +460,17 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // Check for in-app updates (automatically skipped in debug builds)
+        // Check for in-app updates. Native Play Core prompts are disabled in
+        // release builds so small hotfixes do not carry the Play update SDK dex.
         lifecycleScope.launch {
             updateManager.checkForUpdate(
                 activity = this@MainActivity,
                 activityResultLauncher = updateResultLauncher,
                 onUpdateAvailable = { appUpdateInfo, updateType ->
-                    Timber.i("🔄 Update available - type: ${if (updateType == com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
+                    Timber.i("🔄 Update available - type: ${if (updateType == InAppUpdateManager.UPDATE_TYPE_IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
                     
                     // Register listener for flexible updates to auto-complete when downloaded
-                    if (updateType == com.google.android.play.core.install.model.AppUpdateType.FLEXIBLE) {
+                    if (updateType == InAppUpdateManager.UPDATE_TYPE_FLEXIBLE) {
                         updateManager.registerFlexibleUpdateListener(
                             onDownloaded = {
                                 Timber.i("✅ Flexible update downloaded - completing update")

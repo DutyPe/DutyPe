@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
+import com.dutype.app.R
 
 // =============================================================================
 // LEGACY MATERIAL TOKENS (kept for compatibility with old Material 3 setup)
@@ -90,10 +92,10 @@ object WorkerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) colorResource(R.color.worker_primary_dark) else colorResource(R.color.worker_primary)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0F2A4D) else Color(0xFFDBEAFE)
+            if (isAppInDarkTheme()) colorResource(R.color.worker_primary_light_dark) else colorResource(R.color.worker_primary_light)
     val Secondary: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFFFF8585) else Color(0xFFFF6B6B)
@@ -178,13 +180,13 @@ object WorkerColors {
 
     val BottomNavBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF111827) else Color(0xFFFFFFFF)
+            if (isAppInDarkTheme()) colorResource(R.color.worker_bottom_nav_background_dark) else colorResource(R.color.worker_bottom_nav_background)
     val BottomNavSelected: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFF1F5F9) else Color(0xFF1F2937)
+            WorkerColors.Primary
     val BottomNavUnselected: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF6B7280) else Color(0xFF9CA3AF)
+            if (isAppInDarkTheme()) colorResource(R.color.worker_bottom_nav_unselected_dark) else colorResource(R.color.worker_bottom_nav_unselected)
 
     val CardShadow: Color
         @Composable @ReadOnlyComposable get() =

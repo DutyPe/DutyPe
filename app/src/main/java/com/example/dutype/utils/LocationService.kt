@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Looper
 import androidx.core.content.ContextCompat
 
-import com.dutype.app.BuildConfig
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -18,17 +17,9 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.android.libraries.places.api.Places
-import com.google.android.libraries.places.api.model.AutocompleteSessionToken
-import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.api.net.FetchPlaceRequest
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
-import com.google.android.libraries.places.api.net.PlacesClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -116,7 +106,7 @@ sealed class LocationState {
  * Enhanced Location Service with real-time updates and better error handling
  * 
  * Uses a hybrid approach:
- * - Google Places and Google Geocoding for precise Indian place/address support
+ * - Google Places/Geocoding web APIs for precise Indian place/address support
  * - Android Geocoder as fallback
  * - FusedLocationProvider for GPS coordinates
  */
@@ -175,8 +165,6 @@ class LocationService(private val context: Context) {
             .build()
     }
 
-    private val placesClient: PlacesClient? by lazy { createPlacesClient() }
-    
     // State flow for real-time location updates
     private val _locationState = MutableStateFlow<LocationState>(LocationState.Idle)
     val locationState: StateFlow<LocationState> = _locationState.asStateFlow()
@@ -207,20 +195,7 @@ class LocationService(private val context: Context) {
     }
 
     private fun googleMapsApiKey(): String? {
-        val key = BuildConfig.MAPS_API_KEY.trim()
-        return key.takeIf { it.isNotBlank() && it != "YOUR_GOOGLE_MAPS_API_KEY_HERE" && it != "DEFAULT_API_KEY" }
-    }
-
-    private fun createPlacesClient(): PlacesClient? {
-        val apiKey = googleMapsApiKey() ?: return null
-        return runCatching {
-            if (!Places.isInitialized()) {
-                Places.initializeWithNewPlacesApiEnabled(context.applicationContext, apiKey)
-            }
-            Places.createClient(context.applicationContext)
-        }.onFailure { e ->
-            Timber.e(e, "LocationService: Google Places SDK initialization failed")
-        }.getOrNull()
+        return context.googleMapsApiKey()
     }
 
     /**
@@ -1076,58 +1051,92 @@ class LocationService(private val context: Context) {
         query: String,
         maxResults: Int
     ): List<com.example.dutype.models.PlaceSuggestion> = withContext(Dispatchers.IO) {
-        val client = placesClient ?: return@withContext emptyList()
-        val sessionToken = AutocompleteSessionToken.newInstance()
+        val apiKey = googleMapsApiKey() ?: return@withContext emptyList()
+        val encodedInput = URLEncoder.encode(query, "UTF-8")
+        val url = "https://maps.googleapis.com/maps/api/place/autocomplete/json" +
+            "?input=$encodedInput&components=country:in&region=in&language=en&key=$apiKey"
 
         return@withContext runCatching {
-            val request = FindAutocompletePredictionsRequest.builder()
-                .setQuery(query)
-                .setCountries(listOf("IN"))
-                .setRegionCode("IN")
-                .setSessionToken(sessionToken)
-                .build()
-
-            val predictions = client.findAutocompletePredictions(request)
-                .await()
-                .autocompletePredictions
-                .take(maxResults)
-
-            predictions.map { prediction ->
-                async {
-                    val fallbackDescription = prediction.getFullText(null).toString()
-                    fetchPlaceSuggestion(client, prediction.placeId, fallbackDescription)
-                }
-            }.awaitAll().filterNotNull()
+            val response = executeGoogleMapsRequest(url) ?: return@runCatching emptyList()
+            parseGooglePlacesAutocompleteResponse(response, maxResults, apiKey)
         }.onFailure { e ->
-            Timber.e(e, "LocationService: Google Places search failed")
+            Timber.e(e, "LocationService: Google Places web autocomplete failed")
         }.getOrDefault(emptyList())
     }
 
-    private suspend fun fetchPlaceSuggestion(
-        client: PlacesClient,
+    private fun parseGooglePlacesAutocompleteResponse(
+        response: String,
+        maxResults: Int,
+        apiKey: String
+    ): List<com.example.dutype.models.PlaceSuggestion> {
+        val json = JSONObject(response)
+        val status = json.optString("status")
+        if (status != "OK" && status != "ZERO_RESULTS") {
+            Timber.w("LocationService: Google Places autocomplete status=$status")
+            return emptyList()
+        }
+
+        val predictions = json.optJSONArray("predictions") ?: return emptyList()
+        val suggestions = mutableListOf<com.example.dutype.models.PlaceSuggestion>()
+        for (index in 0 until minOf(predictions.length(), maxResults)) {
+            val prediction = predictions.optJSONObject(index) ?: continue
+            val placeId = prediction.optString("place_id")
+            val description = prediction.optString("description")
+            if (placeId.isBlank() || description.isBlank()) continue
+
+            fetchPlaceSuggestionFromWeb(
+                placeId = placeId,
+                fallbackDescription = description,
+                apiKey = apiKey
+            )?.let(suggestions::add)
+        }
+        return suggestions
+    }
+
+    private fun fetchPlaceSuggestionFromWeb(
+        placeId: String,
+        fallbackDescription: String,
+        apiKey: String
+    ): com.example.dutype.models.PlaceSuggestion? {
+        val encodedPlaceId = URLEncoder.encode(placeId, "UTF-8")
+        val url = "https://maps.googleapis.com/maps/api/place/details/json" +
+            "?place_id=$encodedPlaceId&fields=place_id,formatted_address,geometry&language=en&key=$apiKey"
+
+        return executeGoogleMapsRequest(url)?.let { response ->
+            parseGooglePlaceDetailsResponse(
+                response = response,
+                placeId = placeId,
+                fallbackDescription = fallbackDescription
+            )
+        }
+    }
+
+    private fun parseGooglePlaceDetailsResponse(
+        response: String,
         placeId: String,
         fallbackDescription: String
     ): com.example.dutype.models.PlaceSuggestion? {
-        return runCatching {
-            val fields = listOf(
-                Place.Field.ID,
-                Place.Field.ADDRESS,
-                Place.Field.LAT_LNG
-            )
-            val request = FetchPlaceRequest.newInstance(placeId, fields)
-            val place = client.fetchPlace(request).await().place
-            val location = place.latLng ?: return null
-            val description = place.address?.takeIf { it.isNotBlank() } ?: fallbackDescription
+        val json = JSONObject(response)
+        val status = json.optString("status")
+        if (status != "OK") {
+            Timber.w("LocationService: Google Place details status=$status")
+            return null
+        }
 
-            com.example.dutype.models.PlaceSuggestion(
-                placeId = place.id ?: placeId,
-                description = description,
-                latitude = location.latitude,
-                longitude = location.longitude
-            )
-        }.onFailure { e ->
-            Timber.e(e, "LocationService: Google Place details failed")
-        }.getOrNull()
+        val result = json.optJSONObject("result") ?: return null
+        val location = result.optJSONObject("geometry")?.optJSONObject("location") ?: return null
+        val latitude = location.optDouble("lat")
+        val longitude = location.optDouble("lng")
+        if (!GeoUtils.hasValidCoordinates(latitude, longitude)) return null
+
+        return com.example.dutype.models.PlaceSuggestion(
+            placeId = result.optString("place_id", placeId),
+            description = result.optString("formatted_address")
+                .takeIf { it.isNotBlank() }
+                ?: fallbackDescription,
+            latitude = latitude,
+            longitude = longitude
+        )
     }
 
     private suspend fun searchPlacesWithGoogleGeocoding(

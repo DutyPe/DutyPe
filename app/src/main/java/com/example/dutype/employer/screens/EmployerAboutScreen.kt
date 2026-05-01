@@ -11,17 +11,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.dutype.app.BuildConfig
 import com.example.dutype.components.AboutBullet
 import com.example.dutype.components.AboutFooter
 import com.example.dutype.components.AboutHero
 import com.example.dutype.components.AboutParagraph
 import com.example.dutype.components.AboutSectionCard
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.utils.appVersionName
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 
@@ -35,6 +36,7 @@ fun EmployerAboutScreen(
     }
 
     val accent = Color(0xFF2563EB)
+    val appVersion = LocalContext.current.appVersionName()
 
     Column(
         modifier = Modifier
@@ -135,7 +137,7 @@ fun EmployerAboutScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            AboutFooter(version = BuildConfig.VERSION_NAME)
+            AboutFooter(version = appVersion)
 
             Spacer(modifier = Modifier.height(16.dp))
         }

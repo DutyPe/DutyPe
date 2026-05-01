@@ -2,10 +2,12 @@ package com.example.dutype.metadata
 
 import android.content.Context
 import android.os.Build
-import com.dutype.app.BuildConfig
+import com.example.dutype.utils.appVersionInfo
+import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,17 +39,19 @@ import javax.inject.Singleton
  */
 @Singleton
 class AppMetadata @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    @ApplicationContext appContext: Context
 ) {
     
     // ==========================================
     // APP INFO
     // ==========================================
     
-    val appVersion: String = BuildConfig.VERSION_NAME
-    val appVersionCode: Int = BuildConfig.VERSION_CODE
-    val isDebug: Boolean = BuildConfig.DEBUG
-    val applicationId: String = BuildConfig.APPLICATION_ID
+    private val packageVersion = appContext.appVersionInfo()
+    val appVersion: String = packageVersion.name
+    val appVersionCode: Long = packageVersion.code
+    val isDebug: Boolean = appContext.isDebuggableBuild()
+    val applicationId: String = appContext.packageName
     
     // ==========================================
     // DEVICE INFO

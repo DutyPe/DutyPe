@@ -3,7 +3,6 @@ package com.example.dutype.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dutype.app.BuildConfig
 import com.example.dutype.analytics.Analytics
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
@@ -11,6 +10,7 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.services.AuthFlowService
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.utils.FirestoreUtils
+import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
@@ -157,7 +157,7 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
 
-                configureDebugRecaptchaFallback()
+                configureDebugRecaptchaFallback(context)
                 
                 val options = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
@@ -616,7 +616,7 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
 
-                configureDebugRecaptchaFallback()
+                configureDebugRecaptchaFallback(context)
                 
                 val optionsBuilder = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
@@ -704,8 +704,8 @@ class OtpViewModel @Inject constructor(
      * Force classic reCAPTCHA v2 flow in debug builds to avoid Play Integrity-only issues
      * on local testing devices. Reflection keeps compatibility across Auth SDK versions.
      */
-    private fun configureDebugRecaptchaFallback() {
-        if (!BuildConfig.DEBUG) return
+    private fun configureDebugRecaptchaFallback(context: Context) {
+        if (!context.isDebuggableBuild()) return
 
         runCatching {
             val settings = auth.firebaseAuthSettings

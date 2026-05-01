@@ -522,12 +522,6 @@ object AppModule {
                     .maxSizePercent(0.02) // Use 2% of available disk space
                     .build()
             }
-            .components {
-                // Add WebP decoder for 30% smaller images (Android P+)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                    add(coil.decode.ImageDecoderDecoder.Factory())
-                }
-            }
             .crossfade(300) // Smooth fade-in (Meta standard)
             .respectCacheHeaders(false) // Ignore server cache headers for better offline support
             .allowHardware(true) // Use GPU for decoding (faster)
@@ -552,9 +546,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAppMetadata(
-        firestore: FirebaseFirestore
+        firestore: FirebaseFirestore,
+        @ApplicationContext context: Context
     ): AppMetadata {
-        return AppMetadata(firestore)
+        return AppMetadata(firestore, context)
     }
 
     @Provides
@@ -586,7 +581,7 @@ object AppModule {
     }
 
     // ==========================================
-    // AD SERVICES (AdMob Integration)
+    // AD SERVICES
     // ==========================================
 
     @Provides
@@ -652,20 +647,6 @@ object AppModule {
     @Singleton
     fun provideFirebaseCrashlytics(): com.google.firebase.crashlytics.FirebaseCrashlytics {
         return com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-    }
-
-    @Provides
-    @Singleton
-    fun provideFirebaseAnalytics(
-        @ApplicationContext context: Context
-    ): com.google.firebase.analytics.FirebaseAnalytics {
-        return com.google.firebase.analytics.FirebaseAnalytics.getInstance(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideFirebasePerformance(): com.google.firebase.perf.FirebasePerformance {
-        return com.google.firebase.perf.FirebasePerformance.getInstance()
     }
 
     @Provides

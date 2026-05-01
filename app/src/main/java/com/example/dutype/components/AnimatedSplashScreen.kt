@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,7 +46,7 @@ import kotlinx.coroutines.delay
 fun AnimatedSplashScreen(
     onAnimationEnd: () -> Unit
 ) {
-    val splashBlue = Color(0xFF275DF5)
+    val splashBlue = colorResource(id = R.color.splash_blue)
     val logoProgress = remember { Animatable(0.92f) }
     var visible by remember { mutableStateOf(true) }
 
@@ -103,7 +104,7 @@ fun AnimatedSplashScreen(
                 Image(
                     painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
                     contentDescription = null,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(53.dp)
                 )
                 Text(
                     text = "DutyPe",
