@@ -37,10 +37,11 @@ One-by-one action order (practical):
     - This reduces symbol/name churn between versions.
     - Expected: smaller patch size for minor changes.
     - **Now wired in `app/build.gradle.kts`.** Workflow per release:
-        1. Build the release once (`./gradlew :app:bundleRelease`).
-        2. The `archiveReleaseMapping` task auto-copies `app/build/outputs/mapping/release/mapping.txt` into `app/mapping/release-mapping.txt`.
-        3. Bump `versionCode` + `versionName` and **commit `app/mapping/release-mapping.txt` together with the version bump.**
-        4. Next release builds will read that mapping via a generated `-applymapping` rule, so R8 keeps the same obfuscated names. Patch size for small UI changes (e.g. `WorkerHomeScreen` background colour) should drop dramatically.
+        1. Keep `app/mapping/release-mapping.txt` from the currently live Play release.
+        2. Build the next release (`./gradlew :app:bundleRelease`); R8 reads that previous mapping through a generated `-applymapping` rule.
+        3. Upload the AAB and wait until Play accepts it as the new baseline.
+        4. Run `./gradlew :app:archiveReleaseMapping`, then commit the refreshed mapping file (tracked via Git LFS) for the following release.
+        5. Next release builds will read that accepted-production mapping via a generated `-applymapping` rule, so R8 keeps the same obfuscated names. Patch size for small UI changes (e.g. `WorkerHomeScreen` background colour) should drop dramatically.
     - First-ever release after this change: no previous mapping exists, so the build silently skips applyMapping. Starting from the *next* release, patch sizes shrink.
 4. Remove or isolate unused heavy dependencies from base:
     - SafetyNet appears to have no direct source usage; validate in QA, then remove if safe.

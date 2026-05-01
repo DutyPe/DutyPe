@@ -1,9 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const exactLegacyRedirects: Record<string, string> = {
+  "/legal/privacy": "/privacy",
+  "/legal/terms": "/terms",
+  "/legal/refund": "/refund",
+  "/legal/safety": "/safety",
+  "/legal/contact": "/contact",
+  "/legal/account-deletion": "/accountdeletion",
+  "/account-deletion": "/accountdeletion",
+  "/delete-account": "/accountdeletion",
   "/index.html": "/",
   "/jobs/index.html": "/jobs",
   "/worker/index.html": "/worker",
+  "/employer/index.html": "/employer",
   "/privacy.html": "/privacy",
   "/terms.html": "/terms",
   "/refund.html": "/refund",
@@ -11,6 +20,10 @@ const exactLegacyRedirects: Record<string, string> = {
   "/contact.html": "/contact",
   "/faq.html": "/faq",
   "/refer.html": "/refer",
+  "/worker.html": "/worker",
+  "/employer.html": "/employer",
+  "/account-deletion.html": "/accountdeletion",
+  "/accountdeletion.html": "/accountdeletion",
   "/admin/index.html": "/admin",
   "/admin/dashboard.html": "/admin",
   "/admin/login.html": "/admin/login",
@@ -28,6 +41,15 @@ const exactLegacyRedirects: Record<string, string> = {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const exactRedirect = exactLegacyRedirects[pathname];
+  if (exactRedirect) {
+    const url = request.nextUrl.clone();
+    url.pathname = exactRedirect;
+    url.search = request.nextUrl.search;
+
+    return NextResponse.redirect(url, 308);
+  }
+
   if (!pathname.endsWith(".html")) {
     return NextResponse.next();
   }
@@ -36,7 +58,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const redirectTarget = exactLegacyRedirects[pathname] ?? pathname.replace(/\.html$/, "");
+  const redirectTarget = pathname.replace(/\.html$/, "");
   const url = request.nextUrl.clone();
   url.pathname = redirectTarget;
   url.search = request.nextUrl.search;

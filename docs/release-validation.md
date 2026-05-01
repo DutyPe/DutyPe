@@ -341,11 +341,28 @@ You forgot to upload the new mapping. Run §5.
 ## 5. Mapping-file discipline (must do after every Play upload)
 
 The `applymapping` reuse logic in `app/build.gradle.kts` reads
-`app/mapping/release-mapping.txt`. `bundleRelease` now runs
-`archiveReleaseMapping` after the bundle is produced, so the freshly-generated
-mapping is copied into that path automatically. Commit that mapping with the
-same versionCode/versionName change so the **next** release diffs against it
-(this is what keeps "Size for updates" small).
+`app/mapping/release-mapping.txt`. That file must stay as the mapping from the
+currently live Play release while building the next AAB. After Play accepts the
+new release, copy the freshly-generated mapping into that path so the **next**
+release diffs against it (this is what keeps "Size for updates" small).
+
+PowerShell (Windows):
+
+```powershell
+.\gradlew.bat :app:archiveReleaseMapping
+git add app\mapping\release-mapping.txt
+git commit -m "chore(release): refresh mapping for v2.6.X reuse"
+git push origin <branch>
+```
+
+Do not wire `archiveReleaseMapping` to `bundleRelease`. Auto-archiving rewrites
+the previous-production baseline on the build machine before the AAB is accepted
+by Play, and the next small hotfix can again show a multi-MB update.
+
+The release build also validates `com.dutype.releaseMappingSha256` from
+`gradle.properties`. That hash must match `app/mapping/release-mapping.txt` from
+the currently live Play release. Update it only after Play accepts the new AAB
+and you archive that accepted release mapping for the following release.
 
 The build will warn at configure time if `app/mapping/release-mapping.txt` is
 missing or older than 14 days.
@@ -379,8 +396,29 @@ Verify release APK dex storage after build:
 Then inspect `app/build/outputs/apk/release/app-release.apk`; both
 `classes.dex` files should be stored, not deflated.
 
-If `app/mapping/release-mapping.txt` is modified after `bundleRelease`, commit
-it with the same release/versionCode change before starting the next hotfix:
+`bundleRelease` also runs two mandatory guardrails after the AAB is produced:
+
+- `validateReleaseMappingBaseline` fails if `app/mapping/release-mapping.txt`
+   is missing, still a Git LFS pointer, or locally modified before upload.
+- `checkReleaseSizeBudget` fails if the release AAB, dex, dex count, or
+   resources cross the budgets in `gradle.properties`.
+
+Current budgets are intentionally tight for hotfix discipline:
+
+```properties
+com.dutype.maxReleaseAabMb=18.8
+com.dutype.maxReleaseDexFiles=1
+com.dutype.maxReleaseDexRawMb=11.0
+com.dutype.maxReleaseDexCompressedMb=5.0
+com.dutype.maxReleaseResourcesMb=1.7
+```
+
+Do not raise these budgets for a color/text-only release. If a tiny UI change
+breaks the budget, treat it as a release blocker and find the churn first.
+
+If `app/mapping/release-mapping.txt` is modified after `bundleRelease`, it means
+someone archived the mapping manually. Only commit it after the matching AAB is
+accepted by Play:
 
 ```powershell
 git add app\build.gradle.kts app\mapping\release-mapping.txt

@@ -1,4 +1,6 @@
 import org.gradle.kotlin.dsl.implementation
+import com.dutype.build.CheckReleaseSizeBudgetTask
+import com.dutype.build.ValidateReleaseMappingBaselineTask
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -54,6 +56,11 @@ android {
         versionName = "2.6.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Release-size guardrail: DutyPe ships English + Telugu only. Filtering
+        // dependency locale resources here keeps resources.arsc and language
+        // split churn small for tiny Play hotfixes.
+        resourceConfigurations += listOf("en", "te")
         
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
@@ -96,8 +103,7 @@ android {
             }
 
             // ---------------------------------------------------------------
-            // Play update-size churn fix (see docs/FEATURE_RELEASE_MAPS_ROUTING.md
-            // step 3: "Reuse R8 mapping from previous release"). Without this,
+            // Play update-size churn fix. Without this,
             // R8 renames every class/method on every build, so even a 1-line
             // colour change rewrites most of classes.dex and Play patch size
             // stays around ~18 MB. With it, names stay stable across versions
@@ -105,16 +111,22 @@ android {
             // actual code change.
             //
             // Workflow:
-            //   1. Build release once. After the build, app/mapping/
-            //      release-mapping.txt is created/updated automatically (see
-            //      the `archiveReleaseMapping` task at the bottom of this file).
-            //   2. COMMIT app/mapping/release-mapping.txt alongside the
-            //      versionCode bump for that release. NOTE: this file can be
-            //      large (200+ MB for big apps) — it is tracked via Git LFS
-            //      (see .gitattributes). Run `git lfs install` once on a fresh
-            //      clone before building.
-            //   3. On the next release build, R8 reads it via `setMappingFile`
-            //      below and reuses the same obfuscated names.
+            //   1. Keep app/mapping/release-mapping.txt as the mapping from
+            //      the currently live Play release.
+            //   2. Build the next release. R8 consumes that previous mapping
+            //      through the generated -applymapping fragment below.
+            //   3. Upload the AAB and wait until Play accepts it as the new
+            //      baseline.
+            //   4. Only then run :app:archiveReleaseMapping and commit the new
+            //      app/mapping/release-mapping.txt for the following release.
+            //
+            // Do not auto-run archiveReleaseMapping from bundleRelease. Doing
+            // that overwrites the previous-production baseline before the AAB
+            // is accepted, which is exactly how small hotfixes turn into large
+            // Play update patches.
+            //
+            // NOTE: this file is tracked via Git LFS (see .gitattributes). Run
+            // `git lfs install` once on a fresh clone before building.
             //
             // Safe to enable from the very first build — when the mapping
             // file does not exist yet we simply skip applyMapping. We do this
@@ -274,15 +286,15 @@ ksp {
 }
 
 // ---------------------------------------------------------------------------
-// Play update-size churn fix, part 2: after each release bundle, copy the fresh
-// R8 mapping.txt into app/mapping/release-mapping.txt. The current build still
-// consumes the previous mapping in buildTypes.release; this task runs after R8
-// has produced the next baseline, so the following hotfix can reuse it.
+// Play update-size churn fix, part 2: manually copy the fresh R8 mapping.txt
+// into app/mapping/release-mapping.txt after Play accepts the uploaded release.
+// The current build must keep consuming the previous-production mapping as its
+// baseline; archiving too early corrupts the next hotfix baseline.
 //
 // Why: R8 writes the mapping into
 //   app/build/outputs/mapping/release/mapping.txt
-// We mirror it under source-controlled app/mapping/ so the versionCode bump and
-// matching mapping update are visible together in git before the next release.
+// We mirror it under source-controlled app/mapping/ only after upload/approval
+// so the following versionCode can reuse the exact production baseline.
 // ---------------------------------------------------------------------------
 val archiveReleaseMapping by tasks.registering(Copy::class) {
     val sourceMapping = layout.buildDirectory.file("outputs/mapping/release/mapping.txt")
@@ -291,12 +303,45 @@ val archiveReleaseMapping by tasks.registering(Copy::class) {
     rename { "release-mapping.txt" }
     onlyIf { sourceMapping.get().asFile.exists() }
     group = "release"
-    description = "Archives the release R8 mapping for reuse on the next build."
+    description = "Manually archives the release R8 mapping after Play accepts the uploaded release."
+}
+
+fun releaseBudgetBytes(propertyName: String, defaultMb: Double): Long {
+    val configuredValue = (findProperty(propertyName) as? String)?.toDoubleOrNull() ?: defaultMb
+    return (configuredValue * 1024.0 * 1024.0).toLong()
+}
+
+val validateReleaseMappingBaseline by tasks.registering(ValidateReleaseMappingBaselineTask::class) {
+    group = "verification"
+    description = "Fails release builds if the previous-production R8 mapping baseline is missing, unmaterialized, or locally modified."
+    mappingFile.set(layout.projectDirectory.file("mapping/release-mapping.txt"))
+    allowMissingMapping.set(
+        providers.gradleProperty("com.dutype.allowMissingReleaseMapping")
+            .map { it.equals("true", ignoreCase = true) }
+            .orElse(false)
+    )
+    expectedSha256.set(providers.gradleProperty("com.dutype.releaseMappingSha256").orElse(""))
+    repoRoot.set(rootProject.layout.projectDirectory)
+}
+
+val checkReleaseSizeBudget by tasks.registering(CheckReleaseSizeBudgetTask::class) {
+    group = "verification"
+    description = "Fails release builds when AAB/dex/resources exceed DutyPe's hotfix update-size budgets."
+    aabFile.set(layout.buildDirectory.file("outputs/bundle/release/app-release.aab"))
+    maxAabBytes.set(releaseBudgetBytes("com.dutype.maxReleaseAabMb", 18.8))
+    maxDexFiles.set((findProperty("com.dutype.maxReleaseDexFiles") as? String)?.toIntOrNull() ?: 1)
+    maxDexRawBytes.set(releaseBudgetBytes("com.dutype.maxReleaseDexRawMb", 11.0))
+    maxDexCompressedBytes.set(releaseBudgetBytes("com.dutype.maxReleaseDexCompressedMb", 5.0))
+    maxResourcesBytes.set(releaseBudgetBytes("com.dutype.maxReleaseResourcesMb", 1.7))
 }
 
 tasks.configureEach {
+    if (name == "preReleaseBuild") {
+        dependsOn(validateReleaseMappingBaseline)
+    }
+
     if (name == "bundleRelease") {
-        finalizedBy(archiveReleaseMapping)
+        finalizedBy(checkReleaseSizeBudget)
     }
 }
 

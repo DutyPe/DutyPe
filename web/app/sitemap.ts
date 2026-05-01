@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/jobs-near-me",
     "/refer",
     "/worker",
+    "/employer",
     "/contact",
     "/faq",
     "/safety",
