@@ -10,6 +10,7 @@ import com.example.dutype.models.UserRole
 import com.example.dutype.services.AuthFlowService
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.utils.FirestoreUtils
+import com.example.dutype.utils.findActivity
 import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
@@ -96,9 +97,8 @@ class OtpViewModel @Inject constructor(
             // AFTER the user typed the 6-digit code.
             //
             // Only bail on a DEFINITIVE conflict (EXISTS + roleConflict).
-            // We do NOT block on UNKNOWN here because the UI layer is
-            // now fail-closed for that case; a second UNKNOWN-block
-            // inside the ViewModel would just produce a duplicate toast.
+            // UNKNOWN or transient pre-check failures must not block Firebase
+            // PhoneAuth; the canonical account checks run after OTP sign-in.
             runCatching {
                 FirestoreUtils.checkPhoneForRole(
                     phoneNumber = phoneNumber,
@@ -123,20 +123,8 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
             }.onFailure { err ->
-                // Apr 2026 hardening: fail-CLOSED on pre-check errors. Previously
-                // the ViewModel logged and continued, which meant a transient
-                // Firestore/network blip would burn an SMS for a phone that may
-                // have been registered under a different role. Now we refuse
-                // to send OTP unless the role check has a definitive answer.
-                Timber.w(err, "🔒 OTP blocked — pre-send role check failed for $phoneNumber")
-                _otpState.value = _otpState.value.copy(
-                    isLoading = false,
-                    otpSent = false,
-                    error = "phone-precheck-failed",
-                    message = "Could not verify this number right now. Please try again in a moment."
-                )
-                errorHandler.logEvent("otp_send_blocked_precheck_failed", true)
-                return@launch
+                Timber.w(err, "📱 OTP pre-send role check failed; continuing to PhoneAuth for $phoneNumber")
+                errorHandler.logEvent("otp_send_precheck_failed_continuing", true)
             }
             
             // Start 60-second cooldown timer for initial OTP send
@@ -144,8 +132,9 @@ class OtpViewModel @Inject constructor(
             
 
             try {
-                // Get activity from context (required for PhoneAuthProvider)
-                val activity = context as? android.app.Activity
+                // Get activity from context (required for PhoneAuthProvider). Compose can
+                // provide a themed ContextWrapper in release, so unwrap it safely.
+                val activity = context.findActivity()
                 if (activity == null) {
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("send_otp", duration, success = false)
@@ -562,10 +551,9 @@ class OtpViewModel @Inject constructor(
             // Track OTP resend attempt for crash investigation
             errorHandler.logBreadcrumb("OTP resend started: $phoneNumber")
 
-            // Apr 2026: same fail-closed role pre-check as sendOtp. Without
-            // this a user could re-trigger OTP for a phone registered under
-            // the other role just by tapping "Resend" — wasting an SMS and
-            // making the conflict surface only after the user types the code.
+            // Same defense-in-depth role pre-check as sendOtp. Definitive role
+            // conflicts still block; UNKNOWN or transient failures continue to
+            // PhoneAuth and are resolved after OTP sign-in.
             runCatching {
                 FirestoreUtils.checkPhoneForRole(
                     phoneNumber = phoneNumber,
@@ -587,15 +575,8 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
             }.onFailure { err ->
-                Timber.w(err, "🔒 Resend blocked — role pre-check failed for $phoneNumber")
-                _otpState.value = _otpState.value.copy(
-                    isLoading = false,
-                    otpSent = false,
-                    error = "phone-precheck-failed",
-                    message = "Could not verify this number right now. Please try again in a moment."
-                )
-                errorHandler.logEvent("otp_resend_blocked_precheck_failed", true)
-                return@launch
+                Timber.w(err, "📱 OTP resend role check failed; continuing to PhoneAuth for $phoneNumber")
+                errorHandler.logEvent("otp_resend_precheck_failed_continuing", true)
             }
             
             // Start 60-second cooldown timer
@@ -603,8 +584,9 @@ class OtpViewModel @Inject constructor(
             
 
             try {
-                // Get activity from context (required for PhoneAuthProvider)
-                val activity = context as? android.app.Activity
+                // Get activity from context (required for PhoneAuthProvider). Compose can
+                // provide a themed ContextWrapper in release, so unwrap it safely.
+                val activity = context.findActivity()
                 if (activity == null) {
                     Timber.e("âŒ No Activity context available for OTP resend")
                     errorHandler.logBreadcrumb("OTP resend failed: No Activity context")

@@ -199,6 +199,55 @@ fun LoginBottomSheet(
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
+                    if (isRegistrationMode) {
+                        val pendingReferralCode = profileCompletionViewModel.getReferralCode()
+                        val registrationResult = otpViewModel.completeRegistration(
+                            role = role,
+                            fullName = registerName.trim(),
+                            referralCode = pendingReferralCode
+                        )
+
+                        registrationResult.fold(
+                            onSuccess = {
+                                profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                    email = "",
+                                    name = registerName.trim(),
+                                    role = role
+                                )
+
+                                otpViewModel.resetState()
+                                isCheckingProfile = false
+
+                                if (onProfileSetupRequired != null) {
+                                    onProfileSetupRequired.invoke()
+                                } else if (navController != null) {
+                                    val target = when (role) {
+                                        UserRole.EMPLOYER -> Routes.EMPLOYER_PROFILE_SETUP
+                                        else -> Routes.PROFILE_SETUP
+                                    }
+                                    navController.navigate(target) {
+                                        popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                    onDismiss()
+                                } else {
+                                    onLoginSuccess()
+                                }
+                            },
+                            onFailure = { error ->
+                                Timber.e(error, "LoginBottomSheet - Registration finalization failed")
+                                Toast.makeText(
+                                    context,
+                                    error.message ?: if (isTelugu) "నమోదును పూర్తి చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not finish registration. Please try again.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                otpViewModel.resetState()
+                                isCheckingProfile = false
+                            }
+                        )
+                        return@LaunchedEffect
+                    }
+
                     val loginResult = otpViewModel.completeLogin(role)
                     loginResult.fold(
                         onSuccess = { outcome ->
@@ -249,6 +298,8 @@ fun LoginBottomSheet(
                                     "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
                                 else
                                     "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                            } else if (msg == "account-not-found") {
+                                if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first."
                             } else {
                                 error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again."
                             }
@@ -430,21 +481,7 @@ fun LoginBottomSheet(
                                             }
                                         }
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            // Bug #3 fix: fail-closed on BOTH login and registration.
-                                            // Previously registration fell through to sendOtp when
-                                            // the role-conflict pre-check was unavailable, so the
-                                            // user would first see the OTP sheet and only hear about
-                                            // the role conflict after burning an SMS. Now we refuse
-                                            // to send OTP unless the role check has a definitive
-                                            // answer.
-                                            isCheckingPhone = false
-                                            Toast.makeText(
-                                                context,
-                                                if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            Timber.w("📱 Blocked - Phone pre-check unavailable: $fullPhoneNumber (mode=${if (isRegistrationMode) "register" else "login"})")
-                                            return@launch
+                                            Timber.w("📱 Phone pre-check unavailable; continuing to OTP and enforcing account state after auth: $fullPhoneNumber (mode=${if (isRegistrationMode) "register" else "login"})")
                                         }
                                     }
                                     
@@ -478,10 +515,9 @@ fun LoginBottomSheet(
                                         return@launch
                                     }
 
-                                    // Bug #3 fix: registration mode is now ALSO fail-closed — we
-                                    // will not burn an SMS when we couldn't verify the role
-                                    // conflict, since the correct role would be surfaced only
-                                    // AFTER the user typed the OTP. Show the same toast as login.
+                                    // This catch handles unexpected failures outside the normal
+                                    // UNKNOWN pre-check path, so surface a retry instead of
+                                    // guessing which state was written.
                                     Toast.makeText(
                                         context,
                                         if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",

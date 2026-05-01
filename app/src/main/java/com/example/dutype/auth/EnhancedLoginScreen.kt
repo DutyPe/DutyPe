@@ -210,6 +210,8 @@ private fun OtpLoginScreen(
                                     "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
                                 else
                                     "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                            } else if (msg == "account-not-found") {
+                                if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first."
                             } else {
                                 error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again."
                             }
@@ -300,14 +302,7 @@ private fun OtpLoginScreen(
                                         return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            isCheckingPhone = false
-                                            Toast.makeText(
-                                                context,
-                                                if (isTelugu) "ఇప్పుడు ఖాతాను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి." else "Could not verify this number right now. Please try again.",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            Timber.w("📱 Login blocked - Phone pre-check unavailable: $fullPhoneNumber")
-                                            return@launch
+                                            Timber.w("📱 Login phone pre-check unavailable; continuing to OTP and enforcing account state after auth: $fullPhoneNumber")
                                         }
                                         FirestoreUtils.PhoneExistenceResult.EXISTS -> {
                                             if (phoneCheck.roleConflict) {

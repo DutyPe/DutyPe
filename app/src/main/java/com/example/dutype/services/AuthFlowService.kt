@@ -325,6 +325,11 @@ class AuthFlowService @Inject constructor(
 
             val roleProfileState = readRoleProfileState(currentUser.uid)
             val userData = userSnapshot.data.orEmpty().toMutableMap()
+            val hasAnyRoleProfile = roleProfileState.workerExists || roleProfileState.employerExists
+            if (!userSnapshot.exists() && !hasAnyRoleProfile) {
+                return Result.failure(IllegalStateException("account-not-found"))
+            }
+
             val existingRole = (userData["role"] as? String)?.uppercase()
             val effectiveRole = existingRole
                 ?: roleProfileState.singleExistingRole()

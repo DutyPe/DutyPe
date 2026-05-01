@@ -337,19 +337,7 @@ private fun RegisterContent(
                                         return@launch
                                         }
                                         FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            // Bug #11 fix: Fail-closed instead of fail-open.
-                                            // Sending OTP when we couldn't verify costs SMS and risks
-                                            // creating a duplicate account if the phone is already
-                                            // registered under a different role.
-                                            isCheckingPhone = false
-                                            Toast.makeText(
-                                                context,
-                                                if (isTelugu) "ఇప్పుడు ఈ నంబర్‌ను ధృవీకరించలేకపోతున్నాం. దయచేసి కాసేపటికి మళ్లీ ప్రయత్నించండి."
-                                                else "Could not verify this number right now. Please try again in a moment.",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            Timber.w("📱 REGISTER blocked - phone pre-check UNKNOWN: $fullPhoneNumber")
-                                            return@launch
+                                            Timber.w("📱 REGISTER phone pre-check unavailable; continuing to OTP and enforcing uniqueness in registration transaction: $fullPhoneNumber")
                                         }
                                         FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> Unit
                                     }
