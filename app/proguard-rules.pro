@@ -105,6 +105,14 @@
 -allowaccessmodification
 -repackageclasses ''
 
+# Production v63 crash guard: Android framework dispatches these callbacks via
+# the OnAttachStateChangeListener interface. R8 must not remove or merge the
+# concrete implementations from AppCompat/Material/Compose listener classes.
+-keep class * implements android.view.View$OnAttachStateChangeListener {
+    public void onViewAttachedToWindow(android.view.View);
+    public void onViewDetachedFromWindow(android.view.View);
+}
+
 # Strip verbose logging in release. R8 will inline + dead-code-eliminate the
 # call sites once it knows these methods have no side effects.
 -assumenosideeffects class android.util.Log {

@@ -5,7 +5,7 @@ Common
 exception_message	 abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)"	
 stack_trace_depth	 20
 
-resolution_note	 Pinned androidx.appcompat to 1.7.1 to address the suspected CascadingMenuPopup / OnAttachStateChangeListener mismatch behind this AbstractMethodError. Deployed on 2026-05-02.
+resolution_note	 Pinned androidx.appcompat to 1.7.1 first, then added a targeted R8 keep rule for concrete View.OnAttachStateChangeListener callback implementations after versionCode 63 still reported this AbstractMethodError. Hotfix versionCode 64.
 
 
 and
