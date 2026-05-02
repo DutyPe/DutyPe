@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 60
-        versionName = "2.6.8"
+        versionCode = 62
+        versionName = "2.6.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -348,6 +348,8 @@ tasks.configureEach {
 dependencies {
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.appcompat.resources)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.activity.compose)

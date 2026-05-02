@@ -44,6 +44,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import timber.log.Timber
+import java.io.File
 import javax.inject.Singleton
 
 /**
@@ -157,8 +158,30 @@ object AppModule {
         // any database operation — `System.loadLibrary` is idempotent so it is
         // safe to call here on every provider invocation.
         System.loadLibrary("sqlcipher")
+
+        val database = buildDutyPeDatabase(context)
+        return try {
+            verifyDutyPeDatabaseOpens(database)
+            database
+        } catch (error: RuntimeException) {
+            if (!isRecoverableSqlCipherOpenFailure(error)) {
+                throw error
+            }
+
+            Timber.e(error, "Encrypted Room database failed to open; clearing local cache and rebuilding")
+            database.close()
+            deleteDutyPeDatabaseFiles(context)
+
+            buildDutyPeDatabase(context).also { rebuiltDatabase ->
+                verifyDutyPeDatabaseOpens(rebuiltDatabase)
+            }
+        }
+    }
+
+    private fun buildDutyPeDatabase(context: Context): DutyPeDatabase {
         val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
         val factory = net.zetetic.database.sqlcipher.SupportOpenHelperFactory(passphrase)
+
         // SCHEMA MIGRATION POLICY:
         // - Any schema bump from v7 onward MUST add an explicit Migration object.
         //   Blanket destructive migration is a data-loss bomb for offline users.
@@ -176,6 +199,48 @@ object AppModule {
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
+    }
+
+    private fun verifyDutyPeDatabaseOpens(database: DutyPeDatabase) {
+        database.openHelper.writableDatabase
+            .query("SELECT COUNT(*) FROM sqlite_schema")
+            .use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getLong(0)
+                }
+            }
+    }
+
+    private fun isRecoverableSqlCipherOpenFailure(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            val className = current::class.java.name
+            if (
+                className.startsWith("net.zetetic.database.sqlcipher.SQLite") ||
+                className.startsWith("android.database.sqlite.SQLite")
+            ) {
+                return true
+            }
+            current = current.cause
+        }
+        return false
+    }
+
+    private fun deleteDutyPeDatabaseFiles(context: Context) {
+        val databaseName = DutyPeDatabase.DATABASE_NAME
+        val databaseFile = context.getDatabasePath(databaseName)
+
+        context.deleteDatabase(databaseName)
+        listOf(
+            databaseFile,
+            File("${databaseFile.path}-journal"),
+            File("${databaseFile.path}-shm"),
+            File("${databaseFile.path}-wal")
+        ).forEach { file ->
+            if (file.exists() && !file.delete()) {
+                Timber.w("Failed to delete local Room database file: ${file.absolutePath}")
+            }
+        }
     }
 
     @Provides

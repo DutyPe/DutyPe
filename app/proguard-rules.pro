@@ -100,10 +100,9 @@
 }
 
 # -----------------------------------------------------------------------------
-# Optimization aggressiveness
+# Optimization safety
 # -----------------------------------------------------------------------------
 -allowaccessmodification
--mergeinterfacesaggressively
 -repackageclasses ''
 
 # Strip verbose logging in release. R8 will inline + dead-code-eliminate the
