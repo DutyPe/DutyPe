@@ -44,6 +44,7 @@ import com.example.dutype.employer.screens.EmployerNotificationScreen
 import com.example.dutype.employer.screens.EmployerReferEarnScreen
 import com.example.dutype.employer.screens.EmployerSupportScreen
 import com.example.dutype.employer.screens.EmployerAboutScreen
+import com.example.dutype.employer.screens.EmployerUrgentNeedDetailScreen
 import com.example.dutype.employer.screens.settings.EmployerAddressManagementScreen
 
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
@@ -98,6 +99,7 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_NOTIFICATIONS,
         Routes.EMPLOYER_POST_JOB,
         Routes.EMPLOYER_POST_URGENT_NEED,
+        Routes.EMPLOYER_URGENT_NEED_DETAIL,
         Routes.EMPLOYER_COMPANY_DETAILS,
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
@@ -223,6 +225,16 @@ fun EmployerMainScreen(
                     }
                     composable(Routes.EMPLOYER_POST_URGENT_NEED) {
                         PostUrgentNeedScreen(navController = navController)
+                    }
+                    composable(
+                        route = Routes.EMPLOYER_URGENT_NEED_DETAIL,
+                        arguments = listOf(navArgument("requestId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val requestId = backStackEntry.arguments?.getString("requestId") ?: ""
+                        EmployerUrgentNeedDetailScreen(
+                            navController = navController,
+                            requestId = requestId
+                        )
                     }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(

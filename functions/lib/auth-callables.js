@@ -386,8 +386,8 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
 // Firestore rules block direct employer reads of `worker_profiles` because
 // rules cannot iterate `applications` to verify the relationship. This
 // callable bridges that gap: returns the merged user + worker_profile data
-// only if the caller has at least one application from this worker
-// (optionally scoped to a specific jobId).
+// only if the caller has at least one application or instant response from
+// this worker (optionally scoped to a specific jobId/requestId).
 exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (data, context) => {
     const uid = context.auth.uid;
     const workerId = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.workerId, "workerId", {
@@ -398,7 +398,8 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({ enf
     const jobId = (data === null || data === void 0 ? void 0 : data.jobId)
         ? (0, validation_1.validateString)(data.jobId, "jobId", { minLength: 4, maxLength: 128 })
         : "";
-    // Authorise: caller must employ this worker via at least one application.
+    // Authorise: caller must employ this worker via at least one application
+    // or have an instant-help response from this worker.
     let appQuery = db()
         .collection("applications")
         .where("employerId", "==", uid)
@@ -407,16 +408,33 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({ enf
     if (jobId) {
         // Tightest scope: docId is `${jobId}_${workerId}`.
         const docId = `${jobId}_${workerId}`;
-        const direct = await db().collection("applications").doc(docId).get();
+        const [direct, instantDirect] = await Promise.all([
+            db().collection("applications").doc(docId).get(),
+            db().collection("instant_responses").doc(docId).get(),
+        ]);
         const directData = (direct.data() || {});
-        if (!direct.exists || directData.employerId !== uid || directData.workerId !== workerId) {
-            throw new functions.https.HttpsError("permission-denied", "Caller is not the employer of this application");
+        const instantDirectData = (instantDirect.data() || {});
+        const hasApplicationAccess = direct.exists && directData.employerId === uid && directData.workerId === workerId;
+        const hasInstantAccess = instantDirect.exists && instantDirectData.employerId === uid && instantDirectData.workerId === workerId;
+        if (!hasApplicationAccess && !hasInstantAccess) {
+            throw new functions.https.HttpsError("permission-denied", "Caller is not the employer for this worker relationship");
         }
     }
     else {
-        const appSnap = await appQuery.get();
-        if (appSnap.empty) {
-            throw new functions.https.HttpsError("permission-denied", "Caller does not employ this worker");
+        const [appSnap, instantSnap] = await Promise.all([
+            appQuery.get(),
+            db()
+                .collection("instant_responses")
+                .where("workerId", "==", workerId)
+                .limit(50)
+                .get(),
+        ]);
+        const hasInstantAccess = instantSnap.docs.some((doc) => {
+            const response = (doc.data() || {});
+            return response.employerId === uid && response.workerId === workerId;
+        });
+        if (appSnap.empty && !hasInstantAccess) {
+            throw new functions.https.HttpsError("permission-denied", "Caller does not have a worker relationship");
         }
     }
     const workerSnap = await db().collection("worker_profiles").doc(workerId).get();

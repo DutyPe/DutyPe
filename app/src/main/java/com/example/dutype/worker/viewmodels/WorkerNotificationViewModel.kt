@@ -25,6 +25,8 @@ class WorkerNotificationViewModel @Inject constructor(
             when (notification.type) {
                 NotificationType.APPLICATION_STATUS,
                 NotificationType.APPLICATION_STATUS_UPDATE,
+                NotificationType.NEW_JOB_ALERT,
+                NotificationType.JOB_RECOMMENDATION,
                 NotificationType.INTERVIEW_SCHEDULED,
                 NotificationType.PROFILE_COMPLETE,
                 NotificationType.WORKER_HIRED,

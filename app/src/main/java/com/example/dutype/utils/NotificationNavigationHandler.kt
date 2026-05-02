@@ -133,8 +133,11 @@ object NotificationNavigationHandler {
             NotificationType.NEW_JOB_ALERT,
             NotificationType.JOB_RECOMMENDATION -> {
                 val jobId = notification.actionData["jobId"]
+                val requestId = notification.actionData["requestId"]
                 onMarkAsRead(notification.id)
-                if (!jobId.isNullOrEmpty()) {
+                if (!requestId.isNullOrEmpty()) {
+                    navController.navigate(Routes.WORKER_HOME)
+                } else if (!jobId.isNullOrEmpty()) {
                     navController.navigate(Routes.jobDetailRoute(jobId))
                 } else {
                     navController.navigate(Routes.WORKER_ALL_JOBS)

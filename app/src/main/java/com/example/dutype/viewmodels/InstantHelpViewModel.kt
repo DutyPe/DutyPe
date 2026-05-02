@@ -20,13 +20,16 @@ import javax.inject.Inject
 data class InstantHelpUiState(
     val workerAvailability: WorkerAvailability = WorkerAvailability(),
     val instantRequests: List<InstantRequest> = emptyList(),
+    val workerInstantResponses: List<InstantResponse> = emptyList(),
     val employerInstantRequests: List<InstantRequest> = emptyList(),
     val employerInstantResponses: Map<String, List<InstantResponse>> = emptyMap(),
     val isLoadingAvailability: Boolean = false,
     val isSavingAvailability: Boolean = false,
     val isLoadingRequests: Boolean = false,
+    val isLoadingWorkerUrgentHistory: Boolean = false,
     val isLoadingEmployerUrgentNeeds: Boolean = false,
     val updatingRequestId: String? = null,
+    val updatingEmployerRequestId: String? = null,
     val updatingEmployerResponseId: String? = null,
     val isPostingUrgentNeed: Boolean = false,
     val postedRequestId: String? = null,
@@ -231,28 +234,107 @@ class InstantHelpViewModel @Inject constructor(
         updateEmployerInstantResponse(response, "accepted")
     }
 
-    fun completeEmployerInstantResponse(response: InstantResponse) {
-        updateEmployerInstantResponse(response, "completed")
+    fun completeEmployerInstantResponse(response: InstantResponse, completionProof: String = "") {
+        updateEmployerInstantResponse(response, "completed", completionProof)
+    }
+
+    fun markEmployerInstantResponseNoShow(response: InstantResponse, reason: String = "") {
+        updateEmployerInstantResponse(response, "no_show", reason)
+    }
+
+    fun cancelEmployerInstantRequest(request: InstantRequest, reason: String = "") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(updatingEmployerRequestId = request.requestId, error = null) }
+            instantHelpService.cancelEmployerInstantRequest(request, reason).fold(
+                onSuccess = {
+                    val now = System.currentTimeMillis()
+                    val safeReason = reason.trim().ifBlank { "Cancelled by employer" }
+                    _uiState.update { state ->
+                        state.copy(
+                            updatingEmployerRequestId = null,
+                            employerInstantRequests = state.employerInstantRequests.map { item ->
+                                if (item.requestId == request.requestId) {
+                                    item.copy(
+                                        status = "cancelled",
+                                        cancelledAt = now,
+                                        cancellationReason = safeReason,
+                                        failureReason = safeReason
+                                    )
+                                } else {
+                                    item
+                                }
+                            },
+                            employerInstantResponses = state.employerInstantResponses.mapValues { entry ->
+                                if (entry.key == request.requestId) {
+                                    entry.value.map { response ->
+                                        response.copy(status = "cancelled", failureReason = safeReason, updatedAt = now)
+                                    }
+                                } else {
+                                    entry.value
+                                }
+                            },
+                            message = "Urgent request cancelled"
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            updatingEmployerRequestId = null,
+                            error = error.message ?: "Failed to cancel urgent request"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun loadWorkerUrgentHistory() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingWorkerUrgentHistory = true, error = null) }
+            instantHelpService.getWorkerInstantResponses().fold(
+                onSuccess = { responses ->
+                    _uiState.update {
+                        it.copy(
+                            workerInstantResponses = responses,
+                            isLoadingWorkerUrgentHistory = false
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingWorkerUrgentHistory = false,
+                            error = error.message ?: "Failed to load urgent work history"
+                        )
+                    }
+                }
+            )
+        }
     }
 
     fun clearInstantHelpMessage() {
         _uiState.update { it.copy(error = null, message = null) }
     }
 
-    private fun updateEmployerInstantResponse(response: InstantResponse, status: String) {
+    private fun updateEmployerInstantResponse(response: InstantResponse, status: String, note: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(updatingEmployerResponseId = response.responseId, error = null) }
-            instantHelpService.updateEmployerInstantResponseStatus(response, status).fold(
+            instantHelpService.updateEmployerInstantResponseStatus(response, status, note).fold(
                 onSuccess = {
+                    val now = System.currentTimeMillis()
+                    val normalizedStatus = status.lowercase()
                     _uiState.update { state ->
                         val updatedResponses = state.employerInstantResponses.mapValues { entry ->
                             entry.value.map { item ->
                                 if (item.responseId == response.responseId) {
                                     item.copy(
-                                        status = status,
-                                        updatedAt = System.currentTimeMillis(),
-                                        acceptedAt = if (status == "accepted") System.currentTimeMillis() else item.acceptedAt,
-                                        completedAt = if (status == "completed") System.currentTimeMillis() else item.completedAt
+                                        status = normalizedStatus,
+                                        updatedAt = now,
+                                        acceptedAt = if (normalizedStatus == "accepted") now else item.acceptedAt,
+                                        completedAt = if (normalizedStatus == "completed") now else item.completedAt,
+                                        completionProof = if (normalizedStatus == "completed" && note.isNotBlank()) note else item.completionProof,
+                                        failureReason = if (normalizedStatus in setOf("no_show", "rejected", "cancelled") && note.isNotBlank()) note else item.failureReason
                                     )
                                 } else {
                                     item
@@ -264,16 +346,29 @@ class InstantHelpViewModel @Inject constructor(
                             employerInstantResponses = updatedResponses,
                             employerInstantRequests = state.employerInstantRequests.map { request ->
                                 if (request.requestId == response.requestId) {
-                                    request.copy(
-                                        status = "filled",
-                                        selectedWorkerId = response.workerId,
-                                        completedAt = if (status == "completed") System.currentTimeMillis() else request.completedAt
-                                    )
+                                    when (normalizedStatus) {
+                                        "completed" -> request.copy(
+                                            status = "completed",
+                                            selectedWorkerId = response.workerId,
+                                            completedAt = now,
+                                            completionProof = if (note.isNotBlank()) note else request.completionProof
+                                        )
+                                        "no_show" -> request.copy(
+                                            status = "failed",
+                                            selectedWorkerId = response.workerId,
+                                            failureReason = note.ifBlank { "Worker did not show up" }
+                                        )
+                                        else -> request.copy(status = "filled", selectedWorkerId = response.workerId)
+                                    }
                                 } else {
                                     request
                                 }
                             },
-                            message = if (status == "completed") "Urgent work marked done" else "Worker selected"
+                            message = when (normalizedStatus) {
+                                "completed" -> "Urgent work marked done"
+                                "no_show" -> "Marked as no show"
+                                else -> "Worker selected"
+                            }
                         )
                     }
                 },

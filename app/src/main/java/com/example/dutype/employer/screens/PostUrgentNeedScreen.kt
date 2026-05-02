@@ -236,7 +236,7 @@ fun PostUrgentNeedScreen(
                             )
                         ) {
                             Toast.makeText(context, "Urgent need posted", Toast.LENGTH_SHORT).show()
-                            navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                            navController.navigate(Routes.employerUrgentNeedDetailRoute(it)) {
                                 popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = true }
                                 launchSingleTop = true
                             }

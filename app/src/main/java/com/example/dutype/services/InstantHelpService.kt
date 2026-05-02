@@ -283,9 +283,33 @@ class InstantHelpService @Inject constructor(
         }
     }
 
+    suspend fun getWorkerInstantResponses(): Result<List<InstantResponse>> = withContext(Dispatchers.IO) {
+        val workerId = auth.currentUser?.uid
+        if (workerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+
+        return@withContext try {
+            val snapshot = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
+                .whereEqualTo("workerId", workerId)
+                .limit(50)
+                .get()
+                .await()
+
+            val responses = snapshot.documents
+                .mapNotNull { it.toInstantResponseOrNull() }
+                .sortedByDescending { it.updatedAt.ifBlankTimestamp(it.createdAt) }
+
+            Result.success(responses)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     suspend fun updateEmployerInstantResponseStatus(
         response: InstantResponse,
-        status: String
+        status: String,
+        note: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val employerId = auth.currentUser?.uid
         if (employerId.isNullOrBlank()) {
@@ -298,8 +322,12 @@ class InstantHelpService @Inject constructor(
         return@withContext try {
             val normalizedStatus = when (status.lowercase()) {
                 "completed" -> "completed"
+                "no_show" -> "no_show"
+                "rejected" -> "rejected"
+                "cancelled" -> "cancelled"
                 else -> "accepted"
             }
+            val trimmedNote = note.trim().take(300)
             val now = Timestamp.now()
             val responseUpdates = mutableMapOf<String, Any>(
                 "status" to normalizedStatus,
@@ -310,6 +338,10 @@ class InstantHelpService @Inject constructor(
             }
             if (normalizedStatus == "completed") {
                 responseUpdates["completedAt"] = now
+                if (trimmedNote.isNotBlank()) responseUpdates["completionProof"] = trimmedNote
+            }
+            if (normalizedStatus in setOf("no_show", "rejected", "cancelled") && trimmedNote.isNotBlank()) {
+                responseUpdates["failureReason"] = trimmedNote
             }
 
             firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
@@ -317,12 +349,23 @@ class InstantHelpService @Inject constructor(
                 .set(responseUpdates, SetOptions.merge())
                 .await()
 
-            val requestUpdates = mutableMapOf<String, Any>(
-                "status" to "filled",
-                "selectedWorkerId" to response.workerId
-            )
-            if (normalizedStatus == "completed") {
-                requestUpdates["completedAt"] = now
+            val requestUpdates = mutableMapOf<String, Any>("selectedWorkerId" to response.workerId)
+            when (normalizedStatus) {
+                "accepted" -> requestUpdates["status"] = "filled"
+                "completed" -> {
+                    requestUpdates["status"] = "completed"
+                    requestUpdates["completedAt"] = now
+                    if (trimmedNote.isNotBlank()) requestUpdates["completionProof"] = trimmedNote
+                }
+                "no_show" -> {
+                    requestUpdates["status"] = "failed"
+                    requestUpdates["failureReason"] = trimmedNote.ifBlank { "Worker did not show up" }
+                }
+                "cancelled" -> {
+                    requestUpdates["status"] = "cancelled"
+                    requestUpdates["cancelledAt"] = now
+                    requestUpdates["cancellationReason"] = trimmedNote.ifBlank { "Cancelled by employer" }
+                }
             }
 
             firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
@@ -330,6 +373,61 @@ class InstantHelpService @Inject constructor(
                 .set(requestUpdates, SetOptions.merge())
                 .await()
 
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun cancelEmployerInstantRequest(
+        request: InstantRequest,
+        reason: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+        if (request.employerId != employerId) {
+            return@withContext Result.failure(IllegalStateException("This urgent request is not yours"))
+        }
+
+        return@withContext try {
+            val now = Timestamp.now()
+            val safeReason = reason.trim().take(300).ifBlank { "Cancelled by employer" }
+            val batch = firestore.batch()
+            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(request.requestId)
+            batch.set(
+                requestRef,
+                mapOf(
+                    "status" to "cancelled",
+                    "cancelledAt" to now,
+                    "cancellationReason" to safeReason,
+                    "failureReason" to safeReason
+                ),
+                SetOptions.merge()
+            )
+
+            val responses = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
+                .whereEqualTo("requestId", request.requestId)
+                .limit(50)
+                .get()
+                .await()
+
+            responses.documents.filter { document ->
+                document.getString("employerId") == employerId
+            }.forEach { document ->
+                batch.set(
+                    document.reference,
+                    mapOf(
+                        "status" to "cancelled",
+                        "failureReason" to safeReason,
+                        "updatedAt" to now
+                    ),
+                    SetOptions.merge()
+                )
+            }
+
+            batch.commit().await()
             Result.success(Unit)
         } catch (error: Exception) {
             Result.failure(error)
@@ -363,6 +461,12 @@ class InstantHelpService @Inject constructor(
                 "requestId" to request.requestId,
                 "workerId" to workerId,
                 "employerId" to request.employerId,
+                "requestTitle" to request.title,
+                "requestCategory" to request.category,
+                "employerName" to request.employerName,
+                "employerPhone" to request.employerPhone,
+                "budgetText" to request.budgetText,
+                "addressText" to request.addressText,
                 "workerName" to workerData.getString("fullName").ifBlank { "Worker" },
                 "workerPhone" to workerData.getString("phone"),
                 "workerSkills" to workerData.getStringList("skills"),
@@ -426,10 +530,18 @@ class InstantHelpService @Inject constructor(
             radiusKm = data.getNumber("radiusKm")?.toDouble() ?: 5.0,
             createdAt = data.getMillis("createdAt"),
             expiresAt = data.getMillis("expiresAt"),
+            expiredAt = data.getMillis("expiredAt"),
+            firstResponseAt = data.getMillis("firstResponseAt"),
+            lastResponseAt = data.getMillis("lastResponseAt"),
             responseCount = data.getNumber("responseCount")?.toInt() ?: 0,
             callCount = data.getNumber("callCount")?.toInt() ?: 0,
+            notifiedWorkerCount = data.getNumber("notifiedWorkerCount")?.toInt() ?: 0,
+            notificationFanoutAt = data.getMillis("notificationFanoutAt"),
             selectedWorkerId = data.getString("selectedWorkerId"),
             completedAt = data.getMillis("completedAt"),
+            cancelledAt = data.getMillis("cancelledAt"),
+            cancellationReason = data.getString("cancellationReason"),
+            completionProof = data.getString("completionProof"),
             failureReason = data.getString("failureReason")
         )
     }
@@ -441,6 +553,12 @@ class InstantHelpService @Inject constructor(
             requestId = data.getString("requestId"),
             workerId = data.getString("workerId"),
             employerId = data.getString("employerId"),
+            requestTitle = data.getString("requestTitle").ifBlank { "Urgent work" },
+            requestCategory = data.getString("requestCategory").ifBlank { "Helper" },
+            employerName = data.getString("employerName").ifBlank { "DutyPe employer" },
+            employerPhone = data.getString("employerPhone"),
+            budgetText = data.getString("budgetText"),
+            addressText = data.getString("addressText"),
             workerName = data.getString("workerName").ifBlank { "Worker" },
             workerPhone = data.getString("workerPhone"),
             workerSkills = data.getStringList("workerSkills"),
@@ -452,7 +570,9 @@ class InstantHelpService @Inject constructor(
             calledAt = data.getMillis("calledAt"),
             acceptedAt = data.getMillis("acceptedAt"),
             completedAt = data.getMillis("completedAt"),
-            updatedAt = data.getMillis("updatedAt")
+            updatedAt = data.getMillis("updatedAt"),
+            completionProof = data.getString("completionProof"),
+            failureReason = data.getString("failureReason")
         )
     }
 

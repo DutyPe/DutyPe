@@ -508,6 +508,7 @@ fun DashboardContent(
                     responsesByRequestId = urgentResponsesByRequestId,
                     isLoading = isLoadingUrgentRequests,
                     onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
+                    onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
                     onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
                 )
             }

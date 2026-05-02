@@ -614,8 +614,10 @@ service cloud.firestore {
           'requestId', 'employerId', 'employerName', 'employerPhone',
           'title', 'description', 'category', 'needType', 'status', 'urgency',
           'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
-          'createdAt', 'expiresAt', 'responseCount', 'callCount',
-          'selectedWorkerId', 'completedAt', 'failureReason'
+          'createdAt', 'expiresAt', 'expiredAt', 'firstResponseAt', 'lastResponseAt',
+          'responseCount', 'callCount', 'notifiedWorkerCount', 'notificationFanoutAt',
+          'selectedWorkerId', 'completedAt', 'cancelledAt', 'cancellationReason',
+          'completionProof', 'failureReason'
         ]) &&
         request.resource.data.keys().hasAll([
           'requestId', 'employerId', 'title', 'category', 'needType', 'status',
@@ -643,25 +645,37 @@ service cloud.firestore {
         request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 25 &&
         request.resource.data.createdAt is timestamp &&
         request.resource.data.expiresAt is timestamp &&
+        (!('expiredAt' in request.resource.data) || request.resource.data.expiredAt is timestamp) &&
+        (!('firstResponseAt' in request.resource.data) || request.resource.data.firstResponseAt is timestamp) &&
+        (!('lastResponseAt' in request.resource.data) || request.resource.data.lastResponseAt is timestamp) &&
         request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
         request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('notifiedWorkerCount' in request.resource.data) || (request.resource.data.notifiedWorkerCount is int && request.resource.data.notifiedWorkerCount >= 0)) &&
+        (!('notificationFanoutAt' in request.resource.data) || request.resource.data.notificationFanoutAt is timestamp) &&
         (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
         (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
         (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
+        (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
         (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'responseCount', 'callCount', 'selectedWorkerId', 'completedAt', 'failureReason'
+          'status', 'responseCount', 'callCount', 'selectedWorkerId', 'completedAt',
+          'cancelledAt', 'cancellationReason', 'completionProof', 'failureReason'
         ]) &&
-        request.resource.data.status in ['open', 'filled', 'expired', 'cancelled', 'failed'] &&
+        request.resource.data.status in ['open', 'filled', 'completed', 'expired', 'cancelled', 'failed'] &&
         request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
         request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
         (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
+        (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
         (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow delete: if false;
@@ -678,9 +692,11 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'responseId', 'requestId', 'workerId', 'employerId', 'workerName',
-          'workerPhone', 'workerSkills', 'distanceKm', 'status', 'createdAt',
-          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt'
+          'responseId', 'requestId', 'workerId', 'employerId', 'requestTitle',
+          'requestCategory', 'employerName', 'employerPhone', 'budgetText', 'addressText',
+          'workerName', 'workerPhone', 'workerSkills', 'distanceKm', 'status', 'createdAt',
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt',
+          'completionProof', 'failureReason'
         ]) &&
         request.resource.data.keys().hasAll([
           'responseId', 'requestId', 'workerId', 'employerId', 'status', 'createdAt', 'updatedAt'
@@ -692,6 +708,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.status == 'open' &&
         get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.employerId == request.resource.data.employerId &&
         request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
+        (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
         (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
         (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
         (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
@@ -702,7 +724,9 @@ service cloud.firestore {
         (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
         (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
         (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
-        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow update: if isSignedIn() &&
         resource.data.workerId == request.auth.uid &&
@@ -711,11 +735,19 @@ service cloud.firestore {
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.responseId == resource.data.responseId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'requestTitle', 'requestCategory', 'employerName', 'employerPhone', 'budgetText', 'addressText',
           'workerName', 'workerPhone', 'workerSkills', 'distanceKm', 'status',
-          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt'
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt',
+          'completionProof', 'failureReason'
         ]) &&
         request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
         request.resource.data.updatedAt is timestamp &&
+        (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
+        (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
         (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
         (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
         (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
@@ -724,7 +756,9 @@ service cloud.firestore {
         (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
         (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
         (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
-        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
@@ -733,12 +767,14 @@ service cloud.firestore {
         request.resource.data.employerId == resource.data.employerId &&
         request.resource.data.responseId == resource.data.responseId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'acceptedAt', 'completedAt', 'updatedAt'
+          'status', 'acceptedAt', 'completedAt', 'updatedAt', 'completionProof', 'failureReason'
         ]) &&
-        request.resource.data.status in ['accepted', 'completed', 'rejected', 'no_show'] &&
+        request.resource.data.status in ['accepted', 'completed', 'rejected', 'cancelled', 'no_show'] &&
         request.resource.data.updatedAt is timestamp &&
         (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
-        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow delete: if false;
     }

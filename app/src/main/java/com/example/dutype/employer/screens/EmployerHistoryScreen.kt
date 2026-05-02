@@ -217,19 +217,25 @@ fun EmployerHistoryScreen(
                 requests = instantHelpState.employerInstantRequests,
                 responsesByRequestId = instantHelpState.employerInstantResponses,
                 isLoading = instantHelpState.isLoadingEmployerUrgentNeeds,
+                updatingRequestId = instantHelpState.updatingEmployerRequestId,
                 updatingResponseId = instantHelpState.updatingEmployerResponseId,
                 ratedResponseIds = ratedResponseIds,
+                onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
+                onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
                 onCallWorker = { phone ->
                     if (phone.isNotBlank()) {
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                     }
                 },
+                onWhatsAppWorker = { phone -> openEmployerHistoryWhatsApp(context, phone) },
                 onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
-                onCompleteResponse = { response -> instantHelpViewModel.completeEmployerInstantResponse(response) },
+                onCompleteResponse = { response -> instantHelpViewModel.completeEmployerInstantResponse(response, "Completed from employer history") },
+                onNoShowResponse = { response -> instantHelpViewModel.markEmployerInstantResponseNoShow(response, "Worker did not show up") },
                 onRateResponse = { response ->
                     pendingRatingResponse = response
                     showRatingSheet = true
                 },
+                onCancelRequest = { request -> instantHelpViewModel.cancelEmployerInstantRequest(request, "Cancelled from employer history") },
                 onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
             )
         } else when {
@@ -313,6 +319,17 @@ fun EmployerHistoryScreen(
             }
             }  // Close else block
         }  // Close outer when
+    }
+}
+
+private fun openEmployerHistoryWhatsApp(context: android.content.Context, phone: String) {
+    val digits = phone.filter { it.isDigit() }
+    if (digits.isBlank()) return
+    val normalized = if (digits.startsWith("91")) digits else "91$digits"
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized")))
+    }.onFailure {
+        Toast.makeText(context, "Unable to open WhatsApp", Toast.LENGTH_SHORT).show()
     }
 }
 

@@ -37,6 +37,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/post-job", label: "Post Job", icon: "PJ", summary: "Create a verified job as admin." },
       { href: "/admin/posters", label: "Posters", icon: "PR", summary: "Generate printable job posters." },
       { href: "/admin/applications", label: "Applications", icon: "AP", summary: "Review worker applications." },
+      { href: "/admin/instant-help", label: "Instant Help", icon: "IH", summary: "Urgent request speed, fill rate, and expiry metrics." },
       { href: "/admin/saved-jobs", label: "Saved Jobs", icon: "SV", summary: "Saved-job collection review." },
       { href: "/admin/ratings", label: "Ratings", icon: "RG", summary: "Ratings and trust signals." },
       { href: "/admin/job-reports", label: "Job Reports", icon: "RP", summary: "Reported jobs and moderation signals." }

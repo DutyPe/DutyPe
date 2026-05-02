@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -50,6 +50,49 @@ const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
     "SYSTEM_UPDATE",
     "GENERAL",
 ]);
+const INSTANT_WORKER_SCAN_LIMIT = 80;
+const INSTANT_WORKER_NOTIFY_LIMIT = 25;
+function timestampMillis(value) {
+    if (value instanceof admin.firestore.Timestamp) {
+        return value.toMillis();
+    }
+    if (typeof value === "number") {
+        return value;
+    }
+    if (typeof value === "object" && value !== null && "toMillis" in value) {
+        const maybeTimestamp = value;
+        if (typeof maybeTimestamp.toMillis === "function") {
+            return maybeTimestamp.toMillis();
+        }
+    }
+    return 0;
+}
+function stringList(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => String(item || "").trim())
+            .filter(Boolean);
+    }
+    if (typeof value === "string") {
+        return value.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+    return [];
+}
+function distanceKm(lat1, lng1, lat2, lng2) {
+    const toRadians = (degrees) => degrees * Math.PI / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function validCoordinates(lat, lng) {
+    return typeof lat === "number" && typeof lng === "number" &&
+        lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 &&
+        (lat !== 0 || lng !== 0);
+}
 function sanitizeNotificationDataMap(rawData) {
     if (!rawData || typeof rawData !== "object") {
         return {};
@@ -321,7 +364,7 @@ exports.sendPushNotification = functions.firestore
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Map notification type to Android channel ID
         const notificationType = notification.type || "general";
-        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
         const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
         let channelId = "low_priority";
         if (highPriorityTypes.includes(notificationType)) {
@@ -430,6 +473,189 @@ exports.persistSelfNotification = functions.https.onCall(async (data, context) =
         success: true,
         notificationId: notificationRef.id,
     };
+});
+exports.notifyAvailableWorkersForInstantRequest = functions.firestore
+    .document("instant_requests/{requestId}")
+    .onCreate(async (snapshot, context) => {
+    const request = snapshot.data() || {};
+    const requestId = context.params.requestId;
+    const status = String(request.status || "open").toLowerCase();
+    if (status !== "open")
+        return null;
+    const requestLat = Number(request.lat);
+    const requestLng = Number(request.lng);
+    if (!validCoordinates(requestLat, requestLng)) {
+        functions.logger.warn(`INSTANT: request ${requestId} has no valid coordinates`);
+        return null;
+    }
+    const nowMs = Date.now();
+    const expiresAtMs = timestampMillis(request.expiresAt);
+    if (expiresAtMs > 0 && expiresAtMs <= nowMs) {
+        functions.logger.info(`INSTANT: request ${requestId} already expired, no fanout`);
+        return null;
+    }
+    const category = String(request.category || "helper").trim().toLowerCase();
+    const requestRadius = Math.max(1, Math.min(25, Number(request.radiusKm) || 5));
+    const availabilitySnap = await db.collection("worker_availability")
+        .where("isAvailable", "==", true)
+        .limit(INSTANT_WORKER_SCAN_LIMIT)
+        .get();
+    const candidates = availabilitySnap.docs
+        .map((doc) => {
+        const availability = doc.data() || {};
+        const workerLat = Number(availability.lat);
+        const workerLng = Number(availability.lng);
+        if (!validCoordinates(workerLat, workerLng))
+            return null;
+        const availableUntilMs = timestampMillis(availability.availableUntil);
+        if (availableUntilMs > 0 && availableUntilMs <= nowMs)
+            return null;
+        const workerCategories = stringList(availability.categories).map((item) => item.toLowerCase());
+        const categoryMatches = workerCategories.length === 0 || workerCategories.includes(category);
+        if (!categoryMatches)
+            return null;
+        const workerRadius = Math.max(1, Math.min(25, Number(availability.radiusKm) || 5));
+        const distance = distanceKm(requestLat, requestLng, workerLat, workerLng);
+        if (distance > requestRadius || distance > workerRadius)
+            return null;
+        const workerId = String(availability.workerId || doc.id);
+        if (!workerId || workerId === String(request.employerId || ""))
+            return null;
+        return {
+            workerId,
+            distance,
+            updatedAt: timestampMillis(availability.updatedAt),
+        };
+    })
+        .filter((item) => item !== null)
+        .sort((a, b) => a.distance - b.distance || b.updatedAt - a.updatedAt)
+        .slice(0, INSTANT_WORKER_NOTIFY_LIMIT);
+    const batch = db.batch();
+    const expiresAt = expiresAtMs > nowMs
+        ? admin.firestore.Timestamp.fromMillis(expiresAtMs)
+        : admin.firestore.Timestamp.fromMillis(nowMs + 2 * 60 * 60 * 1000);
+    candidates.forEach((candidate) => {
+        const notificationRef = db.collection("notifications").doc(`instant_${requestId}_${candidate.workerId}`);
+        batch.set(notificationRef, {
+            recipientId: candidate.workerId,
+            title: "Urgent work nearby",
+            message: `${String(request.title || "Urgent help needed")} near you`,
+            type: "NEW_JOB_ALERT",
+            targetRole: "WORKER",
+            data: {
+                requestId,
+                employerId: String(request.employerId || ""),
+                category: String(request.category || ""),
+                distanceKm: candidate.distance.toFixed(1),
+                deepLink: "dutype://worker/home",
+            },
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+        }, { merge: false });
+    });
+    batch.set(snapshot.ref, {
+        notifiedWorkerCount: candidates.length,
+        notificationFanoutAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await batch.commit();
+    functions.logger.info(`INSTANT: notified ${candidates.length} workers for ${requestId}`);
+    return { notifiedWorkerCount: candidates.length };
+});
+exports.syncInstantResponseMetrics = functions.firestore
+    .document("instant_responses/{responseId}")
+    .onWrite(async (change, context) => {
+    if (!change.after.exists)
+        return null;
+    const before = change.before.exists ? (change.before.data() || {}) : null;
+    const after = change.after.data() || {};
+    const responseId = context.params.responseId;
+    const requestId = String(after.requestId || "");
+    const employerId = String(after.employerId || "");
+    const workerId = String(after.workerId || "");
+    if (!requestId || !employerId || !workerId)
+        return null;
+    const afterStatus = String(after.status || "").toLowerCase();
+    const beforeStatus = String((before === null || before === void 0 ? void 0 : before.status) || "").toLowerCase();
+    const requestRef = db.collection("instant_requests").doc(requestId);
+    await db.runTransaction(async (tx) => {
+        const requestSnap = await tx.get(requestRef);
+        if (!requestSnap.exists)
+            return;
+        const request = requestSnap.data() || {};
+        const updates = {
+            lastResponseAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (!before) {
+            updates.responseCount = admin.firestore.FieldValue.increment(1);
+            if (!request.firstResponseAt) {
+                updates.firstResponseAt = admin.firestore.FieldValue.serverTimestamp();
+            }
+        }
+        if (afterStatus === "called" && beforeStatus !== "called") {
+            updates.callCount = admin.firestore.FieldValue.increment(1);
+        }
+        if (afterStatus === "accepted") {
+            updates.status = "filled";
+            updates.selectedWorkerId = workerId;
+        }
+        else if (afterStatus === "completed") {
+            updates.status = "completed";
+            updates.selectedWorkerId = workerId;
+            updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+            if (after.completionProof)
+                updates.completionProof = String(after.completionProof).slice(0, 300);
+        }
+        else if (afterStatus === "no_show") {
+            updates.status = "failed";
+            updates.selectedWorkerId = workerId;
+            updates.failureReason = String(after.failureReason || "Worker did not show up").slice(0, 300);
+        }
+        tx.set(requestRef, updates, { merge: true });
+    });
+    if (!before && ["interested", "called"].includes(afterStatus)) {
+        await db.collection("notifications").doc(`instant_response_${responseId}`).set({
+            recipientId: employerId,
+            title: "Worker responded",
+            message: `${String(after.workerName || "A worker")} responded to your urgent request`,
+            type: "NEW_APPLICATION",
+            targetRole: "EMPLOYER",
+            data: {
+                requestId,
+                workerId,
+                responseId,
+                deepLink: `dutype://employer/urgent/${requestId}`,
+            },
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: false });
+    }
+    return null;
+});
+exports.expireStaleInstantRequests = functions.pubsub
+    .schedule("every 15 minutes")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await db.collection("instant_requests")
+        .where("status", "==", "open")
+        .where("expiresAt", "<=", now)
+        .limit(200)
+        .get();
+    if (snapshot.empty) {
+        return { expired: 0 };
+    }
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => {
+        batch.set(doc.ref, {
+            status: "expired",
+            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+            failureReason: "Expired without selection",
+        }, { merge: true });
+    });
+    await batch.commit();
+    functions.logger.info(`INSTANT: expired ${snapshot.size} stale urgent requests`);
+    return { expired: snapshot.size };
 });
 // ============================================
 // P1 FIX #6: DUPLICATE JOB DETECTION

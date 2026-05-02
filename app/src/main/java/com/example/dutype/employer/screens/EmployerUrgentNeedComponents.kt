@@ -21,9 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
@@ -59,6 +63,7 @@ internal fun EmployerUrgentNeedSummarySection(
     responsesByRequestId: Map<String, List<InstantResponse>>,
     isLoading: Boolean,
     onViewAll: () -> Unit,
+    onOpenRequest: (InstantRequest) -> Unit = {},
     onPostUrgentNeed: () -> Unit
 ) {
     if (!isLoading && requests.isEmpty()) return
@@ -111,7 +116,7 @@ internal fun EmployerUrgentNeedSummarySection(
                 EmployerUrgentNeedMiniRow(
                     request = request,
                     responseCount = responsesByRequestId[request.requestId].orEmpty().size,
-                    onClick = onViewAll
+                    onClick = { onOpenRequest(request) }
                 )
             }
 
@@ -134,12 +139,18 @@ internal fun EmployerUrgentNeedHistoryContent(
     requests: List<InstantRequest>,
     responsesByRequestId: Map<String, List<InstantResponse>>,
     isLoading: Boolean,
+    updatingRequestId: String?,
     updatingResponseId: String?,
     ratedResponseIds: Set<String>,
+    onOpenRequest: (InstantRequest) -> Unit,
+    onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
+    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
+    onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit,
+    onCancelRequest: (InstantRequest) -> Unit,
     onPostUrgentNeed: () -> Unit
 ) {
     when {
@@ -189,12 +200,98 @@ internal fun EmployerUrgentNeedHistoryContent(
                     EmployerUrgentNeedCard(
                         request = request,
                         responses = responsesByRequestId[request.requestId].orEmpty(),
+                        isRequestUpdating = updatingRequestId == request.requestId,
                         updatingResponseId = updatingResponseId,
                         ratedResponseIds = ratedResponseIds,
+                        onOpenRequest = onOpenRequest,
+                        onOpenWorkerProfile = onOpenWorkerProfile,
                         onCallWorker = onCallWorker,
+                        onWhatsAppWorker = onWhatsAppWorker,
                         onSelectResponse = onSelectResponse,
                         onCompleteResponse = onCompleteResponse,
-                        onRateResponse = onRateResponse
+                        onNoShowResponse = onNoShowResponse,
+                        onRateResponse = onRateResponse,
+                        onCancelRequest = onCancelRequest
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun EmployerUrgentNeedDetailContent(
+    request: InstantRequest?,
+    responses: List<InstantResponse>,
+    isLoading: Boolean,
+    isRequestUpdating: Boolean,
+    updatingResponseId: String?,
+    ratedResponseIds: Set<String>,
+    onOpenWorkerProfile: (InstantResponse) -> Unit,
+    onCallWorker: (String) -> Unit,
+    onWhatsAppWorker: (String) -> Unit,
+    onSelectResponse: (InstantResponse) -> Unit,
+    onCompleteResponse: (InstantResponse) -> Unit,
+    onNoShowResponse: (InstantResponse) -> Unit,
+    onRateResponse: (InstantResponse) -> Unit,
+    onCancelRequest: (InstantRequest) -> Unit,
+    onPostUrgentNeed: () -> Unit
+) {
+    when {
+        isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = EmployerColors.Primary)
+            }
+        }
+        request == null -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    UrgentIcon(Icons.Default.Schedule, size = 64)
+                    Text(
+                        text = "Urgent request not found",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            color = EmployerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    Button(
+                        onClick = onPostUrgentNeed,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                    ) {
+                        Text("Post urgent need")
+                    }
+                }
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item(key = "urgent_detail_${request.requestId}") {
+                    EmployerUrgentNeedCard(
+                        request = request,
+                        responses = responses,
+                        isRequestUpdating = isRequestUpdating,
+                        updatingResponseId = updatingResponseId,
+                        ratedResponseIds = ratedResponseIds,
+                        onOpenRequest = {},
+                        onOpenWorkerProfile = onOpenWorkerProfile,
+                        onCallWorker = onCallWorker,
+                        onWhatsAppWorker = onWhatsAppWorker,
+                        onSelectResponse = onSelectResponse,
+                        onCompleteResponse = onCompleteResponse,
+                        onNoShowResponse = onNoShowResponse,
+                        onRateResponse = onRateResponse,
+                        onCancelRequest = onCancelRequest,
+                        showDetailButton = false
                     )
                 }
             }
@@ -247,13 +344,22 @@ private fun EmployerUrgentNeedMiniRow(
 private fun EmployerUrgentNeedCard(
     request: InstantRequest,
     responses: List<InstantResponse>,
+    isRequestUpdating: Boolean,
     updatingResponseId: String?,
     ratedResponseIds: Set<String>,
+    onOpenRequest: (InstantRequest) -> Unit,
+    onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
+    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
-    onRateResponse: (InstantResponse) -> Unit
+    onNoShowResponse: (InstantResponse) -> Unit,
+    onRateResponse: (InstantResponse) -> Unit,
+    onCancelRequest: (InstantRequest) -> Unit,
+    showDetailButton: Boolean = true
 ) {
+    val normalizedStatus = request.status.lowercase(Locale.ROOT)
+    val canCancel = normalizedStatus in setOf("open", "filled")
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -311,6 +417,18 @@ private fun EmployerUrgentNeedCard(
                 if (request.budgetText.isNotBlank()) {
                     InfoPill(Icons.Default.Work, request.budgetText)
                 }
+                if (request.notifiedWorkerCount > 0) {
+                    InfoPill(Icons.Default.Schedule, "${request.notifiedWorkerCount} notified")
+                }
+            }
+
+            if (request.description.isNotBlank()) {
+                Text(
+                    text = request.description,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary),
+                    maxLines = if (showDetailButton) 2 else 5,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             if (responses.isEmpty()) {
@@ -331,11 +449,60 @@ private fun EmployerUrgentNeedCard(
                         response = response,
                         isUpdating = updatingResponseId == response.responseId,
                         hasAlreadyRated = response.responseId in ratedResponseIds,
+                        onOpenWorkerProfile = onOpenWorkerProfile,
                         onCallWorker = onCallWorker,
+                        onWhatsAppWorker = onWhatsAppWorker,
                         onSelectResponse = onSelectResponse,
                         onCompleteResponse = onCompleteResponse,
+                        onNoShowResponse = onNoShowResponse,
                         onRateResponse = onRateResponse
                     )
+                }
+            }
+
+            if (request.failureReason.isNotBlank()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFF1F2)
+                ) {
+                    Text(
+                        text = request.failureReason,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBE123C))
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showDetailButton) {
+                    OutlinedButton(
+                        onClick = { onOpenRequest(request) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Details")
+                    }
+                }
+                if (canCancel) {
+                    OutlinedButton(
+                        onClick = { onCancelRequest(request) },
+                        enabled = !isRequestUpdating,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isRequestUpdating) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Cancel")
+                        }
+                    }
                 }
             }
         }
@@ -347,9 +514,12 @@ private fun InstantResponseRow(
     response: InstantResponse,
     isUpdating: Boolean,
     hasAlreadyRated: Boolean,
+    onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
+    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
+    onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit
 ) {
     val status = response.status.lowercase(Locale.ROOT)
@@ -396,6 +566,15 @@ private fun InstantResponseRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = { onOpenWorkerProfile(response) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Profile")
+                }
                 if (response.workerPhone.isNotBlank()) {
                     OutlinedButton(
                         onClick = { onCallWorker(response.workerPhone) },
@@ -406,8 +585,23 @@ private fun InstantResponseRow(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Call")
                     }
+                    OutlinedButton(
+                        onClick = { onWhatsAppWorker(response.workerPhone) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("WA")
+                    }
                 }
+            }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 when {
                     isUpdating -> {
                         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -432,6 +626,15 @@ private fun InstantResponseRow(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                         ) {
                             Text("Mark done")
+                        }
+                        OutlinedButton(
+                            onClick = { onNoShowResponse(response) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Report, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("No show")
                         }
                     }
                     canRate -> {
@@ -478,6 +681,8 @@ private fun UrgentStatusBadge(status: String) {
     val color = when (normalized) {
         "open" -> Color(0xFF16A34A)
         "filled" -> Color(0xFF2563EB)
+        "completed" -> Color(0xFF16A34A)
+        "expired" -> Color(0xFF64748B)
         "cancelled", "failed" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }
@@ -491,7 +696,7 @@ private fun ResponseStatusBadge(status: String) {
         "interested", "called" -> Color(0xFFEA580C)
         "accepted" -> Color(0xFF2563EB)
         "completed" -> Color(0xFF16A34A)
-        "busy", "rejected", "no_show" -> Color(0xFFDC2626)
+        "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }
     StatusBadge(text = normalized.ifBlank { "viewed" }, color = color)

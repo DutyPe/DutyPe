@@ -46,10 +46,18 @@ data class InstantRequest(
     val radiusKm: Double = 5.0,
     val createdAt: Long = 0L,
     val expiresAt: Long = 0L,
+    val expiredAt: Long = 0L,
+    val firstResponseAt: Long = 0L,
+    val lastResponseAt: Long = 0L,
     val responseCount: Int = 0,
     val callCount: Int = 0,
+    val notifiedWorkerCount: Int = 0,
+    val notificationFanoutAt: Long = 0L,
     val selectedWorkerId: String = "",
     val completedAt: Long = 0L,
+    val cancelledAt: Long = 0L,
+    val cancellationReason: String = "",
+    val completionProof: String = "",
     val failureReason: String = "",
     val distanceKm: Double? = null
 )
@@ -61,6 +69,12 @@ data class InstantResponse(
     val requestId: String = "",
     val workerId: String = "",
     val employerId: String = "",
+    val requestTitle: String = "Urgent work",
+    val requestCategory: String = "Helper",
+    val employerName: String = "DutyPe employer",
+    val employerPhone: String = "",
+    val budgetText: String = "",
+    val addressText: String = "",
     val workerName: String = "Worker",
     val workerPhone: String = "",
     val workerSkills: List<String> = emptyList(),
@@ -72,7 +86,9 @@ data class InstantResponse(
     val calledAt: Long = 0L,
     val acceptedAt: Long = 0L,
     val completedAt: Long = 0L,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val completionProof: String = "",
+    val failureReason: String = ""
 )
 
 data class QuickUrgentNeedInput(

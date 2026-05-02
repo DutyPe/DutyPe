@@ -189,6 +189,11 @@ object DeepLinkHandler {
                         navigateToEmployerJobs(navController)
                         true
                     }
+                    // dutype://employer/urgent/REQUEST_ID
+                    pathSegments.size >= 2 && pathSegments[0] == "urgent" -> {
+                        navigateToEmployerUrgent(navController, pathSegments[1])
+                        true
+                    }
                     // dutype://employer/dashboard
                     pathSegments.firstOrNull() == "dashboard" -> {
                         navigateToEmployerHome(navController)
@@ -385,6 +390,10 @@ object DeepLinkHandler {
 
     private fun navigateToEmployerJobs(navController: NavController) {
         safeNavigateEmployerInner(navController, Routes.EMPLOYER_MY_JOBS, "employer-jobs")
+    }
+
+    private fun navigateToEmployerUrgent(navController: NavController, requestId: String) {
+        safeNavigateEmployerInner(navController, Routes.employerUrgentNeedDetailRoute(requestId), "employer-urgent:$requestId")
     }
     
     private fun navigateToProfile(navController: NavController) {

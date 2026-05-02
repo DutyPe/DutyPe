@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.models.getDisplayName
@@ -46,6 +51,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.viewmodels.InstantHelpViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,15 +60,20 @@ fun WorkerHistoryScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val uiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
     
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf(
         stringResource(R.string.tab_timeline),
         stringResource(R.string.tab_completed),
-        stringResource(R.string.tab_all_history)
+        stringResource(R.string.tab_all_history),
+        "Urgent"
     )
+    val urgentTabIndex = 3
     
     val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
     LaunchedEffect(screenBg) {
@@ -70,6 +81,7 @@ fun WorkerHistoryScreen(
     }
     LaunchedEffect(Unit) {
         jobApplicationViewModel.loadMyApplications()
+        instantHelpViewModel.loadWorkerUrgentHistory()
     }
     
     // Filter applications based on selected tab.
@@ -141,7 +153,14 @@ fun WorkerHistoryScreen(
         }
         
         // Content
-        if (uiState.isLoading) {
+        if (selectedTab == urgentTabIndex) {
+            WorkerUrgentHistoryContent(
+                responses = instantHelpState.workerInstantResponses,
+                isLoading = instantHelpState.isLoadingWorkerUrgentHistory,
+                onCallEmployer = { phone -> openWorkerHistoryDialer(context, phone) },
+                onWhatsAppEmployer = { phone -> openWorkerHistoryWhatsApp(context, phone) }
+            )
+        } else if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -180,6 +199,26 @@ fun WorkerHistoryScreen(
                 }
             }
         }
+    }
+}
+
+private fun openWorkerHistoryDialer(context: android.content.Context, phone: String) {
+    if (phone.isBlank()) return
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+    }.onFailure {
+        Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openWorkerHistoryWhatsApp(context: android.content.Context, phone: String) {
+    val digits = phone.filter { it.isDigit() }
+    if (digits.isBlank()) return
+    val normalized = if (digits.startsWith("91")) digits else "91$digits"
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized")))
+    }.onFailure {
+        Toast.makeText(context, "Unable to open WhatsApp", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -252,6 +291,215 @@ private fun MonthHeader(monthYear: String) {
                 letterSpacing = 1.sp
             )
         )
+    }
+}
+
+@Composable
+private fun WorkerUrgentHistoryContent(
+    responses: List<InstantResponse>,
+    isLoading: Boolean,
+    onCallEmployer: (String) -> Unit,
+    onWhatsAppEmployer: (String) -> Unit
+) {
+    when {
+        isLoading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = WorkerColors.TextPrimary)
+            }
+        }
+        responses.isEmpty() -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFF7ED)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = Color(0xFFEA580C),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                    Text(
+                        text = "No urgent work yet",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF374151)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Accepted urgent work will appear here with employer contact and status.",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(responses, key = { response -> "worker_urgent_${response.responseId}" }) { response ->
+                    WorkerUrgentHistoryCard(
+                        response = response,
+                        onCallEmployer = onCallEmployer,
+                        onWhatsAppEmployer = onWhatsAppEmployer
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerUrgentHistoryCard(
+    response: InstantResponse,
+    onCallEmployer: (String) -> Unit,
+    onWhatsAppEmployer: (String) -> Unit
+) {
+    val status = response.status.lowercase(Locale.ROOT)
+    val statusColor = when (status) {
+        "accepted" -> Color(0xFF2563EB)
+        "completed" -> Color(0xFF16A34A)
+        "called", "interested" -> Color(0xFFEA580C)
+        "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
+        else -> Color(0xFF64748B)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = response.requestTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827)
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = listOf(response.requestCategory, response.employerName)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" • ")
+                            .ifBlank { "Urgent work" },
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = statusColor.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = status.replace('_', ' ').replaceFirstChar { it.uppercase() }.ifBlank { "Viewed" },
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (response.budgetText.isNotBlank()) {
+                    WorkerUrgentInfoPill(Icons.Default.CurrencyRupee, response.budgetText)
+                }
+                WorkerUrgentInfoPill(Icons.Default.Schedule, DateTimeUtils.formatRelativeTime(response.updatedAt.takeIf { it > 0L } ?: response.createdAt))
+            }
+
+            if (response.addressText.isNotBlank()) {
+                Text(
+                    text = response.addressText,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (response.failureReason.isNotBlank()) {
+                Text(
+                    text = response.failureReason,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (response.employerPhone.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onCallEmployer(response.employerPhone) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Call")
+                    }
+                    OutlinedButton(
+                        onClick = { onWhatsAppEmployer(response.employerPhone) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("WhatsApp")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerUrgentInfoPill(icon: ImageVector, text: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFFF1F5F9)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(14.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569)),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
