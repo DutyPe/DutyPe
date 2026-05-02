@@ -23,6 +23,7 @@ object FirestoreCollections {
     // ── Applications & Saved ────────────────────────────
     const val APPLICATIONS = "applications"
     const val SAVED_JOBS = "saved_jobs"
+    const val WORKER_JOB_REQUESTS = "worker_job_requests"
 
     // ── Social ──────────────────────────────────────────
     const val RATINGS = "ratings"

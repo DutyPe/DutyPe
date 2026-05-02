@@ -103,6 +103,7 @@ import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
+import com.example.dutype.viewmodels.WorkerJobRequestViewModel
 import com.example.dutype.worker.components.JobCard
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
@@ -144,7 +145,9 @@ fun WorkerHomeScreen(
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
+    val workerJobRequestViewModel: WorkerJobRequestViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
+    val workerRequestState by workerJobRequestViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
@@ -369,6 +372,12 @@ fun WorkerHomeScreen(
         announcementViewModel.loadAnnouncements("worker")
     }
 
+    LaunchedEffect(currentUser?.uid) {
+        if (currentUser?.uid != null) {
+            workerJobRequestViewModel.loadPendingRequests()
+        }
+    }
+
     // Fetch unread notification count after initial load
     LaunchedEffect(currentUser) {
         currentUser?.uid?.let { userId ->
@@ -483,6 +492,7 @@ fun WorkerHomeScreen(
                                 isLocationLoading = true
                             }
                             announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
+                            workerJobRequestViewModel.loadPendingRequests()
                         },
                         state = pullToRefreshState,
                         modifier = Modifier.fillMaxSize()
@@ -540,7 +550,24 @@ fun WorkerHomeScreen(
                                     onEmptyJobsCitySelected = onLocationChipSelected,
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
-                                    birthdayService = birthdayService
+                                    birthdayService = birthdayService,
+                                    workerJobRequests = workerRequestState.requests,
+                                    updatingWorkerJobRequestId = workerRequestState.updatingRequestId,
+                                    onAcceptWorkerJobRequest = { request ->
+                                        workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
+                                            if (acceptedJobId.isNotBlank()) {
+                                                navController.navigate(Routes.jobDetailRoute(acceptedJobId))
+                                            }
+                                        }
+                                    },
+                                    onRejectWorkerJobRequest = { request ->
+                                        workerJobRequestViewModel.rejectRequest(request.requestId)
+                                    },
+                                    onOpenWorkerJobRequest = { request ->
+                                        if (request.jobId.isNotBlank()) {
+                                            navController.navigate(Routes.jobDetailRoute(request.jobId))
+                                        }
+                                    }
                                 )
                             }
                         }

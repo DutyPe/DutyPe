@@ -1,6 +1,8 @@
 package com.example.dutype.employer.screens.applications
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -15,6 +17,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +41,7 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
+import com.example.dutype.models.MatchedWorker
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
@@ -73,6 +77,7 @@ fun EmployerApplicationManagementScreen(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val matchedWorkersState by viewModel.matchedWorkersState.collectAsStateWithLifecycle()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showStatusFilter by remember { mutableStateOf(false) }
@@ -93,12 +98,12 @@ fun EmployerApplicationManagementScreen(
     var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
     var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
     
-    // Load applications based on whether it's for a specific job or all jobs
-    LaunchedEffect(jobId) {
-        if (jobId != null) {
-            viewModel.loadJobApplications(jobId)
-        } else {
-            viewModel.loadEmployerApplications()
+    // Job-specific screen lazy-loads only the selected tab.
+    LaunchedEffect(jobId, selectedTabIndex) {
+        when {
+            jobId == null -> viewModel.loadEmployerApplications()
+            selectedTabIndex == 0 -> viewModel.loadMatchedWorkers(jobId)
+            else -> viewModel.loadJobApplications(jobId)
         }
     }
 
@@ -115,8 +120,10 @@ fun EmployerApplicationManagementScreen(
     }
     
     // Handle search
-    LaunchedEffect(searchQuery) {
-        viewModel.searchApplications(searchQuery)
+    LaunchedEffect(searchQuery, selectedTabIndex, jobId) {
+        if (jobId == null || selectedTabIndex == 1) {
+            viewModel.searchApplications(searchQuery)
+        }
     }
 
     LaunchedEffect(uiState.applications) {
@@ -213,6 +220,41 @@ fun EmployerApplicationManagementScreen(
                 isLoading = isReportSummaryLoading
             )
         }
+
+        if (jobId != null) {
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
+                contentColor = Color(0xFF1F2937)
+            ) {
+                Tab(
+                    selected = selectedTabIndex == 0,
+                    onClick = { selectedTabIndex = 0 },
+                    text = { Text("Best matches") },
+                    icon = { Icon(Icons.Default.Verified, contentDescription = null) }
+                )
+                Tab(
+                    selected = selectedTabIndex == 1,
+                    onClick = { selectedTabIndex = 1 },
+                    text = { Text("Applied workers") },
+                    icon = { Icon(Icons.Default.Work, contentDescription = null) }
+                )
+            }
+        }
+
+        if (jobId != null && selectedTabIndex == 0) {
+            MatchedWorkersContent(
+                state = matchedWorkersState,
+                onRefresh = { viewModel.loadMatchedWorkers(jobId, force = true) },
+                onRequestWorker = { worker -> viewModel.requestMatchedWorker(jobId, worker.workerId) },
+                onCallWorker = { phone ->
+                    if (phone.isNotBlank()) {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+        } else {
         
         // FINTECH: Free contacts remaining banner
         if (uiState.freeContactsRemaining > 0 && uiState.applications.size > 3) {
@@ -334,6 +376,265 @@ fun EmployerApplicationManagementScreen(
                 }
             }
         }
+        }
+    }
+}
+
+@Composable
+private fun MatchedWorkersContent(
+    state: com.example.dutype.viewmodels.MatchedWorkersUiState,
+    onRefresh: () -> Unit,
+    onRequestWorker: (MatchedWorker) -> Unit,
+    onCallWorker: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    when {
+        state.isLoading -> {
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(5) { ApplicationListItemShimmer() }
+            }
+        }
+        state.hasError -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Text(
+                        text = state.error ?: "Failed to load matched workers",
+                        style = AppTypography.bodyMedium.copy(color = Color(0xFF991B1B)),
+                        textAlign = TextAlign.Center
+                    )
+                    Button(onClick = onRefresh, shape = RoundedCornerShape(12.dp)) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Retry")
+                    }
+                }
+            }
+        }
+        state.workers.isEmpty() -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(42.dp)
+                    )
+                    Text(
+                        text = "No strong worker matches yet",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "Matches improve when workers add skills and location.",
+                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Best workers for this job",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Ranked by skills, distance, availability, experience, and completed work.",
+                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                    )
+                    if (!state.actionError.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = state.actionError,
+                            style = AppTypography.bodySmall.copy(color = Color(0xFFB91C1C))
+                        )
+                    }
+                }
+
+                items(state.workers, key = { it.workerId }) { worker ->
+                    MatchedWorkerCard(
+                        worker = worker,
+                        isRequesting = state.requestingWorkerId == worker.workerId,
+                        onRequestWorker = { onRequestWorker(worker) },
+                        onCallWorker = { onCallWorker(worker.phone) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchedWorkerCard(
+    worker: MatchedWorker,
+    isRequesting: Boolean,
+    onRequestWorker: () -> Unit,
+    onCallWorker: () -> Unit
+) {
+    val status = worker.requestStatus.lowercase(Locale.ROOT)
+    val requestSent = status in setOf("pending", "accepted")
+    val canCall = status == "accepted" && worker.phone.isNotBlank()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .background(Color(0xFFEFF6FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${worker.matchScore}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = Color(0xFF1D4ED8),
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = worker.fullName,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = buildString {
+                            if (worker.distanceKm != null) append("%.1f km away".format(worker.distanceKm))
+                            if (worker.completedJobs > 0) {
+                                if (isNotEmpty()) append(" • ")
+                                append("${worker.completedJobs} completed")
+                            }
+                            if (worker.rating > 0) {
+                                if (isNotEmpty()) append(" • ")
+                                append("%.1f rating".format(worker.rating))
+                            }
+                            if (isEmpty()) append("Profile matched")
+                        },
+                        style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (status.isNotBlank()) {
+                    RequestStatusPill(status)
+                }
+            }
+
+            if (worker.skills.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(worker.skills.take(5)) { skill ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFFF3F4F6)
+                        ) {
+                            Text(
+                                text = skill.replaceFirstChar { it.titlecase(Locale.ROOT) },
+                                style = AppTypography.caption.copy(color = Color(0xFF374151)),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (worker.matchReasons.isNotEmpty()) {
+                Text(
+                    text = worker.matchReasons.joinToString(" • "),
+                    style = AppTypography.bodySmall.copy(color = Color(0xFF4B5563)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onRequestWorker,
+                    enabled = !requestSent && !isRequesting,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isRequesting) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (requestSent) "Request sent" else "Request worker")
+                }
+
+                Button(
+                    onClick = onCallWorker,
+                    enabled = canCall,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (canCall) "Call" else "Call after accept")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RequestStatusPill(status: String) {
+    val normalized = status.lowercase(Locale.ROOT)
+    val color = when (normalized) {
+        "accepted" -> Color(0xFF16A34A)
+        "rejected" -> Color(0xFFDC2626)
+        "expired" -> Color(0xFF6B7280)
+        else -> Color(0xFFF59E0B)
+    }
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Text(
+            text = normalized.replaceFirstChar { it.titlecase(Locale.ROOT) },
+            style = AppTypography.caption.copy(color = color, fontWeight = FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+        )
     }
 }
 

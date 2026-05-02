@@ -597,11 +597,13 @@ private fun JobFilterBottomSheet(
     var sortBy by remember { mutableStateOf(filters.sortBy) }
     var payType by remember { mutableStateOf(filters.payType) }
     var workType by remember { mutableStateOf(filters.workType) }
+    var category by remember { mutableStateOf(filters.category) }
     
     val experienceOptions = listOf("Any", "Fresher", "1-3 years", "3-5 years", "5+ years")
     val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
     val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
     val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
+    val categoryOptions = remember { listOf("Any") + com.example.dutype.utils.CategoryDetector.getAllCategories() }
     
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -635,6 +637,7 @@ private fun JobFilterBottomSheet(
                     sortBy = "Relevance"
                     payType = "Any"
                     workType = "Any"
+                    category = "Any"
                     onResetFilters()
                 }) {
                     Text(stringResource(R.string.reset), color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
@@ -647,6 +650,31 @@ private fun JobFilterBottomSheet(
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
             )
             
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Category",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF374151)
+                )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categoryOptions) { option ->
+                    FilterChip(
+                        onClick = { category = option },
+                        label = { Text(option, fontSize = 13.sp) },
+                        selected = category == option,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
             
             // Sort By
@@ -866,7 +894,8 @@ private fun JobFilterBottomSheet(
                             experienceLevel = experienceLevel,
                             sortBy = sortBy,
                             payType = payType,
-                            workType = workType
+                            workType = workType,
+                            category = category
                         )
                     )
                 },

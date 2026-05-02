@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.ApplicationStats
+import com.example.dutype.models.MatchedWorker
 import com.example.dutype.services.JobApplicationService
+import com.example.dutype.services.WorkerMatchingService
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -32,6 +34,7 @@ import javax.inject.Inject
 class EmployerApplicationViewModel @Inject constructor(
     private val jobApplicationService: JobApplicationService,
     private val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
+    private val workerMatchingService: WorkerMatchingService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker
 ) : ViewModel() {
     
@@ -45,6 +48,9 @@ class EmployerApplicationViewModel @Inject constructor(
     
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
+
+    private val _matchedWorkersState = MutableStateFlow(MatchedWorkersUiState())
+    val matchedWorkersState: StateFlow<MatchedWorkersUiState> = _matchedWorkersState.asStateFlow()
 
     // P0 FIX: LRU cache for worker profiles with bounded size
     // Uses LinkedHashMap with accessOrder=true for LRU eviction
@@ -188,6 +194,76 @@ class EmployerApplicationViewModel @Inject constructor(
                     error = e.message ?: "Unknown error occurred"
                 )
             }
+        }
+    }
+
+    fun loadMatchedWorkers(jobId: String, force: Boolean = false) {
+        val currentState = _matchedWorkersState.value
+        if (!force && currentState.loadedJobId == jobId && currentState.workers.isNotEmpty()) {
+            return
+        }
+
+        viewModelScope.launch {
+            _matchedWorkersState.value = currentState.copy(
+                isLoading = true,
+                hasError = false,
+                error = null,
+                loadedJobId = jobId
+            )
+
+            workerMatchingService.getMatchedWorkersForJob(jobId).collect { result ->
+                result.fold(
+                    onSuccess = { workers ->
+                        _matchedWorkersState.value = MatchedWorkersUiState(
+                            workers = workers,
+                            isLoading = false,
+                            loadedJobId = jobId
+                        )
+                    },
+                    onFailure = { error ->
+                        _matchedWorkersState.value = MatchedWorkersUiState(
+                            isLoading = false,
+                            hasError = true,
+                            error = error.message ?: "Failed to load matched workers",
+                            loadedJobId = jobId
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    fun requestMatchedWorker(jobId: String, workerId: String) {
+        viewModelScope.launch {
+            _matchedWorkersState.update { it.copy(requestingWorkerId = workerId, actionError = null) }
+            val result = workerMatchingService.requestWorkerForJob(jobId, workerId)
+            result.fold(
+                onSuccess = { requestId ->
+                    _matchedWorkersState.update { state ->
+                        state.copy(
+                            requestingWorkerId = null,
+                            workers = state.workers.map { worker ->
+                                if (worker.workerId == workerId) {
+                                    worker.copy(
+                                        requestId = requestId.ifBlank { worker.requestId },
+                                        requestStatus = "pending"
+                                    )
+                                } else {
+                                    worker
+                                }
+                            }
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _matchedWorkersState.update {
+                        it.copy(
+                            requestingWorkerId = null,
+                            actionError = error.message ?: "Failed to request worker"
+                        )
+                    }
+                }
+            )
         }
     }
     
@@ -680,4 +756,14 @@ data class EmployerApplicationUiState(
     // FINTECH: Contact Unlock - first 3 free, 4th+ requires payment
     val unlockedContacts: Set<String> = emptySet(), // Set of applicationIds with unlocked contacts
     val freeContactsRemaining: Int = 3 // Employer gets 3 free contact unlocks per job
+)
+
+data class MatchedWorkersUiState(
+    val workers: List<MatchedWorker> = emptyList(),
+    val isLoading: Boolean = false,
+    val hasError: Boolean = false,
+    val error: String? = null,
+    val loadedJobId: String? = null,
+    val requestingWorkerId: String? = null,
+    val actionError: String? = null
 )

@@ -31,6 +31,14 @@ interface UserEventPayload {
   [key: string]: unknown;
 }
 
+type WorkerRequestAction = "ACCEPT" | "REJECT";
+
+interface JobContext {
+  jobId: string;
+  job: Record<string, any>;
+  details: Record<string, any>;
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────────────
@@ -66,6 +74,199 @@ async function logUserEvent(
   } catch (e) {
     functions.logger.warn(`user_events write failed: ${type}`, e);
   }
+}
+
+function normalizeMatchToken(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function stringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeMatchToken(item))
+      .filter((item) => item.length > 0);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => normalizeMatchToken(item))
+      .filter((item) => item.length > 0);
+  }
+  return [];
+}
+
+function readLocation(value: unknown): { lat: number; lng: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const lat = Number(raw.lat ?? raw.latitude);
+  const lng = Number(raw.lng ?? raw.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function readRecordLocation(value: Record<string, any>): { lat: number; lng: number } | null {
+  return readLocation(value.location) || readLocation(value);
+}
+
+function distanceKm(
+  from: { lat: number; lng: number } | null,
+  to: { lat: number; lng: number } | null
+): number | null {
+  if (!from || !to) return null;
+  const radiusKm = 6371;
+  const dLat = ((to.lat - from.lat) * Math.PI) / 180;
+  const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((from.lat * Math.PI) / 180) *
+      Math.cos((to.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const CATEGORY_KEYWORDS: Array<{ name: string; display: string; words: string[] }> = [
+  { name: "DELIVERY", display: "Delivery", words: ["delivery", "courier", "rider", "parcel"] },
+  { name: "DRIVER", display: "Driver", words: ["driver", "cab", "taxi", "truck"] },
+  { name: "COOK", display: "Cook", words: ["cook", "chef", "kitchen", "catering"] },
+  { name: "MAID", display: "Housekeeping", words: ["maid", "housekeep", "cleaner", "domestic", "house help"] },
+  { name: "SECURITY", display: "Security", words: ["security", "guard", "watchman"] },
+  { name: "HELPER", display: "Helper", words: ["helper", "assistant", "labour", "labor", "loader", "loading", "unloading"] },
+  { name: "ELECTRICIAN", display: "Electrician", words: ["electric", "wiring"] },
+  { name: "PLUMBER", display: "Plumber", words: ["plumb", "pipe"] },
+  { name: "WAITER", display: "Restaurant Staff", words: ["waiter", "server", "restaurant", "hotel", "steward"] },
+  { name: "SALES", display: "Sales", words: ["sales", "retail", "store"] },
+  { name: "TELECALLER", display: "Telecaller", words: ["telecaller", "calling", "call center", "bpo"] },
+  { name: "OFFICE_STAFF", display: "Office Staff", words: ["office", "admin", "clerk", "peon"] },
+  { name: "PACKER", display: "Packer", words: ["packer", "packing", "warehouse"] },
+  { name: "MECHANIC", display: "Mechanic", words: ["mechanic", "garage", "technician"] },
+];
+
+function inferCategory(job: Record<string, any>, details: Record<string, any>): { name: string; display: string } {
+  const explicit = normalizeMatchToken(job.jobType || details.jobType).replace(/ /g, "_").toUpperCase();
+  const explicitMatch = CATEGORY_KEYWORDS.find((category) => category.name === explicit);
+  if (explicitMatch) return { name: explicitMatch.name, display: explicitMatch.display };
+
+  const text = normalizeMatchToken(`${job.title || ""} ${details.description || ""}`);
+  const inferred = CATEGORY_KEYWORDS.find((category) =>
+    category.words.some((word) => text.includes(word))
+  );
+  return inferred ? { name: inferred.name, display: inferred.display } : { name: "OTHER", display: "Other" };
+}
+
+function scoreWorkerForJob(
+  workerId: string,
+  worker: Record<string, any>,
+  job: Record<string, any>,
+  details: Record<string, any>
+): { score: number; reasons: string[]; distance: number | null } {
+  const category = inferCategory(job, details);
+  const workerSkills = stringList(worker.skills || worker.jobTypes);
+  const jobText = normalizeMatchToken(`${job.title || ""} ${details.description || ""}`);
+  const skillText = workerSkills.join(" ");
+  const reasons: string[] = [];
+  let score = 0;
+
+  const categoryRule = CATEGORY_KEYWORDS.find((item) => item.name === category.name);
+  const categoryWords = categoryRule?.words || [category.display.toLowerCase()];
+  const categoryMatch = categoryWords.some((word) => skillText.includes(word)) ||
+    workerSkills.some((skill) => jobText.includes(skill) && skill.length >= 3);
+  if (categoryMatch) {
+    score += 45;
+    reasons.push(`${category.display} skill match`);
+  }
+
+  const jobLocation = readRecordLocation(job);
+  const workerLocation = readRecordLocation(worker);
+  const dist = distanceKm(jobLocation, workerLocation);
+  if (dist != null) {
+    if (dist <= 3) {
+      score += 30;
+      reasons.push("Within 3 km");
+    } else if (dist <= 5) {
+      score += 24;
+      reasons.push("Within 5 km");
+    } else if (dist <= 10) {
+      score += 16;
+      reasons.push("Within 10 km");
+    } else if (dist <= 20) {
+      score += 8;
+    }
+  }
+
+  const experience = normalizeMatchToken(worker.experience);
+  if (experience && !experience.includes("no experience")) {
+    score += 8;
+    reasons.push("Has experience");
+  }
+
+  const rating = Number(worker.ratingAvg ?? worker.rating ?? 0);
+  if (Number.isFinite(rating) && rating >= 4) {
+    score += 7;
+    reasons.push("Strong rating");
+  }
+
+  const completedJobs = Number(worker.completedJobs ?? worker.totalJobs ?? 0);
+  if (Number.isFinite(completedJobs) && completedJobs > 0) {
+    score += Math.min(8, completedJobs * 2);
+    reasons.push("Completed DutyPe work");
+  }
+
+  if (worker.isAvailable !== false) {
+    score += 5;
+  }
+
+  if (workerId === String(job.employerId || details.employerId || "")) {
+    score = 0;
+  }
+
+  return { score: Math.min(100, Math.round(score)), reasons: reasons.slice(0, 4), distance: dist };
+}
+
+async function loadOwnedJob(uid: string, jobId: string): Promise<JobContext> {
+  const [jobSnap, detailSnap] = await Promise.all([
+    db().collection("jobmetadata").doc(jobId).get(),
+    db().collection("job_details").doc(jobId).get(),
+  ]);
+
+  if (!jobSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "Job not found");
+  }
+
+  const job = (jobSnap.data() || {}) as Record<string, any>;
+  const details = (detailSnap.data() || {}) as Record<string, any>;
+  const employerId = String(job.employerId || details.employerId || "");
+  if (employerId !== uid) {
+    throw new functions.https.HttpsError("permission-denied", "Caller does not own this job");
+  }
+
+  return { jobId, job, details };
+}
+
+async function writeNotification(
+  recipientId: string,
+  title: string,
+  message: string,
+  type: string,
+  targetRole: string,
+  data: Record<string, string>
+): Promise<void> {
+  const ref = db().collection("notifications").doc();
+  await ref.set({
+    recipientId,
+    title,
+    message,
+    type,
+    targetRole,
+    data: { ...data, notificationId: ref.id },
+    isRead: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 async function fireAndForgetReferral(
@@ -364,6 +565,291 @@ export const getWorkerProfileForEmployer = onCallSecured(
 
     const merged = { ...safeWorker, workerId };
     return { success: true, profile: merged };
+  }
+);
+
+export const matchWorkersForJob = onCallSecured(
+  { timeoutSeconds: 60, enforceAppCheck: false },
+  async (data: any, context) => {
+    const uid = context.auth!.uid;
+    const jobId = validateString(data?.jobId, "jobId", {
+      required: true,
+      minLength: 4,
+      maxLength: 128,
+    });
+
+    const { job, details } = await loadOwnedJob(uid, jobId);
+
+    const existingRequestsSnap = await db()
+      .collection("worker_job_requests")
+      .where("jobId", "==", jobId)
+      .where("employerId", "==", uid)
+      .limit(200)
+      .get();
+    const requestByWorker = new Map<string, Record<string, any>>();
+    existingRequestsSnap.docs.forEach((doc) => {
+      const request = doc.data() as Record<string, any>;
+      requestByWorker.set(String(request.workerId || ""), { ...request, requestId: doc.id });
+    });
+
+    let workersSnap: admin.firestore.QuerySnapshot<admin.firestore.DocumentData>;
+    try {
+      workersSnap = await db()
+        .collection("worker_profiles")
+        .where("role", "==", "WORKER")
+        .limit(500)
+        .get();
+      if (workersSnap.empty) {
+        workersSnap = await db().collection("worker_profiles").limit(500).get();
+      }
+    } catch (e) {
+      functions.logger.warn("matchWorkersForJob role query failed, falling back", e);
+      workersSnap = await db().collection("worker_profiles").limit(500).get();
+    }
+
+    const matchedWorkers = workersSnap.docs
+      .map((doc) => {
+        const worker = (doc.data() || {}) as Record<string, any>;
+        const scoring = scoreWorkerForJob(doc.id, worker, job, details);
+        const request = requestByWorker.get(doc.id);
+        const requestStatus = String(request?.status || "");
+        const safePhone = requestStatus === "accepted" ? String(worker.phone || "") : "";
+        return {
+          workerId: doc.id,
+          fullName: String(worker.fullName || worker.name || "Worker"),
+          phone: safePhone,
+          profileImageUrl: String(worker.profileImageUrl || ""),
+          skills: stringList(worker.skills || worker.jobTypes).slice(0, 8),
+          experience: String(worker.experience || ""),
+          rating: Number(worker.ratingAvg ?? worker.rating ?? 0) || 0,
+          completedJobs: Number(worker.completedJobs ?? worker.totalJobs ?? 0) || 0,
+          isAvailable: worker.isAvailable !== false,
+          distanceKm: scoring.distance == null ? null : Number(scoring.distance.toFixed(2)),
+          matchScore: scoring.score,
+          matchReasons: scoring.reasons,
+          requestId: String(request?.requestId || ""),
+          requestStatus,
+        };
+      })
+      .filter((worker) => worker.matchScore >= 20 || worker.requestStatus)
+      .sort((a, b) => {
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+        const aDistance = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
+        const bDistance = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
+        return aDistance - bDistance;
+      })
+      .slice(0, 50);
+
+    return { success: true, workers: matchedWorkers };
+  }
+);
+
+export const requestWorkerForJob = onCallSecured(
+  { enforceAppCheck: false },
+  async (data: any, context) => {
+    const uid = context.auth!.uid;
+    const jobId = validateString(data?.jobId, "jobId", {
+      required: true,
+      minLength: 4,
+      maxLength: 128,
+    });
+    const workerId = validateString(data?.workerId, "workerId", {
+      required: true,
+      minLength: 4,
+      maxLength: 128,
+    });
+    const idem = await withIdempotency(uid, "requestWorkerForJob", data?.idempotencyKey);
+    if (idem.hit) return idem.result;
+
+    const { job, details } = await loadOwnedJob(uid, jobId);
+    if (String(job.status || "").toLowerCase() !== "open") {
+      throw new functions.https.HttpsError("failed-precondition", "Job is not open");
+    }
+
+    const [workerSnap, employerSnap] = await Promise.all([
+      db().collection("worker_profiles").doc(workerId).get(),
+      db().collection("employer_profiles").doc(uid).get(),
+    ]);
+    if (!workerSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Worker profile not found");
+    }
+    const worker = (workerSnap.data() || {}) as Record<string, any>;
+    const employer = (employerSnap.data() || {}) as Record<string, any>;
+    const scoring = scoreWorkerForJob(workerId, worker, job, details);
+    if (scoring.score < 10) {
+      throw new functions.https.HttpsError("failed-precondition", "Worker is not a strong fit for this job");
+    }
+
+    const requestId = `${jobId}_${workerId}`;
+    const requestRef = db().collection("worker_job_requests").doc(requestId);
+    const requestPayload = {
+      requestId,
+      jobId,
+      workerId,
+      employerId: uid,
+      status: "pending",
+      jobTitle: String(job.title || "Job request"),
+      companyName: String(job.companyName || employer.companyName || employer.fullName || "DutyPe employer"),
+      jobLocation: String(job.addressText || details.companyCity || ""),
+      salary: String(job.salary || ""),
+      salaryType: String(job.salaryType || ""),
+      jobType: String(job.jobType || ""),
+      employerName: String(employer.companyName || employer.fullName || job.companyName || "Employer"),
+      employerPhone: String(details.contactNumber || employer.phone || ""),
+      workerName: String(worker.fullName || worker.name || "Worker"),
+      workerSkills: stringList(worker.skills || worker.jobTypes).slice(0, 8),
+      matchScore: scoring.score,
+      matchReasons: scoring.reasons,
+      distanceKm: scoring.distance == null ? null : Number(scoring.distance.toFixed(2)),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    };
+
+    const txResult = await db().runTransaction(async (tx) => {
+      const existing = await tx.get(requestRef);
+      if (existing.exists) {
+        const existingData = existing.data() || {};
+        return { requestId, status: String(existingData.status || "pending"), alreadyExists: true };
+      }
+      tx.set(requestRef, requestPayload);
+      return { requestId, status: "pending", alreadyExists: false };
+    });
+
+    if (!txResult.alreadyExists) {
+      await writeNotification(
+        workerId,
+        "Employer requested you",
+        `${requestPayload.employerName} requested you for ${requestPayload.jobTitle}`,
+        "EMPLOYER_MESSAGE",
+        "WORKER",
+        {
+          requestId,
+          jobId,
+          employerId: uid,
+          deepLink: `dutype://job/${jobId}`,
+        }
+      );
+      await logUserEvent(uid, "worker_requested_for_job", "EMPLOYER", { jobId, workerId, requestId });
+    }
+
+    const out = { success: true, ...txResult };
+    await idem.record!(out);
+    return out;
+  }
+);
+
+export const respondToWorkerJobRequest = onCallSecured(
+  { enforceAppCheck: false },
+  async (data: any, context) => {
+    const uid = context.auth!.uid;
+    const requestId = validateString(data?.requestId, "requestId", {
+      required: true,
+      minLength: 8,
+      maxLength: 256,
+    });
+    const action = validateEnum<WorkerRequestAction>(data?.action, "action", ["ACCEPT", "REJECT"]);
+    const idem = await withIdempotency(uid, "respondToWorkerJobRequest", data?.idempotencyKey);
+    if (idem.hit) return idem.result;
+
+    const requestRef = db().collection("worker_job_requests").doc(requestId);
+    const requestSnap = await requestRef.get();
+    if (!requestSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Request not found");
+    }
+    const request = (requestSnap.data() || {}) as Record<string, any>;
+    if (String(request.workerId || "") !== uid) {
+      throw new functions.https.HttpsError("permission-denied", "Request belongs to another worker");
+    }
+
+    const workerSnap = await db().collection("worker_profiles").doc(uid).get();
+    const worker = (workerSnap.data() || {}) as Record<string, any>;
+    const jobId = String(request.jobId || "");
+    const employerId = String(request.employerId || "");
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    if (action === "REJECT") {
+      await requestRef.update({ status: "rejected", updatedAt: now, respondedAt: now });
+      const out = { success: true, status: "rejected", jobId };
+      await idem.record!(out);
+      return out;
+    }
+
+    const jobRef = db().collection("jobmetadata").doc(jobId);
+    const detailRef = db().collection("job_details").doc(jobId);
+    const applicationRef = db().collection("applications").doc(`${jobId}_${uid}`);
+
+    const txResult = await db().runTransaction(async (tx) => {
+      const [freshRequestSnap, jobSnap] = await Promise.all([tx.get(requestRef), tx.get(jobRef)]);
+      const freshRequest = (freshRequestSnap.data() || {}) as Record<string, any>;
+      const job = (jobSnap.data() || {}) as Record<string, any>;
+      const status = String(freshRequest.status || "");
+      if (status === "accepted") return { accepted: true, alreadyAccepted: true };
+      if (status !== "pending") return { accepted: false, status };
+      if (!jobSnap.exists || String(job.status || "").toLowerCase() !== "open") {
+        tx.update(requestRef, { status: "expired", updatedAt: now, respondedAt: now });
+        return { accepted: false, status: "expired" };
+      }
+
+      tx.set(applicationRef, {
+        jobId,
+        workerId: uid,
+        employerId,
+        status: "hired",
+        createdAt: now,
+        workerName: String(worker.fullName || worker.name || request.workerName || "Worker"),
+      }, { merge: true });
+      tx.update(requestRef, {
+        status: "accepted",
+        updatedAt: now,
+        respondedAt: now,
+        workerPhone: String(worker.phone || ""),
+      });
+      tx.update(jobRef, { status: "expired" });
+      tx.update(detailRef, { expiresAt: admin.firestore.Timestamp.fromMillis(Date.now()) });
+      return { accepted: true, alreadyAccepted: false };
+    });
+
+    if (txResult.accepted) {
+      const siblingRequests = await db()
+        .collection("worker_job_requests")
+        .where("jobId", "==", jobId)
+        .limit(200)
+        .get();
+      const batch = db().batch();
+      let expiredCount = 0;
+      siblingRequests.docs.forEach((doc) => {
+        if (doc.id !== requestId && String(doc.data().status || "") === "pending") {
+          batch.update(doc.ref, { status: "expired", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+          expiredCount += 1;
+        }
+      });
+      if (expiredCount > 0) {
+        await batch.commit();
+      }
+      await writeNotification(
+        employerId,
+        "Worker accepted your request",
+        `${String(worker.fullName || request.workerName || "Worker")} accepted ${String(request.jobTitle || "your job")}`,
+        "WORKER_HIRED",
+        "EMPLOYER",
+        {
+          requestId,
+          jobId,
+          workerId: uid,
+          deepLink: `dutype://employer/applications/${jobId}`,
+        }
+      );
+      await logUserEvent(uid, "worker_job_request_accepted", "WORKER", { jobId, employerId, requestId });
+    }
+
+    const out = {
+      success: true,
+      status: txResult.accepted ? "accepted" : String(txResult.status || "expired"),
+      jobId,
+    };
+    await idem.record!(out);
+    return out;
   }
 );
 

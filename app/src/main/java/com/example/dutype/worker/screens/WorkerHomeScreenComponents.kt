@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
@@ -52,12 +53,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -110,6 +113,7 @@ import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
+import com.example.dutype.models.WorkerJobRequest
 import com.example.dutype.navigation.Routes
 import com.example.dutype.location.TopCityChips
 import com.example.dutype.services.BirthdayInfo
@@ -486,7 +490,12 @@ fun HomeSectionsContent(
     onEmptyJobsCitySelected: (TopCityChips.CityLocationChip) -> Unit = {},
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
-    birthdayService: BirthdayService
+    birthdayService: BirthdayService,
+    workerJobRequests: List<WorkerJobRequest> = emptyList(),
+    updatingWorkerJobRequestId: String? = null,
+    onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
+    onRejectWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
+    onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {}
 ) {
     val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     val recentHires by workerHomeViewModel.uiState.collectAsState()
@@ -588,6 +597,18 @@ fun HomeSectionsContent(
                     )
                 }
             }
+
+        if (workerJobRequests.isNotEmpty()) {
+            item {
+                WorkerJobRequestSection(
+                    requests = workerJobRequests,
+                    updatingRequestId = updatingWorkerJobRequestId,
+                    onAccept = onAcceptWorkerJobRequest,
+                    onReject = onRejectWorkerJobRequest,
+                    onOpen = onOpenWorkerJobRequest
+                )
+            }
+        }
         
         //  In-App Announcements - Feature updates, banners
         if (announcements.isNotEmpty()) {
@@ -713,27 +734,6 @@ fun HomeSectionsContent(
         }
 
         if (!showEmptyJobsState) {
-            // Section 2: Browse Categories (at the top) - transparent to show gradient
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Transparent)  // Transparent to show gradient background
-                        .padding(vertical = 16.dp)
-                ) {
-                    BrowseCategoriesSection(
-                        onCategoryClick = { category ->
-                            // Navigate to CategoriesScreen with the selected category
-                            navController.navigate(Routes.categoriesRoute(category))
-                        },
-                        onViewAllClick = { navController.navigate(Routes.WORKER_CATEGORIES) },
-                        getCategoryBadge = { category ->
-                            null
-                        }
-                    )
-                }
-            }
-
             // Section 3: Jobs For You (skill-matched) - transparent to show gradient
             item {
                 Column(
@@ -768,6 +768,153 @@ fun HomeSectionsContent(
         }
         
     }
+    }
+}
+
+@Composable
+private fun WorkerJobRequestSection(
+    requests: List<WorkerJobRequest>,
+    updatingRequestId: String?,
+    onAccept: (WorkerJobRequest) -> Unit,
+    onReject: (WorkerJobRequest) -> Unit,
+    onOpen: (WorkerJobRequest) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Employer requests",
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        )
+
+        requests.take(3).forEach { request ->
+            WorkerJobRequestCard(
+                request = request,
+                isUpdating = updatingRequestId == request.requestId,
+                onAccept = { onAccept(request) },
+                onReject = { onReject(request) },
+                onOpen = { onOpen(request) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkerJobRequestCard(
+    request: WorkerJobRequest,
+    isUpdating: Boolean,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onOpen: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFFEFF6FF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = request.employerName.ifBlank { request.companyName },
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = Color(0xFF2563EB),
+                            fontWeight = FontWeight.Bold
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = request.jobTitle,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = WorkerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = buildString {
+                            if (request.salary.isNotBlank()) append(request.salary)
+                            if (request.salaryType.isNotBlank()) {
+                                if (isNotEmpty()) append(" • ")
+                                append(request.salaryType.lowercase().replaceFirstChar { it.titlecase() })
+                            }
+                            if (request.distanceKm != null) {
+                                if (isNotEmpty()) append(" • ")
+                                append("%.1f km".format(request.distanceKm))
+                            }
+                            if (isEmpty()) append("Tap to view job")
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReject,
+                    enabled = !isUpdating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Reject")
+                }
+
+                Button(
+                    onClick = onAccept,
+                    enabled = !isUpdating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    if (isUpdating) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Accept")
+                }
+            }
+        }
     }
 }
 

@@ -528,6 +528,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── worker_job_requests ───────────────────────────────────────────
+    // Employer-initiated worker requests. Writes are Cloud-Function-only so
+    // employers cannot spoof worker consent and workers cannot self-hire.
+    match /worker_job_requests/{requestId} {
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
     // ── saved_jobs ────────────────────────────────────────────────────
     // Canonical schema: userId + jobId + createdAt. Doc ID = {userId}_{jobId}.
     match /saved_jobs/{saveId} {

@@ -55,7 +55,8 @@ data class JobFilters(
     val experienceLevel: String = "Any",
     val sortBy: String = "Relevance",
     val payType: String = "Any",
-    val workType: String = "Any"
+    val workType: String = "Any",
+    val category: String = "Any"
 )
 
 /**
@@ -137,6 +138,21 @@ class AllJobsViewModel @Inject constructor(
             JobCategoryResolver.displayNameForName(categoryToken).lowercase().let { it.isNotBlank() && text.contains(it) }
     }
 
+    private fun matchesCategoryFilter(job: JobListing, categoryValue: String): Boolean {
+        if (categoryValue.equals("Any", ignoreCase = true) || categoryValue.equals("All Jobs", ignoreCase = true)) {
+            return true
+        }
+        val mappedCategory = categoryMapping[categoryValue] ?: categoryValue
+        val selectedTokens = setOf(
+            normalizeCategoryToken(categoryValue),
+            normalizeCategoryToken(mappedCategory)
+        ).filter { it.isNotBlank() }.toSet()
+        val jobTypeToken = normalizeCategoryToken(job.jobType)
+        val detectedToken = normalizeCategoryToken(job.getCategory())
+        val keywordMatch = selectedTokens.any { token -> matchesCategoryByKeywords(job, token) }
+        return jobTypeToken in selectedTokens || detectedToken in selectedTokens || keywordMatch
+    }
+
     private fun currentQueryCategory(): String? = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }
 
     private fun shouldUseServerSideFiltering(filters: JobFilters): Boolean {
@@ -148,7 +164,8 @@ class AllJobsViewModel @Inject constructor(
     private fun shouldReloadForCurrentFilters(filters: JobFilters): Boolean {
         return shouldUseServerSideFiltering(filters) ||
             filters.experienceLevel != "Any" ||
-            filters.workType != "Any"
+            filters.workType != "Any" ||
+            filters.category != "Any"
     }
 
     private fun matchesWorkType(job: JobListing, selectedWorkType: String): Boolean {
@@ -450,22 +467,28 @@ class AllJobsViewModel @Inject constructor(
             activeJobs
         }
         
+        val categoryOptionFiltered = if (filters.category != "Any") {
+            categoryFiltered.filter { matchesCategoryFilter(it, filters.category) }
+        } else {
+            categoryFiltered
+        }
+
         // Step 4: Apply chip filter
         val chipFiltered = when (chip) {
-            "All Jobs" -> categoryFiltered
-            "Daily Jobs" -> categoryFiltered.filter {
+            "All Jobs" -> categoryOptionFiltered
+            "Daily Jobs" -> categoryOptionFiltered.filter {
                 it.salaryType.equals("DAILY", true)
             }
-            "Hourly Jobs" -> categoryFiltered.filter {
+            "Hourly Jobs" -> categoryOptionFiltered.filter {
                 it.salaryType.equals("HOURLY", true)
             }
-            "Nearby" -> categoryFiltered.filter { job ->
-                val dist = job.distance
-                dist != null && dist < 10.0
-            }.sortedBy { it.distance }
-            "Part Time" -> categoryFiltered.filter { matchesWorkType(it, "Part-time") }
-            "Full Time" -> categoryFiltered.filter { matchesWorkType(it, "Full-time") }
-            else -> categoryFiltered
+            "Nearby" -> categoryOptionFiltered.sortedWith(
+                compareBy<JobListing> { it.distance == null }
+                    .thenBy { it.distance ?: Double.MAX_VALUE }
+            )
+            "Part Time" -> categoryOptionFiltered.filter { matchesWorkType(it, "Part-time") }
+            "Full Time" -> categoryOptionFiltered.filter { matchesWorkType(it, "Full-time") }
+            else -> categoryOptionFiltered
         }
         
         Timber.d("🔍 filteredJobs: After chip filter ($chip): ${chipFiltered.size} jobs (was ${categoryFiltered.size})")
@@ -554,6 +577,7 @@ class AllJobsViewModel @Inject constructor(
         if (f.sortBy != "Relevance") count++
         if (f.payType != "Any") count++
         if (f.workType != "Any") count++
+        if (f.category != "Any") count++
         count
     }.stateIn(
         scope = viewModelScope,
@@ -1176,7 +1200,8 @@ class AllJobsViewModel @Inject constructor(
             experienceLevel = savedStateHandle.get<String>(KEY_FILTER_EXPERIENCE) ?: defaults.experienceLevel,
             sortBy = savedStateHandle.get<String>(KEY_FILTER_SORT_BY) ?: defaults.sortBy,
             payType = savedStateHandle.get<String>(KEY_FILTER_PAY_TYPE) ?: defaults.payType,
-            workType = savedStateHandle.get<String>(KEY_FILTER_WORK_TYPE) ?: defaults.workType
+            workType = savedStateHandle.get<String>(KEY_FILTER_WORK_TYPE) ?: defaults.workType,
+            category = savedStateHandle.get<String>(KEY_FILTER_CATEGORY) ?: defaults.category
         )
     }
 
@@ -1188,6 +1213,7 @@ class AllJobsViewModel @Inject constructor(
         savedStateHandle[KEY_FILTER_SORT_BY] = filters.sortBy
         savedStateHandle[KEY_FILTER_PAY_TYPE] = filters.payType
         savedStateHandle[KEY_FILTER_WORK_TYPE] = filters.workType
+        savedStateHandle[KEY_FILTER_CATEGORY] = filters.category
     }
 
     private companion object {
@@ -1201,5 +1227,6 @@ class AllJobsViewModel @Inject constructor(
         const val KEY_FILTER_SORT_BY = "alljobs_filter_sort_by"
         const val KEY_FILTER_PAY_TYPE = "alljobs_filter_pay_type"
         const val KEY_FILTER_WORK_TYPE = "alljobs_filter_work_type"
+        const val KEY_FILTER_CATEGORY = "alljobs_filter_category"
     }
 }
