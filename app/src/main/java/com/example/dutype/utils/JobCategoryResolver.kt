@@ -90,23 +90,6 @@ object JobCategoryResolver {
         return runCatching { JobCategory.valueOf(categoryName.uppercase()).displayName }.getOrDefault(categoryName)
     }
 
-    fun buildSearchKeywords(vararg values: String): List<String> {
-        val stopWords = setOf("and", "the", "for", "with", "job", "jobs", "work", "required", "need", "wanted")
-        val keywords = linkedSetOf<String>()
-        values.asSequence()
-            .flatMap { it.lowercase().replace(Regex("[^a-z0-9]+"), " ").splitToSequence(' ') }
-            .map { it.trim() }
-            .filter { it.length >= 2 && it !in stopWords }
-            .forEach { token ->
-                keywords += token
-                val maxPrefix = token.length.coerceAtMost(10)
-                for (prefixLength in 2..maxPrefix) {
-                    keywords += token.take(prefixLength)
-                }
-            }
-        return keywords.take(120)
-    }
-
     fun searchQueryTokens(query: String): List<String> {
         val tokens = linkedSetOf<String>()
 

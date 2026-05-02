@@ -129,27 +129,6 @@ class JobFirestoreService @Inject constructor(
         )
     }
 
-    private fun buildSearchKeywords(data: Map<String, Any>, category: String): List<String> {
-        val locationValue = data["location"]
-        val locationText = if (locationValue is String) locationValue else ""
-        return JobCategoryResolver.buildSearchKeywords(
-            normalizeString(data["title"]),
-            normalizeString(data["description"]),
-            normalizeString(data["companyName"]),
-            normalizeString(data["company"]),
-            normalizeString(data["employerName"]),
-            normalizeString(data["businessName"]),
-            normalizeString(data["company_name"]),
-            normalizeString(data["companyCity"]),
-            normalizeString(data["addressText"]),
-            normalizeString(data["address"]),
-            locationText,
-            normalizeString(data["jobType"]),
-            category,
-            JobCategoryResolver.displayNameForName(category)
-        )
-    }
-
     private fun buildJobSummary(
         docId: String,
         data: Map<String, Any>,
@@ -206,7 +185,6 @@ class JobFirestoreService @Inject constructor(
             // Worker-facing category (UPPERCASE enum name) used by the categories screen
             // server-side filter. Required composite index: (category ASC, createdAt DESC).
             "category" to category,
-            "searchKeywords" to buildSearchKeywords(data, category),
             "createdAt" to createdAtMillis,
             "expiresAt" to toEpochMillis(data["expiresAt"]),
             "status" to normalizeReadStatus(data),
@@ -439,10 +417,6 @@ class JobFirestoreService @Inject constructor(
             normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
                 cardData["jobImageUrl"] = it
             }
-            cardData["searchKeywords"] = buildSearchKeywords(
-                cardData + mapOf("description" to description, "companyCity" to companyCity),
-                category
-            )
             val detailsData = linkedMapOf<String, Any>(
                 "employerId" to employerId,
                 "expiresAt" to expiresAt,
@@ -929,7 +903,6 @@ class JobFirestoreService @Inject constructor(
                 detailsUpdates.forEach { (key, value) -> if (value !is FieldValue) searchSource[key] = value }
                 val refreshedCategory = normalizeString(cardUpdates["category"]).ifBlank { summaryCategory(searchSource) }
                 cardUpdates["category"] = refreshedCategory
-                cardUpdates["searchKeywords"] = buildSearchKeywords(searchSource, refreshedCategory)
             }
 
             if (cardUpdates.isNotEmpty() || detailsUpdates.isNotEmpty()) {
@@ -961,22 +934,9 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * Search jobs - INDUSTRY STANDARD APPROACH
-     * 
-     * For Firestore, the recommended approach by Firebase team:
-     * 1. Use Algolia/Elasticsearch for full-text search (production apps)
-     * 2. For simple apps: Use array-contains with keywords field
-     * 
-        * Current implementation: query the lightweight `searchKeywords` array on
-        * jobmetadata, then score the small candidate set locally.
-     * 
-     * When to upgrade to Algolia:
-     * - When you have >10K jobs
-     * - When you need typo tolerance
-     * - When you need instant search (<50ms)
-     * 
-     * Reference: Firebase docs recommend Algolia for production search
-     * https://firebase.google.com/docs/firestore/solutions/search
+     * Search jobs using only existing card fields so jobmetadata stays small.
+     * For larger full-text search needs, move this to Algolia/Elasticsearch
+     * instead of storing generated token arrays on every job card.
      */
     suspend fun searchJobs(query: String, limit: Long = 100L): Result<List<Map<String, Any>>> {
         return try {
@@ -989,8 +949,8 @@ class JobFirestoreService @Inject constructor(
                 ?.takeIf { it != "OTHER" }
             val queryLimit = limit.coerceIn(20L, MAX_JOB_QUERY_LIMIT)
             
-            val keywordSnapshot = firestore.collection(JOBS_COLLECTION)
-                .whereArrayContainsAny("searchKeywords", searchTokens)
+            val recentSnapshot = firestore.collection(JOBS_COLLECTION)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(queryLimit)
                 .get()
                 .await()
@@ -1005,7 +965,7 @@ class JobFirestoreService @Inject constructor(
             } else {
                 emptyList()
             }
-            val candidateDocuments = (keywordSnapshot.documents + categoryDocuments).distinctBy { it.id }
+            val candidateDocuments = (recentSnapshot.documents + categoryDocuments).distinctBy { it.id }
             
             val currentTime = System.currentTimeMillis()
             
@@ -1018,11 +978,6 @@ class JobFirestoreService @Inject constructor(
                 if (expiresAt > 0L && expiresAt < currentTime) return@mapNotNull null
 
                 val summary = buildJobSummary(doc.id, data, currentTime).toMutableMap()
-                val searchKeywords = (data["searchKeywords"] as? List<*>)
-                    .orEmpty()
-                    .mapNotNull { it?.toString()?.lowercase()?.trim() }
-                    .filter { it.isNotBlank() }
-                    .toSet()
                 val title = summary["title"].toString().lowercase()
                 val companyName = summary["companyName"].toString().lowercase()
                 val companyCity = summary["companyCity"].toString().lowercase()
@@ -1034,7 +989,7 @@ class JobFirestoreService @Inject constructor(
                     .joinToString(" ")
 
                 val tokenHits = searchTokens.count { token ->
-                    searchableText.contains(token) || searchKeywords.contains(token)
+                    searchableText.contains(token)
                 }
                 val matches = tokenHits > 0
 

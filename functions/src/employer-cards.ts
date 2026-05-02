@@ -113,6 +113,9 @@ export const onJobMetadataWriteSyncEmployerCard = functions.firestore
     const denorm = await buildDenormFromJob(jobId);
     if (!denorm) return;
     try {
+      if (change.after.get("searchKeywords") !== undefined) {
+        await change.after.ref.update({ searchKeywords: FIELD.delete() });
+      }
       await cardRef.set(
         {
           ...denorm,

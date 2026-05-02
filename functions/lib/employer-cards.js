@@ -96,6 +96,9 @@ exports.onJobMetadataWriteSyncEmployerCard = functions.firestore
     if (!denorm)
         return;
     try {
+        if (change.after.get("searchKeywords") !== undefined) {
+            await change.after.ref.update({ searchKeywords: FIELD.delete() });
+        }
         await cardRef.set(Object.assign(Object.assign({}, denorm), { updatedAt: FIELD.serverTimestamp() }), { merge: true });
     }
     catch (e) {

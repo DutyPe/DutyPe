@@ -306,6 +306,8 @@ service cloud.firestore {
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'jobType', 'status', 'createdAt', 'employerId',
+          // Legacy Android builds may still send this field; Cloud Functions
+          // strips it from jobmetadata immediately so the card stays small.
           'category', 'searchKeywords',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
@@ -353,6 +355,8 @@ service cloud.firestore {
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'jobType', 'status', 'createdAt', 'employerId',
+          // Legacy Android builds may still send this field; Cloud Functions
+          // strips it from jobmetadata immediately so the card stays small.
           'category', 'searchKeywords', 'expiresAt',
           'jobImageUrl',
           'vacancies'
