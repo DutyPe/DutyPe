@@ -113,10 +113,13 @@ class FirestoreEmployerJobViewModel @Inject constructor(
         if (jobIds.isEmpty()) return
         viewModelScope.launch {
             try {
+                val employerId = currentUser?.uid.orEmpty()
+                if (employerId.isBlank()) return@launch
                 val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                 val counts = mutableMapOf<String, Int>()
                 jobIds.chunked(10).forEach { chunk ->
                     val snap = firestore.collection("employer_job_cards")
+                        .whereEqualTo("employerId", employerId)
                         .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
                         .get()
                         .await()

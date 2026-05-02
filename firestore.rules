@@ -312,6 +312,7 @@ service cloud.firestore {
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'jobType', 'status', 'createdAt', 'employerId',
+          'category', 'searchKeywords',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
           'jobImageUrl',
@@ -342,6 +343,10 @@ service cloud.firestore {
         request.resource.data.addressText is string &&
         request.resource.data.addressText.size() <= 300 &&
         request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80 &&
+        (!('category' in request.resource.data) ||
+          (request.resource.data.category is string && request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80)) &&
+        (!('searchKeywords' in request.resource.data) ||
+          (request.resource.data.searchKeywords is list && request.resource.data.searchKeywords.size() <= 100)) &&
         request.resource.data.status == 'open' &&
         request.resource.data.createdAt is timestamp &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
@@ -354,6 +359,7 @@ service cloud.firestore {
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
           'jobType', 'status', 'createdAt', 'employerId',
+          'category', 'searchKeywords', 'expiresAt',
           'jobImageUrl',
           'vacancies'
         ]) &&
@@ -373,6 +379,11 @@ service cloud.firestore {
         request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
         (!('jobType' in request.resource.data) ||
           (request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80)) &&
+        (!('category' in request.resource.data) ||
+          (request.resource.data.category is string && request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80)) &&
+        (!('searchKeywords' in request.resource.data) ||
+          (request.resource.data.searchKeywords is list && request.resource.data.searchKeywords.size() <= 100)) &&
+        (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp) &&
         request.resource.data.status in ['open', 'closed', 'expired'] &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
@@ -388,7 +399,11 @@ service cloud.firestore {
     // (employer-cards.ts) so clients have read-only visibility.
     match /employer_job_cards/{jobId} {
       allow read, write: if isAdmin();
-      allow get, list: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      // Current Android builds batch-fetch these docs by document ID. That query
+      // cannot prove employer ownership to rules without an employerId filter, so
+      // list is authenticated-only while future clients add the owner filter.
+      allow list: if isSignedIn();
       // Writes are CF-only via the admin SDK; deny all client writes.
       allow create, update, delete: if false;
     }
