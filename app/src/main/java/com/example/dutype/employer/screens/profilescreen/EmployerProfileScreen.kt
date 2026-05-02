@@ -84,7 +84,6 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
-    var companyEmail by remember { mutableStateOf("") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
@@ -107,12 +106,6 @@ fun EmployerProfileScreen(
                 // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
                 profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
 
-                profileCompletionViewModel.getEmployerProfileData(currentUser.uid).onSuccess { data ->
-                    companyEmail = (data["email"] as? String)
-                        ?: (data["contactEmail"] as? String)
-                        ?: ""
-                }
-                
                 // Use metadata for profile image URL
                 profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
                 

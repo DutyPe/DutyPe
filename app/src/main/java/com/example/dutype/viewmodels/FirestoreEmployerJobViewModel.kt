@@ -501,7 +501,6 @@ class FirestoreEmployerJobViewModel @Inject constructor(
         professionalSkills: List<String>,
         yearsOfExperience: Int,
         position: String,
-        companySize: String,
         industry: String,
         bio: String,
         linkedInProfile: String,

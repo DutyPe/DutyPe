@@ -439,11 +439,7 @@
     <string name="select_experience_level">మీ అనుభవ స్థాయిని ఎంచుకోండి</string>
     <string name="company_name_required">కంపెనీ పేరు *</string>
     <string name="enter_company_name">మీ కంపెనీ పేరును నమోదు చేయండి</string>
-    <string name="company_size_label">కంపెనీ పరిమాణం</string>
-    <string name="select_company_size">కంపెనీ పరిమాణాన్ని ఎంచుకోండి</string>
-    <string name="gst_number_optional">GST నంబర్ (ఐచ్ఛికం)</string>
     <string name="contact_phone_required">సంప్రదింపు ఫోన్ *</string>
-    <string name="contact_email_optional">సంప్రదింపు ఇమెయిల్ (ఐచ్ఛికం)</string>
     <string name="enter_email_address">ఇమెయిల్ చిరునామాను నమోదు చేయండి</string>
     <string name="select_date_of_birth">మీ పుట్టిన తేదీని ఎంచుకోండి</string>
     <string name="valid_job_location_required">చెల్లుబాటు అయ్యే ఉద్యోగ స్థానం అవసరం</string>
@@ -568,7 +564,6 @@
     <string name="business_address">వ్యాపార చిరునామా</string>
     <string name="enter_business_address">వ్యాపార చిరునామాను నమోదు చేయండి</string>
     <string name="industry">పరిశ్రమ</string>
-    <string name="company_size">కంపెనీ పరిమాణం</string>
     <string name="analytics_dashboard">అనలిటిక్స్ డ్యాష్‌బోర్డ్</string>
     <string name="todays_posts">నేటి పోస్ట్‌లు</string>
     <string name="total_jobs">మొత్తం ఉద్యోగాలు</string>
@@ -603,7 +598,6 @@
     <string name="jobs_listed">జాబితా చేయబడిన ఉద్యోగాలు</string>
     <string name="open_jobs">ఓపెన్ ఉద్యోగాలు</string>
     <string name="rating_label">రేటింగ్</string>
-    <string name="gst">GST</string>
     <string name="manage_addresses">చిరునామాలను నిర్వహించండి</string>
     <string name="no_saved_addresses">సేవ్ చేసిన చిరునామాలు లేవు</string>
     <string name="verified_label">ధృవీకరించబడింది</string>

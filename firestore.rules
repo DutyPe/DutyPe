@@ -223,8 +223,8 @@ service cloud.firestore {
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
-          'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress', 'businessLocation',
+          'companyName', 'profileImageUrl',
+          'industry', 'businessAddress', 'businessLocation',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
@@ -234,11 +234,8 @@ service cloud.firestore {
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120)) &&
-        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
-        (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
@@ -248,8 +245,8 @@ service cloud.firestore {
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
-          'companyName', 'email', 'profileImageUrl', 'gstNumber',
-          'industry', 'companySize', 'businessAddress', 'businessLocation',
+          'companyName', 'profileImageUrl',
+          'industry', 'businessAddress', 'businessLocation',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
@@ -259,11 +256,8 @@ service cloud.firestore {
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
-        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('gstNumber' in request.resource.data) || request.resource.data.gstNumber is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
-        (!('companySize' in request.resource.data) || (request.resource.data.companySize is string && request.resource.data.companySize.size() <= 64)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&

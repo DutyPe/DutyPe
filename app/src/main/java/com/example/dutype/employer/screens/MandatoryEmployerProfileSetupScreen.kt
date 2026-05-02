@@ -75,14 +75,11 @@ fun MandatoryEmployerProfileSetupScreen(
 
     // Form state - using rememberSaveable to survive activity recreation (camera launch)
     var companyName by rememberSaveable { mutableStateOf("") }
-    var contactEmail by rememberSaveable { mutableStateOf("") }
     var contactPhone by rememberSaveable { mutableStateOf("") }
     var businessAddress by rememberSaveable { mutableStateOf("") }
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
-    var companySize by rememberSaveable { mutableStateOf("") }
-    var gstNumber by rememberSaveable { mutableStateOf("") } // Optional GST for business verification
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -105,7 +102,6 @@ fun MandatoryEmployerProfileSetupScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by rememberSaveable { mutableStateOf(1) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
-    var gender by rememberSaveable { mutableStateOf("") }
     val totalSteps = 2  // Selfie capture step removed
 
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
@@ -132,13 +128,10 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedCompanyName = existingData["companyName"] as? String
-                    val savedContactEmail = existingData["email"] as? String
                     val savedContactPhone = existingData["phone"] as? String
                     val savedProfileImageUrl = existingData["profileImageUrl"] as? String
                     // employer_profiles fields
                     val savedIndustry = existingData["industry"] as? String
-                    val savedCompanySize = existingData["companySize"] as? String
-                    val savedGstNumber = existingData["gstNumber"] as? String
                     val savedBusinessAddress = existingData["businessAddress"] as? String
                     val savedBusinessLocation = existingData["businessLocation"] as? Map<*, *>
                     
@@ -146,10 +139,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
                         companyName = savedCompanyName
                         Timber.d("📦 PREFILL: companyName = $companyName")
-                    }
-                    if (contactEmail.isBlank() && !savedContactEmail.isNullOrBlank()) {
-                        contactEmail = savedContactEmail
-                        Timber.d("📦 PREFILL: contactEmail = $contactEmail")
                     }
                     if (contactPhone.isBlank() && !savedContactPhone.isNullOrBlank()) {
                         // Clean phone number (remove country code if present)
@@ -159,14 +148,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
                         industry = savedIndustry
                         Timber.d("📦 PREFILL: industry = $industry")
-                    }
-                    if (companySize.isBlank() && !savedCompanySize.isNullOrBlank()) {
-                        companySize = savedCompanySize
-                        Timber.d("📦 PREFILL: companySize = $companySize")
-                    }
-                    if (gstNumber.isBlank() && !savedGstNumber.isNullOrBlank()) {
-                        gstNumber = savedGstNumber
-                        Timber.d("📦 PREFILL: gstNumber = $gstNumber")
                     }
                     if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
                         businessAddress = savedBusinessAddress
@@ -189,14 +170,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                 }
                 
-                // Fallback: Load from Google Sign-In if fields still empty
-                if (contactEmail.isBlank()) {
-                    val savedEmail = profileCompletionViewModel.getUserEmail()
-                    if (savedEmail != null) {
-                        contactEmail = savedEmail
-                        Timber.d("📦 PREFILL: contactEmail from Google = $contactEmail")
-                    }
-                }
+                // Fallback: Load display name from Google Sign-In if still empty
                 if (companyName.isBlank()) {
                     val savedName = profileCompletionViewModel.getUserName()
                     if (savedName != null) {
@@ -223,40 +197,30 @@ fun MandatoryEmployerProfileSetupScreen(
 
     // Validation logic
     val isStep1Valid = companyName.isNotBlank()
-    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank() &&
-            (contactEmail.isBlank() || ValidationUtils.isValidEmail(contactEmail)) && gender.isNotBlank()
+    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank()
     val isStep3Valid = true  // Selfie is optional - always valid
 
     var phoneError by remember { mutableStateOf<String?>(null) }
-    var emailError by remember { mutableStateOf<String?>(null) }
     var companyNameError by remember { mutableStateOf<String?>(null) }
     var industryError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
-    var genderError by remember { mutableStateOf<String?>(null) }
 
     // Update errors only when showValidationErrors is true
-    LaunchedEffect(contactPhone, contactEmail, companyName, industry, businessAddress, gender, showValidationErrors) {
+    LaunchedEffect(contactPhone, companyName, industry, businessAddress, showValidationErrors) {
         if (showValidationErrors) {
             phoneError = when {
                 contactPhone.isBlank() -> "Phone number is required"
                 !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> "Enter a valid 10-digit phone number"
                 else -> null
             }
-            emailError = when {
-                contactEmail.isNotBlank() && !ValidationUtils.isValidEmail(contactEmail) -> "Enter a valid email address"
-                else -> null
-            }
             companyNameError = if (companyName.isBlank()) "Company name is required" else null
             industryError = null
             addressError = if (businessAddress.isBlank()) "Work location is required" else null
-            genderError = if (gender.isBlank()) "Please select your gender" else null
         } else {
             phoneError = null
-            emailError = null
             companyNameError = null
             industryError = null
             addressError = null
-            genderError = null
         }
     }
 
@@ -322,19 +286,8 @@ fun MandatoryEmployerProfileSetupScreen(
                         "phone" to contactPhone
                     )
 
-                    // Store email if provided
-                    if (contactEmail.isNotBlank()) {
-                        employerProfileData["email"] = contactEmail.trim()
-                    }
-
-                    // Persist all collected business fields. The Firestore rule
-                    // and ProfileCompletionService both whitelist these keys —
-                    // omitting any of them previously caused silent data loss.
                     if (industry.isNotBlank()) {
                         employerProfileData["industry"] = industry.trim()
-                    }
-                    if (companySize.isNotBlank()) {
-                        employerProfileData["companySize"] = companySize.trim()
                     }
                     if (businessAddress.isNotBlank()) {
                         employerProfileData["businessAddress"] = businessAddress.trim()
@@ -345,10 +298,6 @@ fun MandatoryEmployerProfileSetupScreen(
                             "lng" to businessLongitude
                         )
                     }
-                    if (gstNumber.isNotBlank()) {
-                        employerProfileData["gstNumber"] = gstNumber.trim()
-                    }
-
                     // Add selfie URL if uploaded
                     if (uploadedSelfieUrl != null) {
                         employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
@@ -491,15 +440,11 @@ fun MandatoryEmployerProfileSetupScreen(
 
     MandatoryEmployerProfileSetupContent(
         companyName = companyName,
-        contactEmail = contactEmail,
         contactPhone = contactPhone,
         businessAddress = businessAddress,
         businessLatitude = businessLatitude,
         businessLongitude = businessLongitude,
         industry = industry,
-        companySize = companySize,
-        gstNumber = gstNumber,
-        gender = gender,
         selfieUri = selfieUri,
         isUploadingSelfie = isUploadingSelfie,
         selfieError = selfieError,
@@ -510,11 +455,9 @@ fun MandatoryEmployerProfileSetupScreen(
         isCurrentStepValid = isCurrentStepValid,
         showValidationErrors = showValidationErrors,
         phoneError = if (showValidationErrors) phoneError else null,
-        emailError = if (showValidationErrors) emailError else null,
         companyNameError = if (showValidationErrors) companyNameError else null,
         industryError = if (showValidationErrors) industryError else null,
         addressError = if (showValidationErrors) addressError else null,
-        genderError = if (showValidationErrors) genderError else null,
         referralCode = referralCode,
         isValidatingReferral = isValidatingReferral,
         referralValidationResult = referralValidationResult,
@@ -522,7 +465,6 @@ fun MandatoryEmployerProfileSetupScreen(
         hasAlreadyUsedReferral = hasAlreadyUsedReferral,
         locationService = locationService,
         onCompanyNameChange = { companyName = it },
-        onContactEmailChange = { contactEmail = it },
         onContactPhoneChange = { contactPhone = it },
         onBusinessAddressChange = { businessAddress = it },
         onBusinessLocationChange = { lat, lng ->
@@ -530,9 +472,6 @@ fun MandatoryEmployerProfileSetupScreen(
             businessLongitude = lng
         },
         onIndustryChange = { industry = it },
-        onCompanySizeChange = { companySize = it },
-        onGstNumberChange = { gstNumber = it },
-        onGenderChange = { gender = it },
         onReferralCodeChange = { newCode ->
             referralCode = newCode
             if (referralValidationResult != null) {
@@ -608,15 +547,11 @@ fun MandatoryEmployerProfileSetupScreen(
 @Composable
 fun MandatoryEmployerProfileSetupContent(
     companyName: String,
-    contactEmail: String,
     contactPhone: String,
     businessAddress: String,
     businessLatitude: Double,
     businessLongitude: Double,
     industry: String,
-    companySize: String,
-    gstNumber: String,
-    gender: String,
     selfieUri: Uri?,
     isUploadingSelfie: Boolean,
     selfieError: String?,
@@ -627,11 +562,9 @@ fun MandatoryEmployerProfileSetupContent(
     isCurrentStepValid: Boolean,
     showValidationErrors: Boolean,
     phoneError: String?,
-    emailError: String?,
     companyNameError: String?,
     industryError: String?,
     addressError: String?,
-    genderError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -639,14 +572,10 @@ fun MandatoryEmployerProfileSetupContent(
     hasAlreadyUsedReferral: Boolean,
     locationService: com.example.dutype.utils.LocationService,
     onCompanyNameChange: (String) -> Unit,
-    onContactEmailChange: (String) -> Unit,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
     onIndustryChange: (String) -> Unit,
-    onCompanySizeChange: (String) -> Unit,
-    onGstNumberChange: (String) -> Unit,
-    onGenderChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -691,8 +620,6 @@ fun MandatoryEmployerProfileSetupContent(
                             CompanyInformationStep(
                                 companyName = companyName,
                                 industry = industry,
-                                companySize = companySize,
-                                gstNumber = gstNumber,
                                 companyNameError = companyNameError,
                                 industryError = industryError,
                                 referralCode = referralCode,
@@ -702,8 +629,6 @@ fun MandatoryEmployerProfileSetupContent(
                                 hasAlreadyUsedReferral = hasAlreadyUsedReferral,
                                 onCompanyNameChange = onCompanyNameChange,
                                 onIndustryChange = onIndustryChange,
-                                onCompanySizeChange = onCompanySizeChange,
-                                onGstNumberChange = onGstNumberChange,
                                 onReferralCodeChange = onReferralCodeChange,
                                 onValidateReferral = onValidateReferral
                             )
@@ -715,17 +640,11 @@ fun MandatoryEmployerProfileSetupContent(
                                 businessAddress = businessAddress,
                                 businessLatitude = businessLatitude,
                                 businessLongitude = businessLongitude,
-                                contactEmail = contactEmail,
-                                gender = gender,
                                 phoneError = phoneError,
-                                emailError = emailError,
                                 addressError = addressError,
-                                genderError = genderError,
                                 onContactPhoneChange = onContactPhoneChange,
                                 onBusinessAddressChange = onBusinessAddressChange,
                                 onBusinessLocationChange = onBusinessLocationChange,
-                                onContactEmailChange = onContactEmailChange,
-                                onGenderChange = onGenderChange,
                                 locationService = locationService
                             )
                         }
@@ -828,8 +747,6 @@ fun MandatoryEmployerProfileSetupContent(
 private fun CompanyInformationStep(
     companyName: String,
     industry: String,
-    companySize: String,
-    gstNumber: String,
     companyNameError: String?,
     industryError: String?,
     referralCode: String,
@@ -839,8 +756,6 @@ private fun CompanyInformationStep(
     hasAlreadyUsedReferral: Boolean,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
-    onCompanySizeChange: (String) -> Unit,
-    onGstNumberChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit
 ) {
@@ -942,100 +857,6 @@ private fun CompanyInformationStep(
             )
         }
 
-        Column {
-            // Apr 2026: company size is now a free-form text field. The
-            // dropdown was overkill for an optional field — employers
-            // typed weird ranges anyway, and the input keyboard makes
-            // small-team entries (e.g. "5") faster than picking from a
-            // 5-bucket list.
-            OutlinedTextField(
-                value = companySize,
-                onValueChange = { onCompanySizeChange(it) },
-                label = { Text(stringResource(R.string.company_size_label)) },
-                placeholder = { Text("e.g. 25") },
-                leadingIcon = { Icon(Icons.Default.People, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF8B5CF6),
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
-                )
-            )
-        }
-        
-        // GST Number (Optional) - For Business Verification
-        Column {
-            val isValidGst = gstNumber.isNotBlank() && com.example.dutype.models.isValidGstNumber(gstNumber)
-            
-            OutlinedTextField(
-                value = gstNumber,
-                onValueChange = { newValue ->
-                    // Only allow alphanumeric and limit to 15 characters
-                    if (newValue.length <= 15 && newValue.all { it.isLetterOrDigit() }) {
-                        onGstNumberChange(newValue.uppercase())
-                    }
-                },
-                label = { Text(stringResource(R.string.gst_number_optional)) },
-                placeholder = { Text("e.g., 22AAAAA0000A1Z5") },
-                leadingIcon = { 
-                    Icon(
-                        Icons.Default.Receipt, 
-                        contentDescription = null,
-                        tint = if (isValidGst) Color(0xFF10B981) else Color(0xFF6B7280)
-                    ) 
-                },
-                trailingIcon = {
-                    if (gstNumber.isNotBlank()) {
-                        if (isValidGst) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = "Valid GST",
-                                tint = Color(0xFF10B981)
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Error,
-                                contentDescription = "Invalid GST format",
-                                tint = Color(0xFFEF4444)
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                isError = gstNumber.isNotBlank() && !isValidGst,
-                supportingText = {
-                    if (gstNumber.isBlank()) {
-                        Text(
-                            "Optional. Add GST to help us verify your business.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
-                            )
-                        )
-                    } else if (!isValidGst) {
-                        Text(
-                            "Invalid GST format (15 characters: 22AAAAA0000A1Z5)",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFFEF4444)
-                            )
-                        )
-                    } else {
-                        Text(
-                            "Valid GST - business verification ready.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF10B981),
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                },                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFF8B5CF6),
-                    unfocusedBorderColor = if (isValidGst) Color(0xFF10B981) else Color(0xFFE5E7EB)
-                )
-            )
-        }
-        
         // Referral Code Input - REMOVED: Now handled in login/signup flow
         // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
         // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
@@ -1061,17 +882,11 @@ private fun ContactDetailsStep(
     businessAddress: String,
     businessLatitude: Double,
     businessLongitude: Double,
-    contactEmail: String,
-    gender: String,
     phoneError: String?,
-    emailError: String?,
     addressError: String?,
-    genderError: String?,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
-    onContactEmailChange: (String) -> Unit,
-    onGenderChange: (String) -> Unit,
     locationService: com.example.dutype.utils.LocationService
 ) {
     var isFetchingLocation by remember { mutableStateOf(false) }
@@ -1160,33 +975,6 @@ private fun ContactDetailsStep(
             }
         }
 
-        Column {
-            OutlinedTextField(
-                value = contactEmail,
-                onValueChange = onContactEmailChange,
-                label = { Text(stringResource(R.string.contact_email_optional)) },
-                placeholder = { Text(stringResource(R.string.enter_email_address)) },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                isError = emailError != null,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
-                )
-            )
-            if (emailError != null) {
-                Text(
-                    text = emailError,
-                    color = Color(0xFFDC2626),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-        }
-
         // Work Location with Fetch button
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -1268,64 +1056,6 @@ private fun ContactDetailsStep(
             if (addressError != null) {
                 Text(
                     text = addressError,
-                    color = Color(0xFFDC2626),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-        }
-        
-        // Gender Selection
-        Column {
-            Text(
-                text = "Gender *",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            val genderOptions = listOf("Male", "Female", "Other")
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                genderOptions.forEach { genderOption ->
-                    Row(
-                        modifier = Modifier.selectable(
-                            selected = genderOption == gender,
-                            onClick = { onGenderChange(genderOption) },
-                            role = Role.RadioButton
-                        ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = genderOption == gender,
-                            onClick = null,
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF8B5CF6),
-                                unselectedColor = Color(0xFFD1D5DB)
-                            ),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = genderOption,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(start = 8.dp),
-                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                        )
-                    }
-                }
-            }
-            
-            if (genderError != null) {
-                Text(
-                    text = genderError,
                     color = Color(0xFFDC2626),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)

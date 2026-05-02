@@ -68,13 +68,11 @@ fun EmployerCompanyDetailsScreen(
 
     // Form state â€” basic info
     var companyName by remember { mutableStateOf("") }
-    var contactEmail by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
 
     // Form state â€” company details
     var industry by remember { mutableStateOf("") }
-    var companySize by remember { mutableStateOf("") }
 
     // Profile image
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
@@ -165,14 +163,10 @@ fun EmployerCompanyDetailsScreen(
                 employerProfileData.fold(
                     onSuccess = { data ->
                         companyName = data["companyName"] as? String ?: ""
-                        contactEmail = (data["contactEmail"] as? String)
-                            ?: (data["email"] as? String)
-                            ?: ""
                         contactPhone = data["contactPhone"] as? String
                             ?: data["phone"] as? String ?: ""
                         businessAddress = data["businessAddress"] as? String ?: ""
                         industry = data["industry"] as? String ?: ""
-                        companySize = data["companySize"] as? String ?: ""
                         profileImageUrl = data["profileImageUrl"] as? String
                     },
                     onFailure = { exception ->
@@ -313,8 +307,6 @@ fun EmployerCompanyDetailsScreen(
                             EditableBasicInfoCard(
                                 companyName = companyName,
                                 onCompanyNameChange = { companyName = it },
-                                contactEmail = contactEmail,
-                                onContactEmailChange = { contactEmail = it },
                                 contactPhone = contactPhone,
                                 onContactPhoneChange = { contactPhone = it },
                                 businessAddress = businessAddress,
@@ -325,7 +317,6 @@ fun EmployerCompanyDetailsScreen(
                                 title = stringResource(R.string.basic_information),
                                 items = listOf(
                                     stringResource(R.string.company_name) to companyName,
-                                    stringResource(R.string.contact_email) to contactEmail,
                                     stringResource(R.string.contact_phone) to contactPhone,
                                     stringResource(R.string.business_address) to businessAddress
                                 )
@@ -344,16 +335,13 @@ fun EmployerCompanyDetailsScreen(
                         if (isEditMode) {
                             EditableCompanyDetailsCard(
                                 industry = industry,
-                                onIndustryChange = { industry = it },
-                                companySize = companySize,
-                                onCompanySizeChange = { companySize = it }
+                                onIndustryChange = { industry = it }
                             )
                         } else {
                             CompanyInfoCard(
                                 title = stringResource(R.string.company_details_section),
                                 items = listOf(
-                                    stringResource(R.string.industry) to industry,
-                                    stringResource(R.string.company_size) to companySize
+                                    stringResource(R.string.industry) to industry
                                 )
                             )
                         }
@@ -373,11 +361,8 @@ fun EmployerCompanyDetailsScreen(
                                 if (currentUser != null) {
                                     val data = mutableMapOf<String, Any>(
                                         "companyName" to companyName,
-                                        "contactEmail" to contactEmail,
-                                        "email" to contactEmail,
                                         "businessAddress" to businessAddress,
-                                        "industry" to industry,
-                                        "companySize" to companySize
+                                        "industry" to industry
                                     )
                                     profileImageUrl?.takeIf { it.isNotBlank() }?.let {
                                         data["profileImageUrl"] = it
@@ -663,8 +648,6 @@ private fun CompanyFieldDisplay(
 private fun EditableBasicInfoCard(
     companyName: String,
     onCompanyNameChange: (String) -> Unit,
-    contactEmail: String,
-    onContactEmailChange: (String) -> Unit,
     contactPhone: String,
     onContactPhoneChange: (String) -> Unit,
     businessAddress: String,
@@ -694,13 +677,6 @@ private fun EditableBasicInfoCard(
                 placeholder = stringResource(R.string.enter_company_name)
             )
             CompanyTextField(
-                label = stringResource(R.string.contact_email),
-                value = contactEmail,
-                onValueChange = onContactEmailChange,
-                placeholder = "name@company.com",
-                keyboardType = KeyboardType.Email
-            )
-            CompanyTextField(
                 label = stringResource(R.string.contact_phone),
                 value = contactPhone,
                 onValueChange = onContactPhoneChange,
@@ -723,9 +699,7 @@ private fun EditableBasicInfoCard(
 @Composable
 private fun EditableCompanyDetailsCard(
     industry: String,
-    onIndustryChange: (String) -> Unit,
-    companySize: String,
-    onCompanySizeChange: (String) -> Unit
+    onIndustryChange: (String) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -749,12 +723,6 @@ private fun EditableCompanyDetailsCard(
                 value = industry,
                 onValueChange = onIndustryChange,
                 placeholder = "e.g. Hospitality, Retail, IT services"
-            )
-            CompanyTextField(
-                label = stringResource(R.string.company_size),
-                value = companySize,
-                onValueChange = onCompanySizeChange,
-                placeholder = "e.g. 1-10, 11-50, 51-200"
             )
         }
     }

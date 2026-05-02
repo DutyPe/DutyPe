@@ -177,8 +177,6 @@ class ProfileCompletionService @Inject constructor(
      * - Industry: 15%
      * - Contact Phone: 15%
      * - Business Address: 20%
-     * - Contact Email: 5% (optional)
-     * - Company Size: 5% (optional)
      * - Profile Picture: 5% (optional - won't block job posting)
      * 
      * Without optional fields: max 85% (above 80% threshold for posting jobs)
@@ -186,11 +184,9 @@ class ProfileCompletionService @Inject constructor(
      */
     fun calculateEmployerProfileCompletion(
         companyName: String,
-        contactEmail: String,
         contactPhone: String,
         businessAddress: String,
         industry: String,
-        companySize: String,
         website: String,
         description: String,
         profileImageUrl: String?
@@ -202,9 +198,6 @@ class ProfileCompletionService @Inject constructor(
         if (industry.isNotBlank()) completion += 15
         if (contactPhone.isNotBlank()) completion += 15
         if (businessAddress.isNotBlank()) completion += 20
-        // Optional Fields (15% total)
-        if (contactEmail.isNotBlank()) completion += 5
-        if (companySize.isNotBlank()) completion += 5
         if (profileImageUrl != null && profileImageUrl.isNotBlank()) completion += 5
         
         return completion.coerceAtMost(100)
@@ -218,8 +211,6 @@ class ProfileCompletionService @Inject constructor(
      * - Industry: 15%
      * - Contact Phone: 15%
      * - Business Address: 20%
-     * - Contact Email: 5% (optional)
-     * - Company Size: 5% (optional)
      * - Profile Picture: 5% (optional - won't block job posting)
      * 
      * Without optional fields: max 85% (above 80% threshold for posting jobs)
@@ -764,10 +755,6 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Company name is required"))
             }
 
-            val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (profileData["contactEmail"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (existingEmployer["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-
             val employerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "fullName" to fullName,
@@ -780,29 +767,13 @@ class ProfileCompletionService @Inject constructor(
                 //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
                 //  - isVerified / rating / totalRatings / totalHires are CF-only aggregates.
             )
-            if (!email.isNullOrBlank()) {
-                employerProfile["email"] = email
-            }
             if (!profileImageUrl.isNullOrBlank()) {
                 employerProfile["profileImageUrl"] = profileImageUrl
-            }
-            // Optional business fields. Each is persisted only when the form
-            // explicitly supplied it (or it already exists), so the rule's
-            // hasOnly() whitelist is never broken with empty strings.
-            val gstNumber = (profileData["gstNumber"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (existingEmployer["gstNumber"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!gstNumber.isNullOrBlank()) {
-                employerProfile["gstNumber"] = gstNumber
             }
             val industry = (profileData["industry"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: (existingEmployer["industry"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             if (!industry.isNullOrBlank()) {
                 employerProfile["industry"] = industry
-            }
-            val companySize = (profileData["companySize"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (existingEmployer["companySize"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!companySize.isNullOrBlank()) {
-                employerProfile["companySize"] = companySize
             }
             val businessAddress = (profileData["businessAddress"] as? String)?.trim()?.takeIf { it.isNotBlank() }
                 ?: (existingEmployer["businessAddress"] as? String)?.trim()?.takeIf { it.isNotBlank() }

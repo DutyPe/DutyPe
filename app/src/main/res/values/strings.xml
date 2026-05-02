@@ -441,11 +441,7 @@
     <string name="select_experience_level">Select your experience level</string>
     <string name="company_name_required">Company Name *</string>
     <string name="enter_company_name">Enter your company name</string>
-    <string name="company_size_label">Company Size</string>
-    <string name="select_company_size">Select company size</string>
-    <string name="gst_number_optional">GST Number (Optional)</string>
     <string name="contact_phone_required">Contact Phone *</string>
-    <string name="contact_email_optional">Contact Email (Optional)</string>
     <string name="enter_email_address">Enter email address</string>
     <string name="select_date_of_birth">Select your date of birth</string>
     <string name="copy_button">Copy</string>
@@ -569,7 +565,6 @@
     <string name="business_address">Business Address</string>
     <string name="enter_business_address">Enter business address</string>
     <string name="industry">Industry</string>
-    <string name="company_size">Company Size</string>
     <string name="analytics_dashboard">Analytics Dashboard</string>
     <string name="todays_posts">Today\'s Posts</string>
     <string name="total_jobs">Total Jobs</string>
@@ -603,7 +598,6 @@
     <string name="jobs_listed">Jobs Listed</string>
     <string name="open_jobs">Open Jobs</string>
     <string name="rating_label">Rating</string>
-    <string name="gst">GST</string>
     <string name="manage_addresses">Manage Addresses</string>
     <string name="no_saved_addresses">No Saved Addresses</string>
     <string name="verified_label">Verified</string>
