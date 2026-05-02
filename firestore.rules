@@ -555,11 +555,38 @@ service cloud.firestore {
     // Additive layer beside normal jobs: workers publish availability,
     // employers post urgent needs, workers respond with fast actions.
     match /worker_availability/{workerId} {
+      function workerAvailabilityFields() {
+        return [
+          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ];
+      }
+
+      function validWorkerAvailabilityValues(data) {
+        return data.workerId == request.auth.uid &&
+          data.isAvailable is bool &&
+          data.status in ['available', 'busy', 'offline'] &&
+          data.categories is list &&
+          data.categories.size() >= 1 &&
+          data.categories.size() <= 12 &&
+          data.radiusKm is number &&
+          data.radiusKm >= 1 &&
+          data.radiusKm <= 25 &&
+          data.lat is number &&
+          data.lat >= -90 && data.lat <= 90 &&
+          data.lng is number &&
+          data.lng >= -180 && data.lng <= 180 &&
+          (!('geohash' in data) || data.geohash is string) &&
+          data.availableUntil is timestamp &&
+          data.lastSeenAt is timestamp &&
+          data.updatedAt is timestamp;
+      }
+
       allow read, write: if isAdmin();
       allow get: if isSelf(workerId);
-      allow list: if false;
+      allow list: if isSignedIn() && resource.data.workerId == request.auth.uid;
 
-      allow create, update: if isSelf(workerId) &&
+      allow create: if isSelf(workerId) &&
         request.resource.data.keys().hasOnly([
           'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
           'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
@@ -568,23 +595,11 @@ service cloud.firestore {
           'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
           'lat', 'lng', 'availableUntil', 'lastSeenAt', 'updatedAt'
         ]) &&
-        request.resource.data.workerId == request.auth.uid &&
-        request.resource.data.isAvailable is bool &&
-        request.resource.data.status in ['available', 'busy', 'offline'] &&
-        request.resource.data.categories is list &&
-        request.resource.data.categories.size() >= 1 &&
-        request.resource.data.categories.size() <= 12 &&
-        request.resource.data.radiusKm is number &&
-        request.resource.data.radiusKm >= 1 &&
-        request.resource.data.radiusKm <= 25 &&
-        request.resource.data.lat is number &&
-        request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
-        request.resource.data.lng is number &&
-        request.resource.data.lng >= -180 && request.resource.data.lng <= 180 &&
-        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
-        request.resource.data.availableUntil is timestamp &&
-        request.resource.data.lastSeenAt is timestamp &&
-        request.resource.data.updatedAt is timestamp;
+        validWorkerAvailabilityValues(request.resource.data);
+
+      allow update: if isSelf(workerId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(workerAvailabilityFields()) &&
+        validWorkerAvailabilityValues(request.resource.data);
 
       allow delete: if isSelf(workerId);
     }
