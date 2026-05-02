@@ -42,6 +42,7 @@ import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.utils.CategoryDetector
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.dutype.app.R
@@ -85,6 +86,13 @@ fun AllJobsScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
+    val visibleCategory = remember(filters.category, uiState.initialCategory) {
+        when {
+            filters.category != "Any" -> filters.category
+            !uiState.initialCategory.isNullOrBlank() -> uiState.initialCategory ?: "All"
+            else -> "All"
+        }
+    }
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
     
@@ -296,6 +304,16 @@ fun AllJobsScreen(
                 )
             }
         }
+
+        CategoryQuickFilterSection(
+            selectedCategory = visibleCategory,
+            onCategorySelected = { category ->
+                viewModel.setInitialCategory(null)
+                viewModel.setFilters(
+                    filters.copy(category = if (category == "All") "Any" else category)
+                )
+            }
+        )
         
         HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
 
@@ -360,6 +378,67 @@ fun AllJobsScreen(
             },
             onResetFilters = { viewModel.resetFilters() }
         )
+    }
+}
+
+@Composable
+private fun CategoryQuickFilterSection(
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit
+) {
+    val categories = remember { listOf("All") + CategoryDetector.getAllCategories() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(WorkerColors.CardBackground)
+            .padding(bottom = 12.dp)
+    ) {
+        Text(
+            text = "Categories",
+            style = MaterialTheme.typography.titleSmall.copy(
+                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.SemiBold
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(categories) { category ->
+                val isSelected = selectedCategory.equals(category, ignoreCase = true)
+                FilterChip(
+                    onClick = { onCategorySelected(category) },
+                    label = {
+                        Text(
+                            text = category,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp,
+                                color = if (isSelected) Color.White else Color(0xFF374151)
+                            )
+                        )
+                    },
+                    selected = isSelected,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF16A34A),
+                        selectedLabelColor = Color.White,
+                        containerColor = Color(0xFFF8FAFC),
+                        labelColor = Color(0xFF374151)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = Color(0xFFE5E7EB),
+                        selectedBorderColor = Color(0xFF16A34A),
+                        borderWidth = 1.dp
+                    )
+                )
+            }
+        }
     }
 }
 

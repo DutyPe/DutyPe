@@ -786,7 +786,7 @@ private fun WorkerJobRequestSection(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Employer requests",
+            text = "Urgent employer requests",
             style = MaterialTheme.typography.titleMedium.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Bold
