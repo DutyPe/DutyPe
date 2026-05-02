@@ -1,7 +1,9 @@
 package com.example.dutype.worker.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -101,6 +103,7 @@ import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.WorkerJobRequestViewModel
@@ -146,8 +149,10 @@ fun WorkerHomeScreen(
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val workerJobRequestViewModel: WorkerJobRequestViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val workerRequestState by workerJobRequestViewModel.uiState.collectAsStateWithLifecycle()
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
@@ -375,6 +380,13 @@ fun WorkerHomeScreen(
     LaunchedEffect(currentUser?.uid) {
         if (currentUser?.uid != null) {
             workerJobRequestViewModel.loadPendingRequests()
+            instantHelpViewModel.loadWorkerInstantHelp(currentLocation)
+        }
+    }
+
+    LaunchedEffect(currentUser?.uid, currentLocation?.latitude, currentLocation?.longitude) {
+        if (currentUser?.uid != null && currentLocation != null) {
+            instantHelpViewModel.loadWorkerInstantHelp(currentLocation)
         }
     }
 
@@ -493,6 +505,7 @@ fun WorkerHomeScreen(
                             }
                             announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
                             workerJobRequestViewModel.loadPendingRequests()
+                            instantHelpViewModel.refreshWorkerInstantRequests(currentLocation)
                         },
                         state = pullToRefreshState,
                         modifier = Modifier.fillMaxSize()
@@ -553,6 +566,35 @@ fun WorkerHomeScreen(
                                     birthdayService = birthdayService,
                                     workerJobRequests = workerRequestState.requests,
                                     updatingWorkerJobRequestId = workerRequestState.updatingRequestId,
+                                    workerAvailability = instantHelpState.workerAvailability,
+                                    instantRequests = instantHelpState.instantRequests,
+                                    updatingInstantRequestId = instantHelpState.updatingRequestId,
+                                    isSavingInstantAvailability = instantHelpState.isSavingAvailability,
+                                    isLoadingInstantRequests = instantHelpState.isLoadingRequests,
+                                    instantHelpError = instantHelpState.error,
+                                    onToggleInstantAvailability = { isAvailable ->
+                                        instantHelpViewModel.setWorkerAvailability(isAvailable, currentLocation)
+                                    },
+                                    onSelectInstantRadius = { radiusKm ->
+                                        instantHelpViewModel.setWorkerRadius(radiusKm, currentLocation)
+                                    },
+                                    onToggleInstantCategory = { category ->
+                                        instantHelpViewModel.toggleWorkerCategory(category, currentLocation)
+                                    },
+                                    onInterestedInstantRequest = { request ->
+                                        instantHelpViewModel.respondToInstantRequest(request, "interested")
+                                    },
+                                    onBusyInstantRequest = { request ->
+                                        instantHelpViewModel.respondToInstantRequest(request, "busy")
+                                    },
+                                    onCallInstantRequest = { request ->
+                                        instantHelpViewModel.respondToInstantRequest(request, "called") {
+                                            val phone = request.employerPhone.filter { it.isDigit() || it == '+' }
+                                            if (phone.isNotBlank()) {
+                                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                                            }
+                                        }
+                                    },
                                     onAcceptWorkerJobRequest = { request ->
                                         workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
                                             if (acceptedJobId.isNotBlank()) {

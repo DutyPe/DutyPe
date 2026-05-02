@@ -50,6 +50,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -484,6 +485,17 @@ fun DashboardContent(
             scrollStateManager = scrollStateManager
         ) {
             item {
+                UrgentNeedCtaCard(
+                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
+                    onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            item {
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }
             
@@ -514,6 +526,79 @@ fun DashboardContent(
                 com.example.dutype.components.MadeWithLoveFooter()
             }
             
+        }
+    }
+}
+
+@Composable
+private fun UrgentNeedCtaCard(
+    onPostUrgentNeed: () -> Unit,
+    onPostNormalJob: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color(0xFFFFEDD5), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Need worker today?",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = EmployerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = "Post a quick urgent need for nearby available workers.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onPostUrgentNeed,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                ) {
+                    Text("Post urgent need")
+                }
+                TextButton(
+                    onClick = onPostNormalJob,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Post normal job")
+                }
+            }
         }
     }
 }

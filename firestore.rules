@@ -547,6 +547,169 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── instant help P0 ───────────────────────────────────────────────
+    // Additive layer beside normal jobs: workers publish availability,
+    // employers post urgent needs, workers respond with fast actions.
+    match /worker_availability/{workerId} {
+      allow read, write: if isAdmin();
+      allow get: if isSelf(workerId);
+      allow list: if false;
+
+      allow create, update: if isSelf(workerId) &&
+        request.resource.data.keys().hasOnly([
+          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'lat', 'lng', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ]) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.isAvailable is bool &&
+        request.resource.data.status in ['available', 'busy', 'offline'] &&
+        request.resource.data.categories is list &&
+        request.resource.data.categories.size() >= 1 &&
+        request.resource.data.categories.size() <= 12 &&
+        request.resource.data.radiusKm is number &&
+        request.resource.data.radiusKm >= 1 &&
+        request.resource.data.radiusKm <= 25 &&
+        request.resource.data.lat is number &&
+        request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
+        request.resource.data.lng is number &&
+        request.resource.data.lng >= -180 && request.resource.data.lng <= 180 &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        request.resource.data.availableUntil is timestamp &&
+        request.resource.data.lastSeenAt is timestamp &&
+        request.resource.data.updatedAt is timestamp;
+
+      allow delete: if isSelf(workerId);
+    }
+
+    match /instant_requests/{requestId} {
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() &&
+        (resource.data.status == 'open' || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'requestId', 'employerId', 'employerName', 'employerPhone',
+          'title', 'description', 'category', 'needType', 'status', 'urgency',
+          'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
+          'createdAt', 'expiresAt', 'responseCount', 'callCount',
+          'selectedWorkerId', 'completedAt', 'failureReason'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'requestId', 'employerId', 'title', 'category', 'needType', 'status',
+          'urgency', 'lat', 'lng', 'geohash', 'radiusKm', 'createdAt', 'expiresAt',
+          'responseCount', 'callCount'
+        ]) &&
+        requestId == request.resource.data.requestId &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
+        (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
+        request.resource.data.category is string &&
+        request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80 &&
+        request.resource.data.needType in ['urgent_now', 'today', 'scheduled'] &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.urgency in ['urgent', 'today', 'flexible'] &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        request.resource.data.lat is number &&
+        request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
+        request.resource.data.lng is number &&
+        request.resource.data.lng >= -180 && request.resource.data.lng <= 180 &&
+        request.resource.data.geohash is string &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
+        request.resource.data.radiusKm is number &&
+        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 25 &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.expiresAt is timestamp &&
+        request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
+        request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'responseCount', 'callCount', 'selectedWorkerId', 'completedAt', 'failureReason'
+        ]) &&
+        request.resource.data.status in ['open', 'filled', 'expired', 'cancelled', 'failed'] &&
+        request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
+        request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow delete: if false;
+    }
+
+    match /instant_responses/{responseId} {
+      function responseIdOwnedByCaller(data) {
+        return responseId == (data.requestId + '_' + request.auth.uid);
+      }
+
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'responseId', 'requestId', 'workerId', 'employerId', 'workerName',
+          'workerPhone', 'workerSkills', 'distanceKm', 'status', 'createdAt',
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'responseId', 'requestId', 'workerId', 'employerId', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.responseId == responseId &&
+        responseIdOwnedByCaller(request.resource.data) &&
+        exists(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)) &&
+        get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.status == 'open' &&
+        get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.employerId == request.resource.data.employerId &&
+        request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
+        (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+
+      allow update: if isSignedIn() &&
+        resource.data.workerId == request.auth.uid &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.requestId == resource.data.requestId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.responseId == resource.data.responseId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'workerName', 'workerPhone', 'workerSkills', 'distanceKm', 'status',
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
+        (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+
+      allow delete: if false;
+    }
+
     // ── saved_jobs ────────────────────────────────────────────────────
     // Canonical schema: userId + jobId + createdAt. Doc ID = {userId}_{jobId}.
     match /saved_jobs/{saveId} {

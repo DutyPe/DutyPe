@@ -24,6 +24,9 @@ object FirestoreCollections {
     const val APPLICATIONS = "applications"
     const val SAVED_JOBS = "saved_jobs"
     const val WORKER_JOB_REQUESTS = "worker_job_requests"
+    const val INSTANT_REQUESTS = "instant_requests"
+    const val INSTANT_RESPONSES = "instant_responses"
+    const val WORKER_AVAILABILITY = "worker_availability"
 
     // ── Social ──────────────────────────────────────────
     const val RATINGS = "ratings"

@@ -61,6 +61,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -113,6 +114,9 @@ import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
+import com.example.dutype.models.InstantHelpDefaults
+import com.example.dutype.models.InstantRequest
+import com.example.dutype.models.WorkerAvailability
 import com.example.dutype.models.WorkerJobRequest
 import com.example.dutype.navigation.Routes
 import com.example.dutype.location.TopCityChips
@@ -493,6 +497,18 @@ fun HomeSectionsContent(
     birthdayService: BirthdayService,
     workerJobRequests: List<WorkerJobRequest> = emptyList(),
     updatingWorkerJobRequestId: String? = null,
+    workerAvailability: WorkerAvailability = WorkerAvailability(),
+    instantRequests: List<InstantRequest> = emptyList(),
+    updatingInstantRequestId: String? = null,
+    isSavingInstantAvailability: Boolean = false,
+    isLoadingInstantRequests: Boolean = false,
+    instantHelpError: String? = null,
+    onToggleInstantAvailability: (Boolean) -> Unit = {},
+    onSelectInstantRadius: (Double) -> Unit = {},
+    onToggleInstantCategory: (String) -> Unit = {},
+    onInterestedInstantRequest: (InstantRequest) -> Unit = {},
+    onBusyInstantRequest: (InstantRequest) -> Unit = {},
+    onCallInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onRejectWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {}
@@ -588,6 +604,31 @@ fun HomeSectionsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            item {
+                InstantAvailabilitySection(
+                    availability = workerAvailability,
+                    currentLocation = currentLocation,
+                    isSaving = isSavingInstantAvailability,
+                    error = instantHelpError,
+                    onToggleAvailability = onToggleInstantAvailability,
+                    onSelectRadius = onSelectInstantRadius,
+                    onToggleCategory = onToggleInstantCategory
+                )
+            }
+
+            if (workerAvailability.isAvailable) {
+                item {
+                    InstantRequestSection(
+                        requests = instantRequests,
+                        isLoading = isLoadingInstantRequests,
+                        updatingRequestId = updatingInstantRequestId,
+                        onInterested = onInterestedInstantRequest,
+                        onBusy = onBusyInstantRequest,
+                        onCall = onCallInstantRequest
+                    )
+                }
+            }
+
             //  Birthday Banner - Shows if today is user's birthday
             if (showBirthdayBanner && birthdayInfo != null) {
                 item {
@@ -768,6 +809,301 @@ fun HomeSectionsContent(
         }
         
     }
+    }
+}
+
+@Composable
+private fun InstantAvailabilitySection(
+    availability: WorkerAvailability,
+    currentLocation: com.example.dutype.models.LocationData?,
+    isSaving: Boolean,
+    error: String?,
+    onToggleAvailability: (Boolean) -> Unit,
+    onSelectRadius: (Double) -> Unit,
+    onToggleCategory: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(if (availability.isAvailable) Color(0xFFDCFCE7) else Color(0xFFF3F4F6), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        tint = if (availability.isAvailable) Color(0xFF16A34A) else Color(0xFF6B7280),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Available now",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = WorkerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = if (availability.isAvailable) {
+                            "Urgent nearby needs will appear first"
+                        } else {
+                            "Turn on to get fast local work"
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    )
+                }
+
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    Switch(
+                        checked = availability.isAvailable,
+                        onCheckedChange = onToggleAvailability,
+                        enabled = currentLocation != null || availability.isAvailable
+                    )
+                }
+            }
+
+            if (currentLocation == null) {
+                Text(
+                    text = "Set your location to receive urgent work nearby.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                )
+            }
+
+            Text(
+                text = "Radius",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(InstantHelpDefaults.radiusOptionsKm) { radius ->
+                    FilterChip(
+                        selected = availability.radiusKm == radius,
+                        onClick = { onSelectRadius(radius) },
+                        label = { Text("${radius.toInt()} km") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFDCFCE7),
+                            selectedLabelColor = Color(0xFF166534)
+                        )
+                    )
+                }
+            }
+
+            Text(
+                text = "Work types",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(InstantHelpDefaults.categories) { category ->
+                    FilterChip(
+                        selected = category in availability.categories,
+                        onClick = { onToggleCategory(category) },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFFEFF6FF),
+                            selectedLabelColor = Color(0xFF1D4ED8)
+                        )
+                    )
+                }
+            }
+
+            if (!error.isNullOrBlank()) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstantRequestSection(
+    requests: List<InstantRequest>,
+    isLoading: Boolean,
+    updatingRequestId: String?,
+    onInterested: (InstantRequest) -> Unit,
+    onBusy: (InstantRequest) -> Unit,
+    onCall: (InstantRequest) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Urgent nearby work",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+        }
+
+        if (!isLoading && requests.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB))
+            ) {
+                Text(
+                    text = "No urgent requests nearby yet. Keep availability on for first alerts.",
+                    modifier = Modifier.padding(14.dp),
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E))
+                )
+            }
+        }
+
+        requests.take(5).forEach { request ->
+            InstantRequestCard(
+                request = request,
+                isUpdating = updatingRequestId == request.requestId,
+                onInterested = { onInterested(request) },
+                onBusy = { onBusy(request) },
+                onCall = { onCall(request) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun InstantRequestCard(
+    request: InstantRequest,
+    isUpdating: Boolean,
+    onInterested: () -> Unit,
+    onBusy: () -> Unit,
+    onCall: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFFFFEDD5), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = request.title,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = WorkerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = buildString {
+                            append(request.category)
+                            request.distanceKm?.let { append(" • %.1f km".format(it)) }
+                            if (request.budgetText.isNotBlank()) append(" • ${request.budgetText}")
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (request.addressText.isNotBlank()) {
+                        Text(
+                            text = request.addressText,
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onBusy,
+                    enabled = !isUpdating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Busy")
+                }
+
+                OutlinedButton(
+                    onClick = onInterested,
+                    enabled = !isUpdating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Interested")
+                }
+
+                Button(
+                    onClick = onCall,
+                    enabled = !isUpdating && request.employerPhone.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    if (isUpdating) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        Text("Call")
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -48,6 +48,7 @@ import com.example.dutype.employer.screens.settings.EmployerAddressManagementScr
 
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.PostJobScreen
+import com.example.dutype.employer.screens.PostUrgentNeedScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
@@ -96,6 +97,7 @@ fun EmployerMainScreen(
         Routes.CONTACT_US,
         Routes.EMPLOYER_NOTIFICATIONS,
         Routes.EMPLOYER_POST_JOB,
+        Routes.EMPLOYER_POST_URGENT_NEED,
         Routes.EMPLOYER_COMPANY_DETAILS,
         Routes.ANALYTICS,
         Routes.EDIT_JOB,
@@ -218,6 +220,9 @@ fun EmployerMainScreen(
                                 currentStatusBarColor = color
                             }
                         )
+                    }
+                    composable(Routes.EMPLOYER_POST_URGENT_NEED) {
+                        PostUrgentNeedScreen(navController = navController)
                     }
                     composable(Routes.EMPLOYER_PROFILE) {
                         EmployerProfileScreen(

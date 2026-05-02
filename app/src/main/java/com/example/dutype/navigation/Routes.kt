@@ -31,6 +31,7 @@ object Routes {
     const val EMPLOYER_DASHBOARD = "dashboard"
     const val EMPLOYER_PROFILE = "employer_profile"
     const val EMPLOYER_POST_JOB = "employer_post_job"
+    const val EMPLOYER_POST_URGENT_NEED = "employer_post_urgent_need"
     const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
     const val EMPLOYER_MY_JOBS = "employer_my_jobs"
     const val EDIT_JOB = "edit_job/{jobId}"
