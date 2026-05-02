@@ -5,7 +5,6 @@ import androidx.compose.runtime.Immutable
 
 object InstantHelpDefaults {
     val categories = listOf("Cook", "Maid", "Helper", "Electrician", "Plumber", "Driver")
-    val defaultWorkerCategories = listOf("Cook", "Maid", "Helper")
     val radiusOptionsKm = listOf(2.0, 5.0, 10.0)
 }
 
@@ -15,8 +14,6 @@ data class WorkerAvailability(
     val workerId: String = "",
     val isAvailable: Boolean = false,
     val status: String = "offline",
-    val categories: List<String> = InstantHelpDefaults.defaultWorkerCategories,
-    val radiusKm: Double = 5.0,
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val geohash: String = "",

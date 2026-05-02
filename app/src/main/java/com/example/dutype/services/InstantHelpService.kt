@@ -1,7 +1,6 @@
 package com.example.dutype.services
 
 import com.example.dutype.firestore.FirestoreCollections
-import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.LocationData
@@ -11,6 +10,7 @@ import com.example.dutype.utils.GeoUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
@@ -42,8 +42,6 @@ class InstantHelpService @Inject constructor(
 
     suspend fun saveWorkerAvailability(
         isAvailable: Boolean,
-        categories: List<String>,
-        radiusKm: Double,
         currentLocation: LocationData?
     ): Result<WorkerAvailability> = withContext(Dispatchers.IO) {
         val workerId = auth.currentUser?.uid
@@ -57,12 +55,6 @@ class InstantHelpService @Inject constructor(
         return@withContext try {
             val now = Timestamp.now()
             val expiresAt = Timestamp(Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L))
-            val normalizedCategories = categories
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .ifEmpty { InstantHelpDefaults.defaultWorkerCategories }
-            val safeRadius = radiusKm.coerceIn(2.0, 10.0)
             val latitude = currentLocation?.latitude ?: 0.0
             val longitude = currentLocation?.longitude ?: 0.0
             val geohash = if (GeoUtils.hasValidCoordinates(latitude, longitude)) {
@@ -75,8 +67,8 @@ class InstantHelpService @Inject constructor(
                 "workerId" to workerId,
                 "isAvailable" to isAvailable,
                 "status" to if (isAvailable) "available" else "offline",
-                "categories" to normalizedCategories,
-                "radiusKm" to safeRadius,
+                "categories" to FieldValue.delete(),
+                "radiusKm" to FieldValue.delete(),
                 "lat" to latitude,
                 "lng" to longitude,
                 "geohash" to geohash,
@@ -106,8 +98,6 @@ class InstantHelpService @Inject constructor(
                     workerId = workerId,
                     isAvailable = isAvailable,
                     status = if (isAvailable) "available" else "offline",
-                    categories = normalizedCategories,
-                    radiusKm = safeRadius,
                     lat = latitude,
                     lng = longitude,
                     geohash = geohash,
@@ -140,7 +130,6 @@ class InstantHelpService @Inject constructor(
                 .get()
                 .await()
 
-            val workerCategories = availability.categories.map { it.lowercase() }.toSet()
             val requests = snapshot.documents
                 .mapNotNull { it.toInstantRequestOrNull() }
                 .filter { it.expiresAt == 0L || it.expiresAt > now }
@@ -152,10 +141,8 @@ class InstantHelpService @Inject constructor(
                         request.lat,
                         request.lng
                     )
-                    val categoryMatches = workerCategories.isEmpty() || request.category.lowercase() in workerCategories
-                    val withinRequestRadius = distance <= request.radiusKm
-                    val withinWorkerRadius = distance <= availability.radiusKm
-                    if (categoryMatches && withinRequestRadius && withinWorkerRadius) {
+                    val requestRadiusKm = request.radiusKm.takeIf { radius -> radius > 0.0 } ?: 5.0
+                    if (distance <= requestRadiusKm) {
                         request.copy(distanceKm = distance)
                     } else {
                         null
@@ -443,8 +430,8 @@ class InstantHelpService @Inject constructor(
         return@withContext try {
             val normalizedStatus = when (action.lowercase()) {
                 "called" -> "called"
-                "busy" -> "busy"
-                else -> "interested"
+                "applied" -> "applied"
+                else -> "applied"
             }
             val now = Timestamp.now()
             val workerDoc = firestore.collection(FirestoreCollections.WORKER_PROFILES)
@@ -498,8 +485,6 @@ class InstantHelpService @Inject constructor(
             workerId = data.getString("workerId").ifBlank { id },
             isAvailable = data["isAvailable"] as? Boolean ?: false,
             status = data.getString("status").ifBlank { "offline" },
-            categories = data.getStringList("categories").ifEmpty { InstantHelpDefaults.defaultWorkerCategories },
-            radiusKm = data.getNumber("radiusKm")?.toDouble() ?: 5.0,
             lat = data.getNumber("lat")?.toDouble() ?: 0.0,
             lng = data.getNumber("lng")?.toDouble() ?: 0.0,
             geohash = data.getString("geohash"),

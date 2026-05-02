@@ -565,13 +565,7 @@ service cloud.firestore {
       function validWorkerAvailabilityValues(data) {
         return data.workerId == request.auth.uid &&
           data.isAvailable is bool &&
-          data.status in ['available', 'busy', 'offline'] &&
-          data.categories is list &&
-          data.categories.size() >= 1 &&
-          data.categories.size() <= 12 &&
-          data.radiusKm is number &&
-          data.radiusKm >= 1 &&
-          data.radiusKm <= 25 &&
+          data.status in ['available', 'offline'] &&
           data.lat is number &&
           data.lat >= -90 && data.lat <= 90 &&
           data.lng is number &&
@@ -588,11 +582,11 @@ service cloud.firestore {
 
       allow create: if isSelf(workerId) &&
         request.resource.data.keys().hasOnly([
-          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'workerId', 'isAvailable', 'status',
           'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'workerId', 'isAvailable', 'status',
           'lat', 'lng', 'availableUntil', 'lastSeenAt', 'updatedAt'
         ]) &&
         validWorkerAvailabilityValues(request.resource.data);
@@ -707,7 +701,7 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)) &&
         get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.status == 'open' &&
         get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.employerId == request.resource.data.employerId &&
-        request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        request.resource.data.status in ['viewed', 'applied', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
         (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
         (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&
         (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
@@ -740,7 +734,7 @@ service cloud.firestore {
           'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt',
           'completionProof', 'failureReason'
         ]) &&
-        request.resource.data.status in ['viewed', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        request.resource.data.status in ['viewed', 'applied', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
         request.resource.data.updatedAt is timestamp &&
         (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
         (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&

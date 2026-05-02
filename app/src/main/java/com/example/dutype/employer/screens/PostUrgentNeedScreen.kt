@@ -150,7 +150,7 @@ fun PostUrgentNeedScreen(
                                 listOf(
                                     "urgent_now" to "Now",
                                     "today" to "Today",
-                                    "scheduled" to "Schedule"
+                                    "scheduled" to "Tomorrow"
                                 )
                             ) { option ->
                                 FilterChip(

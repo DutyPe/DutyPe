@@ -372,7 +372,7 @@ private fun WorkerUrgentHistoryCard(
     val statusColor = when (status) {
         "accepted" -> Color(0xFF2563EB)
         "completed" -> Color(0xFF16A34A)
-        "called", "interested" -> Color(0xFFEA580C)
+        "applied", "called", "interested" -> Color(0xFFEA580C)
         "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }

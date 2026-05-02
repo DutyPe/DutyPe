@@ -2,7 +2,6 @@ package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.LocationData
@@ -114,29 +113,6 @@ class InstantHelpViewModel @Inject constructor(
         )
     }
 
-    fun setWorkerRadius(radiusKm: Double, currentLocation: LocationData?) {
-        val current = _uiState.value.workerAvailability
-        val updated = current.copy(radiusKm = radiusKm)
-        _uiState.update { it.copy(workerAvailability = updated) }
-        if (updated.isAvailable) {
-            saveWorkerAvailability(updated, currentLocation, reloadRequests = true)
-        }
-    }
-
-    fun toggleWorkerCategory(category: String, currentLocation: LocationData?) {
-        val current = _uiState.value.workerAvailability
-        val updatedCategories = if (category in current.categories) {
-            current.categories.filterNot { it == category }.ifEmpty { InstantHelpDefaults.defaultWorkerCategories }
-        } else {
-            (current.categories + category).distinct()
-        }
-        val updated = current.copy(categories = updatedCategories)
-        _uiState.update { it.copy(workerAvailability = updated) }
-        if (updated.isAvailable) {
-            saveWorkerAvailability(updated, currentLocation, reloadRequests = true)
-        }
-    }
-
     fun respondToInstantRequest(request: InstantRequest, action: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             _uiState.update { it.copy(updatingRequestId = request.requestId, error = null) }
@@ -147,9 +123,8 @@ class InstantHelpViewModel @Inject constructor(
                             updatingRequestId = null,
                             instantRequests = state.instantRequests.filterNot { it.requestId == request.requestId },
                             message = when (action.lowercase()) {
-                                "called" -> "Call recorded"
-                                "busy" -> "Marked busy"
-                                else -> "Interest sent"
+                                "called" -> "Contact recorded"
+                                else -> "Applied for urgent work"
                             }
                         )
                     }
@@ -393,8 +368,6 @@ class InstantHelpViewModel @Inject constructor(
             _uiState.update { it.copy(isSavingAvailability = true, error = null) }
             instantHelpService.saveWorkerAvailability(
                 isAvailable = availability.isAvailable,
-                categories = availability.categories,
-                radiusKm = availability.radiusKm,
                 currentLocation = currentLocation
             ).fold(
                 onSuccess = { saved ->

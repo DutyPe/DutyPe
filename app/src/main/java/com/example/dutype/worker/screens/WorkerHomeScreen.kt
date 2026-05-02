@@ -569,30 +569,19 @@ fun WorkerHomeScreen(
                                     workerAvailability = instantHelpState.workerAvailability,
                                     instantRequests = instantHelpState.instantRequests,
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
-                                    isSavingInstantAvailability = instantHelpState.isSavingAvailability,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
-                                    onToggleInstantAvailability = { isAvailable ->
-                                        instantHelpViewModel.setWorkerAvailability(isAvailable, currentLocation)
-                                    },
-                                    onSelectInstantRadius = { radiusKm ->
-                                        instantHelpViewModel.setWorkerRadius(radiusKm, currentLocation)
-                                    },
-                                    onToggleInstantCategory = { category ->
-                                        instantHelpViewModel.toggleWorkerCategory(category, currentLocation)
-                                    },
-                                    onInterestedInstantRequest = { request ->
-                                        instantHelpViewModel.respondToInstantRequest(request, "interested")
-                                    },
-                                    onBusyInstantRequest = { request ->
-                                        instantHelpViewModel.respondToInstantRequest(request, "busy")
+                                    onApplyInstantRequest = { request ->
+                                        instantHelpViewModel.respondToInstantRequest(request, "applied")
                                     },
                                     onCallInstantRequest = { request ->
                                         instantHelpViewModel.respondToInstantRequest(request, "called") {
-                                            val phone = request.employerPhone.filter { it.isDigit() || it == '+' }
-                                            if (phone.isNotBlank()) {
-                                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                                            }
+                                            openWorkerUrgentDialer(context, request.employerPhone)
+                                        }
+                                    },
+                                    onWhatsAppInstantRequest = { request ->
+                                        instantHelpViewModel.respondToInstantRequest(request, "called") {
+                                            openWorkerUrgentWhatsApp(context, request.employerPhone, request.title)
                                         }
                                     },
                                     onAcceptWorkerJobRequest = { request ->
@@ -632,6 +621,11 @@ fun WorkerHomeScreen(
                     locationBarAlpha = locationBarAlpha,
                     isLocationLoading = isLocationLoading || locationLoadingState,
                     unreadNotificationCount = unreadNotificationCount,
+                    isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
+                    isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
+                    onInstantAvailabilityChange = { isAvailable ->
+                        instantHelpViewModel.setWorkerAvailability(isAvailable, currentLocation)
+                    },
                     onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                     onNotificationClick = {
                         currentUser?.uid?.let { userId ->
@@ -662,5 +656,30 @@ fun WorkerHomeScreen(
             },
             userRole = "worker"
         )
+    }
+}
+
+private fun openWorkerUrgentDialer(context: android.content.Context, phone: String) {
+    val normalized = phone.filter { it.isDigit() || it == '+' }
+    if (normalized.isBlank()) return
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$normalized")))
+    }.onFailure {
+        android.widget.Toast.makeText(context, "Unable to open dialer", android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openWorkerUrgentWhatsApp(context: android.content.Context, phone: String, title: String) {
+    val digits = phone.filter { it.isDigit() }
+    if (digits.isBlank()) return
+    val normalized = if (digits.startsWith("91")) digits else "91$digits"
+    val message = java.net.URLEncoder.encode(
+        "Hi, I can help with your DutyPe urgent work: $title",
+        "UTF-8"
+    )
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized?text=$message")))
+    }.onFailure {
+        android.widget.Toast.makeText(context, "Unable to open WhatsApp", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

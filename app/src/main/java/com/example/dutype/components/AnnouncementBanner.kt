@@ -221,39 +221,6 @@ fun AnnouncementCarousel(
             )
         }
         
-        // Page indicators
-        if (announcements.size > 1) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(announcements.size) { index ->
-                    val isSelected = pagerState.currentPage == index
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(
-                                width = if (isSelected) 24.dp else 8.dp,
-                                height = 8.dp
-                            )
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                if (isSelected) 
-                                    MaterialTheme.colorScheme.primary 
-                                else 
-                                    Color.Gray.copy(alpha = 0.3f)
-                            )
-                            .clickable {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            }
-                    )
-                }
-            }
-        }
     }
 }
 

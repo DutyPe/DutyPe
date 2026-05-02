@@ -35,8 +35,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
@@ -114,7 +115,6 @@ import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
-import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.WorkerAvailability
 import com.example.dutype.models.WorkerJobRequest
@@ -500,15 +500,11 @@ fun HomeSectionsContent(
     workerAvailability: WorkerAvailability = WorkerAvailability(),
     instantRequests: List<InstantRequest> = emptyList(),
     updatingInstantRequestId: String? = null,
-    isSavingInstantAvailability: Boolean = false,
     isLoadingInstantRequests: Boolean = false,
     instantHelpError: String? = null,
-    onToggleInstantAvailability: (Boolean) -> Unit = {},
-    onSelectInstantRadius: (Double) -> Unit = {},
-    onToggleInstantCategory: (String) -> Unit = {},
-    onInterestedInstantRequest: (InstantRequest) -> Unit = {},
-    onBusyInstantRequest: (InstantRequest) -> Unit = {},
+    onApplyInstantRequest: (InstantRequest) -> Unit = {},
     onCallInstantRequest: (InstantRequest) -> Unit = {},
+    onWhatsAppInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onRejectWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {}
@@ -604,16 +600,20 @@ fun HomeSectionsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
-            item {
-                InstantAvailabilitySection(
-                    availability = workerAvailability,
-                    currentLocation = currentLocation,
-                    isSaving = isSavingInstantAvailability,
-                    error = instantHelpError,
-                    onToggleAvailability = onToggleInstantAvailability,
-                    onSelectRadius = onSelectInstantRadius,
-                    onToggleCategory = onToggleInstantCategory
-                )
+            if (announcements.isNotEmpty()) {
+                item {
+                    AnnouncementList(
+                        announcements = announcements,
+                        onDismiss = { announcementId ->
+                            onDismissAnnouncement(announcementId)
+                        },
+                        onAction = { announcement ->
+                            announcement.actionRoute?.let { route: String ->
+                                DeepLinkHandler.handleDeepLink(route, navController)
+                            }
+                        }
+                    )
+                }
             }
 
             item {
@@ -623,9 +623,10 @@ fun HomeSectionsContent(
                     hasLocation = currentLocation != null,
                     isLoading = isLoadingInstantRequests,
                     updatingRequestId = updatingInstantRequestId,
-                    onInterested = onInterestedInstantRequest,
-                    onBusy = onBusyInstantRequest,
-                    onCall = onCallInstantRequest
+                    error = instantHelpError,
+                    onApply = onApplyInstantRequest,
+                    onCall = onCallInstantRequest,
+                    onWhatsApp = onWhatsAppInstantRequest
                 )
             }
 
@@ -647,24 +648,6 @@ fun HomeSectionsContent(
                     onAccept = onAcceptWorkerJobRequest,
                     onReject = onRejectWorkerJobRequest,
                     onOpen = onOpenWorkerJobRequest
-                )
-            }
-        }
-        
-        //  In-App Announcements - Feature updates, banners
-        if (announcements.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(12.dp))  // Add top padding so it doesn't touch header
-                AnnouncementList(
-                    announcements = announcements,
-                    onDismiss = { announcementId ->
-                        onDismissAnnouncement(announcementId)
-                    },
-                    onAction = { announcement ->
-                        announcement.actionRoute?.let { route: String ->
-                            DeepLinkHandler.handleDeepLink(route, navController)
-                        }
-                    }
                 )
             }
         }
@@ -814,144 +797,16 @@ fun HomeSectionsContent(
 }
 
 @Composable
-private fun InstantAvailabilitySection(
-    availability: WorkerAvailability,
-    currentLocation: com.example.dutype.models.LocationData?,
-    isSaving: Boolean,
-    error: String?,
-    onToggleAvailability: (Boolean) -> Unit,
-    onSelectRadius: (Double) -> Unit,
-    onToggleCategory: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(if (availability.isAvailable) Color(0xFFDCFCE7) else Color(0xFFF3F4F6), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        tint = if (availability.isAvailable) Color(0xFF16A34A) else Color(0xFF6B7280),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Available now",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = WorkerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Text(
-                        text = if (availability.isAvailable) {
-                            "Urgent nearby needs will appear first"
-                        } else {
-                            "Turn on to get fast local work"
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
-                    )
-                }
-
-                if (isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                } else {
-                    Switch(
-                        checked = availability.isAvailable,
-                        onCheckedChange = onToggleAvailability,
-                        enabled = currentLocation != null || availability.isAvailable
-                    )
-                }
-            }
-
-            if (currentLocation == null) {
-                Text(
-                    text = "Set your location to receive urgent work nearby.",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
-                )
-            }
-
-            Text(
-                text = "Radius",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(InstantHelpDefaults.radiusOptionsKm) { radius ->
-                    FilterChip(
-                        selected = availability.radiusKm == radius,
-                        onClick = { onSelectRadius(radius) },
-                        label = { Text("${radius.toInt()} km") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFDCFCE7),
-                            selectedLabelColor = Color(0xFF166534)
-                        )
-                    )
-                }
-            }
-
-            Text(
-                text = "Work types",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(InstantHelpDefaults.categories) { category ->
-                    FilterChip(
-                        selected = category in availability.categories,
-                        onClick = { onToggleCategory(category) },
-                        label = { Text(category) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFEFF6FF),
-                            selectedLabelColor = Color(0xFF1D4ED8)
-                        )
-                    )
-                }
-            }
-
-            if (!error.isNullOrBlank()) {
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun InstantRequestSection(
     requests: List<InstantRequest>,
     isAvailabilityOn: Boolean,
     hasLocation: Boolean,
     isLoading: Boolean,
     updatingRequestId: String?,
-    onInterested: (InstantRequest) -> Unit,
-    onBusy: (InstantRequest) -> Unit,
-    onCall: (InstantRequest) -> Unit
+    error: String?,
+    onApply: (InstantRequest) -> Unit,
+    onCall: (InstantRequest) -> Unit,
+    onWhatsApp: (InstantRequest) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -973,7 +828,7 @@ private fun InstantRequestSection(
                     )
                 )
                 Text(
-                    text = "Same-day requests appear before normal vacancy jobs",
+                    text = "Turn the header switch on to see live local urgent jobs first",
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -992,9 +847,9 @@ private fun InstantRequestSection(
             ) {
                 Text(
                     text = if (hasLocation) {
-                        "Turn on Available now to receive urgent nearby jobs here."
+                        "Use the switch in the header when you are ready for urgent work."
                     } else {
-                        "Set your location and turn on Available now to receive urgent jobs here."
+                        "Set your location, then use the header switch for urgent work."
                     },
                     modifier = Modifier.padding(14.dp),
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E))
@@ -1014,13 +869,20 @@ private fun InstantRequestSection(
             }
         }
 
+        if (!error.isNullOrBlank()) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+            )
+        }
+
         requests.take(5).forEach { request ->
             InstantRequestCard(
                 request = request,
                 isUpdating = updatingRequestId == request.requestId,
-                onInterested = { onInterested(request) },
-                onBusy = { onBusy(request) },
-                onCall = { onCall(request) }
+                onApply = { onApply(request) },
+                onCall = { onCall(request) },
+                onWhatsApp = { onWhatsApp(request) }
             )
         }
     }
@@ -1030,9 +892,9 @@ private fun InstantRequestSection(
 private fun InstantRequestCard(
     request: InstantRequest,
     isUpdating: Boolean,
-    onInterested: () -> Unit,
-    onBusy: () -> Unit,
-    onCall: () -> Unit
+    onApply: () -> Unit,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1073,16 +935,37 @@ private fun InstantRequestCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = buildString {
-                            append(request.category)
-                            request.distanceKm?.let { append(" • %.1f km".format(it)) }
-                            if (request.budgetText.isNotBlank()) append(" • ${request.budgetText}")
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.background(
+                                color = Color(0xFFFFEDD5),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                        ) {
+                            Text(
+                                text = instantNeedTypeLabel(request.needType),
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF9A3412),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                        Text(
+                            text = buildString {
+                                request.distanceKm?.let { append("%.1f km".format(it)) }
+                                if (request.budgetText.isNotBlank()) {
+                                    if (isNotEmpty()) append(" • ")
+                                    append(request.budgetText)
+                                }
+                                if (isEmpty()) append(request.category)
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                     if (request.addressText.isNotBlank()) {
                         Text(
                             text = request.addressText,
@@ -1094,44 +977,65 @@ private fun InstantRequestCard(
                 }
             }
 
+            if (request.description.isNotBlank()) {
+                Text(
+                    text = request.description,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Button(
+                onClick = onApply,
+                enabled = !isUpdating,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C))
+            ) {
+                if (isUpdating) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                } else {
+                    Text("Apply")
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = onBusy,
-                    enabled = !isUpdating,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Busy")
-                }
-
-                OutlinedButton(
-                    onClick = onInterested,
-                    enabled = !isUpdating,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Interested")
-                }
-
                 Button(
                     onClick = onCall,
-                    enabled = !isUpdating && request.employerPhone.isNotBlank(),
+                    enabled = request.employerPhone.isNotBlank(),
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                 ) {
-                    if (isUpdating) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                    } else {
-                        Text("Call")
-                    }
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Call")
+                }
+
+                OutlinedButton(
+                    onClick = onWhatsApp,
+                    enabled = request.employerPhone.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("WhatsApp", maxLines = 1)
                 }
             }
         }
     }
+}
+
+private fun instantNeedTypeLabel(value: String): String = when (value) {
+    "urgent_now" -> "Now"
+    "today" -> "Today"
+    "scheduled" -> "Tomorrow"
+    else -> "Today"
 }
 
 @Composable
@@ -1670,6 +1574,9 @@ internal fun DynamicHeader(
     locationBarAlpha: Float,
     isLocationLoading: Boolean = false,
     unreadNotificationCount: Int = 0,
+    isInstantAvailable: Boolean = false,
+    isInstantAvailabilitySaving: Boolean = false,
+    onInstantAvailabilityChange: (Boolean) -> Unit = {},
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
@@ -1712,8 +1619,22 @@ internal fun DynamicHeader(
             }
 
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (isInstantAvailabilitySaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Switch(
+                        checked = isInstantAvailable,
+                        onCheckedChange = onInstantAvailabilityChange
+                    )
+                }
+
                 Box {
                     IconButton(
                         onClick = onNotificationClick,

@@ -56,18 +56,6 @@ function timestampMillis(value: unknown): number {
   return 0;
 }
 
-function stringList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
-  }
-  if (typeof value === "string") {
-    return value.split(",").map((item) => item.trim()).filter(Boolean);
-  }
-  return [];
-}
-
 function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRadians = (degrees: number) => degrees * Math.PI / 180;
   const earthRadiusKm = 6371;
@@ -558,7 +546,6 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
       return null;
     }
 
-    const category = String(request.category || "helper").trim().toLowerCase();
     const requestRadius = Math.max(1, Math.min(25, Number(request.radiusKm) || 5));
     const availabilitySnap = await db.collection("worker_availability")
       .where("isAvailable", "==", true)
@@ -575,13 +562,8 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
         const availableUntilMs = timestampMillis(availability.availableUntil);
         if (availableUntilMs > 0 && availableUntilMs <= nowMs) return null;
 
-        const workerCategories = stringList(availability.categories).map((item) => item.toLowerCase());
-        const categoryMatches = workerCategories.length === 0 || workerCategories.includes(category);
-        if (!categoryMatches) return null;
-
-        const workerRadius = Math.max(1, Math.min(25, Number(availability.radiusKm) || 5));
         const distance = distanceKm(requestLat, requestLng, workerLat, workerLng);
-        if (distance > requestRadius || distance > workerRadius) return null;
+        if (distance > requestRadius) return null;
 
         const workerId = String(availability.workerId || doc.id);
         if (!workerId || workerId === String(request.employerId || "")) return null;
@@ -684,7 +666,7 @@ export const syncInstantResponseMetrics = functions.firestore
       tx.set(requestRef, updates, { merge: true });
     });
 
-    if (!before && ["interested", "called"].includes(afterStatus)) {
+    if (!before && ["applied", "interested", "called"].includes(afterStatus)) {
       await db.collection("notifications").doc(`instant_response_${responseId}`).set({
         recipientId: employerId,
         title: "Worker responded",

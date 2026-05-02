@@ -523,7 +523,7 @@ private fun InstantResponseRow(
     onRateResponse: (InstantResponse) -> Unit
 ) {
     val status = response.status.lowercase(Locale.ROOT)
-    val canSelect = status in setOf("viewed", "interested", "called")
+    val canSelect = status in setOf("viewed", "applied", "interested", "called")
     val canComplete = status == "accepted"
     val canRate = status == "completed" && !hasAlreadyRated
 
@@ -693,7 +693,7 @@ private fun UrgentStatusBadge(status: String) {
 private fun ResponseStatusBadge(status: String) {
     val normalized = status.lowercase(Locale.ROOT)
     val color = when (normalized) {
-        "interested", "called" -> Color(0xFFEA580C)
+        "applied", "interested", "called" -> Color(0xFFEA580C)
         "accepted" -> Color(0xFF2563EB)
         "completed" -> Color(0xFF16A34A)
         "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
@@ -749,6 +749,6 @@ private fun InfoPill(icon: ImageVector, text: String) {
 private fun needTypeLabel(value: String): String = when (value) {
     "urgent_now" -> "Now"
     "today" -> "Today"
-    "scheduled" -> "Scheduled"
+    "scheduled" -> "Tomorrow"
     else -> "Urgent"
 }
