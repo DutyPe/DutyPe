@@ -5,8 +5,6 @@
   "main": "seed-jobs.js",
   "scripts": {
     "seed": "node seed-jobs.js",
-    "scrape:apna-hyderabad": "node scrape-apna-hyderabad-jobs.js",
-    "scrape:apna-multicity": "node scrape-apna-multicity-jobs.js",
     "scrape:jobhai-public": "node scrape-jobhai-public-jobs.js",
     "scrape:workindia-public": "node scrape-workindia-public-jobs.js",
     "import:online-jobs": "node import-online-jobs.js",
