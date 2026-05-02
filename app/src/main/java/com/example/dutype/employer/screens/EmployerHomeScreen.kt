@@ -87,6 +87,7 @@ import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.employer.models.JobStats
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -143,6 +144,7 @@ fun EmployerHomeScreen(
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     
     // NotificationService for unread count (lightweight)
     val notificationService = remember { 
@@ -153,6 +155,7 @@ fun EmployerHomeScreen(
     }
     val employerJobUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     
     // Announcement ViewModel for in-app announcements
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
@@ -200,6 +203,7 @@ fun EmployerHomeScreen(
         if (employerId != null) {
             Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
             viewModel.loadMyJobs()
+            instantHelpViewModel.loadEmployerUrgentNeeds()
         } else {
             Timber.w("EMPLOYER_HOME: No employerId - user not authenticated")
         }
@@ -379,6 +383,7 @@ fun EmployerHomeScreen(
             onRefresh = {
                 // Refresh all data sources
                 viewModel.refreshMyJobs()
+                instantHelpViewModel.loadEmployerUrgentNeeds()
                 announcementViewModel.loadAnnouncements("EMPLOYER") // Refresh announcements for employers
             },
             state = pullToRefreshState,
@@ -394,7 +399,10 @@ fun EmployerHomeScreen(
                 scrollStateManager = scrollStateManager,
                 onShareJob = handleJobShare,
                 context = context,
-                applicationCountsByJobId = employerJobUiState.applicationCountsByJobId
+                applicationCountsByJobId = employerJobUiState.applicationCountsByJobId,
+                urgentRequests = instantHelpState.employerInstantRequests,
+                urgentResponsesByRequestId = instantHelpState.employerInstantResponses,
+                isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds
             )
         }
 
@@ -462,6 +470,9 @@ fun DashboardContent(
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     applicationCountsByJobId: Map<String, Int> = emptyMap(),
+    urgentRequests: List<com.example.dutype.models.InstantRequest> = emptyList(),
+    urgentResponsesByRequestId: Map<String, List<com.example.dutype.models.InstantResponse>> = emptyMap(),
+    isLoadingUrgentRequests: Boolean = false,
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -488,6 +499,16 @@ fun DashboardContent(
                 UrgentNeedCtaCard(
                     onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
                     onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                )
+            }
+
+            item {
+                EmployerUrgentNeedSummarySection(
+                    requests = urgentRequests,
+                    responsesByRequestId = urgentResponsesByRequestId,
+                    isLoading = isLoadingUrgentRequests,
+                    onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
+                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
                 )
             }
 

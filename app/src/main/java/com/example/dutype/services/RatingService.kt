@@ -46,6 +46,7 @@ class RatingService @Inject constructor(
     companion object {
         const val RATINGS_COLLECTION = "ratings"
         const val APPLICATIONS_COLLECTION = "applications"
+        const val INSTANT_RESPONSES_COLLECTION = "instant_responses"
         const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         const val WORKER_PROFILES_COLLECTION = "worker_profiles"
     }
@@ -126,6 +127,30 @@ class RatingService @Inject constructor(
             }
             if (targetUserId == employerId) {
                 return companyName.ifBlank { "Employer" } to companyName
+            }
+        }
+
+        val candidateInstantResponseIds = listOf(
+            "${jobId}_${currentUserId}",
+            "${jobId}_${targetUserId}"
+        ).distinct()
+
+        for (responseId in candidateInstantResponseIds) {
+            val responseDoc = runCatching {
+                firestore.collection(INSTANT_RESPONSES_COLLECTION).document(responseId).get().await()
+            }.getOrNull() ?: continue
+
+            if (!responseDoc.exists()) continue
+
+            val workerId = responseDoc.getString("workerId").orEmpty()
+            val employerId = responseDoc.getString("employerId").orEmpty()
+            val workerName = responseDoc.getString("workerName").orEmpty().trim()
+
+            if (targetUserId == workerId) {
+                return workerName.ifBlank { "Worker" } to ""
+            }
+            if (targetUserId == employerId) {
+                return "Employer" to ""
             }
         }
 

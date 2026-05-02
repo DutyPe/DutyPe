@@ -607,7 +607,7 @@ export const matchWorkersForJob = onCallSecured(
       workersSnap = await db().collection("worker_profiles").limit(500).get();
     }
 
-    const matchedWorkers = workersSnap.docs
+    const rankedWorkers = workersSnap.docs
       .map((doc) => {
         const worker = (doc.data() || {}) as Record<string, any>;
         const scoring = scoreWorkerForJob(doc.id, worker, job, details);
@@ -631,14 +631,27 @@ export const matchWorkersForJob = onCallSecured(
           requestStatus,
         };
       })
-      .filter((worker) => worker.matchScore >= 20 || worker.requestStatus)
       .sort((a, b) => {
         if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
         const aDistance = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
         const bDistance = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
         return aDistance - bDistance;
-      })
-      .slice(0, 50);
+      });
+
+    const strongMatches = rankedWorkers.filter((worker) => worker.matchScore >= 20 || worker.requestStatus);
+    const selectedWorkerIds = new Set(strongMatches.map((worker) => worker.workerId));
+    const fallbackProfiles = rankedWorkers
+      .filter((worker) => !selectedWorkerIds.has(worker.workerId))
+      .filter((worker) => worker.workerId !== uid)
+      .filter((worker) => worker.fullName !== "Worker" || worker.skills.length > 0 || worker.profileImageUrl)
+      .slice(0, Math.max(0, 20 - strongMatches.length))
+      .map((worker) => ({
+        ...worker,
+        matchScore: Math.max(worker.matchScore, 5),
+        matchReasons: worker.matchReasons.length > 0 ? worker.matchReasons : ["Worker profile available"],
+      }));
+
+    const matchedWorkers = [...strongMatches, ...fallbackProfiles].slice(0, 50);
 
     return { success: true, workers: matchedWorkers };
   }
@@ -676,7 +689,7 @@ export const requestWorkerForJob = onCallSecured(
     const worker = (workerSnap.data() || {}) as Record<string, any>;
     const employer = (employerSnap.data() || {}) as Record<string, any>;
     const scoring = scoreWorkerForJob(workerId, worker, job, details);
-    if (scoring.score < 10) {
+    if (scoring.score < 5) {
       throw new functions.https.HttpsError("failed-precondition", "Worker is not a strong fit for this job");
     }
 

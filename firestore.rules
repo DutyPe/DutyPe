@@ -726,6 +726,20 @@ service cloud.firestore {
         (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
 
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.requestId == resource.data.requestId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.responseId == resource.data.responseId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedAt', 'completedAt', 'updatedAt'
+        ]) &&
+        request.resource.data.status in ['accepted', 'completed', 'rejected', 'no_show'] &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp);
+
       allow delete: if false;
     }
 
@@ -809,6 +823,18 @@ service cloud.firestore {
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId
+          ) ||
+          (
+            exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status == 'completed' &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.workerId == request.resource.data.fromUserId &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId
+          ) ||
+          (
+            exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status == 'completed' &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId
           )
         );
 

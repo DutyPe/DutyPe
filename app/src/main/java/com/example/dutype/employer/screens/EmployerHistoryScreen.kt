@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,6 +23,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,14 +34,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.RatingBottomSheet
+import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.InstantHelpViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,24 +53,86 @@ fun EmployerHistoryScreen(
     navController: NavController,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
+    val context = LocalContext.current
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val uiState by employerJobViewModel.uiState.collectAsStateWithLifecycle()
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val ratingService = remember {
+        com.example.dutype.services.RatingService(
+            com.example.dutype.di.firestoreFromHilt(context),
+            com.example.dutype.di.authFromHilt(context)
+        )
+    }
     
     var selectedTab by remember { mutableIntStateOf(0) }
+    val urgentTabIndex = 4
     val tabs = listOf(
         stringResource(R.string.tab_timeline),
         stringResource(R.string.tab_active),
         stringResource(R.string.tab_expired),
-        stringResource(R.string.tab_all_jobs)
+        stringResource(R.string.tab_all_jobs),
+        "Urgent"
     )
+    var pendingRatingResponse by remember { mutableStateOf<InstantResponse?>(null) }
+    var showRatingSheet by remember { mutableStateOf(false) }
+    var ratedResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         try {
             employerJobViewModel.loadMyJobs()
+            instantHelpViewModel.loadEmployerUrgentNeeds()
         } catch (e: Exception) {
             timber.log.Timber.e(e, "Error loading jobs in EmployerHistoryScreen")
         }
+    }
+
+    LaunchedEffect(instantHelpState.employerInstantResponses) {
+        val completedResponses = instantHelpState.employerInstantResponses.values
+            .flatten()
+            .filter { it.status.equals("completed", ignoreCase = true) }
+        ratedResponseIds = completedResponses.mapNotNull { response ->
+            if (ratingService.hasRated(response.requestId, response.workerId)) response.responseId else null
+        }.toSet()
+    }
+
+    if (showRatingSheet && pendingRatingResponse != null) {
+        RatingBottomSheet(
+            isVisible = showRatingSheet,
+            targetName = pendingRatingResponse!!.workerName.ifBlank { "this worker" },
+            targetRole = "WORKER",
+            onDismiss = {
+                showRatingSheet = false
+                pendingRatingResponse = null
+            },
+            onSubmit = { rating, review, tags ->
+                pendingRatingResponse?.let { response ->
+                    scope.launch {
+                        ratingService.submitRating(
+                            jobId = response.requestId,
+                            targetUserId = response.workerId,
+                            rating = rating,
+                            review = review,
+                            tags = tags
+                        ).fold(
+                            onSuccess = { result ->
+                                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                                if (result.success) {
+                                    ratedResponseIds = ratedResponseIds + response.responseId
+                                    showRatingSheet = false
+                                    pendingRatingResponse = null
+                                }
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
+            }
+        )
     }
 
     val currentTime = System.currentTimeMillis()
@@ -142,7 +212,27 @@ fun EmployerHistoryScreen(
         }
         
         // Content
-        when {
+        if (selectedTab == urgentTabIndex) {
+            EmployerUrgentNeedHistoryContent(
+                requests = instantHelpState.employerInstantRequests,
+                responsesByRequestId = instantHelpState.employerInstantResponses,
+                isLoading = instantHelpState.isLoadingEmployerUrgentNeeds,
+                updatingResponseId = instantHelpState.updatingEmployerResponseId,
+                ratedResponseIds = ratedResponseIds,
+                onCallWorker = { phone ->
+                    if (phone.isNotBlank()) {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    }
+                },
+                onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
+                onCompleteResponse = { response -> instantHelpViewModel.completeEmployerInstantResponse(response) },
+                onRateResponse = { response ->
+                    pendingRatingResponse = response
+                    showRatingSheet = true
+                },
+                onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+            )
+        } else when {
             uiState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),

@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
@@ -99,6 +100,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -1203,6 +1205,12 @@ fun PostJobScreen(
                         // a tall empty band at the top.
                     }
 
+                    if (currentStep == 0) item {
+                        PostingTypeChoiceCard(
+                            onUrgentNeedClick = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                        )
+                    }
+
                     // Group 1: Job Details (title, work type, description, image) � STEP 0
                     if (currentStep == 0) item {
                         StudioGroupCard(
@@ -2244,6 +2252,100 @@ fun PolishedCard(
 }
 
 // Enhanced UI Components for Hyper-Local Jobs
+
+@Composable
+private fun PostingTypeChoiceCard(
+    onUrgentNeedClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Choose posting type",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = "Use urgent need for same-day help. Use vacancy job for hiring one or more workers.",
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PostingTypeOption(
+                    title = "Vacancy job",
+                    subtitle = "Applications and hiring",
+                    icon = Icons.Default.Work,
+                    selected = true,
+                    modifier = Modifier.weight(1f)
+                )
+                PostingTypeOption(
+                    title = "Urgent need",
+                    subtitle = "Nearby workers today",
+                    icon = Icons.Default.Schedule,
+                    selected = false,
+                    onClick = onUrgentNeedClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PostingTypeOption(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    val borderColor = if (selected) Color(0xFF2563EB) else Color(0xFFE2E8F0)
+    val background = if (selected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC)
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(background)
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (selected) Color(0xFF2563EB) else Color(0xFFEA580C),
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = Color(0xFF0F172A),
+                fontWeight = FontWeight.Bold
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
 /**
  * Studio-style group card used by the redesigned Post Job flow.

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
@@ -72,34 +73,14 @@ fun PostUrgentNeedScreen(
             .fillMaxSize()
             .background(EmployerColors.ScreenBackground)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            IconButton(onClick = { navController.popBackStack() }) {
-                Icon(Icons.Default.Close, contentDescription = "Close")
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Post urgent need",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = EmployerColors.TextPrimary
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Nearby available workers can respond fast",
-                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
+        CommonHeader(
+            title = "Post urgent need",
+            navController = navController,
+            subtitle = "For same-day local help",
+            backgroundColor = EmployerColors.ScreenBackground,
+            titleColor = EmployerColors.TextPrimary,
+            subtitleColor = EmployerColors.TextSecondary
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -117,11 +98,19 @@ fun PostUrgentNeedScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        Text(
+                            text = "Quick request details",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = EmployerColors.TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            label = { Text("What do you need?") },
-                            placeholder = { Text("Need cook for 2 hours") },
+                            label = { Text("Work needed") },
+                            placeholder = { Text("Cook needed for 2 hours") },
                             leadingIcon = { Icon(Icons.Default.Work, contentDescription = null) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -161,7 +150,7 @@ fun PostUrgentNeedScreen(
                                 listOf(
                                     "urgent_now" to "Now",
                                     "today" to "Today",
-                                    "scheduled" to "Tomorrow"
+                                    "scheduled" to "Schedule"
                                 )
                             ) { option ->
                                 FilterChip(
@@ -183,7 +172,7 @@ fun PostUrgentNeedScreen(
                             value = budgetText,
                             onValueChange = { budgetText = it },
                             label = { Text("Budget") },
-                            placeholder = { Text("Rs 500, negotiable, hourly") },
+                            placeholder = { Text("Rs 500, hourly, negotiable") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp)
@@ -213,8 +202,8 @@ fun PostUrgentNeedScreen(
                         OutlinedTextField(
                             value = notes,
                             onValueChange = { notes = it },
-                            label = { Text("Notes") },
-                            placeholder = { Text("Timing, work details, landmark") },
+                            label = { Text("Work details") },
+                            placeholder = { Text("Timing, exact work, landmark") },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3,
                             shape = RoundedCornerShape(14.dp)

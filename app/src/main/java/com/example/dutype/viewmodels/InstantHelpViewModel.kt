@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.InstantRequest
+import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.LocationData
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.models.WorkerAvailability
@@ -19,10 +20,14 @@ import javax.inject.Inject
 data class InstantHelpUiState(
     val workerAvailability: WorkerAvailability = WorkerAvailability(),
     val instantRequests: List<InstantRequest> = emptyList(),
+    val employerInstantRequests: List<InstantRequest> = emptyList(),
+    val employerInstantResponses: Map<String, List<InstantResponse>> = emptyMap(),
     val isLoadingAvailability: Boolean = false,
     val isSavingAvailability: Boolean = false,
     val isLoadingRequests: Boolean = false,
+    val isLoadingEmployerUrgentNeeds: Boolean = false,
     val updatingRequestId: String? = null,
+    val updatingEmployerResponseId: String? = null,
     val isPostingUrgentNeed: Boolean = false,
     val postedRequestId: String? = null,
     val error: String? = null,
@@ -185,8 +190,103 @@ class InstantHelpViewModel @Inject constructor(
         }
     }
 
+    fun loadEmployerUrgentNeeds() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingEmployerUrgentNeeds = true, error = null) }
+
+            val requestsResult = instantHelpService.getEmployerInstantRequests()
+            val responsesResult = instantHelpService.getEmployerInstantResponses()
+
+            val requests = requestsResult.getOrElse { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingEmployerUrgentNeeds = false,
+                        error = error.message ?: "Failed to load urgent needs"
+                    )
+                }
+                return@launch
+            }
+            val responses = responsesResult.getOrElse { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoadingEmployerUrgentNeeds = false,
+                        error = error.message ?: "Failed to load urgent responses"
+                    )
+                }
+                return@launch
+            }
+
+            _uiState.update {
+                it.copy(
+                    employerInstantRequests = requests,
+                    employerInstantResponses = responses.groupBy { response -> response.requestId },
+                    isLoadingEmployerUrgentNeeds = false,
+                    error = null
+                )
+            }
+        }
+    }
+
+    fun acceptEmployerInstantResponse(response: InstantResponse) {
+        updateEmployerInstantResponse(response, "accepted")
+    }
+
+    fun completeEmployerInstantResponse(response: InstantResponse) {
+        updateEmployerInstantResponse(response, "completed")
+    }
+
     fun clearInstantHelpMessage() {
         _uiState.update { it.copy(error = null, message = null) }
+    }
+
+    private fun updateEmployerInstantResponse(response: InstantResponse, status: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(updatingEmployerResponseId = response.responseId, error = null) }
+            instantHelpService.updateEmployerInstantResponseStatus(response, status).fold(
+                onSuccess = {
+                    _uiState.update { state ->
+                        val updatedResponses = state.employerInstantResponses.mapValues { entry ->
+                            entry.value.map { item ->
+                                if (item.responseId == response.responseId) {
+                                    item.copy(
+                                        status = status,
+                                        updatedAt = System.currentTimeMillis(),
+                                        acceptedAt = if (status == "accepted") System.currentTimeMillis() else item.acceptedAt,
+                                        completedAt = if (status == "completed") System.currentTimeMillis() else item.completedAt
+                                    )
+                                } else {
+                                    item
+                                }
+                            }
+                        }
+                        state.copy(
+                            updatingEmployerResponseId = null,
+                            employerInstantResponses = updatedResponses,
+                            employerInstantRequests = state.employerInstantRequests.map { request ->
+                                if (request.requestId == response.requestId) {
+                                    request.copy(
+                                        status = "filled",
+                                        selectedWorkerId = response.workerId,
+                                        completedAt = if (status == "completed") System.currentTimeMillis() else request.completedAt
+                                    )
+                                } else {
+                                    request
+                                }
+                            },
+                            message = if (status == "completed") "Urgent work marked done" else "Worker selected"
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            updatingEmployerResponseId = null,
+                            error = error.message ?: "Failed to update urgent response"
+                        )
+                    }
+                }
+            )
+        }
     }
 
     private fun saveWorkerAvailability(

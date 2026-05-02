@@ -3,6 +3,7 @@ package com.example.dutype.services
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.InstantRequest
+import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.LocationData
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.models.WorkerAvailability
@@ -236,6 +237,105 @@ class InstantHelpService @Inject constructor(
         }
     }
 
+    suspend fun getEmployerInstantRequests(): Result<List<InstantRequest>> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+
+        return@withContext try {
+            val snapshot = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
+                .whereEqualTo("employerId", employerId)
+                .limit(50)
+                .get()
+                .await()
+
+            val requests = snapshot.documents
+                .mapNotNull { it.toInstantRequestOrNull() }
+                .sortedByDescending { it.createdAt }
+
+            Result.success(requests)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun getEmployerInstantResponses(): Result<List<InstantResponse>> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+
+        return@withContext try {
+            val snapshot = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
+                .whereEqualTo("employerId", employerId)
+                .limit(100)
+                .get()
+                .await()
+
+            val responses = snapshot.documents
+                .mapNotNull { it.toInstantResponseOrNull() }
+                .sortedByDescending { it.updatedAt.ifBlankTimestamp(it.createdAt) }
+
+            Result.success(responses)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun updateEmployerInstantResponseStatus(
+        response: InstantResponse,
+        status: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+        if (response.employerId != employerId) {
+            return@withContext Result.failure(IllegalStateException("This urgent response is not yours"))
+        }
+
+        return@withContext try {
+            val normalizedStatus = when (status.lowercase()) {
+                "completed" -> "completed"
+                else -> "accepted"
+            }
+            val now = Timestamp.now()
+            val responseUpdates = mutableMapOf<String, Any>(
+                "status" to normalizedStatus,
+                "updatedAt" to now
+            )
+            if (normalizedStatus == "accepted") {
+                responseUpdates["acceptedAt"] = now
+            }
+            if (normalizedStatus == "completed") {
+                responseUpdates["completedAt"] = now
+            }
+
+            firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
+                .document(response.responseId)
+                .set(responseUpdates, SetOptions.merge())
+                .await()
+
+            val requestUpdates = mutableMapOf<String, Any>(
+                "status" to "filled",
+                "selectedWorkerId" to response.workerId
+            )
+            if (normalizedStatus == "completed") {
+                requestUpdates["completedAt"] = now
+            }
+
+            firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
+                .document(response.requestId)
+                .set(requestUpdates, SetOptions.merge())
+                .await()
+
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     suspend fun respondToInstantRequest(request: InstantRequest, action: String): Result<Unit> = withContext(Dispatchers.IO) {
         val workerId = auth.currentUser?.uid
         if (workerId.isNullOrBlank()) {
@@ -334,6 +434,28 @@ class InstantHelpService @Inject constructor(
         )
     }
 
+    private fun DocumentSnapshot.toInstantResponseOrNull(): InstantResponse? {
+        val data = data ?: return null
+        return InstantResponse(
+            responseId = data.getString("responseId").ifBlank { id },
+            requestId = data.getString("requestId"),
+            workerId = data.getString("workerId"),
+            employerId = data.getString("employerId"),
+            workerName = data.getString("workerName").ifBlank { "Worker" },
+            workerPhone = data.getString("workerPhone"),
+            workerSkills = data.getStringList("workerSkills"),
+            distanceKm = data.getNumber("distanceKm")?.toDouble(),
+            status = data.getString("status").ifBlank { "viewed" },
+            createdAt = data.getMillis("createdAt"),
+            viewedAt = data.getMillis("viewedAt"),
+            respondedAt = data.getMillis("respondedAt"),
+            calledAt = data.getMillis("calledAt"),
+            acceptedAt = data.getMillis("acceptedAt"),
+            completedAt = data.getMillis("completedAt"),
+            updatedAt = data.getMillis("updatedAt")
+        )
+    }
+
     private fun Map<*, *>.getString(key: String): String = this[key]?.toString()?.trim().orEmpty()
 
     private fun Map<*, *>.getNumber(key: String): Number? = this[key] as? Number
@@ -351,4 +473,6 @@ class InstantHelpService @Inject constructor(
             else -> 0L
         }
     }
+
+    private fun Long.ifBlankTimestamp(fallback: Long): Long = if (this > 0L) this else fallback
 }

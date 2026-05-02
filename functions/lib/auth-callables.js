@@ -488,7 +488,7 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
         functions.logger.warn("matchWorkersForJob role query failed, falling back", e);
         workersSnap = await db().collection("worker_profiles").limit(500).get();
     }
-    const matchedWorkers = workersSnap.docs
+    const rankedWorkers = workersSnap.docs
         .map((doc) => {
         var _a, _b, _c, _d;
         const worker = (doc.data() || {});
@@ -513,7 +513,6 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
             requestStatus,
         };
     })
-        .filter((worker) => worker.matchScore >= 20 || worker.requestStatus)
         .sort((a, b) => {
         var _a, _b;
         if (b.matchScore !== a.matchScore)
@@ -521,8 +520,16 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
         const aDistance = (_a = a.distanceKm) !== null && _a !== void 0 ? _a : Number.MAX_SAFE_INTEGER;
         const bDistance = (_b = b.distanceKm) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER;
         return aDistance - bDistance;
-    })
-        .slice(0, 50);
+    });
+    const strongMatches = rankedWorkers.filter((worker) => worker.matchScore >= 20 || worker.requestStatus);
+    const selectedWorkerIds = new Set(strongMatches.map((worker) => worker.workerId));
+    const fallbackProfiles = rankedWorkers
+        .filter((worker) => !selectedWorkerIds.has(worker.workerId))
+        .filter((worker) => worker.workerId !== uid)
+        .filter((worker) => worker.fullName !== "Worker" || worker.skills.length > 0 || worker.profileImageUrl)
+        .slice(0, Math.max(0, 20 - strongMatches.length))
+        .map((worker) => (Object.assign(Object.assign({}, worker), { matchScore: Math.max(worker.matchScore, 5), matchReasons: worker.matchReasons.length > 0 ? worker.matchReasons : ["Worker profile available"] })));
+    const matchedWorkers = [...strongMatches, ...fallbackProfiles].slice(0, 50);
     return { success: true, workers: matchedWorkers };
 });
 exports.requestWorkerForJob = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (data, context) => {
@@ -554,7 +561,7 @@ exports.requestWorkerForJob = (0, secure_callable_1.onCallSecured)({ enforceAppC
     const worker = (workerSnap.data() || {});
     const employer = (employerSnap.data() || {});
     const scoring = scoreWorkerForJob(workerId, worker, job, details);
-    if (scoring.score < 10) {
+    if (scoring.score < 5) {
         throw new functions.https.HttpsError("failed-precondition", "Worker is not a strong fit for this job");
     }
     const requestId = `${jobId}_${workerId}`;

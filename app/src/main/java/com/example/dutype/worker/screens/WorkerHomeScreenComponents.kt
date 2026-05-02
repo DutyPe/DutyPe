@@ -616,17 +616,17 @@ fun HomeSectionsContent(
                 )
             }
 
-            if (workerAvailability.isAvailable) {
-                item {
-                    InstantRequestSection(
-                        requests = instantRequests,
-                        isLoading = isLoadingInstantRequests,
-                        updatingRequestId = updatingInstantRequestId,
-                        onInterested = onInterestedInstantRequest,
-                        onBusy = onBusyInstantRequest,
-                        onCall = onCallInstantRequest
-                    )
-                }
+            item {
+                InstantRequestSection(
+                    requests = instantRequests,
+                    isAvailabilityOn = workerAvailability.isAvailable,
+                    hasLocation = currentLocation != null,
+                    isLoading = isLoadingInstantRequests,
+                    updatingRequestId = updatingInstantRequestId,
+                    onInterested = onInterestedInstantRequest,
+                    onBusy = onBusyInstantRequest,
+                    onCall = onCallInstantRequest
+                )
             }
 
             //  Birthday Banner - Shows if today is user's birthday
@@ -789,6 +789,7 @@ fun HomeSectionsContent(
                         savedJobsViewModel = savedJobsViewModel,
                         onNavigateToJob = onNavigateToJob,
                         sectionTitle = when {
+                            workerAvailability.isAvailable -> "Normal vacancy jobs"
                             userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
                             skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
                             else -> null
@@ -944,6 +945,8 @@ private fun InstantAvailabilitySection(
 @Composable
 private fun InstantRequestSection(
     requests: List<InstantRequest>,
+    isAvailabilityOn: Boolean,
+    hasLocation: Boolean,
     isLoading: Boolean,
     updatingRequestId: String?,
     onInterested: (InstantRequest) -> Unit,
@@ -961,19 +964,43 @@ private fun InstantRequestSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Urgent nearby work",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.Bold
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Priority urgent work",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = WorkerColors.TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
-            )
+                Text(
+                    text = "Same-day requests appear before normal vacancy jobs",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
             }
         }
 
-        if (!isLoading && requests.isEmpty()) {
+        if (!isAvailabilityOn) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB))
+            ) {
+                Text(
+                    text = if (hasLocation) {
+                        "Turn on Available now to receive urgent nearby jobs here."
+                    } else {
+                        "Set your location and turn on Available now to receive urgent jobs here."
+                    },
+                    modifier = Modifier.padding(14.dp),
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E))
+                )
+            }
+        } else if (!isLoading && requests.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
