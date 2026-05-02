@@ -383,7 +383,7 @@ dependencies {
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // P1 FIX: Image loading with WebP support (30% smaller images)
     implementation("io.coil-kt:coil-compose:2.4.0")
@@ -392,7 +392,7 @@ dependencies {
     // Compose and Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") 
     
-    implementation("androidx.compose.animation:animation:1.6.0")
+    implementation("androidx.compose.animation:animation")
 
     // Accompanist libraries - Only keep what's needed
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
