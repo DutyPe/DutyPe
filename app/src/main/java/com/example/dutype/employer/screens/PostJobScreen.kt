@@ -125,6 +125,7 @@ import com.example.dutype.utils.PayRateValidationResult
 import com.example.dutype.utils.ValidationResult
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -160,6 +161,7 @@ fun PostJobScreen(
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     
     // Saved work locations quick-pick (process-scoped, in-memory)
     val savedWorkLocationsStore = jobViewModel.savedWorkLocationsStore
@@ -880,6 +882,7 @@ fun PostJobScreen(
     //   1 ? Pay & where   (compensation + location)
     //   2 ? Requirements & contact (people, schedule, perks, contact, review)
     var currentStep by remember { mutableIntStateOf(0) }
+    var postingMode by remember { mutableStateOf("vacancy") }
     val totalSteps = 3
     // Per-step Next gate. Mirrors the publish checklist but scoped to
     // the fields that live on each step so the user isn't stuck on a
@@ -1135,26 +1138,28 @@ fun PostJobScreen(
             // step 0   ? [Next]
             // step 1   ? [Back] [Next]
             // step 2   ? [Back] [Post job]
-            PostJobStepNavBar(
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                canAdvance = canAdvanceFromStep(currentStep),
-                publishEnabled = publishEnabled,
-                isPublishing = employerJobUiState.isCreatingJob || isSubmittingJob,
-                onBack = {
-                    if (currentStep > 0) {
-                        currentStep -= 1
-                        scope.launch { listState.scrollToItem(0) }
-                    }
-                },
-                onNext = {
-                    if (currentStep < totalSteps - 1) {
-                        currentStep += 1
-                        scope.launch { listState.scrollToItem(0) }
-                    }
-                },
-                onPublish = { attemptPublishJob() }
-            )
+            if (postingMode == "vacancy") {
+                PostJobStepNavBar(
+                    currentStep = currentStep,
+                    totalSteps = totalSteps,
+                    canAdvance = canAdvanceFromStep(currentStep),
+                    publishEnabled = publishEnabled,
+                    isPublishing = employerJobUiState.isCreatingJob || isSubmittingJob,
+                    onBack = {
+                        if (currentStep > 0) {
+                            currentStep -= 1
+                            scope.launch { listState.scrollToItem(0) }
+                        }
+                    },
+                    onNext = {
+                        if (currentStep < totalSteps - 1) {
+                            currentStep += 1
+                            scope.launch { listState.scrollToItem(0) }
+                        }
+                    },
+                    onPublish = { attemptPublishJob() }
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -1178,6 +1183,17 @@ fun PostJobScreen(
                     titleColor = Color(0xFF0F172A)
                 )
 
+                PostingTypeChoiceCard(
+                    selectedType = postingMode,
+                    onVacancyClick = {
+                        postingMode = "vacancy"
+                        currentStep = 0
+                    },
+                    onUrgentNeedClick = { postingMode = "urgent" },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                if (postingMode == "vacancy") {
                 // Apr 2026: top stepper indicator (3 numbered steps).
                 PostJobTopStepper(
                     currentStep = currentStep,
@@ -1203,12 +1219,6 @@ fun PostJobScreen(
                         // Apr 2026: removed leading spacer so step content
                         // starts right under the stepper instead of leaving
                         // a tall empty band at the top.
-                    }
-
-                    if (currentStep == 0) item {
-                        PostingTypeChoiceCard(
-                            onUrgentNeedClick = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-                        )
                     }
 
                     // Group 1: Job Details (title, work type, description, image) � STEP 0
@@ -1453,6 +1463,22 @@ fun PostJobScreen(
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
+                }
+                } else {
+                    PostUrgentNeedContent(
+                        viewModel = instantHelpViewModel,
+                        onPosted = { requestId ->
+                            navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        contentPadding = PaddingValues(
+                            top = 6.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        )
+                    )
                 }
             }
         }
@@ -2255,10 +2281,13 @@ fun PolishedCard(
 
 @Composable
 private fun PostingTypeChoiceCard(
-    onUrgentNeedClick: () -> Unit
+    selectedType: String,
+    onVacancyClick: () -> Unit,
+    onUrgentNeedClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -2284,17 +2313,18 @@ private fun PostingTypeChoiceCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 PostingTypeOption(
-                    title = "Vacancy job",
+                    title = "Vacancy job posting",
                     subtitle = "Applications and hiring",
                     icon = Icons.Default.Work,
-                    selected = true,
+                    selected = selectedType == "vacancy",
+                    onClick = onVacancyClick,
                     modifier = Modifier.weight(1f)
                 )
                 PostingTypeOption(
-                    title = "Urgent need",
-                    subtitle = "Nearby workers today",
+                    title = "Urgent hiring",
+                    subtitle = "Instant local workers",
                     icon = Icons.Default.Schedule,
-                    selected = false,
+                    selected = selectedType == "urgent",
                     onClick = onUrgentNeedClick,
                     modifier = Modifier.weight(1f)
                 )

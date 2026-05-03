@@ -821,7 +821,7 @@ private fun InstantRequestSection(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Priority urgent work",
+                    text = "Instant works near you",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.Bold

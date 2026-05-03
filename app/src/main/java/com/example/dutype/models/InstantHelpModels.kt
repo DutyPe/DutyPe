@@ -41,6 +41,8 @@ data class InstantRequest(
     val geohash: String = "",
     val addressText: String = "",
     val radiusKm: Double = 5.0,
+    val scheduledAt: Long = 0L,
+    val scheduleLabel: String = "",
     val createdAt: Long = 0L,
     val expiresAt: Long = 0L,
     val expiredAt: Long = 0L,
@@ -94,5 +96,7 @@ data class QuickUrgentNeedInput(
     val category: String,
     val needType: String,
     val budgetText: String,
-    val radiusKm: Double
+    val radiusKm: Double,
+    val scheduledAtMillis: Long = 0L,
+    val scheduleLabel: String = ""
 )

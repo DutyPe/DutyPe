@@ -25,6 +25,10 @@ class InstantHelpService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
+    private companion object {
+        const val MAX_INSTANT_WORK_DISTANCE_KM = 10.0
+    }
+
     suspend fun getWorkerAvailability(): Result<WorkerAvailability?> = withContext(Dispatchers.IO) {
         val workerId = auth.currentUser?.uid
         if (workerId.isNullOrBlank()) return@withContext Result.success(null)
@@ -141,8 +145,11 @@ class InstantHelpService @Inject constructor(
                         request.lat,
                         request.lng
                     )
-                    val requestRadiusKm = request.radiusKm.takeIf { radius -> radius > 0.0 } ?: 5.0
-                    if (distance <= requestRadiusKm) {
+                    val requestRadiusKm = request.radiusKm
+                        .takeIf { radius -> radius > 0.0 }
+                        ?.coerceAtMost(MAX_INSTANT_WORK_DISTANCE_KM)
+                        ?: MAX_INSTANT_WORK_DISTANCE_KM
+                    if (distance <= MAX_INSTANT_WORK_DISTANCE_KM && distance <= requestRadiusKm) {
                         request.copy(distanceKm = distance)
                     } else {
                         null
@@ -169,6 +176,11 @@ class InstantHelpService @Inject constructor(
         if (input.title.trim().length < 3) {
             return@withContext Result.failure(IllegalArgumentException("Enter what help you need"))
         }
+        val nowMillis = System.currentTimeMillis()
+        val maxScheduleMillis = nowMillis + 7 * 24 * 60 * 60 * 1000L
+        if (input.needType == "scheduled" && input.scheduledAtMillis !in (nowMillis + 1)..maxScheduleMillis) {
+            return@withContext Result.failure(IllegalArgumentException("Schedule urgent work within the next 7 days"))
+        }
 
         return@withContext try {
             val employerDoc = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES)
@@ -189,10 +201,15 @@ class InstantHelpService @Inject constructor(
                 "today" -> 12 * 60 * 60 * 1000L
                 else -> 36 * 60 * 60 * 1000L
             }
-            val expiresAt = Timestamp(Date(System.currentTimeMillis() + expiryMs))
+            val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
+                Timestamp(Date(input.scheduledAtMillis))
+            } else {
+                null
+            }
+            val expiresAt = Timestamp(Date((input.scheduledAtMillis.takeIf { input.needType == "scheduled" && it > nowMillis } ?: nowMillis) + expiryMs))
             val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document()
-            val safeRadius = input.radiusKm.coerceIn(2.0, 10.0)
-            val data = mapOf(
+            val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
+            val data = mutableMapOf<String, Any>(
                 "requestId" to requestRef.id,
                 "employerId" to employerId,
                 "employerName" to (employerData.getString("companyName").ifBlank { employerData.getString("fullName") }.ifBlank { "DutyPe employer" }),
@@ -216,6 +233,10 @@ class InstantHelpService @Inject constructor(
                 "selectedWorkerId" to "",
                 "failureReason" to ""
             )
+            if (scheduledAt != null) {
+                data["scheduledAt"] = scheduledAt
+                data["scheduleLabel"] = input.scheduleLabel.trim().take(80)
+            }
 
             requestRef.set(data).await()
             Result.success(requestRef.id)
@@ -513,6 +534,8 @@ class InstantHelpService @Inject constructor(
             geohash = data.getString("geohash"),
             addressText = data.getString("addressText"),
             radiusKm = data.getNumber("radiusKm")?.toDouble() ?: 5.0,
+            scheduledAt = data.getMillis("scheduledAt"),
+            scheduleLabel = data.getString("scheduleLabel"),
             createdAt = data.getMillis("createdAt"),
             expiresAt = data.getMillis("expiresAt"),
             expiredAt = data.getMillis("expiredAt"),

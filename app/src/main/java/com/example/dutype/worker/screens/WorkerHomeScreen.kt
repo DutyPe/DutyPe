@@ -624,7 +624,25 @@ fun WorkerHomeScreen(
                     isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
                     isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
                     onInstantAvailabilityChange = { isAvailable ->
-                        instantHelpViewModel.setWorkerAvailability(isAvailable, currentLocation)
+                        val selectedLocation = currentLocation
+                        if (FirebaseAuth.getInstance().currentUser == null) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Please login for instant works",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else if (
+                            isAvailable &&
+                            (selectedLocation == null || !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude))
+                        ) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Set your location before turning on instant works",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            instantHelpViewModel.setWorkerAvailability(isAvailable, selectedLocation)
+                        }
                     },
                     onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                     onNotificationClick = {

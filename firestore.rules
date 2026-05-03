@@ -566,6 +566,8 @@ service cloud.firestore {
         return data.workerId == request.auth.uid &&
           data.isAvailable is bool &&
           data.status in ['available', 'offline'] &&
+          (!('categories' in data) || (data.categories is list && data.categories.size() <= 12)) &&
+          (!('radiusKm' in data) || (data.radiusKm is number && data.radiusKm >= 1 && data.radiusKm <= 10)) &&
           data.lat is number &&
           data.lat >= -90 && data.lat <= 90 &&
           data.lng is number &&
@@ -608,6 +610,7 @@ service cloud.firestore {
           'requestId', 'employerId', 'employerName', 'employerPhone',
           'title', 'description', 'category', 'needType', 'status', 'urgency',
           'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
+          'scheduledAt', 'scheduleLabel',
           'createdAt', 'expiresAt', 'expiredAt', 'firstResponseAt', 'lastResponseAt',
           'responseCount', 'callCount', 'notifiedWorkerCount', 'notificationFanoutAt',
           'selectedWorkerId', 'completedAt', 'cancelledAt', 'cancellationReason',
@@ -636,7 +639,9 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
         request.resource.data.radiusKm is number &&
-        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 25 &&
+        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 10 &&
+        (!('scheduledAt' in request.resource.data) || request.resource.data.scheduledAt is timestamp) &&
+        (!('scheduleLabel' in request.resource.data) || (request.resource.data.scheduleLabel is string && request.resource.data.scheduleLabel.size() <= 80)) &&
         request.resource.data.createdAt is timestamp &&
         request.resource.data.expiresAt is timestamp &&
         (!('expiredAt' in request.resource.data) || request.resource.data.expiredAt is timestamp) &&

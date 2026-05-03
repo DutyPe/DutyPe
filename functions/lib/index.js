@@ -52,6 +52,7 @@ const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
 ]);
 const INSTANT_WORKER_SCAN_LIMIT = 80;
 const INSTANT_WORKER_NOTIFY_LIMIT = 25;
+const MAX_INSTANT_WORK_DISTANCE_KM = 10;
 function timestampMillis(value) {
     if (value instanceof admin.firestore.Timestamp) {
         return value.toMillis();
@@ -483,7 +484,7 @@ exports.notifyAvailableWorkersForInstantRequest = functions.firestore
         functions.logger.info(`INSTANT: request ${requestId} already expired, no fanout`);
         return null;
     }
-    const requestRadius = Math.max(1, Math.min(25, Number(request.radiusKm) || 5));
+    const requestRadius = Math.max(1, Math.min(MAX_INSTANT_WORK_DISTANCE_KM, Number(request.radiusKm) || MAX_INSTANT_WORK_DISTANCE_KM));
     const availabilitySnap = await db.collection("worker_availability")
         .where("isAvailable", "==", true)
         .limit(INSTANT_WORKER_SCAN_LIMIT)
@@ -499,7 +500,7 @@ exports.notifyAvailableWorkersForInstantRequest = functions.firestore
         if (availableUntilMs > 0 && availableUntilMs <= nowMs)
             return null;
         const distance = distanceKm(requestLat, requestLng, workerLat, workerLng);
-        if (distance > requestRadius)
+        if (distance > MAX_INSTANT_WORK_DISTANCE_KM || distance > requestRadius)
             return null;
         const workerId = String(availability.workerId || doc.id);
         if (!workerId || workerId === String(request.employerId || ""))
