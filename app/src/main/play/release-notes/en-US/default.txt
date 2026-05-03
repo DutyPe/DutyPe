@@ -1,5 +1,6 @@
-DutyPe v66 is a production stability hotfix.
+DutyPe v67 is a login stability hotfix.
 
-• Fixes a release-only crash seen when opening login/signup from profile screens
-• Hardens release builds against stale R8 mappings for Compose draw callbacks
+• Fixes a release-only crash path when using login/signup from profile screens
+• Removes risky styled OTP text rendering from the login bottom sheet
+• Keeps R8 hardening for Compose draw callbacks
 • Keeps urgent work and hiring improvements from v65

@@ -68,13 +68,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1185,13 +1182,15 @@ private fun OtpInputContent(
         Spacer(modifier = Modifier.height(6.dp))
         
         Text(
-            text = buildAnnotatedString {
-                append(if (isTelugu) "పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి: " else "Enter the 6-digit code sent to ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)) {
-                    append("+91 $phoneNumber")
-                }
-            },
+            text = if (isTelugu) "పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి:" else "Enter the 6-digit code sent to",
             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
+        )
+        Text(
+            text = "+91 $phoneNumber",
+            style = AppTypography.bodyMedium.copy(
+                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
         )
 
         TextButton(onClick = onBackClick, modifier = Modifier.padding(top = 2.dp)) {

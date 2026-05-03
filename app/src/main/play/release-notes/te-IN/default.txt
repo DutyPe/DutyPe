@@ -1,5 +1,6 @@
-DutyPe v66 ప్రొడక్షన్ స్టెబిలిటీ హాట్‌ఫిక్స్.
+DutyPe v67 లాగిన్ స్టెబిలిటీ హాట్‌ఫిక్స్.
 
-• Profile screen నుంచి login/signup open చేసినప్పుడు వచ్చే release-only crash fix
-• Compose draw callbacks కోసం stale R8 mapping issue harden చేసింది
+• Profile screen నుంచి login/signup వాడినప్పుడు వచ్చే release-only crash path fix
+• Login bottom sheet లో risky styled OTP text rendering తొలగించాం
+• Compose draw callbacks కోసం R8 hardening కొనసాగుతోంది
 • v65 urgent work మరియు hiring improvements అలాగే ఉంటాయి
