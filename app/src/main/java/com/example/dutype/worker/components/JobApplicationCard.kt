@@ -139,6 +139,10 @@ fun JobApplicationCard(
     val isFilledForThisWorker = application.jobStatus.equals("closed", ignoreCase = true) &&
         application.status != ApplicationStatus.HIRED &&
         application.status != ApplicationStatus.COMPLETED
+    val showNoResponseHelp = canCall &&
+        !isFilledForThisWorker &&
+        application.status in setOf(ApplicationStatus.APPLIED, ApplicationStatus.SHORTLISTED) &&
+        System.currentTimeMillis() - application.createdAt >= 24L * 60L * 60L * 1000L
     
     // Can rate only if status is COMPLETED and hasn't rated yet
     val canRate = application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated && onRateClick != null
@@ -281,7 +285,7 @@ fun JobApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Tap Call for super-fast response — employers reply 5× faster on calls",
+                            text = "Call employer to confirm availability and next steps.",
                             style = AppTypography.caption.copy(
                                 color = Color(0xFF065F46),
                                 fontWeight = FontWeight.Medium
@@ -293,17 +297,86 @@ fun JobApplicationCard(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
+
+                if (showNoResponseHelp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = Color(0xFFFFFBEB),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Work,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Employer not responding? Try one call, then keep applying to similar active jobs.",
+                            style = AppTypography.caption.copy(
+                                color = Color(0xFF92400E),
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 
-                // Action buttons row - separate row
+                if (canCall && !isFilledForThisWorker) {
+                    Button(
+                        onClick = {
+                            val phone = application.employerPhone.orEmpty()
+                            if (phone.isNotBlank()) {
+                                runCatching {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_DIAL,
+                                        android.net.Uri.parse("tel:$phone")
+                                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                }
+                            } else {
+                                onCardClick(application)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Call employer",
+                            style = AppTypography.buttonSmall.copy(
+                                color = Color.White
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Withdraw button - only show if can withdraw
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (canWithdraw && onWithdrawClick != null) {
                             Button(
                                 onClick = { onWithdrawClick(application) },
@@ -316,51 +389,6 @@ fun JobApplicationCard(
                                     text = "Withdraw",
                                     style = AppTypography.buttonSmall.copy(
                                         color = Color(0xFFEF4444)
-                                    )
-                                )
-                            }
-                        }
-                        
-                        // Quick Call button — fires ACTION_DIAL with the
-                        // denormalized employer phone (set at apply time).
-                        // Falls back to opening the job detail screen when
-                        // the phone snapshot is missing (legacy rows).
-                        if (canCall && !isFilledForThisWorker) {
-                            Button(
-                                onClick = {
-                                    val phone = application.employerPhone.orEmpty()
-                                    if (phone.isNotBlank()) {
-                                        runCatching {
-                                            val intent = android.content.Intent(
-                                                android.content.Intent.ACTION_DIAL,
-                                                android.net.Uri.parse("tel:$phone")
-                                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            context.startActivity(intent)
-                                        }
-                                    } else {
-                                        // No snapshot phone — bring the
-                                        // worker to the full job detail
-                                        // screen where the contact section
-                                        // can resolve from job_details.
-                                        onCardClick(application)
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF10B981)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Phone,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Call",
-                                    style = AppTypography.buttonSmall.copy(
-                                        color = Color.White
                                     )
                                 )
                             }

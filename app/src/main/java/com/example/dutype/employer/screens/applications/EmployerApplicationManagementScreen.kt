@@ -1,6 +1,9 @@
 package com.example.dutype.employer.screens.applications
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -41,12 +44,15 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
+import com.example.dutype.models.JobListing
 import com.example.dutype.models.MatchedWorker
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
+import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -58,15 +64,19 @@ import java.util.*
  * Enterprise-level Application Management Screen for Employers
  * Professional design with comprehensive application tracking
  */
+private const val MANY_APPLICANTS_THRESHOLD = 12
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerApplicationManagementScreen(
     jobId: String? = null,
     onApplicationClick: (JobApplication) -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onPostUrgentNeed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
+    val jobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
     val ratingService = remember {
@@ -97,13 +107,23 @@ fun EmployerApplicationManagementScreen(
     var isProcessingPayment by remember { mutableStateOf(false) }
     var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
     var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
+    var currentJob by remember(jobId) { mutableStateOf<JobListing?>(null) }
+    var isJobClosedOverride by remember(jobId) { mutableStateOf(false) }
+    var showCloseJobDialog by remember { mutableStateOf(false) }
+    var isClosingJob by remember { mutableStateOf(false) }
     
-    // Job-specific screen lazy-loads only the selected tab.
-    LaunchedEffect(jobId, selectedTabIndex) {
-        when {
-            jobId == null -> viewModel.loadEmployerApplications()
-            selectedTabIndex == 0 -> viewModel.loadMatchedWorkers(jobId)
-            else -> viewModel.loadJobApplications(jobId)
+    LaunchedEffect(jobId) {
+        if (jobId == null) {
+            currentJob = null
+            isJobClosedOverride = false
+            viewModel.loadEmployerApplications()
+        } else {
+            viewModel.loadMatchedWorkers(jobId)
+            viewModel.loadJobApplications(jobId)
+            jobViewModel.getJobById(jobId) { job ->
+                currentJob = job
+                isJobClosedOverride = job?.status?.equals("closed", ignoreCase = true) == true
+            }
         }
     }
 
@@ -202,6 +222,62 @@ fun EmployerApplicationManagementScreen(
             }
         )
     }
+
+    if (showCloseJobDialog && jobId != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isClosingJob) showCloseJobDialog = false
+            },
+            title = { Text("Close job when filled") },
+            text = {
+                Text("Workers will see this job as filled and new applications will stop. You can keep the hired applicant history here.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isClosingJob,
+                    onClick = {
+                        isClosingJob = true
+                        jobViewModel.updateJob(jobId, mapOf("status" to "closed")) { success, error ->
+                            isClosingJob = false
+                            if (success) {
+                                showCloseJobDialog = false
+                                isJobClosedOverride = true
+                                currentJob = currentJob?.copy(status = "closed")
+                                Toast.makeText(context, "Job closed as filled", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, error ?: "Unable to close job", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text(if (isClosingJob) "Closing..." else "Close job")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isClosingJob,
+                    onClick = { showCloseJobDialog = false }
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    val jobTitleForActions = currentJob?.title
+        ?.takeIf { it.isNotBlank() }
+        ?: uiState.applications.firstOrNull()?.jobTitle?.takeIf { it.isNotBlank() }
+        ?: "DutyPe job"
+    val applicantCountForSummary = when {
+        uiState.applications.isNotEmpty() -> uiState.applications.size
+        currentJob != null -> currentJob?.applicationCount ?: 0
+        else -> stats.totalApplications
+    }
+    val callReadyCandidates = remember(uiState.applications, matchedWorkersState.workers) {
+        uiState.applications.count { it.isConnectNowCandidate() } +
+            matchedWorkersState.workers.count { it.isCallReadyMatch() }
+    }
+    val isJobLive = !isJobClosedOverride && (currentJob?.status?.equals("open", ignoreCase = true) ?: true)
     
     Column(
         modifier = Modifier
@@ -218,6 +294,19 @@ fun EmployerApplicationManagementScreen(
             JobReportSummaryCard(
                 summary = reportSummary,
                 isLoading = isReportSummaryLoading
+            )
+        }
+
+        if (jobId != null) {
+            HiringRoomSummaryCard(
+                jobTitle = jobTitleForActions,
+                isLive = isJobLive,
+                applicantsCount = applicantCountForSummary,
+                matchedWorkersCount = matchedWorkersState.workers.size,
+                callReadyCandidates = callReadyCandidates,
+                isClosingJob = isClosingJob,
+                onShareJob = { shareHiringRoomJob(jobId, jobTitleForActions, context) },
+                onCloseJob = { showCloseJobDialog = true }
             )
         }
 
@@ -268,9 +357,13 @@ fun EmployerApplicationManagementScreen(
             onFilterSelected = { statusFilter = it }
         )
 
-        val displayedApplications = remember(uiState.applications, statusFilter) {
-            if (statusFilter == null) uiState.applications
-            else uiState.applications.filter { it.status == statusFilter }
+        val rankedApplications = remember(uiState.applications) {
+            uiState.applications.sortedApplicationsForConnectNow()
+        }
+
+        val displayedApplications = remember(rankedApplications, statusFilter) {
+            if (statusFilter == null) rankedApplications
+            else rankedApplications.filter { it.status == statusFilter }
         }
         
         // Applications List
@@ -291,12 +384,22 @@ fun EmployerApplicationManagementScreen(
             }
             uiState.applications.isEmpty() && !uiState.isLoading -> {
                 Box(modifier = Modifier.weight(1f)) {
-                    EmptyApplicationsState()
+                    EmptyApplicationsState(
+                        isJobSpecific = jobId != null,
+                        onShareJob = {
+                            if (jobId != null) shareHiringRoomJob(jobId, jobTitleForActions, context)
+                        },
+                        onPostUrgentNeed = onPostUrgentNeed
+                    )
                 }
             }
             displayedApplications.isEmpty() -> {
                 Box(modifier = Modifier.weight(1f)) {
-                    EmptyApplicationsState()
+                    EmptyApplicationsState(
+                        isJobSpecific = false,
+                        onShareJob = {},
+                        onPostUrgentNeed = onPostUrgentNeed
+                    )
                 }
             }
             else -> {
@@ -307,6 +410,21 @@ fun EmployerApplicationManagementScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (jobId != null && uiState.applications.size >= MANY_APPLICANTS_THRESHOLD && statusFilter == null) {
+                        item {
+                            TooManyApplicationsBanner(
+                                totalApplications = uiState.applications.size,
+                                callReadyCandidates = callReadyCandidates,
+                                isJobLive = isJobLive,
+                                onCloseJob = { showCloseJobDialog = true }
+                            )
+                        }
+                    } else if (jobId != null && statusFilter == null) {
+                        item {
+                            RankingHintBanner()
+                        }
+                    }
+
                     itemsIndexed(displayedApplications) { index, application ->
                         val isContactUnlocked = viewModel.isContactUnlocked(application.id, index)
                         
@@ -444,6 +562,10 @@ private fun MatchedWorkersContent(
             }
         }
         else -> {
+            val rankedWorkers = remember(state.workers) {
+                state.workers.sortedMatchedWorkersForConnectNow()
+            }
+
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -471,7 +593,7 @@ private fun MatchedWorkersContent(
                     }
                 }
 
-                items(state.workers, key = { it.workerId }) { worker ->
+                items(rankedWorkers, key = { it.workerId }) { worker ->
                     MatchedWorkerCard(
                         worker = worker,
                         isRequesting = state.requestingWorkerId == worker.workerId,
@@ -479,6 +601,223 @@ private fun MatchedWorkersContent(
                         onCallWorker = { onCallWorker(worker.phone) }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiringRoomSummaryCard(
+    jobTitle: String,
+    isLive: Boolean,
+    applicantsCount: Int,
+    matchedWorkersCount: Int,
+    callReadyCandidates: Int,
+    isClosingJob: Boolean,
+    onShareJob: () -> Unit,
+    onCloseJob: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isLive) "Job is live" else "Job is closed",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = if (isLive) Color(0xFF047857) else Color(0xFF6B7280)
+                        )
+                    )
+                    Text(
+                        text = jobTitle,
+                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isLive) Color(0xFFDCFCE7) else Color(0xFFE5E7EB)
+                ) {
+                    Text(
+                        text = if (isLive) "Live" else "Filled",
+                        style = AppTypography.caption.copy(
+                            color = if (isLive) Color(0xFF047857) else Color(0xFF374151),
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    HiringRoomMetricItem(
+                        value = applicantsCount.toString(),
+                        label = "Applicants",
+                        icon = Icons.Default.Person,
+                        color = Color(0xFF2563EB),
+                        modifier = Modifier.weight(1f)
+                    )
+                    HiringRoomMetricItem(
+                        value = matchedWorkersCount.toString(),
+                        label = "Nearby matches",
+                        icon = Icons.Default.Work,
+                        color = Color(0xFF7C3AED),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    HiringRoomMetricItem(
+                        value = callReadyCandidates.toString(),
+                        label = "Call-ready",
+                        icon = Icons.Default.Call,
+                        color = Color(0xFF059669),
+                        modifier = Modifier.weight(1f)
+                    )
+                    HiringRoomMetricItem(
+                        value = if (isLive) "Open" else "Done",
+                        label = "Hiring status",
+                        icon = Icons.Default.CheckCircle,
+                        color = if (isLive) Color(0xFFEA580C) else Color(0xFF6B7280),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onShareJob,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Share job")
+                }
+
+                Button(
+                    onClick = onCloseJob,
+                    enabled = isLive && !isClosingJob,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isClosingJob) "Closing" else if (isLive) "Close job" else "Closed")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiringRoomMetricItem(
+    value: String,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(color.copy(alpha = 0.09f), RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(18.dp)
+        )
+        Column {
+            Text(
+                text = value,
+                style = AppTypography.labelLarge.copy(color = color, fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = label,
+                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun RankingHintBanner() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFEFF6FF), RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(18.dp))
+        Text(
+            text = "Best first: call-ready workers and complete profiles are shown higher.",
+            style = AppTypography.bodySmall.copy(color = Color(0xFF1E40AF)),
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun TooManyApplicationsBanner(
+    totalApplications: Int,
+    callReadyCandidates: Int,
+    isJobLive: Boolean,
+    onCloseJob: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFFBEB), RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Best first for $totalApplications applicants",
+            style = AppTypography.labelLarge.copy(color = Color(0xFF92400E), fontWeight = FontWeight.Bold)
+        )
+        Text(
+            text = "$callReadyCandidates call-ready candidate(s) are lifted first. Incomplete or terminal profiles stay lower in the list.",
+            style = AppTypography.bodySmall.copy(color = Color(0xFF92400E))
+        )
+        if (isJobLive) {
+            OutlinedButton(
+                onClick = onCloseJob,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF92400E))
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Close job when filled")
             }
         }
     }
@@ -1187,7 +1526,17 @@ private fun ApplicationCard(
 // NOTE: StatusBadge removed - use centralized ApplicationStatusBadge from components instead
 
 @Composable
-private fun EmptyApplicationsState() {
+private fun EmptyApplicationsState(
+    isJobSpecific: Boolean,
+    onShareJob: () -> Unit,
+    onPostUrgentNeed: () -> Unit
+) {
+    val subtitle = if (isJobSpecific) {
+        "Improve title, pay, or location, share the job, or request nearby matches while applicants come in."
+    } else {
+        "Applications will appear here once workers start applying to your jobs."
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1212,24 +1561,152 @@ private fun EmptyApplicationsState() {
         Spacer(modifier = Modifier.height(20.dp))
         
         Text(
-            text = "No Applications Yet",
+            text = if (isJobSpecific) "No applicants yet" else "No Applications Yet",
             style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Applications will appear here once workers start applying to your jobs.",
+            text = subtitle,
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center
             )
         )
+
+        if (isJobSpecific) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onShareJob,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Share job")
+                }
+                Button(
+                    onClick = onPostUrgentNeed,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                ) {
+                    Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Post urgent")
+                }
+            }
+        }
     }
 }
 
 
 
+
+private fun List<JobApplication>.sortedApplicationsForConnectNow(): List<JobApplication> {
+    return sortedWith(
+        compareByDescending<JobApplication> { it.connectNowScore() }
+            .thenByDescending { it.createdAt }
+    )
+}
+
+private fun List<MatchedWorker>.sortedMatchedWorkersForConnectNow(): List<MatchedWorker> {
+    return sortedWith(
+        compareByDescending<MatchedWorker> { it.connectNowScore() }
+            .thenByDescending { it.matchScore }
+    )
+}
+
+private fun JobApplication.connectNowScore(): Int {
+    var score = 0
+    if (status in connectableApplicationStatuses) score += 1_000
+    if (!workerPhone.isNullOrBlank()) score += 500
+    if (status == ApplicationStatus.SHORTLISTED) score += 120
+    if (status == ApplicationStatus.APPLIED) score += 90
+    if (status == ApplicationStatus.HIRED) score += 60
+    score += profileCompletenessScore()
+    return score
+}
+
+private fun JobApplication.profileCompletenessScore(): Int {
+    var score = 0
+    if (workerName.isNotBlank()) score += 40
+    if (!workerProfileImageUrl.isNullOrBlank()) score += 30
+    if (!workerPhone.isNullOrBlank()) score += 40
+    if (!workerEmail.isNullOrBlank()) score += 20
+    if (workerSkills.isNotEmpty()) score += 40
+    if (workerExperience.isNotBlank()) score += 25
+    if (workerEducationQualification.isNotBlank()) score += 20
+    if (workerBio.isNotBlank()) score += 20
+    return score
+}
+
+private fun JobApplication.isConnectNowCandidate(): Boolean {
+    return status in connectableApplicationStatuses && !workerPhone.isNullOrBlank()
+}
+
+private fun MatchedWorker.connectNowScore(): Int {
+    var score = matchScore
+    if (isCallReadyMatch()) score += 1_000
+    if (isAvailable) score += 180
+    if (phone.isNotBlank()) score += 220
+    if (distanceKm != null) {
+        score += when {
+            distanceKm <= 3.0 -> 120
+            distanceKm <= 7.0 -> 80
+            distanceKm <= 12.0 -> 40
+            else -> 0
+        }
+    }
+    if (skills.isNotEmpty()) score += 60
+    if (experience.isNotBlank()) score += 30
+    if (completedJobs > 0) score += (completedJobs * 12).coerceAtMost(120)
+    if (rating > 0.0) score += (rating * 20).toInt().coerceAtMost(100)
+    return score
+}
+
+private fun MatchedWorker.isCallReadyMatch(): Boolean {
+    return requestStatus.equals("accepted", ignoreCase = true) && phone.isNotBlank()
+}
+
+private val connectableApplicationStatuses = setOf(
+    ApplicationStatus.APPLIED,
+    ApplicationStatus.SHORTLISTED,
+    ApplicationStatus.HIRED
+)
+
+private fun shareHiringRoomJob(jobId: String, jobTitle: String, context: Context) {
+    if (jobId.isBlank()) {
+        Toast.makeText(context, "Unable to share this job", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val jobLink = DeepLinkHandler.generateJobWebLink(jobId)
+    val shareText = """
+Hiring now: $jobTitle
+
+Apply on DutyPe: $jobLink
+    """.trimIndent()
+
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, shareText)
+        putExtra(Intent.EXTRA_SUBJECT, "Job: $jobTitle")
+    }
+
+    runCatching {
+        context.startActivity(Intent.createChooser(shareIntent, "Share job"))
+    }.onFailure {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Job share", shareText))
+        Toast.makeText(context, "Job details copied", Toast.LENGTH_SHORT).show()
+    }
+}
 // Helper functions
 // NOTE: getStatusDisplayName removed - use ApplicationStatus.getDisplayName() extension function
 // Import: import com.example.dutype.models.getDisplayName

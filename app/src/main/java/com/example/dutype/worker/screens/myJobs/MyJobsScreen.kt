@@ -145,7 +145,10 @@ fun MyJobsScreen(
                 application.companyName.contains(searchQuery, ignoreCase = true)
             val matchesStatus = selectedStatusFilter == null || application.status == selectedStatusFilter
             matchesSearch && matchesStatus
-        }
+        }.sortedWith(
+            compareBy<JobApplication> { it.myJobsPipelineBucket() }
+                .thenByDescending { it.createdAt }
+        )
     }
     
     val filteredSavedJobs = remember(savedJobs, searchQuery) {
@@ -546,4 +549,23 @@ private fun MyJobsBackdropDecor(modifier: Modifier = Modifier) {
     // no-op so existing call-sites continue to work.
     Box(modifier = modifier)
 }
+
+private fun JobApplication.myJobsPipelineBucket(): Int {
+    val isClosedForWorker = jobStatus.equals("closed", ignoreCase = true) &&
+        status != ApplicationStatus.HIRED &&
+        status != ApplicationStatus.COMPLETED
+
+    return when {
+        status in activeWorkerApplicationStatuses && !isClosedForWorker -> 0
+        status == ApplicationStatus.COMPLETED -> 1
+        isClosedForWorker -> 2
+        else -> 3
+    }
+}
+
+private val activeWorkerApplicationStatuses = setOf(
+    ApplicationStatus.APPLIED,
+    ApplicationStatus.SHORTLISTED,
+    ApplicationStatus.HIRED
+)
 

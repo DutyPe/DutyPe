@@ -305,7 +305,8 @@ fun EmployerMainScreen(
                             onApplicationClick = { application ->
                                 navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
-                            onBackClick = { navController.popBackStack() }
+                            onBackClick = { navController.popBackStack() },
+                            onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
                         )
                     }
 
