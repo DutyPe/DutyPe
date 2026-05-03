@@ -1,7 +1,5 @@
-DutyPe v65 makes local jobs and urgent hiring clearer.
+DutyPe v66 is a production stability hotfix.
 
-• Instant work now shows Applied/Contacted after worker action
-• WhatsApp and call flow improved for urgent jobs near you
-• Employers get cleaner Best Match worker cards with distance, rating, status and completed jobs
-• Filled urgent jobs now keep selected workers active and disable remaining cards
-• Firestore rules, indexes, functions and hosting updated for better stability
+• Fixes a release-only crash seen when opening login/signup from profile screens
+• Hardens release builds against stale R8 mappings for Compose draw callbacks
+• Keeps urgent work and hiring improvements from v65

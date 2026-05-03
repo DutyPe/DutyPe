@@ -1,7 +1,5 @@
-DutyPe v65 లో local jobs మరియు urgent hiring ఇంకా స్పష్టంగా ఉంటుంది.
+DutyPe v66 ప్రొడక్షన్ స్టెబిలిటీ హాట్‌ఫిక్స్.
 
-• Worker Apply/Call చేసిన తర్వాత Instant Work లో Applied/Contacted కనిపిస్తుంది
-• Nearby urgent jobs కోసం WhatsApp మరియు call flow మెరుగైంది
-• Employer కి Best Match cards లో distance, rating, status, completed jobs స్పష్టంగా కనిపిస్తాయి
-• Filled urgent jobs లో selected worker active, మిగతా cards disabled
-• Firestore rules, indexes, functions, hosting stability updates
+• Profile screen నుంచి login/signup open చేసినప్పుడు వచ్చే release-only crash fix
+• Compose draw callbacks కోసం stale R8 mapping issue harden చేసింది
+• v65 urgent work మరియు hiring improvements అలాగే ఉంటాయి

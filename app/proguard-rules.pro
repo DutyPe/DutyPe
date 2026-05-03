@@ -117,6 +117,19 @@
     public void onViewDetachedFromWindow(android.view.View);
 }
 
+# Production v65 crash guard: Compose draw callbacks are interface-dispatched
+# through DrawModifierNode. Reused release mappings from older Compose internals
+# must not rename the interface method without the concrete implementation.
+-keepclassmembers interface androidx.compose.ui.node.DrawModifierNode {
+    public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
+}
+-keepclassmembers class * implements androidx.compose.ui.node.DrawModifierNode {
+    public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
+}
+-keepclassmembers class * {
+    public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
+}
+
 # Strip verbose logging in release. R8 will inline + dead-code-eliminate the
 # call sites once it knows these methods have no side effects.
 -assumenosideeffects class android.util.Log {

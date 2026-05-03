@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 65
-        versionName = "2.6.12"
+        versionCode = 66
+        versionName = "2.6.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -141,15 +141,27 @@ android {
                     .asFile
                 sanitizedMappingFile.parentFile.mkdirs()
                 sanitizedMappingFile.bufferedWriter().use { writer ->
+                    var skipStaleMappingClass = false
                     previousMappingFile.useLines { lines ->
                         lines.forEach { line ->
+                            val isClassMappingLine = !line.startsWith(" ") &&
+                                line.contains(" -> ") &&
+                                line.endsWith(":")
+
+                            if (isClassMappingLine) {
+                                skipStaleMappingClass =
+                                    line.startsWith("androidx.compose.") ||
+                                        line.startsWith("coil.compose.") ||
+                                        line.startsWith("androidx.appcompat.view.menu.CascadingMenuPopup")
+                            }
+
                             val isStaleAttachListenerMapping =
                                 line.contains("onViewAttachedToWindow(android.view.View)") ||
                                     line.contains("onViewDetachedFromWindow(android.view.View)") ||
                                     line.contains("-> onViewAttachedToWindow") ||
                                     line.contains("-> onViewDetachedFromWindow")
 
-                            if (!isStaleAttachListenerMapping) {
+                            if (!skipStaleMappingClass && !isStaleAttachListenerMapping) {
                                 writer.appendLine(line)
                             }
                         }
@@ -400,7 +412,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Material3 window size classes
-    implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
+    implementation("androidx.compose.material3:material3-window-size-class")
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
