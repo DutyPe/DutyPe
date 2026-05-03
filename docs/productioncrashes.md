@@ -1,369 +1,67 @@
-crash_thread	 main	
-Common
-exception_class	 AbstractMethodError	
-Common
-exception_message	 abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)"	
-stack_trace_depth	 20
 
-resolution_note	 Pinned androidx.appcompat to 1.7.1 first, then added a targeted R8 keep rule for concrete View.OnAttachStateChangeListener callback implementations after versionCode 63 still reported this AbstractMethodError. Hotfix versionCode 64.
+Want to use AI to fix this issue?Try Crashlytics MCP tools
+# Production Crash Registry
+
+## Active Crashes (May 2026)
+
+### 1. CascadingMenuPopup - AbstractMethodError (AppCompat)
+- **Dates**: 2026-05-02 23:38:42, 23:38:48 (at least 2 occurrences in initial logs)
+- **Exception**: `java.lang.AbstractMethodError: abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)" on receiver java.lang.Class<androidx.appcompat.view.menu.CascadingMenuPopup$2>`
+- **Process**: com.dutype.app (PIDs: 18367, 25512)
+- **Root Cause**: AppCompat version mismatch - resolved to 1.6.1 instead of pinned 1.7.1
+- **Resolution Attempt**: Pinned AppCompat to 1.7.1 in gradle/libs.versions.toml (deployed 2026-05-02)
+- **Status**: ⚠️ RECURRING - Reappearing in production logs despite fix
+- **Action Required**: Verify AppCompat 1.7.1 is actually being resolved at runtime; consider force upgrade or additional pinning
+
+### 2. TextAnnotatedStringNode - DrawModifierNode AbstractMethodError
+- **Dates**: 2026-05-03 01:01:06, 09:09:24, 09:09:39, 09:10:58 (4 occurrences)
+- **Exception**: `java.lang.AbstractMethodError: abstract method "void androidx.compose.ui.node.DrawModifierNode.a(androidx.compose.ui.node.LayoutNodeDrawScope)" on receiver java.lang.Class<androidx.compose.foundation.text.modifiers.TextAnnotatedStringNode>`
+- **Process**: com.dutype.app (PIDs: 30089, 7925, 10968, 14687)
+- **Stack Trace**: Occurs during Compose UI drawing operations (NodeCoordinator.drawContainedDrawModifiers)
+- **Root Cause**: Compose library version mismatch - TextAnnotatedStringNode compiled against older DrawModifierNode interface
+- **Status**: 🔴 ACTIVE - Multiple occurrences within 9 hours
+- **Action Required**: Verify Compose BOM version alignment and inspect dependency tree for conflicts
+
+---
+
+## Detailed Analysis
+
+### DrawModifierNode Crash Details
+
+This crash, java.lang.AbstractMethodError: abstract method "void androidx.compose.ui.node.DrawModifierNode.a(androidx.compose.ui.node.LayoutNodeDrawScope)" on receiver java.lang.Class<androidx.compose.foundation.text.modifiers.TextAnnotatedStringNode> , indicates an incompatibility issue between different versions of Compose libraries, specifically between the DrawModifierNode interface and its implementation within TextAnnotatedStringNode .
+Cause of the Issue:
+AbstractMethodError occurs when a class attempts to call an abstract method that has been added to an interface in a newer version, but the class itself was compiled against an older version of that interface where the method did not exist. In this specific scenario:
+Compose Library Mismatch: The application is likely using a version of androidx.compose.foundation (where TextAnnotatedStringNode resides) that was compiled against an older version of the Compose UI library.
+Interface Evolution: A newer version of androidx.compose.ui.node.DrawModifierNode (or a related internal interface) has introduced a new abstract method (represented here as a(androidx.compose.ui.node.LayoutNodeDrawScope) ).
+Runtime Incompatibility: When the application runs, the TextAnnotatedStringNode class (from the older foundation library) is loaded alongside the newer ui library. The newer ui library expects TextAnnotatedStringNode to implement the new abstract method from DrawModifierNode . Since the older TextAnnotatedStringNode doesn't have this implementation, an AbstractMethodError is thrown.
+This often happens when dependency versions are not perfectly aligned, or when a transitive dependency pulls in an older version of a Compose module.
+Recommendations to Avoid the Issue:
+Unified Compose Bill of Materials (BOM): Always use the Compose BOM to manage your Compose dependencies. The BOM ensures that all Compose libraries are on compatible versions. This is the most effective way to prevent version mismatches.
+// build.gradle (app-level)
+dependencies {
+    val composeBom = platform('androidx.compose:compose-bom:2023.08.00') // Use the latest stable version
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+
+    // Then declare Compose dependencies without specifying versions
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.foundation:foundation' // Your crashing library
+    // ... other Compose dependencies
+}
+Explicit Dependency Management: If you cannot use the BOM for some reason, explicitly define the version for all Compose libraries in your build.gradle file, ensuring they all use the exact same major.minor.patch version. This is much harder to maintain than using the BOM.
+Dependency Tree Analysis: Regularly analyze your dependency tree ( ./gradlew app:dependencies ) to identify any conflicting versions or unexpected transitive dependencies that might be pulling in older Compose modules. Address these conflicts by explicitly excluding the problematic transitive dependency or by forcing a specific version.
+Keep Dependencies Updated: Regularly update your Compose libraries and Android Gradle Plugin (AGP) to the latest stable versions. This helps you benefit from bug fixes and improved compatibility.
+Clean Builds: After updating dependencies or changing build configurations, always perform a clean build ( ./gradlew clean build ) to ensure all old artifacts are removed and new ones are correctly compiled.
+Actionable Next Step:
+The most direct and recommended action to resolve this specific AbstractMethodError is to unify your Compose dependency versions using the Compose Bill of Materials (BOM) .
+Identify Current Versions: Check your build.gradle files (both project and app-level) to see what versions of Compose libraries are currently being used.
+Implement Compose BOM:
+Add the compose-bom dependency to your build.gradle file (app-level module). Choose the latest stable version.
+Remove explicit version numbers from all individual Compose library dependencies (e.g., androidx.compose.ui:ui , androidx.compose.foundation:foundation , androidx.compose.material:material , etc.). The BOM will then manage these versions.
+Clean and Rebuild: Execute ./gradlew clean followed by ./gradlew assembleDebug (or assembleRelease ) to ensure a fresh build with the new dependency configuration.
+This approach will ensure that all Compose modules are on compatible versions, eliminating the AbstractMethodError caused by an interface mismatch.
 
 
-and
-Fatal Exception: java.lang.AbstractMethodError
-abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)"
-          Fatal Exception: java.lang.AbstractMethodError: abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)"
-       at android.view.View.dispatchAttachedToWindow(View.java:22021)
-       at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4291)
-       at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4298)
-       at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4298)
-       at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4298)
-       at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:4298)
-       at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:3135)
-       at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:2618)
-       at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:9971)
-       at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1010)
-       at android.view.Choreographer.doCallbacks(Choreographer.java:809)
-       at android.view.Choreographer.doFrame(Choreographer.java:744)
-       at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:995)
-       at android.os.Handler.handleCallback(Handler.java:938)
-       at android.os.Handler.dispatchMessage(Handler.java:99)
-       at android.os.Looper.loop(Looper.java:246)
-       at android.app.ActivityThread.main(ActivityThread.java:8653)
-       at java.lang.reflect.Method.invoke(Method.java)
-       at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:602)
-       at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1130)
-        
-WM.task-2
-          WM.task-2:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
-FirebaseInstanceId
-          FirebaseInstanceId:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:230)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer.doAcquireSharedNanos(AbstractQueuedSynchronizer.java:1063)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer.tryAcquireSharedNanos(AbstractQueuedSynchronizer.java:1358)
-       at java.util.concurrent.CountDownLatch.await(CountDownLatch.java:278)
-       at com.google.android.gms.tasks.zzad.zzb(com.google.android.gms:play-services-tasks@@18.1.0:1)
-       at com.google.android.gms.tasks.Tasks.await(com.google.android.gms:play-services-tasks@@18.1.0:18)
-       at com.google.firebase.iid.FirebaseInstanceId.awaitTask(com.google.firebase:firebase-iid@@21.1.0:1)
-       at com.google.firebase.iid.FirebaseInstanceId.getToken(com.google.firebase:firebase-iid@@21.1.0:9)
-       at com.google.firebase.iid.FirebaseInstanceId.blockingGetMasterToken(com.google.firebase:firebase-iid@@21.1.0:1)
-       at com.google.firebase.iid.SyncTask.maybeRefreshToken(com.google.firebase:firebase-iid@@21.1.0:3)
-       at com.google.firebase.iid.SyncTask.run(com.google.firebase:firebase-iid@@21.1.0:10)
-       at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:462)
-       at java.util.concurrent.FutureTask.run(FutureTask.java:266)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:301)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.android.gms.common.util.concurrent.zza.run(zza.java:2)
-       at java.lang.Thread.run(Thread.java:923)
-        
-ReferenceQueueDaemon
-          ReferenceQueueDaemon:
-       at java.lang.Object.wait(Object.java)
-       at java.lang.Object.wait(Object.java:442)
-       at java.lang.Object.wait(Object.java:568)
-       at java.lang.Daemons$ReferenceQueueDaemon.runInternal(Daemons.java:217)
-       at java.lang.Daemons$Daemon.run(Daemons.java:139)
-       at java.lang.Thread.run(Thread.java:923)
-        
-TokenRefresher
-          TokenRefresher:
-       at android.os.MessageQueue.nativePollOnce(MessageQueue.java)
-       at android.os.MessageQueue.next(MessageQueue.java:335)
-       at android.os.Looper.loop(Looper.java:206)
-       at android.os.HandlerThread.run(HandlerThread.java:67)
-        
-Firebase Lite Thread #0
-          Firebase Lite Thread #0:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-Firebase-Messaging-Init
-          Firebase-Messaging-Init:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1120)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:849)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.android.gms.common.util.concurrent.zza.run(zza.java:2)
-       at java.lang.Thread.run(Thread.java:923)
-        
-FinalizerDaemon
-          FinalizerDaemon:
-       at java.lang.Object.wait(Object.java)
-       at java.lang.Object.wait(Object.java:442)
-       at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:190)
-       at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:211)
-       at java.lang.Daemons$FinalizerDaemon.runInternal(Daemons.java:273)
-       at java.lang.Daemons$Daemon.run(Daemons.java:139)
-       at java.lang.Thread.run(Thread.java:923)
-        
-Firebase Blocking Thread #0
-          Firebase Blocking Thread #0:
-       at java.net.SocketInputStream.socketRead0(SocketInputStream.java)
-       at java.net.SocketInputStream.socketRead(SocketInputStream.java:119)
-       at java.net.SocketInputStream.read(SocketInputStream.java:176)
-       at java.net.SocketInputStream.read(SocketInputStream.java:144)
-       at com.android.org.conscrypt.ConscryptEngineSocket$SSLInputStream.readFromSocket(ConscryptEngineSocket.java:936)
-       at com.android.org.conscrypt.ConscryptEngineSocket$SSLInputStream.processDataFromSocket(ConscryptEngineSocket.java:900)
-       at com.android.org.conscrypt.ConscryptEngineSocket$SSLInputStream.readUntilDataAvailable(ConscryptEngineSocket.java:815)
-       at com.android.org.conscrypt.ConscryptEngineSocket$SSLInputStream.read(ConscryptEngineSocket.java:788)
-       at com.android.okhttp.okio.Okio$2.read(Okio.java:145)
-       at com.android.okhttp.okio.AsyncTimeout$2.read(AsyncTimeout.java:213)
-       at com.android.okhttp.okio.RealBufferedSource.indexOf(RealBufferedSource.java:317)
-       at com.android.okhttp.okio.RealBufferedSource.indexOf(RealBufferedSource.java:311)
-       at com.android.okhttp.okio.RealBufferedSource.readUtf8LineStrict(RealBufferedSource.java:207)
-       at com.android.okhttp.internal.http.Http1xStream.readResponse(Http1xStream.java:395)
-       at com.android.okhttp.internal.http.Http1xStream.readResponseHeaders(Http1xStream.java:146)
-       at com.android.okhttp.internal.http.HttpEngine.readNetworkResponse(HttpEngine.java:900)
-       at com.android.okhttp.internal.http.HttpEngine.readResponse(HttpEngine.java:772)
-       at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:475)
-       at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:411)
-       at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponseCode(HttpURLConnectionImpl.java:542)
-       at com.android.okhttp.internal.huc.DelegatingHttpsURLConnection.getResponseCode(DelegatingHttpsURLConnection.java:106)
-       at com.android.okhttp.internal.huc.HttpsURLConnectionImpl.getResponseCode(HttpsURLConnectionImpl.java:30)
-       at com.google.firebase.appcheck.internal.NetworkClient.makeNetworkRequest(NetworkClient.java:169)
-       at com.google.firebase.appcheck.internal.NetworkClient.generatePlayIntegrityChallenge(NetworkClient.java:139)
-       at com.google.firebase.appcheck.playintegrity.internal.PlayIntegrityAppCheckProvider.lambda$getPlayIntegrityAttestation$3(PlayIntegrityAppCheckProvider.java:108)
-       at com.google.android.gms.tasks.zzz.run(com.google.android.gms:play-services-tasks@@18.1.0:1)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-Firebase Background Thread #3
-          Firebase Background Thread #3:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-firebase-iid-executor
-          firebase-iid-executor:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:230)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:2109)
-       at java.util.concurrent.LinkedBlockingQueue.poll(LinkedBlockingQueue.java:467)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1091)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.android.gms.common.util.concurrent.zza.run(zza.java:2)
-       at java.lang.Thread.run(Thread.java:923)
-        
-MessengerIpcClient
-          MessengerIpcClient:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:230)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:2109)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1132)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:849)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.android.gms.common.util.concurrent.zza.run(zza.java:2)
-       at java.lang.Thread.run(Thread.java:923)
-        
-GoogleApiHandler
-          GoogleApiHandler:
-       at android.os.MessageQueue.nativePollOnce(MessageQueue.java)
-       at android.os.MessageQueue.next(MessageQueue.java:335)
-       at android.os.Looper.loop(Looper.java:206)
-       at android.os.HandlerThread.run(HandlerThread.java:67)
-        
-DefaultDispatcher-worker-4
-          DefaultDispatcher-worker-4:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:353)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.park(CoroutineScheduler.kt:858)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.tryPark(CoroutineScheduler.kt:806)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:754)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
-        
-Firebase Background Thread #1
-          Firebase Background Thread #1:
-       at dalvik.system.VMStack.getThreadStackTrace(VMStack.java)
-       at java.lang.Thread.getStackTrace(Thread.java:1736)
-       at java.lang.Thread.getAllStackTraces(Thread.java:1812)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsReportDataCapture.populateThreadsList(CrashlyticsReportDataCapture.java:343)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsReportDataCapture.populateExecutionData(CrashlyticsReportDataCapture.java:314)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsReportDataCapture.populateEventApplicationData(CrashlyticsReportDataCapture.java:261)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsReportDataCapture.captureEventData(CrashlyticsReportDataCapture.java:112)
-       at com.google.firebase.crashlytics.internal.common.SessionReportingCoordinator.persistEvent(SessionReportingCoordinator.java:337)
-       at com.google.firebase.crashlytics.internal.common.SessionReportingCoordinator.persistFatalEvent(SessionReportingCoordinator.java:130)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsController$2.call(CrashlyticsController.java:212)
-       at com.google.firebase.crashlytics.internal.common.CrashlyticsController$2.call(CrashlyticsController.java:198)
-       at com.google.firebase.crashlytics.internal.concurrency.CrashlyticsWorker.lambda$submitTask$2(CrashlyticsWorker.java:118)
-       at com.google.android.gms.tasks.zze.run(com.google.android.gms:play-services-tasks@@18.1.0:1)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-pool-14-thread-1
-          pool-14-thread-1:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
-Firebase Background Thread #0
-          Firebase Background Thread #0:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-DefaultDispatcher-worker-1
-          DefaultDispatcher-worker-1:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:353)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.park(CoroutineScheduler.kt:858)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.tryPark(CoroutineScheduler.kt:806)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:754)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
-        
-Firebase Background Thread #2
-          Firebase Background Thread #2:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.firebase.concurrent.CustomThreadFactory.lambda$newThread$0(CustomThreadFactory.java:47)
-       at java.lang.Thread.run(Thread.java:923)
-        
-DefaultDispatcher-worker-2
-          DefaultDispatcher-worker-2:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:353)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.park(CoroutineScheduler.kt:858)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.tryPark(CoroutineScheduler.kt:806)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:754)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
-        
-queued-work-looper
-          queued-work-looper:
-       at android.os.MessageQueue.nativePollOnce(MessageQueue.java)
-       at android.os.MessageQueue.next(MessageQueue.java:335)
-       at android.os.Looper.loop(Looper.java:206)
-       at android.os.HandlerThread.run(HandlerThread.java:67)
-        
-FinalizerWatchdogDaemon
-          FinalizerWatchdogDaemon:
-       at java.lang.Thread.sleep(Thread.java)
-       at java.lang.Thread.sleep(Thread.java:442)
-       at java.lang.Thread.sleep(Thread.java:358)
-       at java.lang.Daemons$FinalizerWatchdogDaemon.sleepForNanos(Daemons.java:390)
-       at java.lang.Daemons$FinalizerWatchdogDaemon.waitForFinalization(Daemons.java:419)
-       at java.lang.Daemons$FinalizerWatchdogDaemon.runInternal(Daemons.java:325)
-       at java.lang.Daemons$Daemon.run(Daemons.java:139)
-       at java.lang.Thread.run(Thread.java:923)
-        
-WM.task-3
-          WM.task-3:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
-OkHttp ConnectionPool
-          OkHttp ConnectionPool:
-       at java.lang.Object.wait(Object.java)
-       at com.android.okhttp.ConnectionPool$1.run(ConnectionPool.java:106)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
-DefaultDispatcher-worker-3
-          DefaultDispatcher-worker-3:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:353)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.park(CoroutineScheduler.kt:858)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.tryPark(CoroutineScheduler.kt:806)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:754)
-       at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:707)
-        
-Firebase-Messaging-Topics-Io
-          Firebase-Messaging-Topics-Io:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer.parkAndCheckInterrupt(AbstractQueuedSynchronizer.java:868)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer.doAcquireSharedInterruptibly(AbstractQueuedSynchronizer.java:1023)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquireSharedInterruptibly(AbstractQueuedSynchronizer.java:1334)
-       at java.util.concurrent.CountDownLatch.await(CountDownLatch.java:232)
-       at com.google.android.gms.tasks.zzad.zza(com.google.android.gms:play-services-tasks@@18.1.0:1)
-       at com.google.android.gms.tasks.Tasks.await(com.google.android.gms:play-services-tasks@@18.1.0:8)
-       at com.google.firebase.messaging.FirebaseMessaging.blockingGetToken(FirebaseMessaging.java:634)
-       at com.google.firebase.messaging.TopicsSubscriber.blockingSubscribeToTopic(TopicsSubscriber.java:275)
-       at com.google.firebase.messaging.TopicsSubscriber.performTopicOperation(TopicsSubscriber.java:234)
-       at com.google.firebase.messaging.TopicsSubscriber.syncTopics(TopicsSubscriber.java:188)
-       at com.google.firebase.messaging.TopicsSyncTask.run(TopicsSyncTask.java:101)
-       at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:462)
-       at java.util.concurrent.FutureTask.run(FutureTask.java:266)
-       at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:301)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at com.google.android.gms.common.util.concurrent.zza.run(zza.java:2)
-       at java.lang.Thread.run(Thread.java:923)
-        
-WM.task-4
-          WM.task-4:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
-WM.task-1
-          WM.task-1:
-       at sun.misc.Unsafe.park(Unsafe.java)
-       at java.util.concurrent.locks.LockSupport.park(LockSupport.java:190)
-       at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2067)
-       at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
-       at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1092)
-       at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1152)
-       at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-       at java.lang.Thread.run(Thread.java:923)
-        
