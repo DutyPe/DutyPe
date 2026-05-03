@@ -78,6 +78,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1196,7 +1198,7 @@ fun PostJobScreen(
                     titleColor = Color(0xFF0F172A)
                 )
 
-                PostingTypeChoiceCard(
+                PostingTypeTabs(
                     selectedType = postingMode,
                     onVacancyClick = {
                         postingMode = "vacancy"
@@ -2326,99 +2328,52 @@ fun PolishedCard(
 // Enhanced UI Components for Hyper-Local Jobs
 
 @Composable
-private fun PostingTypeChoiceCard(
+private fun PostingTypeTabs(
     selectedType: String,
     onVacancyClick: () -> Unit,
     onUrgentNeedClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val selectedIndex = if (selectedType == "urgent") 1 else 0
+    Column(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = Color.White,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
         ) {
-            Text(
-                text = "Choose posting type",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color(0xFF0F172A),
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            Text(
-                text = "Use urgent need for same-day help. Use vacancy job for hiring one or more workers.",
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            TabRow(
+                selectedTabIndex = selectedIndex,
+                containerColor = Color.White,
+                contentColor = Color(0xFF2563EB)
             ) {
-                PostingTypeOption(
-                    title = "Vacancy job posting",
-                    subtitle = "Applications and hiring",
-                    icon = Icons.Default.Work,
-                    selected = selectedType == "vacancy",
+                Tab(
+                    selected = selectedIndex == 0,
                     onClick = onVacancyClick,
-                    modifier = Modifier.weight(1f)
+                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Normal job", fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
                 )
-                PostingTypeOption(
-                    title = "Urgent hiring",
-                    subtitle = "Instant local workers",
-                    icon = Icons.Default.Schedule,
-                    selected = selectedType == "urgent",
+                Tab(
+                    selected = selectedIndex == 1,
                     onClick = onUrgentNeedClick,
-                    modifier = Modifier.weight(1f)
+                    icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Urgent need", fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun PostingTypeOption(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
-) {
-    val borderColor = if (selected) Color(0xFF2563EB) else Color(0xFFE2E8F0)
-    val background = if (selected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC)
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(background)
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (selected) Color(0xFF2563EB) else Color(0xFFEA580C),
-            modifier = Modifier.size(22.dp)
-        )
         Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge.copy(
-                color = Color(0xFF0F172A),
-                fontWeight = FontWeight.Bold
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = subtitle,
+            text = if (selectedIndex == 1) {
+                "For same-day local help. Workers can respond quickly from urgent cards."
+            } else {
+                "For regular hiring with applications, matching, and a Hiring Room."
+            },
             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
 }

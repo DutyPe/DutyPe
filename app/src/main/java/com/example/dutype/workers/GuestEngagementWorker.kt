@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
@@ -254,9 +255,12 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         val notificationId = BASE_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt()
 
-        val intent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+            setClass(context, MainActivity::class.java)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("engagement", true)
+            putExtra("from_notification", true)
+            putExtra("notification_system_id", notificationId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -265,10 +269,12 @@ class GuestEngagementWorker @AssistedInject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val actionIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val actionIntent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+            setClass(context, MainActivity::class.java)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("from_notification", true)
             putExtra("login_role", role)
+            putExtra("notification_system_id", notificationId)
         }
         val actionPendingIntent = PendingIntent.getActivity(
             context,

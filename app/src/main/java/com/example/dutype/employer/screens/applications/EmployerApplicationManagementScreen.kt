@@ -872,18 +872,7 @@ private fun MatchedWorkerCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = buildString {
-                            if (worker.distanceKm != null) append("%.1f km away".format(worker.distanceKm))
-                            if (worker.completedJobs > 0) {
-                                if (isNotEmpty()) append(" • ")
-                                append("${worker.completedJobs} completed")
-                            }
-                            if (worker.rating > 0) {
-                                if (isNotEmpty()) append(" • ")
-                                append("%.1f rating".format(worker.rating))
-                            }
-                            if (isEmpty()) append("Profile matched")
-                        },
+                        text = if (worker.isAvailable) "Available for matching" else "Profile matched",
                         style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -894,6 +883,8 @@ private fun MatchedWorkerCard(
                     RequestStatusPill(status)
                 }
             }
+
+            MatchedWorkerMetricsGrid(worker = worker)
 
             if (worker.skills.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -952,6 +943,83 @@ private fun MatchedWorkerCard(
                     Text(if (canCall) "Call" else "Call after accept")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WorkerMetricBlock(
+                icon = Icons.Default.LocationOn,
+                label = "Away",
+                value = worker.distanceKm?.let { String.format(Locale.ROOT, "%.1f km", it) } ?: "Nearby",
+                color = Color(0xFF2563EB),
+                modifier = Modifier.weight(1f)
+            )
+            WorkerMetricBlock(
+                icon = Icons.Default.CheckCircle,
+                label = "Completed",
+                value = worker.completedJobs.toString(),
+                color = Color(0xFF059669),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WorkerMetricBlock(
+                icon = Icons.Default.Star,
+                label = "Rating",
+                value = if (worker.rating > 0.0) String.format(Locale.ROOT, "%.1f", worker.rating) else "New",
+                color = Color(0xFFF59E0B),
+                modifier = Modifier.weight(1f)
+            )
+            WorkerMetricBlock(
+                icon = Icons.Default.FlashOn,
+                label = "Status",
+                value = if (worker.isAvailable) "Available" else "Invite",
+                color = Color(0xFF7C3AED),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkerMetricBlock(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(color.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = value,
+                style = AppTypography.labelLarge.copy(color = Color(0xFF111827), fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = label,
+                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

@@ -78,6 +78,7 @@ fun EmployerHistoryScreen(
     var pendingRatingResponse by remember { mutableStateOf<InstantResponse?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
     var ratedResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var repostingJobId by remember { mutableStateOf<String?>(null) }
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
@@ -136,6 +137,32 @@ fun EmployerHistoryScreen(
     }
 
     val currentTime = System.currentTimeMillis()
+
+    fun repostExpiredJob(job: JobListing) {
+        if (repostingJobId != null) return
+
+        val missingFields = job.missingRepostFields()
+        if (missingFields.isNotEmpty()) {
+            Toast.makeText(
+                context,
+                "Open normal post to recreate this job; missing ${missingFields.joinToString()}",
+                Toast.LENGTH_LONG
+            ).show()
+            navController.navigate(Routes.EMPLOYER_POST_JOB)
+            return
+        }
+
+        repostingJobId = job.id
+        employerJobViewModel.createJob(job.toRepostJobData()) { success, newJobId, message ->
+            repostingJobId = null
+            if (success && !newJobId.isNullOrBlank()) {
+                Toast.makeText(context, "Job reposted", Toast.LENGTH_SHORT).show()
+                navController.navigate(Routes.employerApplicationsJobRoute(newJobId))
+            } else {
+                Toast.makeText(context, message ?: "Unable to repost job", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     
     // Filter jobs based on selected tab - with null safety
     val filteredJobs = remember(uiState.myJobs, selectedTab) {
@@ -290,9 +317,11 @@ fun EmployerHistoryScreen(
                     TimelineView(
                         groupedJobs = groupedJobs,
                         currentTime = currentTime,
+                        repostingJobId = repostingJobId,
                         onJobClick = { job ->
                             navController.navigate(Routes.employerJobPreviewRoute(job.id))
-                        }
+                        },
+                        onRepostExpiredJob = { job -> repostExpiredJob(job) }
                     )
                 }
                 else -> {
@@ -309,9 +338,11 @@ fun EmployerHistoryScreen(
                             HistoryJobCard(
                                 job = job,
                                 currentTime = currentTime,
+                                isReposting = repostingJobId == job.id,
                                 onClick = {
                                     navController.navigate(Routes.employerJobPreviewRoute(job.id))
-                                }
+                                },
+                                onRepostExpiredJob = { repostExpiredJob(job) }
                             )
                         }
                     }
@@ -337,7 +368,9 @@ private fun openEmployerHistoryWhatsApp(context: android.content.Context, phone:
 private fun TimelineView(
     groupedJobs: Map<String, List<JobListing>>,
     currentTime: Long,
-    onJobClick: (JobListing) -> Unit
+    repostingJobId: String?,
+    onJobClick: (JobListing) -> Unit,
+    onRepostExpiredJob: (JobListing) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -359,7 +392,9 @@ private fun TimelineView(
                     job = job,
                     currentTime = currentTime,
                     isLastInMonth = isLastInMonth,
-                    onClick = { onJobClick(job) }
+                    isReposting = repostingJobId == job.id,
+                    onClick = { onJobClick(job) },
+                    onRepostExpiredJob = { onRepostExpiredJob(job) }
                 )
             }
             
@@ -412,7 +447,9 @@ private fun TimelineJobCard(
     job: JobListing,
     currentTime: Long,
     isLastInMonth: Boolean,
-    onClick: () -> Unit
+    isReposting: Boolean,
+    onClick: () -> Unit,
+    onRepostExpiredJob: () -> Unit
 ) {
     val lineColor = Color(0xFFE5E7EB)
     val isExpired = job.isExpired() // Use calculated expiry
@@ -591,6 +628,20 @@ private fun TimelineJobCard(
                         )
                     )
                 }
+
+                if (isExpired) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onRepostExpiredJob,
+                        enabled = !isReposting,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isReposting) "Reposting..." else "Repost same job")
+                    }
+                }
             }
         }
     }
@@ -655,7 +706,9 @@ private fun EmptyHistoryState(selectedTab: Int) {
 private fun HistoryJobCard(
     job: JobListing,
     currentTime: Long,
-    onClick: () -> Unit
+    isReposting: Boolean,
+    onClick: () -> Unit,
+    onRepostExpiredJob: () -> Unit
 ) {
     val isExpired = job.isExpired() // Use calculated expiry
     val isClosed = job.status != "open"
@@ -775,7 +828,64 @@ private fun HistoryJobCard(
                     color = Color(0xFF9CA3AF)
                 )
             )
+
+            if (isExpired) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onRepostExpiredJob,
+                    enabled = !isReposting,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (isReposting) "Reposting..." else "Repost same job")
+                }
+            }
         }
+    }
+}
+
+private fun JobListing.missingRepostFields(): List<String> {
+    return buildList {
+        if (title.isBlank()) add("title")
+        if (salary.isBlank()) add("pay")
+        if (addressText.ifBlank { location }.isBlank() || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(lat, lng)) add("location")
+        if (contactNumber.isBlank()) add("contact")
+    }
+}
+
+private fun JobListing.toRepostJobData(): Map<String, Any> {
+    val descriptionText = description.ifBlank {
+        buildString {
+            append(title)
+            if (salary.isNotBlank()) append(". Pay: ").append(salary)
+            append(".")
+        }
+    }
+
+    return buildMap {
+        put("title", title)
+        put("jobType", jobType.ifBlank { "Full-time" })
+        put(
+            "category",
+            com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
+                title = title,
+                description = descriptionText
+            )
+        )
+        put("location", mapOf("lat" to lat, "lng" to lng))
+        put("addressText", addressText.ifBlank { location })
+        put("salary", salary)
+        put("salaryType", salaryType.ifBlank { "DAILY" })
+        put("description", descriptionText)
+        put("gender", gender.ifBlank { "Any" })
+        put("experienceRequired", experienceRequired.ifBlank { "No Experience Required" })
+        put("educationRequired", educationRequired.ifBlank { "No qualification required" })
+        put("shiftTiming", shiftTiming.ifBlank { "Flexible" })
+        put("vacancies", vacancies.coerceIn(1, 50))
+        put("contactNumber", contactNumber)
+        jobImageUrl?.takeIf { it.isNotBlank() }?.let { put("jobImageUrl", it) }
     }
 }
 

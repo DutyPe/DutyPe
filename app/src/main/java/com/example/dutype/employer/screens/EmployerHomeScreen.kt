@@ -493,6 +493,7 @@ fun DashboardContent(
                 end = 16.dp,
                 bottom = 80.dp
             ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
             item {
@@ -502,19 +503,17 @@ fun DashboardContent(
                 )
             }
 
-            item {
-                EmployerUrgentNeedSummarySection(
-                    requests = urgentRequests,
-                    responsesByRequestId = urgentResponsesByRequestId,
-                    isLoading = isLoadingUrgentRequests,
-                    onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
-                    onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
-                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+            if (isLoadingUrgentRequests || urgentRequests.isNotEmpty()) {
+                item {
+                    EmployerUrgentNeedSummarySection(
+                        requests = urgentRequests,
+                        responsesByRequestId = urgentResponsesByRequestId,
+                        isLoading = isLoadingUrgentRequests,
+                        onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
+                        onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
+                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                    )
+                }
             }
 
             item {
@@ -522,10 +521,6 @@ fun DashboardContent(
             }
             
             // Job Analytics Card removed per task list requirement
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
             item {
                 RecentJobsSection(
@@ -561,7 +556,7 @@ private fun UrgentNeedCtaCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
