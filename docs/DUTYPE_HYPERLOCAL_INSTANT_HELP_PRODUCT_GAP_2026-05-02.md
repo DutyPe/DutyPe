@@ -238,10 +238,10 @@ The app currently asks workers to browse and apply. The new direction needs the 
 | Missing | Why it matters |
 |---|---|
 | Worker availability toggle | The app cannot know who can respond now. |
-| Worker online/available radius | Urgent jobs need workers within 2-5 km, not broad city listings. |
+| Request radius and nearby matching | Urgent jobs need workers within 2-5 km first, with the radius owned by the employer request and server-side matching, not worker home filters. |
 | Quick urgent post flow | Current PostJobScreen is too long for urgent needs. |
 | Broadcast matching | Employer post should notify matching nearby workers instantly. |
-| Worker response state | Need "Interested", "Called", "Accepted", "Busy", "Not available" with timestamps. |
+| Worker response state | Need "Applied", "Called", "Accepted", "Completed", "Cancelled", "No show" with timestamps. Do not make employer manage worker "busy" noise. |
 | Response time metrics | If you cannot measure response time, you cannot prove "faster". |
 | Urgent request lifecycle | Instant needs should expire in hours, not 15-30 days. |
 | Employer live response screen | Employer must see workers responding in real time. |
@@ -304,18 +304,18 @@ Current worker home is a job feed. For instant help, the first screen must answe
 
 Required changes:
 
-- Add "Available now" toggle at top.
-- Let worker set radius: 2 km, 5 km, 10 km.
-- Let worker set available categories.
+- Add the availability switch directly in the worker home header.
+- Do not show worker-side radius or work-type filters on home.
+- Use worker profile skills and experience later for matching; do not ask the worker to filter urgent work every time.
 - Show urgent nearby requests above normal jobs.
 - Show estimated response speed and completion count.
 
 Suggested worker home order:
 
-1. Available now toggle.
-2. Urgent nearby requests.
-3. Today jobs.
-4. Normal jobs feed.
+1. Header availability switch.
+2. Announcements.
+3. Priority urgent work cards.
+4. Normal vacancy jobs.
 5. Earnings/referrals lower down.
 
 ### Fix 3: Create a quick post flow separate from full job posting
@@ -349,7 +349,7 @@ Add response fields:
 
 - requestId.
 - workerId.
-- status: notified, viewed, interested, called, accepted, rejected, busy, completed, cancelled, no_show.
+- status: notified, viewed, applied, called, accepted, rejected, completed, cancelled, no_show.
 - notifiedAt.
 - viewedAt.
 - respondedAt.
@@ -475,9 +475,7 @@ Worker bottom navigation should prioritize availability and earning:
 
 Worker Home should show:
 
-- Available now toggle.
-- Radius selector.
-- Skill/category selector.
+- Header availability switch.
 - Urgent requests near me.
 - Today jobs.
 - Normal jobs.
@@ -485,12 +483,12 @@ Worker Home should show:
 Worker Urgent should show:
 
 - Near urgent requests sorted by distance, urgency, and age.
-- Quick actions: Interested, Call, Not available.
+- Quick actions: Apply, Call, WhatsApp.
 - Safety warning when needed.
 
 Worker My Work should show:
 
-- Interested.
+- Applied.
 - Called.
 - Accepted.
 - Completed.
@@ -500,7 +498,7 @@ Worker Profile should show:
 
 - Name, phone, area.
 - Skills.
-- Availability radius.
+- Area and live availability.
 - Completed work count.
 - Rating.
 - Verification status.
@@ -524,7 +522,7 @@ Worker Profile should show:
 11. Backend finds available workers in radius.
 12. Workers receive push/in-app urgent cards.
 13. Employer sees live status: searching, notified, responses.
-14. Worker responds interested.
+14. Worker applies or calls.
 15. Employer calls worker.
 16. Employer marks connected.
 17. Work happens.
@@ -566,12 +564,10 @@ Worker Profile should show:
 
 1. Worker opens app.
 2. Turns on "Available now".
-3. Selects categories: helper, cook, electrician, delivery, etc.
-4. Sets radius: 3 km / 5 km.
-5. App shows urgent requests nearby.
-6. Worker taps a request.
-7. Worker sees location, budget, time, employer rating/verification.
-8. Worker taps interested or call.
+3. App shows urgent requests nearby.
+4. Worker taps a request.
+5. Worker sees location, budget, time, employer rating/verification.
+6. Worker taps Apply, Call, or WhatsApp.
 9. App records response time.
 10. Worker calls employer.
 11. Worker marks going / accepted.
@@ -582,9 +578,8 @@ Worker Profile should show:
 ### Flow B: Worker is busy
 
 1. Worker receives urgent request.
-2. Worker taps "Busy" or ignores.
+2. Worker ignores it or turns availability off.
 3. App does not keep sending repeated urgent alerts for the same request.
-4. Worker can turn availability off.
 
 ### Flow C: Worker safety issue
 
@@ -645,10 +640,10 @@ P0 should prove one loop:
 P0 feature list:
 
 1. Worker availability toggle.
-2. Worker radius and category settings.
+2. Employer request radius with nearby matching.
 3. Employer quick urgent need post.
 4. Nearby urgent request feed for workers.
-5. Worker interested/call actions.
+5. Worker Apply, Call, and WhatsApp actions.
 6. Employer live responses screen.
 7. Status tracking and timestamps.
 8. Manual admin fallback list.
@@ -694,6 +689,8 @@ lng
 geohash
 addressText
 radiusKm
+scheduledAt
+scheduleLabel
 createdAt
 expiresAt
 responseCount
@@ -717,7 +714,7 @@ workerName
 workerPhone
 workerSkills
 distanceKm
-status: notified | viewed | interested | called | accepted | rejected | busy | completed | cancelled | no_show
+status: notified | viewed | applied | called | accepted | rejected | completed | cancelled | no_show
 notifiedAt
 viewedAt
 respondedAt
@@ -735,9 +732,7 @@ Fields:
 ```text
 workerId
 isAvailable
-status: available | busy | offline
-categories
-radiusKm
+status: available | offline
 lat
 lng
 geohash
@@ -786,10 +781,10 @@ Initial simple matching is enough.
 1. Validate location.
 2. Validate category.
 3. Create request with short expiry.
-4. Query workers in `worker_availability` within radius.
-5. Filter workers by category and availability.
+4. Query available workers in `worker_availability` within request radius.
+5. In P0, filter by availability and distance only; in P1, rank with profile skills, completed local work, ratings, and response speed.
 6. Send push notifications.
-7. Create `instant_responses` records as notified.
+7. Record worker `instant_responses` when workers apply or call.
 8. Employer sees response status.
 
 ### Worker ranking
@@ -798,11 +793,12 @@ Sort workers by:
 
 1. Distance.
 2. Available now.
-3. Category match.
-4. Completed jobs count.
-5. Rating.
-6. Response speed.
-7. Not recently rejected/no-show.
+3. Same-area completed work.
+4. Skill/category fit from worker profile.
+5. Completed jobs count.
+6. Rating.
+7. Response speed.
+8. Not recently rejected/no-show.
 
 ### Request ranking for worker
 
@@ -996,7 +992,775 @@ Implementation boundaries:
 
 ---
 
-## 23. Final Recommendation
+## 23. Core Loop, Trust, And Matching Intelligence Addendum
+
+Date: 2026-05-03
+
+This section converts the latest product thinking into buildable features. The central idea is still simple:
+
+> Employer thinks: "Help kavali -> DutyPe open chey." Worker thinks: "Work kavali -> DutyPe open chey."
+
+The product should not become a complicated services platform. It should become the fastest local worker connection loop in one dense area.
+
+### The repeating engine
+
+The core loop must repeat in minutes, not hours:
+
+1. Employer posts need.
+2. System finds nearby available workers.
+3. Workers apply/call/WhatsApp.
+4. Employer connects by call or WhatsApp.
+5. Work happens.
+6. Employer marks outcome.
+7. Trust improves through ratings, completed work, repeat workers, and same-area history.
+
+If any feature slows this loop, it should stay out of P0.
+
+### Employer journey to build toward
+
+Entry point: employer has an urgent problem, no known contact, or needs a faster option than calling many people.
+
+Employer Home should make the next action obvious:
+
+1. Primary CTA: Post Need.
+2. Active urgent requests.
+3. Worker responses with Call/WhatsApp.
+4. Repeat workers from past successful work.
+5. Normal jobs dashboard lower down.
+
+Post Need should support two modes:
+
+1. Quick select: Helper, Electrician, Cook, Maid, Driver, or another common category.
+2. Custom: free text title/category for odd local work.
+
+Required fields for P0:
+
+- Title: for example "Need cook".
+- Time: Now, Today, or scheduled within the next 7 days.
+- Budget: optional but recommended.
+- Location: auto from employer profile, with edit later.
+- Radius: employer request radius, default 5 km, maximum 10 km for pilot.
+- Details: optional notes or landmark.
+
+Important later improvement:
+
+- Voice input for title/details, because many employers will prefer speaking over typing.
+
+After POST, the employer should immediately see:
+
+- Finding nearby workers.
+- Workers notified count.
+- First response timer.
+- Response list sorted by distance, speed, completed work, and trust signals.
+
+### Worker journey to build toward
+
+Entry point: worker wants quick nearby earning, not a long application process.
+
+Worker Home should answer one question first:
+
+> Am I available for nearby urgent work right now?
+
+Worker flow:
+
+1. Register with name, phone, skill(s), location, and basic profile details.
+2. Turn availability ON/OFF from the home header.
+3. See urgent jobs above normal vacancy jobs.
+4. Receive push notification: "Helper job 1.2 km away".
+5. Open urgent card with title, distance, budget, time, and location.
+6. Choose Apply, Call, or WhatsApp.
+7. Work happens outside the app.
+8. Completed work and ratings improve future visibility.
+
+Do not bring back worker-side radius/work-type filters on the home screen. Those add friction. Use worker profile skills, experience, same-area history, and response behavior for ranking later.
+
+### Micro-flows that decide survival
+
+Case 1: no worker responds.
+
+System behavior:
+
+1. Show employer: "Searching more workers..."
+2. Retry notification to the next worker batch.
+3. Expand request radius only within the configured pilot cap.
+4. If still empty, mark expired/failed and capture reason: not enough workers, budget too low, timing issue, location issue.
+5. Admin/manual dispatcher should see these failed requests.
+
+Case 2: too many workers respond.
+
+System behavior:
+
+1. Show first 3-5 workers only.
+2. Sort by distance, response speed, completed same-area jobs, rating, and reliability.
+3. Let employer call/WhatsApp immediately.
+4. Keep other responses lower, not noisy.
+
+Case 3: fake or low-quality users.
+
+System behavior:
+
+1. Start with phone OTP for all users.
+2. Manually verify the first 20-30 important workers in each locality.
+3. Add verification badges only when actually verified.
+4. Add report/no-show/cancel reason flows.
+5. Use ratings only after real completed work.
+
+Do not fake ratings, completed counts, verification badges, or "worked nearby" claims. False trust signals may increase short-term clicks but they destroy the marketplace when one bad outcome happens.
+
+### How trust is created without training workers
+
+DutyPe does not need to train every worker like a formal services company at the start. It does need to create trust signals around real behavior.
+
+Trust layers, in order:
+
+1. Locality: show distance and area. Nearby feels safer than random city-wide matching.
+2. Direct call: people judge trust by voice quickly. Call/WhatsApp must stay primary.
+3. Real completed work: show jobs completed only after confirmed outcomes.
+4. Same-area history: "Worked 8 times near you" is stronger than a generic profile.
+5. Response speed: fast responders should rank higher.
+6. Repeat workers: after one successful job, "Call same worker again" becomes the strongest trust loop.
+7. Basic verification: phone OTP first, optional ID/photo/manual badge later.
+8. Community feel: Telugu/local language, area names, and real stories matter more than polished startup language.
+
+The truth:
+
+> Trust does not come from UI. Trust comes when the work gets done successfully.
+
+### Behavior standards and mutual accountability system
+
+Core idea:
+
+> DutyPe is not only connecting people. It is setting behavior standards.
+
+The marketplace promise should be:
+
+> Fast work + respectful interaction.
+
+Do not lead with long rules or policy pages. Set the tone at the exact moment before people interact.
+
+#### Mutual expectation prompts
+
+Employer prompt before posting:
+
+> Please be respectful.
+
+- Explain the work clearly.
+- Pay fairly and on time.
+- Do not waste worker time.
+- Confirm when work is completed.
+
+Worker prompt before Apply/Call/WhatsApp:
+
+> Please behave professionally.
+
+- Reach on time.
+- Work honestly.
+- Speak clearly.
+- Inform employer after work is completed.
+
+This sets tone before interaction, without making the app feel like a legal form.
+
+#### Behavior tag system
+
+After each completed job, collect quick tags instead of relying only on a star rating.
+
+Employer rates worker:
+
+- On time.
+- Good work.
+- Late.
+- Did not respond.
+- Cancelled after accepting.
+
+Worker rates employer:
+
+- Clear instructions.
+- Paid properly.
+- Rude behavior.
+- Time waste.
+- Cancelled after worker responded.
+
+Keep the form short. Tags should be one-tap chips, not a long survey.
+
+#### Visible reputation profile
+
+Worker-facing-to-employer signals, only when real:
+
+- Rating.
+- On-time worker.
+- Good work count.
+- Worked nearby count.
+- Completed urgent jobs.
+- Fast responder.
+
+Employer-facing-to-worker signals, light version:
+
+- Pays on time.
+- Clear communicator.
+- Repeat employer.
+- Low cancellation behavior.
+
+This makes quality visible on both sides. Employers prefer good workers; workers prefer fair employers.
+
+#### Bad behavior control
+
+Do not start with harsh bans unless there is abuse or safety risk. Use reach reduction first.
+
+If a worker repeatedly does not show up, cancels often, or gets verified complaints:
+
+- Reduce ranking.
+- Show fewer urgent jobs.
+- Remove fast responder or reliability signals.
+- Require manual review if the pattern becomes serious.
+
+If an employer repeatedly does not pay, misbehaves, wastes time, cancels after responses, or spams urgent jobs:
+
+- Reduce notification priority for their posts.
+- Limit active urgent posts.
+- Add posting friction later.
+- Require admin review if complaints repeat.
+
+The rule is simple:
+
+> Good behavior = more opportunities.
+
+#### In-app micro guidance
+
+Use small nudges inside the flow:
+
+- Employer posting: "Clear details get faster responses."
+- Worker responding: "Quick response increases your chances."
+- After connection: "Respectful communication builds trust."
+- Employer with waiting workers: "Workers are waiting for your confirmation."
+- Worker assigned: "Reach on time to keep your ranking strong."
+
+These nudges should be short and contextual. Do not turn them into banners everywhere.
+
+#### Repeat relationship behavior loop
+
+After one successful job:
+
+- Show employer: "Call same worker again".
+- Show worker: "You worked with this employer before".
+
+Behavior improves when both sides know they may meet again. The repeat loop makes reputation matter without heavy training.
+
+#### Why this works
+
+People behave better when:
+
+- They are visible through ratings and tags.
+- They may meet again through repeat relationships.
+- Their behavior changes future opportunity.
+- Bad behavior quietly reduces reach.
+
+Do not build:
+
+- Long rule pages.
+- Complicated rating forms.
+- Strict bans as the first response to every issue.
+
+Build:
+
+- Simple expectations.
+- Visible reputation.
+- Mutual accountability.
+- Ranking and reach controls tied to real behavior.
+
+Final behavior-system summary:
+
+> DutyPe should become a respect + speed marketplace where professional workers get more jobs and fair employers get faster help.
+
+### The uncopiable system to build
+
+Competitors can copy screens. They cannot quickly copy local data, behavior, and history.
+
+DutyPe's moat should become three data systems:
+
+1. Worker intelligence system.
+2. Employer behavior system.
+3. Local network memory.
+
+### Worker intelligence system
+
+Visible employer-facing worker signals:
+
+- Name.
+- Skill/category.
+- Distance.
+- Rating, when real.
+- Jobs done.
+- Worked nearby count.
+- On-time worker tag, when real.
+- Good work tag count, when real.
+- Fast responder badge.
+- Verified badge, only if actually verified.
+
+Hidden worker ranking fields:
+
+- `instantJobsCompletedCount`.
+- `sameAreaCompletedCount`.
+- `avgResponseTimeSeconds`.
+- `acceptanceRate` or apply-to-complete conversion.
+- `cancellationRate`.
+- `noShowCount`.
+- `onTimeTagCount`.
+- `goodWorkTagCount`.
+- `lateTagCount`.
+- `didNotRespondTagCount`.
+- `repeatEmployerCount`.
+- `lastActiveAt`.
+- `reliabilityScore` derived from completed work, speed, cancellations, and no-shows.
+
+Ranking example:
+
+Worker A with 20 completed jobs, 12 same-area jobs, and 2-minute response speed should rank above Worker B with 5 completed jobs, 1 same-area job, and 10-minute response speed, even if Worker B is slightly closer.
+
+### Employer behavior system
+
+Track employer behavior too, because good workers need protection from bad demand.
+
+Employer fields to add later:
+
+- `urgentRequestsPostedCount`.
+- `urgentRequestsFilledCount`.
+- `repeatWorkerIds`.
+- `preferredWorkerIds`.
+- `avgBudgetByCategory`.
+- `cancelledRequestCount`.
+- `noShowReportsGivenCount`.
+- `clearInstructionsTagCount`.
+- `paidProperlyTagCount`.
+- `rudeBehaviorTagCount`.
+- `timeWasteTagCount`.
+- `ratingAverageFromWorkers`, later if worker-to-employer ratings are added.
+
+Power feature:
+
+> After one successful job, show "You worked with Ramesh before - call again?"
+
+This shifts trust from a random platform to a known person, while DutyPe remains the relationship layer.
+
+### Local network memory
+
+Store area-level marketplace health so the system learns locality by locality.
+
+For each area/geohash/locality, track:
+
+- Active workers count.
+- Active workers by category.
+- Average first response time.
+- Fill rate.
+- Popular job types.
+- Peak demand hours.
+- No-response rate.
+- Repeat employer rate.
+
+This helps decide where to grow and where not to market yet. Do not spend money promoting areas where worker supply is not dense enough.
+
+### Matching algorithm direction
+
+P0 matching can stay simple:
+
+1. Employer posts request with exact location and radius.
+2. Find workers with availability ON.
+3. Keep workers within request radius and pilot maximum distance.
+4. Notify the nearest batch first.
+5. If no response, notify the next batch and show employer that search is expanding.
+
+P1 matching should rank by:
+
+1. Distance.
+2. Availability ON.
+3. Same-area completed jobs.
+4. Skill/category fit from profile.
+5. Response speed.
+6. Total completed jobs.
+7. Rating.
+8. Repeat relationship with this employer.
+9. Cancellation/no-show risk.
+
+Worker request feed should rank by:
+
+1. Now before Today before scheduled.
+2. Distance.
+3. Time since posted.
+4. Budget presence.
+5. Employer trust.
+6. Category/skill fit later.
+
+### Controlled urgent distribution system
+
+Goal:
+
+> Send urgent jobs to the right workers at the right time, not to every worker.
+
+This is the anti-spam rule for DutyPe. Urgent help should feel fast and controlled, not like a broadcast blast.
+
+#### Distribution flow
+
+Step 1: employer posts an urgent job.
+
+Example:
+
+- Title: Need electrician.
+- Time: Now.
+- Urgency: urgent.
+- Radius: 3-5 km by default, with pilot maximum still capped.
+
+Step 2: system filters workers before sending.
+
+Send only to workers who match all P0 rules:
+
+- Same skill or category, once profile/category matching is enabled.
+- Within the request radius.
+- Availability is ON.
+- Not already overloaded.
+- Not blocked, suspended, or hidden by trust/risk rules.
+
+Overloaded means the worker already has too many active urgent jobs. Start with a hard rule:
+
+- Maximum 2 active assigned or in-progress urgent jobs per worker.
+
+Step 3: send in batches.
+
+Do not notify 100 workers at once.
+
+Batch policy:
+
+1. First batch: top 10 workers.
+2. Wait 60-90 seconds.
+3. If no useful response, send the next 10 workers.
+4. If still no response, expand only within the configured pilot radius cap.
+5. Show employer: "Searching more workers...".
+
+Why this matters:
+
+- Workers do not get spammed.
+- Fast responders get rewarded.
+- Employer still feels movement.
+- The system stays measurable and controlled.
+
+#### Worker response flow
+
+Worker notification copy:
+
+- "Electrician job 1.2 km away"
+- "New urgent job nearby"
+- "Hurry - only a few response slots"
+
+Worker card actions:
+
+- Apply/Interested: reserves a response slot and adds worker to the employer response list.
+- Call: records a stronger action and lets worker contact employer immediately.
+- WhatsApp: records a stronger action and opens WhatsApp immediately.
+- Ignore/dismiss: does not reserve a response slot.
+
+Implementation note:
+
+- Current app wording can keep `Apply` as the P0 equivalent of "Interested". Do not rename database statuses casually; map UI labels to stable response states.
+
+When worker clicks Apply/Interested:
+
+1. Create or update `instant_responses/{requestId}_{workerId}`.
+2. Set response state to `applied` or the stable equivalent.
+3. Add worker to the employer response list.
+4. Notify employer: "2 workers available".
+5. Recompute whether the request has enough responses.
+
+#### Response cap
+
+Only the first 3-5 useful worker responses should be allowed for one urgent job.
+
+After the cap is reached:
+
+- Stop sending new worker notifications.
+- Hide or de-prioritize the job for workers who have not responded.
+- Show late workers: "Job already has enough responses" or "Job filled".
+- Keep employer focused on the top responses instead of making them sort a long list.
+
+Useful responses are Apply/Interested, Call, or WhatsApp. Ignore/dismiss does not count.
+
+#### Employer control
+
+Employer response list should show:
+
+- Worker name.
+- Distance.
+- Skill/category.
+- Worked nearby count, only when real.
+- Completed urgent jobs, only when real.
+- Fast responder signal, only from actual response history.
+- Call button.
+- WhatsApp button.
+- Mark as Assigned button.
+
+Employer actions:
+
+1. Call or WhatsApp one worker.
+2. Mark that worker as assigned.
+3. Ignore the current list and wait for more, only while request is still open.
+4. Mark completed after work is done.
+5. Cancel if no longer needed.
+
+#### Job state system
+
+Every urgent job must have a clear state.
+
+Request states:
+
+- `open`: accepting responses and batch sends may continue.
+- `in_progress`: employer selected or assigned a worker.
+- `completed`: work is done and trust metrics can update.
+- `cancelled`: employer no longer needs the job.
+- `expired`: no useful activity inside the expiry window.
+
+Response states:
+
+- `notified`: worker was included in a notification batch.
+- `viewed`: worker opened the job.
+- `applied`: worker clicked Apply/Interested.
+- `called`: worker used Call or WhatsApp.
+- `assigned`: employer selected this worker.
+- `completed`: assigned work was marked done.
+- `ignored`: worker dismissed the job.
+- `closed`: worker did not get selected because the job filled, expired, or was cancelled.
+
+Do not expose all states to users. Use simple labels:
+
+- Open.
+- Assigned.
+- In Progress.
+- Completed.
+- Filled.
+- Cancelled.
+- Expired.
+
+#### When the job closes
+
+Case 1: employer selects worker.
+
+System behavior:
+
+1. Employer taps Mark as Assigned.
+2. Request status becomes `in_progress`.
+3. Assigned worker response becomes `assigned`.
+4. Other responses become `closed` or remain visible as not selected.
+5. Stop sending notifications to new workers.
+
+Case 2: employer marks done.
+
+System behavior:
+
+1. Request status becomes `completed`.
+2. Assigned worker response becomes `completed`.
+3. Worker completed count and same-area count may update.
+4. Employer history gets a Call Again shortcut.
+
+Case 3: auto-expiry.
+
+System behavior:
+
+1. If no meaningful activity for 30-60 minutes, request becomes `expired`.
+2. Stop sending notifications.
+3. Show employer a clear expired state.
+4. Capture failure reason if possible: no workers, low budget, location issue, or timing issue.
+
+#### Worker-side history
+
+Worker history should show different outcomes clearly:
+
+- Selected worker: Assigned Job, then In Progress or Completed.
+- Worker who responded but was not selected: Job Filled.
+- Worker who ignored: no noisy history item unless needed for ranking.
+- Worker who cancelled after assignment: Cancelled and cancellation rate updates.
+
+This prevents workers from feeling confused after they respond but the employer picks someone else.
+
+#### Employer-side history
+
+Employer history should show:
+
+- Past urgent jobs.
+- Worker chosen.
+- Status: completed, cancelled, expired, or filled outside app.
+- Call Again action for successful workers.
+- Preferred worker shortcut after repeat success.
+
+If the employer likely filled the job outside the app, prompt:
+
+> Mark job as completed?
+
+This keeps trust data from disappearing just because the final call happened outside the app.
+
+#### Critical edge cases
+
+Too many workers click Apply/Interested:
+
+- Enforce the 3-5 response cap transactionally.
+- Late workers see Closed, Filled, or Job already has enough responses.
+
+Worker responds but does not call or continue:
+
+- Track response without action.
+- Lower ranking later if this pattern repeats.
+
+Employer posts but does not respond:
+
+- Notify employer: "Workers are waiting".
+- Expire if no action continues.
+- Track repeated employer inactivity as a trust/risk signal.
+
+Worker accepts multiple jobs:
+
+- Enforce maximum 2 active urgent jobs.
+- Lower ranking if a worker repeatedly accepts and cancels.
+
+Fake urgency:
+
+- Track repeated urgent posts that are cancelled, ignored, or never assigned.
+- Reduce visibility or add friction for abusive employers later.
+
+Job filled outside app:
+
+- Prompt employer to mark completed.
+- Let admin reconcile early pilot jobs manually if needed.
+
+No worker responds:
+
+- Notify employer: "No response yet - searching more workers".
+- Expand batch/radius only within pilot cap.
+- Capture no-response reason for area supply planning.
+
+Worker cancels after assignment:
+
+- Track cancellation rate.
+- Reopen request if employer still needs help.
+- Reduce worker ranking if cancellation becomes a pattern.
+
+#### Notification system
+
+Worker notifications:
+
+- New job nearby.
+- Electrician job 1.2 km away.
+- Hurry - only a few response slots.
+- Job filled.
+- Assigned job started.
+
+Employer notifications:
+
+- 2 workers interested.
+- Workers are waiting.
+- No response yet - searching more workers.
+- Job expiring soon.
+- Mark job as completed?
+
+#### Simplified final flow
+
+Employer:
+
+> Post -> See workers -> Call/WhatsApp -> Assign -> Done -> Call again later.
+
+Worker:
+
+> Get alert -> Apply/Call/WhatsApp -> Work -> Earn -> Build trust.
+
+The product category is:
+
+> Controlled urgency marketplace.
+
+It is not an open spam system. The key difference is that DutyPe sends the right job to the right worker at the right time, with caps, states, and history.
+
+### Feature backlog from this strategy
+
+P0/P1 features to add after the current instant-help base:
+
+| Feature | Why it matters | Priority |
+|---|---|---|
+| Employer "Finding nearby workers" state | Employer must feel the system is working immediately after post. | P0 |
+| Worker smart filter before notify | Prevents irrelevant jobs from reaching workers. | P0 |
+| Batch notification sender | Sends top 10 first, then next batch only if needed. | P0 |
+| Response slot cap | Limits one request to the first 3-5 useful responses. | P0 |
+| Request state machine | Keeps open, assigned, completed, cancelled, and expired jobs clear. | P0 |
+| Worker active-job limit | Prevents workers from taking too many urgent jobs at once. | P0 |
+| No-response retry/expand flow | Prevents dead-app feeling when no one responds. | P0 |
+| Top 3-5 response ranking | Avoids employer overload when many workers respond. | P0 |
+| Employer assignment action | Stops new sends once one worker is selected. | P0 |
+| Mutual expectation prompts | Sets respectful behavior before employer-worker interaction. | P1 |
+| Post-job behavior tags | Captures on-time, good work, paid properly, rude, late, and time-waste signals. | P1 |
+| Two-way reputation profile | Shows real behavior signals for both workers and employers. | P1 |
+| Bad behavior reach reduction | Reduces job visibility or post priority before using strict bans. | P1 |
+| Contextual micro guidance | Nudges clear details, quick response, and respectful communication inside the flow. | P1 |
+| Worker filled/closed history | Shows non-selected workers what happened. | P1 |
+| Employer call-again history | Turns successful urgent work into retention. | P1 |
+| Employer/worker inactivity tracking | Improves ranking and abuse prevention later. | P1 |
+| Completed urgent count | First real trust signal. | P1 |
+| Same-area work count | Strong local trust signal. | P1 |
+| Fast responder badge | Rewards behavior that makes the marketplace fast. | P1 |
+| Repeat worker shortcut | Converts one successful job into future retention. | P1 |
+| Preferred worker list | Lets employer build a trusted local bench. | P1 |
+| Worker reliability score | Makes matching smarter over time. | P1 |
+| Area marketplace metrics | Tells where DutyPe can actually grow. | P1 |
+| Manual verification badge | Needed for early trusted supply. | P1 |
+| Voice post input | Reduces typing friction for employers. | P2 |
+
+### UX principles that must not be broken
+
+1. Speed first: maximum three taps to post a need.
+2. Zero confusion: every screen should make the next action obvious.
+3. Action beats design: Call and WhatsApp matter more than fancy chat.
+4. Local feel: show distance, area, and nearby history.
+5. Trust only from real signals: never claim verification, ratings, or job counts that do not exist.
+
+### Strongest initial use-case flows
+
+Urgent cook:
+
+1. Employer opens DutyPe.
+2. Posts "Need cook".
+3. Gets worker calls/responses.
+4. Selects one.
+5. Work completes.
+6. Worker becomes repeat option.
+
+Bike repair:
+
+1. Employer is stranded.
+2. Posts mechanic need.
+3. Nearby mechanic responds.
+4. Call connects immediately.
+
+Shop helper:
+
+1. Employer needs extra help for rush hours.
+2. Posts helper need.
+3. Nearby student/helper applies.
+4. Employer calls and confirms.
+
+Daily worker:
+
+1. Worker opens app.
+2. Turns availability ON.
+3. Sees nearby urgent work.
+4. Applies/calls.
+5. Earns daily and improves ranking.
+
+### Failure conditions to watch
+
+DutyPe fails if:
+
+- Employers post and no workers respond.
+- First response is slow.
+- Random low-quality workers damage trust.
+- The flow becomes a long job form again.
+- The product expands before one locality has density.
+
+Cut scope before adding complexity. The next features should only strengthen the loop: need posted -> worker found -> call connected -> work completed -> trust recorded.
+
+---
+
+## 24. Final Recommendation
 
 DutyPe should become:
 

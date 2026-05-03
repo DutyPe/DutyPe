@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -220,6 +221,20 @@ fun JobApplicationScreen(
                 // whole apply / details stack back to the worker home.
                 ApplicationSentSuccess(
                     jobTitle = displayJob.title,
+                    canCallEmployer = displayJob.contactNumber.trim().isNotBlank(),
+                    onCallEmployer = {
+                        val phone = displayJob.contactNumber.trim()
+                        if (phone.isBlank()) {
+                            Toast.makeText(context, "Contact number not available", Toast.LENGTH_SHORT).show()
+                        } else {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                            }.onFailure {
+                                Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onViewMyJobs = { navigateToWorkerMyJobs(navController) },
                     onReturnHome = { navigateToWorkerHome(navController) }
                 )
             }
@@ -347,9 +362,22 @@ private fun navigateToWorkerHome(navController: NavController) {
     }
 }
 
+private fun navigateToWorkerMyJobs(navController: NavController) {
+    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+            inclusive = false
+            saveState = false
+        }
+        launchSingleTop = true
+    }
+}
+
 @Composable
 private fun ApplicationSentSuccess(
     jobTitle: String,
+    canCallEmployer: Boolean,
+    onCallEmployer: () -> Unit,
+    onViewMyJobs: () -> Unit,
     onReturnHome: () -> Unit
 ) {
     // Animated scale-in for the check circle.
@@ -416,7 +444,7 @@ private fun ApplicationSentSuccess(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Your application for \"$jobTitle\" has been successfully sent.",
+            text = "Your application for \"$jobTitle\" has been sent. Calling now gives you the fastest chance to confirm the work.",
             style = AppTypography.bodyMedium.copy(
                 color = Color(0xFF6B7280),
                 fontSize = 14.sp
@@ -427,19 +455,43 @@ private fun ApplicationSentSuccess(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = onReturnHome,
+            onClick = if (canCallEmployer) onCallEmployer else onViewMyJobs,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1F2937)
+                containerColor = if (canCallEmployer) Color(0xFF10B981) else Color(0xFF1F2937)
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
+            Icon(
+                imageVector = if (canCallEmployer) Icons.Default.Call else Icons.Default.Work,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Return to Home",
+                text = if (canCallEmployer) "Call employer now" else "View My Jobs",
                 style = AppTypography.buttonMedium.copy(
                     color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = if (canCallEmployer) onViewMyJobs else onReturnHome,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = if (canCallEmployer) "View My Jobs" else "Return to Home",
+                style = AppTypography.buttonMedium.copy(
+                    color = Color(0xFF1F2937),
                     fontWeight = FontWeight.SemiBold
                 )
             )

@@ -112,6 +112,10 @@
     public void onViewAttachedToWindow(android.view.View);
     public void onViewDetachedFromWindow(android.view.View);
 }
+-keepclassmembers class * {
+    public void onViewAttachedToWindow(android.view.View);
+    public void onViewDetachedFromWindow(android.view.View);
+}
 
 # Strip verbose logging in release. R8 will inline + dead-code-eliminate the
 # call sites once it knows these methods have no side effects.

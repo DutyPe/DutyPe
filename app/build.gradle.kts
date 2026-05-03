@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 64
-        versionName = "2.6.11"
+        versionCode = 65
+        versionName = "2.6.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -135,13 +135,34 @@ android {
             // proguardFiles. R8 itself reads the mapping at obfuscation time.
             val previousMappingFile = file("mapping/release-mapping.txt")
             if (previousMappingFile.exists()) {
+                val sanitizedMappingFile = layout.buildDirectory
+                    .file("intermediates/dutype/release-mapping-applymapping-sanitized.txt")
+                    .get()
+                    .asFile
+                sanitizedMappingFile.parentFile.mkdirs()
+                sanitizedMappingFile.bufferedWriter().use { writer ->
+                    previousMappingFile.useLines { lines ->
+                        lines.forEach { line ->
+                            val isStaleAttachListenerMapping =
+                                line.contains("onViewAttachedToWindow(android.view.View)") ||
+                                    line.contains("onViewDetachedFromWindow(android.view.View)") ||
+                                    line.contains("-> onViewAttachedToWindow") ||
+                                    line.contains("-> onViewDetachedFromWindow")
+
+                            if (!isStaleAttachListenerMapping) {
+                                writer.appendLine(line)
+                            }
+                        }
+                    }
+                }
+
                 val applyMappingRules = layout.buildDirectory
                     .file("intermediates/dutype/applyMapping.pro")
                     .get()
                     .asFile
                 applyMappingRules.parentFile.mkdirs()
                 applyMappingRules.writeText(
-                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
+                    "-applymapping \"${sanitizedMappingFile.absolutePath.replace("\\", "/")}\"\n"
                 )
                 proguardFiles(applyMappingRules)
 

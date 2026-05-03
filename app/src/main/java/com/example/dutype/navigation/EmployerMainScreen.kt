@@ -207,7 +207,7 @@ fun EmployerMainScreen(
                             employerId = null,
                             onJobPosted = { newJobId ->
                                 if (!newJobId.isNullOrBlank()) {
-                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                                    navController.navigate(Routes.employerApplicationsJobRoute(newJobId)) {
                                         popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                         launchSingleTop = true
                                     }

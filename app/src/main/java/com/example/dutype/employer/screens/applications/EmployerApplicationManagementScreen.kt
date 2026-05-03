@@ -210,7 +210,7 @@ fun EmployerApplicationManagementScreen(
     ) {
         // Common Header - consistent across all screens
         CommonHeader(
-            title = if (jobId != null) "Job Applications" else "All Applications",
+            title = if (jobId != null) "Hiring Room" else "All Applications",
             onBackClick = onBackClick
         )
 
@@ -866,8 +866,13 @@ private fun ApplicationCard(
     onRateWorker: () -> Unit = {}
 ) {
     val workerEmail = application.workerEmail.orEmpty()
+    val workerPhone = application.workerPhone.orEmpty().trim()
+    val context = LocalContext.current
     val canMarkWorkDone = application.status == ApplicationStatus.HIRED
     val canRateCompletedWork = application.status == ApplicationStatus.COMPLETED
+    val canCallWorker = workerPhone.isNotBlank() &&
+        application.status != ApplicationStatus.REJECTED &&
+        application.status != ApplicationStatus.WITHDRAWN
     // Determine display name - fallback to "Unknown Worker" if name is empty
     val displayName = when {
         application.workerName.isNotBlank() -> application.workerName
@@ -1040,9 +1045,35 @@ private fun ApplicationCard(
                     )
                 }
                 
-                // Apr 2026: phone number / unlock affordance removed from the
-                // applicant card. Contact info is shown only on the worker
-                // profile detail screen where the employer can call directly.
+                // Phone stays hidden as text, but the primary call action is
+                // available here so employers can connect without opening the
+                // worker profile first.
+            }
+
+            if (canCallWorker) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$workerPhone")))
+                        }.onFailure {
+                            Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Call,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Call worker", style = AppTypography.labelLarge, color = Color.White)
+                }
             }
 
             // Quick actions on list card (replaces hidden menu flow)

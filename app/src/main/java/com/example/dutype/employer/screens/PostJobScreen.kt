@@ -528,7 +528,7 @@ fun PostJobScreen(
         return when (step) {
             1 -> {
                 // Basic validation
-                if (title.isBlank() || description.isBlank()) return false
+                if (title.isBlank()) return false
                 
                 // ANTI-FRAUD: No-Data-Entry Firewall - Check for scam keywords
                 val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
@@ -609,7 +609,18 @@ fun PostJobScreen(
         // verbatim to Firestore. The card layer formats for display via
         // SalaryFormatter; numeric filters parse the lower bound.
         val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
-        val descriptionWithPayText = jobPosting.description
+        val descriptionWithPayText = jobPosting.description.ifBlank {
+            buildString {
+                append("Hiring for ")
+                append(jobPosting.title.trim())
+                append(".")
+                if (shiftTiming.displayName.isNotBlank()) {
+                    append(" Shift: ")
+                    append(shiftTiming.displayName)
+                    append(".")
+                }
+            }
+        }
         val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
             title = jobPosting.title,
             description = descriptionWithPayText
@@ -682,10 +693,10 @@ fun PostJobScreen(
                 
                 // Call the callback if provided (for tabbed interface)
                 onJobPosted?.invoke(newJobId)
-                // Navigate to employer home screen to show the posted job
+                // Navigate to the hiring room so the employer can start calling applicants/matches immediately.
                 if (onJobPosted == null) {
                     if (!newJobId.isNullOrBlank()) {
-                        navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                        navController.navigate(Routes.employerApplicationsJobRoute(newJobId)) {
                             popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
                         }
                     } else {
@@ -851,7 +862,7 @@ fun PostJobScreen(
     val darkText = Color(0xFF0F172A)
     // Theme-aware canvas for all post-job steps.
     val pageBackground = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
-    val basicsReady = title.isNotBlank() && description.isNotBlank()
+    val basicsReady = title.isNotBlank()
     val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
     val vacancyReady = vacancies.toIntOrNull()?.let { it in 1..50 } == true
     val requirementsReady = contactNumber.isNotBlank() && vacancyReady
@@ -864,7 +875,7 @@ fun PostJobScreen(
         locationPinned
     ).count { it }
     val missingStudioItems = buildList {
-        if (!basicsReady) add(stringResource(R.string.post_job_checklist_title_desc))
+        if (!basicsReady) add("Add job title")
         if (!compensationReady) add(stringResource(R.string.post_job_checklist_pay_location))
         if (!requirementsReady) add(stringResource(R.string.post_job_checklist_contact))
         if (!locationPinned) add(stringResource(R.string.post_job_checklist_pin_location))
@@ -878,11 +889,13 @@ fun PostJobScreen(
         locationPinned
 
     // Apr 2026: Apna-style 3-step wizard. Steps:
-    //   0 ? Job details   (title, work type, description, image)
+    //   0 ? Job details   (title, work type, optional description/image)
     //   1 ? Pay & where   (compensation + location)
     //   2 ? Requirements & contact (people, schedule, perks, contact, review)
     var currentStep by remember { mutableIntStateOf(0) }
     var postingMode by remember { mutableStateOf("vacancy") }
+    var showAdvancedJobDetails by remember { mutableStateOf(false) }
+    var showAdvancedRequirements by remember { mutableStateOf(false) }
     val totalSteps = 3
     // Per-step Next gate. Mirrors the publish checklist but scoped to
     // the fields that live on each step so the user isn't stuck on a
@@ -1253,65 +1266,79 @@ fun PostJobScreen(
                                         onPayTypeChange = { payType = it },
                                         category = category
                                     )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
-                                    JobDescriptionSection(
-                                        description = description,
-                                        onDescriptionChange = { description = it }
-                                    )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
-                                    JobImageUploadSection(
-                                        selectedImageUri = jobImageUri,
-                                        isUploading = isUploadingJobImage,
-                                        onImageSelected = { uri ->
-                                            jobImageUri = uri
-                                            scope.launch {
-                                                isUploadingJobImage = true
-                                                try {
-                                                    val currentUser = FirebaseAuth.getInstance().currentUser
-                                                    if (currentUser != null) {
-                                                        val fileName = "job_image_${System.currentTimeMillis()}.jpg"
-                                                        val storagePath = "job_images/${currentUser.uid}/$fileName"
+                                    if (showAdvancedJobDetails || description.isNotBlank() || hasHeroImage) {
+                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        JobDescriptionSection(
+                                            description = description,
+                                            onDescriptionChange = { description = it }
+                                        )
+                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        JobImageUploadSection(
+                                            selectedImageUri = jobImageUri,
+                                            isUploading = isUploadingJobImage,
+                                            onImageSelected = { uri ->
+                                                jobImageUri = uri
+                                                scope.launch {
+                                                    isUploadingJobImage = true
+                                                    try {
+                                                        val currentUser = FirebaseAuth.getInstance().currentUser
+                                                        if (currentUser != null) {
+                                                            val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                                            val storagePath = "job_images/${currentUser.uid}/$fileName"
 
-                                                        Timber.d(" JOB IMAGE: Starting upload with compression...")
+                                                            Timber.d(" JOB IMAGE: Starting upload with compression...")
 
-                                                        val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
-                                                            context = context,
-                                                            uri = uri,
-                                                            storagePath = storagePath
-                                                        )
+                                                            val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                                                                context = context,
+                                                                uri = uri,
+                                                                storagePath = storagePath
+                                                            )
 
-                                                        when (uploadResult) {
-                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
-                                                                jobImageUrl = uploadResult.downloadUrl
-                                                                Timber.d(" JOB IMAGE: ✅ Upload successful!")
-                                                                Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
-                                                            }
-                                                            is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
-                                                                Timber.e(uploadResult.exception, " JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
-                                                                Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
-                                                                jobImageUri = null
-                                                                jobImageUrl = ""
-                                                            }
-                                                            else -> {
+                                                            when (uploadResult) {
+                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                                                                    jobImageUrl = uploadResult.downloadUrl
+                                                                    Timber.d(" JOB IMAGE: ✅ Upload successful!")
+                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
+                                                                }
+                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                                                                    Timber.e(uploadResult.exception, " JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
+                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
+                                                                    jobImageUri = null
+                                                                    jobImageUrl = ""
+                                                                }
+                                                                else -> {
+                                                                }
                                                             }
                                                         }
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, " JOB IMAGE: ❌ Upload failed")
+                                                        Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                                                        jobImageUri = null
+                                                        jobImageUrl = ""
+                                                    } finally {
+                                                        isUploadingJobImage = false
                                                     }
-                                                } catch (e: Exception) {
-                                                    Timber.e(e, " JOB IMAGE: ❌ Upload failed")
-                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-                                                    jobImageUri = null
-                                                    jobImageUrl = ""
-                                                } finally {
-                                                    isUploadingJobImage = false
                                                 }
+                                            },
+                                            onImageRemoved = {
+                                                jobImageUri = null
+                                                jobImageUrl = ""
+                                                Timber.d(" JOB IMAGE: Image removed")
                                             }
-                                        },
-                                        onImageRemoved = {
-                                            jobImageUri = null
-                                            jobImageUrl = ""
-                                            Timber.d(" JOB IMAGE: Image removed")
+                                        )
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { showAdvancedJobDetails = true },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Add description or photo (optional)")
                                         }
-                                    )
+                                    }
                                     // Group 1 close
                                 }
                         }
@@ -1433,18 +1460,37 @@ fun PostJobScreen(
                                         vacancies = vacancies,
                                         onVacanciesChange = { vacancies = it }
                                     )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
-                                    RequirementsSection(
-                                        experienceLevel = experienceLevel,
-                                        onExperienceLevelChange = { experienceLevel = it },
-                                        experienceLevels = experienceLevels,
-                                        educationRequired = educationRequired,
-                                        onEducationRequiredChange = { educationRequired = it },
-                                        educationRequirements = educationRequirements,
-                                        gender = gender,
-                                        onGenderChange = { gender = it },
-                                        genders = genders
-                                    )
+                                    if (
+                                        showAdvancedRequirements ||
+                                        experienceLevel != "No Experience Required" ||
+                                        educationRequired != "No qualification required" ||
+                                        gender != "Both"
+                                    ) {
+                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        RequirementsSection(
+                                            experienceLevel = experienceLevel,
+                                            onExperienceLevelChange = { experienceLevel = it },
+                                            experienceLevels = experienceLevels,
+                                            educationRequired = educationRequired,
+                                            onEducationRequiredChange = { educationRequired = it },
+                                            educationRequirements = educationRequirements,
+                                            gender = gender,
+                                            onGenderChange = { gender = it },
+                                            genders = genders
+                                        )
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { showAdvancedRequirements = true },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("Add requirements (optional)")
+                                        }
+                                    }
                                     // Group 3 close
                                 }
                         }
