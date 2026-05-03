@@ -508,7 +508,7 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
     }
     const rankedWorkers = workersSnap.docs
         .map((doc) => {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e, _f, _g;
         const worker = (doc.data() || {});
         const scoring = scoreWorkerForJob(doc.id, worker, job, details);
         const request = requestByWorker.get(doc.id);
@@ -522,7 +522,8 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
             skills: stringList(worker.skills || worker.jobTypes).slice(0, 8),
             experience: String(worker.experience || ""),
             rating: Number((_b = (_a = worker.ratingAvg) !== null && _a !== void 0 ? _a : worker.rating) !== null && _b !== void 0 ? _b : 0) || 0,
-            completedJobs: Number((_d = (_c = worker.completedJobs) !== null && _c !== void 0 ? _c : worker.totalJobs) !== null && _d !== void 0 ? _d : 0) || 0,
+            ratingCount: Number((_e = (_d = (_c = worker.totalRatings) !== null && _c !== void 0 ? _c : worker.ratingCount) !== null && _d !== void 0 ? _d : worker.ratingsCount) !== null && _e !== void 0 ? _e : 0) || 0,
+            completedJobs: Number((_g = (_f = worker.completedJobs) !== null && _f !== void 0 ? _f : worker.totalJobs) !== null && _g !== void 0 ? _g : 0) || 0,
             isAvailable: worker.isAvailable !== false,
             distanceKm: scoring.distance == null ? null : Number(scoring.distance.toFixed(2)),
             matchScore: scoring.score,

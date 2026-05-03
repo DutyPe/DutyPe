@@ -640,6 +640,7 @@ export const matchWorkersForJob = onCallSecured(
           skills: stringList(worker.skills || worker.jobTypes).slice(0, 8),
           experience: String(worker.experience || ""),
           rating: Number(worker.ratingAvg ?? worker.rating ?? 0) || 0,
+          ratingCount: Number(worker.totalRatings ?? worker.ratingCount ?? worker.ratingsCount ?? 0) || 0,
           completedJobs: Number(worker.completedJobs ?? worker.totalJobs ?? 0) || 0,
           isAvailable: worker.isAvailable !== false,
           distanceKm: scoring.distance == null ? null : Number(scoring.distance.toFixed(2)),

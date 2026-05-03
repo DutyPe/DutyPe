@@ -896,6 +896,10 @@ private fun InstantRequestCard(
     onCall: () -> Unit,
     onWhatsApp: () -> Unit
 ) {
+    val responseStatus = request.workerResponseStatus.trim().lowercase()
+    val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
+    val applyLabel = instantWorkerApplyButtonLabel(responseStatus)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -986,17 +990,50 @@ private fun InstantRequestCard(
                 )
             }
 
+            if (hasWorkerResponded) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFECFDF5), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF15803D),
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Text(
+                        text = instantWorkerResponseMessage(responseStatus),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF166534),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+            }
+
             Button(
                 onClick = onApply,
-                enabled = !isUpdating,
+                enabled = !isUpdating && !hasWorkerResponded,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA580C))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFEA580C),
+                    disabledContainerColor = if (hasWorkerResponded) Color(0xFFDCFCE7) else Color(0xFFE5E7EB),
+                    disabledContentColor = if (hasWorkerResponded) Color(0xFF15803D) else Color(0xFF9CA3AF)
+                )
             ) {
                 if (isUpdating) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Text("Apply")
+                    if (hasWorkerResponded) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(applyLabel)
                 }
             }
 
@@ -1036,6 +1073,21 @@ private fun instantNeedTypeLabel(value: String): String = when (value) {
     "today" -> "Today"
     "scheduled" -> "Tomorrow"
     else -> "Today"
+}
+
+private fun instantWorkerApplyButtonLabel(status: String): String = when (status) {
+    "applied" -> "Applied"
+    "called" -> "Contacted"
+    "accepted" -> "Accepted"
+    "completed" -> "Completed"
+    else -> "Apply"
+}
+
+private fun instantWorkerResponseMessage(status: String): String = when (status) {
+    "called" -> "Contact shared with employer. No need to apply again."
+    "accepted" -> "Employer selected you for this urgent work."
+    "completed" -> "This urgent work is completed."
+    else -> "You applied for this urgent work. No need to apply again."
 }
 
 @Composable

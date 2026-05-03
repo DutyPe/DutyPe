@@ -29,6 +29,8 @@ data class InstantRequest(
     val employerId: String = "",
     val employerName: String = "DutyPe employer",
     val employerPhone: String = "",
+    val contactNumber: String = "",
+    val whatsappNumber: String = "",
     val title: String = "Urgent need",
     val description: String = "",
     val category: String = "Helper",
@@ -58,7 +60,10 @@ data class InstantRequest(
     val cancellationReason: String = "",
     val completionProof: String = "",
     val failureReason: String = "",
-    val distanceKm: Double? = null
+    val distanceKm: Double? = null,
+    val workerResponseId: String = "",
+    val workerResponseStatus: String = "",
+    val workerRespondedAt: Long = 0L
 )
 
 @Keep
@@ -95,6 +100,8 @@ data class QuickUrgentNeedInput(
     val description: String,
     val category: String,
     val needType: String,
+    val contactNumber: String = "",
+    val whatsappNumber: String = "",
     val budgetText: String,
     val radiusKm: Double,
     val scheduledAtMillis: Long = 0L,

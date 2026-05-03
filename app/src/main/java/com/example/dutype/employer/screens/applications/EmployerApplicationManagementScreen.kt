@@ -273,11 +273,16 @@ fun EmployerApplicationManagementScreen(
         currentJob != null -> currentJob?.applicationCount ?: 0
         else -> stats.totalApplications
     }
-    val callReadyCandidates = remember(uiState.applications, matchedWorkersState.workers) {
-        uiState.applications.count { it.isConnectNowCandidate() } +
+    val isJobLive = !isJobClosedOverride && (currentJob?.status?.equals("open", ignoreCase = true) ?: true)
+    val callReadyCandidates = remember(uiState.applications, matchedWorkersState.workers, isJobLive, jobId) {
+        val visibleApplicationPool = if (jobId != null && !isJobLive) {
+            uiState.applications.filter { it.status in filledApplicationStatuses }
+        } else {
+            uiState.applications
+        }
+        visibleApplicationPool.count { it.isConnectNowCandidate() } +
             matchedWorkersState.workers.count { it.isCallReadyMatch() }
     }
-    val isJobLive = !isJobClosedOverride && (currentJob?.status?.equals("open", ignoreCase = true) ?: true)
     
     Column(
         modifier = Modifier
@@ -334,6 +339,7 @@ fun EmployerApplicationManagementScreen(
         if (jobId != null && selectedTabIndex == 0) {
             MatchedWorkersContent(
                 state = matchedWorkersState,
+                isJobLive = isJobLive,
                 onRefresh = { viewModel.loadMatchedWorkers(jobId, force = true) },
                 onRequestWorker = { worker -> viewModel.requestMatchedWorker(jobId, worker.workerId) },
                 onCallWorker = { phone ->
@@ -361,9 +367,17 @@ fun EmployerApplicationManagementScreen(
             uiState.applications.sortedApplicationsForConnectNow()
         }
 
-        val displayedApplications = remember(rankedApplications, statusFilter) {
-            if (statusFilter == null) rankedApplications
-            else rankedApplications.filter { it.status == statusFilter }
+        val visibleApplications = remember(rankedApplications, isJobLive, jobId) {
+            if (jobId != null && !isJobLive) {
+                rankedApplications.filter { it.status in filledApplicationStatuses }
+            } else {
+                rankedApplications
+            }
+        }
+
+        val displayedApplications = remember(visibleApplications, statusFilter) {
+            if (statusFilter == null) visibleApplications
+            else visibleApplications.filter { it.status == statusFilter }
         }
         
         // Applications List
@@ -501,6 +515,7 @@ fun EmployerApplicationManagementScreen(
 @Composable
 private fun MatchedWorkersContent(
     state: com.example.dutype.viewmodels.MatchedWorkersUiState,
+    isJobLive: Boolean,
     onRefresh: () -> Unit,
     onRequestWorker: (MatchedWorker) -> Unit,
     onCallWorker: (String) -> Unit,
@@ -544,17 +559,21 @@ private fun MatchedWorkersContent(
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = if (isJobLive) Icons.Default.Search else Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = Color(0xFF6B7280),
                         modifier = Modifier.size(42.dp)
                     )
                     Text(
-                        text = "No strong worker matches yet",
+                        text = if (isJobLive) "No strong worker matches yet" else "Job is filled",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Matches improve when workers add skills and location.",
+                        text = if (isJobLive) {
+                            "Matches improve when workers add skills and location."
+                        } else {
+                            "Accepted workers will stay visible here when available."
+                        },
                         style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
                         textAlign = TextAlign.Center
                     )
@@ -565,41 +584,83 @@ private fun MatchedWorkersContent(
             val rankedWorkers = remember(state.workers) {
                 state.workers.sortedMatchedWorkersForConnectNow()
             }
+            val visibleWorkers = remember(rankedWorkers, isJobLive) {
+                if (isJobLive) {
+                    rankedWorkers
+                } else {
+                    rankedWorkers.sortedWith(
+                        compareByDescending<MatchedWorker> { it.requestStatus.equals("accepted", ignoreCase = true) }
+                            .thenByDescending { it.connectNowScore() }
+                    )
+                }
+            }
 
-            LazyColumn(
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Text(
-                        text = "Best workers for this job",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
+            if (visibleWorkers.isEmpty()) {
+                Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF6B7280),
+                            modifier = Modifier.size(42.dp)
                         )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Ranked by skills, distance, availability, experience, and completed work.",
-                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
-                    )
-                    if (!state.actionError.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = state.actionError,
-                            style = AppTypography.bodySmall.copy(color = Color(0xFFB91C1C))
+                            text = "Job is filled",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            text = "New matches are hidden. Accepted workers will stay visible here.",
+                            style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
+            } else {
+                LazyColumn(
+                    modifier = modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Text(
+                            text = if (isJobLive) "Best workers for this job" else "Filled job matches",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111827)
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isJobLive) {
+                                "Ranked by skills, distance, availability, experience, completed work, and rating."
+                            } else {
+                                "Selected workers stay active. Remaining matches are shown as disabled cards."
+                            },
+                            style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                        )
+                        if (!state.actionError.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = state.actionError,
+                                style = AppTypography.bodySmall.copy(color = Color(0xFFB91C1C))
+                            )
+                        }
+                    }
 
-                items(rankedWorkers, key = { it.workerId }) { worker ->
-                    MatchedWorkerCard(
-                        worker = worker,
-                        isRequesting = state.requestingWorkerId == worker.workerId,
-                        onRequestWorker = { onRequestWorker(worker) },
-                        onCallWorker = { onCallWorker(worker.phone) }
-                    )
+                    items(visibleWorkers, key = { it.workerId }) { worker ->
+                        MatchedWorkerCard(
+                            worker = worker,
+                            isJobLive = isJobLive,
+                            isDisabledForFilledJob = !isJobLive && !worker.requestStatus.equals("accepted", ignoreCase = true),
+                            isRequesting = state.requestingWorkerId == worker.workerId,
+                            onRequestWorker = { onRequestWorker(worker) },
+                            onCallWorker = { onCallWorker(worker.phone) }
+                        )
+                    }
                 }
             }
         }
@@ -826,6 +887,8 @@ private fun TooManyApplicationsBanner(
 @Composable
 private fun MatchedWorkerCard(
     worker: MatchedWorker,
+    isJobLive: Boolean,
+    isDisabledForFilledJob: Boolean,
     isRequesting: Boolean,
     onRequestWorker: () -> Unit,
     onCallWorker: () -> Unit
@@ -833,11 +896,23 @@ private fun MatchedWorkerCard(
     val status = worker.requestStatus.lowercase(Locale.ROOT)
     val requestSent = status in setOf("pending", "accepted")
     val canCall = status == "accepted" && worker.phone.isNotBlank()
+    val workerStatusText = when (status) {
+        "accepted" -> "Selected worker"
+        "pending" -> "Request sent"
+        "rejected" -> "Not available for this job"
+        else -> if (isDisabledForFilledJob) "Job filled" else if (worker.isAvailable) "Available now" else "Invite to confirm"
+    }
+    val contentAlpha = if (isDisabledForFilledJob) 0.58f else 1f
+    val cardContainerColor = if (isDisabledForFilledJob) {
+        Color(0xFFF3F4F6)
+    } else {
+        com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = cardContainerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDisabledForFilledJob) 0.dp else 1.dp),
         shape = RoundedCornerShape(14.dp)
     ) {
         Column(
@@ -852,7 +927,7 @@ private fun MatchedWorkerCard(
                 Box(
                     modifier = Modifier
                         .size(54.dp)
-                        .background(Color(0xFFEFF6FF), CircleShape),
+                        .background(if (isDisabledForFilledJob) Color(0xFFE5E7EB) else Color(0xFFEFF6FF), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -867,12 +942,15 @@ private fun MatchedWorkerCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = worker.fullName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827).copy(alpha = contentAlpha)
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = if (worker.isAvailable) "Available for matching" else "Profile matched",
+                        text = workerStatusText,
                         style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -885,6 +963,38 @@ private fun MatchedWorkerCard(
             }
 
             MatchedWorkerMetricsGrid(worker = worker)
+
+            if (status == "accepted") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFECFDF5)
+                ) {
+                    Text(
+                        text = if (isJobLive) {
+                            "Selected. Keep the job open if you still need more workers."
+                        } else {
+                            "Selected for this filled job."
+                        },
+                        style = AppTypography.bodySmall.copy(color = Color(0xFF047857)),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            if (isDisabledForFilledJob) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE5E7EB)
+                ) {
+                    Text(
+                        text = "Disabled because this job is already marked filled.",
+                        style = AppTypography.bodySmall.copy(color = Color(0xFF4B5563)),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
 
             if (worker.skills.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -918,7 +1028,7 @@ private fun MatchedWorkerCard(
             ) {
                 OutlinedButton(
                     onClick = onRequestWorker,
-                    enabled = !requestSent && !isRequesting,
+                    enabled = isJobLive && !requestSent && !isRequesting && !isDisabledForFilledJob,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -928,12 +1038,18 @@ private fun MatchedWorkerCard(
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (requestSent) "Request sent" else "Request worker")
+                    Text(
+                        when {
+                            !isJobLive -> "Job filled"
+                            requestSent -> "Request sent"
+                            else -> "Request worker"
+                        }
+                    )
                 }
 
                 Button(
                     onClick = onCallWorker,
-                    enabled = canCall,
+                    enabled = canCall && !isDisabledForFilledJob,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
@@ -949,45 +1065,38 @@ private fun MatchedWorkerCard(
 
 @Composable
 private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            WorkerMetricBlock(
-                icon = Icons.Default.LocationOn,
-                label = "Away",
-                value = worker.distanceKm?.let { String.format(Locale.ROOT, "%.1f km", it) } ?: "Nearby",
-                color = Color(0xFF2563EB),
-                modifier = Modifier.weight(1f)
-            )
-            WorkerMetricBlock(
-                icon = Icons.Default.CheckCircle,
-                label = "Completed",
-                value = worker.completedJobs.toString(),
-                color = Color(0xFF059669),
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            WorkerMetricBlock(
-                icon = Icons.Default.Star,
-                label = "Rating",
-                value = if (worker.rating > 0.0) String.format(Locale.ROOT, "%.1f", worker.rating) else "New",
-                color = Color(0xFFF59E0B),
-                modifier = Modifier.weight(1f)
-            )
-            WorkerMetricBlock(
-                icon = Icons.Default.FlashOn,
-                label = "Status",
-                value = if (worker.isAvailable) "Available" else "Invite",
-                color = Color(0xFF7C3AED),
-                modifier = Modifier.weight(1f)
-            )
-        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        WorkerMetricBlock(
+            icon = Icons.Default.LocationOn,
+            label = "Away",
+            value = formatWorkerDistanceShort(worker.distanceKm),
+            color = Color(0xFF2563EB),
+            modifier = Modifier.weight(1f)
+        )
+        WorkerMetricBlock(
+            icon = Icons.Default.CheckCircle,
+            label = "Jobs done",
+            value = worker.completedJobs.toString(),
+            color = Color(0xFF059669),
+            modifier = Modifier.weight(1f)
+        )
+        WorkerMetricBlock(
+            icon = Icons.Default.Star,
+            label = formatWorkerRatingCount(worker.ratingCount),
+            value = formatWorkerRatingValue(worker.rating),
+            color = Color(0xFFF59E0B),
+            modifier = Modifier.weight(1f)
+        )
+        WorkerMetricBlock(
+            icon = Icons.Default.FlashOn,
+            label = "Status",
+            value = formatMatchedWorkerStatus(worker),
+            color = Color(0xFF7C3AED),
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -999,28 +1108,27 @@ private fun WorkerMetricBlock(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Column(
         modifier = modifier
+            .heightIn(min = 82.dp)
             .background(color.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = value,
-                style = AppTypography.labelLarge.copy(color = Color(0xFF111827), fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = label,
-                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Text(
+            text = value,
+            style = AppTypography.labelLarge.copy(color = Color(0xFF111827), fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = label,
+            style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1690,6 +1798,61 @@ private fun List<MatchedWorker>.sortedMatchedWorkersForConnectNow(): List<Matche
     )
 }
 
+private fun formatWorkerDistance(distanceKm: Double?): String {
+    return when {
+        distanceKm == null -> "Nearby"
+        distanceKm < 0.1 -> "Under 100 m"
+        distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()} m away"
+        else -> String.format(Locale.ROOT, "%.1f km away", distanceKm)
+    }
+}
+
+private fun formatWorkerDistanceShort(distanceKm: Double?): String {
+    return when {
+        distanceKm == null -> "Nearby"
+        distanceKm < 0.1 -> "<100m"
+        distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m"
+        else -> String.format(Locale.ROOT, "%.1fkm", distanceKm)
+    }
+}
+
+private fun formatCompletedWork(completedJobs: Int): String {
+    return when (completedJobs) {
+        0 -> "No jobs yet"
+        1 -> "1 job"
+        else -> "$completedJobs jobs"
+    }
+}
+
+private fun formatWorkerRating(rating: Double, ratingCount: Int): String {
+    return when {
+        rating <= 0.0 -> "New"
+        ratingCount > 0 -> String.format(Locale.ROOT, "%.1f (%d)", rating, ratingCount)
+        else -> String.format(Locale.ROOT, "%.1f", rating)
+    }
+}
+
+private fun formatWorkerRatingValue(rating: Double): String {
+    return if (rating > 0.0) String.format(Locale.ROOT, "%.1f", rating) else "New"
+}
+
+private fun formatWorkerRatingCount(ratingCount: Int): String {
+    return when (ratingCount) {
+        0 -> "Rating"
+        1 -> "1 rating"
+        else -> "$ratingCount ratings"
+    }
+}
+
+private fun formatMatchedWorkerStatus(worker: MatchedWorker): String {
+    return when (worker.requestStatus.lowercase(Locale.ROOT)) {
+        "accepted" -> "Selected"
+        "pending" -> "Waiting"
+        "rejected" -> "Declined"
+        else -> if (worker.isAvailable) "Available" else "Invite"
+    }
+}
+
 private fun JobApplication.connectNowScore(): Int {
     var score = 0
     if (status in connectableApplicationStatuses) score += 1_000
@@ -1735,6 +1898,7 @@ private fun MatchedWorker.connectNowScore(): Int {
     if (experience.isNotBlank()) score += 30
     if (completedJobs > 0) score += (completedJobs * 12).coerceAtMost(120)
     if (rating > 0.0) score += (rating * 20).toInt().coerceAtMost(100)
+    if (ratingCount > 0) score += ratingCount.coerceAtMost(30)
     return score
 }
 
@@ -1746,6 +1910,11 @@ private val connectableApplicationStatuses = setOf(
     ApplicationStatus.APPLIED,
     ApplicationStatus.SHORTLISTED,
     ApplicationStatus.HIRED
+)
+
+private val filledApplicationStatuses = setOf(
+    ApplicationStatus.HIRED,
+    ApplicationStatus.COMPLETED
 )
 
 private fun shareHiringRoomJob(jobId: String, jobTitle: String, context: Context) {

@@ -1,8 +1,7 @@
-v2.6.5 - లోకల్ జాబ్స్ సెర్చ్ మెరుగైంది
+DutyPe v65 లో local jobs మరియు urgent hiring ఇంకా స్పష్టంగా ఉంటుంది.
 
-Nearby jobs, local jobs వేగంగా కనుగొనండి.
-• Categories, All Jobs search మెరుగైంది
-• కొత్త roles: teacher, telecaller, sales, office staff, data entry, field work
-• Job post లో category auto-save
-• Call తర్వాత job filled లేదా available చెప్పండి
-• Search, filters, stability fixes
+• Worker Apply/Call చేసిన తర్వాత Instant Work లో Applied/Contacted కనిపిస్తుంది
+• Nearby urgent jobs కోసం WhatsApp మరియు call flow మెరుగైంది
+• Employer కి Best Match cards లో distance, rating, status, completed jobs స్పష్టంగా కనిపిస్తాయి
+• Filled urgent jobs లో selected worker active, మిగతా cards disabled
+• Firestore rules, indexes, functions, hosting stability updates

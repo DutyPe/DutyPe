@@ -608,6 +608,7 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
           'requestId', 'employerId', 'employerName', 'employerPhone',
+          'contactNumber', 'whatsappNumber',
           'title', 'description', 'category', 'needType', 'status', 'urgency',
           'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
           'scheduledAt', 'scheduleLabel',
@@ -653,6 +654,8 @@ service cloud.firestore {
         (!('notificationFanoutAt' in request.resource.data) || request.resource.data.notificationFanoutAt is timestamp) &&
         (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
         (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
+        (!('whatsappNumber' in request.resource.data) || (request.resource.data.whatsappNumber is string && request.resource.data.whatsappNumber.size() <= 20)) &&
         (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
         (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
@@ -685,8 +688,16 @@ service cloud.firestore {
         return responseId == (data.requestId + '_' + request.auth.uid);
       }
 
+      function responseIdEndsWithCaller() {
+        return responseId.matches('^.*_' + request.auth.uid + '$');
+      }
+
       allow read, write: if isAdmin();
-      allow get, list: if isSignedIn() &&
+      allow get: if isSignedIn() &&
+        (responseIdEndsWithCaller() ||
+          resource.data.workerId == request.auth.uid ||
+          resource.data.employerId == request.auth.uid);
+      allow list: if isSignedIn() &&
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
 
       allow create: if isSignedIn() &&

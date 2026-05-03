@@ -22,6 +22,8 @@ private.pem
 public.pem
 *certificate.pem
 serviceAccountKey.json
+serviceAccountKey*.json
+Accountkey*.json
 
 # Build outputs and logs
 *_output.txt

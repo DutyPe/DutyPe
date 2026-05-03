@@ -1,7 +1,7 @@
-v2.6.5 - Smarter local jobs & hiring
+DutyPe v65 makes local jobs and urgent hiring clearer.
 
-Find nearby jobs faster with improved Categories and All Jobs search.
-New roles added: teacher, telecaller, sales, office staff, data entry, field work and more.
-Employers can post faster while DutyPe auto-tags job categories in the background.
-After calling an employer, workers can tell us if the job is filled or still available.
-Includes search, filter and stability fixes for local job discovery.
+• Instant work now shows Applied/Contacted after worker action
+• WhatsApp and call flow improved for urgent jobs near you
+• Employers get cleaner Best Match worker cards with distance, rating, status and completed jobs
+• Filled urgent jobs now keep selected workers active and disable remaining cards
+• Firestore rules, indexes, functions and hosting updated for better stability

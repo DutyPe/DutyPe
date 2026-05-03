@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -31,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,11 +47,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -107,6 +113,31 @@ internal fun PostUrgentNeedContent(
     var budgetText by rememberSaveable { mutableStateOf("") }
     var radiusKm by rememberSaveable { mutableStateOf(5.0) }
     var notes by rememberSaveable { mutableStateOf("") }
+    var contactNumber by rememberSaveable { mutableStateOf("") }
+    var whatsappNumber by rememberSaveable { mutableStateOf("") }
+    var whatsappSameAsContact by rememberSaveable { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        val authPhone = FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        val profilePhone = if (userId.isNullOrBlank()) {
+            authPhone
+        } else {
+            runCatching {
+                FirebaseFirestore.getInstance()
+                    .collection(FirestoreCollections.EMPLOYER_PROFILES)
+                    .document(userId)
+                    .get()
+                    .await()
+            }.getOrNull()?.let { snapshot ->
+                snapshot.getString("phone")
+                    ?: snapshot.getString("phoneNumber")
+                    ?: snapshot.getString("contactNumber")
+            }.orEmpty().ifBlank { authPhone }
+        }
+        if (contactNumber.isBlank()) contactNumber = profilePhone
+        if (whatsappNumber.isBlank()) whatsappNumber = profilePhone
+    }
 
     val effectiveCategory = if (category == OWN_CATEGORY_LABEL) {
         ownCategory.trim().ifBlank { "Other" }
@@ -119,7 +150,9 @@ internal fun PostUrgentNeedContent(
         ""
     }
     val canPost = title.trim().length >= 3 &&
-        (category != OWN_CATEGORY_LABEL || ownCategory.trim().length >= 2)
+        (category != OWN_CATEGORY_LABEL || ownCategory.trim().length >= 2) &&
+        contactNumber.trim().isNotBlank() &&
+        (whatsappSameAsContact || whatsappNumber.trim().isNotBlank())
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -316,6 +349,52 @@ internal fun PostUrgentNeedContent(
             }
         }
 
+        item {
+            UrgentNeedSectionCard(title = "Contact numbers") {
+                OutlinedTextField(
+                    value = contactNumber,
+                    onValueChange = { value ->
+                        contactNumber = value
+                        if (whatsappSameAsContact) whatsappNumber = value
+                    },
+                    label = { Text("Contact number") },
+                    placeholder = { Text("+91 phone number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = whatsappSameAsContact,
+                        onCheckedChange = { checked ->
+                            whatsappSameAsContact = checked
+                            if (checked) whatsappNumber = contactNumber
+                        }
+                    )
+                    Text(
+                        text = "WhatsApp number is same as contact number",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextPrimary)
+                    )
+                }
+
+                if (!whatsappSameAsContact) {
+                    OutlinedTextField(
+                        value = whatsappNumber,
+                        onValueChange = { whatsappNumber = it },
+                        label = { Text("WhatsApp number") },
+                        placeholder = { Text("+91 WhatsApp number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                }
+            }
+        }
+
         if (!state.error.isNullOrBlank()) {
             item {
                 Text(
@@ -335,6 +414,8 @@ internal fun PostUrgentNeedContent(
                             description = notes,
                             category = effectiveCategory,
                             needType = needType,
+                            contactNumber = contactNumber,
+                            whatsappNumber = if (whatsappSameAsContact) contactNumber else whatsappNumber,
                             budgetText = budgetText,
                             radiusKm = radiusKm,
                             scheduledAtMillis = if (needType == "scheduled") {

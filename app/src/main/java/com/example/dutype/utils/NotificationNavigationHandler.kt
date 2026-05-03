@@ -7,6 +7,7 @@ import androidx.navigation.NavController
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.navigation.Routes
+import com.example.dutype.navigation.WorkerBottomRoutes
 import timber.log.Timber
 
 /**
@@ -54,6 +55,32 @@ object NotificationNavigationHandler {
             }
         }
     }
+
+    private fun navigateSafely(navController: NavController, route: String): Boolean {
+        return try {
+            navController.navigate(route)
+            true
+        } catch (error: IllegalArgumentException) {
+            val fallbackRoute = when (route) {
+                Routes.WORKER_HOME -> WorkerBottomRoutes.HOME
+                Routes.EMPLOYER_HOME -> Routes.EMPLOYER_DASHBOARD
+                else -> null
+            }
+
+            if (fallbackRoute == null || fallbackRoute == route) {
+                Timber.w(error, "Notification navigation route not found: $route")
+                false
+            } else {
+                try {
+                    navController.navigate(fallbackRoute)
+                    true
+                } catch (fallbackError: IllegalArgumentException) {
+                    Timber.w(fallbackError, "Notification fallback route not found: $fallbackRoute")
+                    false
+                }
+            }
+        }
+    }
     
     /** Navigate to a job detail by extracting jobId from notification data, with fallback dialog. */
     private fun navigateToJobOrFallback(
@@ -65,8 +92,7 @@ object NotificationNavigationHandler {
         val jobId = notification.actionData["jobId"]
         return if (!jobId.isNullOrEmpty()) {
             onMarkAsRead(notification.id)
-            navController.navigate(Routes.jobDetailRoute(jobId))
-            true
+            navigateSafely(navController, Routes.jobDetailRoute(jobId))
         } else {
             showFallbackDialog(notification, onMarkAsRead, onShowDialog)
             false
@@ -136,11 +162,11 @@ object NotificationNavigationHandler {
                 val requestId = notification.actionData["requestId"]
                 onMarkAsRead(notification.id)
                 if (!requestId.isNullOrEmpty()) {
-                    navController.navigate(Routes.WORKER_HOME)
+                    navigateSafely(navController, Routes.WORKER_HOME)
                 } else if (!jobId.isNullOrEmpty()) {
-                    navController.navigate(Routes.jobDetailRoute(jobId))
+                    navigateSafely(navController, Routes.jobDetailRoute(jobId))
                 } else {
-                    navController.navigate(Routes.WORKER_ALL_JOBS)
+                    navigateSafely(navController, Routes.WORKER_ALL_JOBS)
                 }
             }
             
@@ -156,7 +182,8 @@ object NotificationNavigationHandler {
                 } else {
                     val jobId = notification.actionData["jobId"]
                     onMarkAsRead(notification.id)
-                    navController.navigate(
+                    navigateSafely(
+                        navController,
                         if (!jobId.isNullOrEmpty()) Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
                         else Routes.EMPLOYER_APPLICATIONS
                     )
@@ -172,13 +199,14 @@ object NotificationNavigationHandler {
                     if (!jobId.isNullOrEmpty()) {
                         Timber.i("🔔 Navigating to job applications: $jobId (appId=$applicationId)")
                         onMarkAsRead(notification.id)
-                        navController.navigate(
+                        navigateSafely(
+                            navController,
                             Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
                         )
                     } else {
                         Timber.i("🔔 No specific IDs, navigating to all applications")
                         onMarkAsRead(notification.id)
-                        navController.navigate(Routes.EMPLOYER_APPLICATIONS)
+                        navigateSafely(navController, Routes.EMPLOYER_APPLICATIONS)
                     }
                 }
             }
@@ -187,7 +215,8 @@ object NotificationNavigationHandler {
             NotificationType.APPLICATION_REMINDER -> {
                 val jobId = notification.actionData["jobId"]
                 onMarkAsRead(notification.id)
-                navController.navigate(
+                navigateSafely(
+                    navController,
                     if (!jobId.isNullOrEmpty()) Routes.EMPLOYER_APPLICATIONS_JOB.replace("{jobId}", jobId)
                     else Routes.EMPLOYER_APPLICATIONS
                 )
@@ -197,7 +226,8 @@ object NotificationNavigationHandler {
             NotificationType.JOB_EXPIRY_REMINDER -> {
                 val jobId = notification.actionData["jobId"]
                 onMarkAsRead(notification.id)
-                navController.navigate(
+                navigateSafely(
+                    navController,
                     if (!jobId.isNullOrEmpty()) Routes.editJobRoute(jobId)
                     else Routes.EMPLOYER_MY_JOBS
                 )
@@ -228,7 +258,7 @@ object NotificationNavigationHandler {
                         type = notification.type,
                         icon = "🎉",
                         primaryAction = NotificationDialogAction("View Analytics") {
-                            navController.navigate(Routes.ANALYTICS)
+                            navigateSafely(navController, Routes.ANALYTICS)
                         },
                         secondaryAction = NotificationDialogAction("Got it") { /* dismiss */ }
                     )
@@ -245,7 +275,7 @@ object NotificationNavigationHandler {
                         type = notification.type,
                         icon = "🎁",
                         primaryAction = NotificationDialogAction("View Rewards") {
-                            if (userRole == "WORKER") navController.navigate(Routes.WORKER_REFER_EARN)
+                            if (userRole == "WORKER") navigateSafely(navController, Routes.WORKER_REFER_EARN)
                         },
                         secondaryAction = NotificationDialogAction("Nice!") { /* dismiss */ }
                     )
@@ -264,7 +294,7 @@ object NotificationNavigationHandler {
                         icon = "📊",
                         primaryAction = NotificationDialogAction("Explore") {
                             val route = if (userRole == "WORKER") Routes.WORKER_ALL_JOBS else Routes.EMPLOYER_HOME
-                            navController.navigate(route)
+                            navigateSafely(navController, route)
                         },
                         secondaryAction = NotificationDialogAction("Later") { /* dismiss */ }
                     )

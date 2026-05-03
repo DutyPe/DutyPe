@@ -13,6 +13,7 @@ data class MatchedWorker(
     val skills: List<String> = emptyList(),
     val experience: String = "",
     val rating: Double = 0.0,
+    val ratingCount: Int = 0,
     val completedJobs: Int = 0,
     val isAvailable: Boolean = true,
     val distanceKm: Double? = null,

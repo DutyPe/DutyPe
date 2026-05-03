@@ -194,6 +194,14 @@ class InstantHelpService @Inject constructor(
             if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
                 return@withContext Result.failure(IllegalStateException("Add your business location before posting an urgent need"))
             }
+            val profilePhone = employerData.getString("phone")
+                .ifBlank { employerData.getString("phoneNumber") }
+                .ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
+            val contactNumber = input.contactNumber.trim().ifBlank { profilePhone }.take(20)
+            val whatsappNumber = input.whatsappNumber.trim().ifBlank { contactNumber }.take(20)
+            if (contactNumber.isBlank()) {
+                return@withContext Result.failure(IllegalArgumentException("Enter contact number"))
+            }
 
             val now = Timestamp.now()
             val expiryMs = when (input.needType) {
@@ -213,7 +221,9 @@ class InstantHelpService @Inject constructor(
                 "requestId" to requestRef.id,
                 "employerId" to employerId,
                 "employerName" to (employerData.getString("companyName").ifBlank { employerData.getString("fullName") }.ifBlank { "DutyPe employer" }),
-                "employerPhone" to employerData.getString("phone"),
+                "employerPhone" to contactNumber,
+                "contactNumber" to contactNumber,
+                "whatsappNumber" to whatsappNumber,
                 "title" to input.title.trim(),
                 "description" to input.description.trim(),
                 "category" to input.category.trim().ifBlank { "Helper" },
@@ -314,6 +324,35 @@ class InstantHelpService @Inject constructor(
         }
     }
 
+    suspend fun getWorkerInstantResponsesForRequests(
+        requestIds: List<String>
+    ): Result<Map<String, InstantResponse>> = withContext(Dispatchers.IO) {
+        val workerId = auth.currentUser?.uid
+        if (workerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+
+        return@withContext try {
+            val responses = requestIds
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(10)
+                .mapNotNull { requestId ->
+                    firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
+                        .document("${requestId}_$workerId")
+                        .get()
+                        .await()
+                        .toInstantResponseOrNull()
+                }
+                .associateBy { it.requestId }
+
+            Result.success(responses)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     suspend fun updateEmployerInstantResponseStatus(
         response: InstantResponse,
         status: String,
@@ -359,7 +398,10 @@ class InstantHelpService @Inject constructor(
 
             val requestUpdates = mutableMapOf<String, Any>("selectedWorkerId" to response.workerId)
             when (normalizedStatus) {
-                "accepted" -> requestUpdates["status"] = "filled"
+                "accepted" -> {
+                    // Keep the urgent request open after one worker accepts. Employers
+                    // decide when the required headcount is actually filled.
+                }
                 "completed" -> {
                     requestUpdates["status"] = "completed"
                     requestUpdates["completedAt"] = now
@@ -522,6 +564,8 @@ class InstantHelpService @Inject constructor(
             employerId = data.getString("employerId"),
             employerName = data.getString("employerName").ifBlank { "DutyPe employer" },
             employerPhone = data.getString("employerPhone"),
+            contactNumber = data.getString("contactNumber").ifBlank { data.getString("employerPhone") },
+            whatsappNumber = data.getString("whatsappNumber").ifBlank { data.getString("employerPhone") },
             title = data.getString("title").ifBlank { "Urgent need" },
             description = data.getString("description"),
             category = data.getString("category").ifBlank { "Helper" },

@@ -123,6 +123,10 @@ class WorkerMatchingService @Inject constructor(
             skills = getStringList("skills"),
             experience = getString("experience"),
             rating = getNumber("rating")?.toDouble() ?: 0.0,
+            ratingCount = getNumber("ratingCount")?.toInt()
+                ?: getNumber("totalRatings")?.toInt()
+                ?: getNumber("ratingsCount")?.toInt()
+                ?: 0,
             completedJobs = getNumber("completedJobs")?.toInt() ?: 0,
             isAvailable = getBoolean("isAvailable", default = true),
             distanceKm = getNumber("distanceKm")?.toDouble(),

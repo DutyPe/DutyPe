@@ -1,5 +1,7 @@
 # Release Name
 
-English: DutyPe 2.6.5 - Smarter Local Jobs & Hiring
-Hindi: DutyPe 2.6.5 - लोकल जॉब सर्च और हायरिंग बेहतर
-Telugu: DutyPe 2.6.5 - లోకల్ జాబ్స్ సెర్చ్ మరింత మెరుగైంది
+Version code: 65
+
+English: DutyPe v65 - Instant Work & Smarter Hiring
+Hindi: DutyPe v65 - तुरंत काम और बेहतर हायरिंग
+Telugu: DutyPe v65 - వెంటనే పని, మెరుగైన హైరింగ్

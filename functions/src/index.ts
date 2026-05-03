@@ -654,7 +654,8 @@ export const syncInstantResponseMetrics = functions.firestore
       }
 
       if (afterStatus === "accepted") {
-        updates.status = "filled";
+        // Do not auto-close an urgent request when one worker accepts. Some
+        // requests need multiple people, so the employer confirms completion.
         updates.selectedWorkerId = workerId;
       } else if (afterStatus === "completed") {
         updates.status = "completed";

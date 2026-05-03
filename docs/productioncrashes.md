@@ -1,33 +1,5 @@
 
 Want to use AI to fix this issue?Try Crashlytics MCP tools
-# Production Crash Registry
-
-## Active Crashes (May 2026)
-
-### 1. CascadingMenuPopup - AbstractMethodError (AppCompat)
-- **Dates**: 2026-05-02 23:38:42, 23:38:48 (at least 2 occurrences in initial logs)
-- **Exception**: `java.lang.AbstractMethodError: abstract method "void android.view.View$OnAttachStateChangeListener.onViewAttachedToWindow(android.view.View)" on receiver java.lang.Class<androidx.appcompat.view.menu.CascadingMenuPopup$2>`
-- **Process**: com.dutype.app (PIDs: 18367, 25512)
-- **Root Cause**: AppCompat version mismatch - resolved to 1.6.1 instead of pinned 1.7.1
-- **Resolution Attempt**: Pinned AppCompat to 1.7.1 in gradle/libs.versions.toml (deployed 2026-05-02)
-- **Status**: ⚠️ RECURRING - Reappearing in production logs despite fix
-- **Action Required**: Verify AppCompat 1.7.1 is actually being resolved at runtime; consider force upgrade or additional pinning
-
-### 2. TextAnnotatedStringNode - DrawModifierNode AbstractMethodError
-- **Dates**: 2026-05-03 01:01:06, 09:09:24, 09:09:39, 09:10:58 (4 occurrences)
-- **Exception**: `java.lang.AbstractMethodError: abstract method "void androidx.compose.ui.node.DrawModifierNode.a(androidx.compose.ui.node.LayoutNodeDrawScope)" on receiver java.lang.Class<androidx.compose.foundation.text.modifiers.TextAnnotatedStringNode>`
-- **Process**: com.dutype.app (PIDs: 30089, 7925, 10968, 14687)
-- **Stack Trace**: Occurs during Compose UI drawing operations (NodeCoordinator.drawContainedDrawModifiers)
-- **Root Cause**: Compose library version mismatch - TextAnnotatedStringNode compiled against older DrawModifierNode interface
-- **Status**: 🔴 ACTIVE - Multiple occurrences within 9 hours
-- **Action Required**: Verify Compose BOM version alignment and inspect dependency tree for conflicts
-
----
-
-## Detailed Analysis
-
-### DrawModifierNode Crash Details
-
 This crash, java.lang.AbstractMethodError: abstract method "void androidx.compose.ui.node.DrawModifierNode.a(androidx.compose.ui.node.LayoutNodeDrawScope)" on receiver java.lang.Class<androidx.compose.foundation.text.modifiers.TextAnnotatedStringNode> , indicates an incompatibility issue between different versions of Compose libraries, specifically between the DrawModifierNode interface and its implementation within TextAnnotatedStringNode .
 Cause of the Issue:
 AbstractMethodError occurs when a class attempts to call an abstract method that has been added to an interface in a newer version, but the class itself was compiled against an older version of that interface where the method did not exist. In this specific scenario:

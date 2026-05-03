@@ -82,9 +82,25 @@ class InstantHelpViewModel @Inject constructor(
             _uiState.update { it.copy(isLoadingRequests = true, error = null) }
             instantHelpService.getOpenInstantRequestsForWorker(availability, currentLocation).fold(
                 onSuccess = { requests ->
+                    val responseByRequestId = instantHelpService
+                        .getWorkerInstantResponsesForRequests(requests.map { request -> request.requestId })
+                        .getOrDefault(emptyMap())
+                    val requestsWithWorkerState = requests.map { request ->
+                        responseByRequestId[request.requestId]?.let { response ->
+                            request.copy(
+                                workerResponseId = response.responseId,
+                                workerResponseStatus = response.status,
+                                workerRespondedAt = response.respondedAt
+                            )
+                        } ?: request
+                    }
                     _uiState.update {
                         it.copy(
-                            instantRequests = requests,
+                            instantRequests = requestsWithWorkerState,
+                            workerInstantResponses = mergeWorkerInstantResponses(
+                                it.workerInstantResponses,
+                                responseByRequestId.values
+                            ),
                             isLoadingRequests = false
                         )
                     }
@@ -118,10 +134,22 @@ class InstantHelpViewModel @Inject constructor(
             _uiState.update { it.copy(updatingRequestId = request.requestId, error = null) }
             instantHelpService.respondToInstantRequest(request, action).fold(
                 onSuccess = {
+                    val normalizedStatus = normalizeWorkerInstantResponseStatus(action)
+                    val now = System.currentTimeMillis()
                     _uiState.update { state ->
                         state.copy(
                             updatingRequestId = null,
-                            instantRequests = state.instantRequests.filterNot { it.requestId == request.requestId },
+                            instantRequests = state.instantRequests.map { item ->
+                                if (item.requestId == request.requestId) {
+                                    item.copy(
+                                        workerResponseId = request.workerResponseId,
+                                        workerResponseStatus = normalizedStatus,
+                                        workerRespondedAt = now
+                                    )
+                                } else {
+                                    item
+                                }
+                            },
                             message = when (action.lowercase()) {
                                 "called" -> "Contact recorded"
                                 else -> "Applied for urgent work"
@@ -292,6 +320,24 @@ class InstantHelpViewModel @Inject constructor(
         _uiState.update { it.copy(error = null, message = null) }
     }
 
+    private fun normalizeWorkerInstantResponseStatus(action: String): String = when (action.lowercase()) {
+        "called" -> "called"
+        "applied" -> "applied"
+        else -> "applied"
+    }
+
+    private fun mergeWorkerInstantResponses(
+        current: List<InstantResponse>,
+        updates: Collection<InstantResponse>
+    ): List<InstantResponse> {
+        if (updates.isEmpty()) return current
+        val byId = current.associateBy { it.responseId }.toMutableMap()
+        updates.forEach { response -> byId[response.responseId] = response }
+        return byId.values.sortedByDescending { response ->
+            response.updatedAt.takeIf { it > 0L } ?: response.createdAt
+        }
+    }
+
     private fun updateEmployerInstantResponse(response: InstantResponse, status: String, note: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(updatingEmployerResponseId = response.responseId, error = null) }
@@ -333,7 +379,8 @@ class InstantHelpViewModel @Inject constructor(
                                             selectedWorkerId = response.workerId,
                                             failureReason = note.ifBlank { "Worker did not show up" }
                                         )
-                                        else -> request.copy(status = "filled", selectedWorkerId = response.workerId)
+                                        "accepted" -> request.copy(selectedWorkerId = response.workerId)
+                                        else -> request
                                     }
                                 } else {
                                     request
@@ -342,7 +389,8 @@ class InstantHelpViewModel @Inject constructor(
                             message = when (normalizedStatus) {
                                 "completed" -> "Urgent work marked done"
                                 "no_show" -> "Marked as no show"
-                                else -> "Worker selected"
+                                "accepted" -> "Worker selected. Keep it open until the need is filled."
+                                else -> "Urgent response updated"
                             }
                         )
                     }
