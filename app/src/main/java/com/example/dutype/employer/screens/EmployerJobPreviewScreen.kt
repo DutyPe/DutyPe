@@ -56,6 +56,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ImageUploadUtils
+import com.example.dutype.utils.JobEditPolicy
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -190,6 +191,7 @@ fun EmployerJobPreviewScreen(
                 }
                 else -> {
                     val j = job!!
+                    val canEditJob = JobEditPolicy.canEdit(j.createdAt)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -198,7 +200,13 @@ fun EmployerJobPreviewScreen(
                         HeroBlock(
                             job = j,
                             isUploading = isUploadingImage,
-                            onUploadClick = { imagePickerLauncher.launch("image/*") }
+                            onUploadClick = {
+                                if (canEditJob) {
+                                    imagePickerLauncher.launch("image/*")
+                                } else {
+                                    Toast.makeText(context, JobEditPolicy.blockedMessage(j.createdAt), Toast.LENGTH_LONG).show()
+                                }
+                            }
                         )
 
                         Spacer(Modifier.height(12.dp))
@@ -224,7 +232,13 @@ fun EmployerJobPreviewScreen(
             val j = job!!
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 StickyEditBar(
-                    onEdit = { navController.navigate(Routes.editJobRoute(j.id)) },
+                    onEdit = {
+                        if (JobEditPolicy.canEdit(j.createdAt)) {
+                            navController.navigate(Routes.editJobRoute(j.id))
+                        } else {
+                            Toast.makeText(context, JobEditPolicy.blockedMessage(j.createdAt), Toast.LENGTH_LONG).show()
+                        }
+                    },
                     onDelete = { showDeleteConfirm = true }
                 )
             }

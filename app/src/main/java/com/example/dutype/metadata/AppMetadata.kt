@@ -356,7 +356,7 @@ data class FeatureFlags(
     val isReferralEnabled: Boolean = true,
     val isWorkVerificationEnabled: Boolean = true,
     val isRatingEnabled: Boolean = true,
-    val isWhatsAppApplyEnabled: Boolean = true,
+    val isWhatsAppApplyEnabled: Boolean = false,
     val isDigitalCardEnabled: Boolean = true,
     
     // Limits

@@ -127,6 +127,7 @@ import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.utils.JobEditPolicy
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -480,6 +481,8 @@ fun DashboardContent(
     val updatedStats = remember(jobStats, appStats.totalApplications) {
         jobStats.copy(totalApplications = appStats.totalApplications)
     }
+    val hasNormalJobs = recentJobs.isNotEmpty()
+    val hasUrgentNeeds = urgentRequests.isNotEmpty()
 
     if (isLoading && recentJobs.isEmpty()) {
         // Show loading when first coming to the page
@@ -500,22 +503,41 @@ fun DashboardContent(
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }
 
-            item {
-                UrgentNeedCtaCard(
-                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
-                    onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
-                )
+            if (!hasNormalJobs && !hasUrgentNeeds) {
+                item {
+                    UrgentNeedCtaCard(
+                        title = "Need worker today?",
+                        body = "Post an urgent need for nearby workers today, or create a normal job for regular hiring.",
+                        urgentButtonLabel = "Post urgent need",
+                        showNormalJobAction = true,
+                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
+                        onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                    )
+                }
+            } else if (hasNormalJobs && !hasUrgentNeeds) {
+                item {
+                    UrgentNeedCtaCard(
+                        title = "Need faster results?",
+                        body = "Post an urgent need to reach nearby available workers. Today posts expire in 24 hours.",
+                        urgentButtonLabel = "Post urgent need",
+                        showNormalJobAction = false,
+                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
+                        onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                    )
+                }
             }
 
-            item {
-                EmployerUrgentNeedSummarySection(
-                    requests = urgentRequests,
-                    responsesByRequestId = urgentResponsesByRequestId,
-                    isLoading = isLoadingUrgentRequests,
-                    onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
-                    onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
-                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-                )
+            if (hasUrgentNeeds || isLoadingUrgentRequests) {
+                item {
+                    EmployerUrgentNeedSummarySection(
+                        requests = urgentRequests,
+                        responsesByRequestId = urgentResponsesByRequestId,
+                        isLoading = isLoadingUrgentRequests,
+                        onViewAll = { navController.navigate(Routes.employerHistoryRoute("urgent")) },
+                        onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
+                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                    )
+                }
             }
             
             // Job Analytics Card removed per task list requirement
@@ -547,6 +569,10 @@ fun DashboardContent(
 
 @Composable
 private fun UrgentNeedCtaCard(
+    title: String,
+    body: String,
+    urgentButtonLabel: String,
+    showNormalJobAction: Boolean,
     onPostUrgentNeed: () -> Unit,
     onPostNormalJob: () -> Unit
 ) {
@@ -580,14 +606,14 @@ private fun UrgentNeedCtaCard(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Need worker today?",
+                        text = title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = EmployerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
-                        text = "Post a quick urgent need for nearby available workers.",
+                        text = body,
                         style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -605,13 +631,15 @@ private fun UrgentNeedCtaCard(
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                 ) {
-                    Text("Post urgent need")
+                    Text(urgentButtonLabel)
                 }
-                TextButton(
-                    onClick = onPostNormalJob,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Post normal job")
+                if (showNormalJobAction) {
+                    TextButton(
+                        onClick = onPostNormalJob,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Post normal job")
+                    }
                 }
             }
         }
@@ -1050,19 +1078,16 @@ fun RecentJobsSection(
                                 Timber.d("EmployerHomeScreen - Edit clicked for job ID: $jobId")
                                 Timber.d("EmployerHomeScreen - Job title: ${job.title}")
                                 
-                                // Industry standard: Allow editing within 7 days of posting
                                 val currentTime = System.currentTimeMillis()
                                 val jobPostedTime = job.createdAt
-                                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                                 
-                                if (currentTime - jobPostedTime > sevenDaysInMillis) {
-                                    val daysSincePosted = (currentTime - jobPostedTime) / (24 * 60 * 60 * 1000)
+                                if (!JobEditPolicy.canEdit(jobPostedTime, currentTime)) {
                                     Toast.makeText(
-                                        context, 
-                                        "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago.", 
+                                        context,
+                                        JobEditPolicy.blockedMessage(jobPostedTime, currentTime),
                                         Toast.LENGTH_LONG
                                     ).show()
-                                    Timber.w("EmployerHomeScreen - Job cannot be edited, posted $daysSincePosted days ago")
+                                    Timber.w("EmployerHomeScreen - Job cannot be edited after ${JobEditPolicy.EDIT_WINDOW_HOURS} hours")
                                 } else {
                                     navController.navigate(Routes.editJobRoute(jobId))
                                 }

@@ -174,7 +174,6 @@ fun EmployerUrgentNeedDetailScreen(
             ratedResponseIds = ratedResponseIds,
             onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
             onCallWorker = { phone -> openDialer(context, phone) },
-            onWhatsAppWorker = { phone -> openWhatsApp(context, phone) },
             onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
             onCompleteResponse = { response -> pendingCompletionResponse = response },
             onNoShowResponse = { response -> pendingNoShowResponse = response },
@@ -232,16 +231,5 @@ private fun openDialer(context: android.content.Context, phone: String) {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
     }.onFailure {
         Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun openWhatsApp(context: android.content.Context, phone: String) {
-    val digits = phone.filter { it.isDigit() }
-    if (digits.isBlank()) return
-    val normalized = if (digits.startsWith("91")) digits else "91$digits"
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized")))
-    }.onFailure {
-        Toast.makeText(context, "Unable to open WhatsApp", Toast.LENGTH_SHORT).show()
     }
 }

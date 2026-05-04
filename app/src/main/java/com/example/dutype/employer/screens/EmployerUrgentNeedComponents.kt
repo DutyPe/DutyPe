@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Group
@@ -153,7 +153,6 @@ internal fun EmployerUrgentNeedHistoryContent(
     onOpenRequest: (InstantRequest) -> Unit,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
-    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -214,7 +213,6 @@ internal fun EmployerUrgentNeedHistoryContent(
                         onOpenRequest = onOpenRequest,
                         onOpenWorkerProfile = onOpenWorkerProfile,
                         onCallWorker = onCallWorker,
-                        onWhatsAppWorker = onWhatsAppWorker,
                         onSelectResponse = onSelectResponse,
                         onCompleteResponse = onCompleteResponse,
                         onNoShowResponse = onNoShowResponse,
@@ -237,7 +235,6 @@ internal fun EmployerUrgentNeedDetailContent(
     ratedResponseIds: Set<String>,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
-    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -293,7 +290,6 @@ internal fun EmployerUrgentNeedDetailContent(
                         onOpenRequest = {},
                         onOpenWorkerProfile = onOpenWorkerProfile,
                         onCallWorker = onCallWorker,
-                        onWhatsAppWorker = onWhatsAppWorker,
                         onSelectResponse = onSelectResponse,
                         onCompleteResponse = onCompleteResponse,
                         onNoShowResponse = onNoShowResponse,
@@ -313,6 +309,7 @@ private fun EmployerUrgentNeedMiniRow(
     responseCount: Int,
     onClick: () -> Unit
 ) {
+    val selectedCount = request.selectedWorkerIds.size.coerceAtLeast(if (request.selectedWorkerId.isNotBlank()) 1 else 0)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -337,7 +334,7 @@ private fun EmployerUrgentNeedMiniRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${request.category} • ${responseCount} responses • ${DateTimeUtils.formatRelativeTime(request.createdAt)}",
+                    text = "${request.category} • $selectedCount/${request.workersNeeded} selected • $responseCount responses",
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -358,7 +355,6 @@ private fun EmployerUrgentNeedCard(
     onOpenRequest: (InstantRequest) -> Unit,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
-    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -368,6 +364,10 @@ private fun EmployerUrgentNeedCard(
 ) {
     val normalizedStatus = request.status.lowercase(Locale.ROOT)
     val canCancel = normalizedStatus in setOf("open", "filled")
+    val responseSelectedCount = responses.count { it.status.equals("accepted", ignoreCase = true) || it.status.equals("completed", ignoreCase = true) }
+    val selectedCount = maxOf(request.selectedWorkerIds.size, responseSelectedCount)
+    val completedCount = maxOf(request.completedWorkerIds.size, responses.count { it.status.equals("completed", ignoreCase = true) })
+    val requiredWorkers = request.workersNeeded.coerceAtLeast(1)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -420,13 +420,18 @@ private fun EmployerUrgentNeedCard(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoPill(Icons.Default.Group, "${responses.size} responses")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { InfoPill(Icons.Default.Group, "Need $requiredWorkers") }
+                item { InfoPill(Icons.Default.CheckCircle, "$selectedCount/$requiredWorkers selected") }
+                item { InfoPill(Icons.Default.Group, "${responses.size} responses") }
+                if (completedCount > 0) {
+                    item { InfoPill(Icons.Default.DoneAll, "$completedCount done") }
+                }
                 if (request.budgetText.isNotBlank()) {
-                    InfoPill(Icons.Default.Work, request.budgetText)
+                    item { InfoPill(Icons.Default.Work, request.budgetText) }
                 }
                 if (request.notifiedWorkerCount > 0) {
-                    InfoPill(Icons.Default.Schedule, "${request.notifiedWorkerCount} notified")
+                    item { InfoPill(Icons.Default.Schedule, "${request.notifiedWorkerCount} notified") }
                 }
             }
 
@@ -457,9 +462,9 @@ private fun EmployerUrgentNeedCard(
                         response = response,
                         isUpdating = updatingResponseId == response.responseId,
                         hasAlreadyRated = response.responseId in ratedResponseIds,
+                        canSelectMore = selectedCount < requiredWorkers || response.workerId in request.selectedWorkerIds,
                         onOpenWorkerProfile = onOpenWorkerProfile,
                         onCallWorker = onCallWorker,
-                        onWhatsAppWorker = onWhatsAppWorker,
                         onSelectResponse = onSelectResponse,
                         onCompleteResponse = onCompleteResponse,
                         onNoShowResponse = onNoShowResponse,
@@ -522,16 +527,16 @@ private fun InstantResponseRow(
     response: InstantResponse,
     isUpdating: Boolean,
     hasAlreadyRated: Boolean,
+    canSelectMore: Boolean,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (String) -> Unit,
-    onWhatsAppWorker: (String) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit
 ) {
     val status = response.status.lowercase(Locale.ROOT)
-    val canSelect = status in setOf("viewed", "applied", "interested", "called")
+    val canSelect = status in setOf("viewed", "applied", "interested", "called") && canSelectMore
     val canComplete = status == "accepted"
     val canRate = status == "completed" && !hasAlreadyRated
 
@@ -593,15 +598,6 @@ private fun InstantResponseRow(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Call")
                     }
-                    OutlinedButton(
-                        onClick = { onWhatsAppWorker(response.workerPhone) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("WA")
-                    }
                 }
             }
 
@@ -625,6 +621,9 @@ private fun InstantResponseRow(
                         ) {
                             Text("Select")
                         }
+                    }
+                    !canSelectMore && status in setOf("viewed", "applied", "interested", "called") -> {
+                        InfoPill(Icons.Default.CheckCircle, "Required workers selected")
                     }
                     canComplete -> {
                         Button(

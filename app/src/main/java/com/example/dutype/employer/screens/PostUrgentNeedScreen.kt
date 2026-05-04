@@ -1,6 +1,7 @@
 package com.example.dutype.employer.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Work
@@ -23,7 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -42,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,12 +107,11 @@ internal fun PostUrgentNeedContent(
 
     var title by rememberSaveable { mutableStateOf("") }
     var needType by rememberSaveable { mutableStateOf("urgent_now") }
+    var workersNeededText by rememberSaveable { mutableStateOf("1") }
     var budgetText by rememberSaveable { mutableStateOf("") }
-    var radiusKm by rememberSaveable { mutableStateOf(5.0) }
+    var radiusKm by rememberSaveable { mutableStateOf(10.0) }
     var notes by rememberSaveable { mutableStateOf("") }
     var contactNumber by rememberSaveable { mutableStateOf("") }
-    var whatsappNumber by rememberSaveable { mutableStateOf("") }
-    var whatsappSameAsContact by rememberSaveable { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         val authPhone = FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
@@ -131,11 +132,11 @@ internal fun PostUrgentNeedContent(
             }.orEmpty().ifBlank { authPhone }
         }
         if (contactNumber.isBlank()) contactNumber = profilePhone
-        if (whatsappNumber.isBlank()) whatsappNumber = profilePhone
     }
 
     val inferredCategory = JobCategoryResolver.inferCategory(title, notes)
     val effectiveCategory = inferredCategory?.displayName ?: "Helper"
+    val workersNeeded = workersNeededText.toIntOrNull()?.takeIf { it in 1..20 }
     val scheduleLabel = if (needType == "scheduled") {
         buildTomorrowScheduleLabel()
     } else {
@@ -143,7 +144,7 @@ internal fun PostUrgentNeedContent(
     }
     val canPost = title.trim().length >= 3 &&
         contactNumber.trim().isNotBlank() &&
-        (whatsappSameAsContact || whatsappNumber.trim().isNotBlank())
+        workersNeeded != null
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -154,9 +155,10 @@ internal fun PostUrgentNeedContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
@@ -194,6 +196,18 @@ internal fun PostUrgentNeedContent(
                 AutoPickedUrgentCategory(
                     category = effectiveCategory,
                     hasTitle = title.trim().length >= 3
+                )
+
+                OutlinedTextField(
+                    value = workersNeededText,
+                    onValueChange = { value -> workersNeededText = value.filter { it.isDigit() }.take(2) },
+                    label = { Text("Workers needed") },
+                    placeholder = { Text("2") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    supportingText = { Text("You can select up to this many workers. The urgent need closes as filled when the count is reached.") },
+                    shape = RoundedCornerShape(14.dp)
                 )
 
                 OutlinedTextField(
@@ -269,9 +283,9 @@ internal fun PostUrgentNeedContent(
                     shape = RoundedCornerShape(14.dp)
                 )
 
-                SectionLabel("Search radius")
+                SectionLabel("Find workers")
                 Text(
-                    text = "Instant works are limited to 10 km.",
+                    text = "Find workers within ${radiusKm.toInt()} km from your job location.",
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -291,48 +305,16 @@ internal fun PostUrgentNeedContent(
         }
 
         item {
-            UrgentNeedSectionCard(title = "Contact numbers") {
+            UrgentNeedSectionCard(title = "Contact number") {
                 OutlinedTextField(
                     value = contactNumber,
-                    onValueChange = { value ->
-                        contactNumber = value
-                        if (whatsappSameAsContact) whatsappNumber = value
-                    },
+                    onValueChange = { value -> contactNumber = value },
                     label = { Text("Contact number") },
                     placeholder = { Text("+91 phone number") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp)
                 )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Checkbox(
-                        checked = whatsappSameAsContact,
-                        onCheckedChange = { checked ->
-                            whatsappSameAsContact = checked
-                            if (checked) whatsappNumber = contactNumber
-                        }
-                    )
-                    Text(
-                        text = "WhatsApp number is same as contact number",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextPrimary)
-                    )
-                }
-
-                if (!whatsappSameAsContact) {
-                    OutlinedTextField(
-                        value = whatsappNumber,
-                        onValueChange = { whatsappNumber = it },
-                        label = { Text("WhatsApp number") },
-                        placeholder = { Text("+91 WhatsApp number") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                }
             }
         }
 
@@ -354,9 +336,9 @@ internal fun PostUrgentNeedContent(
                             title = title,
                             description = notes,
                             category = effectiveCategory,
+                            workersNeeded = workersNeeded ?: 1,
                             needType = needType,
                             contactNumber = contactNumber,
-                            whatsappNumber = if (whatsappSameAsContact) contactNumber else whatsappNumber,
                             budgetText = budgetText,
                             radiusKm = radiusKm,
                             scheduledAtMillis = if (needType == "scheduled") {
@@ -430,9 +412,10 @@ private fun UrgentNeedSectionCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

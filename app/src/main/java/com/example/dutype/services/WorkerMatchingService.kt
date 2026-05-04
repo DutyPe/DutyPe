@@ -119,7 +119,9 @@ class WorkerMatchingService @Inject constructor(
             workerId = getString("workerId"),
             fullName = getString("fullName").ifBlank { "Worker" },
             phone = getString("phone"),
-            profileImageUrl = getString("profileImageUrl"),
+            profileImageUrl = getString("profileImageUrl")
+                .ifBlank { getString("profileImage") }
+                .ifBlank { getString("photoUrl") },
             skills = getStringList("skills"),
             experience = getString("experience"),
             rating = getNumber("rating")?.toDouble() ?: 0.0,

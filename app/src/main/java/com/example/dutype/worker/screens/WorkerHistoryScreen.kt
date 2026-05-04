@@ -157,8 +157,7 @@ fun WorkerHistoryScreen(
             WorkerUrgentHistoryContent(
                 responses = instantHelpState.workerInstantResponses,
                 isLoading = instantHelpState.isLoadingWorkerUrgentHistory,
-                onCallEmployer = { phone -> openWorkerHistoryDialer(context, phone) },
-                onWhatsAppEmployer = { phone -> openWorkerHistoryWhatsApp(context, phone) }
+                onCallEmployer = { phone -> openWorkerHistoryDialer(context, phone) }
             )
         } else if (uiState.isLoading) {
             Box(
@@ -208,17 +207,6 @@ private fun openWorkerHistoryDialer(context: android.content.Context, phone: Str
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
     }.onFailure {
         Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun openWorkerHistoryWhatsApp(context: android.content.Context, phone: String) {
-    val digits = phone.filter { it.isDigit() }
-    if (digits.isBlank()) return
-    val normalized = if (digits.startsWith("91")) digits else "91$digits"
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized")))
-    }.onFailure {
-        Toast.makeText(context, "Unable to open WhatsApp", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -298,8 +286,7 @@ private fun MonthHeader(monthYear: String) {
 private fun WorkerUrgentHistoryContent(
     responses: List<InstantResponse>,
     isLoading: Boolean,
-    onCallEmployer: (String) -> Unit,
-    onWhatsAppEmployer: (String) -> Unit
+    onCallEmployer: (String) -> Unit
 ) {
     when {
         isLoading -> {
@@ -353,8 +340,7 @@ private fun WorkerUrgentHistoryContent(
                 items(responses, key = { response -> "worker_urgent_${response.responseId}" }) { response ->
                     WorkerUrgentHistoryCard(
                         response = response,
-                        onCallEmployer = onCallEmployer,
-                        onWhatsAppEmployer = onWhatsAppEmployer
+                        onCallEmployer = onCallEmployer
                     )
                 }
             }
@@ -365,8 +351,7 @@ private fun WorkerUrgentHistoryContent(
 @Composable
 private fun WorkerUrgentHistoryCard(
     response: InstantResponse,
-    onCallEmployer: (String) -> Unit,
-    onWhatsAppEmployer: (String) -> Unit
+    onCallEmployer: (String) -> Unit
 ) {
     val status = response.status.lowercase(Locale.ROOT)
     val statusColor = when (status) {
@@ -453,28 +438,14 @@ private fun WorkerUrgentHistoryCard(
             }
 
             if (response.employerPhone.isNotBlank()) {
-                Row(
+                OutlinedButton(
+                    onClick = { onCallEmployer(response.employerPhone) },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = { onCallEmployer(response.employerPhone) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Call")
-                    }
-                    OutlinedButton(
-                        onClick = { onWhatsAppEmployer(response.employerPhone) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("WhatsApp")
-                    }
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Call")
                 }
             }
         }

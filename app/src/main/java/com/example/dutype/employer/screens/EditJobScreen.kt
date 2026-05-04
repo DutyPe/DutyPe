@@ -31,6 +31,7 @@ import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.models.*
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.utils.JobEditPolicy
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.compose.foundation.layout.WindowInsets
@@ -126,10 +127,8 @@ fun EditJobScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isLoadingJob by remember { mutableStateOf(true) }
     
-    // Work Location Management (Industry standard pattern)
-    var showSaveLocationDialog by remember { mutableStateOf(false) }
+    // Saved work locations are read-only here; new addresses are saved only from Manage Addresses.
     var showSavedLocationsSheet by remember { mutableStateOf(false) }
-    var locationLabel by remember { mutableStateOf("") }
     
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableStateOf(0.0) }
@@ -195,21 +194,18 @@ fun EditJobScreen(
                 Timber.d(" EditJobScreen - Job loaded: ${job.title}")
                 Timber.d(" EditJobScreen - Job posted at: ${job.createdAt}")
                 
-                // Industry standard: Allow editing within 7 days
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.createdAt
-                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days
                 
                 Timber.d(" EditJobScreen - Current time: $currentTime")
                 Timber.d(" EditJobScreen - Job posted time: $jobPostedTime")
                 Timber.d(" EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
-                Timber.d(" EditJobScreen - Seven days in millis: $sevenDaysInMillis")
+                Timber.d(" EditJobScreen - Edit window millis: ${JobEditPolicy.EDIT_WINDOW_MILLIS}")
                 
-                if (currentTime - jobPostedTime > sevenDaysInMillis) {
+                if (!JobEditPolicy.canEdit(jobPostedTime, currentTime)) {
                     canEditJob = false
-                    val daysSincePosted = (currentTime - jobPostedTime) / (24 * 60 * 60 * 1000)
-                    timeRestrictionMessage = "Jobs can only be edited within 7 days of posting. This job was posted $daysSincePosted days ago."
-                    Timber.w(" EditJobScreen - Job cannot be edited, posted $daysSincePosted days ago")
+                    timeRestrictionMessage = JobEditPolicy.blockedMessage(jobPostedTime, currentTime)
+                    Timber.w(" EditJobScreen - Job cannot be edited after ${JobEditPolicy.EDIT_WINDOW_HOURS} hours")
                 } else {
                     canEditJob = true
                     timeRestrictionMessage = ""
@@ -848,47 +844,22 @@ fun EditJobScreen(
                             )
                         }
                         
-                        // Save Location Button (Industry standard pattern - Uber, Swiggy, Zomato)
-                        if (location.isNotBlank() && locationLatitude != 0.0 && locationLongitude != 0.0) {
-                            Row(
+                        if (savedWorkLocations.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = { showSavedLocationsSheet = true },
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFF10B981)
+                                )
                             ) {
-                                OutlinedButton(
-                                    onClick = { showSaveLocationDialog = true },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = Color(0xFF3B82F6)
-                                    )
-                                ) {
-                                    Icon(
-                                        Icons.Default.Bookmark,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(stringResource(R.string.save_location), fontSize = 13.sp)
-                                }
-                                
-                                if (savedWorkLocations.isNotEmpty()) {
-                                    OutlinedButton(
-                                        onClick = { showSavedLocationsSheet = true },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = Color(0xFF10B981)
-                                        )
-                                    ) {
-                                        Icon(
-                                            Icons.Default.List,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(stringResource(R.string.saved_count, savedWorkLocations.size), fontSize = 13.sp)
-                                    }
-                                }
+                                Icon(
+                                    Icons.Default.List,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(stringResource(R.string.saved_count, savedWorkLocations.size), fontSize = 13.sp)
                             }
                         }
                     }
@@ -1284,87 +1255,6 @@ fun EditJobScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-    
-    // Save Location Dialog (Industry standard pattern)
-    if (showSaveLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { 
-                showSaveLocationDialog = false
-                locationLabel = ""
-            },
-            title = { 
-                Text(
-                    "Save Work Location",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                ) 
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Give this location a label for quick access later",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-                    OutlinedTextField(
-                        value = locationLabel,
-                        onValueChange = { locationLabel = it },
-                        label = { Text(stringResource(R.string.address_label_hint)) },
-                        placeholder = { Text(stringResource(R.string.enter_label)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Text(
-                        "Address: $location",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (locationLabel.isNotBlank()) {
-                            runCatching {
-                                savedWorkLocationsStore.add(
-                                    label = locationLabel,
-                                    address = location,
-                                    latitude = locationLatitude,
-                                    longitude = locationLongitude
-                                )
-                            }.onSuccess {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Location saved for this session",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }.onFailure { error ->
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Failed to save location: ${error.message}",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                            showSaveLocationDialog = false
-                            locationLabel = ""
-                        }
-                    },
-                    enabled = locationLabel.isNotBlank(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(stringResource(R.string.save))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    showSaveLocationDialog = false
-                    locationLabel = ""
-                }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

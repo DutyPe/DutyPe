@@ -1099,6 +1099,15 @@ class JobApplicationService @Inject constructor(
                 
                 val currentApplication = doc.toJobApplicationOrNull()
                     ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+
+                if (newStatus == ApplicationStatus.HIRED && currentApplication.status != ApplicationStatus.HIRED) {
+                    val canAcceptMore = canAcceptMoreApplications(currentApplication.jobId).getOrElse { error ->
+                        return@retryWithBackoffResult Result.failure(error)
+                    }
+                    if (!canAcceptMore) {
+                        return@retryWithBackoffResult Result.failure(Exception("This job is already filled. Close it or increase vacancies before hiring more workers."))
+                    }
+                }
                 
                 val updatedApplication = currentApplication.copy(
                     status = newStatus

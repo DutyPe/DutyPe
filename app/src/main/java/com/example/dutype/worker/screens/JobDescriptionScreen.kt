@@ -240,7 +240,7 @@ fun JobDescriptionScreen(
 
     // Guest mode - Login bottom sheet state
     var showLoginBottomSheet by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<String?>(null) } // "apply", "call", "message", "whatsapp"
+    var pendingAction by remember { mutableStateOf<String?>(null) }
 
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
@@ -628,24 +628,6 @@ fun JobDescriptionScreen(
                 "call" -> {
                     job?.let(launchEmployerDialer)
                 }
-                "message" -> {
-                    job?.let(launchEmployerDialer)
-                }
-                "whatsapp" -> {
-                    val phone = job?.contactNumber ?: ""
-                    if (phone.isNotEmpty()) {
-                        com.example.dutype.components.openWhatsAppApply(
-                            context = context,
-                            phoneNumber = phone,
-                            jobTitle = job?.title ?: "",
-                            companyName = job?.companyName ?: "",
-                            salary = job?.let { j ->
-                                "₹${com.example.dutype.utils.SalaryFormatter.display(j.salary, j.salaryType)}"
-                            } ?: "",
-                            location = job?.addressText ?: ""
-                        )
-                    }
-                }
             }
             pendingAction = null
         },
@@ -664,8 +646,6 @@ fun JobDescriptionScreen(
             "apply" -> "Login to apply for this job"
             "save" -> "Login to save this job"
             "call" -> "Login to call the employer"
-            "message" -> "Login to message the employer"
-            "whatsapp" -> "Login to contact via WhatsApp"
             else -> "Please login to continue"
         }
     )

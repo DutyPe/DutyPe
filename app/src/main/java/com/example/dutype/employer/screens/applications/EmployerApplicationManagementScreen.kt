@@ -1,9 +1,6 @@
 package com.example.dutype.employer.screens.applications
 
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -49,7 +46,6 @@ import com.example.dutype.models.MatchedWorker
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
@@ -316,25 +312,9 @@ fun EmployerApplicationManagementScreen(
                 matchedWorkersCount = matchedWorkersState.workers.size,
                 callReadyCandidates = callReadyCandidates,
                 isClosingJob = isClosingJob,
-                onShareJob = { shareHiringRoomJob(jobId, jobTitleForActions, context) },
                 onCloseJob = { showCloseJobDialog = true }
             )
 
-            HiringConversionCoachCard(
-                isJobLive = isJobLive,
-                totalApplicants = uiState.applications.size,
-                shortlistedCount = shortlistedCount,
-                callReadyCandidates = callReadyCandidates,
-                hiredCount = hiredCount,
-                onPrimaryAction = {
-                    when {
-                        !isJobLive -> selectedTabIndex = 1
-                        uiState.applications.isEmpty() -> selectedTabIndex = 1
-                        shortlistedCount > 0 || callReadyCandidates > 0 -> selectedTabIndex = 1
-                        else -> selectedTabIndex = 1
-                    }
-                }
-            )
         }
 
         if (jobId != null) {
@@ -421,18 +401,14 @@ fun EmployerApplicationManagementScreen(
             uiState.applications.isEmpty() && !uiState.isLoading -> {
                 Box(modifier = Modifier.weight(1f)) {
                     EmptyApplicationsState(
-                        isJobSpecific = jobId != null,
-                        onShareJob = {
-                            if (jobId != null) shareHiringRoomJob(jobId, jobTitleForActions, context)
-                        }
+                        isJobSpecific = jobId != null
                     )
                 }
             }
             displayedApplications.isEmpty() -> {
                 Box(modifier = Modifier.weight(1f)) {
                     EmptyApplicationsState(
-                        isJobSpecific = false,
-                        onShareJob = {}
+                        isJobSpecific = false
                     )
                 }
             }
@@ -656,7 +632,7 @@ private fun MatchedWorkersContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isJobLive) {
-                                "Ranked by skills, distance, availability, experience, completed work, and rating."
+                                "Nearest workers are shown first, then availability and profile strength."
                             } else {
                                 "Selected workers stay active. Remaining matches are shown as disabled cards."
                             },
@@ -695,7 +671,6 @@ private fun HiringRoomSummaryCard(
     matchedWorkersCount: Int,
     callReadyCandidates: Int,
     isClosingJob: Boolean,
-    onShareJob: () -> Unit,
     onCloseJob: () -> Unit
 ) {
     Card(
@@ -781,20 +756,10 @@ private fun HiringRoomSummaryCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
-                    onClick = onShareJob,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share job")
-                }
-
                 Button(
                     onClick = onCloseJob,
                     enabled = isLive && !isClosingJob,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
                 ) {
@@ -806,80 +771,6 @@ private fun HiringRoomSummaryCard(
         }
     }
 }
-
-@Composable
-private fun HiringConversionCoachCard(
-    isJobLive: Boolean,
-    totalApplicants: Int,
-    shortlistedCount: Int,
-    callReadyCandidates: Int,
-    hiredCount: Int,
-    onPrimaryAction: () -> Unit
-) {
-    val (headline, body, ctaLabel, tone) = when {
-        !isJobLive && hiredCount > 0 -> Quad(
-            "Hiring completed",
-            "Review hired worker history and close follow-ups for this job.",
-            "Review hired workers",
-            Color(0xFF1F2937)
-        )
-        totalApplicants == 0 -> Quad(
-            "No applicants yet",
-            "Share this job and review nearby matches while applicants come in.",
-            "Review matches",
-            Color(0xFFB45309)
-        )
-        shortlistedCount == 0 && callReadyCandidates == 0 -> Quad(
-            "Move fast on first shortlist",
-            "Shortlist at least one applicant now to unlock faster connect and calling.",
-            "Review applied workers",
-            Color(0xFF1D4ED8)
-        )
-        else -> Quad(
-            "High-intent candidates ready",
-            "$callReadyCandidates worker(s) are call-ready. Calling now improves fill rate.",
-            "Open applied workers",
-            Color(0xFF047857)
-        )
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = tone.copy(alpha = 0.08f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = headline,
-                style = AppTypography.labelLarge.copy(fontWeight = FontWeight.Bold, color = tone)
-            )
-            Text(
-                text = body,
-                style = AppTypography.bodySmall.copy(color = tone.copy(alpha = 0.9f))
-            )
-            Button(
-                onClick = onPrimaryAction,
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = tone)
-            ) {
-                Text(ctaLabel)
-            }
-        }
-    }
-}
-
-private data class Quad(
-    val first: String,
-    val second: String,
-    val third: String,
-    val fourth: Color
-)
 
 @Composable
 private fun HiringRoomMetricItem(
@@ -985,7 +876,7 @@ private fun MatchedWorkerCard(
 ) {
     val status = worker.requestStatus.lowercase(Locale.ROOT)
     val requestSent = status in setOf("pending", "accepted")
-    val canCall = status == "accepted" && worker.phone.isNotBlank()
+    val canCall = worker.phone.isNotBlank() && !isDisabledForFilledJob
     val workerStatusText = when (status) {
         "accepted" -> "Selected worker"
         "pending" -> "Request sent"
@@ -1020,13 +911,22 @@ private fun MatchedWorkerCard(
                         .background(if (isDisabledForFilledJob) Color(0xFFE5E7EB) else Color(0xFFEFF6FF), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "${worker.matchScore}",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = Color(0xFF1D4ED8),
-                            fontWeight = FontWeight.Bold
+                    if (worker.profileImageUrl.isNotBlank()) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = worker.profileImageUrl,
+                            contentDescription = "Worker profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
                         )
-                    )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF1D4ED8),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -1131,8 +1031,8 @@ private fun MatchedWorkerCard(
                     Text(
                         when {
                             !isJobLive -> "Job filled"
-                            requestSent -> "Request sent"
-                            else -> "Request worker"
+                            requestSent -> "Requested"
+                            else -> "Request"
                         }
                     )
                 }
@@ -1146,7 +1046,7 @@ private fun MatchedWorkerCard(
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (canCall) "Call" else "Call after accept")
+                    Text("Call")
                 }
             }
         }
@@ -1793,11 +1693,10 @@ private fun ApplicationCard(
 
 @Composable
 private fun EmptyApplicationsState(
-    isJobSpecific: Boolean,
-    onShareJob: () -> Unit
+    isJobSpecific: Boolean
 ) {
     val subtitle = if (isJobSpecific) {
-        "Improve title, pay, or location and share the job while applicants come in."
+        "Applied workers will appear here when they respond to this job."
     } else {
         "Applications will appear here once workers start applying to your jobs."
     }
@@ -1826,7 +1725,7 @@ private fun EmptyApplicationsState(
         Spacer(modifier = Modifier.height(20.dp))
         
         Text(
-            text = if (isJobSpecific) "No applicants yet" else "No Applications Yet",
+            text = if (isJobSpecific) "Waiting for applied workers" else "Waiting for worker responses",
             style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
         )
 
@@ -1840,18 +1739,6 @@ private fun EmptyApplicationsState(
             )
         )
 
-        if (isJobSpecific) {
-            Spacer(modifier = Modifier.height(20.dp))
-            OutlinedButton(
-                onClick = onShareJob,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Share job")
-            }
-        }
     }
 }
 
@@ -1867,7 +1754,8 @@ private fun List<JobApplication>.sortedApplicationsForConnectNow(): List<JobAppl
 
 private fun List<MatchedWorker>.sortedMatchedWorkersForConnectNow(): List<MatchedWorker> {
     return sortedWith(
-        compareByDescending<MatchedWorker> { it.connectNowScore() }
+        compareBy<MatchedWorker> { it.distanceKm ?: Double.MAX_VALUE }
+            .thenByDescending { it.connectNowScore() }
             .thenByDescending { it.matchScore }
     )
 }
@@ -1977,7 +1865,7 @@ private fun MatchedWorker.connectNowScore(): Int {
 }
 
 private fun MatchedWorker.isCallReadyMatch(): Boolean {
-    return requestStatus.equals("accepted", ignoreCase = true) && phone.isNotBlank()
+    return phone.isNotBlank()
 }
 
 private val connectableApplicationStatuses = setOf(
@@ -1991,33 +1879,6 @@ private val filledApplicationStatuses = setOf(
     ApplicationStatus.COMPLETED
 )
 
-private fun shareHiringRoomJob(jobId: String, jobTitle: String, context: Context) {
-    if (jobId.isBlank()) {
-        Toast.makeText(context, "Unable to share this job", Toast.LENGTH_SHORT).show()
-        return
-    }
-
-    val jobLink = DeepLinkHandler.generateJobWebLink(jobId)
-    val shareText = """
-Hiring now: $jobTitle
-
-Apply on DutyPe: $jobLink
-    """.trimIndent()
-
-    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, shareText)
-        putExtra(Intent.EXTRA_SUBJECT, "Job: $jobTitle")
-    }
-
-    runCatching {
-        context.startActivity(Intent.createChooser(shareIntent, "Share job"))
-    }.onFailure {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Job share", shareText))
-        Toast.makeText(context, "Job details copied", Toast.LENGTH_SHORT).show()
-    }
-}
 // Helper functions
 // NOTE: getStatusDisplayName removed - use ApplicationStatus.getDisplayName() extension function
 // Import: import com.example.dutype.models.getDisplayName

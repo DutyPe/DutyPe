@@ -163,6 +163,19 @@ fun EmployerJobCard(
             // Job details
             JobDetailsRow(jobPosting = jobPosting)
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { onViewApplicationsClick(jobPosting.jobId) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("View applications")
+            }
+
             // Perks display removed as per user request
         }
     }
@@ -270,39 +283,6 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
             )
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.People,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "${jobPosting.vacancies} position${if (jobPosting.vacancies != 1) "s" else ""}",
-                style = AppTypography.bodyMedium,
-                color = Color.Gray
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Schedule,
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "Shift: ${jobPosting.shiftDisplayText()}",
-                style = AppTypography.bodyMedium,
-                color = Color.Gray
-            )
-        }
     }
 }
 

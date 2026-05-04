@@ -55,6 +55,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun EmployerHistoryScreen(
     navController: NavController,
+    initialTab: String? = null,
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -70,15 +71,23 @@ fun EmployerHistoryScreen(
         )
     }
     
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val urgentTabIndex = 4
+    val urgentTabIndex = 3
     val tabs = listOf(
-        stringResource(R.string.tab_timeline),
+        stringResource(R.string.tab_all_jobs),
         stringResource(R.string.tab_active),
         stringResource(R.string.tab_expired),
-        stringResource(R.string.tab_all_jobs),
         "Urgent"
     )
+    var selectedTab by remember(initialTab) {
+        mutableIntStateOf(
+            when (initialTab?.lowercase(Locale.ROOT)) {
+                "urgent" -> urgentTabIndex
+                "active" -> 1
+                "expired" -> 2
+                else -> 0
+            }
+        )
+    }
     var pendingRatingResponse by remember { mutableStateOf<InstantResponse?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
     var ratedResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -185,7 +194,6 @@ fun EmployerHistoryScreen(
                     // Expired jobs (using calculated expiry)
                     it.isExpired()
                 }
-                3 -> uiState.myJobs // All
                 else -> uiState.myJobs
             }
         } catch (e: Exception) {
@@ -262,7 +270,6 @@ fun EmployerHistoryScreen(
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                     }
                 },
-                onWhatsAppWorker = { phone -> openEmployerHistoryWhatsApp(context, phone) },
                 onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
                 onCompleteResponse = { response -> instantHelpViewModel.completeEmployerInstantResponse(response, "Completed from employer history") },
                 onNoShowResponse = { response -> instantHelpViewModel.markEmployerInstantResponseNoShow(response, "Worker did not show up") },
@@ -319,18 +326,17 @@ fun EmployerHistoryScreen(
                 EmptyHistoryState(selectedTab = selectedTab)
             }
             else -> {
-            when (selectedTab) {
-                0 -> {
-                    // Timeline View - LinkedIn style
-                    TimelineView(
-                        groupedJobs = groupedJobs,
-                        currentTime = currentTime,
-                        repostingJobId = repostingJobId,
-                        onJobClick = { job ->
-                            navController.navigate(Routes.employerJobPreviewRoute(job.id))
-                        },
-                        onRepostExpiredJob = { job -> repostExpiredJob(job) }
-                    )
+                when (selectedTab) {
+                    0 -> {
+                        TimelineView(
+                            groupedJobs = groupedJobs,
+                            currentTime = currentTime,
+                            repostingJobId = repostingJobId,
+                            onJobClick = { job ->
+                                navController.navigate(Routes.employerJobPreviewRoute(job.id))
+                            },
+                            onRepostExpiredJob = { job -> repostExpiredJob(job) }
+                        )
                 }
                 else -> {
                     // List View
@@ -358,17 +364,6 @@ fun EmployerHistoryScreen(
             }
             }  // Close else block
         }  // Close outer when
-    }
-}
-
-private fun openEmployerHistoryWhatsApp(context: android.content.Context, phone: String) {
-    val digits = phone.filter { it.isDigit() }
-    if (digits.isBlank()) return
-    val normalized = if (digits.startsWith("91")) digits else "91$digits"
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized")))
-    }.onFailure {
-        Toast.makeText(context, "Unable to open WhatsApp", Toast.LENGTH_SHORT).show()
     }
 }
 

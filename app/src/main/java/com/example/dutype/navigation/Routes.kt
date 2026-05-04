@@ -47,6 +47,7 @@ object Routes {
     const val EMPLOYER_MANAGE_ADDRESSES = "employer_manage_addresses"
     const val EMPLOYER_REFER_EARN = "employer_refer_earn"
     const val EMPLOYER_HISTORY = "employer_history"
+    const val EMPLOYER_HISTORY_WITH_TAB = "employer_history?tab={tab}"
     const val CONTACT_US = "contact_us"
     
     // History Routes
@@ -84,6 +85,14 @@ object Routes {
 
     fun employerUrgentNeedDetailRoute(requestId: String): String {
         return "employer_urgent_need_detail/$requestId"
+    }
+
+    fun employerHistoryRoute(tab: String? = null): String {
+        return if (tab.isNullOrBlank()) {
+            EMPLOYER_HISTORY
+        } else {
+            "employer_history?tab=${java.net.URLEncoder.encode(tab, "UTF-8")}"
+        }
     }
     
     fun workerProfileViewRoute(workerId: String, applicationId: String? = null): String {

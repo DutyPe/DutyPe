@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
@@ -505,7 +504,6 @@ fun HomeSectionsContent(
     instantHelpError: String? = null,
     onApplyInstantRequest: (InstantRequest) -> Unit = {},
     onCallInstantRequest: (InstantRequest) -> Unit = {},
-    onWhatsAppInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onRejectWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {}
@@ -626,8 +624,7 @@ fun HomeSectionsContent(
                     updatingRequestId = updatingInstantRequestId,
                     error = instantHelpError,
                     onApply = onApplyInstantRequest,
-                    onCall = onCallInstantRequest,
-                    onWhatsApp = onWhatsAppInstantRequest
+                    onCall = onCallInstantRequest
                 )
             }
 
@@ -806,8 +803,7 @@ private fun InstantRequestSection(
     updatingRequestId: String?,
     error: String?,
     onApply: (InstantRequest) -> Unit,
-    onCall: (InstantRequest) -> Unit,
-    onWhatsApp: (InstantRequest) -> Unit
+    onCall: (InstantRequest) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -882,8 +878,7 @@ private fun InstantRequestSection(
                 request = request,
                 isUpdating = updatingRequestId == request.requestId,
                 onApply = { onApply(request) },
-                onCall = { onCall(request) },
-                onWhatsApp = { onWhatsApp(request) }
+                onCall = { onCall(request) }
             )
         }
     }
@@ -894,8 +889,7 @@ private fun InstantRequestCard(
     request: InstantRequest,
     isUpdating: Boolean,
     onApply: () -> Unit,
-    onCall: () -> Unit,
-    onWhatsApp: () -> Unit
+    onCall: () -> Unit
 ) {
     val responseStatus = request.workerResponseStatus.trim().lowercase()
     val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
@@ -962,6 +956,10 @@ private fun InstantRequestCard(
                                 if (request.budgetText.isNotBlank()) {
                                     if (isNotEmpty()) append(" • ")
                                     append(request.budgetText)
+                                }
+                                if (request.workersNeeded > 1) {
+                                    if (isNotEmpty()) append(" • ")
+                                    append("Need ${request.workersNeeded} workers")
                                 }
                                 if (isEmpty()) append(request.category)
                             },
@@ -1038,32 +1036,16 @@ private fun InstantRequestCard(
                 }
             }
 
-            Row(
+            Button(
+                onClick = onCall,
+                enabled = request.employerPhone.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
             ) {
-                Button(
-                    onClick = onCall,
-                    enabled = request.employerPhone.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call")
-                }
-
-                OutlinedButton(
-                    onClick = onWhatsApp,
-                    enabled = request.employerPhone.isNotBlank(),
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(17.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("WhatsApp", maxLines = 1)
-                }
+                Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Call")
             }
         }
     }

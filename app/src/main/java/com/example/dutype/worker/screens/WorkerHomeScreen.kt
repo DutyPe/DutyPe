@@ -667,18 +667,6 @@ fun WorkerHomeScreen(
                                             // Contact UI is opened immediately; this callback only confirms the response record.
                                         }
                                     },
-                                    onWhatsAppInstantRequest = { request ->
-                                        openWorkerUrgentWhatsApp(
-                                            context = context,
-                                            phone = request.whatsappNumber
-                                                .ifBlank { request.contactNumber }
-                                                .ifBlank { request.employerPhone },
-                                            title = request.title,
-                                            addressText = request.addressText,
-                                            budgetText = request.budgetText
-                                        )
-                                        instantHelpViewModel.respondToInstantRequest(request, "called")
-                                    },
                                     onAcceptWorkerJobRequest = { request ->
                                         workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
                                             if (acceptedJobId.isNotBlank()) {
@@ -929,33 +917,5 @@ private fun openWorkerUrgentDialer(context: android.content.Context, phone: Stri
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$normalized")))
     }.onFailure {
         android.widget.Toast.makeText(context, "Unable to open dialer", android.widget.Toast.LENGTH_SHORT).show()
-    }
-}
-
-private fun openWorkerUrgentWhatsApp(
-    context: android.content.Context,
-    phone: String,
-    title: String,
-    addressText: String,
-    budgetText: String
-) {
-    val digits = phone.filter { it.isDigit() }
-    if (digits.isBlank()) {
-        android.widget.Toast.makeText(context, "WhatsApp number unavailable", android.widget.Toast.LENGTH_SHORT).show()
-        return
-    }
-    val normalized = if (digits.startsWith("91")) digits else "91$digits"
-    val details = buildString {
-        if (budgetText.isNotBlank()) append("\nBudget: $budgetText")
-        if (addressText.isNotBlank()) append("\nLocation: $addressText")
-    }
-    val message = java.net.URLEncoder.encode(
-        "Hi, I saw your DutyPe instant work request: $title. I am available to help.$details",
-        "UTF-8"
-    )
-    runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$normalized?text=$message")))
-    }.onFailure {
-        android.widget.Toast.makeText(context, "Unable to open WhatsApp", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

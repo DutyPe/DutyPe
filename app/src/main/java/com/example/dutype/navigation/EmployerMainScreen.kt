@@ -427,9 +427,19 @@ fun EmployerMainScreen(
                         )
                     }
 
-                    composable(Routes.EMPLOYER_HISTORY) {
+                    composable(
+                        route = Routes.EMPLOYER_HISTORY_WITH_TAB,
+                        arguments = listOf(
+                            navArgument("tab") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
                         com.example.dutype.employer.screens.EmployerHistoryScreen(
-                            navController = navController
+                            navController = navController,
+                            initialTab = backStackEntry.arguments?.getString("tab")
                         )
                     }
                 }

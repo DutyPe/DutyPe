@@ -197,10 +197,10 @@ class InstantHelpService @Inject constructor(
                 .ifBlank { employerData.getString("phoneNumber") }
                 .ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
             val contactNumber = input.contactNumber.trim().ifBlank { profilePhone }.take(20)
-            val whatsappNumber = input.whatsappNumber.trim().ifBlank { contactNumber }.take(20)
             if (contactNumber.isBlank()) {
                 return@withContext Result.failure(IllegalArgumentException("Enter contact number"))
             }
+            val workersNeeded = input.workersNeeded.coerceIn(1, 20)
 
             val now = Timestamp.now()
             val expiryMs = when (input.needType) {
@@ -221,10 +221,10 @@ class InstantHelpService @Inject constructor(
                 "employerName" to (employerData.getString("companyName").ifBlank { employerData.getString("fullName") }.ifBlank { "DutyPe employer" }),
                 "employerPhone" to contactNumber,
                 "contactNumber" to contactNumber,
-                "whatsappNumber" to whatsappNumber,
                 "title" to input.title.trim(),
                 "description" to input.description.trim(),
                 "category" to input.category.trim().ifBlank { "Helper" },
+                "workersNeeded" to workersNeeded,
                 "needType" to input.needType,
                 "status" to "open",
                 "urgency" to if (input.needType == "urgent_now") "urgent" else "today",
@@ -239,6 +239,8 @@ class InstantHelpService @Inject constructor(
                 "responseCount" to 0,
                 "callCount" to 0,
                 "selectedWorkerId" to "",
+                "selectedWorkerIds" to emptyList<String>(),
+                "completedWorkerIds" to emptyList<String>(),
                 "failureReason" to ""
             )
             if (scheduledAt != null) {
@@ -374,6 +376,24 @@ class InstantHelpService @Inject constructor(
             }
             val trimmedNote = note.trim().take(300)
             val now = Timestamp.now()
+            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
+                .document(response.requestId)
+            val requestData = requestRef.get().await().data.orEmpty()
+            val workersNeeded = (requestData.getNumber("workersNeeded")?.toInt() ?: 1).coerceAtLeast(1)
+            val selectedWorkerIds = requestData.getStringList("selectedWorkerIds")
+                .ifEmpty { listOf(requestData.getString("selectedWorkerId")).filter { it.isNotBlank() } }
+            val completedWorkerIds = requestData.getStringList("completedWorkerIds")
+
+            if (
+                normalizedStatus == "accepted" &&
+                response.workerId !in selectedWorkerIds &&
+                selectedWorkerIds.size >= workersNeeded
+            ) {
+                return@withContext Result.failure(
+                    IllegalStateException("Required workers are already selected. Mark the urgent need filled or post another need.")
+                )
+            }
+
             val responseUpdates = mutableMapOf<String, Any>(
                 "status" to normalizedStatus,
                 "updatedAt" to now
@@ -394,20 +414,45 @@ class InstantHelpService @Inject constructor(
                 .set(responseUpdates, SetOptions.merge())
                 .await()
 
-            val requestUpdates = mutableMapOf<String, Any>("selectedWorkerId" to response.workerId)
+            val requestUpdates = mutableMapOf<String, Any>()
             when (normalizedStatus) {
                 "accepted" -> {
-                    // Keep the urgent request open after one worker accepts. Employers
-                    // decide when the required headcount is actually filled.
+                    val selectedAfter = (selectedWorkerIds + response.workerId).distinct()
+                    requestUpdates["selectedWorkerId"] = response.workerId
+                    requestUpdates["selectedWorkerIds"] = selectedAfter
+                    if (selectedAfter.size >= workersNeeded) {
+                        requestUpdates["status"] = "filled"
+                        requestUpdates["filledAt"] = now
+                    } else {
+                        requestUpdates["status"] = "open"
+                    }
                 }
                 "completed" -> {
-                    requestUpdates["status"] = "completed"
-                    requestUpdates["completedAt"] = now
+                    val selectedAfter = (selectedWorkerIds + response.workerId).distinct()
+                    val completedAfter = (completedWorkerIds + response.workerId).distinct()
+                    requestUpdates["selectedWorkerId"] = response.workerId
+                    requestUpdates["selectedWorkerIds"] = selectedAfter
+                    requestUpdates["completedWorkerIds"] = completedAfter
+                    if (completedAfter.size >= workersNeeded) {
+                        requestUpdates["status"] = "completed"
+                        requestUpdates["completedAt"] = now
+                    } else {
+                        requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
+                    }
                     if (trimmedNote.isNotBlank()) requestUpdates["completionProof"] = trimmedNote
                 }
                 "no_show" -> {
-                    requestUpdates["status"] = "failed"
+                    val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
+                    requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
+                    requestUpdates["selectedWorkerIds"] = selectedAfter
+                    requestUpdates["status"] = "open"
                     requestUpdates["failureReason"] = trimmedNote.ifBlank { "Worker did not show up" }
+                }
+                "rejected" -> {
+                    val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
+                    requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
+                    requestUpdates["selectedWorkerIds"] = selectedAfter
+                    requestUpdates["status"] = "open"
                 }
                 "cancelled" -> {
                     requestUpdates["status"] = "cancelled"
@@ -416,9 +461,7 @@ class InstantHelpService @Inject constructor(
                 }
             }
 
-            firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .document(response.requestId)
-                .set(requestUpdates, SetOptions.merge())
+            requestRef.set(requestUpdates, SetOptions.merge())
                 .await()
 
             Result.success(Unit)
@@ -495,6 +538,13 @@ class InstantHelpService @Inject constructor(
                 else -> "applied"
             }
             val now = Timestamp.now()
+            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
+                .document(request.requestId)
+            val requestSnapshot = requestRef.get().await()
+            val liveStatus = requestSnapshot.getString("status") ?: request.status
+            if (!liveStatus.equals("open", ignoreCase = true)) {
+                return@withContext Result.failure(IllegalStateException("This urgent need is already filled or closed"))
+            }
             val workerDoc = firestore.collection(FirestoreCollections.WORKER_PROFILES)
                 .document(workerId)
                 .get()
@@ -534,6 +584,19 @@ class InstantHelpService @Inject constructor(
             }
 
             responseRef.set(data, SetOptions.merge()).await()
+            val requestUpdates = mutableMapOf<String, Any>(
+                "lastResponseAt" to now
+            )
+            if (!existing.exists()) {
+                requestUpdates["responseCount"] = FieldValue.increment(1)
+                if (requestSnapshot.get("firstResponseAt") == null) {
+                    requestUpdates["firstResponseAt"] = now
+                }
+            }
+            if (normalizedStatus == "called") {
+                requestUpdates["callCount"] = FieldValue.increment(1)
+            }
+            requestRef.set(requestUpdates, SetOptions.merge()).await()
             Result.success(Unit)
         } catch (error: Exception) {
             Result.failure(error)
@@ -563,10 +626,10 @@ class InstantHelpService @Inject constructor(
             employerName = data.getString("employerName").ifBlank { "DutyPe employer" },
             employerPhone = data.getString("employerPhone"),
             contactNumber = data.getString("contactNumber").ifBlank { data.getString("employerPhone") },
-            whatsappNumber = data.getString("whatsappNumber").ifBlank { data.getString("employerPhone") },
             title = data.getString("title").ifBlank { "Urgent need" },
             description = data.getString("description"),
             category = data.getString("category").ifBlank { "Helper" },
+            workersNeeded = (data.getNumber("workersNeeded")?.toInt() ?: 1).coerceAtLeast(1),
             needType = data.getString("needType").ifBlank { "urgent_now" },
             status = data.getString("status").ifBlank { "open" },
             urgency = data.getString("urgency").ifBlank { "urgent" },
@@ -588,6 +651,9 @@ class InstantHelpService @Inject constructor(
             notifiedWorkerCount = data.getNumber("notifiedWorkerCount")?.toInt() ?: 0,
             notificationFanoutAt = data.getMillis("notificationFanoutAt"),
             selectedWorkerId = data.getString("selectedWorkerId"),
+            selectedWorkerIds = data.getStringList("selectedWorkerIds")
+                .ifEmpty { listOf(data.getString("selectedWorkerId")).filter { it.isNotBlank() } },
+            completedWorkerIds = data.getStringList("completedWorkerIds"),
             completedAt = data.getMillis("completedAt"),
             cancelledAt = data.getMillis("cancelledAt"),
             cancellationReason = data.getString("cancellationReason"),

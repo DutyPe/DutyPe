@@ -4,6 +4,7 @@ import com.example.dutype.analytics.Analytics
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.JobCategoryResolver
+import com.example.dutype.utils.JobEditPolicy
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -770,6 +771,13 @@ class JobFirestoreService @Inject constructor(
             val detailsRef = firestore.collection(JOB_DETAILS_COLLECTION).document(jobId)
             val existingCard = jobRef.get().await().data ?: return Result.failure(IllegalStateException("Job not found"))
             val existingDetails = detailsRef.get().await().data.orEmpty()
+            val updateTouchesEditableJobFields = data.keys.any { key -> key !in setOf("status", "expiresAt") }
+            if (updateTouchesEditableJobFields) {
+                val createdAtMillis = toEpochMillis(existingCard["createdAt"])
+                if (!JobEditPolicy.canEdit(createdAtMillis)) {
+                    return Result.failure(IllegalStateException(JobEditPolicy.blockedMessage(createdAtMillis)))
+                }
+            }
 
             val cardUpdates = mutableMapOf<String, Any>()
             val detailsUpdates = mutableMapOf<String, Any>()

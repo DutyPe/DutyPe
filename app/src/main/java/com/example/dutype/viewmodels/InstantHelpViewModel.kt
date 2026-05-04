@@ -367,19 +367,31 @@ class InstantHelpViewModel @Inject constructor(
                             employerInstantResponses = updatedResponses,
                             employerInstantRequests = state.employerInstantRequests.map { request ->
                                 if (request.requestId == response.requestId) {
+                                    val requiredWorkers = request.workersNeeded.coerceAtLeast(1)
+                                    val selectedAfter = (request.selectedWorkerIds + response.workerId).distinct()
                                     when (normalizedStatus) {
-                                        "completed" -> request.copy(
-                                            status = "completed",
-                                            selectedWorkerId = response.workerId,
-                                            completedAt = now,
-                                            completionProof = if (note.isNotBlank()) note else request.completionProof
-                                        )
+                                        "completed" -> {
+                                            val completedAfter = (request.completedWorkerIds + response.workerId).distinct()
+                                            request.copy(
+                                                status = if (completedAfter.size >= requiredWorkers) "completed" else if (selectedAfter.size >= requiredWorkers) "filled" else "open",
+                                                selectedWorkerId = response.workerId,
+                                                selectedWorkerIds = selectedAfter,
+                                                completedWorkerIds = completedAfter,
+                                                completedAt = if (completedAfter.size >= requiredWorkers) now else request.completedAt,
+                                                completionProof = if (note.isNotBlank()) note else request.completionProof
+                                            )
+                                        }
                                         "no_show" -> request.copy(
-                                            status = "failed",
-                                            selectedWorkerId = response.workerId,
+                                            status = "open",
+                                            selectedWorkerId = request.selectedWorkerIds.filterNot { it == response.workerId }.lastOrNull().orEmpty(),
+                                            selectedWorkerIds = request.selectedWorkerIds.filterNot { it == response.workerId },
                                             failureReason = note.ifBlank { "Worker did not show up" }
                                         )
-                                        "accepted" -> request.copy(selectedWorkerId = response.workerId)
+                                        "accepted" -> request.copy(
+                                            status = if (selectedAfter.size >= requiredWorkers) "filled" else "open",
+                                            selectedWorkerId = response.workerId,
+                                            selectedWorkerIds = selectedAfter
+                                        )
                                         else -> request
                                     }
                                 } else {
@@ -389,7 +401,7 @@ class InstantHelpViewModel @Inject constructor(
                             message = when (normalizedStatus) {
                                 "completed" -> "Urgent work marked done"
                                 "no_show" -> "Marked as no show"
-                                "accepted" -> "Worker selected. Keep it open until the need is filled."
+                                "accepted" -> "Worker selected. The urgent need closes when the required workers are selected."
                                 else -> "Urgent response updated"
                             }
                         )
