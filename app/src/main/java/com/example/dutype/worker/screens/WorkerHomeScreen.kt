@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -145,6 +146,9 @@ fun WorkerHomeScreen(
     notificationPermissionManager: NotificationPermissionManager
 ) {
     val context = LocalContext.current
+    val gettingLocationText = stringResource(R.string.getting_location)
+    val tapToGetLocationText = stringResource(R.string.tap_to_get_location)
+    val enableLocationText = stringResource(R.string.enable_location)
     // LAZY LOADING: Only instantiate ViewModels needed for HomeScreen
     // Other ViewModels are instantiated on their respective screens
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
@@ -257,17 +261,20 @@ fun WorkerHomeScreen(
                 minAccuracyMeters = 10f
             )
             if (locationInfo == null || !GeoUtils.hasValidCoordinates(locationInfo.latitude, locationInfo.longitude)) {
-                locationPickerError = "Could not fetch your current location. Check GPS and try again."
+                locationPickerError = context.getString(R.string.worker_location_fetch_failed)
                 return
             }
             val locationData = locationService.toLocationData(locationInfo)
             saveWorkerHomeLocation(locationData, manual = false)
             locationPickerText = locationData.getFullAddress()
             showLocationPickerSheet = false
-            android.widget.Toast.makeText(context, "Location updated", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.location_updated), android.widget.Toast.LENGTH_SHORT).show()
         } catch (error: Exception) {
             Timber.e(error, "Failed to fetch current location from worker home")
-            locationPickerError = "Could not update location: ${error.message ?: "try again"}"
+            locationPickerError = context.getString(
+                R.string.worker_location_update_failed,
+                error.message ?: context.getString(R.string.try_again)
+            )
         } finally {
             isFetchingSheetLocation = false
         }
@@ -291,7 +298,7 @@ fun WorkerHomeScreen(
             }
         } else if (!hasLocationPermission && shouldFetchCurrentLocationAfterPermission) {
             shouldFetchCurrentLocationAfterPermission = false
-            locationPickerError = "Location permission required to use current location."
+            locationPickerError = context.getString(R.string.location_permission_required_current)
         }
 
         // For first-time users, don't show bottom sheets immediately after denying
@@ -530,11 +537,11 @@ fun WorkerHomeScreen(
 
             else -> if (hasLocationPermission) {
                 when {
-                    isLocationLoading -> "Getting your location..."
-                    else -> "Tap to get location"
+                    isLocationLoading -> gettingLocationText
+                    else -> tapToGetLocationText
                 }
             } else {
-                "Enable location"
+                enableLocationText
             }
         }
     }
@@ -711,7 +718,7 @@ fun WorkerHomeScreen(
                         if (FirebaseAuth.getInstance().currentUser == null) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Please login for instant works",
+                                context.getString(R.string.please_login_instant_works),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         } else if (
@@ -720,7 +727,7 @@ fun WorkerHomeScreen(
                         ) {
                             android.widget.Toast.makeText(
                                 context,
-                                "Set your location before turning on instant works",
+                                context.getString(R.string.set_location_before_instant),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         } else {
@@ -787,7 +794,7 @@ fun WorkerHomeScreen(
                         saveWorkerHomeLocation(selectedLocation, manual = true)
                         locationPickerText = selectedAddress
                         showLocationPickerSheet = false
-                        android.widget.Toast.makeText(context, "Location updated", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.location_updated), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -831,14 +838,14 @@ private fun WorkerHomeLocationPickerSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Choose work location",
+                text = stringResource(R.string.choose_work_location),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A)
                 )
             )
             Text(
-                text = "Use GPS or search the exact area where you want to see jobs.",
+                text = stringResource(R.string.choose_work_location_body),
                 style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF64748B))
             )
 
@@ -859,7 +866,13 @@ private fun WorkerHomeLocationPickerSheet(
                     Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isFetchingCurrentLocation) "Fetching location" else "Use current location")
+                Text(
+                    if (isFetchingCurrentLocation) {
+                        stringResource(R.string.fetching_location)
+                    } else {
+                        stringResource(R.string.use_current_location)
+                    }
+                )
             }
 
             LocationAutocompleteField(
@@ -867,8 +880,8 @@ private fun WorkerHomeLocationPickerSheet(
                 onValueChange = onValueChange,
                 onLocationSelected = onLocationSelected,
                 locationService = locationService,
-                label = "Search location",
-                placeholder = "Area, street, city",
+                label = stringResource(R.string.search_location),
+                placeholder = stringResource(R.string.area_street_city),
                 maxLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -910,12 +923,12 @@ private fun buildWorkerHomeLocationData(
 private fun openWorkerUrgentDialer(context: android.content.Context, phone: String) {
     val normalized = phone.filter { it.isDigit() || it == '+' }
     if (normalized.isBlank()) {
-        android.widget.Toast.makeText(context, "Contact number unavailable", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, context.getString(R.string.contact_number_unavailable), android.widget.Toast.LENGTH_SHORT).show()
         return
     }
     runCatching {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$normalized")))
     }.onFailure {
-        android.widget.Toast.makeText(context, "Unable to open dialer", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), android.widget.Toast.LENGTH_SHORT).show()
     }
 }

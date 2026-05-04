@@ -270,6 +270,23 @@ The app currently asks workers to browse and apply. The new direction needs the 
 | Subscriptions/premium listing | Monetize only after density and trust. |
 | Advanced verification | Add after category/geography works. |
 
+### Later social proof feature: only after 1,000 real users
+
+Do not show fake traction or generic testimonials during the pilot. Add social proof only after DutyPe has crossed 1,000 total real users across workers and employers.
+
+Feature to build later:
+
+1. Worker Home should show a compact trust strip only after the threshold is crossed: total joined users, local employers active on DutyPe, and a short real worker testimonial.
+2. Employer Home should show a compact trust strip only after the threshold is crossed: total joined users, nearby workers available/registered, and a short real employer testimonial.
+3. The count must come from verified worker + employer accounts, not installs, mock data, or marketing guesses.
+4. Testimonials must come from real completed work, ratings, or admin-approved stories. No placeholder names, fake ratings, or invented outcomes.
+5. Keep this below the primary action area. Social proof should build confidence, not push urgent posting or urgent work cards down.
+6. Hide the whole social-proof module until the threshold and real testimonial content exist.
+
+Product rule:
+
+> Before 1,000 real users, prove the marketplace through speed and filled work. After 1,000 real users, show trustworthy proof on Worker Home and Employer Home.
+
 ---
 
 ## 9. What To Fix In Current App
@@ -307,16 +324,24 @@ Required changes:
 - Add the availability switch directly in the worker home header.
 - Do not show worker-side radius or work-type filters on home.
 - Use worker profile skills and experience later for matching; do not ask the worker to filter urgent work every time.
-- Show urgent nearby requests above normal jobs.
+- Show urgent nearby requests above normal jobs only when availability is on and real urgent requests exist.
+- Do not show an empty "Instant works near you" card on Worker Home. Empty urgent sections create a bad first impression; if there are no urgent requests, hide the section and let normal jobs move up.
 - Show estimated response speed and completion count.
 
 Suggested worker home order:
 
 1. Header availability switch.
 2. Announcements.
-3. Priority urgent work cards.
+3. Priority urgent work cards only when there are active nearby requests.
 4. Normal vacancy jobs.
 5. Earnings/referrals lower down.
+
+Announcement UX rule for current screens:
+
+- Announcements should feel like polished in-app updates, not plain text cards.
+- Use the shared announcement component on Worker Home and Employer Home.
+- Give each announcement a clear icon, type color, dismiss affordance, and action affordance when it links somewhere.
+- Keep announcements compact so they do not compete with the primary home-screen action.
 
 ### Fix 3: Create a quick post flow separate from full job posting
 

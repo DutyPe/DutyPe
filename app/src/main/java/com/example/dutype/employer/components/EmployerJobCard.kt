@@ -173,7 +173,7 @@ fun EmployerJobCard(
             ) {
                 Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("View applications")
+                Text(stringResource(R.string.view_applications))
             }
 
             // Perks display removed as per user request

@@ -42,12 +42,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.InstantHelpDefaults
@@ -74,9 +76,9 @@ fun PostUrgentNeedScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "Post urgent need",
+            title = stringResource(R.string.post_urgent_need_title),
             navController = navController,
-            subtitle = "For same-day local help",
+            subtitle = stringResource(R.string.post_urgent_need_subtitle),
             backgroundColor = EmployerColors.ScreenBackground,
             titleColor = EmployerColors.TextPrimary,
             subtitleColor = EmployerColors.TextSecondary
@@ -104,6 +106,7 @@ internal fun PostUrgentNeedContent(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val urgentNeedPostedText = stringResource(R.string.urgent_need_posted_toast)
 
     var title by rememberSaveable { mutableStateOf("") }
     var needType by rememberSaveable { mutableStateOf("urgent_now") }
@@ -165,14 +168,14 @@ internal fun PostUrgentNeedContent(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Urgent jobs expire automatically",
+                            text = stringResource(R.string.urgent_jobs_expire_title),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = Color(0xFF92400E),
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "Now and today posts stay open for 24 hours. Tomorrow posts stay open for 48 hours.",
+                            text = stringResource(R.string.urgent_jobs_expire_body),
                             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF78350F))
                         )
                     }
@@ -181,12 +184,12 @@ internal fun PostUrgentNeedContent(
         }
 
         item {
-            UrgentNeedSectionCard(title = "Work details") {
+            UrgentNeedSectionCard(title = stringResource(R.string.urgent_work_details)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Work needed") },
-                    placeholder = { Text("Cook needed for 2 hours") },
+                    label = { Text(stringResource(R.string.urgent_work_needed)) },
+                    placeholder = { Text(stringResource(R.string.urgent_work_needed_hint)) },
                     leadingIcon = { Icon(Icons.Default.Work, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -201,20 +204,20 @@ internal fun PostUrgentNeedContent(
                 OutlinedTextField(
                     value = workersNeededText,
                     onValueChange = { value -> workersNeededText = value.filter { it.isDigit() }.take(2) },
-                    label = { Text("Workers needed") },
+                    label = { Text(stringResource(R.string.urgent_workers_needed)) },
                     placeholder = { Text("2") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = { Text("You can select up to this many workers. The urgent need closes as filled when the count is reached.") },
+                    supportingText = { Text(stringResource(R.string.urgent_workers_needed_help)) },
                     shape = RoundedCornerShape(14.dp)
                 )
 
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Work details") },
-                    placeholder = { Text("Timing, exact work, landmark") },
+                    label = { Text(stringResource(R.string.urgent_work_details)) },
+                    placeholder = { Text(stringResource(R.string.urgent_work_notes_hint)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                     shape = RoundedCornerShape(14.dp)
@@ -223,16 +226,15 @@ internal fun PostUrgentNeedContent(
         }
 
         item {
-            UrgentNeedSectionCard(title = "Timing") {
-                SectionLabel("When")
+            UrgentNeedSectionCard(title = stringResource(R.string.urgent_timing)) {
+                SectionLabel(stringResource(R.string.urgent_when))
+                val timingOptions = listOf(
+                    "urgent_now" to stringResource(R.string.urgent_now),
+                    "today" to stringResource(R.string.today),
+                    "scheduled" to stringResource(R.string.urgent_tomorrow)
+                )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(
-                        listOf(
-                            "urgent_now" to "Now",
-                            "today" to "Today",
-                            "scheduled" to "Tomorrow"
-                        )
-                    ) { option ->
+                    items(timingOptions) { option ->
                         FilterChip(
                             selected = needType == option.first,
                             onClick = { needType = option.first },
@@ -252,9 +254,9 @@ internal fun PostUrgentNeedContent(
 
                 Text(
                     text = if (needType == "scheduled") {
-                        "$scheduleLabel posts expire in 48 hours."
+                        stringResource(R.string.urgent_scheduled_expiry, scheduleLabel)
                     } else {
-                        "This urgent job will expire in 24 hours."
+                        stringResource(R.string.urgent_today_expiry)
                     },
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
@@ -272,20 +274,20 @@ internal fun PostUrgentNeedContent(
         }
 
         item {
-            UrgentNeedSectionCard(title = "Pay and reach") {
+            UrgentNeedSectionCard(title = stringResource(R.string.urgent_pay_reach)) {
                 OutlinedTextField(
                     value = budgetText,
                     onValueChange = { budgetText = it },
-                    label = { Text("Budget") },
-                    placeholder = { Text("Rs 500, hourly, negotiable") },
+                    label = { Text(stringResource(R.string.urgent_budget)) },
+                    placeholder = { Text(stringResource(R.string.urgent_budget_hint)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp)
                 )
 
-                SectionLabel("Find workers")
+                SectionLabel(stringResource(R.string.urgent_find_workers))
                 Text(
-                    text = "Find workers within ${radiusKm.toInt()} km from your job location.",
+                    text = stringResource(R.string.urgent_find_workers_within, radiusKm.toInt()),
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -305,12 +307,12 @@ internal fun PostUrgentNeedContent(
         }
 
         item {
-            UrgentNeedSectionCard(title = "Contact number") {
+            UrgentNeedSectionCard(title = stringResource(R.string.contact_number)) {
                 OutlinedTextField(
                     value = contactNumber,
                     onValueChange = { value -> contactNumber = value },
-                    label = { Text("Contact number") },
-                    placeholder = { Text("+91 phone number") },
+                    label = { Text(stringResource(R.string.contact_number)) },
+                    placeholder = { Text(stringResource(R.string.urgent_phone_hint)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp)
@@ -349,7 +351,7 @@ internal fun PostUrgentNeedContent(
                             scheduleLabel = scheduleLabel
                         )
                     ) { requestId ->
-                        Toast.makeText(context, "Urgent need posted", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, urgentNeedPostedText, Toast.LENGTH_SHORT).show()
                         onPosted(requestId)
                     }
                 },
@@ -367,7 +369,7 @@ internal fun PostUrgentNeedContent(
                         color = Color.White
                     )
                 }
-                Text("Post urgent need")
+                Text(stringResource(R.string.post_urgent_need_title))
             }
         }
 
@@ -388,14 +390,14 @@ private fun AutoPickedUrgentCategory(category: String, hasTitle: Boolean) {
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
-                text = "Auto-picked category",
+                text = stringResource(R.string.urgent_auto_category),
                 style = MaterialTheme.typography.labelMedium.copy(
                     color = Color(0xFF1D4ED8),
                     fontWeight = FontWeight.SemiBold
                 )
             )
             Text(
-                text = if (hasTitle) category else "Type the work title to detect category",
+                text = if (hasTitle) category else stringResource(R.string.urgent_auto_category_waiting),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF1E3A8A),
                     fontWeight = FontWeight.Bold

@@ -642,7 +642,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            placeholder = { Text("e.g., Cook, Driver, Cleaner", color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.edit_job_title_hint), color = Color(0xFF9CA3AF)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
@@ -698,7 +698,7 @@ fun EditJobScreen(
                             value = payAmount,
                             onValueChange = { payAmount = it },
                             label = { Text(stringResource(R.string.amount)) },
-                            placeholder = { Text("e.g., 12000 or 10000-12000", color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.edit_job_salary_hint), color = Color(0xFF9CA3AF)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -934,7 +934,7 @@ fun EditJobScreen(
                             try {
                                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                 if (currentUser == null) {
-                                    Toast.makeText(context, "Please login to upload image", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.please_login_upload_image), Toast.LENGTH_SHORT).show()
                                     jobImageUri = null
                                     return@launch
                                 }
@@ -1025,7 +1025,7 @@ fun EditJobScreen(
                             value = contactNumber,
                             onValueChange = { contactNumber = it },
                             label = { Text(stringResource(R.string.contact_number_label)) },
-                            placeholder = { Text("e.g., +91 9876543210", color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.phone_number_example_hint), color = Color(0xFF9CA3AF)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -1267,7 +1267,7 @@ fun EditJobScreen(
             onDismissRequest = { showSavedLocationsSheet = false },
             title = { 
                 Text(
-                    "Saved Work Locations",
+                    stringResource(R.string.saved_work_locations),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 ) 
             },

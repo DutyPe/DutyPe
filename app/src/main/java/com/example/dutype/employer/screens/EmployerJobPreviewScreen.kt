@@ -45,12 +45,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
@@ -107,11 +109,11 @@ fun EmployerJobPreviewScreen(
                     ) { success, message ->
                         if (success) {
                             job = currentJob.copy(jobImageUrl = newUrl)
-                            Toast.makeText(context, "Job image updated", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.job_image_updated), Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(
                                 context,
-                                message ?: "Failed to save job image",
+                                message ?: context.getString(R.string.failed_save_job_image),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -121,7 +123,7 @@ fun EmployerJobPreviewScreen(
                 is ImageUploadUtils.UploadResult.Failure -> {
                     Toast.makeText(
                         context,
-                        uploadResult.error.ifBlank { "Image upload failed" },
+                        uploadResult.error.ifBlank { context.getString(R.string.image_upload_failed) },
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -162,7 +164,7 @@ fun EmployerJobPreviewScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             CommonHeader(
-                title = "Preview",
+                title = stringResource(R.string.preview),
                 navController = navController,
                 backgroundColor = Color.White,
                 titleColor = Color(0xFF0F172A)
@@ -251,10 +253,10 @@ fun EmployerJobPreviewScreen(
                 if (!isDeletingJob) showDeleteConfirm = false
             },
             title = {
-                Text(text = "Delete this job?")
+                Text(text = stringResource(R.string.delete_this_job_title))
             },
             text = {
-                Text(text = "This action cannot be undone. The posting will be removed from your list.")
+                Text(text = stringResource(R.string.delete_this_job_body))
             },
             confirmButton = {
                 Button(
@@ -265,7 +267,7 @@ fun EmployerJobPreviewScreen(
                             isDeletingJob = false
                             showDeleteConfirm = false
                             if (success) {
-                                Toast.makeText(context, "Job deleted", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.job_deleted), Toast.LENGTH_SHORT).show()
                                 navController.navigate(Routes.EMPLOYER_MY_JOBS) {
                                     popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                     launchSingleTop = true
@@ -273,7 +275,7 @@ fun EmployerJobPreviewScreen(
                             } else {
                                 Toast.makeText(
                                     context,
-                                    message ?: "Failed to delete job",
+                                    message ?: context.getString(R.string.failed_delete_job),
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -292,7 +294,7 @@ fun EmployerJobPreviewScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(text = "Delete")
+                        Text(text = stringResource(R.string.delete))
                     }
                 }
             },
@@ -301,7 +303,7 @@ fun EmployerJobPreviewScreen(
                     onClick = { showDeleteConfirm = false },
                     enabled = !isDeletingJob
                 ) {
-                    Text(text = "Cancel")
+                    Text(text = stringResource(R.string.cancel))
                 }
             }
         )

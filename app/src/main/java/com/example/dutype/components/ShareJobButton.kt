@@ -11,9 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import com.dutype.app.R
 import com.example.dutype.models.JobListing
 import com.example.dutype.services.JobShareService
 
@@ -41,14 +43,14 @@ fun ShareJobIconButton(
             try {
                 jobShareService.shareJob(context, job)
             } catch (e: Exception) {
-                Toast.makeText(context, "Failed to share job", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.failed_share_job), Toast.LENGTH_SHORT).show()
             }
         },
         modifier = modifier
     ) {
         Icon(
             imageVector = Icons.Default.Share,
-            contentDescription = "Share Job",
+            contentDescription = stringResource(R.string.share_job_content_description),
             tint = tint,
             modifier = Modifier.size(22.dp)
         )

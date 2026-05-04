@@ -200,7 +200,7 @@ fun EmployerAddressManagementScreen(
                         value = officeName,
                         onValueChange = { officeName = it },
                         label = { Text(stringResource(R.string.office_name)) },
-                        placeholder = { Text("e.g., Main Office, Branch") },
+                        placeholder = { Text(stringResource(R.string.main_office_branch_hint)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(

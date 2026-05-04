@@ -71,7 +71,7 @@ fun WorkerHistoryScreen(
         stringResource(R.string.tab_timeline),
         stringResource(R.string.tab_completed),
         stringResource(R.string.tab_all_history),
-        "Urgent"
+        stringResource(R.string.urgent)
     )
     val urgentTabIndex = 3
     
@@ -206,7 +206,7 @@ private fun openWorkerHistoryDialer(context: android.content.Context, phone: Str
     runCatching {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
     }.onFailure {
-        Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -316,7 +316,7 @@ private fun WorkerUrgentHistoryContent(
                         )
                     }
                     Text(
-                        text = "No urgent work yet",
+                        text = stringResource(R.string.no_urgent_work_yet),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF374151)
@@ -324,7 +324,7 @@ private fun WorkerUrgentHistoryContent(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Accepted urgent work will appear here with employer contact and status.",
+                        text = stringResource(R.string.urgent_history_empty_body),
                         style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)),
                         textAlign = TextAlign.Center
                     )
@@ -391,7 +391,7 @@ private fun WorkerUrgentHistoryCard(
                         text = listOf(response.requestCategory, response.employerName)
                             .filter { it.isNotBlank() }
                             .joinToString(" • ")
-                            .ifBlank { "Urgent work" },
+                            .ifBlank { stringResource(R.string.urgent_work) },
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -402,7 +402,7 @@ private fun WorkerUrgentHistoryCard(
                     color = statusColor.copy(alpha = 0.12f)
                 ) {
                     Text(
-                        text = status.replace('_', ' ').replaceFirstChar { it.uppercase() }.ifBlank { "Viewed" },
+                        text = status.replace('_', ' ').replaceFirstChar { it.uppercase() }.ifBlank { stringResource(R.string.viewed) },
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = statusColor,
@@ -445,7 +445,7 @@ private fun WorkerUrgentHistoryCard(
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call")
+                    Text(stringResource(R.string.call))
                 }
             }
         }

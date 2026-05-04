@@ -218,7 +218,7 @@ fun EmptySearchState(
         containerColor = containerColor,
         icon = Icons.Default.SearchOff,
         title = stringResource(R.string.no_results_found),
-        subtitle = "No jobs match \"$searchQuery\"\nTry different keywords or clear the search.",
+        subtitle = stringResource(R.string.empty_search_subtitle, searchQuery),
         actionButton = EmptyStateAction(
             label = stringResource(R.string.clear_search),
             onClick = onClearSearch
@@ -422,10 +422,10 @@ fun EmptySavedItemsState(
         modifier = modifier,
         containerColor = containerColor,
         icon = Icons.Default.Bookmark,
-        title = "No saved $itemType",
-        subtitle = "Tap the bookmark icon to save $itemType for later.",
+        title = stringResource(R.string.no_saved_item_type, itemType),
+        subtitle = stringResource(R.string.save_item_type_later, itemType),
         actionButton = EmptyStateAction(
-            label = "Browse ${itemType.replaceFirstChar { it.uppercase() }}",
+            label = stringResource(R.string.browse_item_type, itemType.replaceFirstChar { it.uppercase() }),
             onClick = onBrowse
         )
     )

@@ -166,7 +166,7 @@ fun EmployerApplicationManagementScreen(
                         isProcessingPayment = false
                         showUnlockDialog = false
                         pendingUnlockApplication = null
-                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
                         val activity = context as? Activity
                         if (activity != null) {
                             reviewTriggerService.onEmployerContactUnlocked(activity)
@@ -224,9 +224,9 @@ fun EmployerApplicationManagementScreen(
             onDismissRequest = {
                 if (!isClosingJob) showCloseJobDialog = false
             },
-            title = { Text("Close job when filled") },
+            title = { Text(stringResource(R.string.close_job_when_filled)) },
             text = {
-                Text("Workers will see this job as filled and new applications will stop. You can keep the hired applicant history here.")
+                Text(stringResource(R.string.close_job_when_filled_body))
             },
             confirmButton = {
                 TextButton(
@@ -239,14 +239,14 @@ fun EmployerApplicationManagementScreen(
                                 showCloseJobDialog = false
                                 isJobClosedOverride = true
                                 currentJob = currentJob?.copy(status = "closed")
-                                Toast.makeText(context, "Job closed as filled", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.job_closed_as_filled), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, error ?: "Unable to close job", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, error ?: context.getString(R.string.unable_to_close_job), Toast.LENGTH_LONG).show()
                             }
                         }
                     }
                 ) {
-                    Text(if (isClosingJob) "Closing..." else "Close job")
+                    Text(if (isClosingJob) stringResource(R.string.closing_ellipsis) else stringResource(R.string.close_job))
                 }
             },
             dismissButton = {
@@ -263,7 +263,7 @@ fun EmployerApplicationManagementScreen(
     val jobTitleForActions = currentJob?.title
         ?.takeIf { it.isNotBlank() }
         ?: uiState.applications.firstOrNull()?.jobTitle?.takeIf { it.isNotBlank() }
-        ?: "DutyPe job"
+        ?: stringResource(R.string.dutype_job)
     val applicantCountForSummary = when {
         uiState.applications.isNotEmpty() -> uiState.applications.size
         currentJob != null -> currentJob?.applicationCount ?: 0
@@ -326,13 +326,13 @@ fun EmployerApplicationManagementScreen(
                 Tab(
                     selected = selectedTabIndex == 0,
                     onClick = { selectedTabIndex = 0 },
-                    text = { Text("Best matches") },
+                    text = { Text(stringResource(R.string.hiring_room_best_matches)) },
                     icon = { Icon(Icons.Default.Verified, contentDescription = null) }
                 )
                 Tab(
                     selected = selectedTabIndex == 1,
                     onClick = { selectedTabIndex = 1 },
-                    text = { Text("Applied workers") },
+                    text = { Text(stringResource(R.string.hiring_room_applied_workers)) },
                     icon = { Icon(Icons.Default.Work, contentDescription = null) }
                 )
             }
@@ -450,7 +450,7 @@ fun EmployerApplicationManagementScreen(
                                 viewModel.unlockContact(
                                     applicationId = application.id,
                                     onSuccess = {
-                                        Toast.makeText(context, "Contact unlocked! ✅", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
                                         val activity = context as? Activity
                                         if (activity != null) {
                                             reviewTriggerService.onEmployerContactUnlocked(activity)
@@ -485,14 +485,14 @@ fun EmployerApplicationManagementScreen(
                                             ).show()
                                             return@launch
                                         }
-                                        Toast.makeText(context, "Work marked as done. You can rate this worker now.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.work_marked_done_rate_now), Toast.LENGTH_SHORT).show()
                                         return@launch
                                     }
 
                                     val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
                                     if (alreadyRated) {
                                         ratedApplicationIds = ratedApplicationIds + application.id
-                                        Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.already_rated_worker), Toast.LENGTH_SHORT).show()
                                     } else {
                                         pendingRatingApplication = application
                                         showRatingSheet = true
@@ -542,7 +542,7 @@ private fun MatchedWorkersContent(
                     Button(onClick = onRefresh, shape = RoundedCornerShape(12.dp)) {
                         Icon(Icons.Default.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -561,7 +561,7 @@ private fun MatchedWorkersContent(
                         modifier = Modifier.size(42.dp)
                     )
                     Text(
-                        text = if (isJobLive) "No strong worker matches yet" else "Job is filled",
+                        text = if (isJobLive) stringResource(R.string.no_strong_worker_matches) else stringResource(R.string.job_is_filled),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
@@ -605,7 +605,7 @@ private fun MatchedWorkersContent(
                             modifier = Modifier.size(42.dp)
                         )
                         Text(
-                            text = "Job is filled",
+                            text = stringResource(R.string.job_is_filled),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -623,7 +623,7 @@ private fun MatchedWorkersContent(
                 ) {
                     item {
                         Text(
-                            text = if (isJobLive) "Best workers for this job" else "Filled job matches",
+                            text = if (isJobLive) stringResource(R.string.best_workers_for_job) else stringResource(R.string.filled_job_matches),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF111827)
@@ -692,7 +692,7 @@ private fun HiringRoomSummaryCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = jobTitle.ifBlank { if (isLive) "Open job" else "Closed job" },
+                        text = jobTitle.ifBlank { if (isLive) stringResource(R.string.open_job) else stringResource(R.string.closed_job) },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -707,7 +707,7 @@ private fun HiringRoomSummaryCard(
                     color = if (isLive) Color(0xFFDCFCE7) else Color(0xFFE5E7EB)
                 ) {
                     Text(
-                        text = if (isLive) "Live" else "Filled",
+                        text = if (isLive) stringResource(R.string.live) else stringResource(R.string.filled),
                         style = AppTypography.caption.copy(
                             color = if (isLive) Color(0xFF047857) else Color(0xFF374151),
                             fontWeight = FontWeight.Bold
@@ -721,14 +721,14 @@ private fun HiringRoomSummaryCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     HiringRoomMetricItem(
                         value = applicantsCount.toString(),
-                        label = "Applicants",
+                        label = stringResource(R.string.applicants),
                         icon = Icons.Default.Person,
                         color = Color(0xFF2563EB),
                         modifier = Modifier.weight(1f)
                     )
                     HiringRoomMetricItem(
                         value = matchedWorkersCount.toString(),
-                        label = "Nearby matches",
+                        label = stringResource(R.string.nearby_matches),
                         icon = Icons.Default.Work,
                         color = Color(0xFF7C3AED),
                         modifier = Modifier.weight(1f)
@@ -737,14 +737,14 @@ private fun HiringRoomSummaryCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     HiringRoomMetricItem(
                         value = callReadyCandidates.toString(),
-                        label = "Call-ready",
+                        label = stringResource(R.string.call_ready),
                         icon = Icons.Default.Call,
                         color = Color(0xFF059669),
                         modifier = Modifier.weight(1f)
                     )
                     HiringRoomMetricItem(
-                        value = if (isLive) "Open" else "Done",
-                        label = "Hiring status",
+                        value = if (isLive) stringResource(R.string.open_status) else stringResource(R.string.done_status),
+                        label = stringResource(R.string.hiring_status),
                         icon = Icons.Default.CheckCircle,
                         color = if (isLive) Color(0xFFEA580C) else Color(0xFF6B7280),
                         modifier = Modifier.weight(1f)
@@ -765,7 +765,15 @@ private fun HiringRoomSummaryCard(
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isClosingJob) "Closing" else if (isLive) "Close job" else "Closed")
+                    Text(
+                        if (isClosingJob) {
+                            stringResource(R.string.closing)
+                        } else if (isLive) {
+                            stringResource(R.string.close_job)
+                        } else {
+                            stringResource(R.string.closed)
+                        }
+                    )
                 }
             }
         }
@@ -822,7 +830,7 @@ private fun RankingHintBanner() {
     ) {
         Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(18.dp))
         Text(
-            text = "Best first: call-ready workers and complete profiles are shown higher.",
+            text = stringResource(R.string.ranking_hint_best_first),
             style = AppTypography.bodySmall.copy(color = Color(0xFF1E40AF)),
             modifier = Modifier.weight(1f)
         )
@@ -844,11 +852,11 @@ private fun TooManyApplicationsBanner(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Best first for $totalApplications applicants",
+            text = stringResource(R.string.best_first_for_applicants, totalApplications),
             style = AppTypography.labelLarge.copy(color = Color(0xFF92400E), fontWeight = FontWeight.Bold)
         )
         Text(
-            text = "$callReadyCandidates call-ready candidate(s) are lifted first. Incomplete or terminal profiles stay lower in the list.",
+            text = stringResource(R.string.call_ready_lifted_first, callReadyCandidates),
             style = AppTypography.bodySmall.copy(color = Color(0xFF92400E))
         )
         if (isJobLive) {
@@ -859,7 +867,7 @@ private fun TooManyApplicationsBanner(
             ) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Close job when filled")
+                Text(stringResource(R.string.close_job_when_filled))
             }
         }
     }
@@ -878,10 +886,10 @@ private fun MatchedWorkerCard(
     val requestSent = status in setOf("pending", "accepted")
     val canCall = worker.phone.isNotBlank() && !isDisabledForFilledJob
     val workerStatusText = when (status) {
-        "accepted" -> "Selected worker"
-        "pending" -> "Request sent"
-        "rejected" -> "Not available for this job"
-        else -> if (isDisabledForFilledJob) "Job filled" else if (worker.isAvailable) "Available now" else "Invite to confirm"
+        "accepted" -> stringResource(R.string.selected_worker)
+        "pending" -> stringResource(R.string.request_sent)
+        "rejected" -> stringResource(R.string.not_available_for_job)
+        else -> if (isDisabledForFilledJob) stringResource(R.string.job_is_filled) else if (worker.isAvailable) stringResource(R.string.available_now) else stringResource(R.string.invite_to_confirm)
     }
     val contentAlpha = if (isDisabledForFilledJob) 0.58f else 1f
     val cardContainerColor = if (isDisabledForFilledJob) {
@@ -962,9 +970,9 @@ private fun MatchedWorkerCard(
                 ) {
                     Text(
                         text = if (isJobLive) {
-                            "Selected. Keep the job open if you still need more workers."
+                            stringResource(R.string.selected_keep_job_open)
                         } else {
-                            "Selected for this filled job."
+                            stringResource(R.string.selected_filled_job)
                         },
                         style = AppTypography.bodySmall.copy(color = Color(0xFF047857)),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -979,7 +987,7 @@ private fun MatchedWorkerCard(
                     color = Color(0xFFE5E7EB)
                 ) {
                     Text(
-                        text = "Disabled because this job is already marked filled.",
+                        text = stringResource(R.string.disabled_job_filled),
                         style = AppTypography.bodySmall.copy(color = Color(0xFF4B5563)),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
@@ -1030,9 +1038,9 @@ private fun MatchedWorkerCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         when {
-                            !isJobLive -> "Job filled"
-                            requestSent -> "Requested"
-                            else -> "Request"
+                            !isJobLive -> stringResource(R.string.job_is_filled)
+                            requestSent -> stringResource(R.string.requested)
+                            else -> stringResource(R.string.request)
                         }
                     )
                 }
@@ -1046,7 +1054,7 @@ private fun MatchedWorkerCard(
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Call")
+                    Text(stringResource(R.string.call))
                 }
             }
         }
@@ -1562,7 +1570,7 @@ private fun ApplicationCard(
                         runCatching {
                             context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$workerPhone")))
                         }.onFailure {
-                            Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier
@@ -1577,7 +1585,7 @@ private fun ApplicationCard(
                         modifier = Modifier.size(17.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call worker", style = AppTypography.labelLarge, color = Color.White)
+                    Text(stringResource(R.string.call_worker), style = AppTypography.labelLarge, color = Color.White)
                 }
             }
 
@@ -1696,9 +1704,9 @@ private fun EmptyApplicationsState(
     isJobSpecific: Boolean
 ) {
     val subtitle = if (isJobSpecific) {
-        "Applied workers will appear here when they respond to this job."
+        stringResource(R.string.applied_workers_empty_body)
     } else {
-        "Applications will appear here once workers start applying to your jobs."
+        stringResource(R.string.applications_empty_body)
     }
 
     Column(
@@ -1725,7 +1733,7 @@ private fun EmptyApplicationsState(
         Spacer(modifier = Modifier.height(20.dp))
         
         Text(
-            text = if (isJobSpecific) "Waiting for applied workers" else "Waiting for worker responses",
+            text = if (isJobSpecific) stringResource(R.string.waiting_applied_workers) else stringResource(R.string.waiting_worker_responses),
             style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
         )
 

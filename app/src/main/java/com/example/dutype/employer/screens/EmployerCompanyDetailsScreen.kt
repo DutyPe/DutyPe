@@ -123,7 +123,7 @@ fun EmployerCompanyDetailsScreen(
                                 )
                                 Toast.makeText(
                                     context,
-                                    "Company logo updated successfully!",
+                                    context.getString(R.string.company_logo_updated),
                                     Toast.LENGTH_SHORT
                                 ).show()
                             },
@@ -132,19 +132,19 @@ fun EmployerCompanyDetailsScreen(
                                 profileImageUri = null
                                 Toast.makeText(
                                     context,
-                                    "Failed to upload logo. Please try again.",
+                                    context.getString(R.string.failed_upload_logo),
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
                         )
                     } else {
                         profileImageUri = null
-                        Toast.makeText(context, "Please login to upload logo", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.please_login_upload_logo), Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Error uploading company logo")
                     profileImageUri = null
-                    Toast.makeText(context, "Error uploading logo", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.error_uploading_logo), Toast.LENGTH_SHORT).show()
                 } finally {
                     isUploadingImage = false
                 }
@@ -401,8 +401,8 @@ fun EmployerCompanyDetailsScreen(
         givenReviews = employerGivenReviews,
         isLoading = isReviewsLoading,
         isGivenLoading = isReviewsLoading,
-        receivedTabTitle = "Workers rated you",
-        givenTabTitle = "You rated workers",
+        receivedTabTitle = stringResource(R.string.workers_rated_you),
+        givenTabTitle = stringResource(R.string.you_rated_workers),
         onDismiss = { showReviewsSheet = false }
     )
 }

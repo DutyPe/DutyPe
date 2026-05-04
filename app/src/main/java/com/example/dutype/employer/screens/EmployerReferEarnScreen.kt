@@ -497,11 +497,11 @@ private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, tot
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("Rs.${String.format("%.0f", totalEarnings)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+                    Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
             }
         }
@@ -526,7 +526,7 @@ private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.available_to_withdraw), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                Text("Rs.${String.format("%.0f", availableBalance)}", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+                Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             }
             Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
                 Text(stringResource(R.string.withdraw_button))
@@ -801,7 +801,7 @@ private fun EmployerWithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
         Icon(Icons.Default.AccountBalanceWallet, null, tint = Color(0xFF1F2937), modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("Rs.${String.format("%.0f", withdrawal.amount)}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+            Text(stringResource(R.string.rupees_amount, String.format("%.0f", withdrawal.amount)), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
         }
         Text(withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
@@ -819,7 +819,7 @@ private fun EmployerReferrerInfoCard(referrerInfo: ReferrerInfo) {
             Text(referrerInfo.referrerName.ifBlank { stringResource(R.string.referred_by_unknown) }, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             if (referrerInfo.referredByCode.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text("Code: ${referrerInfo.referredByCode}", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.referral_code_format, referrerInfo.referredByCode), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             }
         }
     }
@@ -914,7 +914,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("Top ${analytics.percentile}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                    Text(stringResource(R.string.top_percent_format, analytics.percentile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
                 }
             }
 
@@ -927,7 +927,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                        Text("Rs.${analytics.projectedMonthlyEarnings}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
+                        Text(stringResource(R.string.rupees_amount, analytics.projectedMonthlyEarnings.toString()), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
                     }
                     Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
                 }
@@ -954,7 +954,7 @@ private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                     Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.refer_performer_from_city, story.userName, story.city), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF92400E)), modifier = Modifier.weight(1f))
-                    Text("Rs.${story.totalEarnings.toInt()}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                    Text(stringResource(R.string.rupees_amount, story.totalEarnings.toInt().toString()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
                 }
             }
             

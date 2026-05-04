@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.dutype.app.R
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.example.dutype.services.NotificationService
@@ -101,8 +102,8 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     val notification = NotificationData(
                         id = "pending_app_$applicationId",
                         recipientId = workerId,
-                        title = "Application Still Pending",
-                        message = "Your application for $jobTitle is still pending. For faster update, please call the employer.",
+                        title = applicationContext.getString(R.string.pending_application_title),
+                        message = applicationContext.getString(R.string.pending_application_message, jobTitle),
                         type = NotificationType.APPLICATION_STATUS_UPDATE,
                         data = mapOf(
                             "jobId" to jobId,

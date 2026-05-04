@@ -17,9 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dutype.app.R
 import com.example.dutype.models.Announcement
 import com.example.dutype.models.AnnouncementType
 import com.example.dutype.ui.theme.AppTypography
@@ -91,36 +94,47 @@ fun AnnouncementCard(
     modifier: Modifier = Modifier
 ) {
     val style = getAnnouncementStyle(announcement.type)
+    val actionModifier = if (onAction != null) {
+        Modifier.clickable(onClick = onAction)
+    } else {
+        Modifier
+    }
     
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .then(
-                if (onAction != null) {
-                    Modifier.clickable(onClick = onAction)
-                } else {
-                    Modifier
-                }
-            ),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = style.containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .then(actionModifier),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(style.containerColor)
-                .padding(14.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(style.containerColor, Color.White)
+                    )
+                )
         ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .height(72.dp)
+                    .width(5.dp)
+                    .background(style.accentColor)
+            )
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 14.dp, end = 10.dp, bottom = 14.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Icon with background
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(style.iconContainerColor),
                     contentAlignment = Alignment.Center
@@ -135,7 +149,6 @@ fun AnnouncementCard(
                 
                 Spacer(modifier = Modifier.width(12.dp))
                 
-                // Content
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -152,7 +165,35 @@ fun AnnouncementCard(
                             style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
                         )
                     }
-                    
+
+                    if (onAction != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            color = style.iconContainerColor,
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = style.accentColor,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .padding(5.dp)
+                            )
+                        }
+                    }
+                }
+
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.close),
+                        tint = WorkerColors.TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
@@ -206,7 +247,6 @@ fun AnnouncementCarousel(
     }
     
     Column(modifier = modifier.padding(vertical = 8.dp)) {
-        // Carousel
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth()
@@ -221,6 +261,26 @@ fun AnnouncementCarousel(
             )
         }
         
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            announcements.forEachIndexed { index, announcement ->
+                val isSelected = pagerState.currentPage == index
+                val dotStyle = getAnnouncementStyle(announcement.type)
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(width = if (isSelected) 18.dp else 7.dp, height = 7.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (isSelected) dotStyle.accentColor else Color(0xFFE5E7EB))
+                )
+            }
+        }
     }
 }
 

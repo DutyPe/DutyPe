@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import android.content.Context
+import com.dutype.app.R
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
@@ -73,8 +74,8 @@ class SmartNotificationManager @Inject constructor(
             val notification = NotificationData(
                 id = UUID.randomUUID().toString(),
                 recipientId = userId,
-                title = "Referral Reward Earned! 🎁",
-                message = "Congratulations! You've earned ₹$rewardAmount for $referralCount successful referrals!",
+                title = context.getString(R.string.referral_reward_earned_title),
+                message = context.getString(R.string.referral_reward_earned_message, rewardAmount, referralCount),
                 type = NotificationType.REFERRAL_MILESTONE,
                 data = mapOf(
                     "referralCount" to referralCount.toString(),

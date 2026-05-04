@@ -21,9 +21,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.models.InstantRequest
@@ -76,7 +78,7 @@ fun EmployerUrgentNeedDetailScreen(
     if (showRatingSheet && pendingRatingResponse != null) {
         RatingBottomSheet(
             isVisible = showRatingSheet,
-            targetName = pendingRatingResponse!!.workerName.ifBlank { "this worker" },
+            targetName = pendingRatingResponse!!.workerName.ifBlank { stringResource(R.string.this_worker) },
             targetRole = "WORKER",
             onDismiss = {
                 showRatingSheet = false
@@ -102,7 +104,7 @@ fun EmployerUrgentNeedDetailScreen(
                                 }
                             },
                             onFailure = { error ->
-                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, error.message ?: context.getString(R.string.failed_submit_rating), Toast.LENGTH_LONG).show()
                             }
                         )
                     }
@@ -113,10 +115,10 @@ fun EmployerUrgentNeedDetailScreen(
 
     pendingCompletionResponse?.let { response ->
         ReasonDialog(
-            title = "Complete urgent work",
-            message = "Add a short completion note. This keeps reviews and history clear.",
-            placeholder = "Work completed in person",
-            confirmLabel = "Mark done",
+            title = stringResource(R.string.complete_urgent_work),
+            message = stringResource(R.string.urgent_complete_note_message),
+            placeholder = stringResource(R.string.urgent_complete_note_hint),
+            confirmLabel = stringResource(R.string.mark_done),
             onDismiss = { pendingCompletionResponse = null },
             onConfirm = { note ->
                 instantHelpViewModel.completeEmployerInstantResponse(response, note)
@@ -127,10 +129,10 @@ fun EmployerUrgentNeedDetailScreen(
 
     pendingNoShowResponse?.let { response ->
         ReasonDialog(
-            title = "Mark no show",
-            message = "Add why this worker could not complete the urgent work.",
-            placeholder = "Worker did not arrive",
-            confirmLabel = "No show",
+            title = stringResource(R.string.mark_no_show),
+            message = stringResource(R.string.urgent_no_show_message),
+            placeholder = stringResource(R.string.urgent_no_show_hint),
+            confirmLabel = stringResource(R.string.no_show),
             onDismiss = { pendingNoShowResponse = null },
             onConfirm = { reason ->
                 instantHelpViewModel.markEmployerInstantResponseNoShow(response, reason)
@@ -141,10 +143,10 @@ fun EmployerUrgentNeedDetailScreen(
 
     pendingCancelRequest?.let { requestToCancel ->
         ReasonDialog(
-            title = "Cancel urgent request",
-            message = "Workers will stop seeing this urgent need.",
-            placeholder = "Need cancelled by employer",
-            confirmLabel = "Cancel request",
+            title = stringResource(R.string.cancel_urgent_request),
+            message = stringResource(R.string.urgent_cancel_message),
+            placeholder = stringResource(R.string.urgent_cancel_hint),
+            confirmLabel = stringResource(R.string.cancel_request),
             onDismiss = { pendingCancelRequest = null },
             onConfirm = { reason ->
                 instantHelpViewModel.cancelEmployerInstantRequest(requestToCancel, reason)
@@ -159,8 +161,8 @@ fun EmployerUrgentNeedDetailScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "Urgent request",
-            subtitle = request?.title ?: "Worker responses and actions",
+            title = stringResource(R.string.urgent_request_title),
+            subtitle = request?.title ?: stringResource(R.string.urgent_responses_actions_subtitle),
             navController = navController,
             backgroundColor = EmployerColors.ScreenBackground
         )
@@ -219,7 +221,7 @@ private fun ReasonDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         }
     )
@@ -230,6 +232,6 @@ private fun openDialer(context: android.content.Context, phone: String) {
     runCatching {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
     }.onFailure {
-        Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
     }
 }

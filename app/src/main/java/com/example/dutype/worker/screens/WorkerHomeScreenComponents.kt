@@ -615,17 +615,21 @@ fun HomeSectionsContent(
                 }
             }
 
-            item {
-                InstantRequestSection(
-                    requests = instantRequests,
-                    isAvailabilityOn = workerAvailability.isAvailable,
-                    hasLocation = currentLocation != null,
-                    isLoading = isLoadingInstantRequests,
-                    updatingRequestId = updatingInstantRequestId,
-                    error = instantHelpError,
-                    onApply = onApplyInstantRequest,
-                    onCall = onCallInstantRequest
-                )
+            if (
+                workerAvailability.isAvailable &&
+                (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
+            ) {
+                item {
+                    InstantRequestSection(
+                        requests = instantRequests,
+                        isAvailabilityOn = workerAvailability.isAvailable,
+                        isLoading = isLoadingInstantRequests,
+                        updatingRequestId = updatingInstantRequestId,
+                        error = instantHelpError,
+                        onApply = onApplyInstantRequest,
+                        onCall = onCallInstantRequest
+                    )
+                }
             }
 
             //  Birthday Banner - Shows if today is user's birthday
@@ -770,7 +774,7 @@ fun HomeSectionsContent(
                         savedJobsViewModel = savedJobsViewModel,
                         onNavigateToJob = onNavigateToJob,
                         sectionTitle = when {
-                            workerAvailability.isAvailable -> "Normal vacancy jobs"
+                            workerAvailability.isAvailable -> stringResource(R.string.normal_vacancy_jobs)
                             userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
                             skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
                             else -> null
@@ -798,13 +802,16 @@ fun HomeSectionsContent(
 private fun InstantRequestSection(
     requests: List<InstantRequest>,
     isAvailabilityOn: Boolean,
-    hasLocation: Boolean,
     isLoading: Boolean,
     updatingRequestId: String?,
     error: String?,
     onApply: (InstantRequest) -> Unit,
     onCall: (InstantRequest) -> Unit
 ) {
+    if (!isAvailabilityOn || (!isLoading && requests.isEmpty() && error.isNullOrBlank())) {
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -818,14 +825,14 @@ private fun InstantRequestSection(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Instant works near you",
+                    text = stringResource(R.string.instant_works_near_you),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
-                    text = "Turn the header switch on to see live local urgent jobs first",
+                    text = stringResource(R.string.instant_works_switch_on),
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -833,36 +840,6 @@ private fun InstantRequestSection(
             }
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-            }
-        }
-
-        if (!isAvailabilityOn) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB))
-            ) {
-                Text(
-                    text = if (hasLocation) {
-                        "Use the switch in the header when you are ready for urgent work."
-                    } else {
-                        "Set your location, then use the header switch for urgent work."
-                    },
-                    modifier = Modifier.padding(14.dp),
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E))
-                )
-            }
-        } else if (!isLoading && requests.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB))
-            ) {
-                Text(
-                    text = "No urgent requests nearby yet. Keep availability on for first alerts.",
-                    modifier = Modifier.padding(14.dp),
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E))
-                )
             }
         }
 
@@ -894,6 +871,7 @@ private fun InstantRequestCard(
     val responseStatus = request.workerResponseStatus.trim().lowercase()
     val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
     val applyLabel = instantWorkerApplyButtonLabel(responseStatus)
+    val workersNeededLabel = stringResource(R.string.urgent_workers_needed_count, request.workersNeeded)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -959,7 +937,7 @@ private fun InstantRequestCard(
                                 }
                                 if (request.workersNeeded > 1) {
                                     if (isNotEmpty()) append(" • ")
-                                    append("Need ${request.workersNeeded} workers")
+                                    append(workersNeededLabel)
                                 }
                                 if (isEmpty()) append(request.category)
                             },
@@ -1045,32 +1023,35 @@ private fun InstantRequestCard(
             ) {
                 Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Call")
+                Text(stringResource(R.string.call))
             }
         }
     }
 }
 
+@Composable
 private fun instantNeedTypeLabel(value: String): String = when (value) {
-    "urgent_now" -> "Now"
-    "today" -> "Today"
-    "scheduled" -> "Tomorrow"
-    else -> "Today"
+    "urgent_now" -> stringResource(R.string.urgent_now)
+    "today" -> stringResource(R.string.today)
+    "scheduled" -> stringResource(R.string.urgent_tomorrow)
+    else -> stringResource(R.string.today)
 }
 
+@Composable
 private fun instantWorkerApplyButtonLabel(status: String): String = when (status) {
-    "applied" -> "Applied"
-    "called" -> "Contacted"
-    "accepted" -> "Accepted"
-    "completed" -> "Completed"
-    else -> "Apply"
+    "applied" -> stringResource(R.string.applied)
+    "called" -> stringResource(R.string.contacted)
+    "accepted" -> stringResource(R.string.accepted)
+    "completed" -> stringResource(R.string.completed)
+    else -> stringResource(R.string.apply)
 }
 
+@Composable
 private fun instantWorkerResponseMessage(status: String): String = when (status) {
-    "called" -> "Contact shared with employer. No need to apply again."
-    "accepted" -> "Employer selected you for this urgent work."
-    "completed" -> "This urgent work is completed."
-    else -> "You applied for this urgent work. No need to apply again."
+    "called" -> stringResource(R.string.contact_shared_no_apply)
+    "accepted" -> stringResource(R.string.employer_selected_urgent)
+    "completed" -> stringResource(R.string.urgent_work_completed)
+    else -> stringResource(R.string.urgent_work_applied_no_apply)
 }
 
 @Composable
@@ -1088,7 +1069,7 @@ private fun WorkerJobRequestSection(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "Urgent employer requests",
+            text = stringResource(R.string.urgent_employer_requests),
             style = MaterialTheme.typography.titleMedium.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Bold
@@ -1197,7 +1178,7 @@ private fun WorkerJobRequestCard(
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Reject")
+                    Text(stringResource(R.string.reject))
                 }
 
                 Button(
@@ -1213,7 +1194,7 @@ private fun WorkerJobRequestCard(
                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Accept")
+                    Text(stringResource(R.string.accept))
                 }
             }
         }

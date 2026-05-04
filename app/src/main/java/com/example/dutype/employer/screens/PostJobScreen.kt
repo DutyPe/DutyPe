@@ -596,7 +596,7 @@ fun PostJobScreen(
         val jobPosting = createJobPosting()
         val vacancyCount = vacancies.toIntOrNull()
         if (vacancyCount == null || vacancyCount !in 1..50) {
-            Toast.makeText(context, "Enter number of positions", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
             isSubmittingJob = false
             return
         }
@@ -1348,7 +1348,7 @@ fun PostJobScreen(
                                         ) {
                                             Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Add description or photo (optional)")
+                                            Text(stringResource(R.string.add_description_photo_optional))
                                         }
                                     }
                                     // Group 1 close
@@ -1388,7 +1388,7 @@ fun PostJobScreen(
                                                         Timber.d("� LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
                                                     } catch (e: Exception) {
                                                         Timber.e(e, "� LOCATION BUTTON: Error getting location")
-                                                        locationError = "Error getting location"
+                                                        locationError = context.getString(R.string.error_getting_location)
                                                     } finally {
                                                         isLoadingLocation = false
                                                     }
@@ -1433,7 +1433,7 @@ fun PostJobScreen(
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Text(
-                                                text = "Schedule",
+                                                text = stringResource(R.string.schedule),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color(0xFF1E293B)
@@ -1500,7 +1500,7 @@ fun PostJobScreen(
                                         ) {
                                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text("Add requirements (optional)")
+                                            Text(stringResource(R.string.add_requirements_optional))
                                         }
                                     }
                                     // Group 3 close
@@ -1728,7 +1728,7 @@ private fun PostJobHeroCard(
                     )
                     HeroSignalPill(
                         title = stringResource(R.string.area_label),
-                        value = location.ifBlank { "Add work location" }
+                        value = location.ifBlank { stringResource(R.string.add_work_location) }
                     )
                 }
 
@@ -2010,10 +2010,10 @@ private fun PostJobPublishBar(
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Publishing�", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.publishing), color = Color.White, fontWeight = FontWeight.SemiBold)
                 } else {
                     Text(
-                        text = "Publish Job",
+                        text = stringResource(R.string.publish_job),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
@@ -2365,22 +2365,22 @@ private fun PostingTypeTabs(
                     selected = selectedIndex == 0,
                     onClick = onVacancyClick,
                     icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text("Normal job", fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
+                    text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
                 )
                 Tab(
                     selected = selectedIndex == 1,
                     onClick = onUrgentNeedClick,
                     icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text("Urgent need", fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
+                    text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
                 )
             }
         }
 
         Text(
             text = if (selectedIndex == 1) {
-                "For same-day local help. Workers can respond quickly from urgent cards."
+                stringResource(R.string.post_job_urgent_tab_desc)
             } else {
-                "For regular hiring with applications, matching, and a Hiring Room."
+                stringResource(R.string.post_job_normal_tab_desc)
             },
             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
             modifier = Modifier.padding(horizontal = 4.dp)
@@ -2624,7 +2624,7 @@ fun WorkTypeSelection(
                     onPayAmountChange(newValue)
                 },
                 label = { Text(stringResource(R.string.amount_rupees)) },
-                placeholder = { Text("e.g. 12000") },
+                placeholder = { Text(stringResource(R.string.amount_example_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 isError = false,
@@ -3045,7 +3045,7 @@ fun EnhancedLocationSection(
                         latitude = locationLatitude,
                         longitude = locationLongitude,
                         modifier = Modifier.fillMaxSize(),
-                        markerTitle = "Work location",
+                        markerTitle = stringResource(R.string.work_location),
                         markerSnippet = location.takeIf { it.isNotBlank() },
                         onLocationPicked = { latitude, longitude ->
                             onLocationSelected?.invoke(latitude, longitude)
@@ -3157,13 +3157,13 @@ fun RequirementsSection(
                 onOptionSelected = onExperienceLevelChange,
                 selectedColor = Color(0xFF10B981),
                 allowCustomOption = true,
-                customOptionHint = "Add your own experience"
+                customOptionHint = stringResource(R.string.add_own_experience)
             )
             
             Spacer(modifier = Modifier.height(18.dp))
 
             RequirementChipSection(
-                title = "Education required",
+                title = stringResource(R.string.education_required),
                 icon = Icons.Default.School,
                 options = educationRequirements,
                 selectedOption = educationRequired,
@@ -3494,7 +3494,7 @@ private fun PostJobStepNavBar(
                         contentColor = Color(0xFF0F172A)
                     )
                 ) {
-                    Text("Back", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(stringResource(R.string.back), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
 
@@ -3520,7 +3520,7 @@ private fun PostJobStepNavBar(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
-                        Text("Post job", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(stringResource(R.string.post_job_button), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     }
                 }
             } else {
@@ -3538,7 +3538,7 @@ private fun PostJobStepNavBar(
                         disabledContentColor = Color.White
                     )
                 ) {
-                    Text("Next", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(stringResource(R.string.next), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
         }

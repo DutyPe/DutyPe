@@ -466,8 +466,8 @@ fun WorkerProfileDetailsScreen(
         givenReviews = workerGivenReviews,
         isLoading = isReviewsLoading,
         isGivenLoading = isReviewsLoading,
-        receivedTabTitle = "Employers rated you",
-        givenTabTitle = "You rated employers",
+        receivedTabTitle = stringResource(R.string.employers_rated_you),
+        givenTabTitle = stringResource(R.string.you_rated_employers),
         onDismiss = { showReviewsSheet = false }
     )
 }

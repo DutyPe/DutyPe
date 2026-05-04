@@ -231,10 +231,10 @@ fun JobDescriptionScreen(
             } catch (e: Exception) {
                 pendingCallFeedbackJob = null
                 Timber.e(e, "Failed to start dialer for $phone")
-                android.widget.Toast.makeText(context, "No dialer app available", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(R.string.no_dialer_app_available), android.widget.Toast.LENGTH_SHORT).show()
             }
         } else {
-            android.widget.Toast.makeText(context, "Contact number not available", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.contact_number_not_available), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -634,7 +634,7 @@ fun JobDescriptionScreen(
         onProfileSetupRequired = {
             // For job application - navigate to profile setup with return route to job application
             showLoginBottomSheet = false
-            android.widget.Toast.makeText(context, "Please complete your profile to apply", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.complete_profile_to_apply), android.widget.Toast.LENGTH_SHORT).show()
             // Navigate to profile setup with return route to job application screen
             navController.navigate(Routes.profileSetupWithReturnRoute(Routes.jobApplicationRoute(jobId)))
             pendingAction = null
@@ -643,10 +643,10 @@ fun JobDescriptionScreen(
         role = com.example.dutype.models.UserRole.WORKER,
         title = stringResource(R.string.login_to_continue),
         subtitle = when (pendingAction) {
-            "apply" -> "Login to apply for this job"
-            "save" -> "Login to save this job"
-            "call" -> "Login to call the employer"
-            else -> "Please login to continue"
+            "apply" -> stringResource(R.string.login_apply_job)
+            "save" -> stringResource(R.string.login_save_job)
+            "call" -> stringResource(R.string.login_call_employer)
+            else -> stringResource(R.string.please_login_continue)
         }
     )
 
@@ -661,7 +661,7 @@ fun JobDescriptionScreen(
             onSubmit = { spokeWithEmployer, availability ->
                 val feedbackJob = pendingCallFeedbackJob
                 if (feedbackJob == null) {
-                    Result.failure(Exception("Job not found"))
+                    Result.failure(Exception(context.getString(R.string.job_not_found)))
                 } else {
                     jobCallFeedbackService.submitCallFeedback(
                         job = feedbackJob,
@@ -673,7 +673,7 @@ fun JobDescriptionScreen(
             onSubmitted = {
                 showCallFeedbackSheet = false
                 pendingCallFeedbackJob = null
-                snackbarMessage = "Thanks, your update helps keep jobs fresh."
+                snackbarMessage = context.getString(R.string.job_fresh_update_saved)
                 showSnackbar = true
             }
         )
@@ -779,10 +779,10 @@ private fun RowScope.ActionButtonsContent(
                 )
                 Text(
                     text = when (applicationStatus) {
-                        "ACCEPTED" -> "Hired!"
-                        "PENDING" -> "Applied"
-                        "UNDER_REVIEW" -> "Under Review"
-                        else -> "Applied"
+                        "ACCEPTED" -> stringResource(R.string.hired_status)
+                        "PENDING" -> stringResource(R.string.applied)
+                        "UNDER_REVIEW" -> stringResource(R.string.under_review)
+                        else -> stringResource(R.string.applied)
                     },
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
@@ -817,6 +817,7 @@ private fun JobCallFeedbackSheet(
     onSubmit: suspend (Boolean, JobAvailabilityFeedback) -> Result<Unit>,
     onSubmitted: () -> Unit
 ) {
+    val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var spokeWithEmployer by remember { mutableStateOf<Boolean?>(null) }
     var availability by remember { mutableStateOf<JobAvailabilityFeedback?>(null) }
@@ -853,19 +854,19 @@ private fun JobCallFeedbackSheet(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Quick call update",
+                            text = stringResource(R.string.quick_call_update),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = WorkerColors.TextPrimary
                         )
                         Text(
-                            text = "Helps us close filled jobs faster",
+                            text = stringResource(R.string.quick_call_update_body),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF6B7280)
                         )
                     }
                 }
                 IconButton(onClick = onDismiss, enabled = !isSubmitting) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF6B7280))
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Color(0xFF6B7280))
                 }
             }
 
@@ -888,20 +889,20 @@ private fun JobCallFeedbackSheet(
             }
 
             Text(
-                text = "Did you speak with the employer?",
+                text = stringResource(R.string.did_speak_employer),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = Color(0xFF374151)
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 FeedbackChoiceButton(
-                    text = "Yes, spoke",
+                    text = stringResource(R.string.yes_spoke),
                     selected = spokeWithEmployer == true,
                     onClick = { spokeWithEmployer = true },
                     modifier = Modifier.weight(1f),
                     enabled = !isSubmitting
                 )
                 FeedbackChoiceButton(
-                    text = "No answer",
+                    text = stringResource(R.string.no_answer),
                     selected = spokeWithEmployer == false,
                     onClick = { spokeWithEmployer = false },
                     modifier = Modifier.weight(1f),
@@ -910,14 +911,14 @@ private fun JobCallFeedbackSheet(
             }
 
             Text(
-                text = "Is the job still available?",
+                text = stringResource(R.string.job_still_available_question),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = Color(0xFF374151)
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 JobAvailabilityFeedback.entries.forEach { option ->
                     FeedbackChoiceButton(
-                        text = option.displayName,
+                        text = jobAvailabilityFeedbackLabel(option),
                         selected = availability == option,
                         onClick = { availability = option },
                         modifier = Modifier.fillMaxWidth(),
@@ -946,7 +947,7 @@ private fun JobCallFeedbackSheet(
                         isSubmitting = false
                         result.fold(
                             onSuccess = { onSubmitted() },
-                            onFailure = { error -> errorMessage = error.message ?: "Could not save feedback. Try again." }
+                            onFailure = { error -> errorMessage = error.message ?: context.getString(R.string.save_feedback_failed) }
                         )
                     }
                 },
@@ -959,10 +960,17 @@ private fun JobCallFeedbackSheet(
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text("Submit update", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.submit_update), color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         }
     }
+}
+
+@Composable
+private fun jobAvailabilityFeedbackLabel(option: JobAvailabilityFeedback): String = when (option) {
+    JobAvailabilityFeedback.STILL_AVAILABLE -> stringResource(R.string.availability_still_available)
+    JobAvailabilityFeedback.FILLED -> stringResource(R.string.availability_job_filled)
+    JobAvailabilityFeedback.NOT_SURE -> stringResource(R.string.availability_not_sure)
 }
 
 @Composable

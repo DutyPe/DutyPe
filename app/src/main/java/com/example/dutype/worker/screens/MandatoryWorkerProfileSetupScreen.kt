@@ -1363,14 +1363,14 @@ private fun AdditionalDetailsStep(
                             } catch (e: Exception) {
                                 Timber.e(e, "📍 Fetch button - Error fetching location")
                                 fetchError = "Error fetching location"
-                                android.widget.Toast.makeText(context, "Error fetching location", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
                             } finally {
                                 isFetchingLocation = false
                             }
                         }
                     } else {
                         Timber.w("📍 Fetch button - Location permission denied")
-                        android.widget.Toast.makeText(context, "Location permission required to fetch address", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), android.widget.Toast.LENGTH_SHORT).show()
                         isFetchingLocation = false
                     }
                 }
@@ -1389,7 +1389,7 @@ private fun AdditionalDetailsStep(
                                 } catch (e: Exception) {
                                     Timber.e(e, "📍 Fetch button - Error fetching location")
                                     fetchError = "Error fetching location"
-                                    android.widget.Toast.makeText(context, "Error fetching location", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
                                 } finally {
                                     isFetchingLocation = false
                                 }
@@ -1516,12 +1516,12 @@ private fun AdditionalDetailsStep(
                                 showDobPicker = false
                             }
                         ) {
-                            Text("Select")
+                            Text(stringResource(R.string.select))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDobPicker = false }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                     }
                 ) {
@@ -2074,8 +2074,8 @@ private fun ProfessionalInformationStep(
             OutlinedTextField(
                 value = educationQualification,
                 onValueChange = { onEducationQualificationChange(it.take(120)) },
-                label = { Text("Add your qualification") },
-                placeholder = { Text("e.g. B.Com, Nursing diploma, ITI electrician") },
+                label = { Text(stringResource(R.string.add_your_qualification)) },
+                placeholder = { Text(stringResource(R.string.qualification_example_hint)) },
                 leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -2103,7 +2103,7 @@ private fun ProfessionalInformationStep(
             OutlinedTextField(
                 value = workerBio,
                 onValueChange = { onWorkerBioChange(it.take(MAX_WORKER_BIO_LENGTH)) },
-                placeholder = { Text("Tell employers about your work style, experience, and reliability") },
+                placeholder = { Text(stringResource(R.string.worker_bio_hint)) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,

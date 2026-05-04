@@ -128,7 +128,7 @@ fun JobApplicationScreen(
                     Timber.d("Cover letter uploaded: $downloadUrl")
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to upload cover letter")
-                    Toast.makeText(context, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.upload_failed_message, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                     coverLetterFileUri = null
                     coverLetterFileName = null
                 } finally {
@@ -225,12 +225,12 @@ fun JobApplicationScreen(
                     onCallEmployer = {
                         val phone = displayJob.contactNumber.trim()
                         if (phone.isBlank()) {
-                            Toast.makeText(context, "Contact number not available", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.contact_number_not_available), Toast.LENGTH_SHORT).show()
                         } else {
                             runCatching {
                                 context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                             }.onFailure {
-                                Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },

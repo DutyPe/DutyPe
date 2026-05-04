@@ -142,7 +142,7 @@ fun EmployerProfileScreen(
                             uploadResult.fold(
                                 onSuccess = { imageUrl -> 
                                     profileImageUrl = imageUrl
-                                    android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 onFailure = { exception ->
                                     profileImageUri = null
@@ -151,10 +151,10 @@ fun EmployerProfileScreen(
                                         exception.message?.contains("quota", ignoreCase = true) == true ||
                                         exception.message?.contains("billing", ignoreCase = true) == true ||
                                         exception.message?.contains("storage", ignoreCase = true) == true ->
-                                            "Photo upload temporarily unavailable. Please try again later."
+                                            context.getString(R.string.photo_upload_unavailable)
                                         exception.message?.contains("network", ignoreCase = true) == true ->
-                                            "Network error. Please check your connection."
-                                        else -> "Failed to upload photo. Please try again."
+                                            context.getString(R.string.network_error_check_connection)
+                                        else -> context.getString(R.string.photo_upload_failed)
                                     }
                                     android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -162,7 +162,7 @@ fun EmployerProfileScreen(
                         }
                     } catch (e: Exception) {
                         profileImageUri = null
-                        android.widget.Toast.makeText(context, "Failed to upload photo. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
                     } finally {
                         isUploadingImage = false
                     }
@@ -495,7 +495,7 @@ fun EmployerProfileScreen(
                                         timber.log.Timber.e(e, "Error navigating to EMPLOYER_MANAGE_ADDRESSES")
                                         android.widget.Toast.makeText(
                                             context,
-                                            "Unable to open Work Locations. Please try again.",
+                                            context.getString(R.string.unable_open_work_locations),
                                             android.widget.Toast.LENGTH_SHORT
                                         ).show()
                                     }
@@ -698,11 +698,11 @@ fun EmployerProfileScreen(
         navController = rootNavController,
         title = stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
-            "profile" -> "Login to view and edit your company profile"
-            "job_posts" -> "Login to view your job posts"
-            "locations" -> "Login to manage work locations"
-            "refer_earn" -> "Login to refer friends and earn rewards"
-            else -> "Please login to access this feature"
+            "profile" -> stringResource(R.string.login_company_profile)
+            "job_posts" -> stringResource(R.string.login_job_posts)
+            "locations" -> stringResource(R.string.login_manage_work_locations)
+            "refer_earn" -> stringResource(R.string.login_refer_earn)
+            else -> stringResource(R.string.login_access_feature)
         }
     )
 }

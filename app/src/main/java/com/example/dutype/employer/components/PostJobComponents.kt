@@ -306,14 +306,14 @@ fun JobTitleSection(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Job Title",
+                text = stringResource(R.string.job_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
-                placeholder = { Text("e.g., Cook, Driver, Cleaner") },
+                placeholder = { Text(stringResource(R.string.edit_job_title_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 leadingIcon = {
@@ -340,7 +340,7 @@ fun JobDescriptionSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Job Description",
+                    text = stringResource(R.string.job_description),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF1E293B)
@@ -357,7 +357,7 @@ fun JobDescriptionSection(
                 onValueChange = onDescriptionChange,
                 placeholder = { 
                     Text(
-                        "Describe responsibilities, requirements, and what you're looking for...",
+                        stringResource(R.string.job_description_hint),
                         color = Color(0xFF94A3B8)
                     ) 
                 },
@@ -392,7 +392,7 @@ fun PaymentSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Payment Details",
+                text = stringResource(R.string.payment_details),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -401,7 +401,7 @@ fun PaymentSection(
                 value = payAmount,
                 onValueChange = onPayAmountChange,
                 label = { Text(stringResource(R.string.amount)) },
-                placeholder = { Text("e.g., 10000 or 11000-15000") },
+                placeholder = { Text(stringResource(R.string.payment_amount_hint)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,

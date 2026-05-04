@@ -47,10 +47,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dutype.app.R
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.ui.theme.EmployerColors
@@ -89,14 +91,14 @@ internal fun EmployerUrgentNeedSummarySection(
                     UrgentIcon(Icons.Default.Schedule)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Urgent needs posted",
+                            text = stringResource(R.string.urgent_needs_posted),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = EmployerColors.TextPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "Track workers who respond today",
+                            text = stringResource(R.string.urgent_track_workers_today),
                             style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -106,14 +108,14 @@ internal fun EmployerUrgentNeedSummarySection(
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    TextButton(onClick = onViewAll) { Text("View all") }
+                    TextButton(onClick = onViewAll) { Text(stringResource(R.string.view_all)) }
                 }
             }
 
             when {
                 requests.isEmpty() && !isLoading -> {
                     Text(
-                        text = "No urgent needs posted yet. Use this when you need nearby workers today or tomorrow.",
+                        text = stringResource(R.string.urgent_empty_summary),
                         style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
                     )
                 }
@@ -135,7 +137,7 @@ internal fun EmployerUrgentNeedSummarySection(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                 ) {
-                    Text("Post urgent need")
+                    Text(stringResource(R.string.post_urgent_need_title))
                 }
             }
         }
@@ -175,7 +177,7 @@ internal fun EmployerUrgentNeedHistoryContent(
                 ) {
                     UrgentIcon(Icons.Default.Schedule, size = 64)
                     Text(
-                        text = "No urgent needs yet",
+                        text = stringResource(R.string.urgent_empty_title),
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = EmployerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
@@ -183,7 +185,7 @@ internal fun EmployerUrgentNeedHistoryContent(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Post urgent need when you need local help today.",
+                        text = stringResource(R.string.urgent_empty_body),
                         style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary),
                         textAlign = TextAlign.Center
                     )
@@ -192,7 +194,7 @@ internal fun EmployerUrgentNeedHistoryContent(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                     ) {
-                        Text("Post urgent need")
+                        Text(stringResource(R.string.post_urgent_need_title))
                     }
                 }
             }
@@ -257,7 +259,7 @@ internal fun EmployerUrgentNeedDetailContent(
                 ) {
                     UrgentIcon(Icons.Default.Schedule, size = 64)
                     Text(
-                        text = "Urgent request not found",
+                        text = stringResource(R.string.urgent_request_not_found),
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = EmployerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
@@ -269,7 +271,7 @@ internal fun EmployerUrgentNeedDetailContent(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                     ) {
-                        Text("Post urgent need")
+                        Text(stringResource(R.string.post_urgent_need_title))
                     }
                 }
             }
@@ -334,7 +336,7 @@ private fun EmployerUrgentNeedMiniRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${request.category} • $selectedCount/${request.workersNeeded} selected • $responseCount responses",
+                    text = stringResource(R.string.urgent_mini_meta, request.category, selectedCount, request.workersNeeded, responseCount),
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -421,17 +423,17 @@ private fun EmployerUrgentNeedCard(
             }
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { InfoPill(Icons.Default.Group, "Need $requiredWorkers") }
-                item { InfoPill(Icons.Default.CheckCircle, "$selectedCount/$requiredWorkers selected") }
-                item { InfoPill(Icons.Default.Group, "${responses.size} responses") }
+                item { InfoPill(Icons.Default.Group, stringResource(R.string.urgent_need_count, requiredWorkers)) }
+                item { InfoPill(Icons.Default.CheckCircle, stringResource(R.string.urgent_selected_count, selectedCount, requiredWorkers)) }
+                item { InfoPill(Icons.Default.Group, stringResource(R.string.urgent_responses_count, responses.size)) }
                 if (completedCount > 0) {
-                    item { InfoPill(Icons.Default.DoneAll, "$completedCount done") }
+                    item { InfoPill(Icons.Default.DoneAll, stringResource(R.string.urgent_done_count, completedCount)) }
                 }
                 if (request.budgetText.isNotBlank()) {
                     item { InfoPill(Icons.Default.Work, request.budgetText) }
                 }
                 if (request.notifiedWorkerCount > 0) {
-                    item { InfoPill(Icons.Default.Schedule, "${request.notifiedWorkerCount} notified") }
+                    item { InfoPill(Icons.Default.Schedule, stringResource(R.string.urgent_notified_count, request.notifiedWorkerCount)) }
                 }
             }
 
@@ -451,7 +453,7 @@ private fun EmployerUrgentNeedCard(
                     color = Color(0xFFF8FAFC)
                 ) {
                     Text(
-                        text = "No worker responses yet.",
+                        text = stringResource(R.string.urgent_no_worker_responses),
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                     )
@@ -498,7 +500,7 @@ private fun EmployerUrgentNeedCard(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Details")
+                        Text(stringResource(R.string.view_details))
                     }
                 }
                 if (canCancel) {
@@ -513,7 +515,7 @@ private fun EmployerUrgentNeedCard(
                         } else {
                             Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                     }
                 }
@@ -565,7 +567,7 @@ private fun InstantResponseRow(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = response.workerSkills.take(3).joinToString(", ").ifBlank { "Worker profile" },
+                        text = response.workerSkills.take(3).joinToString(", ").ifBlank { stringResource(R.string.worker_profile_fallback) },
                         style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -586,7 +588,7 @@ private fun InstantResponseRow(
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Profile")
+                    Text(stringResource(R.string.profile))
                 }
                 if (response.workerPhone.isNotBlank()) {
                     OutlinedButton(
@@ -596,7 +598,7 @@ private fun InstantResponseRow(
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Call")
+                        Text(stringResource(R.string.call))
                     }
                 }
             }
@@ -619,11 +621,11 @@ private fun InstantResponseRow(
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                         ) {
-                            Text("Select")
+                            Text(stringResource(R.string.select))
                         }
                     }
                     !canSelectMore && status in setOf("viewed", "applied", "interested", "called") -> {
-                        InfoPill(Icons.Default.CheckCircle, "Required workers selected")
+                        InfoPill(Icons.Default.CheckCircle, stringResource(R.string.required_workers_selected))
                     }
                     canComplete -> {
                         Button(
@@ -632,7 +634,7 @@ private fun InstantResponseRow(
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                         ) {
-                            Text("Mark done")
+                            Text(stringResource(R.string.mark_done))
                         }
                         OutlinedButton(
                             onClick = { onNoShowResponse(response) },
@@ -641,7 +643,7 @@ private fun InstantResponseRow(
                         ) {
                             Icon(Icons.Default.Report, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("No show")
+                            Text(stringResource(R.string.no_show))
                         }
                     }
                     canRate -> {
@@ -653,11 +655,11 @@ private fun InstantResponseRow(
                         ) {
                             Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Rate")
+                            Text(stringResource(R.string.rate))
                         }
                     }
                     status == "completed" && hasAlreadyRated -> {
-                        InfoPill(Icons.Default.DoneAll, "Rated")
+                        InfoPill(Icons.Default.DoneAll, stringResource(R.string.rated))
                     }
                 }
             }
@@ -753,9 +755,10 @@ private fun InfoPill(icon: ImageVector, text: String) {
     }
 }
 
+@Composable
 private fun needTypeLabel(value: String): String = when (value) {
-    "urgent_now" -> "Now"
-    "today" -> "Today"
-    "scheduled" -> "Tomorrow"
-    else -> "Urgent"
+    "urgent_now" -> stringResource(R.string.urgent_now)
+    "today" -> stringResource(R.string.today)
+    "scheduled" -> stringResource(R.string.urgent_tomorrow)
+    else -> stringResource(R.string.urgent)
 }

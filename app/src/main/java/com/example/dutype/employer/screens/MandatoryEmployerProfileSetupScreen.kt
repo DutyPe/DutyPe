@@ -226,16 +226,21 @@ fun MandatoryEmployerProfileSetupScreen(
     var addressError by remember { mutableStateOf<String?>(null) }
 
     // Update errors only when showValidationErrors is true
+    val phoneNumberRequiredError = stringResource(R.string.phone_number_required_error)
+    val validPhoneError = stringResource(R.string.valid_10_digit_phone_error)
+    val companyNameRequiredError = stringResource(R.string.company_name_required_error)
+    val workLocationRequiredError = stringResource(R.string.work_location_required_error)
+
     LaunchedEffect(contactPhone, companyName, industry, businessAddress, showValidationErrors) {
         if (showValidationErrors) {
             phoneError = when {
-                contactPhone.isBlank() -> "Phone number is required"
-                !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> "Enter a valid 10-digit phone number"
+                contactPhone.isBlank() -> phoneNumberRequiredError
+                !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> validPhoneError
                 else -> null
             }
-            companyNameError = if (companyName.isBlank()) "Company name is required" else null
+            companyNameError = if (companyName.isBlank()) companyNameRequiredError else null
             industryError = null
-            addressError = if (businessAddress.isBlank()) "Work location is required" else null
+            addressError = if (businessAddress.isBlank()) workLocationRequiredError else null
         } else {
             phoneError = null
             companyNameError = null
@@ -879,8 +884,8 @@ private fun CompanyInformationStep(
             OutlinedTextField(
                 value = industry,
                 onValueChange = { onIndustryChange(it.take(120)) },
-                label = { Text("Hiring categories (optional)") },
-                placeholder = { Text("e.g. cooking, cleaning, delivery") },
+                label = { Text(stringResource(R.string.hiring_categories_optional)) },
+                placeholder = { Text(stringResource(R.string.hiring_categories_hint)) },
                 leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1024,7 +1029,7 @@ private fun ContactDetailsStep(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Work Location *",
+                    text = stringResource(R.string.work_location_required_label),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary

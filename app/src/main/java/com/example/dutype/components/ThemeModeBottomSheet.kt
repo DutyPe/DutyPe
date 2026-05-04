@@ -25,12 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dutype.app.R
 import com.example.dutype.data.ThemeMode
 import com.example.dutype.data.ThemePreferenceStore
 import com.example.dutype.ui.theme.LocalThemeMode
@@ -69,22 +71,22 @@ fun ThemeModeBottomSheet(
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
             Text(
-                text = "Appearance",
+                text = stringResource(R.string.appearance),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = WorkerColors.TextPrimary,
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Choose how DutyPe looks on this device",
+                text = stringResource(R.string.appearance_subtitle),
                 fontSize = 13.sp,
                 color = WorkerColors.TextSecondary,
             )
             Spacer(Modifier.height(20.dp))
 
             ThemeOptionRow(
-                title = "System default",
-                subtitle = "Match your phone setting",
+                title = stringResource(R.string.system_default),
+                subtitle = stringResource(R.string.theme_match_phone),
                 emoji = "📱",
                 selected = current == ThemeMode.SYSTEM,
                 onClick = {
@@ -94,8 +96,8 @@ fun ThemeModeBottomSheet(
             )
             Spacer(Modifier.height(10.dp))
             ThemeOptionRow(
-                title = "Light",
-                subtitle = "Bright surface, dark text",
+                title = stringResource(R.string.light),
+                subtitle = stringResource(R.string.theme_light_subtitle),
                 emoji = "☀️",
                 selected = current == ThemeMode.LIGHT,
                 onClick = {
@@ -105,8 +107,8 @@ fun ThemeModeBottomSheet(
             )
             Spacer(Modifier.height(10.dp))
             ThemeOptionRow(
-                title = "Dark",
-                subtitle = "Easy on the eyes, saves battery",
+                title = stringResource(R.string.dark),
+                subtitle = stringResource(R.string.theme_dark_subtitle),
                 emoji = "🌙",
                 selected = current == ThemeMode.DARK,
                 onClick = {

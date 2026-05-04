@@ -253,7 +253,7 @@ fun WorkerProfileScreen(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
                                     Timber.i(" WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
-                                    android.widget.Toast.makeText(context, "Profile photo updated!", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
                                     val updatedProfileData = mapOf(
@@ -269,10 +269,10 @@ fun WorkerProfileScreen(
                                         exception.message?.contains("quota", ignoreCase = true) == true ||
                                         exception.message?.contains("billing", ignoreCase = true) == true ||
                                         exception.message?.contains("storage", ignoreCase = true) == true ->
-                                            "Photo upload temporarily unavailable. Please try again later."
+                                            context.getString(R.string.photo_upload_unavailable)
                                         exception.message?.contains("network", ignoreCase = true) == true ->
-                                            "Network error. Please check your connection."
-                                        else -> "Failed to upload photo. Please try again."
+                                            context.getString(R.string.network_error_check_connection)
+                                        else -> context.getString(R.string.photo_upload_failed)
                                     }
                                     android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -281,7 +281,7 @@ fun WorkerProfileScreen(
                     } catch (e: Exception) {
                         Timber.e(e, "Error uploading profile image")
                         profileImageUri = null // Reset the local preview
-                        android.widget.Toast.makeText(context, "Failed to upload photo. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
                     } finally {
                         isUploadingImage = false
                     }

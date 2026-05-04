@@ -506,9 +506,9 @@ fun DashboardContent(
             if (!hasNormalJobs && !hasUrgentNeeds) {
                 item {
                     UrgentNeedCtaCard(
-                        title = "Need worker today?",
-                        body = "Post an urgent need for nearby workers today, or create a normal job for regular hiring.",
-                        urgentButtonLabel = "Post urgent need",
+                        title = stringResource(R.string.need_worker_today),
+                        body = stringResource(R.string.need_worker_today_body),
+                        urgentButtonLabel = stringResource(R.string.post_urgent_need_title),
                         showNormalJobAction = true,
                         onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
                         onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
@@ -517,9 +517,9 @@ fun DashboardContent(
             } else if (hasNormalJobs && !hasUrgentNeeds) {
                 item {
                     UrgentNeedCtaCard(
-                        title = "Need faster results?",
-                        body = "Post an urgent need to reach nearby available workers. Today posts expire in 24 hours.",
-                        urgentButtonLabel = "Post urgent need",
+                        title = stringResource(R.string.need_faster_results),
+                        body = stringResource(R.string.need_faster_results_body),
+                        urgentButtonLabel = stringResource(R.string.post_urgent_need_title),
                         showNormalJobAction = false,
                         onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
                         onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
@@ -638,7 +638,7 @@ private fun UrgentNeedCtaCard(
                         onClick = onPostNormalJob,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Post normal job")
+                        Text(stringResource(R.string.post_normal_job))
                     }
                 }
             }
@@ -1094,7 +1094,7 @@ fun RecentJobsSection(
                             } catch (e: Exception) {
                                 Timber.e("EmployerHomeScreen - Error in edit click: ${e.message}")
                                 e.printStackTrace()
-                                Toast.makeText(context, "Error opening edit screen: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.error_open_edit_screen, e.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         },
                         onViewApplicationsClick = { jobId ->
@@ -1104,7 +1104,7 @@ fun RecentJobsSection(
                             } catch (e: Exception) {
                                 Timber.e("EmployerHomeScreen - Error navigating to applications: ${e.message}")
                                 e.printStackTrace()
-                                Toast.makeText(context, "Error opening applications: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.error_open_applications, e.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
                         },
                             onShareClick = { jobId ->
@@ -1294,7 +1294,7 @@ private fun shareJob(jobId: String, jobTitle: String, context: android.content.C
     
     if (jobId.isBlank()) {
         Timber.e(" SHARE: ERROR - jobId is blank!")
-        Toast.makeText(context, "Error: Cannot share job (invalid job ID)", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.share_job_invalid), Toast.LENGTH_SHORT).show()
         return
     }
     
@@ -1315,19 +1315,19 @@ Download DutyPe app for instant job alerts
         action = Intent.ACTION_SEND
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
-        putExtra(Intent.EXTRA_SUBJECT, "Job: $jobTitle")
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.share_job_subject, jobTitle))
     }
     
     try {
-        context.startActivity(Intent.createChooser(shareIntent, "Share Job"))
+        context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_job_title)))
         Timber.d(" SHARE: Share intent launched successfully")
     } catch (e: Exception) {
         Timber.e(e, " SHARE: Error launching share intent")
         // Fallback: Copy to clipboard
         val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Job Share", shareText)
+        val clip = ClipData.newPlainText(context.getString(R.string.job_share_clip_label), shareText)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Job details copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.job_copied_clipboard), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1363,7 +1363,7 @@ fun ApplicationAnalyticsSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Job Analytics",
+                    text = stringResource(R.string.job_analytics),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1373,7 +1373,7 @@ fun ApplicationAnalyticsSection(
                     onClick = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS) }
                 ) {
                     Text(
-                        text = "View Applications",
+                        text = stringResource(R.string.view_applications),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF3B82F6)
                         )

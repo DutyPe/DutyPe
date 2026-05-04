@@ -252,7 +252,7 @@ fun JobImageUploadSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Change photo", fontSize = 13.sp)
+                            Text(stringResource(R.string.change_photo), fontSize = 13.sp)
                         }
                         
                         OutlinedButton(

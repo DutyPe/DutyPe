@@ -485,7 +485,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                     val alreadyRated = ratingService.hasRated(app.jobId, app.workerId)
                                     if (alreadyRated) {
                                         hasRatedWorker = true
-                                        Toast.makeText(context, "You already rated this worker", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.already_rated_worker), Toast.LENGTH_SHORT).show()
                                     } else {
                                         showRatingSheet = true
                                     }
@@ -1089,7 +1089,7 @@ private fun ActionButtonsCard(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Accept", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.accept), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -1108,7 +1108,7 @@ private fun ActionButtonsCard(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Mark Work Done", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.mark_work_done), style = MaterialTheme.typography.bodyMedium)
             }
         }
 

@@ -2,6 +2,7 @@ package com.example.dutype.services
 
 import android.content.Context
 import android.content.Intent
+import com.dutype.app.R
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.DeepLinkHandler
 import timber.log.Timber
@@ -69,7 +70,7 @@ class JobShareService @Inject constructor() {
     fun copyJobLink(context: Context, job: JobListing): String {
         val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Job Link", jobLink))
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText(context.getString(R.string.job_link_clip_label), jobLink))
         Timber.d("📋 Job link copied: $jobLink")
         return jobLink
     }

@@ -76,7 +76,7 @@ fun EmployerHistoryScreen(
         stringResource(R.string.tab_all_jobs),
         stringResource(R.string.tab_active),
         stringResource(R.string.tab_expired),
-        "Urgent"
+        stringResource(R.string.urgent)
     )
     var selectedTab by remember(initialTab) {
         mutableIntStateOf(
@@ -172,10 +172,10 @@ fun EmployerHistoryScreen(
                 val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "GUEST"
                 employerJobViewModel.jobDraftDataStore.saveDraft(job.toRepostDraft().copy(employerId = employerId))
             }.onSuccess {
-                Toast.makeText(context, "Review and publish your repost", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.review_publish_repost), Toast.LENGTH_SHORT).show()
                 navController.navigate(Routes.EMPLOYER_POST_JOB)
             }.onFailure { error ->
-                Toast.makeText(context, error.message ?: "Unable to prepare repost", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, error.message ?: context.getString(R.string.unable_prepare_repost), Toast.LENGTH_LONG).show()
             }
             repostingJobId = null
         }

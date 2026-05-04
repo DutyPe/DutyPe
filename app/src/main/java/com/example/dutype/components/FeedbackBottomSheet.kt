@@ -345,7 +345,7 @@ fun FeedbackBottomSheet(
                         Button(
                             onClick = {
                                 if (selectedRating == 0) {
-                                    Toast.makeText(context, "Please select a rating", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.please_select_rating), Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
                                 
@@ -387,7 +387,7 @@ fun FeedbackBottomSheet(
                                         
                                     } catch (e: Exception) {
                                         Timber.e(e, "Error submitting feedback")
-                                        Toast.makeText(context, "Failed to submit feedback. Please try again.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.failed_submit_feedback_retry), Toast.LENGTH_SHORT).show()
                                     } finally {
                                         isSubmitting = false
                                     }
