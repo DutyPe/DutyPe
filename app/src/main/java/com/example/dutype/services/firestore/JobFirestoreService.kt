@@ -377,7 +377,7 @@ class JobFirestoreService @Inject constructor(
             val location = mapOf("lat" to latitude, "lng" to longitude)
             val geohash = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             val createdAt = Timestamp(Date(currentTime))
-            val expiresAt = Timestamp(Date(currentTime + (15L * 24 * 60 * 60 * 1000L)))
+            val expiresAt = Timestamp(Date(currentTime + (30L * 24 * 60 * 60 * 1000L)))
             val category = JobCategoryResolver.inferCategoryName(
                 title = title,
                 description = description,

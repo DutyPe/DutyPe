@@ -608,17 +608,18 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'requestId', 'employerId', 'employerName', 'employerPhone',
           'contactNumber', 'whatsappNumber',
-          'title', 'description', 'category', 'needType', 'status', 'urgency',
+          'title', 'description', 'category', 'workersNeeded', 'needType', 'status', 'urgency',
           'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
           'scheduledAt', 'scheduleLabel',
           'createdAt', 'expiresAt', 'expiredAt', 'firstResponseAt', 'lastResponseAt',
           'responseCount', 'callCount', 'notifiedWorkerCount', 'notificationFanoutAt',
-          'selectedWorkerId', 'completedAt', 'cancelledAt', 'cancellationReason',
+          'selectedWorkerId', 'selectedWorkerIds', 'completedWorkerIds',
+          'completedAt', 'cancelledAt', 'cancellationReason',
           'completionProof', 'failureReason'
         ]) &&
         request.resource.data.keys().hasAll([
           'requestId', 'employerId', 'title', 'category', 'needType', 'status',
-          'urgency', 'lat', 'lng', 'geohash', 'radiusKm', 'createdAt', 'expiresAt',
+          'urgency', 'workersNeeded', 'lat', 'lng', 'geohash', 'radiusKm', 'createdAt', 'expiresAt',
           'responseCount', 'callCount'
         ]) &&
         requestId == request.resource.data.requestId &&
@@ -631,6 +632,8 @@ service cloud.firestore {
         request.resource.data.needType in ['urgent_now', 'today', 'scheduled'] &&
         request.resource.data.status == 'open' &&
         request.resource.data.urgency in ['urgent', 'today', 'flexible'] &&
+        request.resource.data.workersNeeded is int &&
+        request.resource.data.workersNeeded >= 1 && request.resource.data.workersNeeded <= 20 &&
         (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
         request.resource.data.lat is number &&
         request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
@@ -656,6 +659,8 @@ service cloud.firestore {
         (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
         (!('whatsappNumber' in request.resource.data) || (request.resource.data.whatsappNumber is string && request.resource.data.whatsappNumber.size() <= 20)) &&
         (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('selectedWorkerIds' in request.resource.data) || (request.resource.data.selectedWorkerIds is list && request.resource.data.selectedWorkerIds.size() <= 20)) &&
+        (!('completedWorkerIds' in request.resource.data) || (request.resource.data.completedWorkerIds is list && request.resource.data.completedWorkerIds.size() <= 20)) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
         (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
         (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
@@ -663,16 +668,31 @@ service cloud.firestore {
         (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
 
       allow update: if isSignedIn() &&
-        resource.data.employerId == request.auth.uid &&
-        request.resource.data.employerId == resource.data.employerId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'responseCount', 'callCount', 'selectedWorkerId', 'completedAt',
-          'cancelledAt', 'cancellationReason', 'completionProof', 'failureReason'
-        ]) &&
+        (
+          (resource.data.employerId == request.auth.uid &&
+            request.resource.data.employerId == resource.data.employerId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'responseCount', 'callCount', 'lastResponseAt', 'firstResponseAt',
+              'selectedWorkerId', 'selectedWorkerIds', 'completedWorkerIds', 'filledAt',
+              'completedAt', 'cancelledAt', 'cancellationReason', 'completionProof', 'failureReason'
+            ])
+          ) ||
+          (resource.data.employerId != request.auth.uid &&
+            request.resource.data.employerId == resource.data.employerId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'responseCount', 'callCount', 'lastResponseAt', 'firstResponseAt'
+            ])
+          )
+        ) &&
         request.resource.data.status in ['open', 'filled', 'completed', 'expired', 'cancelled', 'failed'] &&
         request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
         request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('lastResponseAt' in request.resource.data) || request.resource.data.lastResponseAt is timestamp) &&
+        (!('firstResponseAt' in request.resource.data) || request.resource.data.firstResponseAt is timestamp) &&
         (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('selectedWorkerIds' in request.resource.data) || (request.resource.data.selectedWorkerIds is list && request.resource.data.selectedWorkerIds.size() <= 20)) &&
+        (!('completedWorkerIds' in request.resource.data) || (request.resource.data.completedWorkerIds is list && request.resource.data.completedWorkerIds.size() <= 20)) &&
+        (!('filledAt' in request.resource.data) || request.resource.data.filledAt is timestamp) &&
         (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
         (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
         (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
