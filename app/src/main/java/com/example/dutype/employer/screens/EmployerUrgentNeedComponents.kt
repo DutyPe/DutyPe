@@ -515,7 +515,7 @@ private fun EmployerUrgentNeedCard(
                         } else {
                             Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.cancel))
+                            Text(stringResource(R.string.stop_urgent_job))
                         }
                     }
                 }

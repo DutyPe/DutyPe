@@ -360,21 +360,6 @@ fun EmployerHomeScreen(
             )
         }
         
-        //  In-App Announcements - Feature updates, banners
-        if (announcements.isNotEmpty()) {
-            AnnouncementList(
-                announcements = announcements,
-                onDismiss = { announcementId ->
-                    announcementViewModel.dismissAnnouncement(announcementId)
-                },
-                onAction = { announcement ->
-                    announcement.actionRoute?.let { route: String ->
-                        DeepLinkHandler.handleAnnouncementAction(route, navController, context)
-                    }
-                }
-            )
-        }
-        
         // Profile completion prompt removed - not needed for hyper-local employers
 
         // Show dashboard content directly with pull-to-refresh
@@ -401,6 +386,10 @@ fun EmployerHomeScreen(
                 onShareJob = handleJobShare,
                 context = context,
                 applicationCountsByJobId = employerJobUiState.applicationCountsByJobId,
+                announcements = announcements,
+                onDismissAnnouncement = { announcementId ->
+                    announcementViewModel.dismissAnnouncement(announcementId)
+                },
                 urgentRequests = instantHelpState.employerInstantRequests,
                 urgentResponsesByRequestId = instantHelpState.employerInstantResponses,
                 isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds
@@ -471,6 +460,8 @@ fun DashboardContent(
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
     applicationCountsByJobId: Map<String, Int> = emptyMap(),
+    announcements: List<com.example.dutype.models.Announcement> = emptyList(),
+    onDismissAnnouncement: (String) -> Unit = {},
     urgentRequests: List<com.example.dutype.models.InstantRequest> = emptyList(),
     urgentResponsesByRequestId: Map<String, List<com.example.dutype.models.InstantResponse>> = emptyMap(),
     isLoadingUrgentRequests: Boolean = false,
@@ -499,6 +490,20 @@ fun DashboardContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            if (announcements.isNotEmpty()) {
+                item {
+                    AnnouncementList(
+                        announcements = announcements,
+                        onDismiss = onDismissAnnouncement,
+                        onAction = { announcement ->
+                            announcement.actionRoute?.let { route: String ->
+                                DeepLinkHandler.handleAnnouncementAction(route, navController, context)
+                            }
+                        }
+                    )
+                }
+            }
+
             item {
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }

@@ -5,7 +5,6 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
     const val REGISTER = "register"
-    const val MANUAL_LOCATION_ROUTE = "manual_location_route"
     const val SELECT_ROLE = "select_role"
     const val WORKER_HOME = "worker_home"
     const val EMPLOYER_HOME = "employer_home"

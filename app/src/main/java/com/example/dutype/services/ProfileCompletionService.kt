@@ -551,16 +551,20 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Phone number is required"))
             }
             val now = Timestamp.now()
+            val existingPhoneRole = currentPhoneRoleData(currentUser.uid)
+            val resolvedName = currentUser.displayName?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingPhoneRole["name"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             val batch = firestore.batch()
             batch.set(
                 firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone),
-                mapOf(
+                mutableMapOf<String, Any>(
                     "phoneNumber" to normalizedPhone,
                     "role" to role.name,
-                    "name" to currentUser.displayName.orEmpty(),
                     "uid" to currentUser.uid,
                     "updatedAt" to now
-                ),
+                ).apply {
+                    if (!resolvedName.isNullOrBlank()) this["name"] = resolvedName
+                },
                 com.google.firebase.firestore.SetOptions.merge()
             )
             batch.set(
@@ -797,6 +801,7 @@ class ProfileCompletionService @Inject constructor(
             val businessLng = (businessLocation?.get("lng") as? Number)?.toDouble()
             if (businessLat != null && businessLng != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLat, businessLng)) {
                 employerProfile["businessLocation"] = mapOf("lat" to businessLat, "lng" to businessLng)
+                employerProfile["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(businessLat, businessLng)
             }
 
             val batch = firestore.batch()

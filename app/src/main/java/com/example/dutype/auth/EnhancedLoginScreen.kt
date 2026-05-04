@@ -486,9 +486,13 @@ private fun PhoneInputSection(
                 leadingIcon = { Text(text = selectedCountryCode, style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)) },
                 modifier = Modifier
                     .weight(1f)
-                    .height(53.dp),
-                // Batch-o #1: removed auto-launch of the phone-hint
-                // bottom sheet on focus — keyboard suggestions only.
+                    .height(53.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && !hasRequestedPhoneHint && phoneNumber.isBlank()) {
+                            hasRequestedPhoneHint = true
+                            requestPhoneNumberHint()
+                        }
+                    },
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(6.dp),

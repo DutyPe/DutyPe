@@ -1648,6 +1648,10 @@ internal fun DynamicHeader(
                     Switch(
                         checked = isInstantAvailable,
                         onCheckedChange = onInstantAvailabilityChange,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = 0.82f
+                            scaleY = 0.82f
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = Color(0xFF16A34A),

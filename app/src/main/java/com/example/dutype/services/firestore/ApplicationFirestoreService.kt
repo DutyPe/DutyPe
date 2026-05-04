@@ -156,7 +156,7 @@ class ApplicationFirestoreService @Inject constructor(
                         val expiresAt = toEpochMillis(data["expiresAt"])
                         val currentTime = System.currentTimeMillis()
                         val normalizedStatus = normalizeReadStatus(data)
-                        val resolvedStatus = if (expiresAt > 0L && expiresAt <= currentTime) {
+                        val resolvedStatus = if (normalizedStatus == "open" && expiresAt > 0L && expiresAt <= currentTime) {
                             "expired"
                         } else {
                             normalizedStatus

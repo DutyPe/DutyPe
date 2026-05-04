@@ -108,7 +108,18 @@ class WorkerMatchingService @Inject constructor(
 
             @Suppress("UNCHECKED_CAST")
             val data = result.data as? Map<String, Any?> ?: emptyMap()
-            Result.success(data["jobId"]?.toString().orEmpty())
+            val status = data["status"]?.toString()?.lowercase().orEmpty()
+            val jobId = data["jobId"]?.toString().orEmpty()
+            if (accept && status != "accepted") {
+                val message = when (status) {
+                    "filled" -> "This job is already filled."
+                    "expired" -> "This job is no longer open."
+                    else -> "Unable to accept this job request."
+                }
+                Result.failure(IllegalStateException(message))
+            } else {
+                Result.success(jobId)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

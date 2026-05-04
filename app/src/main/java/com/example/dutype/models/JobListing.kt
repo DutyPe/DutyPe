@@ -69,6 +69,7 @@ data class JobListing(
     // Stable alias used throughout the codebase
     val jobId: String get() = id
 
-    fun isExpired(): Boolean = System.currentTimeMillis() > expiresAt
+    fun isExpired(): Boolean = status.equals("expired", ignoreCase = true) ||
+        (status.equals("open", ignoreCase = true) && System.currentTimeMillis() > expiresAt)
     fun getCategory(): String = com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
 }

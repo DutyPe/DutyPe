@@ -46,7 +46,8 @@ data class JobListingSummary(
 ) {
     val jobId: String get() = id
 
-    fun isExpired(): Boolean = expiresAt > 0L && System.currentTimeMillis() > expiresAt
+    fun isExpired(): Boolean = status.equals("expired", ignoreCase = true) ||
+        (status.equals("open", ignoreCase = true) && expiresAt > 0L && System.currentTimeMillis() > expiresAt)
 
     companion object {
         /**

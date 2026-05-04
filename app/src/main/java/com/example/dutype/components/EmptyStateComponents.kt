@@ -241,7 +241,7 @@ fun EmptySearchState(
  * EmptyLocationState(
  *     categoryFilter = "Plumbing",
  *     suggestedCities = listOf("Delhi", "Bangalore", "Mumbai"),
- *     onChangeLocation = { navigateToManualLocation() },
+ *     onChangeLocation = { openLocationPicker() },
  *     onCitySuggestionClick = { city -> searchInCity(city) }
  * )
  */

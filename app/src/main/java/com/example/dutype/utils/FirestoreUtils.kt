@@ -269,15 +269,24 @@ object FirestoreUtils {
             if (currentUser?.uid == userId) {
                 val normalizedPhone = currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
                 if (normalizedPhone.isNotBlank()) {
+                    val existingName = firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                        .document(normalizedPhone)
+                        .get()
+                        .await()
+                        .getString("name")
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                    val resolvedName = currentUser.displayName?.trim()?.takeIf { it.isNotBlank() } ?: existingName
                     batch.set(
                         firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
-                        mapOf(
+                        mutableMapOf<String, Any>(
                             "phoneNumber" to normalizedPhone,
                             "role" to roleUpper,
-                            "name" to currentUser.displayName.orEmpty(),
                             "uid" to userId,
                             "updatedAt" to now
-                        ),
+                        ).apply {
+                            if (!resolvedName.isNullOrBlank()) this["name"] = resolvedName
+                        },
                         com.google.firebase.firestore.SetOptions.merge()
                     )
                 }
@@ -324,15 +333,24 @@ object FirestoreUtils {
             val now = Timestamp.now()
             val batch = firestore.batch()
             if (currentUser?.uid == userId) {
+                val existingName = firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                    .document(normalizedPhone)
+                    .get()
+                    .await()
+                    .getString("name")
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                val resolvedName = currentUser.displayName?.trim()?.takeIf { it.isNotBlank() } ?: existingName
                 batch.set(
                     firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(normalizedPhone),
-                    mapOf(
+                    mutableMapOf<String, Any>(
                         "phoneNumber" to normalizedPhone,
                         "role" to role.uppercase(),
-                        "name" to currentUser.displayName.orEmpty(),
                         "uid" to userId,
                         "updatedAt" to now
-                    ),
+                    ).apply {
+                        if (!resolvedName.isNullOrBlank()) this["name"] = resolvedName
+                    },
                     com.google.firebase.firestore.SetOptions.merge()
                 )
             }

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import timber.log.Timber
@@ -58,7 +59,14 @@ fun JobCard(
     val locationDisplay = remember(job.addressText, job.location, job.distance) {
         formatLocationWithDistance(job.addressText.ifBlank { job.location }, job.distance)
     }
-    val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
+    val normalizedStatus = job.status.trim().lowercase()
+    val isFilled = normalizedStatus == "closed"
+    val isExpired = normalizedStatus == "expired"
+    val statusLabel = when {
+        isFilled -> stringResource(R.string.filled)
+        isExpired -> stringResource(R.string.tab_expired)
+        else -> null
+    }
 
     JobCardInternal(
         jobId = job.id,
@@ -72,7 +80,10 @@ fun JobCard(
             job.title,
             job.description
         ),
-        isClosed = isClosed,
+        isClosed = isFilled || isExpired,
+        statusLabel = statusLabel,
+        isFilled = isFilled,
+        isExpired = isExpired,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
         onSaveClick = {
@@ -113,7 +124,14 @@ fun JobCard(
             job.distance
         )
     }
-    val isClosed = job.status.equals("closed", ignoreCase = true) || job.status.equals("expired", ignoreCase = true)
+    val normalizedStatus = job.status.trim().lowercase()
+    val isFilled = normalizedStatus == "closed"
+    val isExpired = normalizedStatus == "expired"
+    val statusLabel = when {
+        isFilled -> stringResource(R.string.filled)
+        isExpired -> stringResource(R.string.tab_expired)
+        else -> null
+    }
 
     JobCardInternal(
         jobId = job.id,
@@ -127,7 +145,10 @@ fun JobCard(
             job.title,
             ""
         ),
-        isClosed = isClosed,
+        isClosed = isFilled || isExpired,
+        statusLabel = statusLabel,
+        isFilled = isFilled,
+        isExpired = isExpired,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
         onSaveClick = {
@@ -156,6 +177,9 @@ private fun JobCardInternal(
     vacancies: Int,
     workTypeLabel: String?,
     isClosed: Boolean,
+    statusLabel: String?,
+    isFilled: Boolean,
+    isExpired: Boolean,
     isSaved: Boolean,
     jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
@@ -349,6 +373,17 @@ private fun JobCardInternal(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                if (!statusLabel.isNullOrBlank()) {
+                    CompactChip(
+                        text = statusLabel,
+                        chipType = when {
+                            isFilled -> ChipType.FILLED
+                            isExpired -> ChipType.EXPIRED
+                            else -> ChipType.DEFAULT
+                        }
+                    )
+                }
+
                 CompactChip(
                     text = if (vacancies == 1) "1 vacancy" else "$vacancies vacancies",
                     chipType = ChipType.VACANCY
@@ -400,6 +435,16 @@ private fun CompactChip(
                 Color(0xFF92400E), // Dark amber text
                 Color(0xFFF59E0B)  // Amber border
             )
+            ChipType.FILLED -> Triple(
+                Color(0xFFDCFCE7),
+                Color(0xFF166534),
+                Color(0xFF22C55E)
+            )
+            ChipType.EXPIRED -> Triple(
+                Color(0xFFFEE2E2),
+                Color(0xFF991B1B),
+                Color(0xFFEF4444)
+            )
             ChipType.DEFAULT -> Triple(
                 Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
                 Color(0xFF92400E), // Dark amber text
@@ -434,6 +479,8 @@ private enum class ChipType {
     JOB_TYPE,   // Green - for Full-time, Part-time
     CATEGORY,   // Purple - for job category like Driver, Cook
     URGENT,     // Amber - for urgent hiring
+    FILLED,
+    EXPIRED,
     DEFAULT     // Gray - default style
 }
 

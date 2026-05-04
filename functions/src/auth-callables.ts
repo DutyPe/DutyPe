@@ -33,6 +33,14 @@ interface UserEventPayload {
 
 type WorkerRequestAction = "ACCEPT" | "REJECT";
 
+interface WorkerJobRequestTxResult {
+  accepted: boolean;
+  alreadyAccepted?: boolean;
+  status?: string;
+  filled?: boolean;
+  remainingVacancies?: number;
+}
+
 interface JobContext {
   jobId: string;
   job: Record<string, any>;
@@ -55,6 +63,11 @@ function normalizeReferralCode(raw: unknown): string {
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
+}
+
+function normalizeVacancies(raw: unknown): number {
+  const value = Number(raw ?? 1);
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
 }
 
 async function logUserEvent(
@@ -925,11 +938,19 @@ export const respondToWorkerJobRequest = onCallSecured(
     }
 
     const jobRef = db().collection("jobmetadata").doc(jobId);
-    const detailRef = db().collection("job_details").doc(jobId);
     const applicationRef = db().collection("applications").doc(`${jobId}_${uid}`);
 
-    const txResult = await db().runTransaction(async (tx) => {
-      const [freshRequestSnap, jobSnap] = await Promise.all([tx.get(requestRef), tx.get(jobRef)]);
+    const txResult = await db().runTransaction(async (tx): Promise<WorkerJobRequestTxResult> => {
+      const hiredQuery = db()
+        .collection("applications")
+        .where("jobId", "==", jobId)
+        .where("status", "==", "hired");
+      const [freshRequestSnap, jobSnap, applicationSnap, hiredSnap] = await Promise.all([
+        tx.get(requestRef),
+        tx.get(jobRef),
+        tx.get(applicationRef),
+        tx.get(hiredQuery),
+      ]);
       const freshRequest = (freshRequestSnap.data() || {}) as Record<string, any>;
       const job = (jobSnap.data() || {}) as Record<string, any>;
       const status = String(freshRequest.status || "");
@@ -940,12 +961,23 @@ export const respondToWorkerJobRequest = onCallSecured(
         return { accepted: false, status: "expired" };
       }
 
+      const vacancies = normalizeVacancies(job.vacancies);
+      const existingApplication = (applicationSnap.data() || {}) as Record<string, any>;
+      const alreadyHired = String(existingApplication.status || "").toLowerCase() === "hired";
+      const hiredCountBefore = hiredSnap.size;
+
+      if (!alreadyHired && hiredCountBefore >= vacancies) {
+        tx.update(requestRef, { status: "expired", updatedAt: now, respondedAt: now });
+        return { accepted: false, status: "filled", filled: true, remainingVacancies: 0 };
+      }
+
       tx.set(applicationRef, {
         jobId,
         workerId: uid,
         employerId,
         status: "hired",
         createdAt: now,
+        updatedAt: now,
         workerName: String(worker.fullName || worker.name || request.workerName || "Worker"),
       }, { merge: true });
       tx.update(requestRef, {
@@ -954,27 +986,38 @@ export const respondToWorkerJobRequest = onCallSecured(
         respondedAt: now,
         workerPhone: String(worker.phone || ""),
       });
-      tx.update(jobRef, { status: "expired" });
-      tx.update(detailRef, { expiresAt: admin.firestore.Timestamp.fromMillis(Date.now()) });
-      return { accepted: true, alreadyAccepted: false };
+
+      const hiredCountAfter = alreadyHired ? hiredCountBefore : hiredCountBefore + 1;
+      const filled = hiredCountAfter >= vacancies;
+      if (filled) {
+        tx.update(jobRef, { status: "closed", filledAt: now, updatedAt: now });
+      }
+      return {
+        accepted: true,
+        alreadyAccepted: false,
+        filled,
+        remainingVacancies: Math.max(0, vacancies - hiredCountAfter),
+      };
     });
 
     if (txResult.accepted) {
-      const siblingRequests = await db()
-        .collection("worker_job_requests")
-        .where("jobId", "==", jobId)
-        .limit(200)
-        .get();
-      const batch = db().batch();
-      let expiredCount = 0;
-      siblingRequests.docs.forEach((doc) => {
-        if (doc.id !== requestId && String(doc.data().status || "") === "pending") {
-          batch.update(doc.ref, { status: "expired", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-          expiredCount += 1;
+      if (txResult.filled) {
+        const siblingRequests = await db()
+          .collection("worker_job_requests")
+          .where("jobId", "==", jobId)
+          .limit(200)
+          .get();
+        const batch = db().batch();
+        let expiredCount = 0;
+        siblingRequests.docs.forEach((doc) => {
+          if (doc.id !== requestId && String(doc.data().status || "") === "pending") {
+            batch.update(doc.ref, { status: "expired", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+            expiredCount += 1;
+          }
+        });
+        if (expiredCount > 0) {
+          await batch.commit();
         }
-      });
-      if (expiredCount > 0) {
-        await batch.commit();
       }
       await writeNotification(
         employerId,
@@ -996,6 +1039,8 @@ export const respondToWorkerJobRequest = onCallSecured(
       success: true,
       status: txResult.accepted ? "accepted" : String(txResult.status || "expired"),
       jobId,
+      filled: txResult.filled === true,
+      remainingVacancies: txResult.remainingVacancies ?? null,
     };
     await idem.record!(out);
     return out;

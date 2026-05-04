@@ -171,7 +171,7 @@ private fun FirstTimeLanguageSelection(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SimpleLanguageCard(
@@ -195,7 +195,7 @@ private fun FirstTimeLanguageSelection(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = { onLanguageSelected(currentSelection) },
@@ -726,13 +726,10 @@ private fun BottomControls(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedButton(
+        TextButton(
             onClick = onSkip,
-            modifier = Modifier.height(56.dp),
-            shape = RoundedCornerShape(999.dp),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground.copy(alpha = 0.95f)),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+            modifier = Modifier.height(48.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
         ) {
             Text(
                 text = stringResource(R.string.skip),

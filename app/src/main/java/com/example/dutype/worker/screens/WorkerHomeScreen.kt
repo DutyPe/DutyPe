@@ -213,6 +213,7 @@ fun WorkerHomeScreen(
     var locationPickerError by remember { mutableStateOf<String?>(null) }
     var isFetchingSheetLocation by remember { mutableStateOf(false) }
     var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
+    var showNoUrgentJobsToastAfterSwitchOn by remember { mutableStateOf(false) }
     val locationPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     suspend fun saveWorkerHomeLocation(locationData: LocationData, manual: Boolean) {
@@ -481,6 +482,31 @@ fun WorkerHomeScreen(
         }
     }
 
+    LaunchedEffect(
+        showNoUrgentJobsToastAfterSwitchOn,
+        instantHelpState.workerAvailability.isAvailable,
+        instantHelpState.isLoadingRequests,
+        instantHelpState.instantRequests,
+        instantHelpState.error
+    ) {
+        if (
+            showNoUrgentJobsToastAfterSwitchOn &&
+            instantHelpState.workerAvailability.isAvailable &&
+            !instantHelpState.isLoadingRequests &&
+            instantHelpState.instantRequests.isEmpty() &&
+            instantHelpState.error.isNullOrBlank()
+        ) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(R.string.no_urgent_jobs_currently),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            showNoUrgentJobsToastAfterSwitchOn = false
+        } else if (instantHelpState.instantRequests.isNotEmpty() || !instantHelpState.error.isNullOrBlank()) {
+            showNoUrgentJobsToastAfterSwitchOn = false
+        }
+    }
+
     // Fetch unread notification count after initial load
     LaunchedEffect(currentUser) {
         currentUser?.uid?.let { userId ->
@@ -731,6 +757,7 @@ fun WorkerHomeScreen(
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         } else {
+                            showNoUrgentJobsToastAfterSwitchOn = isAvailable
                             instantHelpViewModel.setWorkerAvailability(isAvailable, selectedLocation)
                         }
                     },

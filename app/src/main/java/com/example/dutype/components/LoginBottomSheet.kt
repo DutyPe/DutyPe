@@ -682,9 +682,13 @@ private fun PhoneInputContent(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(56.dp),  // Slightly taller for better touch target
-                // Batch-o #1: removed auto-launch of the phone-hint
-                // bottom sheet on focus — keyboard suggestions only.
+                    .height(56.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && !hasRequestedPhoneHint && phoneNumber.isBlank()) {
+                            hasRequestedPhoneHint = true
+                            requestPhoneNumberHint()
+                        }
+                    },
                 singleLine = true,
                 isError = phoneValidationError != null,
                 shape = RoundedCornerShape(8.dp),  // Slightly more rounded

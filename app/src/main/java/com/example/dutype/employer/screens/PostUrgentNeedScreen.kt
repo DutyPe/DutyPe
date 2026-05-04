@@ -1,7 +1,6 @@
 package com.example.dutype.employer.screens
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,7 +51,6 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.firestore.FirestoreCollections
-import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
@@ -112,7 +110,7 @@ internal fun PostUrgentNeedContent(
     var needType by rememberSaveable { mutableStateOf("urgent_now") }
     var workersNeededText by rememberSaveable { mutableStateOf("1") }
     var budgetText by rememberSaveable { mutableStateOf("") }
-    var radiusKm by rememberSaveable { mutableStateOf(10.0) }
+    val radiusKm = 10.0
     var notes by rememberSaveable { mutableStateOf("") }
     var contactNumber by rememberSaveable { mutableStateOf("") }
 
@@ -154,35 +152,6 @@ internal fun PostUrgentNeedContent(
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        if (showIntroCard) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.urgent_jobs_expire_title),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color(0xFF92400E),
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = stringResource(R.string.urgent_jobs_expire_body),
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF78350F))
-                        )
-                    }
-                }
-            }
-        }
-
         item {
             UrgentNeedSectionCard(title = stringResource(R.string.urgent_work_details)) {
                 OutlinedTextField(
@@ -285,24 +254,6 @@ internal fun PostUrgentNeedContent(
                     shape = RoundedCornerShape(14.dp)
                 )
 
-                SectionLabel(stringResource(R.string.urgent_find_workers))
-                Text(
-                    text = stringResource(R.string.urgent_find_workers_within, radiusKm.toInt()),
-                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(InstantHelpDefaults.radiusOptionsKm) { radius ->
-                        FilterChip(
-                            selected = radiusKm == radius,
-                            onClick = { radiusKm = radius },
-                            label = { Text("${radius.toInt()} km") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFDCFCE7),
-                                selectedLabelColor = Color(0xFF166534)
-                            )
-                        )
-                    }
-                }
             }
         }
 
@@ -326,6 +277,15 @@ internal fun PostUrgentNeedContent(
                     text = state.error ?: "",
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFDC2626)),
                     modifier = Modifier.padding(horizontal = 4.dp)
+                )
+            }
+        }
+
+        if (showIntroCard) {
+            item {
+                UrgentNeedInfoCard(
+                    needType = needType,
+                    scheduleLabel = scheduleLabel
                 )
             }
         }
@@ -379,29 +339,60 @@ internal fun PostUrgentNeedContent(
 
 @Composable
 private fun AutoPickedUrgentCategory(category: String, hasTitle: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.urgent_auto_category),
+            style = MaterialTheme.typography.labelMedium.copy(
+                color = EmployerColors.TextSecondary,
+                fontWeight = FontWeight.SemiBold
+            )
+        )
+        Text(
+            text = if (hasTitle) category else stringResource(R.string.urgent_auto_category_waiting),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = EmployerColors.TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        )
+    }
+}
+
+@Composable
+private fun UrgentNeedInfoCard(
+    needType: String,
+    scheduleLabel: String
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = stringResource(R.string.urgent_auto_category),
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = Color(0xFF1D4ED8),
-                    fontWeight = FontWeight.SemiBold
+                text = stringResource(R.string.urgent_jobs_expire_title),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = EmployerColors.TextPrimary,
+                    fontWeight = FontWeight.Bold
                 )
             )
             Text(
-                text = if (hasTitle) category else stringResource(R.string.urgent_auto_category_waiting),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF1E3A8A),
-                    fontWeight = FontWeight.Bold
-                )
+                text = if (needType == "scheduled") {
+                    stringResource(R.string.urgent_scheduled_expiry, scheduleLabel)
+                } else {
+                    stringResource(R.string.urgent_today_expiry)
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
+            )
+            Text(
+                text = stringResource(R.string.urgent_workers_within_10km_notified),
+                style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
             )
         }
     }
@@ -416,8 +407,7 @@ private fun UrgentNeedSectionCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

@@ -20,9 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.dutype.app.R
 import com.example.dutype.models.Announcement
 import com.example.dutype.models.AnnouncementType
 import com.example.dutype.ui.theme.AppTypography
@@ -165,35 +163,6 @@ fun AnnouncementCard(
                             style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
                         )
                     }
-
-                    if (onAction != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Surface(
-                            color = style.iconContainerColor,
-                            shape = RoundedCornerShape(999.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = style.accentColor,
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .padding(5.dp)
-                            )
-                        }
-                    }
-                }
-
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(34.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.close),
-                        tint = WorkerColors.TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
         }

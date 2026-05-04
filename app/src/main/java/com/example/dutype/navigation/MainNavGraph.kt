@@ -33,7 +33,6 @@ import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
 import com.example.dutype.employer.screens.EmployerPublicProfileScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
-import com.example.dutype.location.ManualLocationScreen
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.EmployerMainScreen
 import com.example.dutype.navigation.WorkerMainScreen
@@ -623,9 +622,6 @@ fun MainNavGraph(
                 navController = navController,
                 initialRole = role
             )
-        }
-        composable(Routes.MANUAL_LOCATION_ROUTE) {
-            ManualLocationScreen(navController = navController)
         }
         composable(Routes.SELECT_ROLE) {
             RoleSelectionWithNavigation(

@@ -523,26 +523,6 @@ fun JobMapScreen(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                val locationNavController = rootNavController ?: navController
-                                kotlin.runCatching {
-                                    locationNavController.navigate(Routes.MANUAL_LOCATION_ROUTE)
-                                }.onFailure {
-                                    Timber.e(it, "JobMapScreen: Failed to navigate to manual location route")
-                                }
-                            },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.change_location))
-                        }
-
                         Button(
                             onClick = { selectedDistanceFilter = DistanceFilter.ALL },
                             colors = ButtonDefaults.buttonColors(containerColor = primaryBlue),
