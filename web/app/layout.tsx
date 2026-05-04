@@ -82,6 +82,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5503082977524600"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>{children}</body>
     </html>
   );
