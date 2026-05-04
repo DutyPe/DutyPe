@@ -52,6 +52,7 @@ import com.example.dutype.models.InstantHelpDefaults
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
+import com.example.dutype.utils.JobCategoryResolver
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -59,8 +60,6 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-private const val OWN_CATEGORY_LABEL = "Own category"
 
 @Composable
 fun PostUrgentNeedScreen(
@@ -105,11 +104,7 @@ internal fun PostUrgentNeedContent(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     var title by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Helper") }
-    var ownCategory by rememberSaveable { mutableStateOf("") }
     var needType by rememberSaveable { mutableStateOf("urgent_now") }
-    var selectedDayOffset by rememberSaveable { mutableStateOf(1) }
-    var selectedHour by rememberSaveable { mutableStateOf(9) }
     var budgetText by rememberSaveable { mutableStateOf("") }
     var radiusKm by rememberSaveable { mutableStateOf(5.0) }
     var notes by rememberSaveable { mutableStateOf("") }
@@ -139,18 +134,14 @@ internal fun PostUrgentNeedContent(
         if (whatsappNumber.isBlank()) whatsappNumber = profilePhone
     }
 
-    val effectiveCategory = if (category == OWN_CATEGORY_LABEL) {
-        ownCategory.trim().ifBlank { "Other" }
-    } else {
-        category
-    }
+    val inferredCategory = JobCategoryResolver.inferCategory(title, notes)
+    val effectiveCategory = inferredCategory?.displayName ?: "Helper"
     val scheduleLabel = if (needType == "scheduled") {
-        buildScheduleLabel(selectedDayOffset, selectedHour)
+        buildTomorrowScheduleLabel()
     } else {
         ""
     }
     val canPost = title.trim().length >= 3 &&
-        (category != OWN_CATEGORY_LABEL || ownCategory.trim().length >= 2) &&
         contactNumber.trim().isNotBlank() &&
         (whatsappSameAsContact || whatsappNumber.trim().isNotBlank())
 
@@ -164,7 +155,7 @@ internal fun PostUrgentNeedContent(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -172,15 +163,15 @@ internal fun PostUrgentNeedContent(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Instant hiring request",
+                            text = "Urgent jobs expire automatically",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                color = Color.White,
+                                color = Color(0xFF92400E),
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "Reach nearby available workers within 10 km for urgent local work.",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFE2E8F0))
+                            text = "Now and today posts stay open for 24 hours. Tomorrow posts stay open for 48 hours.",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF78350F))
                         )
                     }
                 }
@@ -200,32 +191,10 @@ internal fun PostUrgentNeedContent(
                     shape = RoundedCornerShape(14.dp)
                 )
 
-                SectionLabel("Category")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(InstantHelpDefaults.categories + OWN_CATEGORY_LABEL) { option ->
-                        FilterChip(
-                            selected = category == option,
-                            onClick = { category = option },
-                            label = { Text(option) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFEFF6FF),
-                                selectedLabelColor = Color(0xFF1D4ED8)
-                            )
-                        )
-                    }
-                }
-
-                if (category == OWN_CATEGORY_LABEL) {
-                    OutlinedTextField(
-                        value = ownCategory,
-                        onValueChange = { ownCategory = it },
-                        label = { Text("Your category") },
-                        placeholder = { Text("Event helper, packer, delivery help") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                }
+                AutoPickedUrgentCategory(
+                    category = effectiveCategory,
+                    hasTitle = title.trim().length >= 3
+                )
 
                 OutlinedTextField(
                     value = notes,
@@ -247,7 +216,7 @@ internal fun PostUrgentNeedContent(
                         listOf(
                             "urgent_now" to "Now",
                             "today" to "Today",
-                            "scheduled" to "Schedule"
+                            "scheduled" to "Tomorrow"
                         )
                     ) { option ->
                         FilterChip(
@@ -267,44 +236,16 @@ internal fun PostUrgentNeedContent(
                     }
                 }
 
+                Text(
+                    text = if (needType == "scheduled") {
+                        "$scheduleLabel posts expire in 48 hours."
+                    } else {
+                        "This urgent job will expire in 24 hours."
+                    },
+                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
+                )
+
                 if (needType == "scheduled") {
-                    Text(
-                        text = "Pick any day in the next 7 days",
-                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                    )
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items((1..7).toList()) { offset ->
-                            FilterChip(
-                                selected = selectedDayOffset == offset,
-                                onClick = { selectedDayOffset = offset },
-                                label = { Text(buildDayChipLabel(offset)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFDCFCE7),
-                                    selectedLabelColor = Color(0xFF166534)
-                                )
-                            )
-                        }
-                    }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(
-                            listOf(
-                                9 to "9:00 AM",
-                                13 to "1:00 PM",
-                                17 to "5:00 PM",
-                                20 to "8:00 PM"
-                            )
-                        ) { option ->
-                            FilterChip(
-                                selected = selectedHour == option.first,
-                                onClick = { selectedHour = option.first },
-                                label = { Text(option.second) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFE0E7FF),
-                                    selectedLabelColor = Color(0xFF3730A3)
-                                )
-                            )
-                        }
-                    }
                     Text(
                         text = scheduleLabel,
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -419,7 +360,7 @@ internal fun PostUrgentNeedContent(
                             budgetText = budgetText,
                             radiusKm = radiusKm,
                             scheduledAtMillis = if (needType == "scheduled") {
-                                buildScheduleMillis(selectedDayOffset, selectedHour)
+                                buildTomorrowScheduleMillis()
                             } else {
                                 0L
                             },
@@ -449,6 +390,36 @@ internal fun PostUrgentNeedContent(
         }
 
         item { Spacer(modifier = Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun AutoPickedUrgentCategory(category: String, hasTitle: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = "Auto-picked category",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = Color(0xFF1D4ED8),
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            Text(
+                text = if (hasTitle) category else "Type the work title to detect category",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF1E3A8A),
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
     }
 }
 
@@ -490,34 +461,18 @@ private fun SectionLabel(text: String) {
     )
 }
 
-private fun buildScheduleMillis(dayOffset: Int, hour: Int): Long {
+private fun buildTomorrowScheduleMillis(): Long {
     val zone = ZoneId.systemDefault()
     return LocalDate.now(zone)
-        .plusDays(dayOffset.coerceIn(1, 7).toLong())
-        .atTime(hour, 0)
+        .plusDays(1)
+        .atTime(9, 0)
         .atZone(zone)
         .toInstant()
         .toEpochMilli()
 }
 
-private fun buildScheduleLabel(dayOffset: Int, hour: Int): String {
-    val date = LocalDate.now(ZoneId.systemDefault()).plusDays(dayOffset.coerceIn(1, 7).toLong())
+private fun buildTomorrowScheduleLabel(): String {
+    val date = LocalDate.now(ZoneId.systemDefault()).plusDays(1)
     val dateText = date.format(DateTimeFormatter.ofPattern("EEE, dd MMM"))
-    val hourText = when (hour) {
-        9 -> "9:00 AM"
-        13 -> "1:00 PM"
-        17 -> "5:00 PM"
-        20 -> "8:00 PM"
-        else -> "$hour:00"
-    }
-    return "$dateText at $hourText"
-}
-
-private fun buildDayChipLabel(dayOffset: Int): String {
-    val date = LocalDate.now(ZoneId.systemDefault()).plusDays(dayOffset.coerceIn(1, 7).toLong())
-    return when (dayOffset) {
-        1 -> "Tomorrow"
-        2 -> "After tomorrow"
-        else -> date.format(DateTimeFormatter.ofPattern("EEE, dd MMM"))
-    }
+    return "Tomorrow, $dateText"
 }

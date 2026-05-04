@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
+import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 type AnnouncementRow = {
   id: string;
@@ -157,6 +158,11 @@ export function AdminAnnouncementsClient() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(initialForm);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   async function loadAnnouncements() {
     try {
@@ -272,6 +278,32 @@ export function AdminAnnouncementsClient() {
   useEffect(() => {
     void loadAnnouncements();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter, pageSize]);
+
+  const activeAnnouncements = announcements.filter((announcement) => announcement.isActive).length;
+  const urgentAnnouncements = announcements.filter((announcement) => String(announcement.priority ?? "").toUpperCase() === "URGENT").length;
+  const filteredAnnouncements = announcements.filter((announcement) => {
+    const search = searchTerm.toLowerCase();
+    const targetRole = String(announcement.targetRole ?? "ALL").toUpperCase();
+    const isActive = !!announcement.isActive;
+    const matchesSearch =
+      !searchTerm ||
+      String(announcement.title ?? "").toLowerCase().includes(search) ||
+      String(announcement.message ?? "").toLowerCase().includes(search) ||
+      String(announcement.type ?? "").toLowerCase().includes(search) ||
+      String(announcement.priority ?? "").toLowerCase().includes(search);
+    const matchesRole = roleFilter === "ALL" || targetRole === roleFilter;
+    const matchesStatus = statusFilter === "ALL" || (statusFilter === "ACTIVE" ? isActive : !isActive);
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+  const {
+    pageRows: visibleAnnouncements,
+    safePage: visibleAnnouncementsPage
+  } = paginateRows(filteredAnnouncements, currentPage, pageSize);
 
   return (
     <div className="admin-section-stack">
@@ -424,49 +456,104 @@ export function AdminAnnouncementsClient() {
         ) : null}
 
         {!loading && !error && announcements.length > 0 ? (
-          <div className="admin-grid">
-            {announcements.map((announcement) => (
-              <article key={announcement.id} className="admin-panel">
-                <span className="card-kicker">{announcement.type ?? "INFO"}</span>
-                <h3>{announcement.title ?? "Untitled announcement"}</h3>
-                <p>{announcement.message ?? "No message provided."}</p>
-                <ul className="admin-list">
-                  <li className="admin-item">
-                    <strong>Priority</strong>
-                    <span>{announcement.priority ?? "NORMAL"}</span>
-                  </li>
-                  <li className="admin-item">
-                    <strong>Target role</strong>
-                    <span>{announcement.targetRole ?? "ALL"}</span>
-                  </li>
-                  <li className="admin-item">
-                    <strong>Status</strong>
-                    <span>{announcement.isActive ? "Active" : "Inactive"}</span>
-                  </li>
-                  <li className="admin-item">
-                    <strong>Created</strong>
-                    <span>{formatDateTime(announcement.createdAt)}</span>
-                  </li>
-                  <li className="admin-item">
-                    <strong>Expires</strong>
-                    <span>{formatDateTime(announcement.expiresAt)}</span>
-                  </li>
-                  <li className="admin-item">
-                    <strong>Action</strong>
-                    <span>{announcement.actionRoute || "None"}</span>
-                  </li>
-                </ul>
-                <div className="button-row">
-                  <button type="button" className="button ghost" onClick={() => void handleToggle(announcement)}>
-                    {announcement.isActive ? "Deactivate" : "Activate"}
-                  </button>
-                  <button type="button" className="table-action danger" onClick={() => void handleDelete(announcement.id)}>
-                    Delete
-                  </button>
+          <>
+            <div className="admin-stats-grid small">
+              <div className="admin-stat-card compact">
+                <strong>{announcements.length}</strong>
+                <span>Total</span>
+              </div>
+              <div className="admin-stat-card compact">
+                <strong>{activeAnnouncements}</strong>
+                <span>Active</span>
+              </div>
+              <div className="admin-stat-card compact">
+                <strong>{urgentAnnouncements}</strong>
+                <span>Urgent</span>
+              </div>
+              <div className="admin-stat-card compact">
+                <strong>{announcements.length - activeAnnouncements}</strong>
+                <span>Inactive</span>
+              </div>
+            </div>
+
+            <div className="admin-toolbar admin-toolbar-card">
+              <input
+                className="admin-search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search title, message, type, or priority..."
+              />
+              <select className="admin-filter" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                <option value="ALL">All roles</option>
+                <option value="WORKER">Workers</option>
+                <option value="EMPLOYER">Employers</option>
+              </select>
+              <select className="admin-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="ALL">All statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+              <span className="admin-count">{filteredAnnouncements.length} announcements</span>
+            </div>
+
+            {filteredAnnouncements.length === 0 ? (
+              <div className="empty-state">No announcements match your filters.</div>
+            ) : (
+              <>
+                <div className="admin-grid">
+                  {visibleAnnouncements.map((announcement) => (
+                    <article key={announcement.id} className="admin-panel">
+                      <span className="card-kicker">{announcement.type ?? "INFO"}</span>
+                      <h3>{announcement.title ?? "Untitled announcement"}</h3>
+                      <p>{announcement.message ?? "No message provided."}</p>
+                      <ul className="admin-list">
+                        <li className="admin-item">
+                          <strong>Priority</strong>
+                          <span>{announcement.priority ?? "NORMAL"}</span>
+                        </li>
+                        <li className="admin-item">
+                          <strong>Target role</strong>
+                          <span>{announcement.targetRole ?? "ALL"}</span>
+                        </li>
+                        <li className="admin-item">
+                          <strong>Status</strong>
+                          <span>{announcement.isActive ? "Active" : "Inactive"}</span>
+                        </li>
+                        <li className="admin-item">
+                          <strong>Created</strong>
+                          <span>{formatDateTime(announcement.createdAt)}</span>
+                        </li>
+                        <li className="admin-item">
+                          <strong>Expires</strong>
+                          <span>{formatDateTime(announcement.expiresAt)}</span>
+                        </li>
+                        <li className="admin-item">
+                          <strong>Action</strong>
+                          <span>{announcement.actionRoute || "None"}</span>
+                        </li>
+                      </ul>
+                      <div className="button-row">
+                        <button type="button" className="button ghost" onClick={() => void handleToggle(announcement)}>
+                          {announcement.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <button type="button" className="table-action danger" onClick={() => void handleDelete(announcement.id)}>
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
-            ))}
-          </div>
+                <AdminTablePagination
+                  itemLabel="announcements"
+                  page={visibleAnnouncementsPage}
+                  pageSize={pageSize}
+                  totalItems={filteredAnnouncements.length}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </>
+            )}
+          </>
         ) : null}
       </section>
     </div>

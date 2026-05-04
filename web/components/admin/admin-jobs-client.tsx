@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
+import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 type JobRow = {
   id: string;
@@ -63,6 +64,9 @@ export function AdminJobsClient() {
   const [editing, setEditing] = useState<EditingJob | null>(null);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   async function loadJobs() {
     try {
@@ -106,6 +110,10 @@ export function AdminJobsClient() {
   useEffect(() => {
     void loadJobs();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, pageSize]);
 
   async function handleDelete(jobId: string) {
     if (!window.confirm("Are you sure you want to delete this job? This cannot be undone.")) return;
@@ -217,14 +225,24 @@ export function AdminJobsClient() {
     }
   }
 
-  const filteredJobs = searchTerm
-    ? jobs.filter(
-        (j) =>
-          (j.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (j.companyName ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          renderLocation(j).toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : jobs;
+  const openCount = jobs.filter((job) => job.isActive).length;
+  const totalApplications = jobs.reduce((sum, job) => sum + Number(job.applicationCount ?? 0), 0);
+  const filteredJobs = jobs.filter((job) => {
+    const search = searchTerm.toLowerCase();
+    const normalizedStatus = String(job.status ?? (job.isActive ? "open" : "closed")).toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      (job.title ?? "").toLowerCase().includes(search) ||
+      (job.companyName ?? "").toLowerCase().includes(search) ||
+      renderLocation(job).toLowerCase().includes(search);
+    const matchesStatus = statusFilter === "ALL" || normalizedStatus === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+  const {
+    pageRows: visibleJobs,
+    safePage: visibleJobsPage
+  } = paginateRows(filteredJobs, currentPage, pageSize);
 
   if (loading) {
     return (
@@ -340,7 +358,25 @@ export function AdminJobsClient() {
         </div>
       )}
 
-      {/* Toolbar */}
+      <div className="admin-stats-grid small">
+        <div className="admin-stat-card compact">
+          <strong>{jobs.length}</strong>
+          <span>Total jobs</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{openCount}</strong>
+          <span>Open</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{jobs.length - openCount}</strong>
+          <span>Closed</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{totalApplications}</strong>
+          <span>Applications</span>
+        </div>
+      </div>
+
       <div className="admin-toolbar">
         <input
           type="text"
@@ -349,6 +385,16 @@ export function AdminJobsClient() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        <select
+          className="admin-filter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="ALL">All statuses</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+          <option value="expired">Expired</option>
+        </select>
         <span className="admin-count">{filteredJobs.length} jobs</span>
       </div>
 
@@ -357,68 +403,78 @@ export function AdminJobsClient() {
       {filteredJobs.length === 0 ? (
         <div className="admin-empty"><p>No jobs found.</p></div>
       ) : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Company</th>
-                <th>Location</th>
-                <th>Salary</th>
-                <th>Vacancies</th>
-                <th>Status</th>
-                <th>Apps</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredJobs.map((job) => (
-                <tr key={job.id}>
-                  <td><strong>{job.title ?? "N/A"}</strong></td>
-                  <td>{job.companyName ?? "N/A"}</td>
-                  <td>{renderLocation(job)}</td>
-                  <td>{formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)}</td>
-                  <td>{job.vacancies ?? 0}</td>
-                  <td>
-                    <button
-                      className={`status-pill clickable ${job.isActive ? "success" : "danger"}`}
-                      onClick={() => handleToggleActive(job.id, !!job.isActive)}
-                      title="Click to toggle"
-                    >
-                      {job.isActive ? "Active" : "Inactive"}
-                    </button>
-                  </td>
-                  <td>{job.applicationCount ?? 0}</td>
-                  <td>
-                    <div className="admin-table-actions">
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={() => startEdit(job)}
-                      >
-                        Edit
-                      </button>
-                      <Link
-                        className="table-action"
-                        href={`/admin/posters?jobId=${encodeURIComponent(job.id)}`}
-                      >
-                        Print Poster
-                      </Link>
-                      <button
-                        type="button"
-                        className="table-action danger"
-                        onClick={() => void handleDelete(job.id)}
-                        disabled={pendingDeleteId === job.id}
-                      >
-                        {pendingDeleteId === job.id ? "..." : "Delete"}
-                      </button>
-                    </div>
-                  </td>
+        <>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Company</th>
+                  <th>Location</th>
+                  <th>Salary</th>
+                  <th>Vacancies</th>
+                  <th>Status</th>
+                  <th>Apps</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {visibleJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td><strong>{job.title ?? "N/A"}</strong></td>
+                    <td>{job.companyName ?? "N/A"}</td>
+                    <td>{renderLocation(job)}</td>
+                    <td>{formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)}</td>
+                    <td>{job.vacancies ?? 0}</td>
+                    <td>
+                      <button
+                        className={`status-pill clickable ${job.isActive ? "success" : "danger"}`}
+                        onClick={() => handleToggleActive(job.id, !!job.isActive)}
+                        title="Click to toggle"
+                      >
+                        {job.isActive ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+                    <td>{job.applicationCount ?? 0}</td>
+                    <td>
+                      <div className="admin-table-actions">
+                        <button
+                          type="button"
+                          className="table-action"
+                          onClick={() => startEdit(job)}
+                        >
+                          Edit
+                        </button>
+                        <Link
+                          className="table-action"
+                          href={`/admin/posters?jobId=${encodeURIComponent(job.id)}`}
+                        >
+                          Print Poster
+                        </Link>
+                        <button
+                          type="button"
+                          className="table-action danger"
+                          onClick={() => void handleDelete(job.id)}
+                          disabled={pendingDeleteId === job.id}
+                        >
+                          {pendingDeleteId === job.id ? "..." : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <AdminTablePagination
+            itemLabel="jobs"
+            page={visibleJobsPage}
+            pageSize={pageSize}
+            totalItems={filteredJobs.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </>
   );

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { type NormalizedApplication } from "@/lib/firebase/admin-normalizers";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
+import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 type ApplicationRow = {
   id: string;
@@ -23,6 +24,10 @@ export function AdminApplicationsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     async function loadApplications() {
@@ -50,6 +55,10 @@ export function AdminApplicationsClient() {
 
     void loadApplications();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, pageSize]);
 
   if (loading) {
     return <div className="empty-state">Loading applications from Firestore.</div>;
@@ -102,8 +111,76 @@ export function AdminApplicationsClient() {
     }
   }
 
+  const visibleStatuses = [
+    "ALL",
+    ...new Set([...APPLICATION_STATUSES, ...applications.map((application) => application.status || "PENDING")])
+  ];
+  const statusCounts = applications.reduce<Record<string, number>>((acc, application) => {
+    const status = application.status || "PENDING";
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const filteredApplications = applications.filter((application) => {
+    const search = searchTerm.toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      application.workerName.toLowerCase().includes(search) ||
+      application.workerPhone.includes(searchTerm) ||
+      application.workerEmail.toLowerCase().includes(search) ||
+      application.jobTitle.toLowerCase().includes(search) ||
+      application.workerId.toLowerCase().includes(search);
+    const matchesStatus = statusFilter === "ALL" || application.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+  const {
+    pageRows: visibleApplications,
+    safePage: visibleApplicationsPage
+  } = paginateRows(filteredApplications, currentPage, pageSize);
+
   return (
     <>
+      <div className="admin-stats-grid small">
+        <div className="admin-stat-card compact">
+          <strong>{applications.length}</strong>
+          <span>Total applications</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{statusCounts.PENDING ?? 0}</strong>
+          <span>Pending</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{statusCounts.ACCEPTED ?? 0}</strong>
+          <span>Accepted</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{statusCounts.REJECTED ?? 0}</strong>
+          <span>Rejected</span>
+        </div>
+      </div>
+
+      <div className="admin-toolbar">
+        <input
+          type="text"
+          className="admin-search"
+          placeholder="Search worker, phone, email, job, or ID..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <select
+          className="admin-filter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          {visibleStatuses.map((status) => (
+            <option key={status} value={status}>
+              {status === "ALL" ? "All statuses" : status}
+            </option>
+          ))}
+        </select>
+        <span className="admin-count">{filteredApplications.length} applications</span>
+      </div>
+
       {error ? <div className="admin-error">{error}</div> : null}
 
       <div className="table-wrap">
@@ -118,7 +195,7 @@ export function AdminApplicationsClient() {
             </tr>
           </thead>
           <tbody>
-            {applications.map((application) => (
+            {visibleApplications.map((application) => (
               <tr key={application.id}>
                 <td>{application.workerName || shortId(application.workerId)}</td>
                 <td>{application.workerPhone || shortId(application.workerId)}</td>
@@ -150,11 +227,19 @@ export function AdminApplicationsClient() {
           </tbody>
         </table>
       </div>
+      <AdminTablePagination
+        itemLabel="applications"
+        page={visibleApplicationsPage}
+        pageSize={pageSize}
+        totalItems={filteredApplications.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
     </>
   );
 }
 
-const APPLICATION_STATUSES = ["PENDING", "SHORTLISTED", "ACCEPTED", "REJECTED", "WITHDRAWN"];
+const APPLICATION_STATUSES = ["PENDING", "UNDER_REVIEW", "SHORTLISTED", "ACCEPTED", "IN_PROGRESS", "REJECTED", "COMPLETED", "WITHDRAWN"];
 
 function statusTone(status: string | undefined) {
   switch (status) {

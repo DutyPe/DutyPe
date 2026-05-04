@@ -1,7 +1,6 @@
 package com.example.dutype.employer.screens
 
 import android.Manifest
-import android.R.attr.category
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
@@ -22,7 +21,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -128,10 +126,10 @@ import com.example.dutype.utils.ValidationResult
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -1266,6 +1264,10 @@ fun PostJobScreen(
                                             customCategory = it.trim()
                                         }
                                     )
+                                    AutoPickedJobCategory(
+                                        category = category,
+                                        hasTitle = title.trim().length >= 3
+                                    )
                                     Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
                                     WorkTypeSelection(
                                         workType = workType,
@@ -1274,8 +1276,7 @@ fun PostJobScreen(
                                         payAmount = payAmount,
                                         onPayAmountChange = { payAmount = it },
                                         payType = payType,
-                                        onPayTypeChange = { payType = it },
-                                        category = category
+                                        onPayTypeChange = { payType = it }
                                     )
                                     if (showAdvancedJobDetails || description.isNotBlank() || hasHeroImage) {
                                         Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
@@ -2520,8 +2521,7 @@ fun WorkTypeSelection(
     payAmount: String,
     onPayAmountChange: (String) -> Unit,
     payType: PayType,
-    onPayTypeChange: (PayType) -> Unit,
-    category: JobCategory
+    onPayTypeChange: (PayType) -> Unit
 ) {
     val primaryBlue = Color(0xFF2563EB)
 
@@ -2683,6 +2683,39 @@ fun WorkTypeSelection(
 }
 
 @Composable
+private fun AutoPickedJobCategory(
+    category: JobCategory,
+    hasTitle: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = "Auto-picked category",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = Color(0xFF1D4ED8),
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            Text(
+                text = if (hasTitle) category.displayName else "Type the title to detect category",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF1E3A8A),
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
+}
+
+@Composable
 fun EnhancedLocationSection(
     location: String,
     onLocationChange: (String) -> Unit,
@@ -2697,41 +2730,38 @@ fun EnhancedLocationSection(
 ) {
     val primaryBlue = Color(0xFF2563EB)
     val successGreen = Color(0xFF10B981)
-    val scope = rememberCoroutineScope()
     
     // Location search state
     var isSearching by remember { mutableStateOf(false) }
     var isResolvingPinnedAddress by remember { mutableStateOf(false) }
     var searchSuggestions by remember { mutableStateOf<List<LocationSuggestion>>(emptyList()) }
     var showSuggestions by remember { mutableStateOf(false) }
+    var selectedLocationText by remember { mutableStateOf("") }
     var pendingPinnedLocation by remember { mutableStateOf<LatLng?>(null) }
     
     // Search for locations when user types
-    LaunchedEffect(location) {
-        if (location.length >= 3 && !isLoadingLocation && showSuggestions) {
+    LaunchedEffect(location, showSuggestions, selectedLocationText) {
+        if (location.length >= 3 && !isLoadingLocation && showSuggestions && location != selectedLocationText) {
             kotlinx.coroutines.delay(500) // Debounce
             isSearching = true
-            
-            scope.launch {
-                try {
-                    searchSuggestions = locationService.searchPlaces(location, maxResults = 5)
-                        .map { suggestion ->
-                            LocationSuggestion(
-                                placeId = suggestion.placeId,
-                                displayName = suggestion.description,
-                                city = "",
-                                state = "",
-                                country = "India",
-                                area = suggestion.description.substringBefore(",").trim(),
-                                latitude = suggestion.latitude,
-                                longitude = suggestion.longitude
-                            )
-                        }
-                } catch (e: Exception) {
-                    searchSuggestions = emptyList()
-                } finally {
-                    isSearching = false
-                }
+            try {
+                searchSuggestions = locationService.searchPlaces(location, maxResults = 5)
+                    .map { suggestion ->
+                        LocationSuggestion(
+                            placeId = suggestion.placeId,
+                            displayName = suggestion.description,
+                            city = "",
+                            state = "",
+                            country = "India",
+                            area = suggestion.description.substringBefore(",").trim(),
+                            latitude = suggestion.latitude,
+                            longitude = suggestion.longitude
+                        )
+                    }
+            } catch (e: Exception) {
+                searchSuggestions = emptyList()
+            } finally {
+                isSearching = false
             }
         } else {
             searchSuggestions = emptyList()
@@ -2752,12 +2782,13 @@ fun EnhancedLocationSection(
                 ?.getFullAddress()
                 ?.takeIf { it.isNotBlank() }
                 ?: String.format("%.6f, %.6f", pinnedLocation.latitude, pinnedLocation.longitude)
+            selectedLocationText = resolvedAddress
             onLocationChange(resolvedAddress)
         } finally {
             isResolvingPinnedAddress = false
         }
     }
-    
+
     PolishedCard {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -2833,6 +2864,7 @@ fun EnhancedLocationSection(
             OutlinedTextField(
                 value = location,
                 onValueChange = { 
+                    selectedLocationText = ""
                     onLocationChange(it)
                     showSuggestions = true
                 },
@@ -2916,10 +2948,11 @@ fun EnhancedLocationSection(
                         searchSuggestions.take(5).forEach { suggestion ->
                             Surface(
                                 onClick = {
-                                    onLocationChange(suggestion.displayName)
-                                    onLocationSelected?.invoke(suggestion.latitude, suggestion.longitude)
+                                    selectedLocationText = suggestion.displayName
                                     showSuggestions = false
                                     searchSuggestions = emptyList()
+                                    onLocationChange(suggestion.displayName)
+                                    onLocationSelected?.invoke(suggestion.latitude, suggestion.longitude)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 color = Color.Transparent

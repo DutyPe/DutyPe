@@ -133,11 +133,6 @@ private fun FirstTimeLanguageSelection(
     val isTeluguSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU
 
     val title = if (isTeluguSelected) "మీ భాషను ఎంచుకోండి" else "Choose Your Language"
-    val subtitle = if (isTeluguSelected) {
-        "జాబ్ వివరాలు, బటన్స్, సూచనలు మీకు సౌకర్యంగా కనిపించే భాషను ఎంచుకోండి"
-    } else {
-        "Pick the language that should appear across job details, buttons, and guidance"
-    }
     val continueText = if (isTeluguSelected) "కొనసాగించు" else "Continue"
     val changeAnytimeText = if (isTeluguSelected) {
         "తర్వాత Settings లో కూడా భాషను మార్చవచ్చు"
@@ -166,49 +161,17 @@ private fun FirstTimeLanguageSelection(
         ) {
             Spacer(modifier = Modifier.height(14.dp))
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF0F172A), Color(0xFF1E293B))
-                            )
-                        )
-                        .padding(horizontal = 18.dp, vertical = 18.dp)
-                ) {
-                    Text(
-                        text = if (isTeluguSelected) "DutyPe లో మీ భాష" else "Your Language in DutyPe",
-                        style = AppTypography.labelLarge.copy(
-                            color = Color(0xFFE2E8F0),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = title,
-                        style = AppTypography.displayTitle.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Start
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = subtitle,
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFFCBD5E1),
-                            lineHeight = 22.sp
-                        )
-                    )
-                }
-            }
+            Text(
+                text = title,
+                style = AppTypography.displayTitle.copy(
+                    color = GlassTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Start
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SimpleLanguageCard(

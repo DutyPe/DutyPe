@@ -60,7 +60,7 @@ data class LocationInfo(
      */
     fun getShortAddress(): String {
         return when {
-            area.isNotBlank() && city.isNotBlank() -> "$area, $city"
+            area.isNotBlank() && city.isNotBlank() && !area.equals(city, ignoreCase = true) -> "$area, $city"
             city.isNotBlank() -> city
             area.isNotBlank() -> area
             else -> address.split(",").firstOrNull()?.trim() ?: address
@@ -72,10 +72,7 @@ data class LocationInfo(
      * Example: "Nallagandla, Serilingampalle, Telangana"
      */
     fun getMediumAddress(): String {
-        val parts = mutableListOf<String>()
-        if (area.isNotBlank()) parts.add(area)
-        if (city.isNotBlank()) parts.add(city)
-        if (state.isNotBlank()) parts.add(state)
+        val parts = dedupeAddressParts(area, city, state)
         return if (parts.isNotEmpty()) parts.joinToString(", ") else address
     }
     
@@ -84,12 +81,15 @@ data class LocationInfo(
      * Example: "Nallagandla, Serilingampalle, Telangana, India"
      */
     fun getFullAddress(): String {
-        val parts = mutableListOf<String>()
-        if (area.isNotBlank()) parts.add(area)
-        if (city.isNotBlank()) parts.add(city)
-        if (state.isNotBlank()) parts.add(state)
-        if (country.isNotBlank()) parts.add(country)
+        val parts = dedupeAddressParts(area, city, state, country)
         return if (parts.isNotEmpty()) parts.joinToString(", ") else address
+    }
+
+    private fun dedupeAddressParts(vararg values: String): List<String> {
+        val seen = linkedSetOf<String>()
+        return values.map { it.trim() }
+            .filter { it.isNotBlank() }
+            .filter { seen.add(it.lowercase(Locale.ROOT)) }
     }
 }
 /**
@@ -1028,23 +1028,61 @@ class LocationService(private val context: Context) {
         try {
             if (query.isBlank()) return@withContext emptyList()
 
-            val googleResults = searchPlacesWithGoogle(query, maxResults)
-            if (googleResults.isNotEmpty()) {
-                return@withContext googleResults
-            }
+            val candidates = mutableListOf<com.example.dutype.models.PlaceSuggestion>()
+            candidates += searchPlacesWithGoogle(query, maxResults * 2)
 
             googleMapsApiKey()?.let { apiKey ->
-                val geocodingResults = searchPlacesWithGoogleGeocoding(query, maxResults, apiKey)
-                if (geocodingResults.isNotEmpty()) {
-                    return@withContext geocodingResults
-                }
+                candidates += searchPlacesWithGoogleGeocoding(query, maxResults * 2, apiKey)
             }
 
-            searchPlacesWithAndroidGeocoder(query, maxResults)
+            if (candidates.size < maxResults) {
+                candidates += searchPlacesWithAndroidGeocoder(query, maxResults * 2)
+            }
+
+            cleanAndDedupePlaceSuggestions(candidates, maxResults)
         } catch (e: Exception) {
             Timber.e(e, "❌ LocationService: Failed to search places for query: $query")
             emptyList()
         }
+    }
+
+    private fun cleanAndDedupePlaceSuggestions(
+        suggestions: List<com.example.dutype.models.PlaceSuggestion>,
+        maxResults: Int
+    ): List<com.example.dutype.models.PlaceSuggestion> {
+        val seen = linkedSetOf<String>()
+        return suggestions.mapNotNull { suggestion ->
+            val cleanedDescription = cleanPlaceDescription(suggestion.description)
+            if (cleanedDescription.isBlank()) return@mapNotNull null
+            if (!GeoUtils.hasValidCoordinates(suggestion.latitude, suggestion.longitude)) return@mapNotNull null
+
+            val key = cleanedDescription.lowercase(Locale.ROOT)
+            if (!seen.add(key)) return@mapNotNull null
+
+            suggestion.copy(description = cleanedDescription)
+        }.take(maxResults)
+    }
+
+    private fun cleanPlaceDescription(raw: String): String {
+        val seenParts = linkedSetOf<String>()
+        val cleanedParts = raw.split(',')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .mapNotNull { part ->
+                val normalized = part
+                    .lowercase(Locale.ROOT)
+                    .replace(Regex("\\s+"), " ")
+                    .replace(Regex("\\b(district|mandal|division)$"), "")
+                    .trim()
+
+                if (normalized.isBlank() || !seenParts.add(normalized)) {
+                    null
+                } else {
+                    part
+                }
+            }
+
+        return cleanedParts.joinToString(", ")
     }
 
     private suspend fun searchPlacesWithGoogle(
@@ -1054,7 +1092,7 @@ class LocationService(private val context: Context) {
         val apiKey = googleMapsApiKey() ?: return@withContext emptyList()
         val encodedInput = URLEncoder.encode(query, "UTF-8")
         val url = "https://maps.googleapis.com/maps/api/place/autocomplete/json" +
-            "?input=$encodedInput&components=country:in&region=in&language=en&key=$apiKey"
+            "?input=$encodedInput&components=country:in&region=in&language=en&types=geocode&key=$apiKey"
 
         return@withContext runCatching {
             val response = executeGoogleMapsRequest(url) ?: return@runCatching emptyList()
@@ -1282,10 +1320,12 @@ class LocationService(private val context: Context) {
         if (!GeoUtils.hasValidCoordinates(latitude, longitude)) return null
 
         val components = result.optJSONArray("address_components")
-        val formattedAddress = result.optString("formatted_address")
+        val formattedAddress = cleanPlaceDescription(
+            result.optString("formatted_address")
             .takeIf { it.isNotBlank() }
             ?: fallbackAddress
             ?: "Location found"
+        )
 
         return LocationInfo(
             latitude = latitude,

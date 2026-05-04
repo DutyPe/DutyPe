@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
+import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 type UserRow = {
   id: string;
@@ -32,6 +33,8 @@ export function AdminUsersClient() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
   // The live `users` collection only stores a single `role` field. We
@@ -84,6 +87,10 @@ export function AdminUsersClient() {
   useEffect(() => {
     void loadUsers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, pageSize]);
 
   async function handleDelete(userId: string) {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
@@ -224,6 +231,10 @@ export function AdminUsersClient() {
 
     return matchesSearch && matchesRole;
   });
+  const {
+    pageRows: visibleUsers,
+    safePage: visibleUsersPage
+  } = paginateRows(filteredUsers, currentPage, pageSize);
 
   if (loading) {
     return (
@@ -286,95 +297,104 @@ export function AdminUsersClient() {
         // The thead is sticky inside `.admin-users-table-wrap` so column
         // headers stay visible while the admin scrolls through hundreds of
         // rows. Horizontal overflow stays available for narrow viewports.
-        <div className="table-wrap admin-users-table-wrap">
-          <table className="data-table admin-users-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Referral Code</th>
-                <th>Joined</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>
-                    <input
-                      type="text"
-                      className="admin-search"
-                      value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
-                      onChange={(e) => setDraftField(user.id, "fullName", e.target.value)}
-                      placeholder="Full name"
-                    />
-                    <div className="admin-cell-sub">{shortId(user.id)}</div>
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      className="admin-search"
-                      value={editDrafts[user.id]?.phone ?? user.phone ?? ""}
-                      onChange={(e) => setDraftField(user.id, "phone", e.target.value)}
-                      placeholder="Phone"
-                    />
-                  </td>
-                  <td>{user.email || "Not provided"}</td>
-                  <td>
-                    {/* Single-role: the live `users` doc has only one `role`. */}
-                    <select
-                      className="admin-inline-select"
-                      value={editDrafts[user.id]?.role ?? primaryRole(user)}
-                      onChange={(e) => setDraftField(user.id, "role", e.target.value)}
-                    >
-                      <option value="WORKER">Worker</option>
-                      <option value="EMPLOYER">Employer</option>
-                    </select>
-                  </td>
-                  <td>
-                    <code className="admin-code">{user.referralCode || shortId(user.id)}</code>
-                  </td>
-                  <td>{formatDate(user.createdAt) !== "N/A" ? formatDate(user.createdAt) : "Recently active"}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="table-action"
-                      onClick={() => void handleSave(user.id)}
-                      disabled={pendingSaveId === user.id}
-                    >
-                      {pendingSaveId === user.id ? "..." : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      className="table-action"
-                      onClick={() => void handleToggleVerify(user)}
-                      title={user.isVerified ? "Remove verified badge" : "Mark as verified"}
-                    >
-                      {user.isVerified ? "Unverify" : "Verify"}
-                    </button>
-                    <button
-                      type="button"
-                      className={user.isBanned ? "table-action" : "table-action danger"}
-                      onClick={() => void handleToggleBan(user)}
-                    >
-                      {user.isBanned ? "Unban" : "Ban"}
-                    </button>
-                    <button
-                      type="button"
-                      className="table-action danger"
-                      onClick={() => void handleDelete(user.id)}
-                      disabled={pendingDeleteId === user.id || pendingSaveId === user.id}
-                    >
-                      {pendingDeleteId === user.id ? "..." : "Delete"}
-                    </button>
-                  </td>
+        <>
+          <div className="table-wrap admin-users-table-wrap">
+            <table className="data-table admin-users-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Referral Code</th>
+                  <th>Joined</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {visibleUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>
+                      <input
+                        type="text"
+                        className="admin-search"
+                        value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
+                        onChange={(e) => setDraftField(user.id, "fullName", e.target.value)}
+                        placeholder="Full name"
+                      />
+                      <div className="admin-cell-sub">{shortId(user.id)}</div>
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="admin-search"
+                        value={editDrafts[user.id]?.phone ?? user.phone ?? ""}
+                        onChange={(e) => setDraftField(user.id, "phone", e.target.value)}
+                        placeholder="Phone"
+                      />
+                    </td>
+                    <td>{user.email || "Not provided"}</td>
+                    <td>
+                      <select
+                        className="admin-inline-select"
+                        value={editDrafts[user.id]?.role ?? primaryRole(user)}
+                        onChange={(e) => setDraftField(user.id, "role", e.target.value)}
+                      >
+                        <option value="WORKER">Worker</option>
+                        <option value="EMPLOYER">Employer</option>
+                      </select>
+                    </td>
+                    <td>
+                      <code className="admin-code">{user.referralCode || shortId(user.id)}</code>
+                    </td>
+                    <td>{formatDate(user.createdAt) !== "N/A" ? formatDate(user.createdAt) : "Recently active"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="table-action"
+                        onClick={() => void handleSave(user.id)}
+                        disabled={pendingSaveId === user.id}
+                      >
+                        {pendingSaveId === user.id ? "..." : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        className="table-action"
+                        onClick={() => void handleToggleVerify(user)}
+                        title={user.isVerified ? "Remove verified badge" : "Mark as verified"}
+                      >
+                        {user.isVerified ? "Unverify" : "Verify"}
+                      </button>
+                      <button
+                        type="button"
+                        className={user.isBanned ? "table-action" : "table-action danger"}
+                        onClick={() => void handleToggleBan(user)}
+                      >
+                        {user.isBanned ? "Unban" : "Ban"}
+                      </button>
+                      <button
+                        type="button"
+                        className="table-action danger"
+                        onClick={() => void handleDelete(user.id)}
+                        disabled={pendingDeleteId === user.id || pendingSaveId === user.id}
+                      >
+                        {pendingDeleteId === user.id ? "..." : "Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <AdminTablePagination
+            itemLabel="users"
+            page={visibleUsersPage}
+            pageSize={pageSize}
+            totalItems={filteredUsers.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
       )}
     </>
   );

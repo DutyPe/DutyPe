@@ -63,6 +63,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -1683,7 +1684,15 @@ internal fun DynamicHeader(
                 } else {
                     Switch(
                         checked = isInstantAvailable,
-                        onCheckedChange = onInstantAvailabilityChange
+                        onCheckedChange = onInstantAvailabilityChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFF16A34A),
+                            checkedBorderColor = Color(0xFF16A34A),
+                            uncheckedThumbColor = Color(0xFF64748B),
+                            uncheckedTrackColor = Color.White,
+                            uncheckedBorderColor = Color.White
+                        )
                     )
                 }
 

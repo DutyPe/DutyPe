@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
+import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 type CollectionViewerProps = {
   /** API path to fetch from, e.g. "/api/admin/worker-profiles" */
@@ -43,6 +44,8 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   useEffect(() => {
     async function load() {
@@ -62,6 +65,10 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
     }
     void load();
   }, [apiPath, dataKey]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, pageSize]);
 
   // Collect all unique field names across all rows
   const allFields = Array.from(
@@ -85,6 +92,11 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
   const populatedFieldCount = allFields.filter((field) =>
     rows.some((row) => row[field] !== null && row[field] !== undefined && renderCellValue(row[field]) !== "—")
   ).length;
+  const {
+    pageRows: visibleRows,
+    safePage: visibleRowsPage,
+    startIndex
+  } = paginateRows(filtered, currentPage, pageSize);
 
   if (loading) {
     return (
@@ -146,30 +158,40 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
             {rows.length === 0 ? `No ${label} found.` : "No matches for your search."}
           </div>
         ) : (
-          <div className="table-scroll admin-collection-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  {allFields.map((field) => (
-                    <th key={field}>{field}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row, idx) => (
-                  <tr key={(row.id as string) ?? idx}>
-                    <td>{idx + 1}</td>
+          <>
+            <div className="table-wrap admin-collection-table-wrap">
+              <table className="data-table admin-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
                     {allFields.map((field) => (
-                      <td key={field} title={renderCellValue(row[field])}>
-                        {renderCellValue(row[field])}
-                      </td>
+                      <th key={field}>{field}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visibleRows.map((row, idx) => (
+                    <tr key={(row.id as string) ?? idx}>
+                      <td>{startIndex + idx + 1}</td>
+                      {allFields.map((field) => (
+                        <td key={field} title={renderCellValue(row[field])}>
+                          {renderCellValue(row[field])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <AdminTablePagination
+              itemLabel="documents"
+              page={visibleRowsPage}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
         )}
       </section>
     </div>

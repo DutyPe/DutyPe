@@ -497,27 +497,25 @@ fun DashboardContent(
             scrollStateManager = scrollStateManager
         ) {
             item {
+                EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
+            }
+
+            item {
                 UrgentNeedCtaCard(
                     onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
                     onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
                 )
             }
 
-            if (isLoadingUrgentRequests || urgentRequests.isNotEmpty()) {
-                item {
-                    EmployerUrgentNeedSummarySection(
-                        requests = urgentRequests,
-                        responsesByRequestId = urgentResponsesByRequestId,
-                        isLoading = isLoadingUrgentRequests,
-                        onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
-                        onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
-                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-                    )
-                }
-            }
-
             item {
-                EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
+                EmployerUrgentNeedSummarySection(
+                    requests = urgentRequests,
+                    responsesByRequestId = urgentResponsesByRequestId,
+                    isLoading = isLoadingUrgentRequests,
+                    onViewAll = { navController.navigate(Routes.EMPLOYER_HISTORY) },
+                    onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
+                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                )
             }
             
             // Job Analytics Card removed per task list requirement

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -42,13 +44,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -85,6 +90,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.components.LocationAutocompleteField
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ScrollAwareLazyColumn
@@ -92,6 +98,7 @@ import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobVacancyStatus
+import com.example.dutype.models.LocationData
 import com.example.dutype.navigation.Routes
 import com.example.dutype.location.TopCityChips
 import com.example.dutype.services.BirthdayService
@@ -197,6 +204,74 @@ fun WorkerHomeScreen(
 
     // Bottom sheet state - declare before permission launchers
     var showNotificationBottomSheet by remember { mutableStateOf(false) }
+    var showLocationPickerSheet by remember { mutableStateOf(false) }
+    var locationPickerText by remember { mutableStateOf("") }
+    var locationPickerError by remember { mutableStateOf<String?>(null) }
+    var isFetchingSheetLocation by remember { mutableStateOf(false) }
+    var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
+    val locationPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    suspend fun saveWorkerHomeLocation(locationData: LocationData, manual: Boolean) {
+        if (manual) {
+            locationPreferences.savePreferredLocation(locationData)
+        } else {
+            locationPreferences.setLocationModeAuto()
+            locationPreferences.saveLocation(locationData, forceManualOverride = true)
+            locationPreferences.setPermissionGranted(true)
+        }
+
+        if (GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
+            jobViewModel.setUserLocation(locationData.latitude, locationData.longitude, immediate = true)
+        }
+
+        currentUser?.uid?.let { userId ->
+            runCatching {
+                val firestore = com.example.dutype.di.firestoreFromHilt(context)
+                val updateData = mutableMapOf<String, Any>(
+                    "address" to locationData.getFullAddress(),
+                    "location" to mapOf(
+                        "lat" to locationData.latitude,
+                        "lng" to locationData.longitude
+                    ),
+                    "updatedAt" to com.google.firebase.Timestamp.now()
+                )
+                if (GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
+                    updateData["geohash"] = GeoUtils.encodeGeohash(locationData.latitude, locationData.longitude)
+                }
+                firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
+                    .document(userId)
+                    .set(updateData, com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+            }.onFailure { error ->
+                Timber.e(error, "Failed to sync selected worker location")
+            }
+        }
+    }
+
+    suspend fun fetchCurrentLocationFromSheet() {
+        isFetchingSheetLocation = true
+        locationPickerError = null
+        try {
+            val locationInfo = locationService.getHighAccuracyLocation(
+                timeoutMs = 15000L,
+                minAccuracyMeters = 10f
+            )
+            if (locationInfo == null || !GeoUtils.hasValidCoordinates(locationInfo.latitude, locationInfo.longitude)) {
+                locationPickerError = "Could not fetch your current location. Check GPS and try again."
+                return
+            }
+            val locationData = locationService.toLocationData(locationInfo)
+            saveWorkerHomeLocation(locationData, manual = false)
+            locationPickerText = locationData.getFullAddress()
+            showLocationPickerSheet = false
+            android.widget.Toast.makeText(context, "Location updated", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            Timber.e(error, "Failed to fetch current location from worker home")
+            locationPickerError = "Could not update location: ${error.message ?: "try again"}"
+        } finally {
+            isFetchingSheetLocation = false
+        }
+    }
 
     // Permission launchers
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -208,7 +283,15 @@ fun WorkerHomeScreen(
 
         // If permission was just granted, set loading state
         if (!wasGranted && hasLocationPermission) {
-            isLocationLoading = true
+            if (shouldFetchCurrentLocationAfterPermission) {
+                shouldFetchCurrentLocationAfterPermission = false
+                scope.launch { fetchCurrentLocationFromSheet() }
+            } else {
+                isLocationLoading = true
+            }
+        } else if (!hasLocationPermission && shouldFetchCurrentLocationAfterPermission) {
+            shouldFetchCurrentLocationAfterPermission = false
+            locationPickerError = "Location permission required to use current location."
         }
 
         // For first-time users, don't show bottom sheets immediately after denying
@@ -672,9 +755,54 @@ fun WorkerHomeScreen(
                         }
                         navController.navigate(Routes.WORKER_NOTIFICATIONS)
                     },
-                    onLocationClick = { rootNavController.navigate(Routes.MANUAL_LOCATION_ROUTE) }
+                    onLocationClick = {
+                        locationPickerText = currentLocation?.getDisplayAddress().orEmpty()
+                        locationPickerError = null
+                        showLocationPickerSheet = true
+                    }
                 )
             }
+        }
+
+        if (showLocationPickerSheet) {
+            WorkerHomeLocationPickerSheet(
+                sheetState = locationPickerSheetState,
+                value = locationPickerText,
+                onValueChange = {
+                    locationPickerText = it
+                    locationPickerError = null
+                },
+                locationService = locationService,
+                isFetchingCurrentLocation = isFetchingSheetLocation,
+                errorMessage = locationPickerError,
+                onDismiss = { showLocationPickerSheet = false },
+                onUseCurrentLocation = {
+                    if (locationService.hasLocationPermission()) {
+                        scope.launch { fetchCurrentLocationFromSheet() }
+                    } else {
+                        shouldFetchCurrentLocationAfterPermission = true
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                },
+                onLocationSelected = { selectedAddress, latitude, longitude ->
+                    val selectedLocation = buildWorkerHomeLocationData(
+                        address = selectedAddress,
+                        latitude = latitude,
+                        longitude = longitude
+                    )
+                    scope.launch {
+                        saveWorkerHomeLocation(selectedLocation, manual = true)
+                        locationPickerText = selectedAddress
+                        showLocationPickerSheet = false
+                        android.widget.Toast.makeText(context, "Location updated", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
         }
 
         // Notification permission bottom sheet
@@ -687,6 +815,108 @@ fun WorkerHomeScreen(
             userRole = "worker"
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkerHomeLocationPickerSheet(
+    sheetState: androidx.compose.material3.SheetState,
+    value: String,
+    onValueChange: (String) -> Unit,
+    locationService: com.example.dutype.utils.LocationService,
+    isFetchingCurrentLocation: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onUseCurrentLocation: () -> Unit,
+    onLocationSelected: (String, Double, Double) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Choose work location",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+            )
+            Text(
+                text = "Use GPS or search the exact area where you want to see jobs.",
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF64748B))
+            )
+
+            Button(
+                onClick = onUseCurrentLocation,
+                enabled = !isFetchingCurrentLocation,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                if (isFetchingCurrentLocation) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (isFetchingCurrentLocation) "Fetching location" else "Use current location")
+            }
+
+            LocationAutocompleteField(
+                value = value,
+                onValueChange = onValueChange,
+                onLocationSelected = onLocationSelected,
+                locationService = locationService,
+                label = "Search location",
+                placeholder = "Area, street, city",
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (!errorMessage.isNullOrBlank()) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+private fun buildWorkerHomeLocationData(
+    address: String,
+    latitude: Double,
+    longitude: Double
+): LocationData {
+    val parts = address.split(',')
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+    val area = parts.firstOrNull().orEmpty()
+    val city = parts.drop(1)
+        .firstOrNull { !it.equals(area, ignoreCase = true) && !it.equals("India", ignoreCase = true) }
+
+    return LocationData(
+        latitude = latitude,
+        longitude = longitude,
+        city = city,
+        address = address,
+        area = area.ifBlank { null },
+        country = "India"
+    )
 }
 
 private fun openWorkerUrgentDialer(context: android.content.Context, phone: String) {

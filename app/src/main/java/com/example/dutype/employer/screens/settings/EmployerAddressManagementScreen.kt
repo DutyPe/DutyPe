@@ -18,8 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -27,8 +25,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -124,11 +120,6 @@ fun EmployerAddressManagementScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var isAddingAddress by remember { mutableStateOf(false) }
     
-    // Autocomplete state
-    var placeSuggestions by remember { mutableStateOf<List<com.example.dutype.models.PlaceSuggestion>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
-    var showSuggestions by remember { mutableStateOf(false) }
-    
     // Edit state
     var editingAddressId by remember { mutableStateOf<String?>(null) }
     
@@ -222,127 +213,33 @@ fun EmployerAddressManagementScreen(
                     
                     // Search/Address Field with location button and autocomplete
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
+                        com.example.dutype.components.LocationAutocompleteField(
                             value = searchQuery,
                             onValueChange = { query ->
                                 searchQuery = query
                                 fullAddress = query
-                                
-                                // Trigger autocomplete search
-                                if (query.length >= 3) {
-                                    isSearching = true
-                                    showSuggestions = true
-                                    scope.launch {
-                                        try {
-                                            val suggestions = locationService.searchPlaces(query)
-                                            placeSuggestions = suggestions
-                                            isSearching = false
-                                        } catch (e: Exception) {
-                                            timber.log.Timber.e(e, "❌ Failed to search places")
-                                            isSearching = false
-                                            placeSuggestions = emptyList()
-                                        }
-                                    }
-                                } else {
-                                    showSuggestions = false
-                                    placeSuggestions = emptyList()
-                                }
                             },
-                            label = { Text(stringResource(R.string.search_or_enter_address)) },
-                            placeholder = { Text(stringResource(R.string.search_location_or_enter_address)) },
-                            singleLine = false,
+                            onLocationSelected = { selectedAddress, latitude, longitude ->
+                                searchQuery = selectedAddress
+                                fullAddress = selectedAddress
+                                locationLatitude = latitude
+                                locationLongitude = longitude
+                                timber.log.Timber.d("📍 Selected place: $selectedAddress")
+                            },
+                            locationService = locationService,
+                            label = stringResource(R.string.search_or_enter_address),
+                            placeholder = stringResource(R.string.search_location_or_enter_address),
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = {
-                                if (isSearching) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                        color = employerBlue
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = "Search",
-                                        tint = Color(0xFF6B7280)
-                                    )
-                                }
-                            },
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = {
-                                        locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                                    },
-                                    enabled = !isLoadingLocation
-                                ) {
-                                    if (isLoadingLocation) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                            color = employerBlue
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Default.MyLocation,
-                                            contentDescription = "Use Current Location",
-                                            tint = employerBlue
-                                        )
-                                    }
-                                }
+                            showCurrentLocationButton = true,
+                            onCurrentLocationClick = {
+                                locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
                             },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = employerBlue,
                                 focusedLabelColor = employerBlue
                             )
                         )
-                        
-                        // Autocomplete suggestions dropdown
-                        if (showSuggestions && placeSuggestions.isNotEmpty()) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                            ) {
-                                LazyColumn(
-                                    modifier = Modifier.height(200.dp)
-                                ) {
-                                    items(placeSuggestions) { suggestion ->
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    // User selected a suggestion
-                                                    searchQuery = suggestion.description
-                                                    fullAddress = suggestion.description
-                                                    locationLatitude = suggestion.latitude
-                                                    locationLongitude = suggestion.longitude
-                                                    showSuggestions = false
-                                                    placeSuggestions = emptyList()
-                                                    timber.log.Timber.d("📍 Selected place: ${suggestion.description}")
-                                                }
-                                                .padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Default.LocationOn,
-                                                contentDescription = null,
-                                                tint = Color(0xFF6B7280),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = suggestion.description,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                     
                     // Location error

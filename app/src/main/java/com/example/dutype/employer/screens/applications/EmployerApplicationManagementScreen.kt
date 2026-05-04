@@ -71,8 +71,7 @@ private const val MANY_APPLICANTS_THRESHOLD = 12
 fun EmployerApplicationManagementScreen(
     jobId: String? = null,
     onApplicationClick: (JobApplication) -> Unit = {},
-    onBackClick: () -> Unit = {},
-    onPostUrgentNeed: () -> Unit = {}
+    onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -330,7 +329,7 @@ fun EmployerApplicationManagementScreen(
                 onPrimaryAction = {
                     when {
                         !isJobLive -> selectedTabIndex = 1
-                        uiState.applications.isEmpty() -> onPostUrgentNeed()
+                        uiState.applications.isEmpty() -> selectedTabIndex = 1
                         shortlistedCount > 0 || callReadyCandidates > 0 -> selectedTabIndex = 1
                         else -> selectedTabIndex = 1
                     }
@@ -425,8 +424,7 @@ fun EmployerApplicationManagementScreen(
                         isJobSpecific = jobId != null,
                         onShareJob = {
                             if (jobId != null) shareHiringRoomJob(jobId, jobTitleForActions, context)
-                        },
-                        onPostUrgentNeed = onPostUrgentNeed
+                        }
                     )
                 }
             }
@@ -434,8 +432,7 @@ fun EmployerApplicationManagementScreen(
                 Box(modifier = Modifier.weight(1f)) {
                     EmptyApplicationsState(
                         isJobSpecific = false,
-                        onShareJob = {},
-                        onPostUrgentNeed = onPostUrgentNeed
+                        onShareJob = {}
                     )
                 }
             }
@@ -720,15 +717,11 @@ private fun HiringRoomSummaryCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isLive) "Job is live" else "Job is closed",
+                        text = jobTitle.ifBlank { if (isLive) "Open job" else "Closed job" },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = if (isLive) Color(0xFF047857) else Color(0xFF6B7280)
-                        )
-                    )
-                    Text(
-                        text = jobTitle,
-                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -832,8 +825,8 @@ private fun HiringConversionCoachCard(
         )
         totalApplicants == 0 -> Quad(
             "No applicants yet",
-            "Post an urgent request to get nearby workers quickly while this job is live.",
-            "Post urgent need",
+            "Share this job and review nearby matches while applicants come in.",
+            "Review matches",
             Color(0xFFB45309)
         )
         shortlistedCount == 0 && callReadyCandidates == 0 -> Quad(
@@ -1801,11 +1794,10 @@ private fun ApplicationCard(
 @Composable
 private fun EmptyApplicationsState(
     isJobSpecific: Boolean,
-    onShareJob: () -> Unit,
-    onPostUrgentNeed: () -> Unit
+    onShareJob: () -> Unit
 ) {
     val subtitle = if (isJobSpecific) {
-        "Improve title, pay, or location, share the job, or request nearby matches while applicants come in."
+        "Improve title, pay, or location and share the job while applicants come in."
     } else {
         "Applications will appear here once workers start applying to your jobs."
     }
@@ -1850,29 +1842,14 @@ private fun EmptyApplicationsState(
 
         if (isJobSpecific) {
             Spacer(modifier = Modifier.height(20.dp))
-            Row(
+            OutlinedButton(
+                onClick = onShareJob,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
-                OutlinedButton(
-                    onClick = onShareJob,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Share job")
-                }
-                Button(
-                    onClick = onPostUrgentNeed,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
-                ) {
-                    Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Post urgent")
-                }
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Share job")
             }
         }
     }

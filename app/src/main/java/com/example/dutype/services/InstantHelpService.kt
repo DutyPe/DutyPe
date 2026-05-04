@@ -176,9 +176,9 @@ class InstantHelpService @Inject constructor(
             return@withContext Result.failure(IllegalArgumentException("Enter what help you need"))
         }
         val nowMillis = System.currentTimeMillis()
-        val maxScheduleMillis = nowMillis + 7 * 24 * 60 * 60 * 1000L
+        val maxScheduleMillis = nowMillis + 48 * 60 * 60 * 1000L
         if (input.needType == "scheduled" && input.scheduledAtMillis !in (nowMillis + 1)..maxScheduleMillis) {
-            return@withContext Result.failure(IllegalArgumentException("Schedule urgent work within the next 7 days"))
+            return@withContext Result.failure(IllegalArgumentException("Tomorrow urgent work must be within 48 hours"))
         }
 
         return@withContext try {
@@ -204,16 +204,15 @@ class InstantHelpService @Inject constructor(
 
             val now = Timestamp.now()
             val expiryMs = when (input.needType) {
-                "urgent_now" -> 2 * 60 * 60 * 1000L
-                "today" -> 12 * 60 * 60 * 1000L
-                else -> 36 * 60 * 60 * 1000L
+                "scheduled" -> 48 * 60 * 60 * 1000L
+                else -> 24 * 60 * 60 * 1000L
             }
             val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
                 Timestamp(Date(input.scheduledAtMillis))
             } else {
                 null
             }
-            val expiresAt = Timestamp(Date((input.scheduledAtMillis.takeIf { input.needType == "scheduled" && it > nowMillis } ?: nowMillis) + expiryMs))
+            val expiresAt = Timestamp(Date(nowMillis + expiryMs))
             val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document()
             val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
             val data = mutableMapOf<String, Any>(

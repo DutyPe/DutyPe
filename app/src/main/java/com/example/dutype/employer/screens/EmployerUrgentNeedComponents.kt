@@ -66,8 +66,6 @@ internal fun EmployerUrgentNeedSummarySection(
     onOpenRequest: (InstantRequest) -> Unit = {},
     onPostUrgentNeed: () -> Unit
 ) {
-    if (!isLoading && requests.isEmpty()) return
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -112,12 +110,22 @@ internal fun EmployerUrgentNeedSummarySection(
                 }
             }
 
-            requests.take(2).forEach { request ->
-                EmployerUrgentNeedMiniRow(
-                    request = request,
-                    responseCount = responsesByRequestId[request.requestId].orEmpty().size,
-                    onClick = { onOpenRequest(request) }
-                )
+            when {
+                requests.isEmpty() && !isLoading -> {
+                    Text(
+                        text = "No urgent needs posted yet. Use this when you need nearby workers today or tomorrow.",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
+                    )
+                }
+                else -> {
+                    requests.take(2).forEach { request ->
+                        EmployerUrgentNeedMiniRow(
+                            request = request,
+                            responseCount = responsesByRequestId[request.requestId].orEmpty().size,
+                            onClick = { onOpenRequest(request) }
+                        )
+                    }
+                }
             }
 
             if (requests.isEmpty() && !isLoading) {

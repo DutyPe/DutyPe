@@ -207,7 +207,7 @@ fun EmployerMainScreen(
                             employerId = null,
                             onJobPosted = { newJobId ->
                                 if (!newJobId.isNullOrBlank()) {
-                                    navController.navigate(Routes.employerApplicationsJobRoute(newJobId)) {
+                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
                                         popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                         launchSingleTop = true
                                     }
@@ -305,8 +305,7 @@ fun EmployerMainScreen(
                             onApplicationClick = { application ->
                                 navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
-                            onBackClick = { navController.popBackStack() },
-                            onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
 

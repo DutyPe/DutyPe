@@ -54,9 +54,10 @@ fun LocationAutocompleteField(
     var placeSuggestions by remember { mutableStateOf<List<com.example.dutype.models.PlaceSuggestion>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var showSuggestions by remember { mutableStateOf(false) }
+    var selectedSuggestionText by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(value, enabled, showSuggestions) {
-        if (!enabled || value.length < 3 || !showSuggestions) {
+    LaunchedEffect(value, enabled, showSuggestions, selectedSuggestionText) {
+        if (!enabled || value.length < 3 || !showSuggestions || value == selectedSuggestionText) {
             isSearching = false
             placeSuggestions = emptyList()
             return@LaunchedEffect
@@ -80,6 +81,7 @@ fun LocationAutocompleteField(
         OutlinedTextField(
             value = value,
             onValueChange = { query ->
+                selectedSuggestionText = null
                 onValueChange(query)
                 showSuggestions = query.length >= 3
             },
@@ -136,15 +138,17 @@ fun LocationAutocompleteField(
                                 .fillMaxWidth()
                                 .clickable {
                                     // User selected a suggestion
-                                    onValueChange(suggestion.description)
+                                    val selectedAddress = suggestion.description
+                                    selectedSuggestionText = selectedAddress
+                                    showSuggestions = false
+                                    placeSuggestions = emptyList()
+                                    onValueChange(selectedAddress)
                                     onLocationSelected(
-                                        suggestion.description,
+                                        selectedAddress,
                                         suggestion.latitude,
                                         suggestion.longitude
                                     )
-                                    showSuggestions = false
-                                    placeSuggestions = emptyList()
-                                    Timber.d("LocationAutocomplete: Selected - ${suggestion.description}")
+                                    Timber.d("LocationAutocomplete: Selected - $selectedAddress")
                                 }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically

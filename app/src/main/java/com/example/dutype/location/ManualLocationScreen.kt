@@ -136,18 +136,16 @@ fun ManualLocationScreen(navController: NavController) {
             isSearching = true
             errorMessage = ""
             
-            scope.launch {
-                val placeResults = locationService.searchPlaces(searchText, maxResults = 8)
-                    .map { it.toLocationSuggestion() }
-                if (placeResults.isNotEmpty()) {
-                    suggestions = placeResults
-                    errorMessage = ""
-                } else {
-                    suggestions = emptyList()
-                    errorMessage = "No locations found. Try a different search."
-                }
-                isSearching = false
+            val placeResults = locationService.searchPlaces(searchText, maxResults = 8)
+                .map { it.toLocationSuggestion() }
+            if (placeResults.isNotEmpty()) {
+                suggestions = placeResults
+                errorMessage = ""
+            } else {
+                suggestions = emptyList()
+                errorMessage = "No locations found. Try a different search."
             }
+            isSearching = false
         } else {
             suggestions = emptyList()
         }

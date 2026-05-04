@@ -54,9 +54,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import com.dutype.app.R
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 private const val MIN_WORKER_BIO_LENGTH = 20
 private const val MAX_WORKER_BIO_LENGTH = 300
+private val DOB_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -339,8 +344,7 @@ fun MandatoryWorkerProfileSetupScreen(
     }
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() &&
-        experience.isNotBlank() &&
-        workerBio.trim().length >= MIN_WORKER_BIO_LENGTH
+        experience.isNotBlank()
     val isStep4Valid = true  // Selfie is optional - always valid
     
     // Overall form validation
@@ -422,8 +426,7 @@ fun MandatoryWorkerProfileSetupScreen(
             }
 
             bioError = when {
-                workerBio.isBlank() -> "Short bio is required"
-                workerBio.trim().length < MIN_WORKER_BIO_LENGTH -> "Write at least $MIN_WORKER_BIO_LENGTH characters about yourself"
+                workerBio.isNotBlank() && workerBio.trim().length < MIN_WORKER_BIO_LENGTH -> "Write at least $MIN_WORKER_BIO_LENGTH characters, or leave bio empty"
                 else -> null
             }
         } else {
@@ -1477,9 +1480,52 @@ private fun AdditionalDetailsStep(
             var dobInput by remember {
                 mutableStateOf(TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length)))
             }
+            var showDobPicker by remember { mutableStateOf(false) }
             LaunchedEffect(dateOfBirth) {
                 if (dateOfBirth != dobInput.text) {
                     dobInput = TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length))
+                }
+            }
+            if (showDobPicker) {
+                val minDobDate = LocalDate.now().minusYears(70)
+                val maxDobDate = LocalDate.now().minusYears(18)
+                val dobPickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = parseDobToUtcMillis(dateOfBirth) ?: maxDobDate.toUtcMillis(),
+                    yearRange = minDobDate.year..maxDobDate.year,
+                    selectableDates = object : SelectableDates {
+                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                            val date = utcMillisToLocalDate(utcTimeMillis)
+                            return !date.isBefore(minDobDate) && !date.isAfter(maxDobDate)
+                        }
+
+                        override fun isSelectableYear(year: Int): Boolean {
+                            return year in minDobDate.year..maxDobDate.year
+                        }
+                    }
+                )
+                DatePickerDialog(
+                    onDismissRequest = { showDobPicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                dobPickerState.selectedDateMillis?.let { selectedMillis ->
+                                    val formatted = formatDobFromUtcMillis(selectedMillis)
+                                    dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
+                                    onDateOfBirthChange(formatted)
+                                }
+                                showDobPicker = false
+                            }
+                        ) {
+                            Text("Select")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDobPicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = dobPickerState)
                 }
             }
             OutlinedTextField(
@@ -1505,6 +1551,15 @@ private fun AdditionalDetailsStep(
                         modifier = Modifier.size(20.dp),
                         tint = Color(0xFF6B7280)
                     )
+                },
+                trailingIcon = {
+                    IconButton(onClick = { showDobPicker = true }) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Pick date of birth",
+                            tint = Color(0xFF111111)
+                        )
+                    }
                 },
                 singleLine = true,
                 isError = dateOfBirthError != null,
@@ -2037,7 +2092,7 @@ private fun ProfessionalInformationStep(
 
         Column {
             Text(
-                text = "Short bio *",
+                text = "Short bio (optional)",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -2222,5 +2277,23 @@ fun animateIntAsState(
         animationSpec = animationSpec
     )
     return derivedStateOf { floatValue.toInt() }
+}
+
+private fun parseDobToUtcMillis(value: String): Long? {
+    return runCatching {
+        LocalDate.parse(value, DOB_FORMATTER).toUtcMillis()
+    }.getOrNull()
+}
+
+private fun formatDobFromUtcMillis(value: Long): String {
+    return utcMillisToLocalDate(value).format(DOB_FORMATTER)
+}
+
+private fun utcMillisToLocalDate(value: Long): LocalDate {
+    return Instant.ofEpochMilli(value).atZone(ZoneOffset.UTC).toLocalDate()
+}
+
+private fun LocalDate.toUtcMillis(): Long {
+    return atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 }
 
