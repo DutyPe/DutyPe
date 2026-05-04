@@ -694,22 +694,60 @@ exports.syncInstantResponseMetrics = functions.firestore
         if (afterStatus === "called" && beforeStatus !== "called") {
             updates.callCount = admin.firestore.FieldValue.increment(1);
         }
+        const workersNeededRaw = Number(request.workersNeeded || 1);
+        const workersNeeded = Number.isFinite(workersNeededRaw) ? Math.max(1, Math.floor(workersNeededRaw)) : 1;
+        const selectedWorkerIds = Array.isArray(request.selectedWorkerIds)
+            ? request.selectedWorkerIds.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+        const currentSelectedWorkerId = String(request.selectedWorkerId || "").trim();
+        if (currentSelectedWorkerId && !selectedWorkerIds.includes(currentSelectedWorkerId)) {
+            selectedWorkerIds.push(currentSelectedWorkerId);
+        }
+        const completedWorkerIds = Array.isArray(request.completedWorkerIds)
+            ? request.completedWorkerIds.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+        const requestStatus = String(request.status || "").toLowerCase();
+        const terminalStatus = ["cancelled", "expired", "completed"].includes(requestStatus);
         if (afterStatus === "accepted") {
-            // Do not auto-close an urgent request when one worker accepts. Some
-            // requests need multiple people, so the employer confirms completion.
+            const selectedAfter = Array.from(new Set([...selectedWorkerIds, workerId]));
             updates.selectedWorkerId = workerId;
+            updates.selectedWorkerIds = selectedAfter;
+            if (!terminalStatus) {
+                updates.status = selectedAfter.length >= workersNeeded || requestStatus === "filled" ? "filled" : "open";
+                if (selectedAfter.length >= workersNeeded)
+                    updates.filledAt = admin.firestore.FieldValue.serverTimestamp();
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
         }
         else if (afterStatus === "completed") {
-            updates.status = "completed";
+            const selectedAfter = Array.from(new Set([...selectedWorkerIds, workerId]));
+            const completedAfter = Array.from(new Set([...completedWorkerIds, workerId]));
             updates.selectedWorkerId = workerId;
-            updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+            updates.selectedWorkerIds = selectedAfter;
+            updates.completedWorkerIds = completedAfter;
+            if (!terminalStatus) {
+                if (completedAfter.length >= workersNeeded) {
+                    updates.status = "completed";
+                    updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+                }
+                else {
+                    updates.status = selectedAfter.length >= workersNeeded || requestStatus === "filled" ? "filled" : "open";
+                }
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
             if (after.completionProof)
                 updates.completionProof = String(after.completionProof).slice(0, 300);
         }
         else if (afterStatus === "no_show") {
-            updates.status = "failed";
-            updates.selectedWorkerId = workerId;
-            updates.failureReason = String(after.failureReason || "Worker did not show up").slice(0, 300);
+            const selectedAfter = selectedWorkerIds.filter((id) => id !== workerId);
+            const completedAfter = completedWorkerIds.filter((id) => id !== workerId);
+            updates.selectedWorkerId = selectedAfter[selectedAfter.length - 1] || "";
+            updates.selectedWorkerIds = selectedAfter;
+            updates.completedWorkerIds = completedAfter;
+            if (!terminalStatus) {
+                updates.status = selectedAfter.length >= workersNeeded ? "filled" : "open";
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
         }
         tx.set(requestRef, updates, { merge: true });
     });

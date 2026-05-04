@@ -402,7 +402,11 @@ private fun WorkerUrgentHistoryCard(
                     color = statusColor.copy(alpha = 0.12f)
                 ) {
                     Text(
-                        text = status.replace('_', ' ').replaceFirstChar { it.uppercase() }.ifBlank { stringResource(R.string.viewed) },
+                        text = if (status == "no_show") {
+                            stringResource(R.string.no_show)
+                        } else {
+                            status.replace('_', ' ').replaceFirstChar { it.uppercase() }.ifBlank { stringResource(R.string.viewed) }
+                        },
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = statusColor,

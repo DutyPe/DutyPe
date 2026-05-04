@@ -183,6 +183,7 @@ fun EmployerUrgentNeedDetailScreen(
                 pendingRatingResponse = response
                 showRatingSheet = true
             },
+            onMarkRequestFilled = { requestToFill -> instantHelpViewModel.markEmployerInstantRequestFilled(requestToFill) },
             onCancelRequest = { requestToCancel -> pendingCancelRequest = requestToCancel },
             onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
         )

@@ -245,6 +245,37 @@ class InstantHelpViewModel @Inject constructor(
         updateEmployerInstantResponse(response, "no_show", reason)
     }
 
+    fun markEmployerInstantRequestFilled(request: InstantRequest) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(updatingEmployerRequestId = request.requestId, error = null) }
+            instantHelpService.markEmployerInstantRequestFilled(request).fold(
+                onSuccess = {
+                    _uiState.update { state ->
+                        state.copy(
+                            updatingEmployerRequestId = null,
+                            employerInstantRequests = state.employerInstantRequests.map { item ->
+                                if (item.requestId == request.requestId) {
+                                    item.copy(status = "filled", failureReason = "")
+                                } else {
+                                    item
+                                }
+                            },
+                            message = "Urgent job marked filled"
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            updatingEmployerRequestId = null,
+                            error = error.message ?: "Failed to mark urgent job filled"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     fun cancelEmployerInstantRequest(request: InstantRequest, reason: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(updatingEmployerRequestId = request.requestId, error = null) }
@@ -373,7 +404,7 @@ class InstantHelpViewModel @Inject constructor(
                                         "completed" -> {
                                             val completedAfter = (request.completedWorkerIds + response.workerId).distinct()
                                             request.copy(
-                                                status = if (completedAfter.size >= requiredWorkers) "completed" else if (selectedAfter.size >= requiredWorkers) "filled" else "open",
+                                                status = if (completedAfter.size >= requiredWorkers) "completed" else if (selectedAfter.size >= requiredWorkers || request.status.equals("filled", ignoreCase = true)) "filled" else "open",
                                                 selectedWorkerId = response.workerId,
                                                 selectedWorkerIds = selectedAfter,
                                                 completedWorkerIds = completedAfter,
@@ -381,14 +412,18 @@ class InstantHelpViewModel @Inject constructor(
                                                 completionProof = if (note.isNotBlank()) note else request.completionProof
                                             )
                                         }
-                                        "no_show" -> request.copy(
-                                            status = "open",
-                                            selectedWorkerId = request.selectedWorkerIds.filterNot { it == response.workerId }.lastOrNull().orEmpty(),
-                                            selectedWorkerIds = request.selectedWorkerIds.filterNot { it == response.workerId },
-                                            failureReason = note.ifBlank { "Worker did not show up" }
-                                        )
+                                        "no_show" -> {
+                                            val selectedAfterNoShow = request.selectedWorkerIds.filterNot { it == response.workerId }
+                                            request.copy(
+                                                status = if (selectedAfterNoShow.size >= requiredWorkers) "filled" else "open",
+                                                selectedWorkerId = selectedAfterNoShow.lastOrNull().orEmpty(),
+                                                selectedWorkerIds = selectedAfterNoShow,
+                                                completedWorkerIds = request.completedWorkerIds.filterNot { it == response.workerId },
+                                                failureReason = ""
+                                            )
+                                        }
                                         "accepted" -> request.copy(
-                                            status = if (selectedAfter.size >= requiredWorkers) "filled" else "open",
+                                            status = if (selectedAfter.size >= requiredWorkers || request.status.equals("filled", ignoreCase = true)) "filled" else "open",
                                             selectedWorkerId = response.workerId,
                                             selectedWorkerIds = selectedAfter
                                         )
@@ -400,7 +435,7 @@ class InstantHelpViewModel @Inject constructor(
                             },
                             message = when (normalizedStatus) {
                                 "completed" -> "Urgent work marked done"
-                                "no_show" -> "Marked as no show"
+                                "no_show" -> "Worker did not come"
                                 "accepted" -> "Worker selected. The urgent need closes when the required workers are selected."
                                 else -> "Urgent response updated"
                             }

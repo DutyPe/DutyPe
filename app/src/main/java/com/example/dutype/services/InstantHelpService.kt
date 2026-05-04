@@ -379,6 +379,7 @@ class InstantHelpService @Inject constructor(
             val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
                 .document(response.requestId)
             val requestData = requestRef.get().await().data.orEmpty()
+            val requestStatus = requestData.getString("status").lowercase()
             val workersNeeded = (requestData.getNumber("workersNeeded")?.toInt() ?: 1).coerceAtLeast(1)
             val selectedWorkerIds = requestData.getStringList("selectedWorkerIds")
                 .ifEmpty { listOf(requestData.getString("selectedWorkerId")).filter { it.isNotBlank() } }
@@ -420,9 +421,9 @@ class InstantHelpService @Inject constructor(
                     val selectedAfter = (selectedWorkerIds + response.workerId).distinct()
                     requestUpdates["selectedWorkerId"] = response.workerId
                     requestUpdates["selectedWorkerIds"] = selectedAfter
-                    if (selectedAfter.size >= workersNeeded) {
+                    if (selectedAfter.size >= workersNeeded || requestStatus == "filled") {
                         requestUpdates["status"] = "filled"
-                        requestUpdates["filledAt"] = now
+                        if (selectedAfter.size >= workersNeeded) requestUpdates["filledAt"] = now
                     } else {
                         requestUpdates["status"] = "open"
                     }
@@ -437,22 +438,24 @@ class InstantHelpService @Inject constructor(
                         requestUpdates["status"] = "completed"
                         requestUpdates["completedAt"] = now
                     } else {
-                        requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
+                        requestUpdates["status"] = if (selectedAfter.size >= workersNeeded || requestStatus == "filled") "filled" else "open"
                     }
                     if (trimmedNote.isNotBlank()) requestUpdates["completionProof"] = trimmedNote
                 }
                 "no_show" -> {
                     val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
+                    val completedAfter = completedWorkerIds.filterNot { it == response.workerId }
                     requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
                     requestUpdates["selectedWorkerIds"] = selectedAfter
-                    requestUpdates["status"] = "open"
-                    requestUpdates["failureReason"] = trimmedNote.ifBlank { "Worker did not show up" }
+                    requestUpdates["completedWorkerIds"] = completedAfter
+                    requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
+                    requestUpdates["failureReason"] = FieldValue.delete()
                 }
                 "rejected" -> {
                     val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
                     requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
                     requestUpdates["selectedWorkerIds"] = selectedAfter
-                    requestUpdates["status"] = "open"
+                    requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
                 }
                 "cancelled" -> {
                     requestUpdates["status"] = "cancelled"
@@ -464,6 +467,36 @@ class InstantHelpService @Inject constructor(
             requestRef.set(requestUpdates, SetOptions.merge())
                 .await()
 
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun markEmployerInstantRequestFilled(
+        request: InstantRequest
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+        if (request.employerId != employerId) {
+            return@withContext Result.failure(IllegalStateException("This urgent request is not yours"))
+        }
+
+        return@withContext try {
+            val now = Timestamp.now()
+            firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
+                .document(request.requestId)
+                .set(
+                    mapOf(
+                        "status" to "filled",
+                        "filledAt" to now,
+                        "failureReason" to FieldValue.delete()
+                    ),
+                    SetOptions.merge()
+                )
+                .await()
             Result.success(Unit)
         } catch (error: Exception) {
             Result.failure(error)

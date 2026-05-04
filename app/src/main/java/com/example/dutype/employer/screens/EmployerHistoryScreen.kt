@@ -272,11 +272,12 @@ fun EmployerHistoryScreen(
                 },
                 onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
                 onCompleteResponse = { response -> instantHelpViewModel.completeEmployerInstantResponse(response, "Completed from employer history") },
-                onNoShowResponse = { response -> instantHelpViewModel.markEmployerInstantResponseNoShow(response, "Worker did not show up") },
+                onNoShowResponse = { response -> instantHelpViewModel.markEmployerInstantResponseNoShow(response, "Worker did not come") },
                 onRateResponse = { response ->
                     pendingRatingResponse = response
                     showRatingSheet = true
                 },
+                onMarkRequestFilled = { request -> instantHelpViewModel.markEmployerInstantRequestFilled(request) },
                 onCancelRequest = { request -> instantHelpViewModel.cancelEmployerInstantRequest(request, "Cancelled from employer history") },
                 onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
             )

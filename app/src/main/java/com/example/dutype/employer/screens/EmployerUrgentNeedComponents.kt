@@ -159,6 +159,7 @@ internal fun EmployerUrgentNeedHistoryContent(
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit,
+    onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
     onPostUrgentNeed: () -> Unit
 ) {
@@ -219,6 +220,7 @@ internal fun EmployerUrgentNeedHistoryContent(
                         onCompleteResponse = onCompleteResponse,
                         onNoShowResponse = onNoShowResponse,
                         onRateResponse = onRateResponse,
+                        onMarkRequestFilled = onMarkRequestFilled,
                         onCancelRequest = onCancelRequest
                     )
                 }
@@ -241,6 +243,7 @@ internal fun EmployerUrgentNeedDetailContent(
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit,
+    onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
     onPostUrgentNeed: () -> Unit
 ) {
@@ -296,6 +299,7 @@ internal fun EmployerUrgentNeedDetailContent(
                         onCompleteResponse = onCompleteResponse,
                         onNoShowResponse = onNoShowResponse,
                         onRateResponse = onRateResponse,
+                        onMarkRequestFilled = onMarkRequestFilled,
                         onCancelRequest = onCancelRequest,
                         showDetailButton = false
                     )
@@ -361,6 +365,7 @@ private fun EmployerUrgentNeedCard(
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
     onRateResponse: (InstantResponse) -> Unit,
+    onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
     showDetailButton: Boolean = true
 ) {
@@ -370,6 +375,7 @@ private fun EmployerUrgentNeedCard(
     val selectedCount = maxOf(request.selectedWorkerIds.size, responseSelectedCount)
     val completedCount = maxOf(request.completedWorkerIds.size, responses.count { it.status.equals("completed", ignoreCase = true) })
     val requiredWorkers = request.workersNeeded.coerceAtLeast(1)
+    val canMarkFilled = normalizedStatus in setOf("open", "failed") && selectedCount > 0
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -489,33 +495,57 @@ private fun EmployerUrgentNeedCard(
                 }
             }
 
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (showDetailButton) {
                     OutlinedButton(
                         onClick = { onOpenRequest(request) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(stringResource(R.string.view_details))
                     }
                 }
-                if (canCancel) {
-                    OutlinedButton(
-                        onClick = { onCancelRequest(request) },
-                        enabled = !isRequestUpdating,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
+                if (canMarkFilled || canCancel) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isRequestUpdating) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.stop_urgent_job))
+                        if (canMarkFilled) {
+                            Button(
+                                onClick = { onMarkRequestFilled(request) },
+                                enabled = !isRequestUpdating,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                            ) {
+                                if (isRequestUpdating) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(R.string.mark_urgent_job_filled))
+                                }
+                            }
+                        }
+                        if (canCancel) {
+                            OutlinedButton(
+                                onClick = { onCancelRequest(request) },
+                                enabled = !isRequestUpdating,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                if (isRequestUpdating) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(R.string.stop_urgent_job))
+                                }
+                            }
                         }
                     }
                 }
@@ -708,7 +738,8 @@ private fun ResponseStatusBadge(status: String) {
         "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }
-    StatusBadge(text = normalized.ifBlank { "viewed" }, color = color)
+    val label = if (normalized == "no_show") stringResource(R.string.no_show) else normalized.ifBlank { "viewed" }
+    StatusBadge(text = label, color = color)
 }
 
 @Composable
