@@ -130,6 +130,63 @@ function distanceKm(
   return radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function timestampToMillis(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const seconds = Number(record.seconds);
+    const nanos = Number(record.nanoseconds ?? 0);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.round(seconds * 1000 + nanos / 1_000_000);
+    }
+    const maybeDate = (record as { toDate?: () => Date }).toDate;
+    if (typeof maybeDate === "function") {
+      try {
+        return maybeDate().getTime();
+      } catch {
+        return 0;
+      }
+    }
+  }
+  return 0;
+}
+
+function chunked<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function isWorkerAvailableNow(availability: Record<string, any> | undefined, nowMs = Date.now()): boolean {
+  if (!availability) return false;
+  if (availability.isAvailable !== true) return false;
+  if (String(availability.status || "available").toLowerCase() !== "available") return false;
+
+  const availableUntilMs = timestampToMillis(availability.availableUntil);
+  return availableUntilMs <= 0 || availableUntilMs > nowMs;
+}
+
+async function loadWorkerAvailabilityMap(workerIds: string[]): Promise<Map<string, Record<string, any>>> {
+  const uniqueWorkerIds = Array.from(new Set(workerIds.filter(Boolean)));
+  const availabilityByWorker = new Map<string, Record<string, any>>();
+
+  for (const workerIdChunk of chunked(uniqueWorkerIds, 250)) {
+    const refs = workerIdChunk.map((workerId) => db().collection("worker_availability").doc(workerId));
+    const snapshots = await db().getAll(...refs);
+    snapshots.forEach((snapshot) => {
+      if (snapshot.exists) {
+        availabilityByWorker.set(snapshot.id, (snapshot.data() || {}) as Record<string, any>);
+      }
+    });
+  }
+
+  return availabilityByWorker;
+}
+
 const CATEGORY_KEYWORDS: Array<{ name: string; display: string; words: string[] }> = [
   { name: "DELIVERY", display: "Delivery", words: ["delivery", "courier", "rider", "parcel"] },
   { name: "DRIVER", display: "Driver", words: ["driver", "cab", "taxi", "truck"] },
@@ -163,7 +220,8 @@ function scoreWorkerForJob(
   workerId: string,
   worker: Record<string, any>,
   job: Record<string, any>,
-  details: Record<string, any>
+  details: Record<string, any>,
+  isAvailableNow = false
 ): { score: number; reasons: string[]; distance: number | null } {
   const category = inferCategory(job, details);
   const workerSkills = stringList(worker.skills || worker.jobTypes);
@@ -217,7 +275,51 @@ function scoreWorkerForJob(
     reasons.push("Completed DutyPe work");
   }
 
-  if (worker.isAvailable !== false) {
+  const nowMs = Date.now();
+  const activeAtMs = Math.max(
+    timestampToMillis(worker.lastActiveAt),
+    timestampToMillis(worker.lastSeenAt),
+    timestampToMillis(worker.updatedAt)
+  );
+  if (activeAtMs > 0) {
+    const hoursSinceActive = (nowMs - activeAtMs) / (1000 * 60 * 60);
+    if (hoursSinceActive <= 6) {
+      score += 10;
+      reasons.push("Recently active");
+    } else if (hoursSinceActive <= 24) {
+      score += 6;
+      reasons.push("Active today");
+    } else if (hoursSinceActive <= 72) {
+      score += 3;
+    }
+  }
+
+  const accepted = Number(worker.instantAcceptedCount ?? worker.acceptedRequests ?? 0);
+  const declined = Number(worker.instantDeclinedCount ?? worker.declinedRequests ?? 0);
+  const noShow = Number(worker.instantNoShowCount ?? worker.noShowCount ?? 0);
+  const totalDecisions = Math.max(0, accepted) + Math.max(0, declined) + Math.max(0, noShow);
+  if (totalDecisions >= 3) {
+    const acceptanceRate = accepted / Math.max(1, totalDecisions);
+    if (acceptanceRate >= 0.7) {
+      score += 8;
+      reasons.push("High response reliability");
+    } else if (acceptanceRate >= 0.5) {
+      score += 4;
+    } else if (acceptanceRate < 0.25) {
+      score -= 5;
+    }
+  }
+
+  const activeJobCount = Number(worker.activeJobCount ?? 0);
+  if (Number.isFinite(activeJobCount) && activeJobCount >= 3) {
+    score -= 4;
+  }
+
+  if (worker.isVerified === true) {
+    score += 2;
+  }
+
+  if (isAvailableNow) {
     score += 5;
   }
 
@@ -225,7 +327,7 @@ function scoreWorkerForJob(
     score = 0;
   }
 
-  return { score: Math.min(100, Math.round(score)), reasons: reasons.slice(0, 4), distance: dist };
+  return { score: Math.max(0, Math.min(100, Math.round(score))), reasons: reasons.slice(0, 4), distance: dist };
 }
 
 async function loadOwnedJob(uid: string, jobId: string): Promise<JobContext> {
@@ -569,7 +671,6 @@ export const getWorkerProfileForEmployer = onCallSecured(
       "bio",
       "gender",
       "dateOfBirth",
-      "isAvailable",
       "rating",
       "ratingAvg",
       "totalRatings",
@@ -581,7 +682,12 @@ export const getWorkerProfileForEmployer = onCallSecured(
       if (worker[k] !== undefined) safeWorker[k] = worker[k];
     }
 
-    const merged = { ...safeWorker, workerId };
+    const availabilitySnap = await db().collection("worker_availability").doc(workerId).get();
+    const merged = {
+      ...safeWorker,
+      workerId,
+      isAvailable: isWorkerAvailableNow(availabilitySnap.data() as Record<string, any> | undefined),
+    };
     return { success: true, profile: merged };
   }
 );
@@ -625,10 +731,14 @@ export const matchWorkersForJob = onCallSecured(
       workersSnap = await db().collection("worker_profiles").limit(500).get();
     }
 
+    const nowMs = Date.now();
+    const availabilityByWorker = await loadWorkerAvailabilityMap(workersSnap.docs.map((doc) => doc.id));
+
     const rankedWorkers = workersSnap.docs
       .map((doc) => {
         const worker = (doc.data() || {}) as Record<string, any>;
-        const scoring = scoreWorkerForJob(doc.id, worker, job, details);
+        const isAvailable = isWorkerAvailableNow(availabilityByWorker.get(doc.id), nowMs);
+        const scoring = scoreWorkerForJob(doc.id, worker, job, details, isAvailable);
         const request = requestByWorker.get(doc.id);
         const requestStatus = String(request?.status || "");
         const safePhone = requestStatus === "accepted" ? String(worker.phone || "") : "";
@@ -642,7 +752,7 @@ export const matchWorkersForJob = onCallSecured(
           rating: Number(worker.ratingAvg ?? worker.rating ?? 0) || 0,
           ratingCount: Number(worker.totalRatings ?? worker.ratingCount ?? worker.ratingsCount ?? 0) || 0,
           completedJobs: Number(worker.completedJobs ?? worker.totalJobs ?? 0) || 0,
-          isAvailable: worker.isAvailable !== false,
+          isAvailable,
           distanceKm: scoring.distance == null ? null : Number(scoring.distance.toFixed(2)),
           matchScore: scoring.score,
           matchReasons: scoring.reasons,
@@ -707,7 +817,14 @@ export const requestWorkerForJob = onCallSecured(
     }
     const worker = (workerSnap.data() || {}) as Record<string, any>;
     const employer = (employerSnap.data() || {}) as Record<string, any>;
-    const scoring = scoreWorkerForJob(workerId, worker, job, details);
+    const availabilitySnap = await db().collection("worker_availability").doc(workerId).get();
+    const scoring = scoreWorkerForJob(
+      workerId,
+      worker,
+      job,
+      details,
+      isWorkerAvailableNow(availabilitySnap.data() as Record<string, any> | undefined)
+    );
     if (scoring.score < 5) {
       throw new functions.https.HttpsError("failed-precondition", "Worker is not a strong fit for this job");
     }

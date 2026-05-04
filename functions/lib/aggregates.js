@@ -34,12 +34,93 @@ exports.onRatingCreated = functions.firestore
         functions.logger.warn("onRatingCreated: invalid payload", { ratingId: snap.id });
         return;
     }
-    // Update both worker_profiles and employer_profiles if they exist for the user.
-    await Promise.all([
-        updateRollingAverage(db.doc(`worker_profiles/${toUserId}`), value),
-        updateRollingAverage(db.doc(`employer_profiles/${toUserId}`), value),
-    ]);
+    const targetRef = await resolveRatingTargetProfileRef(rating, snap.id);
+    if (!targetRef)
+        return;
+    await updateRollingAverage(targetRef, value);
 });
+async function resolveRatingTargetProfileRef(rating, ratingId) {
+    var _a, _b, _c;
+    const toUserId = String((_a = rating === null || rating === void 0 ? void 0 : rating.toUserId) !== null && _a !== void 0 ? _a : "");
+    const explicitRole = normalizeRatingTargetRole((_c = (_b = rating === null || rating === void 0 ? void 0 : rating.targetRole) !== null && _b !== void 0 ? _b : rating === null || rating === void 0 ? void 0 : rating.toRole) !== null && _c !== void 0 ? _c : rating === null || rating === void 0 ? void 0 : rating.ratedRole);
+    if (explicitRole) {
+        return profileRefForRole(toUserId, explicitRole);
+    }
+    const inferredRole = await inferRatingTargetRole(rating);
+    if (inferredRole) {
+        return profileRefForRole(toUserId, inferredRole);
+    }
+    const workerRef = db.doc(`worker_profiles/${toUserId}`);
+    const employerRef = db.doc(`employer_profiles/${toUserId}`);
+    const [workerSnap, employerSnap] = await Promise.all([
+        workerRef.get(),
+        employerRef.get(),
+    ]);
+    if (workerSnap.exists && !employerSnap.exists)
+        return workerRef;
+    if (employerSnap.exists && !workerSnap.exists)
+        return employerRef;
+    functions.logger.warn("onRatingCreated: ambiguous target role, skipped aggregate", {
+        ratingId,
+        toUserId,
+        workerProfileExists: workerSnap.exists,
+        employerProfileExists: employerSnap.exists,
+    });
+    return null;
+}
+function normalizeRatingTargetRole(value) {
+    const normalized = String(value !== null && value !== void 0 ? value : "").trim().toUpperCase();
+    if (normalized === "WORKER")
+        return "WORKER";
+    if (normalized === "EMPLOYER")
+        return "EMPLOYER";
+    return null;
+}
+function profileRefForRole(toUserId, role) {
+    const collection = role === "WORKER" ? "worker_profiles" : "employer_profiles";
+    return db.doc(`${collection}/${toUserId}`);
+}
+async function inferRatingTargetRole(rating) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const jobId = String((_a = rating === null || rating === void 0 ? void 0 : rating.jobId) !== null && _a !== void 0 ? _a : "");
+    const fromUserId = String((_b = rating === null || rating === void 0 ? void 0 : rating.fromUserId) !== null && _b !== void 0 ? _b : "");
+    const toUserId = String((_c = rating === null || rating === void 0 ? void 0 : rating.toUserId) !== null && _c !== void 0 ? _c : "");
+    if (!jobId || !fromUserId || !toUserId)
+        return null;
+    const fromSideApplication = await db.doc(`applications/${jobId}_${fromUserId}`).get();
+    if (applicationIsCompleted(fromSideApplication.data()) &&
+        String((_d = fromSideApplication.get("employerId")) !== null && _d !== void 0 ? _d : "") === toUserId) {
+        return "EMPLOYER";
+    }
+    const toSideApplication = await db.doc(`applications/${jobId}_${toUserId}`).get();
+    if (applicationIsCompleted(toSideApplication.data()) &&
+        String((_e = toSideApplication.get("workerId")) !== null && _e !== void 0 ? _e : "") === toUserId &&
+        String((_f = toSideApplication.get("employerId")) !== null && _f !== void 0 ? _f : "") === fromUserId) {
+        return "WORKER";
+    }
+    const fromSideInstant = await db.doc(`instant_responses/${jobId}_${fromUserId}`).get();
+    if (instantResponseIsCompleted(fromSideInstant.data()) &&
+        String((_g = fromSideInstant.get("workerId")) !== null && _g !== void 0 ? _g : "") === fromUserId &&
+        String((_h = fromSideInstant.get("employerId")) !== null && _h !== void 0 ? _h : "") === toUserId) {
+        return "EMPLOYER";
+    }
+    const toSideInstant = await db.doc(`instant_responses/${jobId}_${toUserId}`).get();
+    if (instantResponseIsCompleted(toSideInstant.data()) &&
+        String((_j = toSideInstant.get("workerId")) !== null && _j !== void 0 ? _j : "") === toUserId &&
+        String((_k = toSideInstant.get("employerId")) !== null && _k !== void 0 ? _k : "") === fromUserId) {
+        return "WORKER";
+    }
+    return null;
+}
+function applicationIsCompleted(data) {
+    var _a;
+    const status = String((_a = data === null || data === void 0 ? void 0 : data.status) !== null && _a !== void 0 ? _a : "").toLowerCase();
+    return status === "hired" || status === "completed";
+}
+function instantResponseIsCompleted(data) {
+    var _a;
+    return String((_a = data === null || data === void 0 ? void 0 : data.status) !== null && _a !== void 0 ? _a : "").toLowerCase() === "completed";
+}
 async function updateRollingAverage(ref, newValue) {
     await db.runTransaction(async (tx) => {
         var _a, _b;

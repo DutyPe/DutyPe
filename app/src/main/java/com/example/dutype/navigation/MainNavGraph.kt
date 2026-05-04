@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,8 +40,12 @@ import com.example.dutype.navigation.WorkerMainScreen
 import com.example.dutype.onboarding.OnboardingScreen
 import com.example.dutype.worker.screens.MandatoryWorkerProfileSetupScreen
 import com.example.dutype.employer.screens.ProfessionalWorkerProfileViewScreen
+import com.example.dutype.utils.findActivity
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 @Composable
@@ -64,7 +69,28 @@ fun MainNavGraph(
     LaunchedEffect(deepLinkBus) {
         deepLinkBus.events.collect { uri ->
             Timber.i("📱 MainNavGraph: Received deep link: $uri")
-            com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(uri, navController)
+            val activityIntent = context.findActivity()?.intent
+            val handled = com.example.dutype.utils.DeepLinkHandler.handleDeepLinkUri(uri, navController)
+            if (handled) {
+                deepLinkBus.clearReplay()
+                if (activityIntent?.getBooleanExtra("from_notification", false) == true) {
+                    val routeBeforeNavigation = navController.currentBackStackEntry?.destination?.route
+                    val openedRoute = withTimeoutOrNull(1000L) {
+                        navController.currentBackStackEntryFlow
+                            .map { it.destination.route ?: "unknown" }
+                            .first { route -> route.isNotBlank() && route != routeBeforeNavigation }
+                    } ?: navController.currentBackStackEntry?.destination?.route ?: "unknown"
+
+                    runCatching {
+                        FirebaseCrashlytics.getInstance().apply {
+                            log("notification_destination_opened")
+                            setCustomKey("notification_destination_source", "warm_deep_link_bus")
+                            setCustomKey("notification_destination_route", openedRoute)
+                            setCustomKey("notification_destination_deeplink", uri.toString())
+                        }
+                    }.onFailure { Timber.w(it, "Failed to log warm notification destination telemetry") }
+                }
+            }
         }
     }
 
@@ -113,7 +139,31 @@ fun MainNavGraph(
     var startDestination by remember {
         mutableStateOf(cachedStartDestination ?: Routes.ONBOARDING)
     }
+    var pendingNotificationRouteTelemetry by remember {
+        mutableStateOf(notificationIntent?.getBooleanExtra("from_notification", false) == true)
+    }
     var navigationDetermined by remember { mutableStateOf(cachedStartDestination != null) }
+
+    suspend fun logPendingNotificationDestinationOpened(source: String, deepLink: String? = null) {
+        if (!pendingNotificationRouteTelemetry) return
+
+        pendingNotificationRouteTelemetry = false
+        val routeBeforeNavigation = navController.currentBackStackEntry?.destination?.route
+        val openedRoute = withTimeoutOrNull(1000L) {
+            navController.currentBackStackEntryFlow
+                .map { it.destination.route ?: "unknown" }
+                .first { route -> route.isNotBlank() && route != routeBeforeNavigation }
+        } ?: navController.currentBackStackEntry?.destination?.route ?: "unknown"
+
+        runCatching {
+            FirebaseCrashlytics.getInstance().apply {
+                log("notification_destination_opened")
+                setCustomKey("notification_destination_source", source)
+                setCustomKey("notification_destination_route", openedRoute)
+                setCustomKey("notification_destination_deeplink", deepLink ?: notificationIntent?.data?.toString().orEmpty())
+            }
+        }.onFailure { Timber.w(it, "Failed to log notification destination telemetry") }
+    }
 
     // Bug #9 / #4 fix: Always dismiss the system splash on the very first
     // composition. The NavHost is already built with either the cached
@@ -381,6 +431,10 @@ fun MainNavGraph(
                     Timber.i("MainNavGraph - Deep link not matched by nav graph, using DeepLinkHandler fallback")
                     com.example.dutype.utils.DeepLinkHandler.handleDeepLink(notificationIntent, navController)
                 }
+                logPendingNotificationDestinationOpened(
+                    source = "cold_start_deep_link",
+                    deepLink = startupDeepLinkUri.toString()
+                )
                 return@LaunchedEffect
             }
             
@@ -401,6 +455,7 @@ fun MainNavGraph(
                     navController.navigate("${Routes.ENHANCED_LOGIN}?role=$resolvedRole") {
                         launchSingleTop = true
                     }
+                    logPendingNotificationDestinationOpened(source = "cold_start_direct_login")
                 }
                 return@LaunchedEffect
             }
@@ -418,6 +473,7 @@ fun MainNavGraph(
                             popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                             launchSingleTop = true
                         }
+                        logPendingNotificationDestinationOpened(source = "cold_start_navigate_to")
                     } catch (e: Exception) {
                         Timber.e(e, "Error navigating to specific screen")
                     }
@@ -467,6 +523,7 @@ fun MainNavGraph(
                                 Timber.e(e, "Error navigating to onboarding from notification")
                             }
                         }
+                        logPendingNotificationDestinationOpened(source = "cold_start_notification_route")
                     }
                 }
             }

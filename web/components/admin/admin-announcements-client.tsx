@@ -9,6 +9,7 @@ type AnnouncementRow = {
   title?: string;
   message?: string;
   type?: string;
+  priority?: string;
   targetRole?: string;
   isActive?: boolean;
   actionRoute?: string;
@@ -25,9 +26,26 @@ type AnnouncementTemplate = {
   title: string;
   message: string;
   type: string;
+  priority: string;
   targetRole: string;
   deepLink: string;
 };
+
+const priorityRank: Record<string, number> = {
+  URGENT: 5,
+  HIGH: 4,
+  MEDIUM: 3,
+  NORMAL: 2,
+  LOW: 1
+};
+
+function sortAnnouncementsForAdminFeed(rows: AnnouncementRow[]) {
+  return [...rows].sort((first, second) => {
+    const firstPriority = priorityRank[String(first.priority ?? "NORMAL").toUpperCase()] ?? 2;
+    const secondPriority = priorityRank[String(second.priority ?? "NORMAL").toUpperCase()] ?? 2;
+    return secondPriority - firstPriority;
+  });
+}
 
 const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
   {
@@ -36,6 +54,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "",
     message: "",
     type: "INFO",
+    priority: "NORMAL",
     targetRole: "ALL",
     deepLink: ""
   },
@@ -45,6 +64,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "New jobs near you!",
     message: "We just added fresh jobs in your area. Check them out before they fill up.",
     type: "INFO",
+    priority: "HIGH",
     targetRole: "WORKER",
     deepLink: "dutype://jobs"
   },
@@ -54,6 +74,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Finish your profile to get hired",
     message: "Workers with complete profiles get 3× more job calls. Add your skills and photo now.",
     type: "WARNING",
+    priority: "HIGH",
     targetRole: "WORKER",
     deepLink: "dutype://profile"
   },
@@ -63,8 +84,9 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Earn ₹100 per referral this week",
     message: "Invite your friends to DutyPe and earn cash for every signup that gets verified.",
     type: "PROMOTION",
+    priority: "NORMAL",
     targetRole: "ALL",
-    deepLink: "dutype://referrals"
+    deepLink: "dutype://refer"
   },
   {
     id: "post_job_reminder",
@@ -72,6 +94,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Hire workers in minutes",
     message: "Post your first job free and get applications from verified workers near you.",
     type: "FEATURE",
+    priority: "HIGH",
     targetRole: "EMPLOYER",
     deepLink: "dutype://post-job"
   },
@@ -81,8 +104,9 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Get the verified badge",
     message: "Verified employers receive 2× more applications. Submit your business documents now.",
     type: "INFO",
+    priority: "NORMAL",
     targetRole: "EMPLOYER",
-    deepLink: "dutype://employer/verification"
+    deepLink: "dutype://employer/company-details"
   },
   {
     id: "app_update",
@@ -90,6 +114,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Update DutyPe for the latest features",
     message: "We've shipped a faster experience and bug fixes. Update from the Play Store now.",
     type: "FEATURE",
+    priority: "HIGH",
     targetRole: "ALL",
     deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app"
   },
@@ -99,6 +124,7 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "Scheduled maintenance tonight",
     message: "DutyPe will be briefly unavailable tonight from 1 AM to 2 AM IST while we ship upgrades.",
     type: "WARNING",
+    priority: "URGENT",
     targetRole: "ALL",
     deepLink: ""
   },
@@ -108,8 +134,9 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     title: "We're here to help",
     message: "Tap below to chat with our support team if you have any questions.",
     type: "INFO",
+    priority: "NORMAL",
     targetRole: "ALL",
-    deepLink: "dutype://support"
+    deepLink: "dutype://help"
   }
 ];
 
@@ -147,7 +174,7 @@ export function AdminAnnouncementsClient() {
         throw new Error(payload.error || "Failed to load announcements.");
       }
 
-      setAnnouncements(payload.announcements ?? []);
+      setAnnouncements(sortAnnouncementsForAdminFeed(payload.announcements ?? []));
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load announcements.");
@@ -282,6 +309,7 @@ export function AdminAnnouncementsClient() {
                   title: template.title,
                   message: template.message,
                   type: template.type,
+                  priority: template.priority,
                   targetRole: template.targetRole,
                   deepLink: template.deepLink
                 }));
@@ -334,6 +362,7 @@ export function AdminAnnouncementsClient() {
               onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
             >
               <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
               <option value="NORMAL">NORMAL</option>
               <option value="HIGH">HIGH</option>
               <option value="URGENT">URGENT</option>
@@ -355,7 +384,7 @@ export function AdminAnnouncementsClient() {
             <input
               value={form.deepLink}
               onChange={(event) => setForm((current) => ({ ...current, deepLink: event.target.value }))}
-              placeholder="dutype://referrals"
+              placeholder="dutype://refer"
             />
           </label>
           <label>
@@ -403,6 +432,10 @@ export function AdminAnnouncementsClient() {
                 <p>{announcement.message ?? "No message provided."}</p>
                 <ul className="admin-list">
                   <li className="admin-item">
+                    <strong>Priority</strong>
+                    <span>{announcement.priority ?? "NORMAL"}</span>
+                  </li>
+                  <li className="admin-item">
                     <strong>Target role</strong>
                     <span>{announcement.targetRole ?? "ALL"}</span>
                   </li>
@@ -413,6 +446,14 @@ export function AdminAnnouncementsClient() {
                   <li className="admin-item">
                     <strong>Created</strong>
                     <span>{formatDateTime(announcement.createdAt)}</span>
+                  </li>
+                  <li className="admin-item">
+                    <strong>Expires</strong>
+                    <span>{formatDateTime(announcement.expiresAt)}</span>
+                  </li>
+                  <li className="admin-item">
+                    <strong>Action</strong>
+                    <span>{announcement.actionRoute || "None"}</span>
                   </li>
                 </ul>
                 <div className="button-row">

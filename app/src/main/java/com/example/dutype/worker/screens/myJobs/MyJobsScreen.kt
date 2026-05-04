@@ -503,7 +503,8 @@ fun MyJobsScreen(
                         targetUserId = app.employerId,
                         rating = rating,
                         review = review,
-                        tags = tags
+                        tags = tags,
+                        targetRole = "EMPLOYER"
                     )
                     result.onSuccess { ratingResult ->
                         if (ratingResult.success) {

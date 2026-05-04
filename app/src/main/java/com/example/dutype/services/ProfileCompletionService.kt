@@ -5,6 +5,7 @@ import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
@@ -85,6 +86,11 @@ class ProfileCompletionService @Inject constructor(
         } else {
             null
         }
+    }
+
+    private fun extractStringField(profileData: Map<String, Any>, existingUser: Map<String, Any>, key: String): String? {
+        return (profileData[key] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            ?: (existingUser[key] as? String)?.trim()?.takeIf { it.isNotBlank() }
     }
     
     /**
@@ -645,6 +651,7 @@ class ProfileCompletionService @Inject constructor(
             val bio = (profileData["bio"] as? String)?.trim()
                 ?.takeIf { it.isNotBlank() }
                 ?: (existingWorker["bio"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val address = extractStringField(profileData, existingWorker, "address")
 
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
@@ -655,13 +662,17 @@ class ProfileCompletionService @Inject constructor(
                 "role" to "WORKER",
                 "updatedAt" to now,
                 "skills" to skills,
-                "isAvailable" to ((existingWorker["isAvailable"] as? Boolean) ?: true)
+                "isAvailable" to FieldValue.delete()
                 // Notes:
                 //  - `userId` removed: redundant with doc ID (no readers use the body field).
                 //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
                 //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
                 //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
+                //  - availability lives in worker_availability, not worker_profiles.
             )
+            if (!address.isNullOrBlank()) {
+                workerProfile["address"] = address
+            }
             if (!email.isNullOrBlank()) {
                 workerProfile["email"] = email
             }

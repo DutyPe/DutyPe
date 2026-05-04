@@ -53,6 +53,22 @@ const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
 const INSTANT_WORKER_SCAN_LIMIT = 80;
 const INSTANT_WORKER_NOTIFY_LIMIT = 25;
 const MAX_INSTANT_WORK_DISTANCE_KM = 10;
+const CATEGORY_KEYWORDS = [
+    { name: "DELIVERY", display: "Delivery", words: ["delivery", "courier", "rider", "parcel"] },
+    { name: "DRIVER", display: "Driver", words: ["driver", "cab", "taxi", "truck"] },
+    { name: "COOK", display: "Cook", words: ["cook", "chef", "kitchen", "catering"] },
+    { name: "MAID", display: "Housekeeping", words: ["maid", "housekeep", "cleaner", "domestic", "house help"] },
+    { name: "SECURITY", display: "Security", words: ["security", "guard", "watchman"] },
+    { name: "HELPER", display: "Helper", words: ["helper", "assistant", "labour", "labor", "loader", "loading", "unloading"] },
+    { name: "ELECTRICIAN", display: "Electrician", words: ["electric", "wiring"] },
+    { name: "PLUMBER", display: "Plumber", words: ["plumb", "pipe"] },
+    { name: "WAITER", display: "Restaurant Staff", words: ["waiter", "server", "restaurant", "hotel", "steward"] },
+    { name: "SALES", display: "Sales", words: ["sales", "retail", "store"] },
+    { name: "TELECALLER", display: "Telecaller", words: ["telecaller", "calling", "call center", "bpo"] },
+    { name: "OFFICE_STAFF", display: "Office Staff", words: ["office", "admin", "clerk", "peon"] },
+    { name: "PACKER", display: "Packer", words: ["packer", "packing", "warehouse"] },
+    { name: "MECHANIC", display: "Mechanic", words: ["mechanic", "garage", "technician"] },
+];
 function timestampMillis(value) {
     if (value instanceof admin.firestore.Timestamp) {
         return value.toMillis();
@@ -82,6 +98,59 @@ function validCoordinates(lat, lng) {
     return typeof lat === "number" && typeof lng === "number" &&
         lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 &&
         (lat !== 0 || lng !== 0);
+}
+function normalizeMatchToken(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+function stringList(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => normalizeMatchToken(item))
+            .filter(Boolean);
+    }
+    if (typeof value === "string") {
+        return value
+            .split(",")
+            .map((item) => normalizeMatchToken(item))
+            .filter(Boolean);
+    }
+    return [];
+}
+function inferInstantRequestCategory(request) {
+    const explicit = normalizeMatchToken(request.category).replace(/ /g, "_").toUpperCase();
+    const explicitMatch = CATEGORY_KEYWORDS.find((category) => category.name === explicit);
+    if (explicitMatch)
+        return { name: explicitMatch.name, display: explicitMatch.display };
+    const requestText = normalizeMatchToken(`${request.title || ""} ${request.description || ""} ${request.category || ""}`);
+    const inferred = CATEGORY_KEYWORDS.find((category) => category.words.some((word) => requestText.includes(word)));
+    return inferred ? { name: inferred.name, display: inferred.display } : { name: "OTHER", display: "Other" };
+}
+function scoreInstantRoleFit(request, worker) {
+    const requestCategory = inferInstantRequestCategory(request);
+    if (requestCategory.name === "OTHER")
+        return 0;
+    const workerSkills = stringList(worker.skills || worker.jobTypes || worker.categories || worker.primaryJobType);
+    if (workerSkills.length === 0)
+        return 0;
+    const requestText = normalizeMatchToken(`${request.title || ""} ${request.description || ""} ${request.category || ""}`);
+    const categoryRule = CATEGORY_KEYWORDS.find((item) => item.name === requestCategory.name);
+    const categoryWords = (categoryRule === null || categoryRule === void 0 ? void 0 : categoryRule.words) || [requestCategory.display.toLowerCase()];
+    const skillText = workerSkills.join(" ");
+    const categoryMatch = categoryWords.some((word) => skillText.includes(word)) ||
+        workerSkills.some((skill) => skill.length >= 3 && requestText.includes(skill));
+    return categoryMatch ? 18 : -14;
+}
+function chunked(items, size) {
+    const chunks = [];
+    for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size));
+    }
+    return chunks;
 }
 function sanitizeNotificationDataMap(rawData) {
     if (!rawData || typeof rawData !== "object") {
@@ -489,8 +558,9 @@ exports.notifyAvailableWorkersForInstantRequest = functions.firestore
         .where("isAvailable", "==", true)
         .limit(INSTANT_WORKER_SCAN_LIMIT)
         .get();
-    const candidates = availabilitySnap.docs
+    const baseCandidates = availabilitySnap.docs
         .map((doc) => {
+        var _a, _b, _c, _d, _e, _f;
         const availability = doc.data() || {};
         const workerLat = Number(availability.lat);
         const workerLng = Number(availability.lng);
@@ -505,14 +575,59 @@ exports.notifyAvailableWorkersForInstantRequest = functions.firestore
         const workerId = String(availability.workerId || doc.id);
         if (!workerId || workerId === String(request.employerId || ""))
             return null;
+        const freshnessMs = Math.max(timestampMillis(availability.lastActiveAt), timestampMillis(availability.lastSeenAt), timestampMillis(availability.updatedAt));
+        const hoursSinceFreshness = freshnessMs > 0
+            ? (nowMs - freshnessMs) / (1000 * 60 * 60)
+            : Number.POSITIVE_INFINITY;
+        const accepted = Number((_b = (_a = availability.instantAcceptedCount) !== null && _a !== void 0 ? _a : availability.acceptedRequests) !== null && _b !== void 0 ? _b : 0);
+        const declined = Number((_d = (_c = availability.instantDeclinedCount) !== null && _c !== void 0 ? _c : availability.declinedRequests) !== null && _d !== void 0 ? _d : 0);
+        const noShow = Number((_f = (_e = availability.instantNoShowCount) !== null && _e !== void 0 ? _e : availability.noShowCount) !== null && _f !== void 0 ? _f : 0);
+        const decisionCount = Math.max(0, accepted) + Math.max(0, declined) + Math.max(0, noShow);
+        const acceptanceRate = decisionCount > 0 ? accepted / decisionCount : 0.5;
+        const freshnessScore = hoursSinceFreshness <= 6 ? 16 :
+            hoursSinceFreshness <= 24 ? 10 :
+                hoursSinceFreshness <= 72 ? 5 : 0;
+        const reliabilityScore = decisionCount >= 3
+            ? Math.max(-8, Math.min(12, Math.round((acceptanceRate - 0.5) * 24)))
+            : 0;
+        const distanceScore = Math.max(0, 30 - distance * 2.5);
         return {
             workerId,
             distance,
             updatedAt: timestampMillis(availability.updatedAt),
+            baseRankScore: Math.round(distanceScore + freshnessScore + reliabilityScore),
+            availability,
+        };
+    })
+        .filter((item) => item !== null);
+    const workerProfiles = new Map();
+    for (const chunk of chunked(baseCandidates.map((candidate) => candidate.workerId), 10)) {
+        if (chunk.length === 0)
+            continue;
+        const profileSnap = await db.collection("worker_profiles")
+            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+            .get();
+        profileSnap.docs.forEach((doc) => {
+            workerProfiles.set(doc.id, doc.data() || {});
+        });
+    }
+    const requestCategory = inferInstantRequestCategory(request);
+    const candidates = baseCandidates
+        .map((candidate) => {
+        const workerProfile = workerProfiles.get(candidate.workerId) || {};
+        const roleFitScore = scoreInstantRoleFit(request, Object.assign(Object.assign({}, candidate.availability), workerProfile));
+        if (requestCategory.name !== "OTHER" && roleFitScore < 0) {
+            return null;
+        }
+        return {
+            workerId: candidate.workerId,
+            distance: candidate.distance,
+            updatedAt: candidate.updatedAt,
+            rankScore: candidate.baseRankScore + roleFitScore,
         };
     })
         .filter((item) => item !== null)
-        .sort((a, b) => a.distance - b.distance || b.updatedAt - a.updatedAt)
+        .sort((a, b) => b.rankScore - a.rankScore || a.distance - b.distance || b.updatedAt - a.updatedAt)
         .slice(0, INSTANT_WORKER_NOTIFY_LIMIT);
     const batch = db.batch();
     const expiresAt = expiresAtMs > nowMs

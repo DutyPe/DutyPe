@@ -49,6 +49,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -78,6 +79,7 @@ fun MandatoryWorkerProfileSetupScreen(
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
+    val crashlytics = remember { FirebaseCrashlytics.getInstance() }
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
@@ -123,12 +125,26 @@ fun MandatoryWorkerProfileSetupScreen(
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     var isCompletionInProgress by remember { mutableStateOf(false) }  // Prevent double-execution
     val totalSteps = 3  // Selfie capture step removed
+
+    fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
+        runCatching {
+            crashlytics.log("profile_funnel_worker:$event")
+            crashlytics.setCustomKey("profile_funnel_role", "WORKER")
+            crashlytics.setCustomKey("profile_funnel_event", event)
+            crashlytics.setCustomKey("profile_funnel_step", currentStep)
+            extras.forEach { (k, v) -> crashlytics.setCustomKey("profile_funnel_$k", v) }
+        }.onFailure { Timber.w(it, "Failed to log worker funnel telemetry") }
+    }
     
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
     // This handles both new users and existing users with partial data
     // Pattern used by: Google, Uber, Airbnb, LinkedIn
     // Full profile data is loaded for form prefilling - all fields are needed
     LaunchedEffect(Unit) {
+        logFunnelEvent(
+            event = "started",
+            extras = mapOf("return_route" to (returnRoute ?: "none"))
+        )
         isLoadingExistingData = true
         try {
             // Get auth method to determine which field to prefill
@@ -266,6 +282,10 @@ fun MandatoryWorkerProfileSetupScreen(
         } finally {
             isLoadingExistingData = false
         }
+    }
+
+    LaunchedEffect(currentStep) {
+        logFunnelEvent("step_viewed", mapOf("step" to currentStep.toString()))
     }
     
     // Email is locked and cannot be changed
@@ -668,7 +688,10 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Previous Button (back arrow only)
                     if (currentStep > 1) {
                         OutlinedButton(
-                            onClick = { currentStep-- },
+                            onClick = {
+                                logFunnelEvent("step_back", mapOf("from_step" to currentStep.toString()))
+                                currentStep--
+                            },
                             modifier = Modifier
                                 .size(56.dp),
                             shape = RoundedCornerShape(20.dp),
@@ -700,7 +723,15 @@ fun MandatoryWorkerProfileSetupScreen(
                             
                             if (isCurrentStepValid) {
                                 if (currentStep < totalSteps) {
+                                    val previousStep = currentStep
                                     currentStep++
+                                    logFunnelEvent(
+                                        "step_advanced",
+                                        mapOf(
+                                            "from_step" to previousStep.toString(),
+                                            "to_step" to currentStep.toString()
+                                        )
+                                    )
                                     showValidationErrors = false  // Reset errors for next step
                                 } else {
                                     // Prevent double-execution
@@ -721,6 +752,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                             // Save profile data to Firestore
                                             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                             if (currentUser == null) {
+                                                logFunnelEvent("completion_failed", mapOf("reason" to "missing_auth_user"))
                                                 throw IllegalStateException("User not authenticated")
                                             } else {
                                                 // First upload selfie if available
@@ -757,6 +789,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 val workerProfileData = mutableMapOf<String, Any>(
                                                     "fullName" to fullName,
                                                     "phone" to phoneNumber,
+                                                    "address" to address.trim(),
                                                     "skills" to skills,
                                                     "dateOfBirth" to dateOfBirth,
                                                     "gender" to gender,
@@ -778,7 +811,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     ?.let { savedLocation ->
                                                         workerProfileData["location"] = mapOf(
                                                             "lat" to savedLocation.latitude,
-                                                            "lng" to savedLocation.longitude
+                                                            "lng" to savedLocation.longitude,
+                                                            "address" to address.trim()
                                                         )
                                                     }
                                                 
@@ -864,12 +898,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                                 navController.navigate(returnRoute) {
                                                     popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
                                                 }
+                                                logFunnelEvent("completed", mapOf("destination" to returnRoute))
                                             } else {
                                                 navController.navigate(Routes.WORKER_HOME) {
                                                     popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
                                                 }
+                                                logFunnelEvent("completed", mapOf("destination" to Routes.WORKER_HOME))
                                             }
                                         } catch (e: Exception) {
+                                            logFunnelEvent("completion_failed", mapOf("reason" to "exception"))
                                             errorMessage = e.message ?: "Failed to complete profile setup"
                                         } finally {
                                             isLoading = false
@@ -877,6 +914,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                         }
                                     }
                                 }
+                            } else {
+                                logFunnelEvent("step_blocked", mapOf("step" to currentStep.toString()))
                             }
                         },
                         enabled = !isLoading,

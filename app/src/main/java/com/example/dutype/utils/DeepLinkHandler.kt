@@ -1,5 +1,6 @@
 package com.example.dutype.utils
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.navigation.NavController
@@ -37,6 +38,10 @@ object DeepLinkHandler {
     private const val HOST_JOBS = "jobs"
     private const val HOST_APPLICATIONS = "applications"
     private const val HOST_POST_JOB = "post-job"
+    private const val HOST_REFERRALS = "referrals"
+    private const val HOST_HELP = "help"
+    private const val HOST_SUPPORT = "support"
+    private const val HOST_CONTACT = "contact"
     
     // Web URLs - Android App Links (opens Android app directly)
     private const val WEB_DOMAIN = "dutype.in"  // Custom domain
@@ -80,12 +85,36 @@ object DeepLinkHandler {
      */
     fun handleDeepLink(deepLinkUrl: String, navController: NavController): Boolean {
         return try {
-            val uri = Uri.parse(deepLinkUrl)
+            val normalizedUrl = deepLinkUrl.trim()
+            if (normalizedUrl.isBlank()) {
+                return false
+            }
+
+            if (handleInternalRouteString(normalizedUrl, navController)) {
+                return true
+            }
+
+            val uri = Uri.parse(normalizedUrl)
             handleDeepLinkUri(uri, navController)
         } catch (e: Exception) {
             Timber.e(e, "🔗 Failed to parse deep link: $deepLinkUrl")
             false
         }
+    }
+
+    /**
+     * Announcement actions can be app routes, app links, or external update links.
+     */
+    fun handleAnnouncementAction(
+        deepLinkUrl: String,
+        navController: NavController,
+        context: Context
+    ): Boolean {
+        if (handleDeepLink(deepLinkUrl, navController)) {
+            return true
+        }
+
+        return openExternalAction(deepLinkUrl, context)
     }
     
     /**
@@ -141,6 +170,11 @@ object DeepLinkHandler {
                     // dutype://worker/profile
                     pathSegments.firstOrNull() == "profile" -> {
                         navigateToWorkerProfile(navController)
+                        true
+                    }
+                    // dutype://worker/refer or dutype://worker/referrals
+                    pathSegments.firstOrNull() in setOf("refer", "referrals") -> {
+                        navigateToReferralHome(navController)
                         true
                     }
                     // dutype://worker/456 (profile by ID)
@@ -219,6 +253,16 @@ object DeepLinkHandler {
                         navigateToEmployerProfile(navController)
                         true
                     }
+                    // dutype://employer/verification or dutype://employer/company-details
+                    pathSegments.firstOrNull() in setOf("verification", "company", "company-details") -> {
+                        navigateToEmployerCompanyDetails(navController)
+                        true
+                    }
+                    // dutype://employer/refer or dutype://employer/referrals
+                    pathSegments.firstOrNull() in setOf("refer", "referrals") -> {
+                        navigateToEmployerReferralHome(navController)
+                        true
+                    }
                     else -> false
                 }
             }
@@ -229,7 +273,16 @@ object DeepLinkHandler {
                 if (referralCode != null) {
                     navigateToReferral(navController, referralCode)
                     true
-                } else false
+                } else {
+                    navigateToReferralHome(navController)
+                    true
+                }
+            }
+
+            // Legacy app scheme: dutype://referrals
+            data.scheme == SCHEME && data.host == HOST_REFERRALS -> {
+                navigateToReferralHome(navController)
+                true
             }
             
             // App scheme: dutype://application/789
@@ -250,6 +303,18 @@ object DeepLinkHandler {
             // Legacy app scheme: dutype://post-job
             data.scheme == SCHEME && data.host == HOST_POST_JOB -> {
                 navigateToEmployerPostJob(navController)
+                true
+            }
+
+            // App scheme: dutype://help or dutype://support
+            data.scheme == SCHEME && data.host in setOf(HOST_HELP, HOST_SUPPORT) -> {
+                navigateToHelp(navController)
+                true
+            }
+
+            // App scheme: dutype://contact
+            data.scheme == SCHEME && data.host == HOST_CONTACT -> {
+                navigateToContact(navController)
                 true
             }
 
@@ -338,6 +403,18 @@ object DeepLinkHandler {
                 navigateToNotifications(navController)
                 true
             }
+
+            // Android App Link: https://dutype.in/help or /support
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() in setOf("help", "support") -> {
+                navigateToHelp(navController)
+                true
+            }
+
+            // Android App Link: https://dutype.in/contact
+            data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "contact" -> {
+                navigateToContact(navController)
+                true
+            }
             
             else -> {
                 Timber.w("🔗 DEEP LINK: ⚠️ Unhandled deep link: $data")
@@ -357,6 +434,12 @@ object DeepLinkHandler {
     
     private fun navigateToReferral(navController: NavController, referralCode: String) {
         safeNavigate(navController, "${Routes.WORKER_REFER_EARN}?code=$referralCode", "referral:$referralCode")
+    }
+
+    private fun navigateToReferralHome(navController: NavController) {
+        if (tryNavigate(navController, Routes.WORKER_REFER_EARN, "worker-referrals")) return
+        if (tryNavigate(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")) return
+        safeNavigate(navController, Routes.WORKER_HOME, "referrals-fallback")
     }
     
     private fun navigateToApplication(navController: NavController, applicationId: String) {
@@ -395,6 +478,14 @@ object DeepLinkHandler {
     private fun navigateToEmployerUrgent(navController: NavController, requestId: String) {
         safeNavigateEmployerInner(navController, Routes.employerUrgentNeedDetailRoute(requestId), "employer-urgent:$requestId")
     }
+
+    private fun navigateToEmployerCompanyDetails(navController: NavController) {
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_COMPANY_DETAILS, "employer-company-details")
+    }
+
+    private fun navigateToEmployerReferralHome(navController: NavController) {
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")
+    }
     
     private fun navigateToProfile(navController: NavController) {
         safeNavigate(navController, com.example.dutype.navigation.WorkerBottomRoutes.PROFILE, "profile")
@@ -402,6 +493,16 @@ object DeepLinkHandler {
     
     private fun navigateToNotifications(navController: NavController) {
         safeNavigate(navController, Routes.WORKER_NOTIFICATIONS, "notifications")
+    }
+
+    private fun navigateToHelp(navController: NavController) {
+        if (tryNavigate(navController, Routes.HELP, "help")) return
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_HELP, "employer-help")
+    }
+
+    private fun navigateToContact(navController: NavController) {
+        if (tryNavigate(navController, Routes.CONTACT_US, "contact")) return
+        safeNavigate(navController, Routes.WORKER_HOME, "contact-fallback")
     }
     
     private fun navigateToWorkerNotifications(navController: NavController) {
@@ -447,6 +548,138 @@ object DeepLinkHandler {
             }
         } catch (e: Exception) {
             Timber.e(e, "DEEP LINK: failed employer inner navigation for $label")
+        }
+    }
+
+    private fun tryNavigate(navController: NavController, route: String, label: String): Boolean {
+        return try {
+            navController.navigate(route) { launchSingleTop = true }
+            Timber.i("DEEP LINK: $label navigation successful")
+            true
+        } catch (e: Exception) {
+            Timber.d(e, "DEEP LINK: $label route unavailable on current graph")
+            false
+        }
+    }
+
+    private fun handleInternalRouteString(routeInput: String, navController: NavController): Boolean {
+        val parsed = Uri.parse(routeInput)
+        if (parsed.scheme != null) {
+            return false
+        }
+
+        val route = routeInput.trim().trimStart('/').substringBefore('?')
+        if (route.isBlank()) {
+            return false
+        }
+
+        val routeKey = route.lowercase()
+        val segments = route.split('/').filter { it.isNotBlank() }
+        val lowerSegments = segments.map { it.lowercase() }
+
+        return when {
+            routeKey in setOf(Routes.WORKER_HOME, "worker", "worker/home", "app/worker", "app/worker/home") -> {
+                navigateToWorkerHome(navController)
+                true
+            }
+            routeKey in setOf(Routes.EMPLOYER_HOME, "employer/home", "app/employer", "app/employer/home") -> {
+                navigateToEmployerHome(navController)
+                true
+            }
+            routeKey in setOf(Routes.WORKER_NOTIFICATIONS, "notifications", "worker/notifications", "app/worker/notifications") -> {
+                navigateToWorkerNotifications(navController)
+                true
+            }
+            routeKey in setOf(Routes.EMPLOYER_NOTIFICATIONS, "employer/notifications", "app/employer/notifications") -> {
+                navigateToEmployerNotifications(navController)
+                true
+            }
+            routeKey in setOf(Routes.WORKER_ALL_JOBS, "jobs", "worker/jobs", "app/worker/jobs") -> {
+                navigateToWorkerJobs(navController)
+                true
+            }
+            routeKey in setOf(Routes.EMPLOYER_MY_JOBS, "employer/jobs", "app/employer/jobs") -> {
+                navigateToEmployerJobs(navController)
+                true
+            }
+            routeKey in setOf(Routes.EMPLOYER_POST_JOB, "post-job", "post_job", "employer/post-job", "app/employer/post-job") -> {
+                navigateToEmployerPostJob(navController)
+                true
+            }
+            routeKey in setOf(Routes.WORKER_PROFILE_DETAILS, "profile", "worker/profile", "app/worker/profile") -> {
+                navigateToWorkerProfile(navController)
+                true
+            }
+            routeKey in setOf(Routes.EMPLOYER_PROFILE, "employer/profile", "app/employer/profile") -> {
+                navigateToEmployerProfile(navController)
+                true
+            }
+            routeKey in setOf("refer", "referral", "referrals", "worker/refer", "worker/referrals", "app/worker/refer") -> {
+                navigateToReferralHome(navController)
+                true
+            }
+            routeKey in setOf("employer/refer", "employer/referrals", "app/employer/refer") -> {
+                navigateToEmployerReferralHome(navController)
+                true
+            }
+            routeKey in setOf("help", "support", "contact-support", "worker/help", "worker/support", "app/worker/help") -> {
+                navigateToHelp(navController)
+                true
+            }
+            routeKey in setOf("contact", "contact-us", "contact_us", "worker/contact", "app/worker/contact") -> {
+                navigateToContact(navController)
+                true
+            }
+            routeKey in setOf("employer/help", "employer/support", "app/employer/help") -> {
+                safeNavigateEmployerInner(navController, Routes.EMPLOYER_HELP, "employer-help")
+                true
+            }
+            routeKey in setOf("employer/verification", "employer/company", "employer/company-details", "app/employer/company-details") -> {
+                navigateToEmployerCompanyDetails(navController)
+                true
+            }
+            lowerSegments.size >= 2 && lowerSegments[0] in setOf("job", "jobs") -> {
+                navigateToJob(navController, segments[1])
+                true
+            }
+            lowerSegments.size >= 3 && lowerSegments[0] == "app" && lowerSegments[1] == "worker" && lowerSegments[2] == "jobs" -> {
+                val jobId = segments.getOrNull(3)
+                if (jobId != null) {
+                    navigateToJob(navController, jobId)
+                } else {
+                    navigateToWorkerJobs(navController)
+                }
+                true
+            }
+            lowerSegments.size >= 3 && lowerSegments[0] == "employer" && lowerSegments[1] == "jobs" -> {
+                navigateToEmployerJob(navController, segments[2])
+                true
+            }
+            lowerSegments.size >= 4 && lowerSegments[0] == "app" && lowerSegments[1] == "employer" && lowerSegments[2] == "jobs" -> {
+                navigateToEmployerJob(navController, segments[3])
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun openExternalAction(deepLinkUrl: String, context: Context): Boolean {
+        return try {
+            val uri = Uri.parse(deepLinkUrl.trim())
+            val scheme = uri.scheme?.lowercase()
+            if (scheme !in setOf("http", "https", "market")) {
+                return false
+            }
+
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Timber.i("DEEP LINK: external action opened: $deepLinkUrl")
+            true
+        } catch (e: Exception) {
+            Timber.e(e, "DEEP LINK: failed to open external action: $deepLinkUrl")
+            false
         }
     }
     

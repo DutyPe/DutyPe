@@ -128,7 +128,7 @@ class WorkerMatchingService @Inject constructor(
                 ?: getNumber("ratingsCount")?.toInt()
                 ?: 0,
             completedJobs = getNumber("completedJobs")?.toInt() ?: 0,
-            isAvailable = getBoolean("isAvailable", default = true),
+            isAvailable = getBoolean("isAvailable", default = false),
             distanceKm = getNumber("distanceKm")?.toDouble(),
             matchScore = getNumber("matchScore")?.toInt() ?: 0,
             matchReasons = getStringList("matchReasons"),

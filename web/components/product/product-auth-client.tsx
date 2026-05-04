@@ -137,7 +137,6 @@ export function ProductAuthClient() {
           {
             userId: credential.user.uid,
             jobTypes: [],
-            isAvailable: true,
             rating: 0,
             totalRatings: 0,
             totalJobs: 0,

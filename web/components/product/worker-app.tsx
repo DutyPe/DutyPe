@@ -188,8 +188,7 @@ function buildWorkerProfilePayload(
     .slice(0, 30);
 
   const workerProfilePayload: Record<string, unknown> = {
-    skills: skillsList,
-    isAvailable: true
+    skills: skillsList
   };
   if (form.dateOfBirth.trim()) workerProfilePayload.dateOfBirth = form.dateOfBirth.trim();
   if (form.gender.trim()) workerProfilePayload.gender = form.gender.trim();

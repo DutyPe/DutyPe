@@ -203,7 +203,8 @@ fun EmployerApplicationManagementScreen(
                             targetUserId = application.workerId,
                             rating = rating,
                             review = review,
-                            tags = tags
+                            tags = tags,
+                            targetRole = "WORKER"
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
@@ -283,6 +284,12 @@ fun EmployerApplicationManagementScreen(
         visibleApplicationPool.count { it.isConnectNowCandidate() } +
             matchedWorkersState.workers.count { it.isCallReadyMatch() }
     }
+    val shortlistedCount = remember(uiState.applications) {
+        uiState.applications.count { it.status == ApplicationStatus.SHORTLISTED }
+    }
+    val hiredCount = remember(uiState.applications) {
+        uiState.applications.count { it.status in filledApplicationStatuses }
+    }
     
     Column(
         modifier = Modifier
@@ -312,6 +319,22 @@ fun EmployerApplicationManagementScreen(
                 isClosingJob = isClosingJob,
                 onShareJob = { shareHiringRoomJob(jobId, jobTitleForActions, context) },
                 onCloseJob = { showCloseJobDialog = true }
+            )
+
+            HiringConversionCoachCard(
+                isJobLive = isJobLive,
+                totalApplicants = uiState.applications.size,
+                shortlistedCount = shortlistedCount,
+                callReadyCandidates = callReadyCandidates,
+                hiredCount = hiredCount,
+                onPrimaryAction = {
+                    when {
+                        !isJobLive -> selectedTabIndex = 1
+                        uiState.applications.isEmpty() -> onPostUrgentNeed()
+                        shortlistedCount > 0 || callReadyCandidates > 0 -> selectedTabIndex = 1
+                        else -> selectedTabIndex = 1
+                    }
+                }
             )
         }
 
@@ -790,6 +813,80 @@ private fun HiringRoomSummaryCard(
         }
     }
 }
+
+@Composable
+private fun HiringConversionCoachCard(
+    isJobLive: Boolean,
+    totalApplicants: Int,
+    shortlistedCount: Int,
+    callReadyCandidates: Int,
+    hiredCount: Int,
+    onPrimaryAction: () -> Unit
+) {
+    val (headline, body, ctaLabel, tone) = when {
+        !isJobLive && hiredCount > 0 -> Quad(
+            "Hiring completed",
+            "Review hired worker history and close follow-ups for this job.",
+            "Review hired workers",
+            Color(0xFF1F2937)
+        )
+        totalApplicants == 0 -> Quad(
+            "No applicants yet",
+            "Post an urgent request to get nearby workers quickly while this job is live.",
+            "Post urgent need",
+            Color(0xFFB45309)
+        )
+        shortlistedCount == 0 && callReadyCandidates == 0 -> Quad(
+            "Move fast on first shortlist",
+            "Shortlist at least one applicant now to unlock faster connect and calling.",
+            "Review applied workers",
+            Color(0xFF1D4ED8)
+        )
+        else -> Quad(
+            "High-intent candidates ready",
+            "$callReadyCandidates worker(s) are call-ready. Calling now improves fill rate.",
+            "Open applied workers",
+            Color(0xFF047857)
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = tone.copy(alpha = 0.08f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = headline,
+                style = AppTypography.labelLarge.copy(fontWeight = FontWeight.Bold, color = tone)
+            )
+            Text(
+                text = body,
+                style = AppTypography.bodySmall.copy(color = tone.copy(alpha = 0.9f))
+            )
+            Button(
+                onClick = onPrimaryAction,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = tone)
+            ) {
+                Text(ctaLabel)
+            }
+        }
+    }
+}
+
+private data class Quad(
+    val first: String,
+    val second: String,
+    val third: String,
+    val fourth: Color
+)
 
 @Composable
 private fun HiringRoomMetricItem(

@@ -261,6 +261,7 @@ fun WorkerHomeScreen(
                                     val firestore = com.example.dutype.di.firestoreFromHilt(context)
                                     firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).set(
                                         mapOf(
+                                            "address" to data.getFullAddress(),
                                             "location" to mapOf(
                                                 "lat" to data.latitude,
                                                 "lng" to data.longitude

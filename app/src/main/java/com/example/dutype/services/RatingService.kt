@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,6 +28,7 @@ data class Rating(
     val raterCompanyName: String = "",
     val targetName: String = "",
     val targetCompanyName: String = "",
+    val targetRole: String = "",
     val rating: Int = 0,            // 1-5 stars
     val review: String = "",
     val tags: List<String> = emptyList(),
@@ -157,6 +159,14 @@ class RatingService @Inject constructor(
         return "DutyPe user" to ""
     }
 
+    private fun normalizeTargetRole(targetRole: String?): String {
+        return when (targetRole?.trim()?.uppercase(Locale.US)) {
+            "WORKER" -> "WORKER"
+            "EMPLOYER" -> "EMPLOYER"
+            else -> ""
+        }
+    }
+
     /**
      * Submit a rating for a completed job.
      * Worker rates employer OR employer rates worker. `raterName` is denormalized
@@ -167,7 +177,8 @@ class RatingService @Inject constructor(
         targetUserId: String,
         rating: Int,
         review: String = "",
-        tags: List<String> = emptyList()
+        tags: List<String> = emptyList(),
+        targetRole: String? = null
     ): Result<RatingResult> {
         return try {
             val currentUser = auth.currentUser
@@ -205,6 +216,7 @@ class RatingService @Inject constructor(
                 currentUserId = currentUser.uid,
                 targetUserId = resolvedTargetUserId
             )
+            val normalizedTargetRole = normalizeTargetRole(targetRole)
 
             val ratingData = mutableMapOf<String, Any>(
                 "jobId" to jobId,
@@ -216,6 +228,9 @@ class RatingService @Inject constructor(
                 "targetName" to targetName,
                 "createdAt" to Timestamp.now()
             )
+            if (normalizedTargetRole.isNotBlank()) {
+                ratingData["targetRole"] = normalizedTargetRole
+            }
             if (raterCompanyName.isNotBlank()) {
                 ratingData["raterCompanyName"] = raterCompanyName
             }
@@ -289,6 +304,7 @@ class RatingService @Inject constructor(
                         raterCompanyName = data["raterCompanyName"] as? String ?: "",
                         targetName = data["targetName"] as? String ?: "",
                         targetCompanyName = data["targetCompanyName"] as? String ?: "",
+                        targetRole = data["targetRole"] as? String ?: "",
                         rating = (data["rating"] as? Number)?.toInt() ?: 0,
                         review = data["review"] as? String ?: "",
                         tags = (data["tags"] as? List<*>)?.filterIsInstance<String>().orEmpty(),
@@ -326,6 +342,7 @@ class RatingService @Inject constructor(
                         raterCompanyName = data["raterCompanyName"] as? String ?: "",
                         targetName = data["targetName"] as? String ?: "",
                         targetCompanyName = data["targetCompanyName"] as? String ?: "",
+                        targetRole = data["targetRole"] as? String ?: "",
                         rating = (data["rating"] as? Number)?.toInt() ?: 0,
                         review = data["review"] as? String ?: "",
                         tags = (data["tags"] as? List<*>)?.filterIsInstance<String>().orEmpty(),

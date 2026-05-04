@@ -45,6 +45,7 @@ import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
@@ -68,6 +69,7 @@ fun MandatoryEmployerProfileSetupScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val reviewTriggerService = rememberInAppReviewTriggerService()
+    val crashlytics = remember { FirebaseCrashlytics.getInstance() }
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val notificationService = profileCompletionViewModel.notificationService
@@ -104,11 +106,25 @@ fun MandatoryEmployerProfileSetupScreen(
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
     val totalSteps = 2  // Selfie capture step removed
 
+    fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
+        runCatching {
+            crashlytics.log("profile_funnel_employer:$event")
+            crashlytics.setCustomKey("profile_funnel_role", "EMPLOYER")
+            crashlytics.setCustomKey("profile_funnel_event", event)
+            crashlytics.setCustomKey("profile_funnel_step", currentStep)
+            extras.forEach { (k, v) -> crashlytics.setCustomKey("profile_funnel_$k", v) }
+        }.onFailure { Timber.w(it, "Failed to log employer funnel telemetry") }
+    }
+
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
     // This handles both new users and existing users with partial data
     // Pattern used by: Google, Uber, Airbnb, LinkedIn
     // Full profile data is loaded for form prefilling - all fields are needed
     LaunchedEffect(Unit) {
+        logFunnelEvent(
+            event = "started",
+            extras = mapOf("return_route" to (returnRoute ?: "none"))
+        )
         isLoadingExistingData = true
         try {
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -193,6 +209,10 @@ fun MandatoryEmployerProfileSetupScreen(
         } finally {
             isLoadingExistingData = false
         }
+    }
+
+    LaunchedEffect(currentStep) {
+        logFunnelEvent("step_viewed", mapOf("step" to currentStep.toString()))
     }
 
     // Validation logic
@@ -398,14 +418,17 @@ fun MandatoryEmployerProfileSetupScreen(
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }
+                    logFunnelEvent("completed", mapOf("destination" to returnRoute))
                 } else {
                     Timber.d("📍 Profile complete - navigating to EMPLOYER_HOME")
                     navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }
+                    logFunnelEvent("completed", mapOf("destination" to Routes.EMPLOYER_HOME))
                 }
             } catch (e: Exception) {
+                logFunnelEvent("completion_failed", mapOf("reason" to "exception"))
                 errorMessage = e.message ?: "Failed to complete profile setup"
             } finally {
                 isLoading = false
@@ -526,18 +549,33 @@ fun MandatoryEmployerProfileSetupScreen(
             selfieUriString = null
             selfieUrl = null
         },
-        onPreviousClick = { currentStep-- },
+        onPreviousClick = {
+            logFunnelEvent("step_back", mapOf("from_step" to currentStep.toString()))
+            currentStep--
+        },
         onNextClick = {
             showValidationErrors = true
             if (isCurrentStepValid) {
+                val previousStep = currentStep
                 currentStep++
+                logFunnelEvent(
+                    "step_advanced",
+                    mapOf(
+                        "from_step" to previousStep.toString(),
+                        "to_step" to currentStep.toString()
+                    )
+                )
                 showValidationErrors = false
+            } else {
+                logFunnelEvent("step_blocked", mapOf("step" to currentStep.toString()))
             }
         },
         onCompleteClick = {
             showValidationErrors = true
             if (isCurrentStepValid) {
                 handleCompletion()
+            } else {
+                logFunnelEvent("step_blocked", mapOf("step" to currentStep.toString()))
             }
         }
     )

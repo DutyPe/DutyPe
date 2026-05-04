@@ -157,7 +157,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'location', 'geohash',
-          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
@@ -176,7 +176,6 @@ service cloud.firestore {
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
         (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
@@ -188,6 +187,7 @@ service cloud.firestore {
           'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAvailable']) || !('isAvailable' in request.resource.data)) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
@@ -204,7 +204,6 @@ service cloud.firestore {
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
         (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('isAvailable' in request.resource.data) || request.resource.data.isAvailable is bool) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
@@ -824,6 +823,10 @@ service cloud.firestore {
         return ratingId.matches('^.+_' + request.auth.uid + '$');
       }
 
+      function ratingTargetRoleIs(role) {
+        return !('targetRole' in request.resource.data) || request.resource.data.targetRole == role;
+      }
+
       allow get: if isSignedIn() &&
         (
           (resource != null &&
@@ -835,7 +838,7 @@ service cloud.firestore {
          resource.data.toUserId == request.auth.uid);
 
       allow create: if isSignedIn() &&
-        request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'rating', 'review', 'tags', 'raterName', 'raterCompanyName', 'targetName', 'targetCompanyName', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'targetRole', 'rating', 'review', 'tags', 'raterName', 'raterCompanyName', 'targetName', 'targetCompanyName', 'createdAt']) &&
         request.resource.data.keys().hasAll(['jobId', 'fromUserId', 'toUserId', 'rating', 'createdAt']) &&
         request.resource.data.fromUserId == request.auth.uid &&
         request.resource.data.fromUserId != request.resource.data.toUserId &&
@@ -845,6 +848,7 @@ service cloud.firestore {
         request.resource.data.rating is number &&
         request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
         request.resource.data.createdAt is timestamp &&
+        (!('targetRole' in request.resource.data) || request.resource.data.targetRole in ['WORKER', 'EMPLOYER']) &&
         (!('review' in request.resource.data) ||
           (request.resource.data.review is string && request.resource.data.review.size() <= 1000)) &&
         (!('tags' in request.resource.data) ||
@@ -862,25 +866,29 @@ service cloud.firestore {
           (
             exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
-            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId &&
+            ratingTargetRoleIs('EMPLOYER')
           ) ||
           (
             exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
             get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
-            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId &&
+            ratingTargetRoleIs('WORKER')
           ) ||
           (
             exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
             get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status == 'completed' &&
             get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.workerId == request.resource.data.fromUserId &&
-            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId &&
+            ratingTargetRoleIs('EMPLOYER')
           ) ||
           (
             exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
             get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status == 'completed' &&
             get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
-            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId &&
+            ratingTargetRoleIs('WORKER')
           )
         );
 

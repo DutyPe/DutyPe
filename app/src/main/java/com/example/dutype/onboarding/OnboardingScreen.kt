@@ -18,7 +18,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
@@ -145,68 +144,81 @@ private fun FirstTimeLanguageSelection(
     } else {
         "You can change this later from Settings"
     }
-    Box(modifier = Modifier.fillMaxSize().background(com.example.dutype.ui.theme.WorkerColors.CardBackground)) {
-        // Batch-n #3: cleaner, professional Select Language screen.
-        // Removed the busy gradient backdrop + decorative floating shapes
-        // (LanguageSelectionBackdrop / LanguageScreenDecor) so the screen
-        // reads as a calm white surface with one clear primary action.
-
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFFFAEF),
+                        Color(0xFFF8FAFC),
+                        Color(0xFFEFF6FF)
+                    )
+                )
+            )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .padding(horizontal = 22.dp, vertical = 20.dp)
         ) {
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFEEF2FF))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Text(
-                    text = if (isTeluguSelected) "భాష" else "Language",
-                    style = AppTypography.labelMedium.copy(
-                        color = Color(0xFF4338CA),
-                        fontWeight = FontWeight.SemiBold
+                Column(
+                    modifier = Modifier
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(Color(0xFF0F172A), Color(0xFF1E293B))
+                            )
+                        )
+                        .padding(horizontal = 18.dp, vertical = 18.dp)
+                ) {
+                    Text(
+                        text = if (isTeluguSelected) "DutyPe లో మీ భాష" else "Your Language in DutyPe",
+                        style = AppTypography.labelLarge.copy(
+                            color = Color(0xFFE2E8F0),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     )
-                )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = title,
+                        style = AppTypography.displayTitle.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Start
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = subtitle,
+                        style = AppTypography.bodyMedium.copy(
+                            color = Color(0xFFCBD5E1),
+                            lineHeight = 22.sp
+                        )
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            Text(
-                text = title,
-                style = AppTypography.displayTitle.copy(
-                    color = Color(0xFF0F172A),
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Start
-                )
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = subtitle,
-                style = AppTypography.bodyLarge.copy(
-                    color = Color(0xFF475569),
-                    lineHeight = 24.sp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SimpleLanguageCard(
                     scriptChar = "A",
                     nativeName = "English",
                     supportingText = "Simple and familiar across the app",
                     isSelected = currentSelection == LocaleHelper.LANGUAGE_ENGLISH,
                     onClick = { currentSelection = LocaleHelper.LANGUAGE_ENGLISH },
-                    iconBrush = Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF7C3AED))),
-                    accentTint = Color(0xFF3B82F6)
+                    iconBrush = Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF0EA5E9))),
+                    accentTint = Color(0xFF2563EB)
                 )
 
                 SimpleLanguageCard(
@@ -215,8 +227,8 @@ private fun FirstTimeLanguageSelection(
                     supportingText = "తెలుగులో జాబ్స్, సూచనలు, బటన్స్",
                     isSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU,
                     onClick = { currentSelection = LocaleHelper.LANGUAGE_TELUGU },
-                    iconBrush = Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFEF4444))),
-                    accentTint = Color(0xFFF59E0B)
+                    iconBrush = Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFDC2626))),
+                    accentTint = Color(0xFFD97706)
                 )
             }
 
@@ -226,13 +238,13 @@ private fun FirstTimeLanguageSelection(
                 onClick = { onLanguageSelected(currentSelection) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(58.dp),
-                shape = RoundedCornerShape(18.dp),
+                    .height(60.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF111827),
+                    containerColor = Color(0xFF0F172A),
                     contentColor = Color.White
                 ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
             ) {
                 Text(
                     text = continueText,
@@ -248,13 +260,13 @@ private fun FirstTimeLanguageSelection(
             Text(
                 text = changeAnytimeText,
                 style = AppTypography.caption.copy(
-                    color = Color(0xFF94A3B8),
+                    color = Color(0xFF64748B),
                     textAlign = TextAlign.Center
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -369,15 +381,17 @@ private fun SimpleLanguageCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(96.dp)
+            .height(100.dp)
             .border(
-                width = if (isSelected) 1.6.dp else 1.dp,
+                width = if (isSelected) 2.dp else 1.dp,
                 color = if (isSelected) accentTint else Color(0xFFE2E8F0),
                 shape = RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) accentTint.copy(alpha = 0.08f) else com.example.dutype.ui.theme.WorkerColors.CardBackground
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -493,11 +507,7 @@ private fun OnboardingContent(navController: NavController) {
             TopBar(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                onSkip = {
-                    Timber.d("🎯 OnboardingScreen - Skip clicked")
-                    completeOnboardingAndNavigate()
-                }
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             )
 
             // Pager takes the remaining height
@@ -527,6 +537,10 @@ private fun OnboardingContent(navController: NavController) {
             // Bottom controls
             BottomControls(
                 pagerState = pagerState,
+                onSkip = {
+                    Timber.d("🎯 OnboardingScreen - Skip clicked")
+                    completeOnboardingAndNavigate()
+                },
                 onNext = {
                     if (pagerState.currentPage == onboardingPagesData.lastIndex) {
                         Timber.d("🎯 OnboardingScreen - Completed! Navigating to SELECT_ROLE")
@@ -535,13 +549,6 @@ private fun OnboardingContent(navController: NavController) {
                         Timber.d("🎯 OnboardingScreen - Moving to page ${pagerState.currentPage + 1}")
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                        }
-                    }
-                },
-                onBack = {
-                    if (pagerState.currentPage > 0) {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
                         }
                     }
                 }
@@ -557,30 +564,14 @@ fun lerp(start: Float, stop: Float, fraction: Float): Float {
 
 @Composable
 private fun TopBar(
-    modifier: Modifier = Modifier,
-    onSkip: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.White.copy(alpha = 0.92f))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
-                .clickable { onSkip() }
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.skip),
-                style = AppTypography.buttonMedium.copy(
-                    color = GlassTextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
+        Spacer(modifier = Modifier.height(1.dp))
     }
 }
 
@@ -759,8 +750,8 @@ fun OnboardingBackdrop(pageFactor: Float) {
 @Composable
 private fun BottomControls(
     pagerState: androidx.compose.foundation.pager.PagerState,
-    onNext: () -> Unit,
-    onBack: () -> Unit
+    onSkip: () -> Unit,
+    onNext: () -> Unit
 ) {
     val isLastPage = pagerState.currentPage == pagerState.pageCount - 1
     val isTelugu = LocaleHelper.getLanguage(LocalContext.current) == LocaleHelper.LANGUAGE_TELUGU
@@ -772,29 +763,23 @@ private fun BottomControls(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AnimatedVisibility(
-            visible = pagerState.currentPage > 0,
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut()
+        OutlinedButton(
+            onClick = onSkip,
+            modifier = Modifier.height(56.dp),
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground.copy(alpha = 0.95f)),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
         ) {
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.size(width = 56.dp, height = 56.dp),
-                shape = CircleShape,
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground.copy(alpha = 0.95f)),
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = if (isTelugu) "వెనక్కి" else "Back",
-                    tint = GlassTextPrimary
-                )
-            }
-        }
-
-        if (pagerState.currentPage == 0) {
-            Spacer(modifier = Modifier.width(56.dp))
+            Text(
+                text = stringResource(R.string.skip),
+                style = AppTypography.buttonMedium.copy(
+                    color = GlassTextPrimary,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         // Page Indicators

@@ -18,6 +18,8 @@ import * as admin from "firebase-admin";
 const db = admin.firestore();
 const FIELD = admin.firestore.FieldValue;
 
+type RatingTargetRole = "WORKER" | "EMPLOYER";
+
 /**
  * When a rating is created, bump the target user's running average and
  * total count on whichever profile collection matches their role.
@@ -33,12 +35,108 @@ export const onRatingCreated = functions.firestore
       return;
     }
 
-    // Update both worker_profiles and employer_profiles if they exist for the user.
-    await Promise.all([
-      updateRollingAverage(db.doc(`worker_profiles/${toUserId}`), value),
-      updateRollingAverage(db.doc(`employer_profiles/${toUserId}`), value),
-    ]);
+    const targetRef = await resolveRatingTargetProfileRef(rating, snap.id);
+    if (!targetRef) return;
+
+    await updateRollingAverage(targetRef, value);
   });
+
+async function resolveRatingTargetProfileRef(
+  rating: FirebaseFirestore.DocumentData,
+  ratingId: string
+): Promise<FirebaseFirestore.DocumentReference | null> {
+  const toUserId = String(rating?.toUserId ?? "");
+  const explicitRole = normalizeRatingTargetRole(rating?.targetRole ?? rating?.toRole ?? rating?.ratedRole);
+
+  if (explicitRole) {
+    return profileRefForRole(toUserId, explicitRole);
+  }
+
+  const inferredRole = await inferRatingTargetRole(rating);
+  if (inferredRole) {
+    return profileRefForRole(toUserId, inferredRole);
+  }
+
+  const workerRef = db.doc(`worker_profiles/${toUserId}`);
+  const employerRef = db.doc(`employer_profiles/${toUserId}`);
+  const [workerSnap, employerSnap] = await Promise.all([
+    workerRef.get(),
+    employerRef.get(),
+  ]);
+
+  if (workerSnap.exists && !employerSnap.exists) return workerRef;
+  if (employerSnap.exists && !workerSnap.exists) return employerRef;
+
+  functions.logger.warn("onRatingCreated: ambiguous target role, skipped aggregate", {
+    ratingId,
+    toUserId,
+    workerProfileExists: workerSnap.exists,
+    employerProfileExists: employerSnap.exists,
+  });
+  return null;
+}
+
+function normalizeRatingTargetRole(value: unknown): RatingTargetRole | null {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "WORKER") return "WORKER";
+  if (normalized === "EMPLOYER") return "EMPLOYER";
+  return null;
+}
+
+function profileRefForRole(
+  toUserId: string,
+  role: RatingTargetRole
+): FirebaseFirestore.DocumentReference {
+  const collection = role === "WORKER" ? "worker_profiles" : "employer_profiles";
+  return db.doc(`${collection}/${toUserId}`);
+}
+
+async function inferRatingTargetRole(
+  rating: FirebaseFirestore.DocumentData
+): Promise<RatingTargetRole | null> {
+  const jobId = String(rating?.jobId ?? "");
+  const fromUserId = String(rating?.fromUserId ?? "");
+  const toUserId = String(rating?.toUserId ?? "");
+  if (!jobId || !fromUserId || !toUserId) return null;
+
+  const fromSideApplication = await db.doc(`applications/${jobId}_${fromUserId}`).get();
+  if (applicationIsCompleted(fromSideApplication.data()) &&
+      String(fromSideApplication.get("employerId") ?? "") === toUserId) {
+    return "EMPLOYER";
+  }
+
+  const toSideApplication = await db.doc(`applications/${jobId}_${toUserId}`).get();
+  if (applicationIsCompleted(toSideApplication.data()) &&
+      String(toSideApplication.get("workerId") ?? "") === toUserId &&
+      String(toSideApplication.get("employerId") ?? "") === fromUserId) {
+    return "WORKER";
+  }
+
+  const fromSideInstant = await db.doc(`instant_responses/${jobId}_${fromUserId}`).get();
+  if (instantResponseIsCompleted(fromSideInstant.data()) &&
+      String(fromSideInstant.get("workerId") ?? "") === fromUserId &&
+      String(fromSideInstant.get("employerId") ?? "") === toUserId) {
+    return "EMPLOYER";
+  }
+
+  const toSideInstant = await db.doc(`instant_responses/${jobId}_${toUserId}`).get();
+  if (instantResponseIsCompleted(toSideInstant.data()) &&
+      String(toSideInstant.get("workerId") ?? "") === toUserId &&
+      String(toSideInstant.get("employerId") ?? "") === fromUserId) {
+    return "WORKER";
+  }
+
+  return null;
+}
+
+function applicationIsCompleted(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  const status = String(data?.status ?? "").toLowerCase();
+  return status === "hired" || status === "completed";
+}
+
+function instantResponseIsCompleted(data: FirebaseFirestore.DocumentData | undefined): boolean {
+  return String(data?.status ?? "").toLowerCase() === "completed";
+}
 
 async function updateRollingAverage(
   ref: FirebaseFirestore.DocumentReference,

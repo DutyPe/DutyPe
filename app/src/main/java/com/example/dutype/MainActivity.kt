@@ -63,6 +63,7 @@ import com.example.dutype.utils.buildVariantName
 import com.example.dutype.utils.appVersionName
 import com.example.dutype.utils.rememberWindowSizeClass
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -192,6 +193,7 @@ class MainActivity : ComponentActivity() {
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${appVersionName()}")
         Timber.d("Build variant: ${buildVariantName()}")
+        logNotificationTapTelemetry(source = "on_create", sourceIntent = intent)
         
         // Log notification intent if present
         if (intent?.getBooleanExtra("from_notification", false) == true) {
@@ -407,6 +409,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(newIntent)
         setIntent(newIntent) // CRITICAL: Update the activity's intent
         cancelTappedSystemNotification(newIntent)
+        logNotificationTapTelemetry(source = "on_new_intent", sourceIntent = newIntent)
         
         Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
         Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
@@ -426,6 +429,7 @@ class MainActivity : ComponentActivity() {
             // P2-4: Emit through DeepLinkBus instead of LocalBroadcastManager.
             // MainNavGraph collects this flow inside a LaunchedEffect.
             deepLinkBus.emit(deepLinkUri)
+            logNotificationTapTelemetry(source = "deeplink_dispatched", sourceIntent = newIntent)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }
@@ -438,6 +442,25 @@ class MainActivity : ComponentActivity() {
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
         }.onFailure { error ->
             Timber.w(error, "Failed to cancel tapped notification")
+        }
+    }
+
+    private fun logNotificationTapTelemetry(source: String, sourceIntent: Intent?) {
+        if (sourceIntent?.getBooleanExtra("from_notification", false) != true) return
+        val deepLink = sourceIntent.data?.toString().orEmpty()
+            .ifBlank { sourceIntent.getStringExtra("notification_deep_link").orEmpty() }
+        val notificationType = sourceIntent.getStringExtra("notification_type").orEmpty()
+        val systemId = sourceIntent.getIntExtra("notification_system_id", Int.MIN_VALUE)
+
+        runCatching {
+            val crashlytics = FirebaseCrashlytics.getInstance()
+            crashlytics.log("notification_tap:$source")
+            crashlytics.setCustomKey("notification_tap_source", source)
+            crashlytics.setCustomKey("notification_tap_type", notificationType.ifBlank { "unknown" })
+            crashlytics.setCustomKey("notification_tap_deeplink", deepLink.ifBlank { "none" })
+            crashlytics.setCustomKey("notification_tap_system_id", if (systemId == Int.MIN_VALUE) -1 else systemId)
+        }.onFailure { error ->
+            Timber.w(error, "Failed to log notification tap telemetry")
         }
     }
     

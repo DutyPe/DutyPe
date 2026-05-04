@@ -167,7 +167,6 @@ function buildWorkerProfile(userId, user) {
   return {
     userId,
     jobTypes: rawJobTypes,
-    isAvailable: user.isAvailable === undefined ? true : Boolean(user.isAvailable),
     rating: asNumber(user.ratingSummary?.average || user.rating || 0, 0),
     totalRatings: Math.max(0, Math.floor(asNumber(user.ratingSummary?.count || user.totalRatings || 0, 0))),
     totalJobs: Math.max(0, Math.floor(asNumber(user.totalJobs || user.completedJobs || 0, 0))),

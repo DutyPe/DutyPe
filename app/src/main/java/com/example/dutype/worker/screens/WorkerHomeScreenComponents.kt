@@ -609,7 +609,7 @@ fun HomeSectionsContent(
                         },
                         onAction = { announcement ->
                             announcement.actionRoute?.let { route: String ->
-                                DeepLinkHandler.handleDeepLink(route, navController)
+                                DeepLinkHandler.handleAnnouncementAction(route, navController, context)
                             }
                         }
                     )

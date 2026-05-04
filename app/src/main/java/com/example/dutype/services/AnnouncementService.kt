@@ -6,9 +6,9 @@ import com.example.dutype.models.AnnouncementPriority
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -59,53 +59,47 @@ class AnnouncementService @Inject constructor(
     /**
      * Get active announcements for current user
      */
-    fun getActiveAnnouncements(userRole: String): Flow<List<Announcement>> = callbackFlow {
+    fun getActiveAnnouncements(userRole: String): Flow<List<Announcement>> = flow {
         val now = Timestamp.now()
-        
-        val listener = firestore.collection(COLLECTION_ANNOUNCEMENTS)
-            .whereEqualTo("isActive", true)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Timber.e(error, "Error fetching announcements")
-                    trySend(emptyList())
-                    return@addSnapshotListener
+
+        try {
+            val snapshot = firestore.collection(COLLECTION_ANNOUNCEMENTS)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+
+            val announcements = snapshot.documents.mapNotNull { doc ->
+                try {
+                    mapAnnouncement(doc)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error parsing announcement")
+                    null
                 }
-                
-                val announcements = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        mapAnnouncement(doc)
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error parsing announcement")
-                        null
+            }.filter { announcement ->
+                val roleMatches = announcement.targetRole == null ||
+                    announcement.targetRole.equals(userRole, ignoreCase = true)
+                val notExpired = announcement.expiresAt?.let { it > now } ?: true
+
+                Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, notExpired=$notExpired")
+
+                roleMatches && notExpired
+            }.sortedWith(
+                compareByDescending<Announcement> {
+                    when (it.priority) {
+                        AnnouncementPriority.URGENT -> 5
+                        AnnouncementPriority.HIGH -> 4
+                        AnnouncementPriority.MEDIUM -> 3
+                        AnnouncementPriority.NORMAL -> 2
+                        AnnouncementPriority.LOW -> 1
                     }
-                }?.filter { announcement ->
-                    // Filter by role (case-insensitive comparison)
-                    val roleMatches = announcement.targetRole == null || 
-                                    announcement.targetRole.equals(userRole, ignoreCase = true)
-                    
-                    // Filter out expired announcements
-                    val notExpired = announcement.expiresAt?.let { it > now } ?: true
-                    
-                    Timber.d("📢 Announcement '${announcement.title}': targetRole=${announcement.targetRole}, userRole=$userRole, matches=$roleMatches, notExpired=$notExpired")
-                    
-                    roleMatches && notExpired
-                }?.sortedWith(
-                    compareByDescending<Announcement> { 
-                        // Sort by priority (URGENT > HIGH > MEDIUM/NORMAL > LOW)
-                        when (it.priority) {
-                            AnnouncementPriority.URGENT -> 5
-                            AnnouncementPriority.HIGH -> 4
-                            AnnouncementPriority.MEDIUM -> 3
-                            AnnouncementPriority.NORMAL -> 2
-                            AnnouncementPriority.LOW -> 1
-                        }
-                    }.thenByDescending { it.createdAt }
-                ) ?: emptyList()
-                
-                trySend(announcements)
-            }
-        
-        awaitClose { listener.remove() }
+                }.thenByDescending { it.createdAt }
+            )
+
+            emit(announcements)
+        } catch (e: Exception) {
+            Timber.e(e, "Error fetching announcements")
+            emit(emptyList())
+        }
     }
     
     /**

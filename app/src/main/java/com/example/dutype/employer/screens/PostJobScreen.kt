@@ -210,6 +210,7 @@ fun PostJobScreen(
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var educationRequired by remember { mutableStateOf("No qualification required") }
     var gender by remember { mutableStateOf("Both") }
+    var repostOfJobId by remember { mutableStateOf("") }
     
     // Employer Trust Tier (loaded from profile)
     var employerTrustTier by remember { mutableStateOf("VERIFIED") }
@@ -310,7 +311,8 @@ fun PostJobScreen(
                     educationRequired != "No qualification required" ||
                     gender != "Both" ||
                     shiftTiming != ShiftTiming.FLEXIBLE ||
-                    workType != "Full-time"
+                    workType != "Full-time" ||
+                    repostOfJobId.isNotBlank()
 
                 if (hasDraftContent) {
                     val draft = JobDraftDataStore.JobDraft(
@@ -330,7 +332,8 @@ fun PostJobScreen(
                         experienceLevel = experienceLevel,
                         educationRequired = educationRequired,
                         gender = gender,
-                        requirements = ""
+                        requirements = "",
+                        repostOfJobId = repostOfJobId
                     )
                     employerJobViewModel.saveDraft(draft)
                     Timber.d("� AUTO-SAVE: Draft saved")
@@ -353,7 +356,8 @@ fun PostJobScreen(
         workType,
         experienceLevel,
         educationRequired,
-        gender
+        gender,
+        repostOfJobId
     ) {
         draftTrigger.value = System.currentTimeMillis()
     }
@@ -448,6 +452,7 @@ fun PostJobScreen(
                     } else {
                         savedDraft.gender
                     }
+                    repostOfJobId = savedDraft.repostOfJobId
                     Timber.d("✅ Draft restored successfully")
                 }
             } catch (e: Exception) {
@@ -629,7 +634,7 @@ fun PostJobScreen(
         )
 
         // Build job data map directly from jobPosting (no intermediate JobListing needed)
-        val jobData = mapOf(
+        val jobData = mutableMapOf<String, Any>(
             // Core job information
             "title" to jobPosting.title,
             // Job type stores the work mode (Full-time / Part-time / �).
@@ -673,6 +678,10 @@ fun PostJobScreen(
             // it shows on worker / employer job cards instead of an emoji.
             "jobImageUrl" to jobImageUrl
         )
+        if (repostOfJobId.isNotBlank()) {
+            jobData["repostOfJobId"] = repostOfJobId
+            jobData["repostedAt"] = System.currentTimeMillis()
+        }
         
         // DEBUG: Log all job data being sent to Firestore
         Timber.d("� JOB POSTING DEBUG: Job Data to be saved:")
@@ -680,7 +689,7 @@ fun PostJobScreen(
             Timber.d("�   - $key: $value")
         }
         
-        employerJobViewModel.createJob(jobData as Map<String, Any>) { success, newJobId, message ->
+        employerJobViewModel.createJob(jobData) { success, newJobId, message ->
             // Reset local guard
             isSubmittingJob = false
             

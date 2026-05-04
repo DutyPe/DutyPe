@@ -90,7 +90,8 @@ fun EmployerUrgentNeedDetailScreen(
                             targetUserId = response.workerId,
                             rating = rating,
                             review = review,
-                            tags = tags
+                            tags = tags,
+                            targetRole = "WORKER"
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()

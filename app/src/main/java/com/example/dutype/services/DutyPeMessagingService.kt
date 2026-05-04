@@ -214,12 +214,14 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 setClass(this@DutyPeMessagingService, MainActivity::class.java)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("from_notification", true)
+                putExtra("notification_deep_link", deepLink)
                 notificationId?.let { putExtra("notification_system_id", it) }
             }
         } else {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("from_notification", true)
+                putExtra("notification_deep_link", "")
                 notificationId?.let { putExtra("notification_system_id", it) }
             }
         }

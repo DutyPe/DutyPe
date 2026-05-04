@@ -155,11 +155,14 @@ object AppModule {
         //
         // We use the modern `net.zetetic:sqlcipher-android` artifact (16 KB
         // page-size compatible). Its native library must be loaded once before
-        // any database operation — `System.loadLibrary` is idempotent so it is
-        // safe to call here on every provider invocation.
-        System.loadLibrary("sqlcipher")
+        // any database operation. If a broken install/runtime cannot load it,
+        // keep the app alive with a non-persistent cache instead of crashing at startup.
+        if (!loadSqlCipherNativeLibrary()) {
+            Timber.e("SQLCipher native library unavailable; using in-memory Room database")
+            return buildInMemoryDutyPeDatabase(context)
+        }
 
-        val database = buildDutyPeDatabase(context)
+        val database = buildEncryptedDutyPeDatabase(context)
         return try {
             verifyDutyPeDatabaseOpens(database)
             database
@@ -172,13 +175,23 @@ object AppModule {
             database.close()
             deleteDutyPeDatabaseFiles(context)
 
-            buildDutyPeDatabase(context).also { rebuiltDatabase ->
+            buildEncryptedDutyPeDatabase(context).also { rebuiltDatabase ->
                 verifyDutyPeDatabaseOpens(rebuiltDatabase)
             }
         }
     }
 
-    private fun buildDutyPeDatabase(context: Context): DutyPeDatabase {
+    private fun loadSqlCipherNativeLibrary(): Boolean {
+        return try {
+            System.loadLibrary("sqlcipher")
+            true
+        } catch (error: UnsatisfiedLinkError) {
+            Timber.e(error, "Failed to load libsqlcipher.so")
+            false
+        }
+    }
+
+    private fun buildEncryptedDutyPeDatabase(context: Context): DutyPeDatabase {
         val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
         val factory = net.zetetic.database.sqlcipher.SupportOpenHelperFactory(passphrase)
 
@@ -197,6 +210,15 @@ object AppModule {
         )
             .openHelperFactory(factory)
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
+            .fallbackToDestructiveMigrationOnDowngrade()
+            .build()
+    }
+
+    private fun buildInMemoryDutyPeDatabase(context: Context): DutyPeDatabase {
+        return Room.inMemoryDatabaseBuilder(
+            context,
+            DutyPeDatabase::class.java
+        )
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }

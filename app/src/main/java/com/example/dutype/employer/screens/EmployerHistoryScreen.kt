@@ -35,6 +35,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
+import com.example.dutype.data.JobDraftDataStore
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.employer.models.PayType
+import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
@@ -116,7 +120,8 @@ fun EmployerHistoryScreen(
                             targetUserId = response.workerId,
                             rating = rating,
                             review = review,
-                            tags = tags
+                            tags = tags,
+                            targetRole = "WORKER"
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
@@ -153,14 +158,17 @@ fun EmployerHistoryScreen(
         }
 
         repostingJobId = job.id
-        employerJobViewModel.createJob(job.toRepostJobData()) { success, newJobId, message ->
-            repostingJobId = null
-            if (success && !newJobId.isNullOrBlank()) {
-                Toast.makeText(context, "Job reposted", Toast.LENGTH_SHORT).show()
-                navController.navigate(Routes.employerApplicationsJobRoute(newJobId))
-            } else {
-                Toast.makeText(context, message ?: "Unable to repost job", Toast.LENGTH_LONG).show()
+        scope.launch {
+            runCatching {
+                val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "GUEST"
+                employerJobViewModel.jobDraftDataStore.saveDraft(job.toRepostDraft().copy(employerId = employerId))
+            }.onSuccess {
+                Toast.makeText(context, "Review and publish your repost", Toast.LENGTH_SHORT).show()
+                navController.navigate(Routes.EMPLOYER_POST_JOB)
+            }.onFailure { error ->
+                Toast.makeText(context, error.message ?: "Unable to prepare repost", Toast.LENGTH_LONG).show()
             }
+            repostingJobId = null
         }
     }
     
@@ -855,38 +863,54 @@ private fun JobListing.missingRepostFields(): List<String> {
     }
 }
 
-private fun JobListing.toRepostJobData(): Map<String, Any> {
+private fun JobListing.toRepostDraft(): JobDraftDataStore.JobDraft {
     val descriptionText = description.ifBlank {
         buildString {
             append(title)
             if (salary.isNotBlank()) append(". Pay: ").append(salary)
-            append(".")
+            append('.')
         }
     }
-
-    return buildMap {
-        put("title", title)
-        put("jobType", jobType.ifBlank { "Full-time" })
-        put(
-            "category",
-            com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
-                title = title,
-                description = descriptionText
-            )
-        )
-        put("location", mapOf("lat" to lat, "lng" to lng))
-        put("addressText", addressText.ifBlank { location })
-        put("salary", salary)
-        put("salaryType", salaryType.ifBlank { "DAILY" })
-        put("description", descriptionText)
-        put("gender", gender.ifBlank { "Any" })
-        put("experienceRequired", experienceRequired.ifBlank { "No Experience Required" })
-        put("educationRequired", educationRequired.ifBlank { "No qualification required" })
-        put("shiftTiming", shiftTiming.ifBlank { "Flexible" })
-        put("vacancies", vacancies.coerceIn(1, 50))
-        put("contactNumber", contactNumber)
-        jobImageUrl?.takeIf { it.isNotBlank() }?.let { put("jobImageUrl", it) }
+    val inferredCategory = com.example.dutype.utils.JobCategoryResolver.inferCategory(title, descriptionText) ?: JobCategory.OTHER
+    val customCategoryValue = when {
+        inferredCategory != JobCategory.OTHER -> ""
+        title.isNotBlank() -> title
+        else -> com.example.dutype.utils.CategoryDetector.detectCategory(title, descriptionText)
+            .takeUnless { it.equals("Other", ignoreCase = true) }
+            .orEmpty()
     }
+
+    return JobDraftDataStore.JobDraft(
+        title = title,
+        description = descriptionText,
+        payAmount = salary,
+        payType = salaryType.toDraftPayType(),
+        location = addressText.ifBlank { location },
+        locationLatitude = lat,
+        locationLongitude = lng,
+        category = inferredCategory,
+        customCategory = customCategoryValue,
+        vacancies = vacancies.coerceAtLeast(1).toString(),
+        contactNumber = contactNumber,
+        shiftTiming = shiftTiming.toDraftShiftTiming(),
+        workType = jobType.ifBlank { "Part-time" },
+        experienceLevel = experienceRequired.ifBlank { "No Experience Required" },
+        educationRequired = educationRequired.ifBlank { "No qualification required" },
+        gender = gender.ifBlank { "Any" },
+        repostOfJobId = id,
+    )
+}
+
+private fun String.toDraftPayType(): PayType {
+    return PayType.entries.firstOrNull {
+        it.name.equals(this, ignoreCase = true) || it.displayName.equals(this, ignoreCase = true)
+    } ?: PayType.HOURLY
+}
+
+private fun String.toDraftShiftTiming(): ShiftTiming {
+    return ShiftTiming.entries.firstOrNull {
+        it.name.equals(this, ignoreCase = true) || it.displayName.equals(this, ignoreCase = true)
+    } ?: ShiftTiming.FLEXIBLE
 }
 
 @Composable

@@ -15,7 +15,7 @@ data class MatchedWorker(
     val rating: Double = 0.0,
     val ratingCount: Int = 0,
     val completedJobs: Int = 0,
-    val isAvailable: Boolean = true,
+    val isAvailable: Boolean = false,
     val distanceKm: Double? = null,
     val matchScore: Int = 0,
     val matchReasons: List<String> = emptyList(),

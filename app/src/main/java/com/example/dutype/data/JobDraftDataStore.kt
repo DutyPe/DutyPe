@@ -67,6 +67,7 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_GENDER = stringPreferencesKey("draft_gender")
         private val KEY_TIMESTAMP = longPreferencesKey("draft_timestamp")
         private val KEY_EMPLOYER_ID = stringPreferencesKey("draft_employer_id")
+        private val KEY_REPOST_OF_JOB_ID = stringPreferencesKey("draft_repost_of_job_id")
     }
     
     private val gson = sharedGson
@@ -96,6 +97,7 @@ class JobDraftDataStore @Inject constructor(
         val gender: String = "Any",
         val landmark: String = "",
         val requirements: String = "",
+        val repostOfJobId: String = "",
         val timestamp: Long = 0L,
         val employerId: String = ""
     ) {
@@ -114,7 +116,7 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_LOCATION] = draft.location
         prefs[KEY_LOCATION_LAT] = draft.locationLatitude
         prefs[KEY_LOCATION_LNG] = draft.locationLongitude
-        // Category removed - will be auto-detected
+        prefs[KEY_CATEGORY] = draft.category.name
         prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
         prefs[KEY_VACANCIES] = draft.vacancies
         prefs[KEY_CONTACT_NUMBER] = draft.contactNumber
@@ -123,6 +125,7 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
         prefs[KEY_EDUCATION_REQUIRED] = draft.educationRequired
         prefs[KEY_GENDER] = draft.gender
+        prefs[KEY_REPOST_OF_JOB_ID] = draft.repostOfJobId
         prefs[KEY_TIMESTAMP] = System.currentTimeMillis()
         prefs[KEY_EMPLOYER_ID] = draft.employerId
     }
@@ -171,6 +174,7 @@ class JobDraftDataStore @Inject constructor(
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
                     educationRequired = prefs[KEY_EDUCATION_REQUIRED] ?: "No qualification required",
                     gender = prefs[KEY_GENDER] ?: "Any",
+                    repostOfJobId = prefs[KEY_REPOST_OF_JOB_ID] ?: "",
                     timestamp = timestamp,
                     employerId = savedEmployerId
                 )

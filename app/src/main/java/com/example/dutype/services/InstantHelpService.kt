@@ -16,6 +16,7 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -86,16 +87,14 @@ class InstantHelpService @Inject constructor(
                 .set(data, SetOptions.merge())
                 .await()
 
-            firestore.collection(FirestoreCollections.WORKER_PROFILES)
-                .document(workerId)
-                .set(
-                    mapOf(
-                        "isAvailable" to isAvailable,
-                        "updatedAt" to now
-                    ),
-                    SetOptions.merge()
-                )
-                .await()
+            runCatching {
+                firestore.collection(FirestoreCollections.WORKER_PROFILES)
+                    .document(workerId)
+                    .set(mapOf("isAvailable" to FieldValue.delete()), SetOptions.merge())
+                    .await()
+            }.onFailure { cleanupError ->
+                Timber.w(cleanupError, "Failed to remove legacy worker profile availability field")
+            }
 
             Result.success(
                 WorkerAvailability(
