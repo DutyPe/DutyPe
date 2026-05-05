@@ -81,6 +81,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -623,12 +624,6 @@ fun HomeSectionsContent(
                         message = guestWelcomeMessage,
                         buttonText = stringResource(R.string.guest_welcome_claim_gift),
                         onClick = onGuestWelcomeClick,
-                        onVariantImpression = { variant ->
-                            timber.log.Timber.d("Welcome gift impression (worker) variant=%s", variant.name)
-                        },
-                        onVariantClick = { variant ->
-                            timber.log.Timber.d("Welcome gift click (worker) variant=%s", variant.name)
-                        },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
@@ -638,17 +633,17 @@ fun HomeSectionsContent(
                 ReferEarnStripCard(
                     rewardAmount = referralRewardAmount,
                     onInviteClick = onReferEarnClick
+                )
+            }
 
-                            item {
-                                WorkerEarningsSummarySection(
-                                    todayEarningsAmount = todayEarningsAmount,
-                                    todayJobsDone = todayJobsDone,
-                                    thisWeekEarningsAmount = thisWeekEarningsAmount,
-                                    weekJobsDone = weekJobsDone,
-                                    ratingValue = ratingValue,
-                                    reviewCount = reviewCount
-                                )
-                            }
+            item {
+                WorkerEarningsSummarySection(
+                    todayEarningsAmount = todayEarningsAmount,
+                    todayJobsDone = todayJobsDone,
+                    thisWeekEarningsAmount = thisWeekEarningsAmount,
+                    weekJobsDone = weekJobsDone,
+                    ratingValue = ratingValue,
+                    reviewCount = reviewCount
                 )
             }
 
@@ -1841,94 +1836,10 @@ internal fun DynamicHeader(
                                 .align(Alignment.TopEnd)
                                 .offset(x = (-3).dp, y = 7.dp)
                                 .background(
-                                    if (locationBarAlpha > 0.05f) {
-                                        Card(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp)
-                                                .graphicsLayer {
-                                                    alpha = locationBarAlpha.coerceIn(0f, 1f)
-                                                    translationY = -12f * (1f - locationBarAlpha)
-                                                },
-                                            shape = RoundedCornerShape(16.dp),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (isInstantAvailable) Color(0xFF16A34A) else Color(0xFFE5E7EB)
-                                            ),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(18.dp)
-                                                            .background(
-                                                                if (isInstantAvailable) Color(0xFFD1FAE5) else Color(0xFFD1D5DB),
-                                                                CircleShape
-                                                            )
-                                                    )
-                                                    Column {
-                                                        Text(
-                                                            text = stringResource(R.string.instant_works_near_you),
-                                                            style = MaterialTheme.typography.titleSmall.copy(
-                                                                color = if (isInstantAvailable) Color.White else Color(0xFF374151),
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                        )
-                                                        Text(
-                                                            text = if (isInstantAvailable) stringResource(R.string.nearby_jobs_instantly) else stringResource(R.string.turn_on_to_get_jobs),
-                                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                                color = if (isInstantAvailable) Color(0xFFDCFCE7) else Color(0xFF6B7280)
-                                                            )
-                                                        )
-                                                    }
-                                                }
-
-                                                OutlinedButton(
-                                                    onClick = { onInstantAvailabilityChange(!isInstantAvailable) },
-                                                    enabled = !isInstantAvailabilitySaving,
-                                                    shape = RoundedCornerShape(999.dp),
-                                                    border = androidx.compose.foundation.BorderStroke(
-                                                        1.dp,
-                                                        if (isInstantAvailable) Color(0xFFE2E8F0) else Color(0xFF9CA3AF)
-                                                    ),
-                                                    colors = ButtonDefaults.outlinedButtonColors(
-                                                        contentColor = if (isInstantAvailable) Color.White else Color(0xFF1F2937)
-                                                    )
-                                                ) {
-                                                    if (isInstantAvailabilitySaving) {
-                                                        CircularProgressIndicator(
-                                                            modifier = Modifier.size(14.dp),
-                                                            strokeWidth = 2.dp,
-                                                            color = if (isInstantAvailable) Color.White else Color(0xFF1F2937)
-                                                        )
-                                                    } else {
-                                                        Text(if (isInstantAvailable) stringResource(R.string.go_offline) else stringResource(R.string.go_online))
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        Icon(
-                                                            imageVector = Icons.Default.PowerSettingsNew,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(14.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                                    color = Color(0xFFDC2626),
+                                    shape = CircleShape
+                                )
+                        )
                     }
                 }
             }

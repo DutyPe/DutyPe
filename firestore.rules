@@ -68,22 +68,35 @@ service cloud.firestore {
       return roles is list && roles.size() == 1 && validRole(roles[0]);
     }
 
-    function phoneMatchesAuth(phone) {
-      return isSignedIn() && request.auth.token.get('phone_number', '') == phone;
+    function authPhone() {
+      return request.auth.token.get('phone_number', '');
+    }
+
+    function phoneMatchesAuthPath(phone) {
+      return isSignedIn() && authPhone() is string && (
+        phone == authPhone() ||
+        phone == ('+' + authPhone()) ||
+        ('+' + phone) == authPhone()
+      );
     }
 
     // ── phoneRoles ───────────────────────────────────────────────────
     // Phone-number index for auth/login role resolution. Document ID is the
     // normalized E.164 phone number; role-owned profile data lives in the
     // worker/employer profile collections.
+    // NOTE: Client writes are allowed during registration if:
+    //   1) User is authenticated (phone OTP verified)
+    //   2) Writing to own uid (request.resource.data.uid == request.auth.uid)
+    //   3) Data passes field validation
+    // Phone format matching is not strict since Firebase Auth normalizes formats.
     match /phoneRoles/{phone} {
       allow read, write: if isAdmin();
 
-      allow get: if isSignedIn() && phoneMatchesAuth(phone);
+      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow list: if false;
 
       allow create: if isSignedIn() &&
-        phoneMatchesAuth(phone) &&
+        phoneMatchesAuthPath(phone) &&
         request.resource.data.keys().hasOnly([
           'phoneNumber', 'role', 'name', 'uid', 'createdAt', 'updatedAt'
         ]) &&
@@ -91,27 +104,34 @@ service cloud.firestore {
         request.resource.data.phoneNumber == phone &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.name is string &&
+        request.resource.data.name.size() >= 1 &&
         request.resource.data.name.size() <= 120 &&
         validRole(request.resource.data.role) &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
       allow update: if isSignedIn() &&
-        phoneMatchesAuth(phone) &&
-        resource.data.uid == request.auth.uid &&
-        request.resource.data.uid == resource.data.uid &&
+        phoneMatchesAuthPath(phone) &&
+        request.resource.data.uid == request.auth.uid &&
         request.resource.data.phoneNumber == phone &&
-        request.resource.data.keys().hasOnly([
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'phoneNumber', 'role', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
         ]) &&
-        request.resource.data.name is string &&
-        request.resource.data.name.size() <= 120 &&
-        validRole(request.resource.data.role) &&
-        (!('roles' in request.resource.data) ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phoneNumber']) ||
+          request.resource.data.phoneNumber is string) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
+          (request.resource.data.name is string &&
+            request.resource.data.name.size() >= 1 &&
+            request.resource.data.name.size() <= 120)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+          validRole(request.resource.data.role)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles']) ||
           (validLegacySingleRoleList(request.resource.data.roles) &&
             request.resource.data.roles[0] == request.resource.data.role)) &&
-        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
-        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt']) ||
+          request.resource.data.createdAt is timestamp) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt']) ||
+          request.resource.data.updatedAt is timestamp);
 
       allow delete: if false;
     }
@@ -156,7 +176,7 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
           'location', 'geohash',
           'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl',
           'referralCode', 'referredByCode', 'referredByUserId'
@@ -164,6 +184,7 @@ service cloud.firestore {
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
@@ -183,7 +204,7 @@ service cloud.firestore {
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
           'location', 'geohash',
           'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
           'referralCode', 'referredByCode', 'referredByUserId'
@@ -192,6 +213,7 @@ service cloud.firestore {
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
