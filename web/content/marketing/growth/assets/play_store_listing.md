@@ -116,56 +116,6 @@ KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
 
 Keep ≤ 500 chars. Always release-note specific. Avoid generic "bug fixes & improvements" — wastes ASO real estate.
 
-### Release pack — v2.6.16
-
-#### English
-**Release name:**
-`DutyPe 2.6.16 - Faster Refer & Earn + Update Alerts`
-
-**What's new:**
-```
-Refer & Earn is now more reliable and transparent.
-
-- New users now receive signup bonus credit more consistently after registration.
-- Refer & Earn now refreshes live, so wallet/reward balance updates are visible faster.
-- Added clearer bonus earning visibility in Refer & Earn.
-- Added in-app update prompts controlled from admin for safer rollouts.
-
-Need help? WhatsApp +91 91217 06236
-```
-
-#### Telugu
-**Release name:**
-`DutyPe 2.6.16 - వేగమైన Refer & Earn + Update Alerts`
-
-**What's new:**
-```
-Refer & Earn ఇప్పుడు మరింత నమ్మకంగా మరియు క్లియర్‌గా పని చేస్తుంది.
-
-- కొత్తగా రిజిస్టర్ అయ్యే యూజర్లకు signup bonus క్రెడిట్ మరింత స్థిరంగా వస్తుంది.
-- Refer & Earn వాలెట్/రివార్డ్ బ్యాలెన్స్ ఇప్పుడు live గా త్వరగా update అవుతుంది.
-- Bonus వచ్చినప్పుడు స్పష్టంగా కనిపించేలా మెరుగులు చేశాం.
-- Admin control తో in-app update promptలు జోడించాం.
-
-సహాయం కోసం: WhatsApp +91 91217 06236
-```
-
-#### Hindi
-**Release name:**
-`DutyPe 2.6.16 - Faster Refer & Earn + Update Alerts`
-
-**What's new:**
-```
-Refer & Earn अब ज्यादा भरोसेमंद और स्पष्ट है।
-
-- नए यूज़र्स को रजिस्ट्रेशन के बाद signup bonus क्रेडिट अब अधिक स्थिरता से मिलता है।
-- Refer & Earn में वॉलेट/रिवार्ड बैलेंस अब लाइव जल्दी अपडेट दिखता है।
-- बोनस कमाने की विज़िबिलिटी और स्पष्ट की गई है।
-- सुरक्षित रोलआउट के लिए admin-controlled in-app update prompt जोड़ा गया है।
-
-सहायता: WhatsApp +91 91217 06236
-```
-
 Example template:
 ```
 - New: <feature> in {{city/category}}.
