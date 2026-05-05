@@ -47,20 +47,6 @@ function normalizeVacancies(raw) {
     const value = Number(raw !== null && raw !== void 0 ? raw : 1);
     return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
 }
-async function logUserEvent(uid, type, role, payload = {}) {
-    try {
-        await db().collection("user_events").add({
-            uid,
-            type,
-            role,
-            payload,
-            at: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    }
-    catch (e) {
-        functions.logger.warn(`user_events write failed: ${type}`, e);
-    }
-}
 function normalizeMatchToken(value) {
     return String(value !== null && value !== void 0 ? value : "")
         .trim()
@@ -435,11 +421,6 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         });
         return { alreadyExisted };
     });
-    await logUserEvent(uid, alreadyExistedToEvent(result.alreadyExisted, role), role, {
-        role,
-        rolesCount: 1,
-        hasReferral: !!referralCode,
-    });
     if (referralCode) {
         await fireAndForgetReferral(uid, role, fullName, referralCode);
     }
@@ -730,7 +711,6 @@ exports.requestWorkerForJob = (0, secure_callable_1.onCallSecured)({ enforceAppC
             employerId: uid,
             deepLink: `dutype://job/${jobId}`,
         });
-        await logUserEvent(uid, "worker_requested_for_job", "EMPLOYER", { jobId, workerId, requestId });
     }
     const out = Object.assign({ success: true }, txResult);
     await idem.record(out);
@@ -852,7 +832,6 @@ exports.respondToWorkerJobRequest = (0, secure_callable_1.onCallSecured)({ enfor
             workerId: uid,
             deepLink: `dutype://employer/applications/${jobId}`,
         });
-        await logUserEvent(uid, "worker_job_request_accepted", "WORKER", { jobId, employerId, requestId });
     }
     const out = {
         success: true,
@@ -945,9 +924,6 @@ exports.submitApplication = (0, secure_callable_1.onCallSecured)({}, async (data
         tx.set(appRef, applicationData);
         return { alreadyApplied: false };
     });
-    if (!txResult.alreadyApplied) {
-        await logUserEvent(uid, "application_submitted", "WORKER", { jobId, employerId });
-    }
     const out = {
         success: true,
         applicationId: docId,

@@ -27,10 +27,6 @@ const db = () => admin.firestore();
 const VALID_ROLES = ["WORKER", "EMPLOYER"] as const;
 type Role = typeof VALID_ROLES[number];
 
-interface UserEventPayload {
-  [key: string]: unknown;
-}
-
 type WorkerRequestAction = "ACCEPT" | "REJECT";
 
 interface WorkerJobRequestTxResult {
@@ -68,23 +64,6 @@ function normalizeReferralCode(raw: unknown): string {
 function normalizeVacancies(raw: unknown): number {
   const value = Number(raw ?? 1);
   return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
-}
-
-async function logUserEvent(
-  uid: string,
-  type: string,
-  role: string,
-  payload: UserEventPayload = {}
-): Promise<void> {
-  // user_events collection deprecated: convert to no-op to avoid writes
-  // Keep call sites intact so callers don't need code changes.
-  try {
-    functions.logger.info("user_events disabled", { uid, type, role });
-    return Promise.resolve();
-  } catch (e) {
-    functions.logger.warn(`user_events noop failed: ${type}`, e);
-    return Promise.resolve();
-  }
 }
 
 function normalizeMatchToken(value: unknown): string {
@@ -524,17 +503,6 @@ export const completeRegistration = onCallSecured(
       return { alreadyExisted };
     });
 
-    await logUserEvent(
-      uid,
-      alreadyExistedToEvent(result.alreadyExisted, role),
-      role,
-      {
-        role,
-        rolesCount: 1,
-        hasReferral: !!referralCode,
-      }
-    );
-
     if (referralCode) {
       await fireAndForgetReferral(uid, role, fullName, referralCode);
     }
@@ -890,7 +858,6 @@ export const requestWorkerForJob = onCallSecured(
           deepLink: `dutype://job/${jobId}`,
         }
       );
-      await logUserEvent(uid, "worker_requested_for_job", "EMPLOYER", { jobId, workerId, requestId });
     }
 
     const out = { success: true, ...txResult };
@@ -1030,7 +997,6 @@ export const respondToWorkerJobRequest = onCallSecured(
           deepLink: `dutype://employer/applications/${jobId}`,
         }
       );
-      await logUserEvent(uid, "worker_job_request_accepted", "WORKER", { jobId, employerId, requestId });
     }
 
     const out = {
@@ -1144,10 +1110,6 @@ export const submitApplication = onCallSecured({}, async (data: any, context) =>
     tx.set(appRef, applicationData);
     return { alreadyApplied: false };
   });
-
-  if (!txResult.alreadyApplied) {
-    await logUserEvent(uid, "application_submitted", "WORKER", { jobId, employerId });
-  }
 
   const out = {
     success: true,
