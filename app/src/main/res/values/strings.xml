@@ -161,6 +161,19 @@
     <string name="this_month">This Month</string>
     <string name="this_week">This Week</string>
     <string name="today">Today</string>
+    <string name="todays_earnings_label">Today\'s Earnings</string>
+    <string name="jobs_done_count">%1$d jobs done</string>
+    <string name="reviews_count">%1$d reviews</string>
+    <string name="you_are_online">You are ONLINE</string>
+    <string name="you_are_offline">You are OFFLINE</string>
+    <string name="go_online">Go Online</string>
+    <string name="go_offline">Go Offline</string>
+    <string name="nearby_jobs_instantly">Nearby jobs will come instantly</string>
+    <string name="turn_on_to_get_jobs">Turn online to get new jobs</string>
+    <string name="go_online_accept_jobs">Go Online to Accept Jobs</string>
+    <string name="invite_now">Invite Now</string>
+    <string name="refer_invite_subtitle">Invite friends and earn cash</string>
+    <string name="refer_earn_amount">Refer &amp; Earn ₹%1$d</string>
     <string name="subscription">Subscription</string>
     <string name="upgrade">Upgrade</string>
     <string name="free_plan">Free Plan</string>
@@ -1303,6 +1316,10 @@
     <string name="guest_employer_welcome_message_posts">Register now to unlock unlimited job posting for your business.</string>
     <string name="guest_employer_welcome_message_bonus">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
     <string name="guest_welcome_login_register">Login / Register</string>
+    <string name="guest_welcome_claim_gift">Claim welcome gift</string>
+    <string name="guest_welcome_limited_benefit">Limited-time welcome benefit</string>
+    <string name="guest_welcome_new_account_trust">New account only • Instant credit after signup</string>
+    <string name="guest_welcome_takes_30_seconds">Takes under 30 seconds</string>
 
     <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
     <string name="notif_app_status_applied_title">Application Submitted</string>

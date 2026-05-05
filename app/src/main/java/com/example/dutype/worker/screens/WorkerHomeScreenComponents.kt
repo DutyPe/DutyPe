@@ -37,11 +37,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -498,6 +500,8 @@ fun HomeSectionsContent(
     guestWelcomeMessage: String = "",
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
+    referralRewardAmount: Int = 20,
+    onReferEarnClick: () -> Unit = {},
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
     birthdayService: BirthdayService,
@@ -508,6 +512,7 @@ fun HomeSectionsContent(
     updatingInstantRequestId: String? = null,
     isLoadingInstantRequests: Boolean = false,
     instantHelpError: String? = null,
+    onTurnOnAvailability: () -> Unit = {},
     onApplyInstantRequest: (InstantRequest) -> Unit = {},
     onCallInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
@@ -599,7 +604,7 @@ fun HomeSectionsContent(
                 .background(Color.Transparent), // Transparent to show purple background
             state = listState,
             contentPadding = PaddingValues(
-                top = 140.dp, // Reduced padding for smaller header (no banner)
+                top = 230.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -610,11 +615,24 @@ fun HomeSectionsContent(
                     GuestWelcomeBonusCard(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
-                        buttonText = guestWelcomeButtonText,
+                        buttonText = stringResource(R.string.guest_welcome_claim_gift),
                         onClick = onGuestWelcomeClick,
+                        onVariantImpression = { variant ->
+                            timber.log.Timber.d("Welcome gift impression (worker) variant=%s", variant.name)
+                        },
+                        onVariantClick = { variant ->
+                            timber.log.Timber.d("Welcome gift click (worker) variant=%s", variant.name)
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
+            }
+
+            item {
+                ReferEarnStripCard(
+                    rewardAmount = referralRewardAmount,
+                    onInviteClick = onReferEarnClick
+                )
             }
 
             if (announcements.isNotEmpty()) {
@@ -634,7 +652,6 @@ fun HomeSectionsContent(
             }
 
             if (
-                workerAvailability.isAvailable &&
                 (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
             ) {
                 item {
@@ -644,6 +661,7 @@ fun HomeSectionsContent(
                         isLoading = isLoadingInstantRequests,
                         updatingRequestId = updatingInstantRequestId,
                         error = instantHelpError,
+                        onGoOnline = onTurnOnAvailability,
                         onApply = onApplyInstantRequest,
                         onCall = onCallInstantRequest
                     )
@@ -823,10 +841,11 @@ private fun InstantRequestSection(
     isLoading: Boolean,
     updatingRequestId: String?,
     error: String?,
+    onGoOnline: () -> Unit,
     onApply: (InstantRequest) -> Unit,
     onCall: (InstantRequest) -> Unit
 ) {
-    if (!isAvailabilityOn || (!isLoading && requests.isEmpty() && error.isNullOrBlank())) {
+    if (!isLoading && requests.isEmpty() && error.isNullOrBlank()) {
         return
     }
 
@@ -871,7 +890,9 @@ private fun InstantRequestSection(
         requests.take(5).forEach { request ->
             InstantRequestCard(
                 request = request,
+                isAvailabilityOn = isAvailabilityOn,
                 isUpdating = updatingRequestId == request.requestId,
+                onGoOnline = onGoOnline,
                 onApply = { onApply(request) },
                 onCall = { onCall(request) }
             )
@@ -882,7 +903,9 @@ private fun InstantRequestSection(
 @Composable
 private fun InstantRequestCard(
     request: InstantRequest,
+    isAvailabilityOn: Boolean,
     isUpdating: Boolean,
+    onGoOnline: () -> Unit,
     onApply: () -> Unit,
     onCall: () -> Unit
 ) {
@@ -1010,38 +1033,59 @@ private fun InstantRequestCard(
                 }
             }
 
-            Button(
-                onClick = onApply,
-                enabled = !isUpdating && !hasWorkerResponded,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEA580C),
-                    disabledContainerColor = if (hasWorkerResponded) Color(0xFFDCFCE7) else Color(0xFFE5E7EB),
-                    disabledContentColor = if (hasWorkerResponded) Color(0xFF15803D) else Color(0xFF9CA3AF)
-                )
-            ) {
-                if (isUpdating) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                } else {
-                    if (hasWorkerResponded) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    Text(applyLabel)
+            if (!isAvailabilityOn) {
+                OutlinedButton(
+                    onClick = onGoOnline,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2563EB))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp),
+                        tint = Color(0xFF2563EB)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.go_online_accept_jobs),
+                        color = Color(0xFF2563EB)
+                    )
                 }
-            }
+            } else {
+                Button(
+                    onClick = onApply,
+                    enabled = !isUpdating && !hasWorkerResponded,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFEA580C),
+                        disabledContainerColor = if (hasWorkerResponded) Color(0xFFDCFCE7) else Color(0xFFE5E7EB),
+                        disabledContentColor = if (hasWorkerResponded) Color(0xFF15803D) else Color(0xFF9CA3AF)
+                    )
+                ) {
+                    if (isUpdating) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
+                        if (hasWorkerResponded) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(applyLabel)
+                    }
+                }
 
-            Button(
-                onClick = onCall,
-                enabled = request.employerPhone.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-            ) {
-                Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.call))
+                Button(
+                    onClick = onCall,
+                    enabled = request.employerPhone.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.call))
+                }
             }
         }
     }
@@ -1070,6 +1114,64 @@ private fun instantWorkerResponseMessage(status: String): String = when (status)
     "accepted" -> stringResource(R.string.employer_selected_urgent)
     "completed" -> stringResource(R.string.urgent_work_completed)
     else -> stringResource(R.string.urgent_work_applied_no_apply)
+}
+
+@Composable
+private fun ReferEarnStripCard(
+    rewardAmount: Int,
+    onInviteClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F3FF)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CardGiftcard,
+                contentDescription = null,
+                tint = Color(0xFF6D28D9),
+                modifier = Modifier.size(24.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.refer_earn_amount, rewardAmount),
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        color = Color(0xFF312E81),
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = stringResource(R.string.refer_invite_subtitle),
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569))
+                )
+            }
+
+            Button(
+                onClick = onInviteClick,
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B21B6)),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.invite_now),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+        }
+    }
 }
 
 @Composable
@@ -1610,6 +1712,12 @@ internal fun DynamicHeader(
     unreadNotificationCount: Int = 0,
     isInstantAvailable: Boolean = false,
     isInstantAvailabilitySaving: Boolean = false,
+    todayEarningsAmount: Double = 0.0,
+    todayJobsDone: Int = 0,
+    thisWeekEarningsAmount: Double = 0.0,
+    weekJobsDone: Int = 0,
+    ratingValue: Float = 0f,
+    reviewCount: Int = 0,
     onInstantAvailabilityChange: (Boolean) -> Unit = {},
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
@@ -1656,31 +1764,6 @@ internal fun DynamicHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isInstantAvailabilitySaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
-                } else {
-                    Switch(
-                        checked = isInstantAvailable,
-                        onCheckedChange = onInstantAvailabilityChange,
-                        modifier = Modifier.graphicsLayer {
-                            scaleX = 0.82f
-                            scaleY = 0.82f
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF16A34A),
-                            checkedBorderColor = Color(0xFF16A34A),
-                            uncheckedThumbColor = Color(0xFF64748B),
-                            uncheckedTrackColor = Color.White,
-                            uncheckedBorderColor = Color.White
-                        )
-                    )
-                }
-
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
@@ -1707,6 +1790,123 @@ internal fun DynamicHeader(
                         )
                     }
                 }
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isInstantAvailable) Color(0xFF16A34A) else Color(0xFFE5E7EB)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(
+                                if (isInstantAvailable) Color(0xFFD1FAE5) else Color(0xFFD1D5DB),
+                                CircleShape
+                            )
+                    )
+                    Column {
+                        Text(
+                            text = if (isInstantAvailable) stringResource(R.string.you_are_online) else stringResource(R.string.you_are_offline),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                color = if (isInstantAvailable) Color.White else Color(0xFF374151),
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Text(
+                            text = if (isInstantAvailable) stringResource(R.string.nearby_jobs_instantly) else stringResource(R.string.turn_on_to_get_jobs),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = if (isInstantAvailable) Color(0xFFDCFCE7) else Color(0xFF6B7280)
+                            )
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = { onInstantAvailabilityChange(!isInstantAvailable) },
+                    enabled = !isInstantAvailabilitySaving,
+                    shape = RoundedCornerShape(999.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isInstantAvailable) Color(0xFFE2E8F0) else Color(0xFF9CA3AF)
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (isInstantAvailable) Color.White else Color(0xFF1F2937)
+                    )
+                ) {
+                    if (isInstantAvailabilitySaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = if (isInstantAvailable) Color.White else Color(0xFF1F2937)
+                        )
+                    } else {
+                        Text(if (isInstantAvailable) stringResource(R.string.go_offline) else stringResource(R.string.go_online))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                WorkerTopMetricItem(
+                    icon = Icons.Default.Work,
+                    label = stringResource(R.string.todays_earnings_label),
+                    value = formatRupeeCompact(todayEarningsAmount),
+                    subtitle = stringResource(R.string.jobs_done_count, todayJobsDone),
+                    iconTint = Color(0xFF16A34A)
+                )
+                WorkerTopMetricItem(
+                    icon = Icons.Default.CalendarToday,
+                    label = stringResource(R.string.this_week),
+                    value = formatRupeeCompact(thisWeekEarningsAmount),
+                    subtitle = stringResource(R.string.jobs_done_count, weekJobsDone),
+                    iconTint = Color(0xFF2563EB)
+                )
+                WorkerTopMetricItem(
+                    icon = Icons.Default.Star,
+                    label = stringResource(R.string.rating_label),
+                    value = String.format("%.1f", ratingValue),
+                    subtitle = stringResource(R.string.reviews_count, reviewCount),
+                    iconTint = Color(0xFFF59E0B)
+                )
             }
         }
         
@@ -1803,6 +2003,57 @@ internal fun DynamicHeader(
             }
         }
     }
+}
+
+@Composable
+private fun WorkerTopMetricItem(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    subtitle: String,
+    iconTint: Color
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.padding(horizontal = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = Color(0xFF4B5563),
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        }
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = Color(0xFF111827),
+                fontWeight = FontWeight.Bold
+            )
+        )
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280))
+        )
+    }
+}
+
+private fun formatRupeeCompact(amount: Double): String {
+    return "₹${String.format("%.0f", amount.coerceAtLeast(0.0))}"
 }
 
 

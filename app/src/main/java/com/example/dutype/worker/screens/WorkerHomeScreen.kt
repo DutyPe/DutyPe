@@ -113,6 +113,7 @@ import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.appVersionInfo
 import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.viewmodels.ConnectivityViewModel
+import com.example.dutype.viewmodels.EarningsViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
@@ -173,11 +174,15 @@ fun WorkerHomeScreen(
     val appVersionInfo = remember(context) { context.appVersionInfo() }
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    val earningsViewModel: EarningsViewModel = hiltViewModel()
+    val earningsUiState by earningsViewModel.uiState.collectAsStateWithLifecycle()
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
     
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    var workerRating by remember { mutableStateOf(0f) }
+    var workerReviewCount by remember { mutableIntStateOf(0) }
     
     // P1-2: BirthdayService kept (passed to HomeSectionsContent); the local birthdayInfo/showBirthdayBanner
     // mutableState pair previously declared here was dead (never assigned, never read) and was deleted.
@@ -480,6 +485,67 @@ fun WorkerHomeScreen(
         if (currentUser?.uid != null) {
             workerJobRequestViewModel.loadPendingRequests()
             instantHelpViewModel.loadWorkerInstantHelp(currentLocation)
+            earningsViewModel.loadEarnings()
+
+            runCatching {
+                val workerDoc = com.example.dutype.di.firestoreFromHilt(context)
+                    .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
+                    .document(currentUser.uid)
+                    .get()
+                    .await()
+                if (workerDoc.exists()) {
+                    workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
+                    workerReviewCount = workerDoc.getLong("totalRatings")?.toInt()
+                        ?: workerDoc.getLong("reviewCount")?.toInt()
+                        ?: 0
+                }
+            }.onFailure {
+                Timber.w(it, "Failed to load worker rating summary for home header")
+            }
+        }
+    }
+
+    val paidTransactions = remember(earningsUiState.transactions) {
+        earningsUiState.transactions.filter { it.status == PaymentStatus.PAID }
+    }
+
+    val todayEarningsAmount = remember(paidTransactions) {
+        val now = java.util.Calendar.getInstance()
+        paidTransactions
+            .filter {
+                val txCal = java.util.Calendar.getInstance().apply { timeInMillis = it.date }
+                txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                    txCal.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR)
+            }
+            .sumOf { it.amount }
+    }
+
+    val thisWeekEarningsAmount = remember(paidTransactions) {
+        val now = java.util.Calendar.getInstance()
+        paidTransactions
+            .filter {
+                val txCal = java.util.Calendar.getInstance().apply { timeInMillis = it.date }
+                txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                    txCal.get(java.util.Calendar.WEEK_OF_YEAR) == now.get(java.util.Calendar.WEEK_OF_YEAR)
+            }
+            .sumOf { it.amount }
+    }
+
+    val todayJobsDone = remember(paidTransactions) {
+        val now = java.util.Calendar.getInstance()
+        paidTransactions.count {
+            val txCal = java.util.Calendar.getInstance().apply { timeInMillis = it.date }
+            txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                txCal.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR)
+        }
+    }
+
+    val thisWeekJobsDone = remember(paidTransactions) {
+        val now = java.util.Calendar.getInstance()
+        paidTransactions.count {
+            val txCal = java.util.Calendar.getInstance().apply { timeInMillis = it.date }
+            txCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+                txCal.get(java.util.Calendar.WEEK_OF_YEAR) == now.get(java.util.Calendar.WEEK_OF_YEAR)
         }
     }
 
@@ -695,6 +761,10 @@ fun WorkerHomeScreen(
                                     onGuestWelcomeClick = {
                                         rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                                     },
+                                    referralRewardAmount = referralConfig.rewardPerReferral.toInt(),
+                                    onReferEarnClick = {
+                                        navController.navigate(Routes.WORKER_REFER_EARN)
+                                    },
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
@@ -705,6 +775,28 @@ fun WorkerHomeScreen(
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
+                                    onTurnOnAvailability = {
+                                        val selectedLocation = currentLocation
+                                        if (FirebaseAuth.getInstance().currentUser == null) {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.please_login_instant_works),
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else if (
+                                            selectedLocation == null ||
+                                            !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude)
+                                        ) {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.set_location_before_instant),
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            showNoUrgentJobsToastAfterSwitchOn = true
+                                            instantHelpViewModel.setWorkerAvailability(true, selectedLocation)
+                                        }
+                                    },
                                     onApplyInstantRequest = { request ->
                                         instantHelpViewModel.respondToInstantRequest(request, "applied")
                                     },
@@ -756,6 +848,12 @@ fun WorkerHomeScreen(
                     unreadNotificationCount = unreadNotificationCount,
                     isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
                     isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
+                    todayEarningsAmount = todayEarningsAmount,
+                    todayJobsDone = todayJobsDone,
+                    thisWeekEarningsAmount = thisWeekEarningsAmount,
+                    weekJobsDone = thisWeekJobsDone,
+                    ratingValue = workerRating,
+                    reviewCount = workerReviewCount,
                     onInstantAvailabilityChange = { isAvailable ->
                         val selectedLocation = currentLocation
                         if (FirebaseAuth.getInstance().currentUser == null) {
