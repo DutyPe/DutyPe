@@ -584,6 +584,7 @@ fun DashboardContent(
                 EmployerTrustSignalsCard()
             }
 
+            /*
             if (isGuestEmployer) {
                 item {
                     InviteEarnEmployerCard(
@@ -591,6 +592,7 @@ fun DashboardContent(
                     )
                 }
             }
+            */
 
             item {
                 EmployerPostJobSection(

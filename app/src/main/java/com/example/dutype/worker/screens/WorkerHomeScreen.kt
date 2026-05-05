@@ -826,7 +826,13 @@ fun WorkerHomeScreen(
                                         if (request.jobId.isNotBlank()) {
                                             navController.navigate(Routes.jobDetailRoute(request.jobId))
                                         }
-                                    }
+                                    },
+                                    todayEarningsAmount = todayEarningsAmount,
+                                    todayJobsDone = todayJobsDone,
+                                    thisWeekEarningsAmount = thisWeekEarningsAmount,
+                                    weekJobsDone = thisWeekJobsDone,
+                                    ratingValue = workerRating,
+                                    reviewCount = workerReviewCount
                                 )
                             }
                         }
