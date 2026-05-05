@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 66
-        versionName = "2.6.13"
+        versionCode = 68
+        versionName = "2.6.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -135,46 +135,13 @@ android {
             // proguardFiles. R8 itself reads the mapping at obfuscation time.
             val previousMappingFile = file("mapping/release-mapping.txt")
             if (previousMappingFile.exists()) {
-                val sanitizedMappingFile = layout.buildDirectory
-                    .file("intermediates/dutype/release-mapping-applymapping-sanitized.txt")
-                    .get()
-                    .asFile
-                sanitizedMappingFile.parentFile.mkdirs()
-                sanitizedMappingFile.bufferedWriter().use { writer ->
-                    var skipStaleMappingClass = false
-                    previousMappingFile.useLines { lines ->
-                        lines.forEach { line ->
-                            val isClassMappingLine = !line.startsWith(" ") &&
-                                line.contains(" -> ") &&
-                                line.endsWith(":")
-
-                            if (isClassMappingLine) {
-                                skipStaleMappingClass =
-                                    line.startsWith("androidx.compose.") ||
-                                        line.startsWith("coil.compose.") ||
-                                        line.startsWith("androidx.appcompat.view.menu.CascadingMenuPopup")
-                            }
-
-                            val isStaleAttachListenerMapping =
-                                line.contains("onViewAttachedToWindow(android.view.View)") ||
-                                    line.contains("onViewDetachedFromWindow(android.view.View)") ||
-                                    line.contains("-> onViewAttachedToWindow") ||
-                                    line.contains("-> onViewDetachedFromWindow")
-
-                            if (!skipStaleMappingClass && !isStaleAttachListenerMapping) {
-                                writer.appendLine(line)
-                            }
-                        }
-                    }
-                }
-
                 val applyMappingRules = layout.buildDirectory
                     .file("intermediates/dutype/applyMapping.pro")
                     .get()
                     .asFile
                 applyMappingRules.parentFile.mkdirs()
                 applyMappingRules.writeText(
-                    "-applymapping \"${sanitizedMappingFile.absolutePath.replace("\\", "/")}\"\n"
+                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
                 )
                 proguardFiles(applyMappingRules)
 
@@ -412,7 +379,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Material3 window size classes
-    implementation("androidx.compose.material3:material3-window-size-class")
+    implementation("androidx.compose.material3:material3-window-size-class:1.3.2")
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")

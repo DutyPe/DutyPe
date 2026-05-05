@@ -3,7 +3,6 @@ package com.example.dutype.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.analytics.Analytics
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.User
 import com.example.dutype.models.UserRole
@@ -324,11 +323,6 @@ class OtpViewModel @Inject constructor(
                     // CRITICAL FIX: Use injected AuthManager singleton instead of creating new instance
                     authManager.saveUser(user)
                     authManager.setLoggedIn(true)
-
-                    Analytics.otpVerified(
-                        role = user.role.name,
-                        isNewUser = !hasExistingProfile
-                    )
 
                     // Initialize Firestore-dependent metadata now that user is authenticated
                     viewModelScope.launch {

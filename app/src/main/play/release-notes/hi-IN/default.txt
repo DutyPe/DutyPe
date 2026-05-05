@@ -1,6 +1,8 @@
-DutyPe v67 login stability hotfix है।
+DutyPe v68 से local jobs और instant hiring ज्यादा आसान।
 
-• Profile screen से login/signup इस्तेमाल करते समय आने वाला release-only crash path fix
-• Login bottom sheet में risky styled OTP text rendering हटाई गई
-• Compose draw callbacks के लिए R8 hardening रखी गई
-• v65 के urgent work और hiring improvements बने रहेंगे
+• Nearby verified jobs तेजी से खोजें
+• Employer को 1-tap apply, call या WhatsApp
+• Instant Work में Applied/Contacted साफ दिखेगा
+• Employer को distance, rating, completed jobs और availability के साथ बेहतर worker matches
+• Normal jobs 30 दिन active, urgent work 24 घंटे active
+• Login और notification stability fixes

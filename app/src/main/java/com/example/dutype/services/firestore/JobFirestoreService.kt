@@ -1,6 +1,5 @@
 ﻿package com.example.dutype.services.firestore
 
-import com.example.dutype.analytics.Analytics
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.JobCategoryResolver
@@ -441,8 +440,6 @@ class JobFirestoreService @Inject constructor(
             Timber.i(" âœ… Job saved (2-collection split: jobmetadata + job_details)")
 
             // Nearby-worker notifications run server-side via Cloud Functions
-
-            Analytics.jobPost(jobId = jobRef.id, employerId = employerId)
 
             Result.success(jobRef.id)
         } catch (e: Exception) {

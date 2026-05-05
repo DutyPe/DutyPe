@@ -1,6 +1,8 @@
-DutyPe v67 is a login stability hotfix.
+DutyPe v68 improves local job search and instant hiring.
 
-• Fixes a release-only crash path when using login/signup from profile screens
-• Removes risky styled OTP text rendering from the login bottom sheet
-• Keeps R8 hardening for Compose draw callbacks
-• Keeps urgent work and hiring improvements from v65
+• Find verified nearby jobs faster
+• Apply or contact employers in one tap
+• Instant Work now shows Applied/Contacted clearly
+• Employers see better worker matches with distance, ratings, completed jobs and availability
+• Normal jobs stay active for 30 days; urgent work stays active for 24 hours
+• Login and notification stability fixes

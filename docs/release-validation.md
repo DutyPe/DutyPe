@@ -32,28 +32,15 @@ guidance turned up three production gaps. All three are now fixed:
    `firebasecrashlyticssymbols.googleapis.com`, the build still succeeds — run
    `./gradlew :app:uploadCrashlyticsMappingFileRelease` later from a network
    that works, or run release builds from CI.
-3. **Firebase Analytics + Performance SDKs shipped but never used.** Zero
-   `logEvent(...)` calls, zero `Trace.start(...)` calls. Now there's a tiny
-   `com.example.dutype.analytics.Analytics` helper that wraps
-   `FirebaseAnalytics`, initialized once from `initializeNonCriticalComponents()`,
-   with four typed events instrumented at the highest-leverage business
-   actions:
-   - `job_apply` — `JobApplicationService.submitApplication` success path.
-   - `job_post` — `JobFirestoreService.createJob` success path.
-   - `otp_verified` — `OtpViewModel.signInWithPhoneAuthCredential` success path.
-   - `rewarded_ad_completed` — both employer and worker rewarded-ad earned
-     callbacks in `AdManager`.
-
-   Auto-collected events (`first_open`, `session_start`, `screen_view`) start
-   flowing as soon as `Analytics.init(this)` runs. Performance SDK is left on
-   the classpath because it auto-records app-start, screen-rendering and HTTP
-   metrics with no code; remove it from `app/build.gradle.kts` if nobody opens
-   the Firebase Performance dashboard.
+3. **App-side analytics instrumentation was removed.** The local
+   `com.example.dutype.analytics.Analytics` helper and its job/apply/OTP/ad
+   callbacks are gone, so the Android app no longer emits those event hooks.
+   Keep release validation focused on Crashlytics, core Firebase services, and
+   the product flows themselves.
 
 ---
 
 ## 1. What changed and why
-
 ### 1.1 The rewrite (commit `c1197b6`)
 
 `app/proguard-rules.pro` went from **386 lines / 151 nuclear `-keep` rules** to

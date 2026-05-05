@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.example.dutype.ads.AdManager
-import com.example.dutype.analytics.Analytics
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
@@ -413,20 +412,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
         initializeCrashlytics()
         initializeGoogleMapsServices()
         initializeMetadata()
-        initializeAnalytics()
         initializeMobileAds()
-    }
-
-    /**
-     * Keep the local analytics facade wired without shipping Firebase Analytics
-     * in the base release dex.
-     */
-    private fun initializeAnalytics() {
-        try {
-            Analytics.init(this)
-        } catch (e: Exception) {
-            Timber.w(e, "📈 Analytics init skipped")
-        }
     }
 
     /**

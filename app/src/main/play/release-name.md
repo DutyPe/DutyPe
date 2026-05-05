@@ -1,7 +1,8 @@
 # Release Name
 
-Version code: 67
+Version code: 68
+Version name: 2.6.15
 
-English: DutyPe v67 - Login Stability Hotfix
-Hindi: DutyPe v67 - लॉगिन स्टेबिलिटी हॉटफिक्स
-Telugu: DutyPe v67 - లాగిన్ స్టెబిలిటీ హాట్‌ఫిక్స్
+English: DutyPe v68 - Local Jobs & Instant Hiring
+Hindi: DutyPe v68 - नज़दीकी जॉब्स और तुरंत हायरिंग
+Telugu: DutyPe v68 - దగ్గరలో జాబ్స్, వెంటనే హైరింగ్

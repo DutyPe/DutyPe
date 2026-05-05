@@ -2,7 +2,6 @@ package com.example.dutype.ads
 
 import android.app.Activity
 import android.content.Context
-import com.example.dutype.analytics.Analytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
@@ -65,7 +64,6 @@ class AdManager @Inject constructor() {
         onAdNotReady: () -> Unit
     ) {
         Timber.d("Employer rewarded ads disabled; granting unlock flow")
-        Analytics.rewardedAdCompleted(placement = "employer_contact_unlock_no_ad")
         onRewarded()
     }
 
@@ -81,7 +79,6 @@ class AdManager @Inject constructor() {
         onAdNotReady: () -> Unit
     ) {
         Timber.d("Worker rewarded ads disabled; granting job view flow")
-        Analytics.rewardedAdCompleted(placement = "worker_job_description_unlock_no_ad")
         onRewarded()
     }
 

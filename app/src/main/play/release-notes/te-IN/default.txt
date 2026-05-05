@@ -1,6 +1,8 @@
-DutyPe v67 లాగిన్ స్టెబిలిటీ హాట్‌ఫిక్స్.
+DutyPe v68 తో local jobs, instant hiring మరింత సులభం.
 
-• Profile screen నుంచి login/signup వాడినప్పుడు వచ్చే release-only crash path fix
-• Login bottom sheet లో risky styled OTP text rendering తొలగించాం
-• Compose draw callbacks కోసం R8 hardening కొనసాగుతోంది
-• v65 urgent work మరియు hiring improvements అలాగే ఉంటాయి
+• Nearby verified jobs త్వరగా కనుగొనండి
+• Employer కి 1-tap apply, call లేదా WhatsApp
+• Instant Work లో Applied/Contacted స్పష్టంగా కనిపిస్తుంది
+• Employer కి distance, rating, completed jobs, availability తో మంచి worker matches
+• Normal jobs 30 రోజులు active, urgent work 24 గంటలు active
+• Login, notification stability fixes

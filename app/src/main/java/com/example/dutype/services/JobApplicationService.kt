@@ -1,6 +1,5 @@
 package com.example.dutype.services
 
-import com.example.dutype.analytics.Analytics
 import com.example.dutype.database.dao.ApplicationDao
 import com.example.dutype.database.dao.JobDao
 import com.example.dutype.database.entity.ApplicationEntity
@@ -637,8 +636,6 @@ class JobApplicationService @Inject constructor(
             cacheApplicationsLocally(listOf(appWithId))
 
             // Cross-user notification is handled by Cloud Functions on applications/{id} create.
-
-            Analytics.jobApply(jobId = appWithId.jobId, employerId = appWithId.employerId)
 
             Result.success(appWithId)
         } catch (e: Exception) {
