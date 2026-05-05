@@ -76,16 +76,14 @@ async function logUserEvent(
   role: string,
   payload: UserEventPayload = {}
 ): Promise<void> {
+  // user_events collection deprecated: convert to no-op to avoid writes
+  // Keep call sites intact so callers don't need code changes.
   try {
-    await db().collection("user_events").add({
-      uid,
-      type,
-      role,
-      payload,
-      at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    functions.logger.info("user_events disabled", { uid, type, role });
+    return Promise.resolve();
   } catch (e) {
-    functions.logger.warn(`user_events write failed: ${type}`, e);
+    functions.logger.warn(`user_events noop failed: ${type}`, e);
+    return Promise.resolve();
   }
 }
 

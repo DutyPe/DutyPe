@@ -140,6 +140,13 @@ service cloud.firestore {
       allow delete: if isSelf(userId);
     }
 
+    // ── user_events (deprecated) ─────────────────────────────────────
+    // Explicitly deny client reads/writes. Server SDK (Admin) bypasses rules.
+    match /user_events/{eventId} {
+      allow get, list: if false;
+      allow create, update, delete: if false;
+    }
+
     // ── worker_profiles ───────────────────────────────────────────────
     // Profile-owned fields only. Aggregates (rating, totalRatings, totalJobs) are CF-only.
     // List is closed — clients must use the `searchWorkers` callable to discover workers.
