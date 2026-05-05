@@ -105,7 +105,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentStep by rememberSaveable { mutableStateOf(1) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
-    val totalSteps = 2  // Selfie capture step removed
+    val totalSteps = 1
 
     fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
         runCatching {
@@ -250,12 +250,7 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
 
-    val isCurrentStepValid = when (currentStep) {
-        1 -> isStep1Valid
-        2 -> isStep2Valid
-        3 -> isStep3Valid  // Selfie step (was step 4)
-        else -> false
-    }
+    val isCurrentStepValid = isStep1Valid && isStep2Valid && isStep3Valid
 
     // Guard to prevent double-execution of handleCompletion
     var isCompletionInProgress by remember { mutableStateOf(false) }
@@ -665,38 +660,34 @@ fun MandatoryEmployerProfileSetupContent(
                             .padding(horizontal = 24.dp, vertical = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        if (currentStep == 1) {
-                            CompanyInformationStep(
-                                companyName = companyName,
-                                industry = industry,
-                                companyNameError = companyNameError,
-                                industryError = industryError,
-                                referralCode = referralCode,
-                                isValidatingReferral = isValidatingReferral,
-                                referralValidationResult = referralValidationResult,
-                                showReferralSection = showReferralSection,
-                                hasAlreadyUsedReferral = hasAlreadyUsedReferral,
-                                onCompanyNameChange = onCompanyNameChange,
-                                onIndustryChange = onIndustryChange,
-                                onReferralCodeChange = onReferralCodeChange,
-                                onValidateReferral = onValidateReferral
-                            )
-                        }
+                        CompanyInformationStep(
+                            companyName = companyName,
+                            industry = industry,
+                            companyNameError = companyNameError,
+                            industryError = industryError,
+                            referralCode = referralCode,
+                            isValidatingReferral = isValidatingReferral,
+                            referralValidationResult = referralValidationResult,
+                            showReferralSection = showReferralSection,
+                            hasAlreadyUsedReferral = hasAlreadyUsedReferral,
+                            onCompanyNameChange = onCompanyNameChange,
+                            onIndustryChange = onIndustryChange,
+                            onReferralCodeChange = onReferralCodeChange,
+                            onValidateReferral = onValidateReferral
+                        )
 
-                        if (currentStep == 2) {
-                            ContactDetailsStep(
-                                contactPhone = contactPhone,
-                                businessAddress = businessAddress,
-                                businessLatitude = businessLatitude,
-                                businessLongitude = businessLongitude,
-                                phoneError = phoneError,
-                                addressError = addressError,
-                                onContactPhoneChange = onContactPhoneChange,
-                                onBusinessAddressChange = onBusinessAddressChange,
-                                onBusinessLocationChange = onBusinessLocationChange,
-                                locationService = locationService
-                            )
-                        }
+                        ContactDetailsStep(
+                            contactPhone = contactPhone,
+                            businessAddress = businessAddress,
+                            businessLatitude = businessLatitude,
+                            businessLongitude = businessLongitude,
+                            phoneError = phoneError,
+                            addressError = addressError,
+                            onContactPhoneChange = onContactPhoneChange,
+                            onBusinessAddressChange = onBusinessAddressChange,
+                            onBusinessLocationChange = onBusinessLocationChange,
+                            locationService = locationService
+                        )
 
                         if (errorMessage != null) {
                             Card(

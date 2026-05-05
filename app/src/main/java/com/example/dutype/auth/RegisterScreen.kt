@@ -576,7 +576,13 @@ private fun RegisterInputSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(53.dp),
+                    .height(53.dp)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && !hasRequestedPhoneHint && phoneNumber.isBlank()) {
+                            hasRequestedPhoneHint = true
+                            requestPhoneNumberHint()
+                        }
+                    },
                 // Batch-o #1: removed auto-launch of the Google Phone
                 // Number Hint bottom sheet on focus. The user prefers
                 // the keyboard's native suggestion bar (Phone keyboard

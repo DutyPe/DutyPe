@@ -215,9 +215,6 @@ fun WorkerHomeScreen(
     // Location loading state
     var isLocationLoading by remember { mutableStateOf(false) }
     
-    // Observe location loading state from preferences
-    val locationLoadingState by locationPreferences.isLocationLoading.collectAsStateWithLifecycle()
-
     // P1-2: Removed dead `permissionsRequested`, `isFirstTimeUser`, `bottomSheetsShownInSession`,
     // and `hasNotificationPermission` flags — each was assigned an initial value but never read.
 
@@ -853,7 +850,7 @@ fun WorkerHomeScreen(
                 DynamicHeader(
                     locationText = locationText,
                     locationBarAlpha = locationBarAlpha,
-                    isLocationLoading = isLocationLoading || locationLoadingState,
+                    isLocationLoading = isLocationLoading,
                     unreadNotificationCount = unreadNotificationCount,
                     isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
                     isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,

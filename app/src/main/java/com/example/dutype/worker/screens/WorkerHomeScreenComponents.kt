@@ -611,7 +611,7 @@ fun HomeSectionsContent(
                 .background(Color.Transparent), // Transparent to show purple background
             state = listState,
             contentPadding = PaddingValues(
-                top = 160.dp,
+                top = 108.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1739,16 +1739,7 @@ internal fun DynamicHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        WorkerHomeHeaderTopColor,
-                        WorkerHomeHeaderMidColor,
-                        Color(0xFF5E86FF)
-                    )
-                ),
-                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
-            )
+            .background(WorkerColors.ScreenBackground)
             .statusBarsPadding()
     ) {
         Row(
@@ -1768,7 +1759,7 @@ internal fun DynamicHeader(
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 21.sp,
-                            color = Color.White
+                            color = WorkerColors.TextPrimary
                         )
                     )
 
@@ -1786,13 +1777,13 @@ internal fun DynamicHeader(
                                 androidx.compose.material3.CircularProgressIndicator(
                                     modifier = Modifier.size(9.dp),
                                     strokeWidth = 1.2.dp,
-                                    color = Color.White.copy(alpha = 0.85f)
+                                    color = WorkerColors.TextSecondary
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Outlined.LocationOn,
                                     contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.85f),
+                                    tint = WorkerColors.TextSecondary,
                                     modifier = Modifier.size(10.dp)
                                 )
                             }
@@ -1800,7 +1791,7 @@ internal fun DynamicHeader(
                             Text(
                                 text = locationText,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color.White.copy(alpha = 0.92f),
+                                    color = WorkerColors.TextSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
@@ -1816,6 +1807,22 @@ internal fun DynamicHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Switch(
+                    checked = isInstantAvailable,
+                    onCheckedChange = onInstantAvailabilityChange,
+                    enabled = !isInstantAvailabilitySaving,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = WorkerColors.Success,
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color(0xFFCBD5E1),
+                        uncheckedBorderColor = Color.Transparent,
+                        checkedBorderColor = Color.Transparent,
+                        disabledCheckedTrackColor = WorkerColors.Success.copy(alpha = 0.5f),
+                        disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
+                    )
+                )
+
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
@@ -1824,7 +1831,7 @@ internal fun DynamicHeader(
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color.White,
+                            tint = WorkerColors.TextPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -1844,6 +1851,8 @@ internal fun DynamicHeader(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 

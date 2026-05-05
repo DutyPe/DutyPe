@@ -92,7 +92,13 @@ service cloud.firestore {
     match /phoneRoles/{phone} {
       allow read, write: if isAdmin();
 
-      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
+      // Allow reading own phoneRoles doc by uid when it exists, and allow
+      // reading by authenticated phone path so registration transactions can
+      // check/create when the doc is missing.
+      allow get: if isSignedIn() && (
+        (resource != null && resource.data.uid == request.auth.uid) ||
+        phoneMatchesAuthPath(phone)
+      );
       allow list: if false;
 
       allow create: if isSignedIn() &&
@@ -245,7 +251,7 @@ service cloud.firestore {
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
-          'companyName', 'profileImageUrl',
+          'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
@@ -257,6 +263,7 @@ service cloud.firestore {
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
@@ -267,7 +274,7 @@ service cloud.firestore {
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
-          'companyName', 'profileImageUrl',
+          'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
           'referralCode', 'referredByCode', 'referredByUserId'
         ]) &&
@@ -279,6 +286,7 @@ service cloud.firestore {
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
         (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
@@ -735,9 +743,9 @@ service cloud.firestore {
       }
 
       allow read, write: if isAdmin();
+      allow get: if isSignedIn() && responseIdEndsWithCaller();
       allow get: if isSignedIn() &&
-        (responseIdEndsWithCaller() ||
-          resource.data.workerId == request.auth.uid ||
+        (resource.data.workerId == request.auth.uid ||
           resource.data.employerId == request.auth.uid);
       allow list: if isSignedIn() &&
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);

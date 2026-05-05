@@ -1,6 +1,10 @@
 package com.example.dutype.employer.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +39,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,16 +54,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.core.content.ContextCompat
 import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
+import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.JobCategoryResolver
+import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
@@ -103,8 +115,12 @@ internal fun PostUrgentNeedContent(
     showIntroCard: Boolean = true
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val locationService = remember(context) { LocationService(context) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val urgentNeedPostedText = stringResource(R.string.urgent_need_posted_toast)
+    val locationPermissionRequiredText = stringResource(R.string.location_permission_required_current)
+    val locationUpdatedText = stringResource(R.string.location_updated)
 
     var title by rememberSaveable { mutableStateOf("") }
     var needType by rememberSaveable { mutableStateOf("urgent_now") }
@@ -113,6 +129,88 @@ internal fun PostUrgentNeedContent(
     val radiusKm = 10.0
     var notes by rememberSaveable { mutableStateOf("") }
     var contactNumber by rememberSaveable { mutableStateOf("") }
+    var hasEmployerLocation by rememberSaveable { mutableStateOf(false) }
+    var isAutoPickingLocation by rememberSaveable { mutableStateOf(false) }
+    var urgentLocationError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    suspend fun refreshEmployerLocationState(): Boolean {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId.isNullOrBlank()) {
+            hasEmployerLocation = false
+            return false
+        }
+        val snapshot = runCatching {
+            FirebaseFirestore.getInstance()
+                .collection(FirestoreCollections.EMPLOYER_PROFILES)
+                .document(userId)
+                .get()
+                .await()
+        }.getOrNull()
+        val location = snapshot?.get("businessLocation") as? Map<*, *>
+        val latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
+        val longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
+        val valid = GeoUtils.hasValidCoordinates(latitude, longitude)
+        hasEmployerLocation = valid
+        return valid
+    }
+
+    suspend fun autoPickEmployerLocation(): Boolean {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        if (userId.isNullOrBlank()) return false
+        if (!locationService.hasLocationPermission()) {
+            urgentLocationError = locationPermissionRequiredText
+            return false
+        }
+
+        isAutoPickingLocation = true
+        return try {
+            val locationInfo = locationService.getHighAccuracyLocation(
+                timeoutMs = 15000L,
+                minAccuracyMeters = 10f
+            )
+            if (locationInfo == null || !GeoUtils.hasValidCoordinates(locationInfo.latitude, locationInfo.longitude)) {
+                urgentLocationError = context.getString(R.string.worker_location_fetch_failed)
+                false
+            } else {
+                val updateData = mutableMapOf<String, Any>(
+                    "businessAddress" to locationInfo.getFullAddress(),
+                    "businessLocation" to mapOf(
+                        "lat" to locationInfo.latitude,
+                        "lng" to locationInfo.longitude
+                    ),
+                    "geohash" to GeoUtils.encodeGeohash(locationInfo.latitude, locationInfo.longitude),
+                    "updatedAt" to Timestamp.now()
+                )
+                FirebaseFirestore.getInstance()
+                    .collection(FirestoreCollections.EMPLOYER_PROFILES)
+                    .document(userId)
+                    .set(updateData, SetOptions.merge())
+                    .await()
+                hasEmployerLocation = true
+                urgentLocationError = null
+                Toast.makeText(context, locationUpdatedText, Toast.LENGTH_SHORT).show()
+                true
+            }
+        } catch (_: Exception) {
+            urgentLocationError = context.getString(R.string.worker_location_fetch_failed)
+            false
+        } finally {
+            isAutoPickingLocation = false
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            scope.launch { autoPickEmployerLocation() }
+        } else {
+            urgentLocationError = locationPermissionRequiredText
+            Toast.makeText(context, locationPermissionRequiredText, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(Unit) {
         val authPhone = FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
@@ -133,6 +231,11 @@ internal fun PostUrgentNeedContent(
             }.orEmpty().ifBlank { authPhone }
         }
         if (contactNumber.isBlank()) contactNumber = profilePhone
+
+        val hasSavedLocation = refreshEmployerLocationState()
+        if (!hasSavedLocation && locationService.hasLocationPermission()) {
+            autoPickEmployerLocation()
+        }
     }
 
     val inferredCategory = JobCategoryResolver.inferCategory(title, notes)
@@ -145,7 +248,9 @@ internal fun PostUrgentNeedContent(
     }
     val canPost = title.trim().length >= 3 &&
         contactNumber.trim().isNotBlank() &&
-        workersNeeded != null
+        workersNeeded != null &&
+        hasEmployerLocation &&
+        !isAutoPickingLocation
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -254,6 +359,63 @@ internal fun PostUrgentNeedContent(
                     shape = RoundedCornerShape(14.dp)
                 )
 
+            }
+        }
+
+        item {
+            UrgentNeedSectionCard(title = stringResource(R.string.work_location)) {
+                if (hasEmployerLocation) {
+                    Text(
+                        text = stringResource(R.string.location_updated),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF166534),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Text(
+                        text = stringResource(R.string.urgent_workers_within_10km_notified),
+                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.location_permission_required_current),
+                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
+                    )
+
+                    Button(
+                        onClick = {
+                            if (locationService.hasLocationPermission()) {
+                                scope.launch { autoPickEmployerLocation() }
+                            } else {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        },
+                        enabled = !isAutoPickingLocation,
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isAutoPickingLocation) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(end = 8.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        }
+                        Text(text = stringResource(R.string.enable_location))
+                    }
+
+                    if (!urgentLocationError.isNullOrBlank()) {
+                        Text(
+                            text = urgentLocationError ?: "",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                        )
+                    }
+                }
             }
         }
 
