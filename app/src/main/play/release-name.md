@@ -1,8 +1,8 @@
 # Release Name
 
-Version code: 68
-Version name: 2.6.15
+Version code: 69
+Version name: 2.6.16
 
-English: DutyPe v68 - Local Jobs & Instant Hiring
-Hindi: DutyPe v68 - नज़दीकी जॉब्स और तुरंत हायरिंग
-Telugu: DutyPe v68 - దగ్గరలో జాబ్స్, వెంటనే హైరింగ్
+English: DutyPe v69 - Faster Refer & Earn + Local Jobs
+Hindi: DutyPe v69 - तेज Refer & Earn + नज़दीकी जॉब्स
+Telugu: DutyPe v69 - వేగమైన Refer & Earn + దగ్గరలో Jobs

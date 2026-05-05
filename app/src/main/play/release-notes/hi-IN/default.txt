@@ -1,8 +1,7 @@
-DutyPe v68 से local jobs और instant hiring ज्यादा आसान।
+DutyPe v69 में Refer & Earn और local hiring अब और तेज है।
 
-• Nearby verified jobs तेजी से खोजें
-• Employer को 1-tap apply, call या WhatsApp
-• Instant Work में Applied/Contacted साफ दिखेगा
-• Employer को distance, rating, completed jobs और availability के साथ बेहतर worker matches
-• Normal jobs 30 दिन active, urgent work 24 घंटे active
-• Login और notification stability fixes
+• Registration के बाद signup bonus credit अब ज्यादा भरोसेमंद दिखता है
+• Refer & Earn wallet balance अब live जल्दी refresh होता है
+• Refer & Earn screen में bonus earning visibility और साफ हुई है
+• Admin control के साथ नए in-app update prompts जोड़े गए हैं
+• Nearby cook, maid, helper, driver job flows की reliability बेहतर हुई है

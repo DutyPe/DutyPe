@@ -1,8 +1,7 @@
-DutyPe v68 improves local job search and instant hiring.
+DutyPe v69 makes Refer & Earn and local job hiring faster.
 
-• Find verified nearby jobs faster
-• Apply or contact employers in one tap
-• Instant Work now shows Applied/Contacted clearly
-• Employers see better worker matches with distance, ratings, completed jobs and availability
-• Normal jobs stay active for 30 days; urgent work stays active for 24 hours
-• Login and notification stability fixes
+• Signup bonus credit now reflects more reliably after registration
+• Refer & Earn wallet balance refreshes faster with live updates
+• Clearer bonus earning visibility in Refer & Earn screen
+• New admin-controlled in-app update prompts for safer rollouts
+• Improved reliability for nearby cook, maid, helper and driver job flows
