@@ -6,7 +6,7 @@
 
 - [naka.md](naka.md) — naka pamphlet drop + on-the-spot install assistance.
 - [rwa.md](rwa.md) — RWA admin pitch + onboarding + monthly engagement.
-- [outbound_whatsapp.md](outbound_whatsapp.md) — cold WhatsApp outbound (employer + RWA + NGO).
+- [outbound_whatsapp.md](outbound_whatsapp.md) — consent-first WhatsApp outreach from contacts CSV.
 - [employer_onboarding.md](employer_onboarding.md) — first-post hand-holding for SMBs.
 - [worker_onboarding.md](worker_onboarding.md) — same-day install → activation field flow.
 - [ngo_pilot.md](ngo_pilot.md) — 50-woman cohort pilot operating manual.

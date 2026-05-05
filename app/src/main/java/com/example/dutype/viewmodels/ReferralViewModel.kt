@@ -57,10 +57,9 @@ class ReferralViewModel @Inject constructor(
     fun loadReferralData() {
         viewModelScope.launch {
             val bootstrapOk = bootstrapReferralSnapshot()
+            ensureRealtimeObservers()
             if (!bootstrapOk) {
-                // Fallback: start the realtime listener so the UI eventually updates
-                // even if the one-shot failed (e.g. Cloud Function creating the code).
-                ensureRealtimeObservers()
+                Timber.d("Referral bootstrap failed; realtime observer is active for recovery")
             }
         }
         loadWithdrawalHistory()

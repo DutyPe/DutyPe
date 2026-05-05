@@ -157,9 +157,6 @@ private fun RegisterContent(
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
-    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
-    val referralConfig by appConfigViewModel.referralConfig.collectAsState()
-    val signupBonusInt = referralConfig.signupBonus.toInt()
     val otpState by otpViewModel.otpState.collectAsState()
 
     BackHandler {
@@ -204,12 +201,18 @@ private fun RegisterContent(
                             )
 
                             applyResult.fold(
-                                onSuccess = {
+                                onSuccess = { referralResult ->
                                     referralAppliedInstantly = true
                                     Timber.d("REGISTER - Referral applied immediately for user ${currentUser.uid}")
+                                    val referredReward = referralResult.referredUserReward.toInt()
+                                    val successMessage = if (referredReward > 0) {
+                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹$referredReward పొందారు." else "✓ Referral code applied successfully. You got ₹$referredReward instantly."
+                                    } else {
+                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది." else "✓ Referral code applied successfully."
+                                    }
                                     Toast.makeText(
                                         context,
-                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹$signupBonusInt పొందారు." else "✓ Referral code applied successfully. You got ₹$signupBonusInt instantly.",
+                                        successMessage,
                                         Toast.LENGTH_LONG
                                     ).show()
                                 },
@@ -739,9 +742,6 @@ private fun RegisterReferralSection(
     isTelugu: Boolean,
     onValidatedCodeChanged: (String?) -> Unit
 ) {
-    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
-    val referralConfig by appConfigViewModel.referralConfig.collectAsState()
-    val signupBonusInt = referralConfig.signupBonus.toInt()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -941,7 +941,7 @@ private fun RegisterReferralSection(
                 )
 
                 else -> Text(
-                    if (isTelugu) "₹$signupBonusInt బోనస్ కోసం రిఫరల్ కోడ్ నమోదు చేయండి" else "Enter referral code to earn ₹$signupBonusInt bonus",
+                    if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
                     style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                 )
             }

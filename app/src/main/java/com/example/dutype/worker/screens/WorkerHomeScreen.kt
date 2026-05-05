@@ -90,6 +90,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
+import com.example.dutype.components.AppUpdatePrompt
 import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.components.LocationAutocompleteField
 import com.example.dutype.components.NotificationPermissionBottomSheet
@@ -109,6 +110,8 @@ import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
+import com.example.dutype.utils.appVersionInfo
+import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
@@ -161,9 +164,13 @@ fun WorkerHomeScreen(
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val workerJobRequestViewModel: WorkerJobRequestViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val appConfigViewModel: AppConfigViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val workerRequestState by workerJobRequestViewModel.uiState.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
+    val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
+    val appVersionInfo = remember(context) { context.appVersionInfo() }
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
     val locationService = jobViewModel.locationService
@@ -678,6 +685,16 @@ fun WorkerHomeScreen(
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
                                     emptyJobsSuggestedCities = topLocationChips,
                                     onEmptyJobsCitySelected = onLocationChipSelected,
+                                    showGuestWelcomeCard = currentUser == null && referralConfig.signupBonus > 0.0,
+                                    guestWelcomeTitle = stringResource(R.string.guest_worker_welcome_title),
+                                    guestWelcomeMessage = stringResource(
+                                        R.string.guest_worker_welcome_message,
+                                        referralConfig.signupBonus.toInt()
+                                    ),
+                                    guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
+                                    onGuestWelcomeClick = {
+                                        rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                    },
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
@@ -836,6 +853,14 @@ fun WorkerHomeScreen(
             },
             userRole = "worker"
         )
+
+        if (!showNotificationBottomSheet && !showLocationPickerSheet) {
+            AppUpdatePrompt(
+                config = appUpdateConfig,
+                currentVersionCode = appVersionInfo.code,
+                userRole = "WORKER"
+            )
+        }
     }
 }
 

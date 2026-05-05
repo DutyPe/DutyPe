@@ -163,14 +163,21 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY -> NotificationCompat.PRIORITY_DEFAULT
             else -> NotificationCompat.PRIORITY_LOW
         }
+        val isJobCard = isJobCardNotification(type, data)
+        val displayTitle = if (isJobCard) jobCardTitle(title, data) else title
+        val displayBody = if (isJobCard) jobCardCollapsedText(body, data) else body
+        val expandedBody = if (isJobCard) jobCardExpandedText(body, data) else body
+        val style = NotificationCompat.BigTextStyle()
+            .bigText(expandedBody)
+            .setBigContentTitle(displayTitle)
         
         // Build notification
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NotificationIcons.tintColor(this))
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(displayTitle)
+            .setContentText(displayBody)
+            .setStyle(style)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(priority)
@@ -191,6 +198,36 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         } catch (e: SecurityException) {
             Timber.e(e, "🔔 ❌ Failed to show notification - permission denied")
         }
+    }
+
+    private fun isJobCardNotification(type: String, data: Map<String, String>): Boolean {
+        return data["notificationStyle"].equals("JOB_CARD", ignoreCase = true) ||
+            type == "NEW_JOB_ALERT" ||
+            type == "EMPLOYER_MESSAGE"
+    }
+
+    private fun jobCardTitle(fallbackTitle: String, data: Map<String, String>): String {
+        val explicitTitle = data["jobCardTitle"].orEmpty().trim()
+        if (explicitTitle.isNotEmpty()) return explicitTitle
+
+        val jobTitle = data["jobTitle"].orEmpty().trim()
+        return if (jobTitle.isNotEmpty()) "Job title : $jobTitle" else fallbackTitle
+    }
+
+    private fun jobCardCollapsedText(fallbackBody: String, data: Map<String, String>): String {
+        return data["jobTitle"].orEmpty().ifBlank { fallbackBody }
+    }
+
+    private fun jobCardExpandedText(fallbackBody: String, data: Map<String, String>): String {
+        val lines = listOf(
+            data["jobTitle"].orEmpty().trim(),
+            data["salaryText"].orEmpty().trim().takeIf { it.isNotEmpty() }?.let { "Salary : $it" }.orEmpty(),
+            data["locationText"].orEmpty().trim().takeIf { it.isNotEmpty() }?.let { "Location : $it" }.orEmpty(),
+            data["cityText"].orEmpty().trim().takeIf { it.isNotEmpty() }?.let { "City : $it" }.orEmpty(),
+            data["distanceText"].orEmpty().trim().takeIf { it.isNotEmpty() }?.let { "Distance : $it" }.orEmpty()
+        ).filter { it.isNotEmpty() }
+
+        return lines.joinToString("\n").ifBlank { fallbackBody }
     }
     
     /**
@@ -233,9 +270,9 @@ class DutyPeMessagingService : FirebaseMessagingService() {
     private fun getNotificationCategory(type: String): String {
         return when (type) {
             "BIRTHDAY" -> NotificationCompat.CATEGORY_EVENT
-            "JOB_EXPIRY", "JOB_ALERT", "JOB_POSTED", "JOB_UPDATE" -> NotificationCompat.CATEGORY_REMINDER
+            "JOB_EXPIRY", "JOB_ALERT", "NEW_JOB_ALERT", "JOB_POSTED", "JOB_UPDATE" -> NotificationCompat.CATEGORY_REMINDER
             "APPLICATION_STATUS", "APPLICATION_STATUS_UPDATE", "SHORTLISTED",
-            "REJECTED", "NEW_APPLICATION", "WORKER_HIRED" -> NotificationCompat.CATEGORY_STATUS
+            "REJECTED", "NEW_APPLICATION", "EMPLOYER_MESSAGE", "WORKER_HIRED" -> NotificationCompat.CATEGORY_STATUS
             "PROFILE_COMPLETE", "WELCOME" -> NotificationCompat.CATEGORY_RECOMMENDATION
             "PENDING_APPLICATIONS" -> NotificationCompat.CATEGORY_REMINDER
             "RE_ENGAGEMENT", "GUEST_ENGAGEMENT" -> NotificationCompat.CATEGORY_RECOMMENDATION
@@ -330,6 +367,24 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
                 builder.addAction(R.drawable.ic_notification, "Review Now", actionPendingIntent)
+            }
+            "NEW_JOB_ALERT",
+            "EMPLOYER_MESSAGE" -> {
+                val jobId = data["jobId"]
+                val requestId = data["requestId"]
+                val dest = data["deepLink"].orEmpty().ifBlank {
+                    when {
+                        !jobId.isNullOrEmpty() -> "dutype://job/$jobId"
+                        !requestId.isNullOrEmpty() -> "dutype://worker/home"
+                        else -> "dutype://worker/home"
+                    }
+                }
+                val actionIntent = createDeepLinkIntent(dest, notificationId)
+                val actionPendingIntent = PendingIntent.getActivity(
+                    this, notificationId + 1, actionIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                builder.addAction(R.drawable.ic_notification, "VIEW DETAILS", actionPendingIntent)
             }
             "WORKER_HIRED" -> {
                 val jobId = data["jobId"]

@@ -1283,6 +1283,18 @@
     <string name="pending_application_message">%1$s కోసం మీ దరఖాస్తు ఇంకా పెండింగ్‌లో ఉంది. వేగంగా అప్‌డేట్ కోసం యజమానికి కాల్ చేయండి.</string>
     <string name="referral_reward_earned_title">రిఫరల్ రివార్డ్ వచ్చింది!</string>
     <string name="referral_reward_earned_message">అభినందనలు! %2$d విజయవంతమైన రిఫరల్స్‌కు మీరు ₹%1$d సంపాదించారు!</string>
+    <string name="app_update_prompt_title">DutyPe అప్‌డేట్ చేయండి</string>
+    <string name="app_update_prompt_message">కొత్త DutyPe అప్‌డేట్ అందుబాటులో ఉంది. తాజా ఉద్యోగాలు, మెరుగులు, కొత్త ఫీచర్ల కోసం ఇప్పుడే అప్‌డేట్ చేయండి.</string>
+    <string name="app_update_prompt_update">అప్‌డేట్</string>
+    <string name="app_update_prompt_later">తర్వాత</string>
+    <string name="app_update_open_failed">అప్‌డేట్ పేజీ తెరవలేకపోయాం. దయచేసి మళ్ళీ ప్రయత్నించండి.</string>
+    <string name="guest_worker_welcome_title">స్వాగత గిఫ్ట్ సిద్ధంగా ఉంది</string>
+    <string name="guest_worker_welcome_message">ఇప్పుడే రిజిస్టర్ అయితే సైన్‌అప్ తర్వాత మీ DutyPe వాలెట్‌లో ₹%1$d వస్తుంది.</string>
+    <string name="guest_employer_welcome_title">స్వాగత ఆఫర్ సిద్ధంగా ఉంది</string>
+    <string name="guest_employer_welcome_message_with_bonus">ఇప్పుడే రిజిస్టర్ అయితే అపరిమిత ఉద్యోగ పోస్టింగ్ మరియు ₹%1$d స్వాగత బోనస్ అన్‌లాక్ అవుతాయి.</string>
+    <string name="guest_employer_welcome_message_posts">ఇప్పుడే రిజిస్టర్ అయితే మీ వ్యాపారానికి అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అవుతుంది.</string>
+    <string name="guest_employer_welcome_message_bonus">ఇప్పుడే రిజిస్టర్ అయితే సైన్‌అప్ తర్వాత మీ DutyPe వాలెట్‌లో ₹%1$d వస్తుంది.</string>
+    <string name="guest_welcome_login_register">లాగిన్ / రిజిస్టర్</string>
 
     <!-- Notification content (sent by app + shown locally). -->
     <string name="notif_app_status_applied_title">దరఖాస్తు సమర్పించబడింది</string>

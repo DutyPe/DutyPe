@@ -79,6 +79,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.AnnouncementList
+import com.example.dutype.components.AppUpdatePrompt
+import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobCategory
@@ -127,6 +129,8 @@ import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.utils.appVersionInfo
+import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.utils.JobEditPolicy
 import timber.log.Timber
 
@@ -146,6 +150,10 @@ fun EmployerHomeScreen(
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val appConfigViewModel: AppConfigViewModel = hiltViewModel()
+    val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
+    val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
+    val appVersionInfo = remember(context) { context.appVersionInfo() }
     
     // NotificationService for unread count (lightweight)
     val notificationService = remember { 
@@ -293,6 +301,16 @@ fun EmployerHomeScreen(
     val isLoading = employerJobUiState.isLoading
     val isRefreshing = employerJobUiState.isRefreshing
     val error = employerJobUiState.error
+    val showEmployerCashBonus = referralConfig.employerSignupBonusEnabled && referralConfig.employerSignupBonus > 0.0
+    val showEmployerWelcomeCard = employerId == null && (referralConfig.employerUnlimitedJobPostingEnabled || showEmployerCashBonus)
+    val employerWelcomeMessage = when {
+        referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(
+            R.string.guest_employer_welcome_message_with_bonus,
+            referralConfig.employerSignupBonus.toInt()
+        )
+        referralConfig.employerUnlimitedJobPostingEnabled -> stringResource(R.string.guest_employer_welcome_message_posts)
+        else -> stringResource(R.string.guest_employer_welcome_message_bonus, referralConfig.employerSignupBonus.toInt())
+    }
     
     // Company name state - starts empty, will be populated from profile
     var companyName by remember { mutableStateOf("") }
@@ -392,7 +410,14 @@ fun EmployerHomeScreen(
                 },
                 urgentRequests = instantHelpState.employerInstantRequests,
                 urgentResponsesByRequestId = instantHelpState.employerInstantResponses,
-                isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds
+                isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds,
+                showGuestWelcomeCard = showEmployerWelcomeCard,
+                guestWelcomeTitle = stringResource(R.string.guest_employer_welcome_title),
+                guestWelcomeMessage = employerWelcomeMessage,
+                guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
+                onGuestWelcomeClick = {
+                    rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
+                }
             )
         }
 
@@ -437,6 +462,14 @@ fun EmployerHomeScreen(
             },
             userRole = "employer"
         )
+
+        if (!showNotificationBottomSheet) {
+            AppUpdatePrompt(
+                config = appUpdateConfig,
+                currentVersionCode = appVersionInfo.code,
+                userRole = "EMPLOYER"
+            )
+        }
     } // Box
 }
 
@@ -465,6 +498,11 @@ fun DashboardContent(
     urgentRequests: List<com.example.dutype.models.InstantRequest> = emptyList(),
     urgentResponsesByRequestId: Map<String, List<com.example.dutype.models.InstantResponse>> = emptyMap(),
     isLoadingUrgentRequests: Boolean = false,
+    showGuestWelcomeCard: Boolean = false,
+    guestWelcomeTitle: String = "",
+    guestWelcomeMessage: String = "",
+    guestWelcomeButtonText: String = "",
+    onGuestWelcomeClick: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -490,6 +528,17 @@ fun DashboardContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            if (showGuestWelcomeCard) {
+                item {
+                    GuestWelcomeBonusCard(
+                        title = guestWelcomeTitle,
+                        message = guestWelcomeMessage,
+                        buttonText = guestWelcomeButtonText,
+                        onClick = onGuestWelcomeClick
+                    )
+                }
+            }
+
             if (announcements.isNotEmpty()) {
                 item {
                     AnnouncementList(

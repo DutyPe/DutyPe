@@ -8,7 +8,11 @@ exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getRe
  *
  * Shape (all numbers in INR unless stated):
  *   rewardPerReferral:  number   // default 25
- *   signupBonus:        number   // default 25
+ *   signupBonus:        number   // default 25 (worker welcome/referral signup bonus)
+ *   employerSignupBonus:number   // default 10
+ *   employerSignupBonusEnabled: boolean
+ *   employerUnlimitedJobPostingEnabled: boolean
+ *   welcomeBonusCampaignId: string
  *   minWithdrawal:      number   // default 100
  *   maxWithdrawalPerDay:number   // default 1000
  *   milestones:         { [count:string]: number }
@@ -21,6 +25,10 @@ const admin = require("firebase-admin");
 exports.DEFAULT_REFERRAL_CONFIG = {
     rewardPerReferral: 25,
     signupBonus: 25,
+    employerSignupBonus: 10,
+    employerSignupBonusEnabled: true,
+    employerUnlimitedJobPostingEnabled: true,
+    welcomeBonusCampaignId: "welcome_bonus_v1",
     minWithdrawal: 100,
     maxWithdrawalPerDay: 1000,
     milestones: { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 },
@@ -38,6 +46,10 @@ async function getReferralConfig() {
         const merged = {
             rewardPerReferral: num(data.rewardPerReferral, exports.DEFAULT_REFERRAL_CONFIG.rewardPerReferral),
             signupBonus: num(data.signupBonus, exports.DEFAULT_REFERRAL_CONFIG.signupBonus),
+            employerSignupBonus: num(data.employerSignupBonus, exports.DEFAULT_REFERRAL_CONFIG.employerSignupBonus),
+            employerSignupBonusEnabled: bool(data.employerSignupBonusEnabled, exports.DEFAULT_REFERRAL_CONFIG.employerSignupBonusEnabled),
+            employerUnlimitedJobPostingEnabled: bool(data.employerUnlimitedJobPostingEnabled, exports.DEFAULT_REFERRAL_CONFIG.employerUnlimitedJobPostingEnabled),
+            welcomeBonusCampaignId: text(data.welcomeBonusCampaignId, exports.DEFAULT_REFERRAL_CONFIG.welcomeBonusCampaignId, 64),
             minWithdrawal: Math.max(num(data.minWithdrawal, exports.DEFAULT_REFERRAL_CONFIG.minWithdrawal), 100),
             maxWithdrawalPerDay: num(data.maxWithdrawalPerDay, exports.DEFAULT_REFERRAL_CONFIG.maxWithdrawalPerDay),
             milestones: (data.milestones && typeof data.milestones === "object")
@@ -60,6 +72,13 @@ function num(v, d) {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? n : d;
 }
+function bool(v, d) {
+    return typeof v === "boolean" ? v : d;
+}
+function text(v, d, maxLength) {
+    const raw = typeof v === "string" ? v.trim() : "";
+    return raw ? raw.slice(0, maxLength) : d;
+}
 /**
  * Admin-only callable to update /app_config/referral.
  * Authorised via the `admin` custom claim on the caller. Set the claim with:
@@ -80,6 +99,14 @@ exports.updateReferralConfig = functions
         patch.rewardPerReferral = numStrict(data.rewardPerReferral, "rewardPerReferral", 0, 10000);
     if ((data === null || data === void 0 ? void 0 : data.signupBonus) !== undefined)
         patch.signupBonus = numStrict(data.signupBonus, "signupBonus", 0, 10000);
+    if ((data === null || data === void 0 ? void 0 : data.employerSignupBonus) !== undefined)
+        patch.employerSignupBonus = numStrict(data.employerSignupBonus, "employerSignupBonus", 0, 10000);
+    if ((data === null || data === void 0 ? void 0 : data.employerSignupBonusEnabled) !== undefined)
+        patch.employerSignupBonusEnabled = boolStrict(data.employerSignupBonusEnabled, "employerSignupBonusEnabled");
+    if ((data === null || data === void 0 ? void 0 : data.employerUnlimitedJobPostingEnabled) !== undefined)
+        patch.employerUnlimitedJobPostingEnabled = boolStrict(data.employerUnlimitedJobPostingEnabled, "employerUnlimitedJobPostingEnabled");
+    if ((data === null || data === void 0 ? void 0 : data.welcomeBonusCampaignId) !== undefined)
+        patch.welcomeBonusCampaignId = textStrict(data.welcomeBonusCampaignId, "welcomeBonusCampaignId", 1, 64);
     if ((data === null || data === void 0 ? void 0 : data.minWithdrawal) !== undefined)
         patch.minWithdrawal = numStrict(data.minWithdrawal, "minWithdrawal", 1, 100000);
     if ((data === null || data === void 0 ? void 0 : data.maxWithdrawalPerDay) !== undefined)
@@ -116,6 +143,22 @@ function numStrict(v, field, min, max) {
         throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
     }
     return n;
+}
+function boolStrict(v, field) {
+    if (typeof v !== "boolean") {
+        throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+    }
+    return v;
+}
+function textStrict(v, field, minLength, maxLength) {
+    if (typeof v !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+    }
+    const value = v.trim();
+    if (value.length < minLength || value.length > maxLength || !/^[A-Za-z0-9_-]+$/.test(value)) {
+        throw new functions.https.HttpsError("invalid-argument", `${field} invalid`);
+    }
+    return value;
 }
 exports.getReferralConfigCallable = functions
     .region("asia-south1")

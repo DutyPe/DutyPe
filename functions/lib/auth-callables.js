@@ -24,6 +24,7 @@ const functions = require("firebase-functions");
 const secure_callable_1 = require("./secure-callable");
 const idempotency_1 = require("./idempotency");
 const validation_1 = require("./validation");
+const job_notification_card_1 = require("./job-notification-card");
 const db = () => admin.firestore();
 const VALID_ROLES = ["WORKER", "EMPLOYER"];
 // ────────────────────────────────────────────────────────────────────────
@@ -705,12 +706,19 @@ exports.requestWorkerForJob = (0, secure_callable_1.onCallSecured)({ enforceAppC
         return { requestId, status: "pending", alreadyExists: false };
     });
     if (!txResult.alreadyExists) {
-        await writeNotification(workerId, "Employer requested you", `${requestPayload.employerName} requested you for ${requestPayload.jobTitle}`, "EMPLOYER_MESSAGE", "WORKER", {
-            requestId,
+        const card = (0, job_notification_card_1.buildJobNotificationCard)({
+            source: "worker_request",
+            title: requestPayload.jobTitle,
+            salary: requestPayload.salary,
+            salaryType: requestPayload.salaryType,
+            addressText: requestPayload.jobLocation,
+            distanceKm: requestPayload.distanceKm,
             jobId,
-            employerId: uid,
+            requestId,
             deepLink: `dutype://job/${jobId}`,
         });
+        await writeNotification(workerId, card.title, card.message, "EMPLOYER_MESSAGE", "WORKER", Object.assign(Object.assign({}, card.data), { requestId,
+            jobId, employerId: uid, deepLink: `dutype://job/${jobId}` }));
     }
     const out = Object.assign({ success: true }, txResult);
     await idem.record(out);

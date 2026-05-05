@@ -116,12 +116,32 @@ export const NOTIFICATION_TEMPLATES: Translations = {
   },
   SIGNUP_BONUS: {
     en: {
-      title: "🎁 Welcome Bonus",
-      body: "You earned ₹{amount} for joining with a referral code.",
+      title: "Welcome Bonus",
+      body: "You earned ₹{amount} for joining DutyPe.",
     },
     te: {
-      title: "🎁 స్వాగత బోనస్",
-      body: "రిఫరల్ కోడ్‌తో చేరినందుకు మీరు ₹{amount} సంపాదించారు.",
+      title: "స్వాగత బోనస్",
+      body: "DutyPeలో చేరినందుకు మీరు ₹{amount} సంపాదించారు.",
+    },
+  },
+  EMPLOYER_WELCOME_BENEFIT: {
+    en: {
+      title: "Welcome Offer Unlocked",
+      body: "Unlimited job posting is unlocked for your new employer account.",
+    },
+    te: {
+      title: "స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
+      body: "మీ కొత్త యజమాని ఖాతాకు అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది.",
+    },
+  },
+  EMPLOYER_WELCOME_BONUS: {
+    en: {
+      title: "Welcome Offer Unlocked",
+      body: "Unlimited job posting is unlocked and ₹{amount} has been added to your DutyPe wallet.",
+    },
+    te: {
+      title: "స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
+      body: "అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది మరియు మీ DutyPe వాలెట్‌లో ₹{amount} జమైంది.",
     },
   },
 

@@ -21,6 +21,7 @@ import * as functions from "firebase-functions";
 import { onCallSecured } from "./secure-callable";
 import { withIdempotency } from "./idempotency";
 import { validateString, validateEnum } from "./validation";
+import { buildJobNotificationCard } from "./job-notification-card";
 
 const db = () => admin.firestore();
 
@@ -845,13 +846,25 @@ export const requestWorkerForJob = onCallSecured(
     });
 
     if (!txResult.alreadyExists) {
+      const card = buildJobNotificationCard({
+        source: "worker_request",
+        title: requestPayload.jobTitle,
+        salary: requestPayload.salary,
+        salaryType: requestPayload.salaryType,
+        addressText: requestPayload.jobLocation,
+        distanceKm: requestPayload.distanceKm,
+        jobId,
+        requestId,
+        deepLink: `dutype://job/${jobId}`,
+      });
       await writeNotification(
         workerId,
-        "Employer requested you",
-        `${requestPayload.employerName} requested you for ${requestPayload.jobTitle}`,
+        card.title,
+        card.message,
         "EMPLOYER_MESSAGE",
         "WORKER",
         {
+          ...card.data,
           requestId,
           jobId,
           employerId: uid,

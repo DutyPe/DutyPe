@@ -168,7 +168,9 @@ object NotificationChannelManager {
             "BIRTHDAY",
             "JOB_EXPIRY",
             "APPLICATION_STATUS",
-            "JOB_ALERT" -> CHANNEL_HIGH_PRIORITY
+            "JOB_ALERT",
+            "NEW_JOB_ALERT",
+            "EMPLOYER_MESSAGE" -> CHANNEL_HIGH_PRIORITY
             
             // MEDIUM PRIORITY
             "PENDING_APPLICATIONS",

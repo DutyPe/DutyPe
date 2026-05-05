@@ -348,9 +348,10 @@ fun MandatoryEmployerProfileSetupScreen(
                                     newUserPhone = contactPhone
                                 )
                                 if (referralApplyResult.isSuccess) {
+                                    val referredReward = referralApplyResult.getOrNull()?.referredUserReward?.toInt() ?: 0
                                     Toast.makeText(
                                         context,
-                                        "Referral bonus credited successfully",
+                                        if (referredReward > 0) "Referral bonus credited successfully" else "Referral code applied successfully",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 } else {

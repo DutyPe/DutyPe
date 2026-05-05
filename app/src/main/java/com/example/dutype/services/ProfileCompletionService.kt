@@ -1123,8 +1123,8 @@ class ProfileCompletionService @Inject constructor(
         newUserRole: String,
         newUserName: String,
         newUserPhone: String
-    ): Result<Unit> {
-        if (referralCode.isBlank()) return Result.success(Unit)
+    ): Result<ApplyReferralResult> {
+        if (referralCode.isBlank()) return Result.success(ApplyReferralResult(success = true))
 
         return try {
             val result = referralService.applyReferralCode(
@@ -1136,7 +1136,7 @@ class ProfileCompletionService @Inject constructor(
 
             if (result.isSuccess) {
                 Timber.d("REFERRAL: Code applied successfully via ReferralService")
-                Result.success(Unit)
+                result
             } else {
                 val error = result.exceptionOrNull()?.message ?: "Failed to apply referral code"
                 Timber.w("REFERRAL: Code application failed: $error")

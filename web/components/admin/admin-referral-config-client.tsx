@@ -10,6 +10,10 @@ import { getFirebaseServices } from "@/lib/firebase/client";
 type ReferralConfig = {
   rewardPerReferral: number;
   signupBonus: number;
+  employerSignupBonus: number;
+  employerSignupBonusEnabled: boolean;
+  employerUnlimitedJobPostingEnabled: boolean;
+  welcomeBonusCampaignId: string;
   minWithdrawal: number;
   maxWithdrawalPerDay: number;
   milestones: Record<string, number>;
@@ -21,6 +25,10 @@ type ReferralConfig = {
 const DEFAULTS: ReferralConfig = {
   rewardPerReferral: 25,
   signupBonus: 25,
+  employerSignupBonus: 10,
+  employerSignupBonusEnabled: true,
+  employerUnlimitedJobPostingEnabled: true,
+  welcomeBonusCampaignId: "welcome_bonus_v1",
   minWithdrawal: 50,
   maxWithdrawalPerDay: 1000,
   milestones: { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 },
@@ -56,6 +64,10 @@ export function AdminReferralConfigClient() {
       setConfig({
         rewardPerReferral: Number(data.rewardPerReferral ?? DEFAULTS.rewardPerReferral),
         signupBonus: Number(data.signupBonus ?? DEFAULTS.signupBonus),
+        employerSignupBonus: Number(data.employerSignupBonus ?? DEFAULTS.employerSignupBonus),
+        employerSignupBonusEnabled: Boolean(data.employerSignupBonusEnabled ?? DEFAULTS.employerSignupBonusEnabled),
+        employerUnlimitedJobPostingEnabled: Boolean(data.employerUnlimitedJobPostingEnabled ?? DEFAULTS.employerUnlimitedJobPostingEnabled),
+        welcomeBonusCampaignId: String(data.welcomeBonusCampaignId ?? DEFAULTS.welcomeBonusCampaignId),
         minWithdrawal: Number(data.minWithdrawal ?? DEFAULTS.minWithdrawal),
         maxWithdrawalPerDay: Number(data.maxWithdrawalPerDay ?? DEFAULTS.maxWithdrawalPerDay),
         milestones: { ...DEFAULTS.milestones, ...(data.milestones ?? {}) },
@@ -84,6 +96,10 @@ export function AdminReferralConfigClient() {
       await update({
         rewardPerReferral: config.rewardPerReferral,
         signupBonus: config.signupBonus,
+        employerSignupBonus: config.employerSignupBonus,
+        employerSignupBonusEnabled: config.employerSignupBonusEnabled,
+        employerUnlimitedJobPostingEnabled: config.employerUnlimitedJobPostingEnabled,
+        welcomeBonusCampaignId: config.welcomeBonusCampaignId.trim() || DEFAULTS.welcomeBonusCampaignId,
         minWithdrawal: config.minWithdrawal,
         maxWithdrawalPerDay: config.maxWithdrawalPerDay,
         milestones: config.milestones,
@@ -120,10 +136,24 @@ export function AdminReferralConfigClient() {
           onChange={(v) => { setConfig({ ...config, rewardPerReferral: v }); setDirty(true); }}
         />
         <NumberField
-          label="Signup bonus for new user (₹)"
+          label="Worker signup bonus (₹)"
           value={config.signupBonus}
           onChange={(v) => { setConfig({ ...config, signupBonus: v }); setDirty(true); }}
         />
+        <NumberField
+          label="Employer signup bonus (₹)"
+          value={config.employerSignupBonus}
+          onChange={(v) => { setConfig({ ...config, employerSignupBonus: v }); setDirty(true); }}
+        />
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
+          <span style={{ color: "#374151", fontWeight: 500 }}>Welcome campaign id</span>
+          <input
+            type="text"
+            value={config.welcomeBonusCampaignId}
+            onChange={(e) => { setConfig({ ...config, welcomeBonusCampaignId: e.target.value }); setDirty(true); }}
+            style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db" }}
+          />
+        </label>
         <NumberField
           label="Minimum withdrawal (₹)"
           value={config.minWithdrawal}
@@ -134,6 +164,37 @@ export function AdminReferralConfigClient() {
           value={config.maxWithdrawalPerDay}
           onChange={(v) => { setConfig({ ...config, maxWithdrawalPerDay: v }); setDirty(true); }}
         />
+      </div>
+
+      <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
+          <input
+            type="checkbox"
+            checked={config.employerSignupBonusEnabled}
+            onChange={(e) => { setConfig({ ...config, employerSignupBonusEnabled: e.target.checked }); setDirty(true); }}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            <strong>Give employer cash signup bonus</strong>
+            <small style={{ display: "block", color: "#6b7280", marginTop: 2 }}>
+              New employers get the current employer amount once. Existing users keep their old credited amount.
+            </small>
+          </span>
+        </label>
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
+          <input
+            type="checkbox"
+            checked={config.employerUnlimitedJobPostingEnabled}
+            onChange={(e) => { setConfig({ ...config, employerUnlimitedJobPostingEnabled: e.target.checked }); setDirty(true); }}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            <strong>Unlock unlimited job posting for new employers</strong>
+            <small style={{ display: "block", color: "#6b7280", marginTop: 2 }}>
+              Stored on the employer profile and referral stats as a durable welcome entitlement.
+            </small>
+          </span>
+        </label>
       </div>
 
       <div style={{ marginTop: 24 }}>

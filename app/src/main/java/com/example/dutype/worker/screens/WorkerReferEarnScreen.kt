@@ -327,7 +327,11 @@ fun WorkerReferEarnScreen(
                                 totalReferrals = uiState.stats?.totalReferrals ?: 0,
                                 successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
                                 totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
-                                availableBalance = uiState.stats?.availableBalance ?: 0.0
+                                availableBalance = uiState.stats?.availableBalance ?: 0.0,
+                                signupBonusReceived = uiState.stats?.signupBonusReceived == true || uiState.stats?.welcomeBonusReceived == true,
+                                signupBonusAmount = uiState.stats?.signupBonusAmount
+                                    ?.takeIf { it > 0.0 }
+                                    ?: (uiState.stats?.welcomeBonusAmount ?: 0.0)
                             )
                         }
                     }
@@ -675,7 +679,9 @@ private fun StatsGrid(
     totalReferrals: Int,
     successfulReferrals: Int,
     totalEarnings: Double,
-    availableBalance: Double
+    availableBalance: Double,
+    signupBonusReceived: Boolean,
+    signupBonusAmount: Double
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -723,6 +729,17 @@ private fun StatsGrid(
                     Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
+            }
+
+            if (signupBonusReceived && signupBonusAmount > 0.0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.refer_signup_bonus_earned, String.format("%.0f", signupBonusAmount)),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF059669)
+                    )
+                )
             }
         }
     }

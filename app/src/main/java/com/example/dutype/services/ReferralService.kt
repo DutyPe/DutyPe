@@ -73,6 +73,7 @@ class ReferralService @Inject constructor(
         // letting the realtime snapshot listener eventually overwrite stale
         // data when the user actually earns a new reward.
         private const val STATS_CACHE_TTL_MS = 60_000L
+        private const val WELCOME_CLAIM_CACHE_TTL_MS = 5 * 60_000L
     }
 
     @Volatile private var cachedStatsKey: String? = null
@@ -81,6 +82,8 @@ class ReferralService @Inject constructor(
     @Volatile private var cachedReferrerKey: String? = null
     @Volatile private var cachedReferrer: ReferrerInfo? = null
     @Volatile private var cachedReferrerAt: Long = 0L
+    @Volatile private var cachedWelcomeClaimKey: String? = null
+    @Volatile private var cachedWelcomeClaimAt: Long = 0L
 
     private data class ReferralProfile(
         val role: String,
@@ -93,6 +96,50 @@ class ReferralService @Inject constructor(
         cachedStatsAt = 0L
         cachedReferrer = null
         cachedReferrerAt = 0L
+    }
+
+    private fun shouldServeCachedStats(stats: ReferralStats): Boolean {
+        return stats.signupBonusReceived ||
+            stats.welcomeBonusReceived ||
+            stats.unlimitedJobPostingGranted ||
+            stats.totalEarnings > 0.0 ||
+            stats.availableBalance > 0.0 ||
+            stats.totalReferrals > 0 ||
+            stats.successfulReferrals > 0
+    }
+
+    private fun cacheStatsIfSettled(userId: String, stats: ReferralStats) {
+        if (!shouldServeCachedStats(stats)) return
+        cachedStats = stats
+        cachedStatsKey = userId
+        cachedStatsAt = System.currentTimeMillis()
+    }
+
+    private suspend fun claimWelcomeBonusIfEligible(userId: String) {
+        val now = System.currentTimeMillis()
+        if (cachedWelcomeClaimKey == userId && (now - cachedWelcomeClaimAt) < WELCOME_CLAIM_CACHE_TTL_MS) {
+            return
+        }
+
+        cachedWelcomeClaimKey = userId
+        cachedWelcomeClaimAt = now
+
+        try {
+            val result = functions
+                .getHttpsCallable("claimWelcomeBonus")
+                .call(emptyMap<String, Any>())
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val response = result.data as? Map<String, Any?> ?: emptyMap()
+            if (response["success"] as? Boolean == true) {
+                cachedStats = null
+                cachedStatsAt = 0L
+                Timber.d("🎁 REFERRAL: Welcome bonus claim checked (${response["reason"] ?: "ok"})")
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "🎁 REFERRAL: Welcome bonus claim check failed; stats listener will still update if credited")
+        }
     }
 
     private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
@@ -276,7 +323,12 @@ class ReferralService @Inject constructor(
                 ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
             } catch (e: Exception) {
                 ReferralTier.BRONZE
-            }
+            },
+            signupBonusReceived = statsMap["signupBonusReceived"] as? Boolean ?: false,
+            signupBonusAmount = (statsMap["signupBonusAmount"] as? Number)?.toDouble() ?: 0.0,
+            welcomeBonusReceived = statsMap["welcomeBonusReceived"] as? Boolean ?: false,
+            welcomeBonusAmount = (statsMap["welcomeBonusAmount"] as? Number)?.toDouble() ?: 0.0,
+            unlimitedJobPostingGranted = statsMap["unlimitedJobPostingGranted"] as? Boolean ?: false
         )
     }
 
@@ -372,6 +424,7 @@ class ReferralService @Inject constructor(
                         )
 
                         Timber.d("🎁 REFERRAL: Stats updated from Firestore - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}, Successful: ${stats.successfulReferrals}, Earnings: ₹${stats.totalEarnings}, Balance: ₹${stats.availableBalance}, Tier: ${stats.currentTier}")
+                        cacheStatsIfSettled(userId, stats)
 
                         // 🔔 SMART NOTIFICATION: Check for referral milestones
                         val currentCount = stats.successfulReferrals
@@ -606,12 +659,14 @@ class ReferralService @Inject constructor(
         // network reads.
         val now = System.currentTimeMillis()
         cachedStats?.let { snap ->
-            if (cachedStatsKey == userId && (now - cachedStatsAt) < STATS_CACHE_TTL_MS) {
+            if (cachedStatsKey == userId && (now - cachedStatsAt) < STATS_CACHE_TTL_MS && shouldServeCachedStats(snap)) {
                 return snap
             }
         }
 
         return try {
+            claimWelcomeBonusIfEligible(userId)
+
             val statsDoc = firestore.collection(COLLECTION_REFERRAL_STATS)
                 .document(userId)
                 .get()
@@ -662,9 +717,7 @@ class ReferralService @Inject constructor(
                 )
                 
                 Timber.d("🎁 REFERRAL: getReferralStats() - Code: ${stats.referralCode}, Total: ${stats.totalReferrals}")
-                cachedStats = stats
-                cachedStatsKey = userId
-                cachedStatsAt = now
+                cacheStatsIfSettled(userId, stats)
                 stats
             } else {
                 val profile = loadReferralProfile(userId)
@@ -688,9 +741,6 @@ class ReferralService @Inject constructor(
                     canWithdraw = false,
                     currentTier = ReferralTier.BRONZE
                 )
-                cachedStats = fallback
-                cachedStatsKey = userId
-                cachedStatsAt = now
                 fallback
             }
         } catch (e: Exception) {

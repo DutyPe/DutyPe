@@ -14,11 +14,12 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.claimWelcomeBonus = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
 const notification_i18n_1 = require("./notification-i18n");
+const job_notification_card_1 = require("./job-notification-card");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // ============================================
@@ -423,7 +424,7 @@ exports.sendPushNotification = functions.firestore
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Map notification type to Android channel ID
         const notificationType = notification.type || "general";
-        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "EMPLOYER_MESSAGE", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
         const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
         let channelId = "low_priority";
         if (highPriorityTypes.includes(notificationType)) {
@@ -432,6 +433,7 @@ exports.sendPushNotification = functions.firestore
         else if (mediumPriorityTypes.includes(notificationType)) {
             channelId = "medium_priority";
         }
+        const payloadData = sanitizeNotificationDataMap(notification.data);
         // Build the FCM message.
         // DATA-ONLY message (no android.notification block) so that onMessageReceived()
         // is ALWAYS called by DutyPeMessagingService regardless of whether the app is
@@ -439,16 +441,7 @@ exports.sendPushNotification = functions.firestore
         // how the notification is displayed and ensures deep-links work correctly.
         const message = {
             token: fcmToken,
-            data: {
-                notificationId: notificationId,
-                title: effectiveTitle,
-                message: effectiveMessage,
-                body: effectiveMessage,
-                type: notificationType,
-                deepLink: deepLink,
-                channel: channelId,
-                locale: effectiveLocale,
-            },
+            data: Object.assign(Object.assign({}, payloadData), { notificationId: notificationId, title: effectiveTitle, message: effectiveMessage, body: effectiveMessage, type: notificationType, deepLink: deepLink, channel: channelId, locale: effectiveLocale }),
             android: {
                 priority: "high",
             },
@@ -635,19 +628,23 @@ exports.notifyAvailableWorkersForInstantRequest = functions.firestore
         : admin.firestore.Timestamp.fromMillis(nowMs + 2 * 60 * 60 * 1000);
     candidates.forEach((candidate) => {
         const notificationRef = db.collection("notifications").doc(`instant_${requestId}_${candidate.workerId}`);
+        const card = (0, job_notification_card_1.buildJobNotificationCard)({
+            source: "urgent_request",
+            title: request.title || "Urgent work nearby",
+            salary: request.budgetText,
+            addressText: request.addressText,
+            cityText: request.companyCity,
+            distanceKm: candidate.distance,
+            requestId,
+            deepLink: "dutype://worker/home",
+        });
         batch.set(notificationRef, {
             recipientId: candidate.workerId,
-            title: "Urgent work nearby",
-            message: `${String(request.title || "Urgent help needed")} near you`,
+            title: card.title,
+            message: card.message,
             type: "NEW_JOB_ALERT",
             targetRole: "WORKER",
-            data: {
-                requestId,
-                employerId: String(request.employerId || ""),
-                category: String(request.category || ""),
-                distanceKm: candidate.distance.toFixed(1),
-                deepLink: "dutype://worker/home",
-            },
+            data: Object.assign(Object.assign({}, card.data), { requestId, employerId: String(request.employerId || ""), category: String(request.category || ""), distanceKm: candidate.distance.toFixed(1), deepLink: "dutype://worker/home" }),
             isRead: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             expiresAt,
@@ -1235,6 +1232,7 @@ Object.defineProperty(exports, "onWorkerProfileReferralReady", { enumerable: tru
 Object.defineProperty(exports, "onEmployerProfileReferralReady", { enumerable: true, get: function () { return referral_system_1.onEmployerProfileReferralReady; } });
 Object.defineProperty(exports, "ensureUserReferralCode", { enumerable: true, get: function () { return referral_system_1.ensureUserReferralCode; } });
 Object.defineProperty(exports, "applyReferralCode", { enumerable: true, get: function () { return referral_system_1.applyReferralCode; } });
+Object.defineProperty(exports, "claimWelcomeBonus", { enumerable: true, get: function () { return referral_system_1.claimWelcomeBonus; } });
 Object.defineProperty(exports, "expirePendingReferrals", { enumerable: true, get: function () { return referral_system_1.expirePendingReferrals; } });
 Object.defineProperty(exports, "requestWithdrawal", { enumerable: true, get: function () { return referral_system_1.requestWithdrawal; } });
 Object.defineProperty(exports, "detectReferralFraud", { enumerable: true, get: function () { return referral_system_1.detectReferralFraud; } });

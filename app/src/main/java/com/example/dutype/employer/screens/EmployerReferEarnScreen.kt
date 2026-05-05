@@ -296,7 +296,11 @@ fun EmployerReferEarnScreen(
                                 totalReferrals = uiState.stats?.totalReferrals ?: 0,
                                 successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
                                 totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
-                                availableBalance = uiState.stats?.availableBalance ?: 0.0
+                                availableBalance = uiState.stats?.availableBalance ?: 0.0,
+                                signupBonusReceived = uiState.stats?.signupBonusReceived == true || uiState.stats?.welcomeBonusReceived == true,
+                                signupBonusAmount = uiState.stats?.signupBonusAmount
+                                    ?.takeIf { it > 0.0 }
+                                    ?: (uiState.stats?.welcomeBonusAmount ?: 0.0)
                             )
                         }
                     }
@@ -473,7 +477,14 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 
 @SuppressLint("DefaultLocale")
 @Composable
-private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, totalEarnings: Double, availableBalance: Double) {
+private fun EmployerStatsCard(
+    totalReferrals: Int,
+    successfulReferrals: Int,
+    totalEarnings: Double,
+    availableBalance: Double,
+    signupBonusReceived: Boolean,
+    signupBonusAmount: Double
+) {
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.your_stats), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
@@ -503,6 +514,14 @@ private fun EmployerStatsCard(totalReferrals: Int, successfulReferrals: Int, tot
                     Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
+            }
+
+            if (signupBonusReceived && signupBonusAmount > 0.0) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.refer_signup_bonus_earned, String.format("%.0f", signupBonusAmount)),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
+                )
             }
         }
     }

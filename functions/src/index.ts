@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { validateString, validateMessage, validateEnum, validateUserId, assertAppCheck } from "./validation";
 import { getUserLanguage, getUserDisplayName, tTitle, tBody, SUPPORTED_LOCALES, normalizeLocale, localizedTopic } from "./notification-i18n";
+import { buildJobNotificationCard } from "./job-notification-card";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -468,7 +469,7 @@ export const sendPushNotification = functions.firestore
       
       // Map notification type to Android channel ID
       const notificationType = notification.type || "general";
-      const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+      const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "EMPLOYER_MESSAGE", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
       const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
       let channelId = "low_priority";
       if (highPriorityTypes.includes(notificationType)) {
@@ -476,6 +477,8 @@ export const sendPushNotification = functions.firestore
       } else if (mediumPriorityTypes.includes(notificationType)) {
         channelId = "medium_priority";
       }
+
+      const payloadData = sanitizeNotificationDataMap(notification.data);
 
       // Build the FCM message.
       // DATA-ONLY message (no android.notification block) so that onMessageReceived()
@@ -485,6 +488,7 @@ export const sendPushNotification = functions.firestore
       const message: admin.messaging.Message = {
         token: fcmToken,
         data: {
+          ...payloadData,
           notificationId: notificationId,
           title: effectiveTitle,
           message: effectiveMessage,
@@ -735,13 +739,24 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
 
     candidates.forEach((candidate) => {
       const notificationRef = db.collection("notifications").doc(`instant_${requestId}_${candidate.workerId}`);
+      const card = buildJobNotificationCard({
+        source: "urgent_request",
+        title: request.title || "Urgent work nearby",
+        salary: request.budgetText,
+        addressText: request.addressText,
+        cityText: request.companyCity,
+        distanceKm: candidate.distance,
+        requestId,
+        deepLink: "dutype://worker/home",
+      });
       batch.set(notificationRef, {
         recipientId: candidate.workerId,
-        title: "Urgent work nearby",
-        message: `${String(request.title || "Urgent help needed")} near you`,
+        title: card.title,
+        message: card.message,
         type: "NEW_JOB_ALERT",
         targetRole: "WORKER",
         data: {
+          ...card.data,
           requestId,
           employerId: String(request.employerId || ""),
           category: String(request.category || ""),
@@ -1411,6 +1426,7 @@ export {
   onEmployerProfileReferralReady,
   ensureUserReferralCode,
   applyReferralCode,
+  claimWelcomeBonus,
   expirePendingReferrals,
   requestWithdrawal,
   detectReferralFraud,

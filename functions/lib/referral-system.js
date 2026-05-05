@@ -32,7 +32,7 @@
  * @version 2.0.0 - Enterprise Edition with Security Hardening
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = void 0;
+exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.claimWelcomeBonus = exports.creditEmployerWelcomeBonusOnCreate = exports.creditWorkerWelcomeBonusOnCreate = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -75,6 +75,7 @@ const REFERRAL_CONFIG = {
 };
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const WELCOME_BONUS_ROLLOUT_AT_MS = Date.UTC(2026, 4, 5, 0, 0, 0);
 const CANONICAL_REFERRAL_PREFIX = "DUTY";
 const CANONICAL_REFERRAL_LENGTH = 8;
 const REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -92,6 +93,10 @@ const DEFAULT_REFERRAL_STATS = {
     currentTier: "BRONZE",
     signupBonusReceived: false,
     signupBonusAmount: 0,
+    welcomeBonusReceived: false,
+    welcomeBonusAmount: 0,
+    welcomeBonusCampaignId: "",
+    unlimitedJobPostingGranted: false,
     totalWithdrawals: 0
 };
 // ============================================
@@ -125,6 +130,11 @@ function canWithdraw(availableBalance, minWithdrawal) {
 function getMilestoneBonus(newCount) {
     return REFERRAL_CONFIG.MILESTONES[newCount] || 0;
 }
+function getConfiguredMilestoneBonus(newCount, milestones) {
+    var _a;
+    const configured = Number((_a = milestones[String(newCount)]) !== null && _a !== void 0 ? _a : milestones[newCount]);
+    return Number.isFinite(configured) && configured >= 0 ? configured : getMilestoneBonus(newCount);
+}
 /**
  * Generate idempotency key for referral
  */
@@ -143,6 +153,139 @@ function getBooleanValue(value, fallback = false) {
 function getStringValue(value, fallback = "") {
     return typeof value === "string" && value.trim() ? value : fallback;
 }
+function timestampToMillis(value) {
+    if (!value)
+        return 0;
+    if (typeof (value === null || value === void 0 ? void 0 : value.toMillis) === "function") {
+        return value.toMillis();
+    }
+    if (value instanceof Date) {
+        return value.getTime();
+    }
+    if (typeof value === "number") {
+        return value < 100000000000 ? value * 1000 : value;
+    }
+    return 0;
+}
+function welcomeBonusAmountForRole(config, role) {
+    const normalizedRole = getStringValue(role, "WORKER").toUpperCase();
+    if (normalizedRole === "EMPLOYER") {
+        return config.employerSignupBonusEnabled ? Math.max(0, config.employerSignupBonus) : 0;
+    }
+    return Math.max(0, config.signupBonus);
+}
+async function creditWelcomeBonusForNewProfile(userId, role, profileData) {
+    const config = await (0, app_config_1.getReferralConfig)();
+    const statsRef = db.collection("referral_stats").doc(userId);
+    const profileRef = db.collection(profileCollectionForRole(role)).doc(userId);
+    const amount = welcomeBonusAmountForRole(config, role);
+    const unlimitedPostingEnabled = role === "EMPLOYER" && config.employerUnlimitedJobPostingEnabled;
+    const campaignId = getStringValue(config.welcomeBonusCampaignId, "welcome_bonus_v1");
+    if (amount <= 0 && !unlimitedPostingEnabled) {
+        functions.logger.info("WELCOME_BONUS: no active reward for role", { userId, role, campaignId });
+        return;
+    }
+    const notificationPayload = await db.runTransaction(async (transaction) => {
+        const statsDoc = await transaction.get(statsRef);
+        const stats = statsDoc.data() || {};
+        const alreadyReceivedSignupBonus = getBooleanValue(stats.signupBonusReceived) || getBooleanValue(stats.welcomeBonusReceived);
+        const alreadyGrantedUnlimitedPosting = getBooleanValue(stats.unlimitedJobPostingGranted) || getBooleanValue(profileData.unlimitedJobPostingGranted);
+        const currentBalance = getNumberValue(stats.availableBalance);
+        const shouldCreditCash = amount > 0 && !alreadyReceivedSignupBonus;
+        const shouldGrantUnlimitedPosting = unlimitedPostingEnabled && !alreadyGrantedUnlimitedPosting;
+        const baseStats = statsDoc.exists ? {} : DEFAULT_REFERRAL_STATS;
+        const statsUpdate = Object.assign(Object.assign({}, baseStats), { userRole: role, lastUpdated: admin.firestore.FieldValue.serverTimestamp() });
+        if (shouldCreditCash) {
+            const newBalance = currentBalance + amount;
+            statsUpdate.totalEarnings = admin.firestore.FieldValue.increment(amount);
+            statsUpdate.availableBalance = admin.firestore.FieldValue.increment(amount);
+            statsUpdate.canWithdraw = canWithdraw(newBalance, config.minWithdrawal);
+            statsUpdate.signupBonusReceived = true;
+            statsUpdate.signupBonusAmount = amount;
+            statsUpdate.signupBonusSource = "WELCOME";
+            statsUpdate.signupBonusCampaignId = campaignId;
+            statsUpdate.signupBonusRole = role;
+            statsUpdate.signupBonusCreditedAt = admin.firestore.FieldValue.serverTimestamp();
+            statsUpdate.welcomeBonusReceived = true;
+            statsUpdate.welcomeBonusAmount = amount;
+            statsUpdate.welcomeBonusCampaignId = campaignId;
+            statsUpdate.welcomeBonusCreditedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+        if (shouldGrantUnlimitedPosting) {
+            statsUpdate.unlimitedJobPostingGranted = true;
+            statsUpdate.unlimitedJobPostingCampaignId = campaignId;
+            statsUpdate.unlimitedJobPostingGrantedAt = admin.firestore.FieldValue.serverTimestamp();
+            transaction.set(profileRef, {
+                unlimitedJobPostingGranted: true,
+                unlimitedJobPostingCampaignId: campaignId,
+                unlimitedJobPostingGrantedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        }
+        transaction.set(statsRef, statsUpdate, { merge: true });
+        if (shouldCreditCash) {
+            const auditRef = userReferralAuditDocRef(userId);
+            transaction.set(auditRef, {
+                eventType: "WELCOME_BONUS_CREDITED",
+                userId,
+                userRole: role,
+                amount,
+                campaignId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        return {
+            shouldCreditCash,
+            grantsUnlimitedPosting: shouldGrantUnlimitedPosting,
+            amount,
+            campaignId
+        };
+    });
+    if (!notificationPayload.shouldCreditCash && !notificationPayload.grantsUnlimitedPosting) {
+        return;
+    }
+    const locale = await (0, notification_i18n_1.getUserLanguage)(db, userId);
+    const userName = getStringValue(profileData.fullName || profileData.companyName, "");
+    const templateId = role === "EMPLOYER" && notificationPayload.grantsUnlimitedPosting
+        ? (notificationPayload.shouldCreditCash ? "EMPLOYER_WELCOME_BONUS" : "EMPLOYER_WELCOME_BENEFIT")
+        : "SIGNUP_BONUS";
+    const title = (0, notification_i18n_1.tTitle)(templateId, locale, { amount: notificationPayload.amount });
+    const message = (0, notification_i18n_1.tBody)(templateId, locale, { amount: notificationPayload.amount });
+    await db.collection("notifications").add({
+        recipientId: userId,
+        title,
+        message,
+        type: "SIGNUP_BONUS",
+        data: {
+            amount: notificationPayload.shouldCreditCash ? notificationPayload.amount : 0,
+            role,
+            campaignId: notificationPayload.campaignId,
+            source: "WELCOME",
+            userName,
+            unlimitedJobPostingGranted: notificationPayload.grantsUnlimitedPosting
+        },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        isRead: false
+    });
+    functions.logger.info("WELCOME_BONUS: credited", {
+        userId,
+        role,
+        amount: notificationPayload.shouldCreditCash ? notificationPayload.amount : 0,
+        unlimitedJobPostingGranted: notificationPayload.grantsUnlimitedPosting,
+        campaignId: notificationPayload.campaignId
+    });
+}
+exports.creditWorkerWelcomeBonusOnCreate = functions
+    .region("asia-south1")
+    .firestore.document("worker_profiles/{userId}")
+    .onCreate(async (snapshot, context) => {
+    await creditWelcomeBonusForNewProfile(context.params.userId, "WORKER", snapshot.data() || {});
+});
+exports.creditEmployerWelcomeBonusOnCreate = functions
+    .region("asia-south1")
+    .firestore.document("employer_profiles/{userId}")
+    .onCreate(async (snapshot, context) => {
+    await creditWelcomeBonusForNewProfile(context.params.userId, "EMPLOYER", snapshot.data() || {});
+});
 function profileCollectionForRole(role) {
     return getStringValue(role, "WORKER").toUpperCase() === "EMPLOYER"
         ? "employer_profiles"
@@ -154,11 +297,86 @@ async function getRoleProfile(userId, preferredRole = "WORKER") {
     for (const role of roles) {
         const doc = await db.collection(profileCollectionForRole(role)).doc(userId).get();
         if (doc.exists) {
-            return { role, data: doc.data() || {} };
+            return { role, data: doc.data() || {}, exists: true, createTime: doc.createTime };
         }
     }
-    return { role: normalizedRole, data: {} };
+    return { role: normalizedRole, data: {}, exists: false };
 }
+function roleProfileCreatedAtMillis(profile) {
+    return timestampToMillis(profile.data.createdAt) || timestampToMillis(profile.createTime);
+}
+function isRecentWelcomeBonusProfile(profile) {
+    const createdAtMillis = roleProfileCreatedAtMillis(profile);
+    return profile.exists && createdAtMillis >= WELCOME_BONUS_ROLLOUT_AT_MS;
+}
+function buildReferralStatsResponse(userId, profile, statsData) {
+    return Object.assign(Object.assign({ userId, userRole: getStringValue(statsData.userRole || profile.data.role, profile.role).toUpperCase(), referralCode: getStringValue(statsData.referralCode || profile.data.referralCode) }, DEFAULT_REFERRAL_STATS), statsData);
+}
+exports.claimWelcomeBonus = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+    }
+    const userId = context.auth.uid;
+    try {
+        (0, validation_1.validateUserId)(userId, true);
+        if (data === null || data === void 0 ? void 0 : data.userRole) {
+            (0, validation_1.validateEnum)(data.userRole, "userRole", ["WORKER", "EMPLOYER"]);
+        }
+    }
+    catch (error) {
+        throw new functions.https.HttpsError("invalid-argument", error.message);
+    }
+    try {
+        const preferredRole = getStringValue(data === null || data === void 0 ? void 0 : data.userRole, "WORKER").toUpperCase();
+        const profile = await getRoleProfile(userId, preferredRole);
+        const statsRef = db.collection("referral_stats").doc(userId);
+        const beforeStatsDoc = await statsRef.get();
+        const beforeStats = beforeStatsDoc.data() || {};
+        if (!profile.exists) {
+            return { success: false, claimed: false, reason: "PROFILE_NOT_FOUND" };
+        }
+        if (!isRecentWelcomeBonusProfile(profile)) {
+            return {
+                success: true,
+                claimed: false,
+                reason: "NOT_ELIGIBLE",
+                stats: buildReferralStatsResponse(userId, profile, beforeStats)
+            };
+        }
+        const role = profile.role === "EMPLOYER" ? "EMPLOYER" : "WORKER";
+        const config = await (0, app_config_1.getReferralConfig)();
+        const cashRewardActive = welcomeBonusAmountForRole(config, role) > 0;
+        const cashAlreadySettled = getBooleanValue(beforeStats.signupBonusReceived) ||
+            getBooleanValue(beforeStats.welcomeBonusReceived);
+        const unlimitedPostingActive = role === "EMPLOYER" && config.employerUnlimitedJobPostingEnabled;
+        const unlimitedPostingAlreadySettled = getBooleanValue(beforeStats.unlimitedJobPostingGranted) ||
+            getBooleanValue(profile.data.unlimitedJobPostingGranted);
+        const hasMissingEligibleReward = (cashRewardActive && !cashAlreadySettled) ||
+            (unlimitedPostingActive && !unlimitedPostingAlreadySettled);
+        if (!hasMissingEligibleReward) {
+            return {
+                success: true,
+                claimed: false,
+                reason: "ALREADY_CLAIMED",
+                stats: buildReferralStatsResponse(userId, profile, beforeStats)
+            };
+        }
+        await creditWelcomeBonusForNewProfile(userId, role, profile.data);
+        const afterStatsDoc = await statsRef.get();
+        const afterStats = afterStatsDoc.data() || {};
+        return {
+            success: true,
+            claimed: getBooleanValue(afterStats.signupBonusReceived) ||
+                getBooleanValue(afterStats.welcomeBonusReceived) ||
+                getBooleanValue(afterStats.unlimitedJobPostingGranted),
+            stats: buildReferralStatsResponse(userId, profile, afterStats)
+        };
+    }
+    catch (error) {
+        functions.logger.error("WELCOME_BONUS: claim failed", { userId, error });
+        throw new functions.https.HttpsError("internal", "Failed to claim welcome bonus");
+    }
+});
 function isReferralCodeReady(user = {}) {
     const hasName = !!getStringValue(user.fullName || user.companyName);
     const hasPhone = !!getStringValue(user.phone);
@@ -623,9 +841,12 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
             }
             const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
             const newSuccessfulCount = currentSuccessful + 1;
+            const alreadyReceivedSignupBonus = getBooleanValue(newUserStats.signupBonusReceived) || getBooleanValue(newUserStats.welcomeBonusReceived);
+            const signupBonusForNewUser = welcomeBonusAmountForRole(cfg, newUserRole);
+            const shouldCreditReferredSignupBonus = !alreadyReceivedSignupBonus && signupBonusForNewUser > 0;
             const referrerReward = cfg.rewardPerReferral;
-            const referredUserReward = cfg.signupBonus;
-            const milestoneBonus = getMilestoneBonus(newSuccessfulCount);
+            const referredUserReward = shouldCreditReferredSignupBonus ? signupBonusForNewUser : 0;
+            const milestoneBonus = getConfiguredMilestoneBonus(newSuccessfulCount, cfg.milestones);
             const totalReferrerReward = referrerReward + milestoneBonus;
             const newTier = calculateTier(newSuccessfulCount);
             const referrerRole = getStringValue(referrerUserData.role, "WORKER").toUpperCase();
@@ -661,7 +882,14 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 currentTier: newTier,
                 lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            transaction.set(newUserStatsRef, Object.assign(Object.assign({ userRole: newUserRole }, (newUserOwnReferralCode ? { referralCode: newUserOwnReferralCode } : {})), { referredByCode: referralCode, referredByUserId: latestReferrerUserId, totalEarnings: admin.firestore.FieldValue.increment(referredUserReward), availableBalance: admin.firestore.FieldValue.increment(referredUserReward), signupBonusReceived: true, signupBonusAmount: referredUserReward, lastUpdated: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
+            transaction.set(newUserStatsRef, Object.assign(Object.assign(Object.assign(Object.assign({ userRole: newUserRole }, (newUserOwnReferralCode ? { referralCode: newUserOwnReferralCode } : {})), { referredByCode: referralCode, referredByUserId: latestReferrerUserId, totalEarnings: admin.firestore.FieldValue.increment(referredUserReward), availableBalance: admin.firestore.FieldValue.increment(referredUserReward) }), (shouldCreditReferredSignupBonus ? {
+                signupBonusReceived: true,
+                signupBonusAmount: referredUserReward,
+                signupBonusSource: "REFERRAL",
+                signupBonusCampaignId: getStringValue(cfg.welcomeBonusCampaignId, "welcome_bonus_v1"),
+                signupBonusRole: newUserRole,
+                signupBonusCreditedAt: admin.firestore.FieldValue.serverTimestamp()
+            } : {})), { lastUpdated: admin.firestore.FieldValue.serverTimestamp() }), { merge: true });
             transaction.set(referrerProfileRef, {
                 referralCode: referrerOwnReferralCode
             }, { merge: true });
@@ -681,14 +909,16 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 bonusAmount: milestoneBonus,
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
-            const referredEventRef = referralAuditDocRef(referralId);
-            transaction.set(referredEventRef, {
-                eventType: "SIGNUP_BONUS_CREDITED",
-                userId: newUserId,
-                referralId,
-                amount: referredUserReward,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
-            });
+            if (shouldCreditReferredSignupBonus) {
+                const referredEventRef = referralAuditDocRef(referralId);
+                transaction.set(referredEventRef, {
+                    eventType: "SIGNUP_BONUS_CREDITED",
+                    userId: newUserId,
+                    referralId,
+                    amount: referredUserReward,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
             const referrerLocale = await (0, notification_i18n_1.getUserLanguage)(db, latestReferrerUserId);
             const referredLocale = await (0, notification_i18n_1.getUserLanguage)(db, newUserId);
             const referrerTemplateId = milestoneBonus > 0 ? "REFERRAL_REWARD_WITH_BONUS" : "REFERRAL_REWARD_BASIC";
@@ -703,16 +933,18 @@ exports.applyReferralCode = functions.https.onCall(async (data, context) => {
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 isRead: false
             });
-            const referredNotifRef = db.collection("notifications").doc();
-            transaction.set(referredNotifRef, {
-                recipientId: newUserId,
-                title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
-                message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
-                type: "SIGNUP_BONUS",
-                data: { amount: referredUserReward },
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                isRead: false
-            });
+            if (shouldCreditReferredSignupBonus) {
+                const referredNotifRef = db.collection("notifications").doc();
+                transaction.set(referredNotifRef, {
+                    recipientId: newUserId,
+                    title: (0, notification_i18n_1.tTitle)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
+                    message: (0, notification_i18n_1.tBody)("SIGNUP_BONUS", referredLocale, { amount: referredUserReward }),
+                    type: "SIGNUP_BONUS",
+                    data: { amount: referredUserReward, source: "REFERRAL" },
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    isRead: false
+                });
+            }
             return {
                 success: true,
                 referralId,

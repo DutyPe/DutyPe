@@ -1291,6 +1291,18 @@
     <string name="pending_application_message">Your application for %1$s is still pending. For faster update, please call the employer.</string>
     <string name="referral_reward_earned_title">Referral Reward Earned!</string>
     <string name="referral_reward_earned_message">Congratulations! You\'ve earned ₹%1$d for %2$d successful referrals!</string>
+    <string name="app_update_prompt_title">Update DutyPe</string>
+    <string name="app_update_prompt_message">A new DutyPe update is available. Update now to get the latest jobs, fixes, and features.</string>
+    <string name="app_update_prompt_update">Update</string>
+    <string name="app_update_prompt_later">Later</string>
+    <string name="app_update_open_failed">Could not open the update page. Please try again.</string>
+    <string name="guest_worker_welcome_title">Welcome gift waiting</string>
+    <string name="guest_worker_welcome_message">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
+    <string name="guest_employer_welcome_title">Welcome offer waiting</string>
+    <string name="guest_employer_welcome_message_with_bonus">Register now to unlock unlimited job posting and ₹%1$d welcome bonus.</string>
+    <string name="guest_employer_welcome_message_posts">Register now to unlock unlimited job posting for your business.</string>
+    <string name="guest_employer_welcome_message_bonus">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
+    <string name="guest_welcome_login_register">Login / Register</string>
 
     <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
     <string name="notif_app_status_applied_title">Application Submitted</string>

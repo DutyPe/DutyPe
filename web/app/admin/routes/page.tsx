@@ -11,6 +11,7 @@ const adminRoutes = [
   { href: "/admin/posters", label: "Posters", description: "Print posters for posted jobs, workers, and employers." },
   { href: "/admin/applications", label: "Applications", description: "Track applications and update status." },
   { href: "/admin/referrals", label: "Referrals", description: "Monitor referrals and payouts." },
+  { href: "/admin/app-update", label: "App Update", description: "Control the Android update prompt for worker and employer homes." },
   { href: "/admin/notifications", label: "Notifications", description: "Broadcast app alerts to all users or one role." },
   { href: "/admin/announcements", label: "Announcements", description: "Send notices and updates to users." },
   { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },

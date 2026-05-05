@@ -55,6 +55,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "Messaging",
     links: [
+      { href: "/admin/app-update", label: "App Update", icon: "UP", summary: "Control Android update prompts." },
       { href: "/admin/notifications", label: "Notifications", icon: "NT", summary: "Campaign sends and notification history." },
       { href: "/admin/announcements", label: "Announcements", icon: "AN", summary: "In-app announcements and message control." }
     ]

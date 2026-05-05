@@ -2,6 +2,7 @@ package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import com.example.dutype.repositories.AppConfigRepository
+import com.example.dutype.repositories.AppUpdateConfig
 import com.example.dutype.repositories.ReferralConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
@@ -17,4 +18,5 @@ class AppConfigViewModel @Inject constructor(
     appConfigRepository: AppConfigRepository
 ) : ViewModel() {
     val referralConfig: StateFlow<ReferralConfig> = appConfigRepository.referralConfig
+    val appUpdateConfig: StateFlow<AppUpdateConfig> = appConfigRepository.appUpdateConfig
 }

@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 68
-        versionName = "2.6.15"
+        versionCode = 69
+        versionName = "2.6.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

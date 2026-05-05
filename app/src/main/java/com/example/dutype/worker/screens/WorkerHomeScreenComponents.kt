@@ -108,6 +108,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ScrollAwareLazyColumn
@@ -492,6 +493,11 @@ fun HomeSectionsContent(
     emptyJobsCurrentLocationName: String? = null,
     emptyJobsSuggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
     onEmptyJobsCitySelected: (TopCityChips.CityLocationChip) -> Unit = {},
+    showGuestWelcomeCard: Boolean = false,
+    guestWelcomeTitle: String = "",
+    guestWelcomeMessage: String = "",
+    guestWelcomeButtonText: String = "",
+    onGuestWelcomeClick: () -> Unit = {},
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
     birthdayService: BirthdayService,
@@ -599,6 +605,18 @@ fun HomeSectionsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            if (showGuestWelcomeCard) {
+                item {
+                    GuestWelcomeBonusCard(
+                        title = guestWelcomeTitle,
+                        message = guestWelcomeMessage,
+                        buttonText = guestWelcomeButtonText,
+                        onClick = onGuestWelcomeClick,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+            }
+
             if (announcements.isNotEmpty()) {
                 item {
                     AnnouncementList(

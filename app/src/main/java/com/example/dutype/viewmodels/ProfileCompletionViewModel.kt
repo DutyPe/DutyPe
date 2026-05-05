@@ -351,7 +351,7 @@ class ProfileCompletionViewModel @Inject constructor(
             newUserRole: String,
             newUserName: String,
             newUserPhone: String
-        ): Result<Unit> {
+        ): Result<com.example.dutype.services.ApplyReferralResult> {
             return try {
                 val result = profileCompletionService.applyReferralCode(
                     referralCode = referralCode,
