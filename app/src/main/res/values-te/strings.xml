@@ -1295,6 +1295,10 @@
     <string name="guest_employer_welcome_message_posts">ఇప్పుడే రిజిస్టర్ అయితే మీ వ్యాపారానికి అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అవుతుంది.</string>
     <string name="guest_employer_welcome_message_bonus">ఇప్పుడే రిజిస్టర్ అయితే సైన్‌అప్ తర్వాత మీ DutyPe వాలెట్‌లో ₹%1$d వస్తుంది.</string>
     <string name="guest_welcome_login_register">లాగిన్ / రిజిస్టర్</string>
+    <string name="guest_welcome_claim_gift">స్వాగత గిఫ్ట్ పొందండి</string>
+    <string name="guest_welcome_limited_benefit">పరిమిత కాల స్వాగత ప్రయోజనం</string>
+    <string name="guest_welcome_new_account_trust">కొత్త ఖాతాలకు మాత్రమే • సైన్‌అప్ తర్వాత వెంటనే క్రెడిట్</string>
+    <string name="guest_welcome_takes_30_seconds">30 సెకండ్లలో పూర్తవుతుంది</string>
 
     <!-- Notification content (sent by app + shown locally). -->
     <string name="notif_app_status_applied_title">దరఖాస్తు సమర్పించబడింది</string>

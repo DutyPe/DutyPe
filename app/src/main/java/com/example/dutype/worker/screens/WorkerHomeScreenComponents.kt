@@ -1,7 +1,6 @@
 package com.example.dutype.worker.screens
 
 import android.Manifest
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -1935,11 +1934,7 @@ internal fun DynamicHeader(
                     },
                 shape = RoundedCornerShape(16.dp),
                 // Transparent surface \u2014 header row sits on the role screen bg.
-                color = Color.Transparent,
-                border = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    color = Color(0xFFE5E7EB)
-                )
+                color = Color.Transparent
             ) {
                 Row(
                     modifier = Modifier
@@ -2011,12 +2006,13 @@ private fun WorkerTopMetricItem(
     label: String,
     value: String,
     subtitle: String,
-    iconTint: Color
+    iconTint: Color,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier.padding(horizontal = 4.dp)
+        modifier = modifier.padding(horizontal = 4.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

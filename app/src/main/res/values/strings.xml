@@ -1309,17 +1309,17 @@
     <string name="app_update_prompt_update">Update</string>
     <string name="app_update_prompt_later">Later</string>
     <string name="app_update_open_failed">Could not open the update page. Please try again.</string>
-    <string name="guest_worker_welcome_title">Welcome gift waiting</string>
+    <string name="guest_worker_welcome_title">🎁 A surprise is waiting for you!</string>
     <string name="guest_worker_welcome_message">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
-    <string name="guest_employer_welcome_title">Welcome offer waiting</string>
+    <string name="guest_employer_welcome_title">🎁 A surprise is waiting for you!</string>
     <string name="guest_employer_welcome_message_with_bonus">Register now to unlock unlimited job posting and ₹%1$d welcome bonus.</string>
     <string name="guest_employer_welcome_message_posts">Register now to unlock unlimited job posting for your business.</string>
     <string name="guest_employer_welcome_message_bonus">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
     <string name="guest_welcome_login_register">Login / Register</string>
-    <string name="guest_welcome_claim_gift">Claim welcome gift</string>
-    <string name="guest_welcome_limited_benefit">Limited-time welcome benefit</string>
+    <string name="guest_welcome_claim_gift">Claim Gift 🎁</string>
+    <string name="guest_welcome_limited_benefit">Surprising gift — only for new accounts</string>
     <string name="guest_welcome_new_account_trust">New account only • Instant credit after signup</string>
-    <string name="guest_welcome_takes_30_seconds">Takes under 30 seconds</string>
+    <string name="guest_welcome_takes_30_seconds">Sign up in 30 seconds and unlock your gift</string>
 
     <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
     <string name="notif_app_status_applied_title">Application Submitted</string>

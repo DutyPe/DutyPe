@@ -34,11 +34,10 @@ fun AppUpdatePrompt(
     val isTelugu = remember(configuration) {
         configuration.locales[0]?.language.equals("te", ignoreCase = true)
     }
-    val isRequired = config.isRequiredFor(currentVersionCode)
     val shouldPrompt = config.shouldPromptFor(currentVersionCode, userRole)
     val promptKey = config.dismissalKey
     var dismissedPromptKey by rememberSaveable { mutableStateOf<String?>(null) }
-    val isVisible = shouldPrompt && (isRequired || dismissedPromptKey != promptKey)
+    val isVisible = shouldPrompt && dismissedPromptKey != promptKey
 
     if (!isVisible) return
 
@@ -51,7 +50,7 @@ fun AppUpdatePrompt(
 
     AlertDialog(
         onDismissRequest = {
-            if (!isRequired) dismissedPromptKey = promptKey
+            dismissedPromptKey = promptKey
         },
         title = { Text(text = title) },
         text = {
@@ -75,13 +74,9 @@ fun AppUpdatePrompt(
                 Text(text = buttonText)
             }
         },
-        dismissButton = if (isRequired) {
-            null
-        } else {
-            {
-                TextButton(onClick = { dismissedPromptKey = promptKey }) {
-                    Text(text = stringResource(R.string.app_update_prompt_later))
-                }
+        dismissButton = {
+            TextButton(onClick = { dismissedPromptKey = promptKey }) {
+                Text(text = stringResource(R.string.app_update_prompt_later))
             }
         }
     )

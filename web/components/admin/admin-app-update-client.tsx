@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
+import { deleteField, doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 
@@ -10,9 +10,6 @@ type TargetSelection = "ALL" | "WORKER" | "EMPLOYER";
 type AppUpdateConfig = {
   enabled: boolean;
   latestVersionCode: number;
-  minSupportedVersionCode: number;
-  latestVersionName: string;
-  forceUpdate: boolean;
   title: string;
   titleTe: string;
   message: string;
@@ -28,9 +25,6 @@ type AppUpdateConfig = {
 const DEFAULTS: AppUpdateConfig = {
   enabled: false,
   latestVersionCode: 0,
-  minSupportedVersionCode: 0,
-  latestVersionName: "",
-  forceUpdate: false,
   title: "Update DutyPe",
   titleTe: "",
   message: "A new DutyPe update is available. Update now to get the latest jobs, fixes, and features.",
@@ -96,9 +90,6 @@ export function AdminAppUpdateClient() {
         setConfig({
           enabled: Boolean(data.enabled ?? DEFAULTS.enabled),
           latestVersionCode: Number(data.latestVersionCode ?? DEFAULTS.latestVersionCode),
-          minSupportedVersionCode: Number(data.minSupportedVersionCode ?? DEFAULTS.minSupportedVersionCode),
-          latestVersionName: String(data.latestVersionName ?? DEFAULTS.latestVersionName),
-          forceUpdate: Boolean(data.forceUpdate ?? DEFAULTS.forceUpdate),
           title: String(data.title ?? DEFAULTS.title),
           titleTe: String(data.titleTe ?? DEFAULTS.titleTe),
           message: String(data.message ?? DEFAULTS.message),
@@ -137,9 +128,9 @@ export function AdminAppUpdateClient() {
         {
           enabled: config.enabled,
           latestVersionCode: Math.max(0, Math.floor(config.latestVersionCode)),
-          minSupportedVersionCode: Math.max(0, Math.floor(config.minSupportedVersionCode)),
-          latestVersionName: config.latestVersionName.trim(),
-          forceUpdate: config.forceUpdate,
+          minSupportedVersionCode: deleteField(),
+          latestVersionName: deleteField(),
+          forceUpdate: deleteField(),
           title: config.title.trim(),
           titleTe: config.titleTe.trim(),
           message: config.message.trim(),
@@ -174,7 +165,7 @@ export function AdminAppUpdateClient() {
       <header style={{ marginBottom: 18 }}>
         <h2 style={{ margin: 0 }}>Android update prompt</h2>
         <p style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-          Controls the lightweight update dialog shown on worker and employer home screens.
+          Simple version-code update prompt shown on worker and employer home screens.
         </p>
         {lastUpdated && (
           <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
@@ -199,39 +190,12 @@ export function AdminAppUpdateClient() {
           </span>
         </label>
 
-        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14 }}>
-          <input
-            type="checkbox"
-            checked={config.forceUpdate}
-            onChange={(event) => updateConfig({ forceUpdate: event.target.checked })}
-            style={{ marginTop: 3 }}
-          />
-          <span>
-            <strong>Do not allow cancel</strong>
-            <small style={{ display: "block", color: "#6b7280", marginTop: 2 }}>
-              Use this only for important updates. Users will only see the Update button.
-            </small>
-          </span>
-        </label>
-
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
           <NumberField
             label="Latest version code"
             value={config.latestVersionCode}
-            help="Set this higher than the app version currently installed on phones."
+            help="Prompt appears when installed version is lower than this value. Use 0 to show prompt to all targeted users."
             onChange={(value) => updateConfig({ latestVersionCode: value })}
-          />
-          <NumberField
-            label="Minimum supported version code"
-            value={config.minSupportedVersionCode}
-            help="Users below this version cannot dismiss, even if the prompt is not forced."
-            onChange={(value) => updateConfig({ minSupportedVersionCode: value })}
-          />
-          <TextField
-            label="Latest version name"
-            value={config.latestVersionName}
-            placeholder="2.6.16"
-            onChange={(value) => updateConfig({ latestVersionName: value })}
           />
           <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 13 }}>
             <span style={{ color: "#374151", fontWeight: 600 }}>Target users</span>

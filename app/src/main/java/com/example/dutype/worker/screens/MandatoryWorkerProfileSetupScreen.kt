@@ -52,6 +52,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.example.dutype.components.markWelcomeCelebrationPending
 import timber.log.Timber
 import com.dutype.app.R
 import java.time.Instant
@@ -868,6 +869,9 @@ fun MandatoryWorkerProfileSetupScreen(
                                             
                                             // Send profile completion notification ONLY on first completion (not on updates)
                                             if (!wasAlreadyComplete) {
+                                                // Flag for welcome celebration overlay on home screen
+                                                markWelcomeCelebrationPending(context)
+
                                                 val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                                 if (notificationUser != null) {
                                                     try {

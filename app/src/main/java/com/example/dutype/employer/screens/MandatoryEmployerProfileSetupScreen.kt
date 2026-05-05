@@ -48,6 +48,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.example.dutype.components.markWelcomeCelebrationPending
 import timber.log.Timber
 import com.dutype.app.R
 
@@ -378,6 +379,10 @@ fun MandatoryEmployerProfileSetupScreen(
                 // user isn't blocked by Cloud Function round-trips.
                 if (!wasAlreadyComplete) {
                     val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                    if (!wasAlreadyComplete) {
+                        // Flag for welcome celebration overlay on employer home screen
+                        markWelcomeCelebrationPending(context)
+                    }
                     if (notificationUser != null) {
                         scope.launch {
                             runCatching {

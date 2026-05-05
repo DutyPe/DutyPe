@@ -38,9 +38,6 @@ data class ReferralConfig(
 data class AppUpdateConfig(
     val enabled: Boolean = false,
     val latestVersionCode: Long = 0L,
-    val minSupportedVersionCode: Long = 0L,
-    val latestVersionName: String = "",
-    val forceUpdate: Boolean = false,
     val title: String = "",
     val titleTe: String = "",
     val message: String = "",
@@ -53,9 +50,6 @@ data class AppUpdateConfig(
     val dismissalKey: String
         get() = listOf(
             latestVersionCode,
-            minSupportedVersionCode,
-            latestVersionName,
-            forceUpdate,
             title,
             titleTe,
             message,
@@ -75,12 +69,11 @@ data class AppUpdateConfig(
 
     fun shouldPromptFor(currentVersionCode: Long, role: String): Boolean {
         if (!enabled || !appliesToRole(role)) return false
-        val hasVersionGate = latestVersionCode > 0L || minSupportedVersionCode > 0L
-        return !hasVersionGate || maxOf(latestVersionCode, minSupportedVersionCode) > currentVersionCode
+        return latestVersionCode <= 0L || currentVersionCode < latestVersionCode
     }
 
     fun isRequiredFor(currentVersionCode: Long): Boolean {
-        return forceUpdate || (minSupportedVersionCode > 0L && currentVersionCode < minSupportedVersionCode)
+        return false
     }
 }
 
@@ -143,9 +136,6 @@ class AppConfigRepository @Inject constructor(
                 AppUpdateConfig(
                     enabled = (data["enabled"] as? Boolean) ?: false,
                     latestVersionCode = (data["latestVersionCode"] as? Number)?.toLong() ?: 0L,
-                    minSupportedVersionCode = (data["minSupportedVersionCode"] as? Number)?.toLong() ?: 0L,
-                    latestVersionName = (data["latestVersionName"] as? String)?.trim().orEmpty(),
-                    forceUpdate = (data["forceUpdate"] as? Boolean) ?: false,
                     title = (data["title"] as? String)?.trim().orEmpty(),
                     titleTe = (data["titleTe"] as? String)?.trim().orEmpty(),
                     message = (data["message"] as? String)?.trim().orEmpty(),

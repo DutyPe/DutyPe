@@ -92,6 +92,8 @@ import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.AppUpdatePrompt
 import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.components.WelcomeCelebrationOverlay
+import com.example.dutype.components.consumeWelcomeCelebrationFlag
 import com.example.dutype.components.LocationAutocompleteField
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
@@ -160,6 +162,7 @@ fun WorkerHomeScreen(
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val isGuestUser = currentUser == null || currentUser.isAnonymous
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
@@ -751,7 +754,7 @@ fun WorkerHomeScreen(
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
                                     emptyJobsSuggestedCities = topLocationChips,
                                     onEmptyJobsCitySelected = onLocationChipSelected,
-                                    showGuestWelcomeCard = currentUser == null && referralConfig.signupBonus > 0.0,
+                                    showGuestWelcomeCard = isGuestUser,
                                     guestWelcomeTitle = stringResource(R.string.guest_worker_welcome_title),
                                     guestWelcomeMessage = stringResource(
                                         R.string.guest_worker_welcome_message,
@@ -777,7 +780,7 @@ fun WorkerHomeScreen(
                                     instantHelpError = instantHelpState.error,
                                     onTurnOnAvailability = {
                                         val selectedLocation = currentLocation
-                                        if (FirebaseAuth.getInstance().currentUser == null) {
+                                        if (isGuestUser) {
                                             android.widget.Toast.makeText(
                                                 context,
                                                 context.getString(R.string.please_login_instant_works),
@@ -856,7 +859,7 @@ fun WorkerHomeScreen(
                     reviewCount = workerReviewCount,
                     onInstantAvailabilityChange = { isAvailable ->
                         val selectedLocation = currentLocation
-                        if (FirebaseAuth.getInstance().currentUser == null) {
+                        if (isGuestUser) {
                             android.widget.Toast.makeText(
                                 context,
                                 context.getString(R.string.please_login_instant_works),
@@ -959,6 +962,13 @@ fun WorkerHomeScreen(
                 userRole = "WORKER"
             )
         }
+
+        // Welcome celebration overlay — shown once after new user completes profile
+        var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
+        WelcomeCelebrationOverlay(
+            visible = showCelebration,
+            onDismiss = { showCelebration = false }
+        )
     }
 }
 

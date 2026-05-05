@@ -81,6 +81,8 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.AppUpdatePrompt
 import com.example.dutype.components.GuestWelcomeBonusCard
+import com.example.dutype.components.WelcomeCelebrationOverlay
+import com.example.dutype.components.consumeWelcomeCelebrationFlag
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobCategory
@@ -95,6 +97,7 @@ import com.example.dutype.state.ApplicationStateManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.models.JobListing
+import com.example.dutype.repositories.ReferralConfig
 import com.example.dutype.models.ApplicationStats
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.DeepLinkHandler
@@ -207,7 +210,9 @@ fun EmployerHomeScreen(
     
     // CRITICAL FIX: Don't cache employerId - get fresh value to handle role switches
     // Using remember would cache the value and break after role switch
-    val employerId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    val employerId = currentUser?.uid
+    val isGuestEmployer = currentUser == null || currentUser.isAnonymous
     LaunchedEffect(employerId) {
         if (employerId != null) {
             Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
@@ -302,14 +307,15 @@ fun EmployerHomeScreen(
     val isRefreshing = employerJobUiState.isRefreshing
     val error = employerJobUiState.error
     val showEmployerCashBonus = referralConfig.employerSignupBonusEnabled && referralConfig.employerSignupBonus > 0.0
-    val showEmployerWelcomeCard = employerId == null && (referralConfig.employerUnlimitedJobPostingEnabled || showEmployerCashBonus)
+    val showEmployerWelcomeCard = isGuestEmployer
     val employerWelcomeMessage = when {
         referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(
             R.string.guest_employer_welcome_message_with_bonus,
             referralConfig.employerSignupBonus.toInt()
         )
         referralConfig.employerUnlimitedJobPostingEnabled -> stringResource(R.string.guest_employer_welcome_message_posts)
-        else -> stringResource(R.string.guest_employer_welcome_message_bonus, referralConfig.employerSignupBonus.toInt())
+        showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_bonus, referralConfig.employerSignupBonus.toInt())
+        else -> stringResource(R.string.guest_employer_welcome_message_posts)
     }
     
     // Company name state - starts empty, will be populated from profile
@@ -411,6 +417,8 @@ fun EmployerHomeScreen(
                 urgentRequests = instantHelpState.employerInstantRequests,
                 urgentResponsesByRequestId = instantHelpState.employerInstantResponses,
                 isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds,
+                referralConfig = referralConfig,
+                isGuestEmployer = isGuestEmployer,
                 showGuestWelcomeCard = showEmployerWelcomeCard,
                 guestWelcomeTitle = stringResource(R.string.guest_employer_welcome_title),
                 guestWelcomeMessage = employerWelcomeMessage,
@@ -470,6 +478,13 @@ fun EmployerHomeScreen(
                 userRole = "EMPLOYER"
             )
         }
+
+        // Welcome celebration overlay — shown once after new employer completes profile
+        var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
+        WelcomeCelebrationOverlay(
+            visible = showCelebration,
+            onDismiss = { showCelebration = false }
+        )
     } // Box
 }
 
@@ -498,6 +513,8 @@ fun DashboardContent(
     urgentRequests: List<com.example.dutype.models.InstantRequest> = emptyList(),
     urgentResponsesByRequestId: Map<String, List<com.example.dutype.models.InstantResponse>> = emptyMap(),
     isLoadingUrgentRequests: Boolean = false,
+    referralConfig: ReferralConfig = ReferralConfig(),
+    isGuestEmployer: Boolean = false,
     showGuestWelcomeCard: Boolean = false,
     guestWelcomeTitle: String = "",
     guestWelcomeMessage: String = "",
@@ -533,8 +550,14 @@ fun DashboardContent(
                     GuestWelcomeBonusCard(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
-                        buttonText = guestWelcomeButtonText,
-                        onClick = onGuestWelcomeClick
+                        buttonText = stringResource(R.string.guest_welcome_claim_gift),
+                        onClick = onGuestWelcomeClick,
+                        onVariantImpression = { variant ->
+                            Timber.d("Welcome gift impression (employer) variant=%s", variant.name)
+                        },
+                        onVariantClick = { variant ->
+                            Timber.d("Welcome gift click (employer) variant=%s", variant.name)
+                        }
                     )
                 }
             }
@@ -557,28 +580,23 @@ fun DashboardContent(
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }
 
-            if (!hasNormalJobs && !hasUrgentNeeds) {
+            item {
+                EmployerTrustSignalsCard()
+            }
+
+            if (isGuestEmployer) {
                 item {
-                    UrgentNeedCtaCard(
-                        title = stringResource(R.string.need_worker_today),
-                        body = stringResource(R.string.need_worker_today_body),
-                        urgentButtonLabel = stringResource(R.string.post_urgent_need_title),
-                        showNormalJobAction = true,
-                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
-                        onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                    InviteEarnEmployerCard(
+                        inviteEarnAmount = referralConfig.rewardPerReferral.toInt().coerceAtLeast(1)
                     )
                 }
-            } else if (hasNormalJobs && !hasUrgentNeeds) {
-                item {
-                    UrgentNeedCtaCard(
-                        title = stringResource(R.string.need_faster_results),
-                        body = stringResource(R.string.need_faster_results_body),
-                        urgentButtonLabel = stringResource(R.string.post_urgent_need_title),
-                        showNormalJobAction = false,
-                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
-                        onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
-                    )
-                }
+            }
+
+            item {
+                EmployerPostJobSection(
+                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
+                    onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                )
             }
 
             if (hasUrgentNeeds || isLoadingUrgentRequests) {
@@ -617,6 +635,287 @@ fun DashboardContent(
                 com.example.dutype.components.MadeWithLoveFooter()
             }
             
+        }
+    }
+}
+
+@Composable
+private fun EmployerTrustSignalsCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EmployerTrustSignalItem(
+                icon = Icons.Default.CheckCircle,
+                title = "Verified Workers",
+                subtitle = "100% verified professionals",
+                iconTint = Color(0xFF10B981),
+                modifier = Modifier.weight(1f)
+            )
+            EmployerTrustSignalItem(
+                icon = Icons.Default.Schedule,
+                title = "Quick Response",
+                subtitle = "Get responses in minutes",
+                iconTint = Color(0xFFF59E0B),
+                modifier = Modifier.weight(1f)
+            )
+            EmployerTrustSignalItem(
+                icon = Icons.Default.CheckCircle,
+                title = "Safe & Secure",
+                subtitle = "Your data is always protected",
+                iconTint = Color(0xFF3B82F6),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmployerTrustSignalItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    iconTint: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(iconTint.copy(alpha = 0.14f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium.copy(
+                color = Color(0xFF111827),
+                fontWeight = FontWeight.SemiBold
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)),
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(Color(0xFFD1FAE5), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PersonAdd,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Invite & Earn ₹$inviteEarnAmount",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = Color(0xFF065F46),
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "Invite other employers and earn ₹$inviteEarnAmount when they post their first job.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF065F46))
+                )
+            }
+
+            Button(
+                onClick = {},
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF22C55E),
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Invite Now")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmployerPostJobSection(
+    onPostUrgentNeed: () -> Unit,
+    onPostNormalJob: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Post a Job",
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "Choose how you want to post your job today",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F2)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(Color(0xFFFEE2E2), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Post Urgent Need",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = "Reach workers faster",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFFEF4444),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Text(
+                        text = "Get fast responses from nearby available workers.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)),
+                        minLines = 2
+                    )
+                    Button(
+                        onClick = onPostUrgentNeed,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White)
+                    ) {
+                        Text("Post Urgent Need")
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(Color(0xFFDBEAFE), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Work,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Post Normal Job",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = "Regular hiring",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF2563EB),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Text(
+                        text = "Post your job and hire at your convenience.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)),
+                        minLines = 2
+                    )
+                    Button(
+                        onClick = onPostNormalJob,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB), contentColor = Color.White)
+                    ) {
+                        Text("Post Normal Job")
+                    }
+                }
+            }
         }
     }
 }

@@ -9,22 +9,19 @@
  * and never reached the card list.
  *
  * Solution: a dedicated `employer_job_cards/{jobId}` document maintained
- * by Cloud Functions. It has every field the employer's job-list card
- * needs (title, salary text, location, status, hero image, per-status
- * application counts, last-application timestamp) so the client can
- * render without any JOIN against jobmetadata / job_details / applications.
+ * by Cloud Functions.
+ *
+ * Current client reality (May 2026): Android reads ONLY
+ * `employerId` (query filter) + `applicationCount` (card badge).
+ * Keeping extra denormalized fields here increases write size and drift
+ * without adding value. This trigger now stores only fields that are read.
  *
  * Schema:
  *   employer_job_cards/{jobId} = {
- *     jobId, employerId, title, jobType, status,
- *     salary, salaryType,
- *     location: { lat, lng },
- *     addressText, geohash, jobImageUrl?,
- *     vacancies, urgency, workingHours, shiftTiming,
- *     applicationCount, shortlistedCount, hiredCount,
- *     completedCount, rejectedCount,
- *     lastApplicationAt?,
- *     createdAt, updatedAt
+ *     jobId,
+ *     employerId,
+ *     applicationCount,
+ *     updatedAt
  *   }
  */
 import * as functions from "firebase-functions";
@@ -38,21 +35,31 @@ const CARDS = "employer_job_cards";
 interface DenormPayload {
   jobId: string;
   employerId: string;
-  title: string;
-  jobType: string;
-  status: string;
-  salary: string;
-  salaryType: string;
-  location: { lat: number; lng: number } | null;
-  addressText: string;
-  geohash: string;
-  jobImageUrl: string | null;
-  vacancies: number;
-  shiftTiming: string;
-  companyName: string;
-  contactNumber: string;
-  createdAt: admin.firestore.Timestamp | null;
 }
+
+const UNUSED_CARD_FIELDS: readonly string[] = [
+  "title",
+  "jobType",
+  "status",
+  "salary",
+  "salaryType",
+  "location",
+  "addressText",
+  "geohash",
+  "jobImageUrl",
+  "vacancies",
+  "shiftTiming",
+  "companyName",
+  "contactNumber",
+  "shortlistedCount",
+  "hiredCount",
+  "completedCount",
+  "rejectedCount",
+  "withdrawnCount",
+  "appliedCount",
+  "lastApplicationAt",
+  "createdAt",
+];
 
 async function buildDenormFromJob(jobId: string): Promise<DenormPayload | null> {
   const [metaSnap, detailsSnap] = await Promise.all([
@@ -70,25 +77,6 @@ async function buildDenormFromJob(jobId: string): Promise<DenormPayload | null> 
   return {
     jobId,
     employerId,
-    title: String(meta.title ?? ""),
-    jobType: String(meta.jobType ?? ""),
-    status: String(meta.status ?? "open"),
-    salary: String(meta.salary ?? ""),
-    salaryType: String(meta.salaryType ?? ""),
-    location: meta.location && typeof meta.location === "object"
-      ? {
-        lat: Number((meta.location as any).lat ?? 0),
-        lng: Number((meta.location as any).lng ?? 0),
-      }
-      : null,
-    addressText: String(meta.addressText ?? ""),
-    geohash: String(meta.geohash ?? ""),
-    jobImageUrl: meta.jobImageUrl ? String(meta.jobImageUrl) : null,
-    vacancies: Number(meta.vacancies ?? details.vacancies ?? 1),
-    shiftTiming: String(details.shiftTiming ?? meta.shiftTiming ?? "Flexible"),
-    companyName: String(meta.companyName ?? ""),
-    contactNumber: String(details.contactNumber ?? ""),
-    createdAt: (meta.createdAt as admin.firestore.Timestamp) ?? null,
   };
 }
 
@@ -116,9 +104,15 @@ export const onJobMetadataWriteSyncEmployerCard = functions.firestore
       if (change.after.get("searchKeywords") !== undefined) {
         await change.after.ref.update({ searchKeywords: FIELD.delete() });
       }
+      const removeUnused: Record<string, admin.firestore.FieldValue> = {};
+      for (const key of UNUSED_CARD_FIELDS) {
+        removeUnused[key] = FIELD.delete();
+      }
+
       await cardRef.set(
         {
           ...denorm,
+          ...removeUnused,
           updatedAt: FIELD.serverTimestamp(),
         },
         { merge: true }
@@ -141,30 +135,19 @@ export const onApplicationWriteSyncEmployerCard = functions.firestore
     const jobId = String((after?.jobId ?? before?.jobId) ?? "");
     if (!jobId) return;
 
-    const prevStatus = String(before?.status ?? "");
-    const nextStatus = String(after?.status ?? "");
-
-    // Compute counter deltas for: applicationCount (total non-deleted),
-    // shortlistedCount, hiredCount, completedCount, rejectedCount.
+    // applicationCount is the only counter consumed by current clients.
     const deltas: Record<string, FirebaseFirestore.FieldValue> = {};
-    const bump = (field: string, by: number) => {
+    const bump = (by: number) => {
       if (by === 0) return;
-      deltas[field] = FIELD.increment(by);
+      deltas["applicationCount"] = FIELD.increment(by);
     };
 
     if (!before && after) {
       // Created.
-      bump("applicationCount", 1);
-      bump(statusCounterField(nextStatus), 1);
-      deltas["lastApplicationAt"] = FIELD.serverTimestamp() as any;
+      bump(1);
     } else if (before && !after) {
       // Deleted.
-      bump("applicationCount", -1);
-      bump(statusCounterField(prevStatus), -1);
-    } else if (before && after && prevStatus !== nextStatus) {
-      // Status transitioned.
-      bump(statusCounterField(prevStatus), -1);
-      bump(statusCounterField(nextStatus), 1);
+      bump(-1);
     }
 
     if (Object.keys(deltas).length === 0) return;
@@ -180,21 +163,3 @@ export const onApplicationWriteSyncEmployerCard = functions.firestore
       });
     }
   });
-
-function statusCounterField(status: string): string {
-  switch (status.toLowerCase()) {
-    case "shortlisted":
-      return "shortlistedCount";
-    case "hired":
-      return "hiredCount";
-    case "completed":
-      return "completedCount";
-    case "rejected":
-      return "rejectedCount";
-    case "withdrawn":
-      return "withdrawnCount";
-    default:
-      // applied / unknown -> only contributes to the total.
-      return "appliedCount";
-  }
-}
