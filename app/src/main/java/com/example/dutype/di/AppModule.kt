@@ -26,6 +26,7 @@ import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.services.ReferralService
+import com.example.dutype.repositories.AppConfigRepository
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.performance.PerformanceTracker
@@ -404,9 +405,10 @@ object AppModule {
         auth: FirebaseAuth,
         functions: com.google.firebase.functions.FirebaseFunctions,
         smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
+        appConfigRepository: AppConfigRepository,
         @ApplicationContext context: Context
     ): ReferralService {
-        return ReferralService(firestore, auth, functions, smartNotificationManager, context)
+        return ReferralService(firestore, auth, functions, smartNotificationManager, appConfigRepository, context)
     }
 
     // ==========================================

@@ -3,6 +3,7 @@ package com.example.dutype.services
 import com.example.dutype.models.*
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.repositories.AppConfigRepository
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -51,6 +52,7 @@ class ReferralService @Inject constructor(
     private val auth: FirebaseAuth,
     private val functions: FirebaseFunctions,
     private val smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
+    private val appConfigRepository: AppConfigRepository,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
     companion object {
@@ -308,6 +310,9 @@ class ReferralService @Inject constructor(
         referralCode: String,
         statsMap: Map<String, Any?>
     ): ReferralStats {
+        val availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0
+        val minWithdrawal = appConfigRepository.referralConfig.value.minWithdrawal
+
         return ReferralStats(
             userId = userId,
             userRole = userRole,
@@ -315,10 +320,8 @@ class ReferralService @Inject constructor(
             totalReferrals = (statsMap["totalReferrals"] as? Number)?.toInt() ?: 0,
             successfulReferrals = (statsMap["successfulReferrals"] as? Number)?.toInt() ?: 0,
             totalEarnings = (statsMap["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
-            availableBalance = (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0,
-            canWithdraw = ReferralRewards.canWithdraw(
-                (statsMap["availableBalance"] as? Number)?.toDouble() ?: 0.0
-            ),
+            availableBalance = availableBalance,
+            canWithdraw = ReferralRewards.canWithdraw(availableBalance, minWithdrawal),
             currentTier = try {
                 ReferralTier.valueOf(statsMap["currentTier"] as? String ?: "BRONZE")
             } catch (e: Exception) {
@@ -428,7 +431,8 @@ class ReferralService @Inject constructor(
 
                         // 🔔 SMART NOTIFICATION: Check for referral milestones
                         val currentCount = stats.successfulReferrals
-                        val milestones = listOf(5, 10, 15, 25, 50, 100)
+                        val milestoneRewards = appConfigRepository.referralConfig.value.milestones
+                        val milestones = milestoneRewards.keys.sorted()
 
                         if (currentCount > lastNotifiedCount) {
                             val newMilestone = milestones.firstOrNull { milestone ->
@@ -437,15 +441,7 @@ class ReferralService @Inject constructor(
 
                             if (newMilestone != null) {
                                 try {
-                                    val rewardAmount = when (newMilestone) {
-                                        5 -> 50
-                                        10 -> 100
-                                        15 -> 150
-                                        25 -> 250
-                                        50 -> 500
-                                        100 -> 1000
-                                        else -> 0
-                                    }
+                                    val rewardAmount = milestoneRewards[newMilestone]?.toInt() ?: 0
                                     withContext(Dispatchers.IO) {
                                         smartNotificationManager.notifyReferralMilestone(
                                             userId,
@@ -852,7 +848,7 @@ class ReferralService @Inject constructor(
     /**
      * Get referral history for current user
      */
-    suspend fun getReferralHistory(limit: Int = 20): List<Referral> {
+    suspend fun getReferralHistory(limit: Int = 100): List<Referral> {
         val userId = auth.currentUser?.uid ?: return emptyList()
         
         return try {
@@ -865,7 +861,7 @@ class ReferralService @Inject constructor(
 
             referrals.documents.mapNotNull { doc ->
                 try {
-                    Referral.fromMap(doc.data ?: emptyMap())
+                    Referral.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id))
                 } catch (e: Exception) {
                     Timber.e(e, "🎁 REFERRAL: Error parsing referral ${doc.id}")
                     null
@@ -880,7 +876,7 @@ class ReferralService @Inject constructor(
     /**
      * Get referral history as Flow for real-time updates
      */
-    fun getReferralHistoryFlow(limit: Int = 20): Flow<List<Referral>> = callbackFlow {
+    fun getReferralHistoryFlow(limit: Int = 100): Flow<List<Referral>> = callbackFlow {
         val userId = auth.currentUser?.uid
         if (userId == null) {
             trySend(emptyList())
@@ -901,7 +897,7 @@ class ReferralService @Inject constructor(
 
                 val referrals = snapshot?.documents?.mapNotNull { doc ->
                     try {
-                        Referral.fromMap(doc.data ?: emptyMap())
+                        Referral.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id))
                     } catch (e: Exception) {
                         null
                     }
@@ -974,7 +970,7 @@ class ReferralService @Inject constructor(
     /**
      * Get withdrawal history
      */
-    suspend fun getWithdrawalHistory(limit: Int = 20): List<WithdrawalRequest> {
+    suspend fun getWithdrawalHistory(limit: Int = 100): List<WithdrawalRequest> {
         val userId = auth.currentUser?.uid ?: return emptyList()
         
         return try {
@@ -988,7 +984,7 @@ class ReferralService @Inject constructor(
 
             withdrawals.documents.mapNotNull { doc ->
                 try {
-                    WithdrawalRequest.fromMap(doc.data ?: emptyMap())
+                    WithdrawalRequest.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id) + ("userId" to userId))
                 } catch (e: Exception) {
                     Timber.e(e, "🎁 REFERRAL: Error parsing withdrawal ${doc.id}")
                     null
@@ -998,6 +994,46 @@ class ReferralService @Inject constructor(
             Timber.e(e, "🎁 REFERRAL: Error getting withdrawal history")
             emptyList()
         }
+    }
+
+    /**
+     * Realtime withdrawal history from referral_stats/{uid}/withdrawals.
+     * This lets the Refer & Earn screen reflect admin transitions such as
+     * PENDING -> PROCESSING -> COMPLETED/FAILED without requiring app restart.
+     */
+    fun getWithdrawalHistoryFlow(limit: Int = 100): Flow<List<WithdrawalRequest>> = callbackFlow {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
+
+        val listenerRegistration = firestore.collection(COLLECTION_REFERRAL_STATS)
+            .document(userId)
+            .collection(SUBCOLLECTION_WITHDRAWALS)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "🎁 REFERRAL: Error listening to withdrawals")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+
+                val withdrawals = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        WithdrawalRequest.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id) + ("userId" to userId))
+                    } catch (e: Exception) {
+                        Timber.e(e, "🎁 REFERRAL: Error parsing withdrawal ${doc.id}")
+                        null
+                    }
+                } ?: emptyList()
+
+                trySend(withdrawals)
+            }
+
+        awaitClose { listenerRegistration.remove() }
     }
 
     // ============================================

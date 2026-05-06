@@ -380,7 +380,12 @@ fun WorkerReferEarnScreen(
                                 nextMilestone = uiState.stats?.let { stats ->
                                     referralConfig.milestones.keys.sorted()
                                         .firstOrNull { it > stats.successfulReferrals } ?: 0
-                                } ?: 0
+                                } ?: 0,
+                                milestoneBonus = uiState.stats?.let { stats ->
+                                    val next = referralConfig.milestones.keys.sorted()
+                                        .firstOrNull { it > stats.successfulReferrals } ?: 0
+                                    referralConfig.milestones[next] ?: 0.0
+                                } ?: 0.0
                             )
                         }
                     }
@@ -485,6 +490,7 @@ fun WorkerReferEarnScreen(
     if (showWithdrawDialog) {
         WithdrawDialog(
             availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
             onWithdraw = { upiId ->
                 viewModel.requestWithdrawal(upiId)
@@ -800,9 +806,8 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
 }
 
 @Composable
-private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) {
+private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, milestoneBonus: Double) {
     val progress = if (nextMilestone > 0) successfulReferrals.toFloat() / nextMilestone.toFloat() else 0f
-    val bonus = ReferralRewards.getMilestoneBonus(nextMilestone)
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -831,9 +836,9 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) 
                     text = stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone),
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563))
                 )
-                if (bonus > 0) {
+                if (milestoneBonus > 0) {
                     Text(
-                        text = stringResource(R.string.refer_bonus_amount, bonus.toInt()),
+                        text = stringResource(R.string.refer_bonus_amount, milestoneBonus.toInt()),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -1051,9 +1056,9 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
                     Text(stringResource(R.string.share_code_to_earn), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
                 }
             } else {
-                referralHistory.take(5).forEachIndexed { index, referral ->
+                referralHistory.forEachIndexed { index, referral ->
                     ReferralHistoryItem(referral)
-                    if (index < referralHistory.size - 1 && index < 4) {
+                    if (index < referralHistory.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE5E7EB))
                     }
                 }
@@ -1159,9 +1164,9 @@ private fun WithdrawalHistorySection(withdrawals: List<WithdrawalRequest>) {
                     style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
                 )
             } else {
-                withdrawals.take(5).forEachIndexed { index, withdrawal ->
+                withdrawals.forEachIndexed { index, withdrawal ->
                     WithdrawalHistoryItem(withdrawal)
-                    if (index < withdrawals.size - 1 && index < 4) {
+                    if (index < withdrawals.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE5E7EB))
                     }
                 }
@@ -1235,6 +1240,7 @@ private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
 @Composable
 private fun WithdrawDialog(
     availableBalance: Double,
+    minWithdrawal: Double,
     onDismiss: () -> Unit,
     onWithdraw: (String) -> Unit
 ) {
@@ -1274,7 +1280,7 @@ private fun WithdrawDialog(
                     when {
                         upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
                         !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
-                        availableBalance < ReferralRewards.MIN_WITHDRAWAL_AMOUNT -> error = context.getString(R.string.refer_error_min_withdrawal, ReferralRewards.MIN_WITHDRAWAL_AMOUNT.toInt())
+                        availableBalance < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
                         else -> onWithdraw(upiId)
                     }
                 },

@@ -9,8 +9,42 @@ import {
 
 export const runtime = "nodejs";
 
+type AuthUserSummary = {
+  uid: string;
+  email: string;
+  phone: string;
+  displayName: string;
+  disabled: boolean;
+  createdAt: string;
+  lastSignInAt: string;
+};
+
 function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function normalizeRole(value: unknown) {
+  const role = firstNonEmptyString(value).toUpperCase();
+
+  if (role === "WORKER" || role === "EMPLOYER" || role === "ADMIN") {
+    return role;
+  }
+
+  return role ? "OTHER" : "";
+}
+
+function withId(id: string, value: Record<string, unknown> | null) {
+  return value ? { id, ...value } : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -23,24 +57,35 @@ export async function GET(request: NextRequest) {
     const db = getFirebaseAdminDb();
     const auth = getFirebaseAdminAuth();
 
-    const authUsersById = new Map<string, { email: string; phone: string; displayName: string }>();
+    const authUsersById = new Map<string, AuthUserSummary>();
     let pageToken: string | undefined;
 
     do {
       const page = await auth.listUsers(1000, pageToken);
       page.users.forEach((entry) => {
         authUsersById.set(entry.uid, {
+          uid: entry.uid,
           email: entry.email ?? "",
           phone: entry.phoneNumber ?? "",
-          displayName: entry.displayName ?? ""
+          displayName: entry.displayName ?? "",
+          disabled: entry.disabled,
+          createdAt: entry.metadata.creationTime ?? "",
+          lastSignInAt: entry.metadata.lastSignInTime ?? ""
         });
       });
       pageToken = page.pageToken;
     } while (pageToken);
 
-    const [usersSnapshot, referralCodesSnapshot, workerProfilesSnapshot, employerProfilesSnapshot] =
+    const [
+      usersSnapshot,
+      phoneRolesSnapshot,
+      referralCodesSnapshot,
+      workerProfilesSnapshot,
+      employerProfilesSnapshot
+    ] =
       await Promise.all([
         db.collection("users").limit(5000).get(),
+        db.collection("phoneRoles").limit(5000).get(),
         db.collection("referral_codes").limit(5000).get(),
         db.collection("worker_profiles").limit(5000).get(),
         db.collection("employer_profiles").limit(5000).get()
@@ -51,7 +96,22 @@ export async function GET(request: NextRequest) {
       userDocsById.set(item.id, asRecord(item.data()));
     });
 
+    const phoneRoleDocsByUid = new Map<string, Array<Record<string, unknown> & { docId: string }>>();
+    let phoneRolesMissingUid = 0;
+    phoneRolesSnapshot.forEach((item) => {
+      const raw = asRecord(item.data());
+      const uid = typeof raw.uid === "string" ? raw.uid.trim() : "";
+      if (uid) {
+        const existing = phoneRoleDocsByUid.get(uid) ?? [];
+        existing.push({ ...raw, docId: item.id });
+        phoneRoleDocsByUid.set(uid, existing);
+      } else {
+        phoneRolesMissingUid += 1;
+      }
+    });
+
     const referralCodeByUserId = new Map<string, string>();
+    const referralCodeDocsByUserId = new Map<string, Array<Record<string, unknown>>>();
     referralCodesSnapshot.forEach((item) => {
       const raw = asRecord(item.data());
       const userId = typeof raw.userId === "string" ? raw.userId : "";
@@ -59,6 +119,9 @@ export async function GET(request: NextRequest) {
 
       if (userId && code) {
         referralCodeByUserId.set(userId, code);
+        const existing = referralCodeDocsByUserId.get(userId) ?? [];
+        existing.push({ id: item.id, ...raw });
+        referralCodeDocsByUserId.set(userId, existing);
       }
     });
 
@@ -72,31 +135,60 @@ export async function GET(request: NextRequest) {
       employerProfileById.set(item.id, asRecord(item.data()));
     });
 
-    const userIds = new Set<string>([...userDocsById.keys(), ...authUsersById.keys()]);
+    const userIds = new Set<string>([
+      ...userDocsById.keys(),
+      ...authUsersById.keys(),
+      ...phoneRoleDocsByUid.keys()
+    ]);
 
     const users = Array.from(userIds).map((userId) => {
       const rawDoc = userDocsById.get(userId) ?? {};
+      const phoneRoleDocs = phoneRoleDocsByUid.get(userId) ?? [];
+      const phoneRole = phoneRoleDocs[0] ?? null;
       const authUser = authUsersById.get(userId);
+      const workerProfile = workerProfileById.get(userId) ?? null;
+      const employerProfile = employerProfileById.get(userId) ?? null;
+      const sourceRoles = {
+        phoneRoles: normalizeRole(phoneRole?.role),
+        users: normalizeRole(rawDoc.role) || normalizeRole(rawDoc.activeRole),
+        worker_profiles: normalizeRole(workerProfile?.role),
+        employer_profiles: normalizeRole(employerProfile?.role)
+      };
+      const canonicalRole = sourceRoles.phoneRoles || sourceRoles.users ||
+        sourceRoles.worker_profiles || sourceRoles.employer_profiles || "";
+      const roleMismatch = new Set(Object.values(sourceRoles).filter(Boolean)).size > 1;
+      const roleSource = sourceRoles.phoneRoles
+        ? "phoneRoles"
+        : sourceRoles.users
+          ? "users"
+          : sourceRoles.worker_profiles
+            ? "worker_profiles"
+            : sourceRoles.employer_profiles
+              ? "employer_profiles"
+              : "missing";
 
       const merged = {
         ...rawDoc,
-        fullName:
-          typeof rawDoc.fullName === "string" && rawDoc.fullName.trim()
-            ? rawDoc.fullName
-            : (authUser?.displayName ?? ""),
-        phone:
-          typeof rawDoc.phone === "string" && rawDoc.phone.trim()
-            ? rawDoc.phone
-            : (authUser?.phone ?? ""),
-        email:
-          typeof rawDoc.email === "string" && rawDoc.email.trim()
-            ? rawDoc.email
-            : (authUser?.email ?? "")
+        role: canonicalRole || rawDoc.role,
+        activeRole: canonicalRole || rawDoc.activeRole,
+        fullName: firstNonEmptyString(
+          rawDoc.fullName,
+          phoneRole?.name,
+          phoneRole?.fullName,
+          authUser?.displayName
+        ),
+        phone: firstNonEmptyString(
+          rawDoc.phone,
+          phoneRole?.phoneNumber,
+          phoneRole?.phone,
+          authUser?.phone
+        ),
+        email: firstNonEmptyString(rawDoc.email, authUser?.email)
       };
 
       const normalized = normalizeUserRecord(userId, merged, {
-        workerProfile: workerProfileById.get(userId) ?? null,
-        employerProfile: employerProfileById.get(userId) ?? null,
+        workerProfile,
+        employerProfile,
         referralCodeByUserId: referralCodeByUserId.get(userId)
       });
 
@@ -109,16 +201,73 @@ export async function GET(request: NextRequest) {
         role: normalized.role,
         activeRole: normalized.activeRole,
         roles: normalized.roles,
+        roleSource,
+        phoneRoleDocId: phoneRole?.docId ?? "",
+        phoneRoleUid: phoneRole?.uid ?? "",
+        phoneRoleRole: phoneRole?.role ?? "",
+        phoneRoleName: phoneRole?.name ?? "",
+        phoneRolePhoneNumber: phoneRole?.phoneNumber ?? "",
+        phoneRoleCreatedAt: phoneRole?.createdAt ?? null,
+        phoneRoleUpdatedAt: phoneRole?.updatedAt ?? null,
+        workerProfileRole: workerProfile?.role ?? "",
+        employerProfileRole: employerProfile?.role ?? "",
+        canonicalRole: canonicalRole || "MISSING",
+        sourceRoles,
+        roleMismatch,
+        phoneRoleDuplicateCount: phoneRoleDocs.length,
         referralCode: normalized.referralCode,
         createdAt: normalized.joinedAt,
         isBanned: rawDoc.isBanned === true,
         isVerified: rawDoc.isVerified === true,
         hasUserDoc: userDocsById.has(userId),
-        hasAuthUser: authUsersById.has(userId)
+        hasPhoneRole: Boolean(phoneRole),
+        hasAuthUser: authUsersById.has(userId),
+        hasWorkerProfile: Boolean(workerProfile),
+        hasEmployerProfile: Boolean(employerProfile),
+        hasReferralCodeDoc: (referralCodeDocsByUserId.get(userId) ?? []).length > 0,
+        firebaseFields: {
+          phoneRoles: phoneRoleDocs,
+          users: withId(userId, userDocsById.get(userId) ?? null),
+          auth: authUser ?? null,
+          worker_profiles: withId(userId, workerProfile),
+          employer_profiles: withId(userId, employerProfile),
+          referral_codes: referralCodeDocsByUserId.get(userId) ?? []
+        }
       };
     }).sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
 
-    return NextResponse.json({ users });
+    const roleCounts = users.reduce(
+      (acc, user) => {
+        const role = user.canonicalRole;
+        if (role === "WORKER") acc.workers += 1;
+        else if (role === "EMPLOYER") acc.employers += 1;
+        else if (role === "ADMIN") acc.admins += 1;
+        else if (role === "MISSING") acc.missing += 1;
+        else acc.other += 1;
+        return acc;
+      },
+      { workers: 0, employers: 0, admins: 0, missing: 0, other: 0 }
+    );
+
+    const sourceCounts = {
+      identities: users.length,
+      users: usersSnapshot.size,
+      phoneRoles: phoneRolesSnapshot.size,
+      authUsers: authUsersById.size,
+      workerProfiles: workerProfilesSnapshot.size,
+      employerProfiles: employerProfilesSnapshot.size,
+      referralCodes: referralCodesSnapshot.size
+    };
+
+    const integrityCounts = {
+      missingPhoneRole: users.filter((user) => !user.hasPhoneRole).length,
+      missingAuthUser: users.filter((user) => !user.hasAuthUser).length,
+      roleMismatch: users.filter((user) => user.roleMismatch).length,
+      duplicatePhoneRoleUsers: Array.from(phoneRoleDocsByUid.values()).filter((docs) => docs.length > 1).length,
+      phoneRolesMissingUid
+    };
+
+    return NextResponse.json({ users, sourceCounts, roleCounts, integrityCounts });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load users.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -212,6 +361,54 @@ export async function PATCH(request: NextRequest) {
 
     if (Object.keys(payload).length > 0) {
       await ref.set(payload, { merge: true });
+    }
+
+    const phoneRolePayload: Record<string, unknown> = {};
+    if (hasRoleUpdate && newRole) {
+      phoneRolePayload.role = newRole;
+    }
+    if (fullName !== undefined) {
+      phoneRolePayload.name = fullName;
+    }
+    if (phone !== undefined) {
+      phoneRolePayload.phoneNumber = phone;
+    }
+
+    if (Object.keys(phoneRolePayload).length > 0) {
+      const phoneRoleMatches = await db.collection("phoneRoles")
+        .where("uid", "==", userId)
+        .limit(5)
+        .get();
+      const withTimestamp = { ...phoneRolePayload, uid: userId, updatedAt: new Date() };
+
+      if (!phoneRoleMatches.empty) {
+        const batch = db.batch();
+        phoneRoleMatches.docs.forEach((doc) => {
+          if (phone && doc.id !== phone) {
+            batch.set(
+              db.collection("phoneRoles").doc(phone),
+              { ...doc.data(), ...withTimestamp, phoneNumber: phone },
+              { merge: true }
+            );
+            batch.delete(doc.ref);
+          } else {
+            batch.set(doc.ref, withTimestamp, { merge: true });
+          }
+        });
+        await batch.commit();
+      } else if (phone && newRole && fullName) {
+        await db.collection("phoneRoles").doc(phone).set(
+          {
+            phoneNumber: phone,
+            role: newRole,
+            name: fullName,
+            uid: userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          { merge: true }
+        );
+      }
     }
 
     if (isBanned !== undefined) {

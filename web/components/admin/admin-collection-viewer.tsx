@@ -14,6 +14,53 @@ type CollectionViewerProps = {
   label: string;
 };
 
+const PINNED_FIELDS = [
+  "id",
+  "firebasePath",
+  "resolvedName",
+  "resolvedPhone",
+  "expectedRole",
+  "role",
+  "profileRole",
+  "phoneRoleRole",
+  "roleStatus",
+  "profileHealth",
+  "missingProfileFields",
+  "hasPhoneRole",
+  "phoneRoleDocId",
+  "hasAuthUser",
+  "authPhoneNumber",
+  "authEmail",
+  "authDisabled",
+  "referralCode",
+  "referredByCode",
+  "referralStatsAvailableBalance",
+  "createdAt",
+  "updatedAt",
+  "profileFieldCount",
+  "profileFieldNames"
+];
+
+function isInternalField(field: string) {
+  return field.startsWith("__");
+}
+
+function sortedFields(fields: string[]) {
+  const pinned = PINNED_FIELDS.filter((field) => fields.includes(field));
+  const rest = fields
+    .filter((field) => !PINNED_FIELDS.includes(field))
+    .sort((a, b) => a.localeCompare(b));
+  return [...pinned, ...rest];
+}
+
+function formatJson(value: unknown) {
+  try {
+    return JSON.stringify(value ?? null, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 function renderCellValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -29,7 +76,7 @@ function renderCellValue(value: unknown): string {
   if (typeof value === "object") {
     // Check for Firestore timestamp shapes
     const obj = value as Record<string, unknown>;
-    if ("_seconds" in obj) {
+    if ("_seconds" in obj || "seconds" in obj) {
       return formatDateTime(obj) ?? JSON.stringify(obj);
     }
     const json = JSON.stringify(obj);
@@ -72,13 +119,9 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
 
   // Collect all unique field names across all rows
   const allFields = Array.from(
-    new Set(rows.flatMap((row) => Object.keys(row)))
-  ).sort((a, b) => {
-    // Put "id" first, then alphabetical
-    if (a === "id") return -1;
-    if (b === "id") return 1;
-    return a.localeCompare(b);
-  });
+    new Set(rows.flatMap((row) => Object.keys(row).filter((field) => !isInternalField(field))))
+  );
+  const visibleFields = sortedFields(allFields);
 
   // Search filter — matches any field value
   const searchLower = search.toLowerCase();
@@ -92,6 +135,13 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
   const populatedFieldCount = allFields.filter((field) =>
     rows.some((row) => row[field] !== null && row[field] !== undefined && renderCellValue(row[field]) !== "—")
   ).length;
+  const needsReviewCount = rows.filter((row) =>
+    row.roleStatus === "role-mismatch" ||
+    row.roleStatus === "missing-phoneRoles" ||
+    row.profileHealth === "needs-review" ||
+    row.hasAuthUser === false
+  ).length;
+  const fieldInventory = visibleFields.slice(0, 40);
   const {
     pageRows: visibleRows,
     safePage: visibleRowsPage,
@@ -122,7 +172,10 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
               {filtered.length} of {rows.length} documents
             </h2>
           </div>
-          <p>{allFields.length} fields detected across all documents.</p>
+          <p>
+            {visibleFields.length} visible fields detected. Open a row's Firebase JSON to inspect the
+            exact source profile document and related identity records.
+          </p>
         </div>
 
         <div className="admin-collection-summary">
@@ -138,6 +191,29 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
             <strong>{populatedFieldCount}</strong>
             <span>Fields with data</span>
           </div>
+          <div className="admin-stat-card compact">
+            <strong>{needsReviewCount}</strong>
+            <span>Rows needing review</span>
+          </div>
+        </div>
+
+        {fieldInventory.length > 0 ? (
+          <div className="admin-field-inventory" aria-label={`${label} fields`}>
+            <strong>Detected fields</strong>
+            <div>
+              {fieldInventory.map((field) => (
+                <code key={field}>{field}</code>
+              ))}
+              {visibleFields.length > fieldInventory.length ? (
+                <span>+{visibleFields.length - fieldInventory.length} more</span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="admin-profile-legend">
+          <span><strong>aligned</strong> means profile role and phoneRoles agree.</span>
+          <span><strong>needs-review</strong> means one required app-facing profile field is missing.</span>
         </div>
 
         <div className="admin-toolbar admin-toolbar-card">
@@ -164,7 +240,8 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
                 <thead>
                   <tr>
                     <th>#</th>
-                    {allFields.map((field) => (
+                    <th>Inspect</th>
+                    {visibleFields.map((field) => (
                       <th key={field}>{field}</th>
                     ))}
                   </tr>
@@ -173,7 +250,13 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
                   {visibleRows.map((row, idx) => (
                     <tr key={(row.id as string) ?? idx}>
                       <td>{startIndex + idx + 1}</td>
-                      {allFields.map((field) => (
+                      <td className="admin-json-cell">
+                        <details className="admin-json-details">
+                          <summary>Firebase JSON</summary>
+                          <pre>{formatJson(row.__firebase ?? row)}</pre>
+                        </details>
+                      </td>
+                      {visibleFields.map((field) => (
                         <td key={field} title={renderCellValue(row[field])}>
                           {renderCellValue(row[field])}
                         </td>

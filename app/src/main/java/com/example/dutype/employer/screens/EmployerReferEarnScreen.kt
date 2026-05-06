@@ -306,7 +306,7 @@ fun EmployerReferEarnScreen(
                     }
                     
                     // Withdraw Button
-                    if ((uiState.stats?.availableBalance ?: 0.0) >= ReferralRewards.MIN_WITHDRAWAL_AMOUNT) {
+                    if ((uiState.stats?.availableBalance ?: 0.0) >= referralConfig.minWithdrawal) {
                         item {
                             AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))) {
                                 EmployerWithdrawCard(
@@ -364,6 +364,7 @@ fun EmployerReferEarnScreen(
     if (showWithdrawDialog) {
         EmployerWithdrawDialog(
             availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
             onWithdraw = { upiId ->
                 viewModel.requestWithdrawal(upiId)
@@ -711,9 +712,9 @@ private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
                     Text(stringResource(R.string.share_code_employers), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
                 }
             } else {
-                referralHistory.take(5).forEachIndexed { index, referral ->
+                referralHistory.forEachIndexed { index, referral ->
                     EmployerReferralHistoryItem(referral)
-                    if (index < referralHistory.size - 1 && index < 4) {
+                    if (index < referralHistory.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF3F4F6))
                     }
                 }
@@ -799,9 +800,9 @@ private fun EmployerWithdrawalHistoryCard(withdrawals: List<WithdrawalRequest>) 
             if (withdrawals.isEmpty()) {
                 Text(stringResource(R.string.no_withdrawals_yet), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
             } else {
-                withdrawals.take(5).forEachIndexed { index, withdrawal ->
+                withdrawals.forEachIndexed { index, withdrawal ->
                     EmployerWithdrawalHistoryItem(withdrawal)
-                    if (index < withdrawals.size - 1 && index < 4) {
+                    if (index < withdrawals.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF3F4F6))
                     }
                 }
@@ -845,7 +846,7 @@ private fun EmployerReferrerInfoCard(referrerInfo: ReferrerInfo) {
 }
 
 @Composable
-private fun EmployerWithdrawDialog(availableBalance: Double, onDismiss: () -> Unit, onWithdraw: (String) -> Unit) {
+private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Double, onDismiss: () -> Unit, onWithdraw: (String) -> Unit) {
     val context = LocalContext.current
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -872,7 +873,7 @@ private fun EmployerWithdrawDialog(availableBalance: Double, onDismiss: () -> Un
                     when {
                         upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
                         !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
-                        availableBalance < ReferralRewards.MIN_WITHDRAWAL_AMOUNT -> error = context.getString(R.string.refer_error_min_withdrawal, ReferralRewards.MIN_WITHDRAWAL_AMOUNT.toInt())
+                        availableBalance < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
                         else -> onWithdraw(upiId)
                     }
                 },

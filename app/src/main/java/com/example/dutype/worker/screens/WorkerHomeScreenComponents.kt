@@ -104,6 +104,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Shadow
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -1170,14 +1171,51 @@ private fun ReferEarnStripCard(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B21B6)),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.invite_now),
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                )
+                AnimatedInviteNowText()
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun AnimatedInviteNowText() {
+    val transition = rememberInfiniteTransition(label = "invite_now_text_sweep")
+    val sweepOffset by transition.animateFloat(
+        initialValue = -34f,
+        targetValue = 34f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1450, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "invite_now_shadow_offset"
+    )
+    val inviteText = stringResource(R.string.invite_now)
+    val baseStyle = MaterialTheme.typography.labelLarge.copy(
+        color = Color.White,
+        fontWeight = FontWeight.Bold
+    )
+
+    Box(
+        modifier = Modifier.clipToBounds(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(text = inviteText, style = baseStyle)
+        Text(
+            text = inviteText,
+            modifier = Modifier
+                .offset(x = sweepOffset.dp)
+                .graphicsLayer { alpha = 0.58f },
+            style = baseStyle.copy(
+                color = Color(0xFFFDE68A),
+                shadow = Shadow(
+                    color = Color.White.copy(alpha = 0.95f),
+                    offset = Offset(0f, 0f),
+                    blurRadius = 14f
+                )
+            )
+        )
     }
 }
 

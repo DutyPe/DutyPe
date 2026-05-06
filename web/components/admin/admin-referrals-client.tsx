@@ -8,20 +8,43 @@ type ReferralRow = {
   id: string;
   referralCode?: string;
   referredUserName?: string;
+  referredUserPhone?: string;
+  referredUserRole?: string;
+  referredUserId?: string;
   referrerUserName?: string;
+  referrerPhone?: string;
+  referrerRole?: string;
+  referrerId?: string;
+  referrerReferralCode?: string;
+  referredByCode?: string;
+  currentReferralCode?: string;
   status?: string;
   rewardAmount?: number | string;
+  bonusAmount?: number | string;
+  referredUserReward?: number | string;
   createdAt?: unknown;
 };
 
 type WithdrawalRow = {
   id: string;
   userId?: string;
+  userName?: string;
+  userRole?: string;
+  phone?: string;
+  referralCode?: string;
   amount?: number | string;
+  availableBalance?: number | string;
+  totalEarnings?: number | string;
+  withdrawnAmount?: number | string;
   paymentMethod?: string;
   upiId?: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
+  accountHolderName?: string;
   status?: string;
+  transactionId?: string;
   createdAt?: unknown;
+  processedAt?: unknown;
 };
 
 export function AdminReferralsClient() {
@@ -65,12 +88,28 @@ export function AdminReferralsClient() {
   async function handleWithdrawalUpdate(
     id: string,
     userId: string | undefined,
-    status: "COMPLETED" | "FAILED"
+    status: "PROCESSING" | "COMPLETED" | "FAILED"
   ) {
-    const confirmationMessage =
-      status === "COMPLETED"
-        ? "Approve this withdrawal request?"
-        : "Reject this withdrawal request?";
+    if (!userId) {
+      setError("Missing userId for this withdrawal.");
+      return;
+    }
+
+    let transactionId = "";
+    let adminNote = "";
+    const confirmationMessage = status === "PROCESSING"
+      ? "Approve this withdrawal and move it to payment processing?"
+      : status === "COMPLETED"
+        ? "Mark this withdrawal as paid after payment is done?"
+        : "Reject this withdrawal and refund the amount to available balance?";
+
+    if (status === "COMPLETED") {
+      transactionId = window.prompt("Payment transaction ID or note (optional):")?.trim() ?? "";
+    }
+
+    if (status === "FAILED") {
+      adminNote = window.prompt("Reject reason (optional):")?.trim() ?? "";
+    }
 
     if (!window.confirm(confirmationMessage)) {
       return;
@@ -86,7 +125,9 @@ export function AdminReferralsClient() {
         body: JSON.stringify({
           withdrawalId: id,
           userId,
-          status
+          status,
+          transactionId,
+          adminNote
         })
       });
 
@@ -105,9 +146,13 @@ export function AdminReferralsClient() {
 
   const completedReferralCount = referrals.filter((referral) => referral.status === "COMPLETED").length;
   const pendingWithdrawalCount = withdrawals.filter((withdrawal) => withdrawal.status === "PENDING").length;
+  const processingWithdrawalCount = withdrawals.filter((withdrawal) => withdrawal.status === "PROCESSING").length;
   const completedWithdrawalCount = withdrawals.filter(
     (withdrawal) => withdrawal.status === "COMPLETED"
   ).length;
+  const pendingWithdrawalAmount = withdrawals
+    .filter((withdrawal) => withdrawal.status === "PENDING" || withdrawal.status === "PROCESSING")
+    .reduce((total, withdrawal) => total + Number(withdrawal.amount ?? 0), 0);
 
   return (
     <div className="admin-section-stack">
@@ -141,11 +186,19 @@ export function AdminReferralsClient() {
             </div>
             <div className="metric">
               <strong>{pendingWithdrawalCount}</strong>
-              <span>Withdrawal requests waiting for an admin decision.</span>
+              <span>Withdrawal requests waiting for approval.</span>
+            </div>
+            <div className="metric">
+              <strong>{processingWithdrawalCount}</strong>
+              <span>Approved withdrawals waiting for payment completion.</span>
             </div>
             <div className="metric">
               <strong>{completedWithdrawalCount}</strong>
-              <span>Withdrawal requests already marked completed.</span>
+              <span>Withdrawals already marked paid.</span>
+            </div>
+            <div className="metric">
+              <strong>{formatCurrency(pendingWithdrawalAmount)}</strong>
+              <span>Pending plus processing payout amount.</span>
             </div>
           </div>
         ) : null}
@@ -155,11 +208,11 @@ export function AdminReferralsClient() {
         <div className="section-header">
           <div>
             <span className="tag">Referrals</span>
-            <h2>Referral history</h2>
+            <h2>Who referred whom</h2>
           </div>
           <p>
-            Reads the same `referrals` collection as the legacy admin page, but uses the
-            shared React layout and formatting helpers.
+            Shows each completed referral with referrer, referred user, current code,
+            base reward, milestone bonus, and signup bonus.
           </p>
         </div>
 
@@ -173,10 +226,12 @@ export function AdminReferralsClient() {
               <thead>
                 <tr>
                   <th>Referral Code</th>
-                  <th>Referred User</th>
                   <th>Referrer</th>
+                  <th>Referred User</th>
                   <th>Status</th>
-                  <th>Reward</th>
+                  <th>Base Reward</th>
+                  <th>Milestone</th>
+                  <th>Friend Bonus</th>
                   <th>Date</th>
                 </tr>
               </thead>
@@ -184,14 +239,27 @@ export function AdminReferralsClient() {
                 {referrals.map((referral) => (
                   <tr key={referral.id}>
                     <td>{referral.referralCode ?? "N/A"}</td>
-                    <td>{referral.referredUserName ?? "N/A"}</td>
-                    <td>{referral.referrerUserName ?? "N/A"}</td>
+                    <td>
+                      <strong>{referral.referrerUserName || shortId(referral.referrerId)}</strong>
+                      <div className="route-note">{referral.referrerRole || "Role missing"}</div>
+                      <div className="route-note">{referral.referrerPhone || "Phone missing"}</div>
+                      <div className="route-note">Own code: {referral.referrerReferralCode || "missing"}</div>
+                    </td>
+                    <td>
+                      <strong>{referral.referredUserName || shortId(referral.referredUserId)}</strong>
+                      <div className="route-note">{referral.referredUserRole || "Role missing"}</div>
+                      <div className="route-note">{referral.referredUserPhone || "Phone missing"}</div>
+                      <div className="route-note">Used: {referral.referredByCode || "missing"}</div>
+                      <div className="route-note">Current code: {referral.currentReferralCode || "missing"}</div>
+                    </td>
                     <td>
                       <span className={`status-pill ${statusTone(referral.status)}`}>
                         {referral.status ?? "PENDING"}
                       </span>
                     </td>
                     <td>{formatCurrency(referral.rewardAmount)}</td>
+                    <td>{formatCurrency(referral.bonusAmount)}</td>
+                    <td>{formatCurrency(referral.referredUserReward)}</td>
                     <td>{formatDate(referral.createdAt)}</td>
                   </tr>
                 ))}
@@ -209,8 +277,8 @@ export function AdminReferralsClient() {
           </div>
           <p>
             Admin actions here update the canonical{" "}
-            <code>users/&#123;uid&#125;/withdrawals</code> subcollection with the
-            same statuses already used in the legacy tool.
+            <code>referral_stats/&#123;uid&#125;/withdrawals</code> subcollection used by
+            the Android app. Approve moves to processing, Mark paid completes the payout.
           </p>
         </div>
 
@@ -224,11 +292,14 @@ export function AdminReferralsClient() {
               <thead>
                 <tr>
                   <th>User ID</th>
+                  <th>User</th>
                   <th>Amount</th>
+                  <th>Wallet After Request</th>
                   <th>Method</th>
-                  <th>UPI ID</th>
+                  <th>Payment Details</th>
                   <th>Status</th>
                   <th>Requested</th>
+                  <th>Processed</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -236,22 +307,37 @@ export function AdminReferralsClient() {
                 {withdrawals.map((withdrawal) => (
                   <tr key={withdrawal.id}>
                     <td>{shortId(withdrawal.userId)}</td>
+                    <td>
+                      <strong>{withdrawal.userName || "N/A"}</strong>
+                      <div className="route-note">{withdrawal.userRole || "Role missing"}</div>
+                      <div className="route-note">{withdrawal.phone || "Phone missing"}</div>
+                      <div className="route-note">Code: {withdrawal.referralCode || "missing"}</div>
+                    </td>
                     <td>{formatCurrency(withdrawal.amount)}</td>
+                    <td>
+                      <strong>{formatCurrency(withdrawal.availableBalance)}</strong>
+                      <div className="route-note">Earned: {formatCurrency(withdrawal.totalEarnings)}</div>
+                      <div className="route-note">Withdrawn: {formatCurrency(withdrawal.withdrawnAmount)}</div>
+                    </td>
                     <td>{withdrawal.paymentMethod ?? "N/A"}</td>
-                    <td>{withdrawal.upiId ?? "N/A"}</td>
+                    <td>{paymentDetails(withdrawal)}</td>
                     <td>
                       <span className={`status-pill ${statusTone(withdrawal.status)}`}>
                         {withdrawal.status ?? "PENDING"}
                       </span>
+                      {withdrawal.transactionId ? (
+                        <div className="route-note">Txn: {withdrawal.transactionId}</div>
+                      ) : null}
                     </td>
                     <td>{formatDate(withdrawal.createdAt)}</td>
+                    <td>{formatDate(withdrawal.processedAt)}</td>
                     <td>
                       {withdrawal.status === "PENDING" ? (
                         <div className="button-row compact">
                           <button
                             type="button"
                             className="table-action"
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "PROCESSING")}
                             disabled={pendingActionId === withdrawal.id}
                           >
                             {pendingActionId === withdrawal.id ? "Working..." : "Approve"}
@@ -263,6 +349,25 @@ export function AdminReferralsClient() {
                             disabled={pendingActionId === withdrawal.id}
                           >
                             Reject
+                          </button>
+                        </div>
+                      ) : withdrawal.status === "PROCESSING" ? (
+                        <div className="button-row compact">
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
+                            disabled={pendingActionId === withdrawal.id}
+                          >
+                            {pendingActionId === withdrawal.id ? "Working..." : "Mark paid"}
+                          </button>
+                          <button
+                            type="button"
+                            className="table-action danger"
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
+                            disabled={pendingActionId === withdrawal.id}
+                          >
+                            Reject/refund
                           </button>
                         </div>
                       ) : (
@@ -288,11 +393,23 @@ function shortId(value: string | undefined) {
   return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
+function paymentDetails(withdrawal: WithdrawalRow) {
+  if (withdrawal.paymentMethod === "BANK_TRANSFER") {
+    return [withdrawal.accountHolderName, withdrawal.bankAccountNumber, withdrawal.ifscCode]
+      .filter(Boolean)
+      .join(" / ") || "N/A";
+  }
+
+  return withdrawal.upiId || "N/A";
+}
+
 function statusTone(status: string | undefined) {
   switch (status) {
     case "COMPLETED":
     case "ACCEPTED":
       return "success";
+    case "PROCESSING":
+      return "warning";
     case "FAILED":
     case "REJECTED":
       return "danger";

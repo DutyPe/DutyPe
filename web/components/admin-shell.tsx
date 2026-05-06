@@ -26,6 +26,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     label: "People",
     links: [
       { href: "/admin/users", label: "Users", icon: "US", summary: "Accounts, roles, and activity." },
+      { href: "/admin/phone-roles", label: "Phone Roles", icon: "PH", summary: "Exact phoneRoles collection records." },
+      { href: "/admin/delete-user-by-phone", label: "Delete by Phone", icon: "DL", summary: "Emergency cleanup - delete all user data by phone." },
       { href: "/admin/worker-profiles", label: "Worker Profiles", icon: "WK", summary: "Worker profile collection review." },
       { href: "/admin/employer-profiles", label: "Employer Profiles", icon: "EM", summary: "Employer profile collection review." }
     ]
@@ -49,6 +51,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/referrals", label: "Referrals", icon: "RF", summary: "Referral operations and withdrawals." },
       { href: "/admin/referral-stats", label: "Referral Stats", icon: "RS", summary: "Referral reward and audit data." },
       { href: "/admin/referral-codes", label: "Referral Codes", icon: "RC", summary: "Referral code collection review." },
+      { href: "/admin/referral-config", label: "Referral Config", icon: "CF", summary: "Referral rewards, milestones, and withdrawal limits." },
       { href: "/admin/marketing", label: "Marketing & Growth", icon: "MK", summary: "Campaigns, assets, SEO, and launch playbooks." }
     ]
   },

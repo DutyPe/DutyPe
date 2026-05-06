@@ -4515,6 +4515,84 @@ button.product-chip {
   box-shadow: inset 0 -1px 0 rgba(9, 9, 9, 0.08);
 }
 
+.admin-source-counts-grid {
+  margin-top: 10px;
+}
+
+.admin-role-edit-select {
+  display: block;
+  margin-top: 6px;
+}
+
+.admin-source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  margin: 0 4px 4px 0;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.admin-source-badge.active {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.admin-source-badge.missing {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.admin-users-row-warning {
+  background: #fffbeb;
+}
+
+.danger-text {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.admin-users-detail-row td {
+  background: #fbfbf8;
+}
+
+.admin-firebase-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.admin-firebase-source-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.admin-firebase-source-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.admin-firebase-source-card pre {
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #222;
+  background: #f7f7f4;
+}
+
 .admin-route-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -7294,6 +7372,82 @@ button.product-chip {
 .admin-table td {
   max-width: 280px;
   color: #344054;
+}
+
+.admin-field-inventory,
+.admin-profile-legend {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(16, 24, 40, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.admin-field-inventory strong {
+  color: #101828;
+  font-size: 0.82rem;
+}
+
+.admin-field-inventory div,
+.admin-profile-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+
+.admin-field-inventory code,
+.admin-field-inventory span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.admin-profile-legend {
+  color: #475467;
+  font-size: 0.82rem;
+}
+
+.admin-profile-legend strong {
+  color: #101828;
+}
+
+.admin-json-cell {
+  min-width: 180px;
+  max-width: 220px;
+}
+
+.admin-json-details summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(20, 107, 79, 0.22);
+  border-radius: 8px;
+  background: rgba(20, 107, 79, 0.07);
+  color: var(--brand-strong);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-json-details pre {
+  width: min(760px, 72vw);
+  max-height: 420px;
+  margin: 10px 0 0;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  border-radius: 8px;
+  background: #101828;
+  color: #f8fafc;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 .admin-list-item:hover {

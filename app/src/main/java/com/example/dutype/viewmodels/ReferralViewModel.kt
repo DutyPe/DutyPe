@@ -29,6 +29,7 @@ class ReferralViewModel @Inject constructor(
     val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
     private var statsObserverJob: Job? = null
     private var historyObserverJob: Job? = null
+    private var withdrawalObserverJob: Job? = null
 
     /** Admin-editable referral config. UI consumes this for reward amounts. */
     val referralConfig: StateFlow<com.example.dutype.repositories.ReferralConfig> =
@@ -62,7 +63,6 @@ class ReferralViewModel @Inject constructor(
                 Timber.d("Referral bootstrap failed; realtime observer is active for recovery")
             }
         }
-        loadWithdrawalHistory()
         loadReferrerInfo()
     }
 
@@ -125,15 +125,12 @@ class ReferralViewModel @Inject constructor(
                 }
             }
         }
-    }
 
-    private fun loadWithdrawalHistory() {
-        viewModelScope.launch {
-            try {
-                val history = referralService.getWithdrawalHistory()
-                _uiState.value = _uiState.value.copy(withdrawalHistory = history)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load withdrawal history")
+        if (withdrawalObserverJob == null) {
+            withdrawalObserverJob = viewModelScope.launch {
+                referralService.getWithdrawalHistoryFlow().collect { withdrawals ->
+                    _uiState.value = _uiState.value.copy(withdrawalHistory = withdrawals)
+                }
             }
         }
     }
@@ -245,6 +242,7 @@ class ReferralViewModel @Inject constructor(
     override fun onCleared() {
         statsObserverJob?.cancel()
         historyObserverJob?.cancel()
+        withdrawalObserverJob?.cancel()
         super.onCleared()
     }
     

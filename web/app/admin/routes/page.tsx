@@ -8,6 +8,8 @@ const adminRoutes = [
   { href: "/admin/login", label: "Admin Login", description: "Firebase-backed admin sign in screen." },
   { href: "/admin/routes", label: "Routes", description: "Full navigation map of admin routes." },
   { href: "/admin/users", label: "Users", description: "Browse and manage workers/employers." },
+  { href: "/admin/phone-roles", label: "Phone Roles", description: "Inspect phoneRoles collection data exactly as stored." },
+  { href: "/admin/delete-user-by-phone", label: "Delete User by Phone", description: "Emergency cleanup for wrong-role registrations." },
   { href: "/admin/worker-profiles", label: "Worker Profiles", description: "Inspect worker_profiles collection data." },
   { href: "/admin/employer-profiles", label: "Employer Profiles", description: "Inspect employer_profiles collection data." },
   { href: "/admin/jobs", label: "Jobs", description: "Review jobs and moderation controls." },

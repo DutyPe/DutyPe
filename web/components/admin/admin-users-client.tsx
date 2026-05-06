@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
@@ -18,6 +18,25 @@ type UserRow = {
   role?: string;
   activeRole?: string;
   roles?: string[];
+  roleSource?: string;
+  phoneRoleDocId?: string;
+  phoneRoleUid?: string;
+  phoneRoleRole?: string;
+  phoneRoleName?: string;
+  phoneRolePhoneNumber?: string;
+  workerProfileRole?: string;
+  employerProfileRole?: string;
+  canonicalRole?: string;
+  sourceRoles?: Record<string, string>;
+  roleMismatch?: boolean;
+  phoneRoleDuplicateCount?: number;
+  hasUserDoc?: boolean;
+  hasPhoneRole?: boolean;
+  hasAuthUser?: boolean;
+  hasWorkerProfile?: boolean;
+  hasEmployerProfile?: boolean;
+  hasReferralCodeDoc?: boolean;
+  firebaseFields?: Record<string, unknown>;
   referralCode?: string;
   referral_code?: string;
   isBanned?: boolean;
@@ -25,6 +44,32 @@ type UserRow = {
   createdAt?: unknown;
   updatedAt?: unknown;
   lastLoginAt?: unknown;
+};
+
+type SourceCounts = {
+  identities?: number;
+  users?: number;
+  phoneRoles?: number;
+  authUsers?: number;
+  workerProfiles?: number;
+  employerProfiles?: number;
+  referralCodes?: number;
+};
+
+type RoleCounts = {
+  workers?: number;
+  employers?: number;
+  admins?: number;
+  missing?: number;
+  other?: number;
+};
+
+type IntegrityCounts = {
+  missingPhoneRole?: number;
+  missingAuthUser?: number;
+  roleMismatch?: number;
+  duplicatePhoneRoleUsers?: number;
+  phoneRolesMissingUid?: number;
 };
 
 export function AdminUsersClient() {
@@ -37,6 +82,10 @@ export function AdminUsersClient() {
   const [pageSize, setPageSize] = useState(25);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [pendingSaveId, setPendingSaveId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [sourceCounts, setSourceCounts] = useState<SourceCounts>({});
+  const [roleCounts, setRoleCounts] = useState<RoleCounts>({});
+  const [integrityCounts, setIntegrityCounts] = useState<IntegrityCounts>({});
   // The live `users` collection only stores a single `role` field. We
   // keep the draft minimal: name, phone, role.
   const [editDrafts, setEditDrafts] = useState<
@@ -50,7 +99,7 @@ export function AdminUsersClient() {
       const current = primaryRole(row);
       acc[row.id] = {
         fullName: displayUserName(row),
-        phone: row.phone ?? "",
+        phone: displayUserPhone(row),
         role: current === "EMPLOYER" ? "EMPLOYER" : "WORKER"
       };
       return acc;
@@ -66,6 +115,9 @@ export function AdminUsersClient() {
 
       const payload = (await response.json()) as {
         users?: UserRow[];
+        sourceCounts?: SourceCounts;
+        roleCounts?: RoleCounts;
+        integrityCounts?: IntegrityCounts;
         error?: string;
       };
 
@@ -75,6 +127,9 @@ export function AdminUsersClient() {
 
       const nextUsers = payload.users ?? [];
       setUsers(nextUsers);
+      setSourceCounts(payload.sourceCounts ?? {});
+      setRoleCounts(payload.roleCounts ?? {});
+      setIntegrityCounts(payload.integrityCounts ?? {});
       setEditDrafts(createDraftMap(nextUsers));
       setError(null);
     } catch (loadError) {
@@ -160,20 +215,7 @@ export function AdminUsersClient() {
         throw new Error(payload.error || "Failed to update user.");
       }
 
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                fullName: draft.fullName,
-                name: draft.fullName,
-                phone: draft.phone,
-                role: draft.role,
-                activeRole: draft.role
-              }
-            : u
-        )
-      );
+      await loadUsers();
       setError(null);
     } catch (roleError) {
       setError(roleError instanceof Error ? roleError.message : "Failed to update user.");
@@ -217,17 +259,31 @@ export function AdminUsersClient() {
     }
   }
 
-  const workerCount = users.filter((user) => primaryRole(user) === "WORKER").length;
-  const employerCount = users.filter((user) => primaryRole(user) === "EMPLOYER").length;
+  const workerCount = roleCounts.workers ?? users.filter((user) => primaryRole(user) === "WORKER").length;
+  const employerCount = roleCounts.employers ?? users.filter((user) => primaryRole(user) === "EMPLOYER").length;
+  const adminCount = roleCounts.admins ?? users.filter((user) => primaryRole(user) === "ADMIN").length;
+  const missingRoleCount = roleCounts.missing ?? users.filter((user) => primaryRole(user) === "MISSING").length;
+  const otherRoleCount = roleCounts.other ?? users.filter((user) => primaryRole(user) === "OTHER").length;
+  const mismatchCount = integrityCounts.roleMismatch ?? users.filter((user) => user.roleMismatch).length;
 
   const filteredUsers = users.filter((user) => {
+    const searchableFirebaseFields = JSON.stringify(user.firebaseFields ?? {}).toLowerCase();
+    const normalizedSearch = searchTerm.toLowerCase();
     const matchesSearch =
       !searchTerm ||
-      (displayUserName(user) ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.phone ?? "").includes(searchTerm) ||
-      (user.email ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+      (displayUserName(user) ?? "").toLowerCase().includes(normalizedSearch) ||
+      displayUserPhone(user).includes(searchTerm) ||
+      (user.email ?? "").toLowerCase().includes(normalizedSearch) ||
+      user.id.toLowerCase().includes(normalizedSearch) ||
+      (user.phoneRoleDocId ?? "").includes(searchTerm) ||
+      normalizedRoles(user).some((role) => role.toLowerCase().includes(normalizedSearch)) ||
+      searchableFirebaseFields.includes(normalizedSearch);
 
-    const matchesRole = roleFilter === "ALL" || primaryRole(user) === roleFilter;
+    const matchesRole = roleFilter === "ALL" ||
+      (roleFilter === "ROLE_MISMATCH" && user.roleMismatch === true) ||
+      (roleFilter === "MISSING_PHONE_ROLE" && user.hasPhoneRole !== true) ||
+      (roleFilter === "MISSING_AUTH" && user.hasAuthUser !== true) ||
+      primaryRole(user) === roleFilter;
 
     return matchesSearch && matchesRole;
   });
@@ -251,20 +307,46 @@ export function AdminUsersClient() {
 
   return (
     <>
-      {/* Stats strip */}
       <div className="admin-stats-grid small">
         <div className="admin-stat-card compact">
-          <strong>{users.length}</strong>
-          <span>Total Users</span>
+          <strong>{sourceCounts.identities ?? users.length}</strong>
+          <span>Identity rows</span>
         </div>
         <div className="admin-stat-card compact">
           <strong>{workerCount}</strong>
-          <span>Workers</span>
+          <span>Workers from canonical role</span>
         </div>
         <div className="admin-stat-card compact">
           <strong>{employerCount}</strong>
-          <span>Employers</span>
+          <span>Employers from canonical role</span>
         </div>
+        <div className="admin-stat-card compact">
+          <strong>{adminCount}</strong>
+          <span>Admins</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{missingRoleCount}</strong>
+          <span>Missing role</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{otherRoleCount}</strong>
+          <span>Other role values</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{mismatchCount}</strong>
+          <span>Role mismatches</span>
+        </div>
+      </div>
+
+      <div className="admin-stats-grid small admin-source-counts-grid">
+        <div className="admin-stat-card compact"><strong>{sourceCounts.phoneRoles ?? 0}</strong><span>phoneRoles docs</span></div>
+        <div className="admin-stat-card compact"><strong>{sourceCounts.authUsers ?? 0}</strong><span>Auth users</span></div>
+        <div className="admin-stat-card compact"><strong>{sourceCounts.users ?? 0}</strong><span>users docs</span></div>
+        <div className="admin-stat-card compact"><strong>{sourceCounts.workerProfiles ?? 0}</strong><span>worker_profiles</span></div>
+        <div className="admin-stat-card compact"><strong>{sourceCounts.employerProfiles ?? 0}</strong><span>employer_profiles</span></div>
+        <div className="admin-stat-card compact"><strong>{integrityCounts.missingPhoneRole ?? 0}</strong><span>Missing phoneRoles</span></div>
+        <div className="admin-stat-card compact"><strong>{integrityCounts.duplicatePhoneRoleUsers ?? 0}</strong><span>Duplicate phoneRoles uid</span></div>
+        <div className="admin-stat-card compact"><strong>{integrityCounts.phoneRolesMissingUid ?? 0}</strong><span>phoneRoles missing uid</span></div>
       </div>
 
       {/* Toolbar */}
@@ -272,7 +354,7 @@ export function AdminUsersClient() {
         <input
           type="text"
           className="admin-search"
-          placeholder="Search by name, phone, or email..."
+          placeholder="Search name, phone, uid, role, or any Firebase field..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -284,6 +366,12 @@ export function AdminUsersClient() {
           <option value="ALL">All roles</option>
           <option value="WORKER">Workers</option>
           <option value="EMPLOYER">Employers</option>
+          <option value="ADMIN">Admins</option>
+          <option value="MISSING">Missing role</option>
+          <option value="OTHER">Other role values</option>
+          <option value="ROLE_MISMATCH">Role mismatch</option>
+          <option value="MISSING_PHONE_ROLE">Missing phoneRoles</option>
+          <option value="MISSING_AUTH">Missing Auth user</option>
         </select>
         <span className="admin-count">{filteredUsers.length} users</span>
       </div>
@@ -302,87 +390,139 @@ export function AdminUsersClient() {
             <table className="data-table admin-users-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
+                  <th>Identity</th>
+                  <th>Phone Roles</th>
                   <th>Email</th>
-                  <th>Role</th>
-                  <th>Referral Code</th>
+                  <th>Canonical Role</th>
+                  <th>Firebase Sources</th>
+                  <th>Referral</th>
                   <th>Joined</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <input
-                        type="text"
-                        className="admin-search"
-                        value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
-                        onChange={(e) => setDraftField(user.id, "fullName", e.target.value)}
-                        placeholder="Full name"
-                      />
-                      <div className="admin-cell-sub">{shortId(user.id)}</div>
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="admin-search"
-                        value={editDrafts[user.id]?.phone ?? user.phone ?? ""}
-                        onChange={(e) => setDraftField(user.id, "phone", e.target.value)}
-                        placeholder="Phone"
-                      />
-                    </td>
-                    <td>{user.email || "Not provided"}</td>
-                    <td>
-                      <select
-                        className="admin-inline-select"
-                        value={editDrafts[user.id]?.role ?? primaryRole(user)}
-                        onChange={(e) => setDraftField(user.id, "role", e.target.value)}
-                      >
-                        <option value="WORKER">Worker</option>
-                        <option value="EMPLOYER">Employer</option>
-                      </select>
-                    </td>
-                    <td>
-                      <code className="admin-code">{user.referralCode || shortId(user.id)}</code>
-                    </td>
-                    <td>{formatDate(user.createdAt) !== "N/A" ? formatDate(user.createdAt) : "Recently active"}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={() => void handleSave(user.id)}
-                        disabled={pendingSaveId === user.id}
-                      >
-                        {pendingSaveId === user.id ? "..." : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={() => void handleToggleVerify(user)}
-                        title={user.isVerified ? "Remove verified badge" : "Mark as verified"}
-                      >
-                        {user.isVerified ? "Unverify" : "Verify"}
-                      </button>
-                      <button
-                        type="button"
-                        className={user.isBanned ? "table-action" : "table-action danger"}
-                        onClick={() => void handleToggleBan(user)}
-                      >
-                        {user.isBanned ? "Unban" : "Ban"}
-                      </button>
-                      <button
-                        type="button"
-                        className="table-action danger"
-                        onClick={() => void handleDelete(user.id)}
-                        disabled={pendingDeleteId === user.id || pendingSaveId === user.id}
-                      >
-                        {pendingDeleteId === user.id ? "..." : "Delete"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {visibleUsers.map((user) => {
+                  const expanded = expandedUserId === user.id;
+                  const canonicalRole = primaryRole(user);
+
+                  return (
+                    <Fragment key={user.id}>
+                      <tr className={user.roleMismatch ? "admin-users-row-warning" : undefined}>
+                        <td>
+                          <input
+                            type="text"
+                            className="admin-search"
+                            value={editDrafts[user.id]?.fullName ?? displayUserName(user)}
+                            onChange={(event) => setDraftField(user.id, "fullName", event.target.value)}
+                            placeholder="Full name"
+                          />
+                          <div className="admin-cell-sub">uid: {user.id}</div>
+                          <div className="admin-cell-sub">name source: {user.phoneRoleName ? "phoneRoles" : "profile/auth"}</div>
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="admin-search"
+                            value={editDrafts[user.id]?.phone ?? displayUserPhone(user)}
+                            onChange={(event) => setDraftField(user.id, "phone", event.target.value)}
+                            placeholder="Phone"
+                          />
+                          <div className="admin-cell-sub">doc: {user.phoneRoleDocId || "missing"}</div>
+                          <div className="admin-cell-sub">uid: {user.phoneRoleUid || "missing"}</div>
+                          {Number(user.phoneRoleDuplicateCount ?? 0) > 1 ? (
+                            <div className="admin-cell-sub danger-text">duplicate docs: {user.phoneRoleDuplicateCount}</div>
+                          ) : null}
+                        </td>
+                        <td>{user.email || "Not provided"}</td>
+                        <td>
+                          <span className={`status-pill ${roleTone(canonicalRole)}`}>{canonicalRole}</span>
+                          {canonicalRole === "WORKER" || canonicalRole === "EMPLOYER" ? (
+                            <select
+                              className="admin-inline-select admin-role-edit-select"
+                              value={editDrafts[user.id]?.role ?? canonicalRole}
+                              onChange={(event) => setDraftField(user.id, "role", event.target.value)}
+                            >
+                              <option value="WORKER">Worker</option>
+                              <option value="EMPLOYER">Employer</option>
+                            </select>
+                          ) : null}
+                          <div className="admin-cell-sub">source: {user.roleSource || "missing"}</div>
+                          {user.roleMismatch ? <div className="admin-cell-sub danger-text">source roles do not match</div> : null}
+                        </td>
+                        <td>
+                          <SourceBadge label="phoneRoles" active={user.hasPhoneRole === true} />
+                          <SourceBadge label="Auth" active={user.hasAuthUser === true} />
+                          <SourceBadge label="users" active={user.hasUserDoc === true} />
+                          <SourceBadge label="worker" active={user.hasWorkerProfile === true} />
+                          <SourceBadge label="employer" active={user.hasEmployerProfile === true} />
+                          <SourceBadge label="referral" active={user.hasReferralCodeDoc === true} />
+                          <div className="admin-cell-sub">phoneRoles: {normalizeRoleLabel(user.sourceRoles?.phoneRoles)}</div>
+                          <div className="admin-cell-sub">users: {normalizeRoleLabel(user.sourceRoles?.users)}</div>
+                          <div className="admin-cell-sub">worker_profiles: {normalizeRoleLabel(user.sourceRoles?.worker_profiles)}</div>
+                          <div className="admin-cell-sub">employer_profiles: {normalizeRoleLabel(user.sourceRoles?.employer_profiles)}</div>
+                        </td>
+                        <td>
+                          <code className="admin-code">{user.referralCode || "missing"}</code>
+                        </td>
+                        <td>{formatDate(user.createdAt) !== "N/A" ? formatDate(user.createdAt) : "Recently active"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => void handleSave(user.id)}
+                            disabled={pendingSaveId === user.id}
+                          >
+                            {pendingSaveId === user.id ? "..." : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => setExpandedUserId(expanded ? null : user.id)}
+                          >
+                            {expanded ? "Hide fields" : "Fields"}
+                          </button>
+                          <button
+                            type="button"
+                            className="table-action"
+                            onClick={() => void handleToggleVerify(user)}
+                            title={user.isVerified ? "Remove verified badge" : "Mark as verified"}
+                          >
+                            {user.isVerified ? "Unverify" : "Verify"}
+                          </button>
+                          <button
+                            type="button"
+                            className={user.isBanned ? "table-action" : "table-action danger"}
+                            onClick={() => void handleToggleBan(user)}
+                          >
+                            {user.isBanned ? "Unban" : "Ban"}
+                          </button>
+                          <button
+                            type="button"
+                            className="table-action danger"
+                            onClick={() => void handleDelete(user.id)}
+                            disabled={pendingDeleteId === user.id || pendingSaveId === user.id}
+                          >
+                            {pendingDeleteId === user.id ? "..." : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="admin-users-detail-row">
+                          <td colSpan={8}>
+                            <div className="admin-firebase-source-grid">
+                              {renderFirebaseSource("phoneRoles", user.firebaseFields?.phoneRoles)}
+                              {renderFirebaseSource("users", user.firebaseFields?.users)}
+                              {renderFirebaseSource("Firebase Auth", user.firebaseFields?.auth)}
+                              {renderFirebaseSource("worker_profiles", user.firebaseFields?.worker_profiles)}
+                              {renderFirebaseSource("employer_profiles", user.firebaseFields?.employer_profiles)}
+                              {renderFirebaseSource("referral_codes", user.firebaseFields?.referral_codes)}
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -401,15 +541,23 @@ export function AdminUsersClient() {
 }
 
 function normalizedRoles(user: UserRow) {
-  const values = [user.activeRole, user.role, ...(Array.isArray(user.roles) ? user.roles : [])];
+  const values = [
+    user.phoneRoleRole,
+    user.role,
+    user.activeRole,
+    user.workerProfileRole,
+    user.employerProfileRole,
+    ...(Array.isArray(user.roles) ? user.roles : [])
+  ];
   return [...new Set(values.map((value) => value?.trim().toUpperCase()).filter(Boolean) as string[])];
 }
 
 function primaryRole(user: UserRow) {
-  const direct = (user.role ?? user.activeRole ?? "").trim().toUpperCase();
+  const direct = (user.canonicalRole ?? user.phoneRoleRole ?? user.role ?? user.activeRole ?? "").trim().toUpperCase();
   if (direct === "WORKER" || direct === "EMPLOYER" || direct === "ADMIN") return direct;
   const fallback = normalizedRoles(user)[0];
-  return fallback === "EMPLOYER" ? "EMPLOYER" : "WORKER";
+  if (fallback === "WORKER" || fallback === "EMPLOYER" || fallback === "ADMIN") return fallback;
+  return direct || "MISSING";
 }
 
 function shortId(value: string) {
@@ -417,5 +565,59 @@ function shortId(value: string) {
 }
 
 function displayUserName(user: UserRow) {
-  return user.fullName || user.name || user.displayName || "";
+  return user.fullName || user.name || user.phoneRoleName || user.displayName || "";
+}
+
+function displayUserPhone(user: UserRow) {
+  return user.phone || user.phoneNumber || user.phoneRolePhoneNumber || user.contactPhone || "";
+}
+
+function normalizeRoleLabel(value: string | undefined) {
+  return value?.trim() || "missing";
+}
+
+function roleTone(role: string) {
+  switch (role) {
+    case "WORKER":
+      return "success";
+    case "EMPLOYER":
+      return "warning";
+    case "ADMIN":
+      return "neutral";
+    default:
+      return "danger";
+  }
+}
+
+function SourceBadge({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span className={`admin-source-badge ${active ? "active" : "missing"}`}>
+      {label}
+    </span>
+  );
+}
+
+function renderFirebaseSource(label: string, value: unknown) {
+  const missing = value === null || value === undefined ||
+    (Array.isArray(value) && value.length === 0);
+
+  return (
+    <div className="admin-firebase-source-card">
+      <div className="admin-firebase-source-title">
+        <strong>{label}</strong>
+        <span className={`status-pill ${missing ? "danger" : "success"}`}>
+          {missing ? "missing" : "found"}
+        </span>
+      </div>
+      <pre>{formatFirebaseJson(value)}</pre>
+    </div>
+  );
+}
+
+function formatFirebaseJson(value: unknown) {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+
+  return JSON.stringify(value, null, 2);
 }
