@@ -616,7 +616,7 @@ fun WorkerHomeScreen(
 
     // Update status bar color (was previously also keyed on pagerState.currentPage; pager removed in P1-2).
     LaunchedEffect(workerHomeHeaderTopColor) {
-        onStatusBarColorChange(workerHomeHeaderTopColor)
+        onStatusBarColorChange(Color.White)
     }
 
 
@@ -741,7 +741,7 @@ fun WorkerHomeScreen(
                                     userEmail = currentUser?.email ?: "",
                                     userSkills = emptyList(),
                                     onScrollOffsetChange = { offset ->
-                                        onStatusBarColorChange(workerHomeHeaderTopColor)
+                                        onStatusBarColorChange(Color.White)
                                     },
                                     onLocationBarAlphaChange = { alpha ->
                                         locationBarAlpha = alpha
@@ -763,7 +763,15 @@ fun WorkerHomeScreen(
                                     },
                                     referralRewardAmount = referralConfig.rewardPerReferral.toInt(),
                                     onReferEarnClick = {
-                                        navController.navigate(Routes.WORKER_REFER_EARN)
+                                        if (isGuestUser) {
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.login_to_refer_earn),
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            navController.navigate(Routes.WORKER_REFER_EARN)
+                                        }
                                     },
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },

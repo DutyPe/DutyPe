@@ -512,6 +512,8 @@ service cloud.firestore {
           (resource == null && appDocOwnedByCaller())
         );
 
+      // List allows: workers listing their applications, or employers listing applications on their jobs.
+      // Employers are identified by employerId field in the application document.
       allow list: if isSignedIn() &&
         (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
 

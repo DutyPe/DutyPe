@@ -570,15 +570,10 @@ fun HomeSectionsContent(
         }
     }
     
-    // Gradual fade: Location bar starts fading at 30px, fully hidden at 180px
+    // Keep location bar always visible during scroll - do not fade it
     val targetAlpha = remember {
         derivedStateOf {
-            val offset = scrollOffset.value
-            when {
-                offset < 30f -> 1f
-                offset > 180f -> 0f
-                else -> 1f - ((offset - 30f) / 150f)
-            }
+            1f  // Always fully visible
         }
     }
     
@@ -1808,6 +1803,10 @@ internal fun DynamicHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Switch(
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = 0.83f
+                        scaleY = 0.83f
+                    },
                     checked = isInstantAvailable,
                     onCheckedChange = onInstantAvailabilityChange,
                     enabled = !isInstantAvailabilitySaving,
@@ -1826,13 +1825,13 @@ internal fun DynamicHeader(
                 Box {
                     IconButton(
                         onClick = onNotificationClick,
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = "Notifications",
                             tint = WorkerColors.TextPrimary,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 

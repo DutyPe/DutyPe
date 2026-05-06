@@ -83,7 +83,7 @@ fun EmployerMainScreen(
     // Create a unified state for the current screen to manage status bar color.
     // Defaults to the employer surface; updated via LaunchedEffect when the
     // dark-mode-aware token resolves.
-    val initialStatusBarColor = com.example.dutype.ui.theme.EmployerColors.StatusBarColor
+    val initialStatusBarColor = Color.White
     var currentStatusBarColor by remember { mutableStateOf(initialStatusBarColor) }
     androidx.compose.runtime.LaunchedEffect(initialStatusBarColor) {
         currentStatusBarColor = initialStatusBarColor
@@ -140,7 +140,7 @@ fun EmployerMainScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(currentStatusBarColor)
+                .background(Color.White)
                 .align(Alignment.TopCenter)
                 .zIndex(1000f) // Ensure it's always on top
         )

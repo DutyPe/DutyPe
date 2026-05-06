@@ -58,9 +58,9 @@ fun AnimatedSplashScreen(
         val previousLightNav = controller?.isAppearanceLightNavigationBars
         val previousStatusColor = window?.statusBarColor
         val previousNavColor = window?.navigationBarColor
-        window?.statusBarColor = splashBlue.toArgb()
+        window?.statusBarColor = Color.White.toArgb()
         window?.navigationBarColor = splashBlue.toArgb()
-        controller?.isAppearanceLightStatusBars = false
+        controller?.isAppearanceLightStatusBars = true
         controller?.isAppearanceLightNavigationBars = false
         onDispose {
             previousStatusColor?.let { window.statusBarColor = it }
@@ -104,7 +104,7 @@ fun AnimatedSplashScreen(
                 Image(
                     painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
                     contentDescription = null,
-                    modifier = Modifier.size(53.dp)
+                    modifier = Modifier.size(50.dp)
                 )
                 Text(
                     text = "DutyPe",

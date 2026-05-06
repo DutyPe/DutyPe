@@ -98,7 +98,8 @@ fun PostUrgentNeedScreen(
             viewModel = viewModel,
             onPosted = { requestId ->
                 navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
-                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = true }
+                    // Keep dashboard in back stack so system/app-bar back returns home.
+                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                     launchSingleTop = true
                 }
             }

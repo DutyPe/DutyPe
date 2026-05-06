@@ -3,6 +3,7 @@ package com.example.dutype.employer.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,6 +66,19 @@ fun EmployerUrgentNeedDetailScreen(
 
     val request = instantHelpState.employerInstantRequests.firstOrNull { it.requestId == requestId }
     val responses = instantHelpState.employerInstantResponses[requestId].orEmpty()
+
+    val onNavigateBack = {
+        if (!navController.popBackStack()) {
+            navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBack()
+    }
 
     LaunchedEffect(responses) {
         ratedResponseIds = responses
@@ -164,6 +178,7 @@ fun EmployerUrgentNeedDetailScreen(
             title = stringResource(R.string.urgent_request_title),
             subtitle = request?.title ?: stringResource(R.string.urgent_responses_actions_subtitle),
             navController = navController,
+            onBackClick = onNavigateBack,
             backgroundColor = EmployerColors.ScreenBackground
         )
 

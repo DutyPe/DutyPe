@@ -66,14 +66,9 @@ fun WorkerMainScreen(
     // and only flipped to purple after a process restart. Routing the
     // colour from `currentRoute` makes it correct at every transition.
     //
-    // Rule: ONLY the worker home screen uses the purple header colour.
-    // Every other worker screen (and any unknown route) gets pure white
-    // so the status bar matches the screen's white app-bar background.
-    val statusBarColor = if (currentRoute == WorkerBottomRoutes.HOME) {
-        com.example.dutype.worker.screens.WorkerHomeHeaderTopColor
-    } else {
-        com.example.dutype.ui.theme.WorkerColors.ScreenBackground
-    }
+    // Rule: ALL worker screens use white status bar color to keep consistency
+    // across the app. The status bar overlay is always white regardless of route.
+    val statusBarColor = Color.White
     val navigationBarColor = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
