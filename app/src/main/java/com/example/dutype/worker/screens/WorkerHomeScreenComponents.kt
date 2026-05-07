@@ -624,12 +624,14 @@ fun HomeSectionsContent(
                 }
             }
 
-            item {
-                ReferEarnStripCard(
-                    rewardAmount = referralRewardAmount,
-                    showRewardAmount = !showGuestWelcomeCard,
-                    onInviteClick = onReferEarnClick
-                )
+            if (!showGuestWelcomeCard) {
+                item {
+                    ReferEarnStripCard(
+                        rewardAmount = referralRewardAmount,
+                        showRewardAmount = !showGuestWelcomeCard,
+                        onInviteClick = onReferEarnClick
+                    )
+                }
             }
 
             item {
