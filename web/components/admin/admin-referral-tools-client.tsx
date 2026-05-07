@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   query,
   serverTimestamp,
   setDoc,
@@ -16,6 +15,7 @@ import {
 } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrency, formatDate } from "@/lib/firebase/firestore-helpers";
 
 type LogTone = "info" | "success" | "warning" | "error";
@@ -41,6 +41,7 @@ type ReferralDetailRow = {
   referredUserRole?: string;
   status?: string;
   rewardAmount?: number | string;
+  bonusAmount?: number | string;
   createdAt?: unknown;
 };
 
@@ -63,6 +64,31 @@ type ReferralInspectionResult = {
   codeData: ReferralCodeRecord;
   user: UserSummary | null;
   referrals: ReferralDetailRow[];
+};
+
+type ReferralLookupResponse = {
+  lookup?: {
+    found?: boolean;
+    message?: string;
+    userId?: string;
+    referralCode?: string;
+    identity?: {
+      userName?: string;
+      phone?: string;
+      role?: string;
+      referralCode?: string;
+    };
+    referralStats?: Record<string, unknown> | null;
+    referralsAsReferrer?: ReferralDetailRow[];
+  };
+  error?: string;
+};
+
+type TestReferralResponse = ReferralLookupResponse & {
+  ok?: boolean;
+  referralId?: string;
+  testUserId?: string;
+  bonusAmount?: number;
 };
 
 export function ReferralToolsNav() {
@@ -283,7 +309,6 @@ export function AdminCheckAndCreateCodeClient() {
 }
 
 export function AdminCreateTestReferralClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [referralCode, setReferralCode] = useState("WRKG0XBC8");
   const [submitting, setSubmitting] = useState(false);
   const [entries, setEntries] = useState<LogEntry[]>([
@@ -291,11 +316,6 @@ export function AdminCreateTestReferralClient() {
   ]);
 
   async function handleSubmit() {
-    if (!services) {
-      setEntries([createLogEntry("Firebase is not configured.", "error")]);
-      return;
-    }
-
     const rawCode = referralCode.trim();
     if (!rawCode) {
       setEntries([createLogEntry("Please enter a referral code.", "error")]);
@@ -312,93 +332,46 @@ export function AdminCreateTestReferralClient() {
     push("", "info");
 
     try {
-      const resolvedCode = await resolveReferralCode(services.db, rawCode, push);
-      if (!resolvedCode) {
-        setEntries(nextEntries);
-        return;
+      const response = await adminApiFetch("/api/admin/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-test-referral", referralCode: rawCode })
+      });
+      const payload = (await response.json()) as TestReferralResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to create test referral.");
       }
+
+      const lookup = payload.lookup;
+      const stats = lookup?.referralStats ?? {};
+      const bonusAmount = payload.bonusAmount ?? 50;
 
       push("Code exists!", "success");
-      push(`   Referrer ID: ${resolvedCode.codeData.userId || "N/A"}`, "info");
+      push(`   Referrer ID: ${lookup?.userId || "N/A"}`, "info");
+      push(`   Code: ${lookup?.referralCode || rawCode.toUpperCase()}`, "info");
       push("", "info");
-      push("Step 2: Getting referrer current stats...", "info");
-
-      const referrerId = resolvedCode.codeData.userId;
-      if (!referrerId) {
-        push("ERROR: Referrer user ID is missing from the referral code record.", "error");
-        setEntries(nextEntries);
-        return;
-      }
-
-      const referrerDoc = await getDoc(doc(services.db, "users", referrerId));
-      if (!referrerDoc.exists()) {
-        push("ERROR: Referrer user not found!", "error");
-        setEntries(nextEntries);
-        return;
-      }
-
-      const referrerData = referrerDoc.data() as UserSummary;
       push("Referrer found!", "success");
-      push(`   Name: ${referrerData.name || referrerData.fullName || "N/A"}`, "info");
-      push(`   Phone: ${referrerData.phone || "N/A"}`, "info");
-      push(`   Current Earnings: ${formatCurrency(referrerData.referralEarnings || 0)}`, "info");
-      push(`   Successful Referrals: ${referrerData.successfulReferrals || 0}`, "info");
+      push(`   Name: ${lookup?.identity?.userName || "N/A"}`, "info");
+      push(`   Phone: ${lookup?.identity?.phone || "N/A"}`, "info");
+      push(`   Current Earnings: ${formatCurrency(stats.totalEarnings)}`, "info");
+      push(`   Successful Referrals: ${readNumber(stats.successfulReferrals)}`, "info");
 
       push("", "info");
-      push("Step 3: Creating test referral...", "info");
-
-      const testUserId = `TEST_USER_${Date.now()}`;
-      const referralId = `${referrerId}_${testUserId}`;
-      await setDoc(doc(services.db, "referrals", referralId), {
-        referralCode: resolvedCode.code,
-        referrerUserId: referrerId,
-        referredUserId: testUserId,
-        referredUserName: "Test User",
-        referredUserPhone: "+919999999999",
-        referredUserRole: "WORKER",
-        status: "COMPLETED",
-        rewardAmount: 50,
-        createdAt: serverTimestamp(),
-        completedAt: serverTimestamp(),
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      });
-      push("Test referral created!", "success");
-      push(`   Referral ID: ${referralId}`, "info");
+      push("Test referral created through the admin server API", "success");
+      push(`   Referral ID: ${payload.referralId || "N/A"}`, "info");
+      push(`   Test User ID: ${payload.testUserId || "N/A"}`, "info");
+      push(`   Added: ${formatCurrency(bonusAmount)}, +1 referral`, "success");
 
       push("", "info");
-      push("Step 4: Updating referrer earnings...", "info");
-      await updateDoc(doc(services.db, "users", referrerId), {
-        referralEarnings: increment(50),
-        successfulReferrals: increment(1),
-        totalReferrals: increment(1)
-      });
-      push("Earnings updated! Added Rs 50", "success");
-
-      push("", "info");
-      push("Step 5: Verifying results...", "info");
-      const updatedReferrerDoc = await getDoc(doc(services.db, "users", referrerId));
-      const updatedData = updatedReferrerDoc.data() as UserSummary | undefined;
-
-      push("Updated stats:", "success");
-      push(`   New Earnings: ${formatCurrency(updatedData?.referralEarnings || 0)}`, "success");
-      push(`   New Successful Referrals: ${updatedData?.successfulReferrals || 0}`, "success");
-      push("   Increase: +Rs 50, +1 referral", "success");
-
-      push("", "info");
-      push("Step 6: Checking all referrals for this code...", "info");
-      const referralsSnapshot = await getDocs(
-        query(collection(services.db, "referrals"), where("referralCode", "==", resolvedCode.code))
-      );
-
-      push(`Total referrals: ${referralsSnapshot.size}`, "success");
-      referralsSnapshot.docs.forEach((item, index) => {
-        const referral = item.data() as ReferralDetailRow;
+      push(`Total referrals for this code: ${lookup?.referralsAsReferrer?.length ?? 0}`, "success");
+      (lookup?.referralsAsReferrer ?? []).forEach((referral, index) => {
         push("", "info");
         push(`   Referral #${index + 1}:`, "info");
         push(`     User: ${referral.referredUserName || "N/A"}`, "info");
         push(`     Phone: ${referral.referredUserPhone || "N/A"}`, "info");
         push(`     Status: ${referral.status || "N/A"}`, "info");
-        push(`     Reward: ${formatCurrency(referral.rewardAmount || 0)}`, "info");
+        push(`     Reward: ${formatCurrency(referral.rewardAmount || referral.bonusAmount || 0)}`, "info");
       });
 
       push("", "info");
@@ -407,11 +380,11 @@ export function AdminCreateTestReferralClient() {
       push("Check in app:", "warning");
       push("   - Open Refer & Earn screen", "warning");
       push(
-        `   - You should see earnings: ${formatCurrency(updatedData?.referralEarnings || 0)}`,
+        `   - You should see earnings: ${formatCurrency(stats.totalEarnings)}`,
         "warning"
       );
       push(
-        `   - Successful referrals: ${updatedData?.successfulReferrals || 0}`,
+        `   - Successful referrals: ${readNumber(stats.successfulReferrals)}`,
         "warning"
       );
       push("", "info");
@@ -475,7 +448,6 @@ export function AdminCreateTestReferralClient() {
 }
 
 export function AdminTestReferralClient() {
-  const services = useMemo(() => getFirebaseServices(), []);
   const [referralCode, setReferralCode] = useState("WRKG0XBC8");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReferralInspectionResult | null>(null);
@@ -483,13 +455,6 @@ export function AdminTestReferralClient() {
   const [messageTone, setMessageTone] = useState<LogTone>("info");
 
   async function handleCheck() {
-    if (!services) {
-      setMessage("Firebase is not configured.");
-      setMessageTone("error");
-      setResult(null);
-      return;
-    }
-
     const code = referralCode.trim().toUpperCase();
     if (!code) {
       setMessage("Please enter a referral code.");
@@ -503,36 +468,51 @@ export function AdminTestReferralClient() {
     setMessageTone("info");
 
     try {
-      const codeDoc = await getDoc(doc(services.db, "referral_codes", code));
-      if (!codeDoc.exists()) {
-        setMessage("Referral code not found.");
+      const response = await adminApiFetch(`/api/admin/referrals?lookup=${encodeURIComponent(code)}`, {
+        cache: "no-store"
+      });
+      const payload = (await response.json()) as ReferralLookupResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to check referral code.");
+      }
+
+      if (!payload.lookup?.found) {
+        setMessage(payload.lookup?.message || "Referral code not found.");
         setMessageTone("error");
         setResult(null);
         return;
       }
 
-      const codeData = codeDoc.data() as ReferralCodeRecord;
-      const user =
-        codeData.userId
-          ? await getDoc(doc(services.db, "users", codeData.userId))
-          : null;
-
-      const referralsSnapshot = await getDocs(
-        query(collection(services.db, "referrals"), where("referralCode", "==", code))
-      );
+      const lookup = payload.lookup;
+      const stats = lookup.referralStats ?? {};
+      const resolvedCode = lookup.referralCode || lookup.identity?.referralCode || code;
 
       setResult({
-        code,
-        codeData,
-        user: user?.exists()
-          ? ({
-              id: user.id,
-              ...(user.data() as Omit<UserSummary, "id">)
-            } as UserSummary)
+        code: resolvedCode,
+        codeData: {
+          code: resolvedCode,
+          userId: lookup.userId,
+          userName: lookup.identity?.userName,
+          userRole: lookup.identity?.role,
+          isActive: true
+        },
+        user: lookup.userId
+          ? {
+              id: lookup.userId,
+              name: lookup.identity?.userName,
+              phone: lookup.identity?.phone,
+              role: lookup.identity?.role,
+              activeRole: lookup.identity?.role,
+              referralCode: resolvedCode,
+              referralEarnings: readNumber(stats.totalEarnings),
+              successfulReferrals: readNumber(stats.successfulReferrals),
+              totalReferrals: readNumber(stats.totalReferrals)
+            }
           : null,
-        referrals: referralsSnapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<ReferralDetailRow, "id">)
+        referrals: (lookup.referralsAsReferrer ?? []).map((referral) => ({
+          ...referral,
+          rewardAmount: referral.rewardAmount ?? referral.bonusAmount
         }))
       });
       setMessage("Referral code is valid.");
@@ -550,7 +530,7 @@ export function AdminTestReferralClient() {
     void handleCheck();
     // Intentionally match the old page behavior by auto-checking the default code on load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services]);
+  }, []);
 
   return (
     <div className="admin-section-stack">
@@ -855,4 +835,8 @@ function statusTone(status: string | undefined) {
 
 function readError(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" ? value : Number(value ?? 0) || 0;
 }

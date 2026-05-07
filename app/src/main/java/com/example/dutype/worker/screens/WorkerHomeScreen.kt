@@ -753,10 +753,8 @@ fun WorkerHomeScreen(
                                     onEmptyJobsCitySelected = onLocationChipSelected,
                                     showGuestWelcomeCard = isGuestUser,
                                     guestWelcomeTitle = stringResource(R.string.guest_worker_welcome_title),
-                                    guestWelcomeMessage = stringResource(
-                                        R.string.guest_worker_welcome_message,
-                                        referralConfig.signupBonus.toInt()
-                                    ),
+                                    guestWelcomeMessage = stringResource(R.string.guest_worker_welcome_message),
+                                    guestWelcomeRewardAmount = referralConfig.signupBonus.toInt().takeIf { it > 0 },
                                     guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                                     onGuestWelcomeClick = {
                                         rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")

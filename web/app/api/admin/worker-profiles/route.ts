@@ -1,20 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
-import {
-  getFirebaseAdminAuth,
-  getFirebaseAdminDb
-} from "@/lib/firebase/admin-server";
-import {
-  asRecord,
-  buildPhoneRoleMap,
-  buildProfileAdminRow,
-  buildRecordMap,
-  buildReferralCodeByUserId,
-  listAuthUsersById
-} from "@/lib/firebase/admin-profile-enrichment";
+import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 
 export const runtime = "nodejs";
+
+const HIDDEN_PROFILE_FIELDS = new Set([
+  "profileImage",
+  "profileImageUrl",
+  "photoUrl",
+  "imageUrl",
+  "geohash",
+  "locationGeohash",
+  "phoneRolePhoneNumber",
+  "phoneRoleName",
+  "phoneNumber",
+  "contactPhone"
+]);
+
+function asRecord(value: unknown) {
+  return (value ?? {}) as Record<string, unknown>;
+}
+
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function sanitizeProfile(userId: string, raw: Record<string, unknown>) {
+  const row: Record<string, unknown> = { id: userId };
+  const phone = firstNonEmptyString(raw.phone, raw.phoneNumber, raw.contactPhone);
+
+  Object.entries(raw).forEach(([field, value]) => {
+    if (HIDDEN_PROFILE_FIELDS.has(field)) return;
+    row[field] = value;
+  });
+
+  if (phone) {
+    row.phone = phone;
+  }
+
+  return row;
+}
 
 export async function GET(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
@@ -24,35 +56,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = getFirebaseAdminDb();
-    const auth = getFirebaseAdminAuth();
-    const [
-      snapshot,
-      phoneRolesSnapshot,
-      referralStatsSnapshot,
-      referralCodesSnapshot,
-      authUsersById
-    ] = await Promise.all([
-      db.collection("worker_profiles").limit(5000).get(),
-      db.collection("phoneRoles").limit(5000).get(),
-      db.collection("referral_stats").limit(5000).get(),
-      db.collection("referral_codes").limit(5000).get(),
-      listAuthUsersById(auth)
-    ]);
-
-    const phoneRolesByUid = buildPhoneRoleMap(phoneRolesSnapshot);
-    const referralStatsByUid = buildRecordMap(referralStatsSnapshot);
-    const referralCodeByUid = buildReferralCodeByUserId(referralCodesSnapshot);
-
-    const profiles = snapshot.docs.map((doc) => buildProfileAdminRow({
-      collectionName: "worker_profiles",
-      expectedRole: "WORKER",
-      userId: doc.id,
-      profile: asRecord(doc.data()),
-      phoneRole: phoneRolesByUid.get(doc.id),
-      referralStats: referralStatsByUid.get(doc.id),
-      referralCode: referralCodeByUid.get(doc.id),
-      authUser: authUsersById.get(doc.id)
-    }));
+    const snapshot = await db.collection("worker_profiles").limit(5000).get();
+    const profiles = snapshot.docs.map((doc) => sanitizeProfile(doc.id, asRecord(doc.data())));
 
     return NextResponse.json({ profiles });
   } catch (error) {

@@ -226,7 +226,6 @@ export function AdminJobsClient() {
   }
 
   const openCount = jobs.filter((job) => job.isActive).length;
-  const totalApplications = jobs.reduce((sum, job) => sum + Number(job.applicationCount ?? 0), 0);
   const filteredJobs = jobs.filter((job) => {
     const search = searchTerm.toLowerCase();
     const normalizedStatus = String(job.status ?? (job.isActive ? "open" : "closed")).toLowerCase();
@@ -371,10 +370,6 @@ export function AdminJobsClient() {
           <strong>{jobs.length - openCount}</strong>
           <span>Closed</span>
         </div>
-        <div className="admin-stat-card compact">
-          <strong>{totalApplications}</strong>
-          <span>Applications</span>
-        </div>
       </div>
 
       <div className="admin-toolbar">
@@ -414,7 +409,6 @@ export function AdminJobsClient() {
                   <th>Salary</th>
                   <th>Vacancies</th>
                   <th>Status</th>
-                  <th>Apps</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -424,7 +418,7 @@ export function AdminJobsClient() {
                     <td><strong>{job.title ?? "N/A"}</strong></td>
                     <td>{job.companyName ?? "N/A"}</td>
                     <td>{renderLocation(job)}</td>
-                    <td>{formatCurrencyRange(job.payAmount ?? job.salary, job.payType ?? job.salaryType)}</td>
+                    <td>{formatCurrencyRange(job.salary ?? job.payAmount, job.salaryType ?? job.payType)}</td>
                     <td>{job.vacancies ?? 0}</td>
                     <td>
                       <button
@@ -435,7 +429,6 @@ export function AdminJobsClient() {
                         {job.isActive ? "Active" : "Inactive"}
                       </button>
                     </td>
-                    <td>{job.applicationCount ?? 0}</td>
                     <td>
                       <div className="admin-table-actions">
                         <button

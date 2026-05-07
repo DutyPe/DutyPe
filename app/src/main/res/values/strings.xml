@@ -174,6 +174,8 @@
     <string name="invite_now">Invite Now</string>
     <string name="refer_invite_subtitle">Invite friends and earn cash</string>
     <string name="refer_earn_amount">Refer &amp; Earn ₹%1$d</string>
+    <string name="refer_earn_guest_title">Refer &amp; Earn after signup</string>
+    <string name="refer_earn_guest_subtitle">Create an account to unlock referral rewards</string>
     <string name="subscription">Subscription</string>
     <string name="upgrade">Upgrade</string>
     <string name="free_plan">Free Plan</string>
@@ -1309,17 +1311,27 @@
     <string name="app_update_prompt_update">Update</string>
     <string name="app_update_prompt_later">Later</string>
     <string name="app_update_open_failed">Could not open the update page. Please try again.</string>
-    <string name="guest_worker_welcome_title">🎁 A surprise is waiting for you!</string>
-    <string name="guest_worker_welcome_message">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
-    <string name="guest_employer_welcome_title">🎁 A surprise is waiting for you!</string>
-    <string name="guest_employer_welcome_message_with_bonus">Register now to unlock unlimited job posting and ₹%1$d welcome bonus.</string>
-    <string name="guest_employer_welcome_message_posts">Register now to unlock unlimited job posting for your business.</string>
-    <string name="guest_employer_welcome_message_bonus">Register now and get ₹%1$d in your DutyPe wallet after signup.</string>
+    <string name="guest_worker_welcome_title">A Surprise\nJust For You!</string>
+    <string name="guest_worker_welcome_message">Something exciting is waiting for you. Open to unlock your special treat!</string>
+    <string name="guest_employer_welcome_title">A Surprise\nJust For You!</string>
+    <string name="guest_employer_welcome_message_with_bonus">Something exciting is waiting for you. Open to unlock your special treat!</string>
+    <string name="guest_employer_welcome_message_posts">Create your account to unlock job posting for your business.</string>
+    <string name="guest_employer_welcome_message_bonus">Something exciting is waiting for you. Open to unlock your special treat!</string>
     <string name="guest_welcome_login_register">Login / Register</string>
-    <string name="guest_welcome_claim_gift">Claim Gift 🎁</string>
-    <string name="guest_welcome_limited_benefit">Surprising gift — only for new accounts</string>
-    <string name="guest_welcome_new_account_trust">New account only • Instant credit after signup</string>
-    <string name="guest_welcome_takes_30_seconds">Sign up in 30 seconds and unlock your gift</string>
+    <string name="guest_welcome_claim_gift">OPEN MY SURPRISE</string>
+    <string name="guest_welcome_limited_benefit">EXCLUSIVE FOR NEW USERS</string>
+    <string name="guest_welcome_new_account_trust">ONE-TIME\nSURPRISE</string>
+    <string name="guest_welcome_takes_30_seconds">LIMITED TIME OFFER</string>
+    <string name="guest_welcome_worth_label">WORTH</string>
+    <string name="guest_welcome_amount_value">₹%1$d</string>
+    <string name="guest_welcome_secret_value">SPECIAL TREAT</string>
+    <string name="guest_welcome_inside_badge">WOW!\nWHAT\'S\nINSIDE?</string>
+    <string name="guest_welcome_instant_credit">INSTANT CREDIT</string>
+    <string name="guest_welcome_after_signup">after signup</string>
+    <string name="guest_welcome_safe_title">100% SAFE</string>
+    <string name="guest_welcome_safe_subtitle">&amp; SECURE</string>
+    <string name="guest_welcome_only_for">ONLY FOR</string>
+    <string name="guest_welcome_new_users">NEW USERS</string>
 
     <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
     <string name="notif_app_status_applied_title">Application Submitted</string>

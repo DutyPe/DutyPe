@@ -64,13 +64,7 @@ type RoleCounts = {
   other?: number;
 };
 
-type IntegrityCounts = {
-  missingPhoneRole?: number;
-  missingAuthUser?: number;
-  roleMismatch?: number;
-  duplicatePhoneRoleUsers?: number;
-  phoneRolesMissingUid?: number;
-};
+const HIDDEN_USER_FIELDS = new Set(["email", "contactEmail"]);
 
 export function AdminUsersClient() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -85,7 +79,6 @@ export function AdminUsersClient() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [sourceCounts, setSourceCounts] = useState<SourceCounts>({});
   const [roleCounts, setRoleCounts] = useState<RoleCounts>({});
-  const [integrityCounts, setIntegrityCounts] = useState<IntegrityCounts>({});
   // The live `users` collection only stores a single `role` field. We
   // keep the draft minimal: name, phone, role.
   const [editDrafts, setEditDrafts] = useState<
@@ -117,7 +110,6 @@ export function AdminUsersClient() {
         users?: UserRow[];
         sourceCounts?: SourceCounts;
         roleCounts?: RoleCounts;
-        integrityCounts?: IntegrityCounts;
         error?: string;
       };
 
@@ -129,7 +121,6 @@ export function AdminUsersClient() {
       setUsers(nextUsers);
       setSourceCounts(payload.sourceCounts ?? {});
       setRoleCounts(payload.roleCounts ?? {});
-      setIntegrityCounts(payload.integrityCounts ?? {});
       setEditDrafts(createDraftMap(nextUsers));
       setError(null);
     } catch (loadError) {
@@ -261,10 +252,7 @@ export function AdminUsersClient() {
 
   const workerCount = roleCounts.workers ?? users.filter((user) => primaryRole(user) === "WORKER").length;
   const employerCount = roleCounts.employers ?? users.filter((user) => primaryRole(user) === "EMPLOYER").length;
-  const adminCount = roleCounts.admins ?? users.filter((user) => primaryRole(user) === "ADMIN").length;
   const missingRoleCount = roleCounts.missing ?? users.filter((user) => primaryRole(user) === "MISSING").length;
-  const otherRoleCount = roleCounts.other ?? users.filter((user) => primaryRole(user) === "OTHER").length;
-  const mismatchCount = integrityCounts.roleMismatch ?? users.filter((user) => user.roleMismatch).length;
 
   const filteredUsers = users.filter((user) => {
     const searchableFirebaseFields = JSON.stringify(user.firebaseFields ?? {}).toLowerCase();
@@ -273,7 +261,6 @@ export function AdminUsersClient() {
       !searchTerm ||
       (displayUserName(user) ?? "").toLowerCase().includes(normalizedSearch) ||
       displayUserPhone(user).includes(searchTerm) ||
-      (user.email ?? "").toLowerCase().includes(normalizedSearch) ||
       user.id.toLowerCase().includes(normalizedSearch) ||
       (user.phoneRoleDocId ?? "").includes(searchTerm) ||
       normalizedRoles(user).some((role) => role.toLowerCase().includes(normalizedSearch)) ||
@@ -309,44 +296,41 @@ export function AdminUsersClient() {
     <>
       <div className="admin-stats-grid small">
         <div className="admin-stat-card compact">
+          <strong>{users.length}</strong>
+          <span>Total</span>
+        </div>
+        <div className="admin-stat-card compact">
           <strong>{sourceCounts.identities ?? users.length}</strong>
           <span>Identity rows</span>
         </div>
         <div className="admin-stat-card compact">
           <strong>{workerCount}</strong>
-          <span>Workers from canonical role</span>
+          <span>Workers</span>
         </div>
         <div className="admin-stat-card compact">
           <strong>{employerCount}</strong>
-          <span>Employers from canonical role</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{adminCount}</strong>
-          <span>Admins</span>
+          <span>Employers</span>
         </div>
         <div className="admin-stat-card compact">
           <strong>{missingRoleCount}</strong>
-          <span>Missing role</span>
+          <span>Missing roles</span>
         </div>
         <div className="admin-stat-card compact">
-          <strong>{otherRoleCount}</strong>
-          <span>Other role values</span>
+          <strong>{sourceCounts.phoneRoles ?? 0}</strong>
+          <span>Phone roles</span>
         </div>
         <div className="admin-stat-card compact">
-          <strong>{mismatchCount}</strong>
-          <span>Role mismatches</span>
+          <strong>{sourceCounts.workerProfiles ?? 0}</strong>
+          <span>Worker profiles</span>
         </div>
-      </div>
-
-      <div className="admin-stats-grid small admin-source-counts-grid">
-        <div className="admin-stat-card compact"><strong>{sourceCounts.phoneRoles ?? 0}</strong><span>phoneRoles docs</span></div>
-        <div className="admin-stat-card compact"><strong>{sourceCounts.authUsers ?? 0}</strong><span>Auth users</span></div>
-        <div className="admin-stat-card compact"><strong>{sourceCounts.users ?? 0}</strong><span>users docs</span></div>
-        <div className="admin-stat-card compact"><strong>{sourceCounts.workerProfiles ?? 0}</strong><span>worker_profiles</span></div>
-        <div className="admin-stat-card compact"><strong>{sourceCounts.employerProfiles ?? 0}</strong><span>employer_profiles</span></div>
-        <div className="admin-stat-card compact"><strong>{integrityCounts.missingPhoneRole ?? 0}</strong><span>Missing phoneRoles</span></div>
-        <div className="admin-stat-card compact"><strong>{integrityCounts.duplicatePhoneRoleUsers ?? 0}</strong><span>Duplicate phoneRoles uid</span></div>
-        <div className="admin-stat-card compact"><strong>{integrityCounts.phoneRolesMissingUid ?? 0}</strong><span>phoneRoles missing uid</span></div>
+        <div className="admin-stat-card compact">
+          <strong>{sourceCounts.employerProfiles ?? 0}</strong>
+          <span>Employer profiles</span>
+        </div>
+        <div className="admin-stat-card compact">
+          <strong>{sourceCounts.authUsers ?? 0}</strong>
+          <span>Auth users</span>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -392,8 +376,7 @@ export function AdminUsersClient() {
                 <tr>
                   <th>Identity</th>
                   <th>Phone Roles</th>
-                  <th>Email</th>
-                  <th>Canonical Role</th>
+                  <th>Role</th>
                   <th>Firebase Sources</th>
                   <th>Referral</th>
                   <th>Joined</th>
@@ -433,7 +416,6 @@ export function AdminUsersClient() {
                             <div className="admin-cell-sub danger-text">duplicate docs: {user.phoneRoleDuplicateCount}</div>
                           ) : null}
                         </td>
-                        <td>{user.email || "Not provided"}</td>
                         <td>
                           <span className={`status-pill ${roleTone(canonicalRole)}`}>{canonicalRole}</span>
                           {canonicalRole === "WORKER" || canonicalRole === "EMPLOYER" ? (
@@ -508,7 +490,7 @@ export function AdminUsersClient() {
                       </tr>
                       {expanded ? (
                         <tr className="admin-users-detail-row">
-                          <td colSpan={8}>
+                          <td colSpan={7}>
                             <div className="admin-firebase-source-grid">
                               {renderFirebaseSource("phoneRoles", user.firebaseFields?.phoneRoles)}
                               {renderFirebaseSource("users", user.firebaseFields?.users)}
@@ -619,5 +601,21 @@ function formatFirebaseJson(value: unknown) {
     return "null";
   }
 
-  return JSON.stringify(value, null, 2);
+  return JSON.stringify(filterHiddenUserFields(value), null, 2);
+}
+
+function filterHiddenUserFields(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(filterHiddenUserFields);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([field]) => !HIDDEN_USER_FIELDS.has(field))
+      .map(([field, fieldValue]) => [field, filterHiddenUserFields(fieldValue)])
+  );
 }

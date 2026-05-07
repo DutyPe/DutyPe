@@ -12,6 +12,7 @@ export default function AdminPhoneRolesPage() {
           apiPath="/api/admin/phone-roles"
           dataKey="items"
           label="Phone Roles"
+          hiddenFields={["updatedAt"]}
         />
       </AdminShell>
     </AdminAuthGate>

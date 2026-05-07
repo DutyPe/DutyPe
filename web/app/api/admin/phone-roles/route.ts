@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
     const db = getFirebaseAdminDb();
     const snapshot = await db.collection("phoneRoles").limit(5000).get();
 
-    const items = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Record<string, unknown>)
-    }));
+    const items = snapshot.docs.map((doc) => {
+      const { updatedAt: _updatedAt, ...data } = doc.data() as Record<string, unknown>;
+      return {
+        id: doc.id,
+        ...data
+      };
+    });
 
     return NextResponse.json({ items });
   } catch (error) {

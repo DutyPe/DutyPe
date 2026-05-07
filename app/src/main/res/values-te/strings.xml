@@ -160,6 +160,8 @@
     <string name="this_month">ఈ నెల</string>
     <string name="this_week">ఈ వారం</string>
     <string name="today">ఈ రోజు</string>
+    <string name="refer_earn_guest_title">సైన్‌అప్ తర్వాత రిఫర్ చేసి సంపాదించండి</string>
+    <string name="refer_earn_guest_subtitle">రిఫరల్ రివార్డ్స్ అన్‌లాక్ చేయడానికి ఖాతా సృష్టించండి</string>
     <string name="subscription">సబ్‌స్క్రిప్షన్</string>
     <string name="upgrade">అప్‌గ్రేడ్ చేయండి</string>
     <string name="free_plan">ఉచిత ప్లాన్</string>
@@ -1288,17 +1290,27 @@
     <string name="app_update_prompt_update">అప్‌డేట్</string>
     <string name="app_update_prompt_later">తర్వాత</string>
     <string name="app_update_open_failed">అప్‌డేట్ పేజీ తెరవలేకపోయాం. దయచేసి మళ్ళీ ప్రయత్నించండి.</string>
-    <string name="guest_worker_welcome_title">స్వాగత గిఫ్ట్ సిద్ధంగా ఉంది</string>
-    <string name="guest_worker_welcome_message">ఇప్పుడే రిజిస్టర్ అయితే సైన్‌అప్ తర్వాత మీ DutyPe వాలెట్‌లో ₹%1$d వస్తుంది.</string>
-    <string name="guest_employer_welcome_title">స్వాగత ఆఫర్ సిద్ధంగా ఉంది</string>
-    <string name="guest_employer_welcome_message_with_bonus">ఇప్పుడే రిజిస్టర్ అయితే అపరిమిత ఉద్యోగ పోస్టింగ్ మరియు ₹%1$d స్వాగత బోనస్ అన్‌లాక్ అవుతాయి.</string>
-    <string name="guest_employer_welcome_message_posts">ఇప్పుడే రిజిస్టర్ అయితే మీ వ్యాపారానికి అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అవుతుంది.</string>
-    <string name="guest_employer_welcome_message_bonus">ఇప్పుడే రిజిస్టర్ అయితే సైన్‌అప్ తర్వాత మీ DutyPe వాలెట్‌లో ₹%1$d వస్తుంది.</string>
+    <string name="guest_worker_welcome_title">మీ కోసం\nసర్ప్రైజ్!</string>
+    <string name="guest_worker_welcome_message">మీ కోసం ప్రత్యేక ట్రీట్ ఉంది. తెరిచి సర్ప్రైజ్ అన్‌లాక్ చేయండి!</string>
+    <string name="guest_employer_welcome_title">మీ కోసం\nసర్ప్రైజ్!</string>
+    <string name="guest_employer_welcome_message_with_bonus">మీ కోసం ప్రత్యేక ట్రీట్ ఉంది. తెరిచి సర్ప్రైజ్ అన్‌లాక్ చేయండి!</string>
+    <string name="guest_employer_welcome_message_posts">మీ వ్యాపారం కోసం ఉద్యోగ పోస్టింగ్‌ను అన్‌లాక్ చేయడానికి ఖాతా సృష్టించండి.</string>
+    <string name="guest_employer_welcome_message_bonus">మీ కోసం ప్రత్యేక ట్రీట్ ఉంది. తెరిచి సర్ప్రైజ్ అన్‌లాక్ చేయండి!</string>
     <string name="guest_welcome_login_register">లాగిన్ / రిజిస్టర్</string>
-    <string name="guest_welcome_claim_gift">స్వాగత గిఫ్ట్ పొందండి</string>
-    <string name="guest_welcome_limited_benefit">పరిమిత కాల స్వాగత ప్రయోజనం</string>
-    <string name="guest_welcome_new_account_trust">కొత్త ఖాతాలకు మాత్రమే • సైన్‌అప్ తర్వాత వెంటనే క్రెడిట్</string>
-    <string name="guest_welcome_takes_30_seconds">30 సెకండ్లలో పూర్తవుతుంది</string>
+    <string name="guest_welcome_claim_gift">నా సర్ప్రైజ్ తెరవండి</string>
+    <string name="guest_welcome_limited_benefit">కొత్త యూజర్లకు ప్రత్యేకం</string>
+    <string name="guest_welcome_new_account_trust">ఒక్కసారి\nసర్ప్రైజ్</string>
+    <string name="guest_welcome_takes_30_seconds">పరిమిత కాల ఆఫర్</string>
+    <string name="guest_welcome_worth_label">విలువ</string>
+    <string name="guest_welcome_amount_value">₹%1$d</string>
+    <string name="guest_welcome_secret_value">ప్రత్యేక ట్రీట్</string>
+    <string name="guest_welcome_inside_badge">వావ్!\nలోపల\nఏముంది?</string>
+    <string name="guest_welcome_instant_credit">ఇన్‌స్టంట్ క్రెడిట్</string>
+    <string name="guest_welcome_after_signup">సైన్‌అప్ తర్వాత</string>
+    <string name="guest_welcome_safe_title">100% సేఫ్</string>
+    <string name="guest_welcome_safe_subtitle">&amp; సెక్యూర్</string>
+    <string name="guest_welcome_only_for">మాత్రమే</string>
+    <string name="guest_welcome_new_users">కొత్త యూజర్లకు</string>
 
     <!-- Notification content (sent by app + shown locally). -->
     <string name="notif_app_status_applied_title">దరఖాస్తు సమర్పించబడింది</string>

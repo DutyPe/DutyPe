@@ -90,18 +90,19 @@ const SHIFT_OPTIONS: { value: string; label: string; icon: string }[] = [
 // Gender option list matches PostJobScreen.kt ("Male" / "Female" / "Both").
 const GENDERS = ["Male", "Female", "Both"];
 
-// Experience options match PostJobScreen.kt baseExperienceLevels.
+// Experience options used by the admin post-job form.
 const EXPERIENCE_LEVELS = [
   "No Experience Required",
-  "Fresher (Educated)",
+  "Less than 1 year",
   "1-3 years",
   "3-5 years",
   "5+ years"
 ];
 
-// Education options match PostJobScreen.kt baseEducationRequirements.
+// Education options used by the admin post-job form.
 const EDUCATION_REQUIREMENTS = [
   "No qualification required",
+  "Below 10th",
   "10th pass",
   "12th pass",
   "ITI",

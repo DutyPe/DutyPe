@@ -12,6 +12,8 @@ type CollectionViewerProps = {
   dataKey: string;
   /** Human label for the collection */
   label: string;
+  /** Fields to hide from the table and row inspector. */
+  hiddenFields?: string[];
 };
 
 const PINNED_FIELDS = [
@@ -86,13 +88,14 @@ function renderCellValue(value: unknown): string {
   return String(value);
 }
 
-export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionViewerProps) {
+export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = [] }: CollectionViewerProps) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const hiddenFieldSet = new Set(hiddenFields);
 
   useEffect(() => {
     async function load() {
@@ -119,7 +122,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
 
   // Collect all unique field names across all rows
   const allFields = Array.from(
-    new Set(rows.flatMap((row) => Object.keys(row).filter((field) => !isInternalField(field))))
+    new Set(rows.flatMap((row) => Object.keys(row).filter((field) => !isInternalField(field) && !hiddenFieldSet.has(field))))
   );
   const visibleFields = sortedFields(allFields);
 
@@ -173,8 +176,8 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
             </h2>
           </div>
           <p>
-            {visibleFields.length} visible fields detected. Open a row's Firebase JSON to inspect the
-            exact source profile document and related identity records.
+            {visibleFields.length} visible fields detected. Open a row's Firebase JSON to inspect
+            the returned document data.
           </p>
         </div>
 
@@ -211,10 +214,12 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
           </div>
         ) : null}
 
-        <div className="admin-profile-legend">
-          <span><strong>aligned</strong> means profile role and phoneRoles agree.</span>
-          <span><strong>needs-review</strong> means one required app-facing profile field is missing.</span>
-        </div>
+        {rows.some((row) => row.roleStatus || row.profileHealth) ? (
+          <div className="admin-profile-legend">
+            <span><strong>aligned</strong> means profile role and phoneRoles agree.</span>
+            <span><strong>needs-review</strong> means one required app-facing profile field is missing.</span>
+          </div>
+        ) : null}
 
         <div className="admin-toolbar admin-toolbar-card">
           <input
@@ -253,7 +258,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
                       <td className="admin-json-cell">
                         <details className="admin-json-details">
                           <summary>Firebase JSON</summary>
-                          <pre>{formatJson(row.__firebase ?? row)}</pre>
+                          <pre>{formatJson(filterHiddenFields(row.__firebase ?? row, hiddenFieldSet))}</pre>
                         </details>
                       </td>
                       {visibleFields.map((field) => (
@@ -278,5 +283,15 @@ export function AdminCollectionViewer({ apiPath, dataKey, label }: CollectionVie
         )}
       </section>
     </div>
+  );
+}
+
+function filterHiddenFields(value: unknown, hiddenFieldSet: Set<string>) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([field]) => !hiddenFieldSet.has(field))
   );
 }

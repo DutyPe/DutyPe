@@ -309,12 +309,9 @@ fun EmployerHomeScreen(
     val showEmployerCashBonus = referralConfig.employerSignupBonusEnabled && referralConfig.employerSignupBonus > 0.0
     val showEmployerWelcomeCard = isGuestEmployer
     val employerWelcomeMessage = when {
-        referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(
-            R.string.guest_employer_welcome_message_with_bonus,
-            referralConfig.employerSignupBonus.toInt()
-        )
+        referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_with_bonus)
         referralConfig.employerUnlimitedJobPostingEnabled -> stringResource(R.string.guest_employer_welcome_message_posts)
-        showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_bonus, referralConfig.employerSignupBonus.toInt())
+        showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_bonus)
         else -> stringResource(R.string.guest_employer_welcome_message_posts)
     }
     
@@ -422,6 +419,7 @@ fun EmployerHomeScreen(
                 showGuestWelcomeCard = showEmployerWelcomeCard,
                 guestWelcomeTitle = stringResource(R.string.guest_employer_welcome_title),
                 guestWelcomeMessage = employerWelcomeMessage,
+                guestWelcomeRewardAmount = referralConfig.employerSignupBonus.toInt().takeIf { showEmployerCashBonus && it > 0 },
                 guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                 onGuestWelcomeClick = {
                     rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
@@ -518,6 +516,7 @@ fun DashboardContent(
     showGuestWelcomeCard: Boolean = false,
     guestWelcomeTitle: String = "",
     guestWelcomeMessage: String = "",
+    guestWelcomeRewardAmount: Int? = null,
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -551,6 +550,7 @@ fun DashboardContent(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
                         buttonText = stringResource(R.string.guest_welcome_claim_gift),
+                        rewardAmount = guestWelcomeRewardAmount,
                         onClick = onGuestWelcomeClick,
                         onVariantImpression = { variant ->
                             Timber.d("Welcome gift impression (employer) variant=%s", variant.name)

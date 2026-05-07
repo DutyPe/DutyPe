@@ -7,7 +7,7 @@ import { AdminCollectionViewer } from "@/components/admin/admin-collection-viewe
 export default function AdminEmployerProfilesPage() {
   return (
     <AdminAuthGate>
-      <AdminShell title="Employer Profiles" description="All employer_profiles documents with every field.">
+      <AdminShell title="Employer Profiles" description="Current employer_profiles collection fields.">
         <AdminCollectionViewer
           apiPath="/api/admin/employer-profiles"
           dataKey="profiles"

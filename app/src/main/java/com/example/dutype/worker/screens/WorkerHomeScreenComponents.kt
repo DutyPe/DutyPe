@@ -82,7 +82,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.core.EaseInOutSine
@@ -104,7 +103,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Shadow
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -499,6 +497,7 @@ fun HomeSectionsContent(
     showGuestWelcomeCard: Boolean = false,
     guestWelcomeTitle: String = "",
     guestWelcomeMessage: String = "",
+    guestWelcomeRewardAmount: Int? = null,
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
     referralRewardAmount: Int = 20,
@@ -619,6 +618,7 @@ fun HomeSectionsContent(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
                         buttonText = stringResource(R.string.guest_welcome_claim_gift),
+                        rewardAmount = guestWelcomeRewardAmount,
                         onClick = onGuestWelcomeClick,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -628,6 +628,7 @@ fun HomeSectionsContent(
             item {
                 ReferEarnStripCard(
                     rewardAmount = referralRewardAmount,
+                    showRewardAmount = !showGuestWelcomeCard,
                     onInviteClick = onReferEarnClick
                 )
             }
@@ -1127,6 +1128,7 @@ private fun instantWorkerResponseMessage(status: String): String = when (status)
 @Composable
 private fun ReferEarnStripCard(
     rewardAmount: Int,
+    showRewardAmount: Boolean,
     onInviteClick: () -> Unit
 ) {
     Card(
@@ -1153,14 +1155,22 @@ private fun ReferEarnStripCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.refer_earn_amount, rewardAmount),
+                    text = if (showRewardAmount) {
+                        stringResource(R.string.refer_earn_amount, rewardAmount)
+                    } else {
+                        stringResource(R.string.refer_earn_guest_title)
+                    },
                     style = MaterialTheme.typography.titleSmall.copy(
                         color = Color(0xFF312E81),
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
-                    text = stringResource(R.string.refer_invite_subtitle),
+                    text = if (showRewardAmount) {
+                        stringResource(R.string.refer_invite_subtitle)
+                    } else {
+                        stringResource(R.string.refer_earn_guest_subtitle)
+                    },
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569))
                 )
             }
@@ -1181,42 +1191,26 @@ private fun ReferEarnStripCard(
 
 @Composable
 private fun AnimatedInviteNowText() {
-    val transition = rememberInfiniteTransition(label = "invite_now_text_sweep")
-    val sweepOffset by transition.animateFloat(
-        initialValue = -34f,
-        targetValue = 34f,
+    val transition = rememberInfiniteTransition(label = "invite_now_slow_fade")
+    val textAlpha by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1450, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            animation = tween(durationMillis = 2200, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "invite_now_shadow_offset"
+        label = "invite_now_text_alpha"
     )
     val inviteText = stringResource(R.string.invite_now)
-    val baseStyle = MaterialTheme.typography.labelLarge.copy(
-        color = Color.White,
-        fontWeight = FontWeight.Bold
-    )
 
-    Box(
-        modifier = Modifier.clipToBounds(),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Text(text = inviteText, style = baseStyle)
-        Text(
-            text = inviteText,
-            modifier = Modifier
-                .offset(x = sweepOffset.dp)
-                .graphicsLayer { alpha = 0.58f },
-            style = baseStyle.copy(
-                color = Color(0xFFFDE68A),
-                shadow = Shadow(
-                    color = Color.White.copy(alpha = 0.95f),
-                    offset = Offset(0f, 0f),
-                    blurRadius = 14f
-                )
-            )
+    Text(
+        text = inviteText,
+        modifier = Modifier.graphicsLayer { alpha = textAlpha },
+        style = MaterialTheme.typography.labelLarge.copy(
+            color = Color.White,
+            fontWeight = FontWeight.Bold
         )
-    }
+    )
 }
 
 @Composable
