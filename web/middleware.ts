@@ -38,16 +38,130 @@ const exactLegacyRedirects: Record<string, string> = {
   "/admin/test-referral.html": "/admin/test-referral"
 };
 
+const appRouteAliases: Record<string, string> = {
+  "/admin/dashboard": "/admin",
+  "/admin/workers": "/admin/worker-profiles",
+  "/admin/worker-profiles.html": "/admin/worker-profiles",
+  "/admin/employers": "/admin/employer-profiles",
+  "/admin/employer-profiles.html": "/admin/employer-profiles",
+  "/admin/profiles": "/admin/users",
+  "/admin/job-posts": "/admin/jobs",
+  "/admin/referral-withdrawals": "/admin/referral-stats",
+  "/post-job": "/app/employer/post-job",
+  "/applications": "/app/worker/my-jobs",
+  "/application": "/app/worker/my-jobs",
+  "/job": "/jobs",
+  "/help": "/contact",
+  "/support": "/contact",
+  "/contact-us": "/contact",
+  "/worker/home": "/app/worker",
+  "/worker/jobs": "/app/worker/jobs",
+  "/worker/applications": "/app/worker/my-jobs",
+  "/worker/my-jobs": "/app/worker/my-jobs",
+  "/worker/map": "/app/worker/map",
+  "/worker/location": "/app/worker/location",
+  "/worker/profile": "/app/worker/profile",
+  "/worker/notifications": "/app/worker/notifications",
+  "/worker/refer": "/refer",
+  "/worker/referrals": "/refer",
+  "/app/worker/home": "/app/worker",
+  "/app/worker/applications": "/app/worker/my-jobs",
+  "/app/worker/refer": "/refer",
+  "/app/worker/referrals": "/refer",
+  "/employer/home": "/app/employer",
+  "/employer/dashboard": "/app/employer",
+  "/employer/jobs": "/app/employer/jobs",
+  "/employer/post-job": "/app/employer/post-job",
+  "/employer/applications": "/app/employer/applications",
+  "/employer/locations": "/app/employer/locations",
+  "/employer/notifications": "/app/employer/notifications",
+  "/employer/profile": "/app/employer",
+  "/employer/company": "/app/employer",
+  "/employer/company-details": "/app/employer",
+  "/employer/verification": "/app/employer",
+  "/employer/refer": "/refer",
+  "/employer/referrals": "/refer",
+  "/app/employer/home": "/app/employer",
+  "/app/employer/dashboard": "/app/employer",
+  "/app/employer/profile": "/app/employer",
+  "/app/employer/company": "/app/employer",
+  "/app/employer/company-details": "/app/employer",
+  "/app/employer/verification": "/app/employer",
+  "/app/employer/refer": "/refer",
+  "/app/employer/referrals": "/refer"
+};
+
+function redirectTo(request: NextRequest, destination: string) {
+  const url = request.nextUrl.clone();
+  const [pathname, search] = destination.split("?");
+
+  url.pathname = pathname;
+  url.search = search === undefined ? request.nextUrl.search : search;
+
+  return NextResponse.redirect(url, 308);
+}
+
+function getDynamicAlias(pathname: string) {
+  const jobMatch = pathname.match(/^\/job\/([^/]+)$/);
+  if (jobMatch) {
+    return `/jobs/${jobMatch[1]}`;
+  }
+
+  const jobRenewMatch = pathname.match(/^\/jobs\/([^/]+)\/renew$/);
+  if (jobRenewMatch) {
+    return `/jobs/${jobRenewMatch[1]}`;
+  }
+
+  const workerJobMatch = pathname.match(/^\/worker\/jobs\/([^/]+)$/);
+  if (workerJobMatch) {
+    return `/app/worker/jobs/${workerJobMatch[1]}`;
+  }
+
+  const workerApplicationMatch = pathname.match(/^\/(?:app\/)?worker\/applications\/([^/]+)$/);
+  if (workerApplicationMatch) {
+    return `/application/${workerApplicationMatch[1]}`;
+  }
+
+  const employerJobApplicationsMatch = pathname.match(/^\/employer\/jobs\/([^/]+)\/applications$/);
+  if (employerJobApplicationsMatch) {
+    return `/app/employer/jobs/${employerJobApplicationsMatch[1]}/applications`;
+  }
+
+  const employerJobMatch = pathname.match(/^\/employer\/jobs\/([^/]+)$/);
+  if (employerJobMatch) {
+    return `/app/employer/jobs/${employerJobMatch[1]}`;
+  }
+
+  const employerApplicationMatch = pathname.match(/^\/employer\/applications\/([^/]+)$/);
+  if (employerApplicationMatch) {
+    return `/app/employer/applications/${employerApplicationMatch[1]}`;
+  }
+
+  const employerUrgentMatch = pathname.match(/^\/employer\/urgent\/([^/]+)$/);
+  if (employerUrgentMatch) {
+    return "/app/employer";
+  }
+
+  return null;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const lookupPathname = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
-  const exactRedirect = exactLegacyRedirects[pathname];
+  const exactRedirect = exactLegacyRedirects[lookupPathname];
   if (exactRedirect) {
-    const url = request.nextUrl.clone();
-    url.pathname = exactRedirect;
-    url.search = request.nextUrl.search;
+    return redirectTo(request, exactRedirect);
+  }
 
-    return NextResponse.redirect(url, 308);
+  const appRouteAlias = appRouteAliases[lookupPathname];
+  if (appRouteAlias) {
+    return redirectTo(request, appRouteAlias);
+  }
+
+  const dynamicAlias = getDynamicAlias(lookupPathname);
+  if (dynamicAlias) {
+    return redirectTo(request, dynamicAlias);
   }
 
   if (!pathname.endsWith(".html")) {
