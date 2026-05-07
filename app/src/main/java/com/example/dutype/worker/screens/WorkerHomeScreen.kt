@@ -975,6 +975,7 @@ fun WorkerHomeScreen(
         var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
         WelcomeCelebrationOverlay(
             visible = showCelebration,
+            bonusAmount = referralConfig.signupBonus.toInt().takeIf { it > 0 } ?: 0,
             onDismiss = { showCelebration = false }
         )
     }

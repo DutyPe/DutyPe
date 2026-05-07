@@ -314,16 +314,10 @@ class MainActivity : ComponentActivity() {
                     // `SystemBarStyle.auto` does internally, minus the
                     // insets rebind.
                     LaunchedEffect(statusBarColor) {
-                        val argb = statusBarColor.toArgb()
-                        val luminance = (0.299 * statusBarColor.red +
-                            0.587 * statusBarColor.green +
-                            0.114 * statusBarColor.blue)
-                        val isLightStatusBar = luminance > 0.5f
-
                         @Suppress("DEPRECATION")
-                        window.statusBarColor = argb
+                        window.statusBarColor = Color.White.toArgb()
                         WindowCompat.getInsetsController(window, window.decorView)
-                            .isAppearanceLightStatusBars = isLightStatusBar
+                            .isAppearanceLightStatusBars = true
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -337,8 +331,8 @@ class MainActivity : ComponentActivity() {
 
                         MainNavGraph(
                             navController = navController,
-                            onStatusBarColorChange = { color ->
-                                statusBarColor = color
+                            onStatusBarColorChange = {
+                                statusBarColor = Color.White
                             },
                             onReady = {
                                 // Dismiss the system splash once MainNavGraph has resolved

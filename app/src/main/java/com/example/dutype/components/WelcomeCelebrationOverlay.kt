@@ -3,23 +3,23 @@ package com.example.dutype.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOutBounce
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CardGiftcard
@@ -36,16 +36,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
+import com.dutype.app.R
 import kotlinx.coroutines.delay
-import kotlin.math.cos
+import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -88,11 +90,19 @@ private val confettiColors = listOf(
 fun WelcomeCelebrationOverlay(
     visible: Boolean,
     onDismiss: () -> Unit,
-    durationMs: Int = 2800
+    durationMs: Int = 3200,
+    bonusAmount: Int = 0
 ) {
-    // Auto-dismiss
-    LaunchedEffect(visible) {
-        if (visible) {
+    var scratchProgress by remember(visible) { mutableStateOf(0f) }
+    val revealed = scratchProgress >= 1f
+
+    fun addScratchProgress(delta: Float) {
+        val next = (scratchProgress + delta).coerceIn(0f, 1f)
+        scratchProgress = if (next >= 0.72f) 1f else next
+    }
+
+    LaunchedEffect(visible, revealed) {
+        if (visible && revealed) {
             delay(durationMs.toLong())
             onDismiss()
         }
@@ -111,13 +121,9 @@ fun WelcomeCelebrationOverlay(
         }
     }
 
-    val transition = rememberInfiniteTransition(label = "confetti")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMs, easing = LinearEasing)
-        ),
+    val confettiProgress by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0f,
+        animationSpec = tween(durationMs, easing = LinearEasing),
         label = "confetti_progress"
     )
 
@@ -140,18 +146,20 @@ fun WelcomeCelebrationOverlay(
             contentAlignment = Alignment.Center
         ) {
             // Confetti canvas
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                particles.forEach { p ->
-                    val yFrac = p.startY + progress * (1.2f + p.speed)
-                    val xOffset = p.wobble * sin(progress * 6f + p.x * 10f)
-                    val cx = p.x * size.width + xOffset
-                    val cy = yFrac * size.height
-                    if (cy in -p.radius..size.height + p.radius) {
-                        drawCircle(
-                            color = p.color.copy(alpha = (1f - (yFrac / 1.2f)).coerceIn(0.2f, 1f)),
-                            radius = p.radius,
-                            center = Offset(cx, cy)
-                        )
+            if (revealed || confettiProgress > 0f) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    particles.forEach { p ->
+                        val yFrac = p.startY + confettiProgress * (1.2f + p.speed)
+                        val xOffset = p.wobble * sin(confettiProgress * 6f + p.x * 10f)
+                        val cx = p.x * size.width + xOffset
+                        val cy = yFrac * size.height
+                        if (cy in -p.radius..size.height + p.radius) {
+                            drawCircle(
+                                color = p.color.copy(alpha = (1f - (yFrac / 1.2f)).coerceIn(0.2f, 1f)),
+                                radius = p.radius,
+                                center = Offset(cx, cy)
+                            )
+                        }
                     }
                 }
             }
@@ -159,21 +167,31 @@ fun WelcomeCelebrationOverlay(
             // Center celebration card
             Column(
                 modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
                     .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
                     .clip(RoundedCornerShape(24.dp))
                     .background(Color.White)
-                    .padding(horizontal = 32.dp, vertical = 28.dp),
+                    .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.CardGiftcard,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(56.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(58.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE8FFF1)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CardGiftcard,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
                 Text(
-                    text = "You're all set! 🎉",
+                    text = stringResource(R.string.welcome_scratch_ready_title),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF0F172A)
@@ -181,19 +199,131 @@ fun WelcomeCelebrationOverlay(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Welcome to DutyPe.\nYour account is ready.",
+                    text = stringResource(R.string.welcome_scratch_ready_body),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color(0xFF475569),
                         lineHeight = 22.sp
                     ),
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+
+                ScratchRevealPanel(
+                    bonusAmount = bonusAmount,
+                    revealed = revealed,
+                    scratchProgress = scratchProgress,
+                    onScratch = ::addScratchProgress
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScratchRevealPanel(
+    bonusAmount: Int,
+    revealed: Boolean,
+    scratchProgress: Float,
+    onScratch: (Float) -> Unit
+) {
+    val coverAlpha by animateFloatAsState(
+        targetValue = if (revealed) 0f else (1f - scratchProgress * 0.82f).coerceIn(0.12f, 1f),
+        animationSpec = tween(220),
+        label = "scratch_cover_alpha"
+    )
+    val rewardScale by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0.94f,
+        animationSpec = tween(300, easing = EaseOutBounce),
+        label = "scratch_reward_scale"
+    )
+    val rewardTitle = if (bonusAmount > 0) {
+        stringResource(R.string.welcome_scratch_bonus_title, bonusAmount)
+    } else {
+        stringResource(R.string.welcome_scratch_bonus_generic)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(126.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFFEFFFF5), Color(0xFFD9FBE7), Color(0xFFFFFFFF))
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.graphicsLayer {
+                scaleX = rewardScale
+                scaleY = rewardScale
+                alpha = if (revealed) 1f else 0.15f
+            },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = rewardTitle,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = Color(0xFF047857),
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 25.sp
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 18.dp)
+            )
+            Text(
+                text = stringResource(R.string.welcome_scratch_wallet_hint),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.Bold
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        if (!revealed || coverAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = coverAlpha }
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFFE5E7EB), Color(0xFFF8FAFC), Color(0xFFCBD5E1))
+                        )
+                    )
+                    .pointerInput(revealed) {
+                        if (!revealed) {
+                            detectDragGestures(
+                                onDragStart = { onScratch(0.16f) },
+                                onDrag = { _, dragAmount ->
+                                    val distance = abs(dragAmount.x) + abs(dragAmount.y)
+                                    onScratch(distance / 900f)
+                                }
+                            )
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val step = 20.dp.toPx()
+                    var x = -size.height
+                    while (x < size.width + size.height) {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.28f),
+                            start = Offset(x, 0f),
+                            end = Offset(x + size.height, size.height),
+                            strokeWidth = 5.dp.toPx()
+                        )
+                        x += step
+                    }
+                }
                 Text(
-                    text = "✨  Check your wallet for your welcome gift",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = Color(0xFF16A34A),
-                        fontWeight = FontWeight.SemiBold
+                    text = stringResource(R.string.welcome_scratch_prompt),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = Color(0xFF334155),
+                        fontWeight = FontWeight.ExtraBold
                     ),
                     textAlign = TextAlign.Center
                 )

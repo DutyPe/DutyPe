@@ -1310,6 +1310,13 @@
     <string name="guest_welcome_safe_subtitle">&amp; సెక్యూర్</string>
     <string name="guest_welcome_only_for">మాత్రమే</string>
     <string name="guest_welcome_new_users">కొత్త యూజర్లకు</string>
+    <string name="referral_code_applied_success">రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది.</string>
+    <string name="welcome_scratch_ready_title">అంతా సిద్ధం!</string>
+    <string name="welcome_scratch_ready_body">DutyPeకి స్వాగతం.\nమీ ఖాతా సిద్ధంగా ఉంది.</string>
+    <string name="welcome_scratch_prompt">మీ సర్ప్రైజ్ స్క్రాచ్ చేయండి</string>
+    <string name="welcome_scratch_bonus_title">మీకు ₹%1$d వెల్కమ్ బోనస్ వచ్చింది</string>
+    <string name="welcome_scratch_bonus_generic">మీ వెల్కమ్ గిఫ్ట్ సిద్ధంగా ఉంది</string>
+    <string name="welcome_scratch_wallet_hint">మీ వాలెట్ చూడండి</string>
 
     <!-- Notification content (sent by app + shown locally). -->
     <string name="notif_app_status_applied_title">దరఖాస్తు సమర్పించబడింది</string>

@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.dutype.ui.theme
 
 import android.app.Activity
@@ -115,11 +117,12 @@ fun dutypeTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            // Status bar tint matches the chosen surface; icons flip light/dark.
-            window.statusBarColor = colorScheme.background.toArgb()
+            // Keep the top system bar pure white app-wide; screen surfaces can
+            // vary below it without tinting the OS status bar.
+            window.statusBarColor = Color.White.toArgb()
             window.navigationBarColor = colorScheme.background.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightStatusBars = true
             controller.isAppearanceLightNavigationBars = !darkTheme
         }
     }
@@ -150,7 +153,7 @@ fun ForceLightTheme(content: @Composable () -> Unit) {
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
-            window.statusBarColor = LightColorScheme.background.toArgb()
+            window.statusBarColor = Color.White.toArgb()
             window.navigationBarColor = LightColorScheme.background.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
             controller.isAppearanceLightStatusBars = true

@@ -480,6 +480,7 @@ fun EmployerHomeScreen(
         var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
         WelcomeCelebrationOverlay(
             visible = showCelebration,
+            bonusAmount = referralConfig.employerSignupBonus.toInt().takeIf { showEmployerCashBonus && it > 0 } ?: 0,
             onDismiss = { showCelebration = false }
         )
     } // Box

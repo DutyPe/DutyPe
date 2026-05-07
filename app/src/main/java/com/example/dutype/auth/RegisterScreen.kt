@@ -204,12 +204,7 @@ private fun RegisterContent(
                                 onSuccess = { referralResult ->
                                     referralAppliedInstantly = true
                                     Timber.d("REGISTER - Referral applied immediately for user ${currentUser.uid}")
-                                    val referredReward = referralResult.referredUserReward.toInt()
-                                    val successMessage = if (referredReward > 0) {
-                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది. మీరు వెంటనే ₹$referredReward పొందారు." else "✓ Referral code applied successfully. You got ₹$referredReward instantly."
-                                    } else {
-                                        if (isTelugu) "✓ రిఫరల్ కోడ్ విజయవంతంగా వర్తించబడింది." else "✓ Referral code applied successfully."
-                                    }
+                                    val successMessage = context.getString(R.string.referral_code_applied_success)
                                     Toast.makeText(
                                         context,
                                         successMessage,

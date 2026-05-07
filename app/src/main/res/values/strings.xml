@@ -1331,6 +1331,13 @@
     <string name="guest_welcome_safe_subtitle">&amp; SECURE</string>
     <string name="guest_welcome_only_for">ONLY FOR</string>
     <string name="guest_welcome_new_users">NEW USERS</string>
+    <string name="referral_code_applied_success">Referral code applied successfully.</string>
+    <string name="welcome_scratch_ready_title">You\'re all set!</string>
+    <string name="welcome_scratch_ready_body">Welcome to DutyPe.\nYour account is ready.</string>
+    <string name="welcome_scratch_prompt">Scratch your surprise</string>
+    <string name="welcome_scratch_bonus_title">You got ₹%1$d welcome bonus</string>
+    <string name="welcome_scratch_bonus_generic">Your welcome gift is ready</string>
+    <string name="welcome_scratch_wallet_hint">Check your wallet</string>
 
     <!-- Notification content (sent by app + shown locally). Localized via locale-specific strings.xml. -->
     <string name="notif_app_status_applied_title">Application Submitted</string>

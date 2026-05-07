@@ -9,6 +9,8 @@
             Example:
             <item name="colorPrimary">@color/my_light_primary</item>
         -->
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <!-- Platform splash is visually hidden so only the Compose app-icon splash is seen. -->
