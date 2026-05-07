@@ -419,7 +419,6 @@ fun EmployerHomeScreen(
                 showGuestWelcomeCard = showEmployerWelcomeCard,
                 guestWelcomeTitle = stringResource(R.string.guest_employer_welcome_title),
                 guestWelcomeMessage = employerWelcomeMessage,
-                guestWelcomeRewardAmount = referralConfig.employerSignupBonus.toInt().takeIf { showEmployerCashBonus && it > 0 },
                 guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                 onGuestWelcomeClick = {
                     rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
@@ -516,7 +515,6 @@ fun DashboardContent(
     showGuestWelcomeCard: Boolean = false,
     guestWelcomeTitle: String = "",
     guestWelcomeMessage: String = "",
-    guestWelcomeRewardAmount: Int? = null,
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -550,7 +548,6 @@ fun DashboardContent(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
                         buttonText = stringResource(R.string.guest_welcome_claim_gift),
-                        rewardAmount = guestWelcomeRewardAmount,
                         onClick = onGuestWelcomeClick,
                         onVariantImpression = { variant ->
                             Timber.d("Welcome gift impression (employer) variant=%s", variant.name)

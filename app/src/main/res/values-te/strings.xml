@@ -1301,8 +1301,7 @@
     <string name="guest_welcome_limited_benefit">కొత్త యూజర్లకు ప్రత్యేకం</string>
     <string name="guest_welcome_new_account_trust">ఒక్కసారి\nసర్ప్రైజ్</string>
     <string name="guest_welcome_takes_30_seconds">పరిమిత కాల ఆఫర్</string>
-    <string name="guest_welcome_worth_label">విలువ</string>
-    <string name="guest_welcome_amount_value">₹%1$d</string>
+    <string name="guest_welcome_mystery_label">తెరిచి చూడండి</string>
     <string name="guest_welcome_secret_value">ప్రత్యేక ట్రీట్</string>
     <string name="guest_welcome_inside_badge">వావ్!\nలోపల\nఏముంది?</string>
     <string name="guest_welcome_instant_credit">ఇన్‌స్టంట్ క్రెడిట్</string>

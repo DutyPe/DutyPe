@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -497,7 +498,6 @@ fun HomeSectionsContent(
     showGuestWelcomeCard: Boolean = false,
     guestWelcomeTitle: String = "",
     guestWelcomeMessage: String = "",
-    guestWelcomeRewardAmount: Int? = null,
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
     referralRewardAmount: Int = 20,
@@ -618,7 +618,6 @@ fun HomeSectionsContent(
                         title = guestWelcomeTitle,
                         message = guestWelcomeMessage,
                         buttonText = stringResource(R.string.guest_welcome_claim_gift),
-                        rewardAmount = guestWelcomeRewardAmount,
                         onClick = onGuestWelcomeClick,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -1178,12 +1177,11 @@ private fun ReferEarnStripCard(
             Button(
                 onClick = onInviteClick,
                 shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B21B6)),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.height(40.dp)
             ) {
                 AnimatedInviteNowText()
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -1191,26 +1189,83 @@ private fun ReferEarnStripCard(
 
 @Composable
 private fun AnimatedInviteNowText() {
-    val transition = rememberInfiniteTransition(label = "invite_now_slow_fade")
-    val textAlpha by transition.animateFloat(
-        initialValue = 0.55f,
+    val transition = rememberInfiniteTransition(label = "invite_now_shine")
+    val shineProgress by transition.animateFloat(
+        initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200, easing = EaseInOutSine),
+            animation = tween(durationMillis = 1250, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "invite_now_shine_progress"
+    )
+    val arrowShift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 620, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "invite_now_text_alpha"
+        label = "invite_now_arrow_shift"
     )
     val inviteText = stringResource(R.string.invite_now)
 
-    Text(
-        text = inviteText,
-        modifier = Modifier.graphicsLayer { alpha = textAlpha },
-        style = MaterialTheme.typography.labelLarge.copy(
-            color = Color.White,
-            fontWeight = FontWeight.Bold
+    BoxWithConstraints(
+        modifier = Modifier
+            .width(128.dp)
+            .height(40.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFF6D28D9), Color(0xFF4C1D95))
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        val shineOffset = (-64).dp + (maxWidth + 128.dp) * shineProgress
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = shineOffset)
+                .width(42.dp)
+                .height(52.dp)
+                .graphicsLayer { rotationZ = -18f }
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.42f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
-    )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Text(
+                text = inviteText,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(17.dp)
+                    .graphicsLayer { translationX = arrowShift }
+            )
+        }
+    }
 }
 
 @Composable

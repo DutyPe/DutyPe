@@ -10,6 +10,17 @@ const HIDDEN_PROFILE_FIELDS = new Set([
   "profileImageUrl",
   "photoUrl",
   "imageUrl",
+  "id",
+  "userId",
+  "uid",
+  "role",
+  "roles",
+  "userRole",
+  "activeRole",
+  "profileRole",
+  "expectedRole",
+  "phoneRoleRole",
+  "roleStatus",
   "geohash",
   "locationGeohash",
   "phoneRolePhoneNumber",
@@ -33,7 +44,11 @@ function firstNonEmptyString(...values: unknown[]) {
 }
 
 function sanitizeProfile(userId: string, raw: Record<string, unknown>) {
-  const row: Record<string, unknown> = { id: userId };
+  const profileUserId = firstNonEmptyString(raw.userId, raw.uid);
+  const profileId = firstNonEmptyString(raw.id, userId);
+  const row: Record<string, unknown> = profileUserId
+    ? { userId: profileUserId, role: "WORKER" }
+    : { id: profileId, role: "WORKER" };
   const phone = firstNonEmptyString(raw.phone, raw.phoneNumber, raw.contactPhone);
 
   Object.entries(raw).forEach(([field, value]) => {

@@ -1,6 +1,7 @@
 package com.example.dutype.components
 
 import androidx.compose.animation.core.EaseInOutSine
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -9,8 +10,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,13 +22,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Lock
@@ -76,7 +80,6 @@ fun GuestWelcomeBonusCard(
     message: String,
     buttonText: String,
     onClick: () -> Unit,
-    rewardAmount: Int? = null,
     variant: WelcomeGiftVariant = WelcomeGiftVariant.COPY_FIRST,
     urgencyText: String = stringResource(R.string.guest_welcome_limited_benefit),
     trustText: String = stringResource(R.string.guest_welcome_new_account_trust),
@@ -113,15 +116,17 @@ fun GuestWelcomeBonusCard(
         ),
         label = "surpriseScale"
     )
-    val visibleRewardAmount = rewardAmount?.takeIf { it > 0 }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 328.dp),
+            .heightIn(min = 328.dp)
+            .clickable {
+                onVariantClick(variant)
+                onClick()
+            },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
@@ -162,7 +167,7 @@ fun GuestWelcomeBonusCard(
                             title = title,
                             message = message
                         )
-                        WorthPanel(rewardAmount = visibleRewardAmount)
+                        MysteryPanel()
                     }
 
                     GiftRevealVisual(
@@ -176,49 +181,16 @@ fun GuestWelcomeBonusCard(
 
                 TrustFeatureBar()
 
-                Button(
+                SlidingSurpriseButton(
                     onClick = {
                         onVariantClick(variant)
                         onClick()
                     },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFFDF1F),
-                        contentColor = Color(0xFF071229)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    text = buttonText,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CircularIconBadge(
-                            icon = Icons.Default.CardGiftcard,
-                            backgroundColor = Color.White,
-                            iconTint = Color(0xFF7C2DEB)
-                        )
-                        Text(
-                            text = buttonText,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center,
-                            color = Color(0xFF071229),
-                            fontSize = 18.sp,
-                            lineHeight = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        CircularIconBadge(
-                            icon = Icons.Default.ArrowForward,
-                            backgroundColor = Color(0xFF007B58),
-                            iconTint = Color.White
-                        )
-                    }
-                }
+                )
 
                 LimitedOfferFooter(text = ctaSubtext)
             }
@@ -315,7 +287,7 @@ private fun SurpriseCopy(
 }
 
 @Composable
-private fun WorthPanel(rewardAmount: Int?) {
+private fun MysteryPanel() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -343,7 +315,7 @@ private fun WorthPanel(rewardAmount: Int?) {
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.guest_welcome_worth_label),
+                text = stringResource(R.string.guest_welcome_mystery_label),
                 color = Color(0xFF071229),
                 fontSize = 13.sp,
                 lineHeight = 14.sp,
@@ -351,12 +323,10 @@ private fun WorthPanel(rewardAmount: Int?) {
                 maxLines = 1
             )
             Text(
-                text = rewardAmount?.let {
-                    stringResource(R.string.guest_welcome_amount_value, it)
-                } ?: stringResource(R.string.guest_welcome_secret_value),
+                text = stringResource(R.string.guest_welcome_secret_value),
                 color = Color(0xFF07913B),
-                fontSize = if (rewardAmount != null) 34.sp else 20.sp,
-                lineHeight = if (rewardAmount != null) 36.sp else 22.sp,
+                fontSize = 21.sp,
+                lineHeight = 23.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -515,6 +485,112 @@ private fun TrustFeatureBar() {
             iconTint = Color(0xFF17A873),
             modifier = Modifier.weight(1f)
         )
+    }
+}
+
+@Composable
+private fun SlidingSurpriseButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val transition = rememberInfiniteTransition(label = "surprise_cta_slide")
+    val shineProgress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1450, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "surprise_cta_shine"
+    )
+    val arrowShift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 720, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "surprise_cta_arrow"
+    )
+    val shape = RoundedCornerShape(14.dp)
+
+    Button(
+        onClick = onClick,
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = Color(0xFF071229)
+        ),
+        contentPadding = PaddingValues(0.dp),
+        modifier = modifier
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(shape)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color(0xFFFFF171),
+                            Color(0xFFFFDF1F),
+                            Color(0xFFFFBD11)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            val shineOffset = (-92).dp + (maxWidth + 184.dp) * shineProgress
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = shineOffset)
+                    .width(74.dp)
+                    .height(80.dp)
+                    .graphicsLayer { rotationZ = -18f }
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.55f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularIconBadge(
+                    icon = Icons.Default.CardGiftcard,
+                    backgroundColor = Color.White,
+                    iconTint = Color(0xFF7C2DEB)
+                )
+                Text(
+                    text = text,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF071229),
+                    fontSize = 18.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Box(modifier = Modifier.graphicsLayer { translationX = arrowShift }) {
+                    CircularIconBadge(
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        backgroundColor = Color(0xFF007B58),
+                        iconTint = Color.White
+                    )
+                }
+            }
+        }
     }
 }
 

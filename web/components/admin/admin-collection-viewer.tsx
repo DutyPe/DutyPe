@@ -18,6 +18,7 @@ type CollectionViewerProps = {
 
 const PINNED_FIELDS = [
   "id",
+  "userId",
   "firebasePath",
   "resolvedName",
   "resolvedPhone",
@@ -253,7 +254,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
                 </thead>
                 <tbody>
                   {visibleRows.map((row, idx) => (
-                    <tr key={(row.id as string) ?? idx}>
+                    <tr key={(row.id as string) ?? (row.userId as string) ?? idx}>
                       <td>{startIndex + idx + 1}</td>
                       <td className="admin-json-cell">
                         <details className="admin-json-details">

@@ -1322,8 +1322,7 @@
     <string name="guest_welcome_limited_benefit">EXCLUSIVE FOR NEW USERS</string>
     <string name="guest_welcome_new_account_trust">ONE-TIME\nSURPRISE</string>
     <string name="guest_welcome_takes_30_seconds">LIMITED TIME OFFER</string>
-    <string name="guest_welcome_worth_label">WORTH</string>
-    <string name="guest_welcome_amount_value">₹%1$d</string>
+    <string name="guest_welcome_mystery_label">OPEN TO REVEAL</string>
     <string name="guest_welcome_secret_value">SPECIAL TREAT</string>
     <string name="guest_welcome_inside_badge">WOW!\nWHAT\'S\nINSIDE?</string>
     <string name="guest_welcome_instant_credit">INSTANT CREDIT</string>

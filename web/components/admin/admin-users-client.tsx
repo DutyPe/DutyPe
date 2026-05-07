@@ -418,16 +418,6 @@ export function AdminUsersClient() {
                         </td>
                         <td>
                           <span className={`status-pill ${roleTone(canonicalRole)}`}>{canonicalRole}</span>
-                          {canonicalRole === "WORKER" || canonicalRole === "EMPLOYER" ? (
-                            <select
-                              className="admin-inline-select admin-role-edit-select"
-                              value={editDrafts[user.id]?.role ?? canonicalRole}
-                              onChange={(event) => setDraftField(user.id, "role", event.target.value)}
-                            >
-                              <option value="WORKER">Worker</option>
-                              <option value="EMPLOYER">Employer</option>
-                            </select>
-                          ) : null}
                           <div className="admin-cell-sub">source: {user.roleSource || "missing"}</div>
                           {user.roleMismatch ? <div className="admin-cell-sub danger-text">source roles do not match</div> : null}
                         </td>
