@@ -790,9 +790,9 @@
     <string name="refer_free_posts_available">%1$d పోస్ట్‌లు అందుబాటులో ఉన్నాయి</string>
     <string name="refer_expires_date">గడువు: %1$s</string>
     <string name="refer_step_2">వారు మీ కోడ్ ఉపయోగించి సైన్ అప్ చేస్తారు</string>
-    <string name="refer_step_3">మీరు Rs.25 మరియు వారు Rs.25 వెంటనే సంపాదిస్తారు</string>
-    <string name="refer_reward_per_referral">ప్రతి విజయవంతమైన రెఫరల్‌కు మీరు Rs.25 సంపాదిస్తారు</string>
-    <string name="refer_reward_friend_bonus">మీ స్నేహితుడికి Rs.25 సైన్ అప్ బోనస్ వెంటనే వస్తుంది</string>
+    <string name="refer_step_3">మీరు Rs.20 మరియు వారు Rs.20 వెంటనే సంపాదిస్తారు</string>
+    <string name="refer_reward_per_referral">ప్రతి విజయవంతమైన రెఫరల్‌కు మీరు Rs.20 సంపాదిస్తారు</string>
+    <string name="refer_reward_friend_bonus">మీ స్నేహితుడికి Rs.20 సైన్ అప్ బోనస్ వెంటనే వస్తుంది</string>
     <string name="refer_reward_15">15 రెఫరల్‌లు: Rs.150 మైలురాయి బోనస్</string>
     <string name="refer_reward_50">50 రెఫరల్‌లు: Rs.500 మైలురాయి బోనస్</string>
     <string name="refer_reward_100">100 రెఫరల్‌లు: Rs.1000 మైలురాయి బోనస్</string>
