@@ -1015,7 +1015,19 @@ fun RoleSelectionWithNavigation(
     SelectRoleScreen(
         navController = navController,
         onRoleSelected = { role ->
-            selectedRole = role
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (currentUser == null) {
+                val destination = when (role) {
+                    "EMPLOYER" -> Routes.EMPLOYER_HOME
+                    else -> Routes.WORKER_HOME
+                }
+                navController.navigate(destination) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                    launchSingleTop = true
+                }
+            } else {
+                selectedRole = role
+            }
         }
     )
 }

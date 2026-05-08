@@ -829,13 +829,13 @@ private fun RegisterEntrySection(
             )
         }
 
-        Spacer(modifier = Modifier.height(84.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Text(
             text = if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account",
             style = AppTypography.displayTitle.copy(
-                fontSize = 30.sp,
-                lineHeight = 36.sp,
+                    fontSize = 28.sp,
+                    lineHeight = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF071735)
             ),
@@ -853,7 +853,7 @@ private fun RegisterEntrySection(
             textAlign = TextAlign.Start
         )
 
-        Spacer(modifier = Modifier.height(52.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
@@ -862,14 +862,14 @@ private fun RegisterEntrySection(
                 color = Color(0xFF071735)
             )
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         RegisterNameField(
             value = fullName,
             isTelugu = isTelugu,
             onValueChange = onFullNameChange
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
@@ -878,7 +878,7 @@ private fun RegisterEntrySection(
                 color = Color(0xFF071735)
             )
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         AuthPhoneEntryField(
             phoneNumber = phoneNumber,
             onPhoneNumberChange = onPhoneNumberChange,
@@ -891,25 +891,25 @@ private fun RegisterEntrySection(
             Text(text = phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
         }
 
-        Spacer(modifier = Modifier.height(26.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         RegisterReferralSection(
             isTelugu = isTelugu,
             onValidatedCodeChanged = onValidatedCodeChanged
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .minAuthCardHeight(64.dp)
+                .minAuthCardHeight(56.dp)
                 .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color.White)
                 .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
                 .clickable { onTermsToggle(!termsAccepted) }
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
@@ -937,7 +937,7 @@ private fun RegisterEntrySection(
             )
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         AuthPrimaryButton(
             text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
@@ -946,11 +946,11 @@ private fun RegisterEntrySection(
             onClick = onCreateClick
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         SecureOtpLine(text = if (isTelugu) "మీ డేటా మా దగ్గర సురక్షితం" else "Your data is safe with us")
 
         if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             val hint = when {
                 fullName.trim().length < 2 -> if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి (కనీసం 2 అక్షరాలు)" else "Enter your full name (at least 2 characters)"
                 !phoneValid -> if (isTelugu) "చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Enter a valid 10-digit mobile number"
@@ -974,9 +974,9 @@ private fun RegisterEntrySection(
             }
         }
 
-        Spacer(modifier = Modifier.height(52.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         OrDivider()
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1045,7 +1045,7 @@ private fun RegisterNameField(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(58.dp)
             .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF)),
         singleLine = true,
         shape = RoundedCornerShape(18.dp),
@@ -1068,22 +1068,22 @@ private fun RegisterNameField(
 private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .width(176.dp)
-            .height(138.dp),
+            .width(132.dp)
+            .height(92.dp),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(126.dp)
-                .clip(RoundedCornerShape(38.dp))
+                .size(82.dp)
+                .clip(RoundedCornerShape(28.dp))
                 .background(Color(0xFFEDE7FF).copy(alpha = 0.62f))
         )
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .size(84.dp)
-                .clip(RoundedCornerShape(26.dp))
+                .size(58.dp)
+                .clip(RoundedCornerShape(18.dp))
                 .background(Color(0xFF6D3DFF)),
             contentAlignment = Alignment.Center
         ) {
@@ -1091,14 +1091,14 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
                 imageVector = Icons.Default.Person,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
         Text(
             text = "✦",
             color = Color(0xFFFFB86B),
-            style = AppTypography.displayTitle.copy(fontSize = 22.sp),
-            modifier = Modifier.align(Alignment.CenterStart).offset(x = 36.dp)
+            style = AppTypography.displayTitle.copy(fontSize = 18.sp),
+            modifier = Modifier.align(Alignment.CenterStart).offset(x = 28.dp)
         )
     }
 }
@@ -1399,7 +1399,7 @@ private fun RegisterReferralCard(
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White)
             .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

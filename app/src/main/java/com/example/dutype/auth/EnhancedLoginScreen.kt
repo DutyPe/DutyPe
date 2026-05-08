@@ -663,7 +663,7 @@ private fun LoginPhoneEntrySection(
             )
         }
 
-        Spacer(modifier = Modifier.height(46.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             AuthMark(size = 54.dp)
@@ -679,7 +679,7 @@ private fun LoginPhoneEntrySection(
             )
         }
 
-        Spacer(modifier = Modifier.height(72.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
             text = if (isTelugu) "తిరిగి స్వాగతం 👋" else "Welcome back 👋",
@@ -708,7 +708,7 @@ private fun LoginPhoneEntrySection(
             Text(text = phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
         }
 
-        Spacer(modifier = Modifier.height(78.dp))
+        Spacer(modifier = Modifier.height(34.dp))
 
         Text(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
@@ -728,7 +728,7 @@ private fun LoginPhoneEntrySection(
             onFocused = onPhoneFocused
         )
 
-        Spacer(modifier = Modifier.height(34.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         AuthPrimaryButton(
             text = stringResource(R.string.continue_text),
@@ -737,11 +737,11 @@ private fun LoginPhoneEntrySection(
             onClick = onContinueClick
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         SecureOtpLine()
-        Spacer(modifier = Modifier.height(246.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         OrDivider()
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -827,14 +827,14 @@ internal fun AuthMark(size: androidx.compose.ui.unit.Dp = 52.dp) {
 internal fun LoginArtwork(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .width(190.dp)
-            .height(170.dp),
+            .width(150.dp)
+            .height(126.dp),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .size(138.dp)
+                .size(106.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFEDE7FF).copy(alpha = 0.52f))
         )
@@ -842,9 +842,9 @@ internal fun LoginArtwork(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = (-xOffset), y = (-34 + index * 4).dp)
-                    .width(22.dp)
-                    .height((48 + index * 18).dp)
+                    .offset(x = (-xOffset), y = (-26 + index * 4).dp)
+                    .width(18.dp)
+                    .height((36 + index * 14).dp)
                     .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                     .background(Color(0xFFD7CEF8).copy(alpha = 0.42f))
             )
@@ -855,8 +855,8 @@ internal fun LoginArtwork(modifier: Modifier = Modifier) {
             tint = Color(0xFF6D3DFF),
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .offset(x = (-32).dp, y = 12.dp)
-                .size(76.dp)
+                .offset(x = (-24).dp, y = 8.dp)
+                .size(58.dp)
         )
     }
 }
@@ -872,7 +872,7 @@ internal fun AuthPhoneEntryField(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(58.dp)
             .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
             .clip(RoundedCornerShape(18.dp))
             .background(Color.White)
@@ -882,7 +882,7 @@ internal fun AuthPhoneEntryField(
         Row(
             modifier = Modifier
                 .width(96.dp)
-                .height(66.dp)
+                .height(58.dp)
                 .clickable { }
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -900,14 +900,14 @@ internal fun AuthPhoneEntryField(
         Box(
             modifier = Modifier
                 .width(1.dp)
-                .height(66.dp)
+                .height(58.dp)
                 .background(Color(0xFFE5E7F0))
         )
 
         Row(
             modifier = Modifier
                 .weight(1f)
-                .height(66.dp)
+                .height(58.dp)
                 .padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -966,7 +966,7 @@ internal fun AuthPrimaryButton(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(62.dp)
+            .height(56.dp)
             .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x2D4F28FF), spotColor = Color(0x2D4F28FF)),
         colors = ButtonDefaults.buttonColors(
             containerColor = if (enabled) Color(0xFF3D22F5) else Color(0xFFECEAF6),
