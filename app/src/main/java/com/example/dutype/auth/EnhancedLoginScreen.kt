@@ -33,13 +33,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -65,9 +71,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -242,13 +251,14 @@ private fun OtpLoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)  // White background for login screen
+            .background(Color(0xFFFCFBFF))
     ) {
+        AuthScreenBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 40.dp),
+                .padding(horizontal = 24.dp, vertical = 30.dp),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Top
         ) {
@@ -416,6 +426,32 @@ private fun PhoneInputSection(
         else ValidationUtils.getPhoneError(phoneNumber, true)
     }
 
+    LoginPhoneEntrySection(
+        phoneNumber = phoneNumber,
+        selectedCountryCode = selectedCountryCode,
+        phoneValidationError = phoneValidationError,
+        otpState = otpState,
+        isCheckingPhone = isCheckingPhone,
+        isTelugu = isTelugu,
+        onPhoneNumberChange = { newValue ->
+            hasInteracted = true
+            onPhoneNumberChange(newValue)
+        },
+        onPhoneFocused = {
+            if (!hasRequestedPhoneHint && phoneNumber.isBlank()) {
+                hasRequestedPhoneHint = true
+                requestPhoneNumberHint()
+            }
+        },
+        onContinueClick = {
+            Timber.d("📱 Login - Continue button clicked")
+            onContinueClick()
+        },
+        onBackClick = onBackClick,
+        onRegisterClick = onRegisterClick
+    )
+    return
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -582,6 +618,431 @@ private fun PhoneInputSection(
         ) {
             com.example.dutype.components.ErrorCard(message = otpState.error)
         }
+    }
+}
+
+@Composable
+private fun LoginPhoneEntrySection(
+    phoneNumber: String,
+    selectedCountryCode: String,
+    phoneValidationError: String?,
+    otpState: com.example.dutype.viewmodels.OtpState,
+    isCheckingPhone: Boolean,
+    isTelugu: Boolean,
+    onPhoneNumberChange: (String) -> Unit,
+    onPhoneFocused: () -> Unit,
+    onContinueClick: () -> Unit,
+    onBackClick: () -> Unit,
+    onRegisterClick: () -> Unit
+) {
+    val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = (-12).dp)
+                    .size(42.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = if (isTelugu) "వెనక్కి" else "Back",
+                    tint = Color(0xFF071735)
+                )
+            }
+
+            LoginArtwork(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 14.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(46.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AuthMark(size = 54.dp)
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = "DutyPe",
+                style = AppTypography.displayTitle.copy(
+                    fontSize = 28.sp,
+                    lineHeight = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF071735)
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(72.dp))
+
+        Text(
+            text = if (isTelugu) "తిరిగి స్వాగతం 👋" else "Welcome back 👋",
+            style = AppTypography.displayTitle.copy(
+                fontSize = 30.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF071735)
+            ),
+            textAlign = TextAlign.Start
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = if (isTelugu) "సమీప ఉద్యోగాలను వెంటనే కనుగొనండి" else "Find nearby jobs instantly",
+            style = AppTypography.bodyLarge.copy(
+                color = Color(0xFF5B6474),
+                lineHeight = 24.sp
+            ),
+            textAlign = TextAlign.Start
+        )
+
+        if (phoneValidationError != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
+        }
+
+        Spacer(modifier = Modifier.height(78.dp))
+
+        Text(
+            text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
+            style = AppTypography.bodyLarge.copy(
+                color = Color(0xFF475569),
+                fontWeight = FontWeight.Medium
+            )
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        AuthPhoneEntryField(
+            phoneNumber = phoneNumber,
+            onPhoneNumberChange = onPhoneNumberChange,
+            selectedCountryCode = selectedCountryCode,
+            hasError = phoneValidationError != null,
+            onFocused = onPhoneFocused
+        )
+
+        Spacer(modifier = Modifier.height(34.dp))
+
+        AuthPrimaryButton(
+            text = stringResource(R.string.continue_text),
+            enabled = buttonEnabled,
+            isLoading = isCheckingPhone || otpState.isLoading,
+            onClick = onContinueClick
+        )
+
+        Spacer(modifier = Modifier.height(30.dp))
+        SecureOtpLine()
+        Spacer(modifier = Modifier.height(246.dp))
+        OrDivider()
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isTelugu) "ఖాతా లేదా? " else "Don't have an account? ",
+                style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+            )
+            TextButton(
+                onClick = onRegisterClick,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    text = if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now",
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF255CEB))
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = Color(0xFF255CEB),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = otpState.error != null,
+            enter = slideInVertically() + fadeIn(),
+            exit = slideOutVertically() + fadeOut()
+        ) {
+            com.example.dutype.components.ErrorCard(message = otpState.error)
+        }
+    }
+}
+
+@Composable
+internal fun AuthScreenBackdrop() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 44.dp, y = 76.dp)
+                .size(196.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEDE7FF).copy(alpha = 0.34f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = (-26).dp, y = 260.dp)
+                .size(78.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF4F0FF).copy(alpha = 0.58f))
+        )
+    }
+}
+
+@Composable
+internal fun AuthMark(size: androidx.compose.ui.unit.Dp = 52.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(size / 3))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF8A4CFF), Color(0xFF4E24F5))
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.44f)
+        )
+    }
+}
+
+@Composable
+internal fun LoginArtwork(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(190.dp)
+            .height(170.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(138.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEDE7FF).copy(alpha = 0.52f))
+        )
+        listOf(22.dp, 52.dp, 84.dp).forEachIndexed { index, xOffset ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-xOffset), y = (-34 + index * 4).dp)
+                    .width(22.dp)
+                    .height((48 + index * 18).dp)
+                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                    .background(Color(0xFFD7CEF8).copy(alpha = 0.42f))
+            )
+        }
+        Icon(
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = null,
+            tint = Color(0xFF6D3DFF),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .offset(x = (-32).dp, y = 12.dp)
+                .size(76.dp)
+        )
+    }
+}
+
+@Composable
+internal fun AuthPhoneEntryField(
+    phoneNumber: String,
+    onPhoneNumberChange: (String) -> Unit,
+    selectedCountryCode: String,
+    hasError: Boolean,
+    onFocused: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(66.dp)
+            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .border(1.dp, if (hasError) WorkerColors.Error else Color(0xFFE5E7F0), RoundedCornerShape(18.dp)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .width(96.dp)
+                .height(66.dp)
+                .clickable { }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = "🇮🇳", fontSize = 22.sp, fontFamily = MeeshoFontFamily)
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Color(0xFF1E293B),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(66.dp)
+                .background(Color(0xFFE5E7F0))
+        )
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .height(66.dp)
+                .padding(horizontal = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = selectedCountryCode,
+                style = AppTypography.bodyLarge.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF071735)
+                )
+            )
+            Spacer(modifier = Modifier.width(22.dp))
+            BasicTextField(
+                value = phoneNumber,
+                onValueChange = { newValue ->
+                    onPhoneNumberChange(newValue.filter { it.isDigit() }.take(10))
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) onFocused()
+                    },
+                singleLine = true,
+                textStyle = AppTypography.bodyLarge.copy(
+                    fontSize = 18.sp,
+                    color = Color(0xFF071735),
+                    fontWeight = FontWeight.Medium
+                ),
+                cursorBrush = SolidColor(Color(0xFF5B2DFF)),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                decorationBox = { innerTextField ->
+                    if (phoneNumber.isBlank()) {
+                        Text(
+                            text = "98765 43210",
+                            style = AppTypography.bodyLarge.copy(
+                                fontSize = 18.sp,
+                                color = Color(0xFF9CA3AF)
+                            )
+                        )
+                    }
+                    innerTextField()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+internal fun AuthPrimaryButton(
+    text: String,
+    enabled: Boolean,
+    isLoading: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(62.dp)
+            .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x2D4F28FF), spotColor = Color(0x2D4F28FF)),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (enabled) Color(0xFF3D22F5) else Color(0xFFECEAF6),
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFFECEAF6),
+            disabledContentColor = Color(0xFF8A94A6)
+        ),
+        shape = RoundedCornerShape(18.dp),
+        enabled = enabled
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.2.dp, modifier = Modifier.size(22.dp))
+        } else {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = text,
+                    style = AppTypography.buttonLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(30.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SecureOtpLine(text: String = "Secure OTP Login") {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Security,
+            contentDescription = null,
+            tint = Color(0xFF6D3DFF),
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = text,
+            style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+        )
+    }
+}
+
+@Composable
+internal fun OrDivider(label: String = "or") {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(Color(0xFFE8E8EF))
+        )
+        Text(
+            text = label,
+            style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B)),
+            modifier = Modifier.padding(horizontal = 22.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .background(Color(0xFFE8E8EF))
+        )
     }
 }
 

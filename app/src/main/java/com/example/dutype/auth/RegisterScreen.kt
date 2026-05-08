@@ -33,15 +33,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -64,6 +67,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
@@ -257,13 +262,14 @@ private fun RegisterContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
+            .background(Color(0xFFFCFBFF))
     ) {
+        AuthScreenBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 40.dp),
+                .padding(horizontal = 24.dp, vertical = 30.dp),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Top
         ) {
@@ -441,6 +447,42 @@ private fun RegisterInputSection(
 
     var validatedReferralCode by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    RegisterEntrySection(
+        fullName = fullName,
+        onFullNameChange = onFullNameChange,
+        phoneNumber = phoneNumber,
+        onPhoneNumberChange = { newValue ->
+            hasPhoneInteracted = true
+            onPhoneNumberChange(newValue)
+        },
+        selectedCountryCode = selectedCountryCode,
+        phoneValidationError = phoneValidationError,
+        otpState = otpState,
+        isCheckingPhone = isCheckingPhone,
+        termsAccepted = termsAccepted,
+        onTermsToggle = onTermsToggle,
+        isTelugu = isTelugu,
+        onPhoneFocused = {
+            if (!hasRequestedPhoneHint && phoneNumber.isBlank()) {
+                hasRequestedPhoneHint = true
+                requestPhoneNumberHint()
+            }
+        },
+        onValidatedCodeChanged = { validatedReferralCode = it },
+        onCreateClick = {
+            Timber.d("📱 Register - Continue clicked, name=$fullName")
+            if (!validatedReferralCode.isNullOrBlank()) {
+                scope.launch {
+                    profileCompletionViewModel.saveReferralCode(validatedReferralCode!!)
+                }
+            }
+            onContinueClick()
+        },
+        onBackClick = onBackClick,
+        onLoginClick = onLoginClick
+    )
+    return
 
     Column(
         modifier = Modifier
@@ -739,6 +781,331 @@ private fun RegisterInputSection(
 }
 
 @Composable
+private fun RegisterEntrySection(
+    fullName: String,
+    onFullNameChange: (String) -> Unit,
+    phoneNumber: String,
+    onPhoneNumberChange: (String) -> Unit,
+    selectedCountryCode: String,
+    phoneValidationError: String?,
+    otpState: OtpState,
+    isCheckingPhone: Boolean,
+    termsAccepted: Boolean,
+    onTermsToggle: (Boolean) -> Unit,
+    isTelugu: Boolean,
+    onPhoneFocused: () -> Unit,
+    onValidatedCodeChanged: (String?) -> Unit,
+    onCreateClick: () -> Unit,
+    onBackClick: () -> Unit,
+    onLoginClick: () -> Unit
+) {
+    val nameValid = fullName.trim().length >= 2
+    val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
+    val buttonEnabled = nameValid && phoneValid && termsAccepted && !otpState.isLoading && !isCheckingPhone
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = (-12).dp)
+                    .size(42.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = if (isTelugu) "వెనక్కి" else "Back",
+                    tint = Color(0xFF071735)
+                )
+            }
+
+            RegisterShieldArtwork(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 12.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(84.dp))
+
+        Text(
+            text = if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account",
+            style = AppTypography.displayTitle.copy(
+                fontSize = 30.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF071735)
+            ),
+            textAlign = TextAlign.Start
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = if (isTelugu) "డ్యూటీపేలో వేలాది కార్మికులు మరియు యజమానులతో చేరండి" else "Join thousands of workers & employers on DutyPe",
+            style = AppTypography.bodyLarge.copy(
+                color = Color(0xFF5B6474),
+                lineHeight = 24.sp
+            ),
+            textAlign = TextAlign.Start
+        )
+
+        Spacer(modifier = Modifier.height(52.dp))
+
+        Text(
+            text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
+            style = AppTypography.bodyLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF071735)
+            )
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        RegisterNameField(
+            value = fullName,
+            isTelugu = isTelugu,
+            onValueChange = onFullNameChange
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
+            style = AppTypography.bodyLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF071735)
+            )
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        AuthPhoneEntryField(
+            phoneNumber = phoneNumber,
+            onPhoneNumberChange = onPhoneNumberChange,
+            selectedCountryCode = selectedCountryCode,
+            hasError = phoneValidationError != null,
+            onFocused = onPhoneFocused
+        )
+        if (phoneValidationError != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
+        }
+
+        Spacer(modifier = Modifier.height(26.dp))
+
+        RegisterReferralSection(
+            isTelugu = isTelugu,
+            onValidatedCodeChanged = onValidatedCodeChanged
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .minAuthCardHeight(64.dp)
+                .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White)
+                .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
+                .clickable { onTermsToggle(!termsAccepted) }
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = termsAccepted,
+                onCheckedChange = onTermsToggle,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFF6D3DFF),
+                    uncheckedColor = Color(0xFFB9B7CA),
+                    checkmarkColor = Color.White
+                )
+            )
+            Text(
+                text = buildAnnotatedString {
+                    append(if (isTelugu) "నేను ఈ వాటికి అంగీకరిస్తున్నాను: " else "I agree to the ")
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF5D35E8))) {
+                        append(if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service")
+                    }
+                    append(if (isTelugu) " మరియు " else " and ")
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF5D35E8))) {
+                        append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
+                    }
+                },
+                style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B), lineHeight = 20.sp),
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        AuthPrimaryButton(
+            text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
+            enabled = buttonEnabled,
+            isLoading = isCheckingPhone || otpState.isLoading,
+            onClick = onCreateClick
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        SecureOtpLine(text = if (isTelugu) "మీ డేటా మా దగ్గర సురక్షితం" else "Your data is safe with us")
+
+        if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
+            Spacer(modifier = Modifier.height(24.dp))
+            val hint = when {
+                fullName.trim().length < 2 -> if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి (కనీసం 2 అక్షరాలు)" else "Enter your full name (at least 2 characters)"
+                !phoneValid -> if (isTelugu) "చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Enter a valid 10-digit mobile number"
+                !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
+                else -> null
+            }
+            if (hint != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "✦", color = Color(0xFF8B5CF6), style = AppTypography.bodyLarge)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = hint,
+                        style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B)),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(52.dp))
+        OrDivider()
+        Spacer(modifier = Modifier.height(22.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
+                style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+            )
+            TextButton(
+                onClick = onLoginClick,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    text = if (isTelugu) "లాగిన్" else "Login",
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF255CEB))
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = Color(0xFF255CEB),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = otpState.error != null,
+            enter = slideInVertically() + fadeIn(),
+            exit = slideOutVertically() + fadeOut()
+        ) {
+            com.example.dutype.components.ErrorCard(message = otpState.error)
+        }
+    }
+}
+
+@Composable
+private fun RegisterNameField(
+    value: String,
+    isTelugu: Boolean,
+    onValueChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { newValue ->
+            val filtered = newValue.filter { it.isLetter() || it == ' ' || it == '.' }.take(50)
+            onValueChange(filtered)
+        },
+        placeholder = {
+            Text(
+                if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name",
+                style = AppTypography.bodyLarge.copy(color = Color(0xFF8A94A6))
+            )
+        },
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF1EDFF)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF6D3DFF))
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(66.dp)
+            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF)),
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color(0xFF6D3DFF),
+            unfocusedBorderColor = Color(0xFFE5E7F0),
+            cursorColor = Color(0xFF6D3DFF),
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White
+        ),
+        textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = Color(0xFF071735)),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Text,
+            capitalization = KeyboardCapitalization.Words
+        )
+    )
+}
+
+@Composable
+private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(176.dp)
+            .height(138.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(126.dp)
+                .clip(RoundedCornerShape(38.dp))
+                .background(Color(0xFFEDE7FF).copy(alpha = 0.62f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(84.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(Color(0xFF6D3DFF)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(38.dp)
+            )
+        }
+        Text(
+            text = "✦",
+            color = Color(0xFFFFB86B),
+            style = AppTypography.displayTitle.copy(fontSize = 22.sp),
+            modifier = Modifier.align(Alignment.CenterStart).offset(x = 36.dp)
+        )
+    }
+}
+
+private fun Modifier.minAuthCardHeight(height: androidx.compose.ui.unit.Dp): Modifier = this.height(height)
+
+@Composable
 private fun RegisterReferralSection(
     isTelugu: Boolean,
     onValidatedCodeChanged: (String?) -> Unit
@@ -751,6 +1118,68 @@ private fun RegisterReferralSection(
     var isValidatingCode by remember { mutableStateOf(false) }
     var codeValidationError by remember { mutableStateOf<String?>(null) }
     var validatedReferrerName by remember { mutableStateOf<String?>(null) }
+
+    RegisterReferralCard(
+        isTelugu = isTelugu,
+        showReferralInput = showReferralInput,
+        referralCode = referralCode,
+        isValidatingCode = isValidatingCode,
+        codeValidationError = codeValidationError,
+        validatedReferrerName = validatedReferrerName,
+        onToggle = { showReferralInput = !showReferralInput },
+        onCodeChange = { newValue ->
+            val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
+            referralCode = filtered
+            codeValidationError = null
+            validatedReferrerName = null
+            onValidatedCodeChanged(null)
+        },
+        onClear = {
+            referralCode = ""
+            codeValidationError = null
+            validatedReferrerName = null
+            onValidatedCodeChanged(null)
+        },
+        onVerify = {
+            if (referralCode.length >= 7) {
+                isValidatingCode = true
+                scope.launch {
+                    try {
+                        val referralService = com.example.dutype.di.referralServiceFromHilt(context)
+                        val validation = referralService.validateReferralCode(referralCode)
+                        isValidatingCode = false
+                        if (validation.isValid) {
+                            val normalizedCode = com.example.dutype.models.normalizeReferralCode(referralCode)
+                            validatedReferrerName = validation.referrerName
+                            codeValidationError = null
+                            onValidatedCodeChanged(normalizedCode)
+                            Toast.makeText(
+                                context,
+                                if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            codeValidationError = validation.errorMessage
+                            validatedReferrerName = null
+                            onValidatedCodeChanged(null)
+                            Toast.makeText(
+                                context,
+                                validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: Exception) {
+                        isValidatingCode = false
+                        codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
+                        validatedReferrerName = null
+                        onValidatedCodeChanged(null)
+                        Timber.e(e, "🎁 REFERRAL: Validation error")
+                    }
+                }
+            }
+        }
+    )
+    return
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -945,6 +1374,193 @@ private fun RegisterReferralSection(
                     if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
                     style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegisterReferralCard(
+    isTelugu: Boolean,
+    showReferralInput: Boolean,
+    referralCode: String,
+    isValidatingCode: Boolean,
+    codeValidationError: String?,
+    validatedReferrerName: String?,
+    onToggle: () -> Unit,
+    onCodeChange: (String) -> Unit,
+    onClear: () -> Unit,
+    onVerify: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF1EDFF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "✤", color = Color(0xFF6D3DFF), style = AppTypography.displayTitle.copy(fontSize = 20.sp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+                    style = AppTypography.bodyLarge.copy(
+                        color = Color(0xFF071735),
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+
+            TextButton(
+                onClick = onToggle,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text(
+                    text = if (showReferralInput) {
+                        if (isTelugu) "దాచు" else "Hide"
+                    } else {
+                        if (isTelugu) "కోడ్ నమోదు" else "Enter Code"
+                    },
+                    style = AppTypography.bodyLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF255CEB)
+                    )
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = Color(0xFF255CEB),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = showReferralInput,
+            enter = slideInVertically(initialOffsetY = { -20 }, animationSpec = tween(300)) + fadeIn(tween(300)),
+            exit = slideOutVertically(targetOffsetY = { -20 }, animationSpec = tween(300)) + fadeOut(tween(300))
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    OutlinedTextField(
+                        value = referralCode,
+                        onValueChange = onCodeChange,
+                        placeholder = {
+                            Text(
+                                if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
+                                style = AppTypography.bodyMedium.copy(color = Color(0xFF8A94A6))
+                            )
+                        },
+                        trailingIcon = {
+                            when {
+                                isValidatingCode -> CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF6D3DFF)
+                                )
+                                validatedReferrerName != null -> Icon(
+                                    Icons.Filled.CheckCircle,
+                                    contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
+                                    tint = WorkerColors.Success,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                referralCode.isNotEmpty() -> IconButton(onClick = onClear) {
+                                    Icon(
+                                        painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
+                                        contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
+                                        tint = WorkerColors.IconSecondary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        singleLine = true,
+                        isError = codeValidationError != null && referralCode.length >= 7,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = when {
+                                validatedReferrerName != null -> WorkerColors.Success
+                                codeValidationError != null -> WorkerColors.Error
+                                else -> Color(0xFF6D3DFF)
+                            },
+                            unfocusedBorderColor = when {
+                                validatedReferrerName != null -> WorkerColors.Success
+                                codeValidationError != null -> WorkerColors.Error
+                                else -> Color(0xFFE5E7F0)
+                            },
+                            cursorColor = Color(0xFF6D3DFF),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            capitalization = KeyboardCapitalization.None
+                        )
+                    )
+
+                    Button(
+                        onClick = onVerify,
+                        modifier = Modifier.height(56.dp),
+                        enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF255CEB),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFECEAF6),
+                            disabledContentColor = Color(0xFF8A94A6)
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        if (isValidatingCode) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                        } else {
+                            Text(
+                                text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
+                                style = AppTypography.buttonMedium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                when {
+                    validatedReferrerName != null -> Text(
+                        if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
+                        style = AppTypography.caption.copy(color = WorkerColors.Success)
+                    )
+                    codeValidationError != null && referralCode.length >= 7 -> Text(
+                        codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                        style = AppTypography.caption.copy(color = WorkerColors.Error)
+                    )
+                    else -> Text(
+                        if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
+                        style = AppTypography.caption.copy(color = Color(0xFF64748B))
+                    )
+                }
             }
         }
     }

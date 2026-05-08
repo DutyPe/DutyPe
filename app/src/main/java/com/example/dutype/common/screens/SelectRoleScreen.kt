@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,7 +36,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Card
@@ -53,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -63,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -210,12 +216,14 @@ fun SelectRoleScreen(
         }
     }
 
+    val roleAccent = Color(0xFF6C3BFF)
+    val employerAccent = Color(0xFF22C55E)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color(0xFFFBFAFF))
     ) {
-        // Clean backdrop with a restrained vertical wash for first-run focus.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -223,23 +231,24 @@ fun SelectRoleScreen(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFFFFFFFF),
-                            WorkerColors.ScreenBackground
+                            Color(0xFFFBFAFF),
+                            Color(0xFFF8F7FF)
                         )
                     )
                 )
         )
+        SelectRoleDecorations()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp, vertical = 22.dp),
+            horizontalAlignment = Alignment.Start
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(34.dp))
 
-            // Animated Header - Fast entrance
             AnimatedVisibility(
                 visible = isVisible,
                 enter = slideInVertically(
@@ -247,35 +256,22 @@ fun SelectRoleScreen(
                     animationSpec = tween(300, easing = FastOutSlowInEasing)
                 ) + fadeIn(tween(300))
             ) {
-                Text(
-                    text = stringResource(R.string.how_can_we_help),
-                    style = AppTypography.displayTitle.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary
-                    ),
-                    textAlign = TextAlign.Center
-                )
+                RoleHero()
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(tween(320, delayMillis = 60))
             ) {
-                Text(
-                    text = "Choose your path. You can switch roles anytime.",
-                    style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                RoleTrustLine()
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Animated Cards at bottom
             AnimatedVisibility(
                 visible = isVisible,
                 enter = slideInVertically(
@@ -288,15 +284,15 @@ fun SelectRoleScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp)
+                        .padding(bottom = 16.dp)
                 ) {
-                    // Worker Role
                     RoleCard(
                         icon = Icons.Default.WorkOutline,
                         title = stringResource(R.string.worker),
                         subtitle = stringResource(R.string.find_jobs_earn),
-                        primaryColor = WorkerColors.Primary,
-                        containerColor = WorkerColors.PrimaryLight,
+                        description = "Explore daily jobs and grow your income",
+                        primaryColor = Color(0xFF1268F3),
+                        containerColor = Color(0xFFEAF1FF),
                         delay = 50,
                         onClick = {
                             Timber.d("🔍 Worker role selected")
@@ -311,13 +307,13 @@ fun SelectRoleScreen(
                         }
                     )
 
-                    // Employer Role
                     RoleCard(
                         icon = Icons.Default.Business,
                         title = stringResource(R.string.employer),
                         subtitle = stringResource(R.string.hire_skilled_workers),
-                        primaryColor = Color(0xFF0EA5E9),
-                        containerColor = Color(0xFFE0F2FE),
+                        description = "Find reliable workers for your business",
+                        primaryColor = employerAccent,
+                        containerColor = Color(0xFFEAFBF1),
                         delay = 150,
                         onClick = {
                             Timber.d("🔍 Employer role selected")
@@ -331,6 +327,9 @@ fun SelectRoleScreen(
                             }
                         }
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    SafeSecurePill()
                 }
             }
         }
@@ -343,6 +342,7 @@ fun RoleCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    description: String,
     primaryColor: Color,
     containerColor: Color,
     delay: Int,
@@ -374,7 +374,7 @@ fun RoleCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(112.dp)
+                .height(132.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -386,54 +386,77 @@ fun RoleCard(
                     onClick()
                 },
             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(22.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 1.dp,
+                defaultElevation = 5.dp,
                 pressedElevation = 0.dp
             ),
-            border = androidx.compose.foundation.BorderStroke(
+            border = BorderStroke(
                 width = 1.dp,
-                color = WorkerColors.Border
+                color = Color(0xFFF0EDF9)
             )
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Icon Container - Minimal and clean
+            Box(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
-                        .size(58.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .align(Alignment.BottomEnd)
+                        .fillMaxWidth(0.56f)
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(topStart = 100.dp, bottomEnd = 22.dp))
+                        .background(containerColor.copy(alpha = 0.72f))
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .shadow(10.dp, RoundedCornerShape(20.dp), ambientColor = primaryColor.copy(alpha = 0.12f), spotColor = primaryColor.copy(alpha = 0.12f))
+                        .clip(RoundedCornerShape(20.dp))
                         .background(containerColor)
-                        .border(1.dp, primaryColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp)),
+                        .border(1.dp, primaryColor.copy(alpha = 0.10f), RoundedCornerShape(20.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
                         tint = primaryColor,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(18.dp))
 
-                // Text Content - Clean typography
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = AppTypography.cardTitle.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = WorkerColors.TextPrimary
+                        style = AppTypography.displayTitle.copy(
+                            fontSize = 22.sp,
+                            lineHeight = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
                         )
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = subtitle,
-                        style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                        style = AppTypography.bodyLarge.copy(
+                            color = primaryColor,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 21.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(
+                        text = description,
+                        style = AppTypography.bodyMedium.copy(
+                            color = Color(0xFF586174),
+                            lineHeight = 20.sp
+                        )
                     )
                 }
 
@@ -441,21 +464,300 @@ fun RoleCard(
 
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
-                        .background(WorkerColors.ChipBackground)
-                        .border(1.dp, WorkerColors.Border, CircleShape),
+                        .background(primaryColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = WorkerColors.IconPrimary,
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
                     )
+                }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SelectRoleDecorations() {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 50.dp, y = 56.dp)
+                .size(210.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEDE7FF).copy(alpha = 0.42f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = (-24).dp, y = 336.dp)
+                .size(40.dp)
+                .clip(RoundedCornerShape(topEnd = 40.dp))
+                .background(Color(0xFF7C5CFF).copy(alpha = 0.34f))
+        )
+    }
+}
+
+@Composable
+private fun RoleHero() {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.62f)
+                .padding(top = 48.dp)
+        ) {
+            SmallBrandSpark()
+            Spacer(modifier = Modifier.height(26.dp))
+            Text(
+                text = "How can we help",
+                style = AppTypography.displayTitle.copy(
+                    fontSize = 32.sp,
+                    lineHeight = 38.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF071735)
+                )
+            )
+            Text(
+                text = "you today?",
+                style = AppTypography.displayTitle.copy(
+                    fontSize = 32.sp,
+                    lineHeight = 38.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF6738F7)
+                )
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            Text(
+                text = "Choose your path. You can switch roles anytime.",
+                style = AppTypography.bodyLarge.copy(
+                    color = Color(0xFF586174),
+                    lineHeight = 24.sp
+                )
+            )
+        }
+
+        HeroPeopleIllustration(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 94.dp)
+        )
+    }
+}
+
+@Composable
+private fun SmallBrandSpark() {
+    Box(
+        modifier = Modifier
+            .size(54.dp)
+            .shadow(12.dp, CircleShape, ambientColor = Color(0x1A6D3CFF), spotColor = Color(0x1A6D3CFF))
+            .clip(CircleShape)
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "+",
+            style = AppTypography.displayTitle.copy(
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6C3BFF)
+            )
+        )
+    }
+}
+
+@Composable
+private fun HeroPeopleIllustration(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(178.dp)
+            .height(210.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(172.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEDE7FF).copy(alpha = 0.58f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
+                .width(116.dp)
+                .height(92.dp)
+        ) {
+            listOf(16.dp, 45.dp, 76.dp).forEachIndexed { index, xOffset ->
+                Box(
+                    modifier = Modifier
+                        .offset(x = xOffset, y = (44 - index * 10).dp)
+                        .width(22.dp)
+                        .height((38 + index * 12).dp)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .background(Color(0xFFCFC6F8).copy(alpha = 0.36f))
+                )
+            }
+        }
+
+        PersonFigure(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = 10.dp),
+            shirtColor = Color(0xFF2563EB),
+            headColor = Color(0xFFFFD7B5),
+            accentColor = Color(0xFF1E40AF),
+            isWorker = true
+        )
+        PersonFigure(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = (-8).dp, y = 4.dp),
+            shirtColor = Color(0xFFB895F6),
+            headColor = Color(0xFFFFDCC6),
+            accentColor = Color(0xFF6D28D9),
+            isWorker = false
+        )
+    }
+}
+
+@Composable
+private fun PersonFigure(
+    modifier: Modifier,
+    shirtColor: Color,
+    headColor: Color,
+    accentColor: Color,
+    isWorker: Boolean
+) {
+    Box(
+        modifier = modifier
+            .width(84.dp)
+            .height(132.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .width(54.dp)
+                .height(74.dp)
+                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
+                .background(shirtColor)
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 26.dp)
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(headColor)
+        )
+        if (isWorker) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = 18.dp)
+                    .width(50.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 8.dp, bottomEnd = 8.dp))
+                    .background(accentColor)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = 6.dp, y = (-18).dp)
+                    .width(18.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF1F2937))
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = 24.dp)
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2F1F3A).copy(alpha = 0.78f))
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = 32.dp)
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(headColor)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = (-6).dp, y = (-20).dp)
+                    .width(24.dp)
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF334155))
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoleTrustLine() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "✦",
+            style = AppTypography.displayTitle.copy(fontSize = 24.sp, color = Color(0xFF8B5CF6))
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Join thousands of users finding\nopportunities every day",
+            style = AppTypography.bodyLarge.copy(
+                color = Color(0xFF334155),
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 23.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "✦",
+            style = AppTypography.displayTitle.copy(fontSize = 24.sp, color = Color(0xFF8B5CF6))
+        )
+    }
+}
+
+@Composable
+private fun SafeSecurePill() {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFF5F1FF))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Security,
+            contentDescription = null,
+            tint = Color(0xFF6D3DFF),
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Safe • Secure • Trusted by 1L+ users",
+            style = AppTypography.bodyMedium.copy(
+                color = Color(0xFF475569),
+                fontWeight = FontWeight.Medium
+            )
+        )
     }
 }
 
