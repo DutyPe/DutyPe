@@ -803,7 +803,7 @@
     <string name="refer_free_posts_available">%1$d posts available</string>
     <string name="refer_expires_date">Expires: %1$s</string>
     <string name="refer_step_2">They sign up using your code</string>
-    <string name="refer_step_3">You earn Rs.25 and they earn Rs.25 instantly</string>
+    <string name="refer_step_3">You earn Rs.20 and they earn Rs.20 instantly</string>
     <string name="refer_reward_per_referral">You earn ₹%1$d for every successful referral</string>
     <string name="refer_reward_friend_bonus">Your friend gets an instant ₹%1$d signup bonus</string>
     <string name="refer_reward_15">15 referrals: Rs.150 milestone bonus</string>
