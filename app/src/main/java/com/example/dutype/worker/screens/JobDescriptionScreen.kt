@@ -1166,9 +1166,12 @@ private fun JobDetailsContent(
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             // Location on one line
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
                                 Text(
                                     "Location:", 
                                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -1179,10 +1182,12 @@ private fun JobDetailsContent(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     displayLocation.ifBlank { "Not specified" },
+                                    modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.SemiBold, 
                                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    )
+                                    ),
+                                    softWrap = true
                                 )
                             }
                             // Distance on next line
@@ -1482,7 +1487,7 @@ private fun JobDetailsContent(
 
 @Composable
 private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Icon(
             icon, 
             null, 
@@ -1499,11 +1504,13 @@ private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, val
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            value, 
+            value,
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold, 
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-            )
+            ),
+            softWrap = true
         )
     }
 }

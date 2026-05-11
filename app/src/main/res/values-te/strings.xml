@@ -838,7 +838,7 @@
     <string name="refer_friend_bonus_earned">స్నేహితుడి బోనస్: Rs.%1$s</string>
     <string name="refer_share_friend_bonus">ఈ కోడ్ షేర్ చేయండి → స్నేహితుడికి ₹%1$d బోనస్!</string>
     <string name="refer_default_user_name">వాడకం</string>
-<string name="recent_transactions">ఇటీవల లావదేవీలు</string>
+    <string name="recent_transactions">ఇటీవల లావదేవీలు</string>
     <string name="total_earnings_label">మొత్తం సంపాదన</string>
     <string name="pending_label">పెండింగ్</string>
     <string name="weekly_earnings">వారపు సంపాదన</string>

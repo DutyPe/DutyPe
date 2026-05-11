@@ -3,6 +3,7 @@ package com.example.dutype
 import android.content.Context
 import android.content.Intent
 import android.app.NotificationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -74,7 +75,11 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+    private companion object {
+        private const val ACTION_FCM_OPEN_ACTIVITY = "OPEN_ACTIVITY"
+        private const val ACTION_FCM_FLUTTER_CLICK = "FLUTTER_NOTIFICATION_CLICK"
+    }
+
     // Create NotificationPermissionManager at the activity level
     private lateinit var notificationPermissionManager: NotificationPermissionManager
 
@@ -182,7 +187,9 @@ class MainActivity : ComponentActivity() {
         )
         
         super.onCreate(savedInstanceState)
-        cancelTappedSystemNotification(intent)
+        val launchIntent = normalizeNotificationLaunchIntent(intent)
+        launchIntent?.let(::setIntent)
+        cancelTappedSystemNotification(launchIntent)
         
         // Initialize Timber for logging (if not already initialized in Application class)
         if (Timber.treeCount == 0) {
@@ -193,13 +200,13 @@ class MainActivity : ComponentActivity() {
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${appVersionName()}")
         Timber.d("Build variant: ${buildVariantName()}")
-        logNotificationTapTelemetry(source = "on_create", sourceIntent = intent)
+        logNotificationTapTelemetry(source = "on_create", sourceIntent = launchIntent)
         
         // Log notification intent if present
-        if (intent?.getBooleanExtra("from_notification", false) == true) {
+        if (launchIntent?.getBooleanExtra("from_notification", false) == true) {
             Timber.i("📱 App opened from notification")
-            Timber.d("Notification type: ${intent?.getStringExtra("notification_type")}")
-            Timber.d("Deep link: ${intent?.data}")
+            Timber.d("Notification type: ${launchIntent.getStringExtra("notification_type")}")
+            Timber.d("Deep link: ${launchIntent.data}")
         }
 
         // Create NotificationPermissionManager before setContent
@@ -339,9 +346,9 @@ class MainActivity : ComponentActivity() {
                                 // the start destination and is ready to render content.
                                 keepSplashOnScreen = false
                             },
-                            notificationData = intent.extras?.getString("notificationId"),
+                            notificationData = launchIntent?.extras?.getString("notificationId"),
                             notificationPermissionManager = notificationPermissionManager,
-                            notificationIntent = intent
+                            notificationIntent = launchIntent
                         )
 
                         // Compose-side animated splash overlay. The platform
@@ -400,33 +407,66 @@ class MainActivity : ComponentActivity() {
      * INDUSTRY STANDARD: This is how LinkedIn, Instagram, Uber handle deep links
      */
     override fun onNewIntent(newIntent: Intent) {
-        super.onNewIntent(newIntent)
-        setIntent(newIntent) // CRITICAL: Update the activity's intent
-        cancelTappedSystemNotification(newIntent)
-        logNotificationTapTelemetry(source = "on_new_intent", sourceIntent = newIntent)
+        val normalizedIntent = normalizeNotificationLaunchIntent(newIntent) ?: newIntent
+        super.onNewIntent(normalizedIntent)
+        setIntent(normalizedIntent) // CRITICAL: Update the activity's intent
+        cancelTappedSystemNotification(normalizedIntent)
+        logNotificationTapTelemetry(source = "on_new_intent", sourceIntent = normalizedIntent)
         
         Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
         Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
         Timber.d("🔗 DEEP LINK: Intent action = ${newIntent.action}")
         
         // Log notification intent if present
-        if (newIntent.getBooleanExtra("from_notification", false)) {
+        if (normalizedIntent.getBooleanExtra("from_notification", false)) {
             Timber.i("🔗 DEEP LINK: New intent from notification")
             Timber.d("🔗 DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
         }
         
         // Dispatch deep links to the active navigation graph without recreating the activity.
         // This avoids a full UI rebuild while still handling notification taps reliably.
-        val deepLinkUri = newIntent.data
+        val deepLinkUri = normalizedIntent.data
         if (deepLinkUri != null) {
             Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
             // P2-4: Emit through DeepLinkBus instead of LocalBroadcastManager.
             // MainNavGraph collects this flow inside a LaunchedEffect.
             deepLinkBus.emit(deepLinkUri)
-            logNotificationTapTelemetry(source = "deeplink_dispatched", sourceIntent = newIntent)
+            logNotificationTapTelemetry(source = "deeplink_dispatched", sourceIntent = normalizedIntent)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }
+    }
+
+    private fun normalizeNotificationLaunchIntent(sourceIntent: Intent?): Intent? {
+        if (sourceIntent == null) return null
+
+        val deepLink = sourceIntent.data?.toString().orEmpty()
+            .ifBlank { sourceIntent.getStringExtra("notification_deep_link").orEmpty() }
+            .ifBlank { sourceIntent.getStringExtra("deepLink").orEmpty() }
+            .ifBlank { sourceIntent.getStringExtra("link").orEmpty() }
+
+        val isNotificationLaunch =
+            sourceIntent.getBooleanExtra("from_notification", false) ||
+                sourceIntent.action == ACTION_FCM_OPEN_ACTIVITY ||
+                sourceIntent.action == ACTION_FCM_FLUTTER_CLICK ||
+                sourceIntent.extras?.containsKey("google.message_id") == true ||
+                sourceIntent.extras?.containsKey("gcm.n.e") == true ||
+                deepLink.isNotBlank()
+
+        if (isNotificationLaunch) {
+            sourceIntent.putExtra("from_notification", true)
+        }
+
+        if (sourceIntent.data == null && deepLink.isNotBlank()) {
+            runCatching {
+                sourceIntent.data = Uri.parse(deepLink)
+                sourceIntent.putExtra("notification_deep_link", deepLink)
+            }.onFailure { error ->
+                Timber.w(error, "Failed to normalize notification deep link: $deepLink")
+            }
+        }
+
+        return sourceIntent
     }
 
     private fun cancelTappedSystemNotification(sourceIntent: Intent?) {

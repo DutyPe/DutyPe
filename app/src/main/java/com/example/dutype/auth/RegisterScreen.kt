@@ -731,8 +731,6 @@ private fun RegisterInputSection(
         if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
             Spacer(modifier = Modifier.height(6.dp))
             val hint = when {
-                fullName.trim().length < 2 -> if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి (కనీసం 2 అక్షరాలు)" else "Enter your full name (at least 2 characters)"
-                !phoneValid -> if (isTelugu) "చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Enter a valid 10-digit mobile number"
                 !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
                 else -> null
             }
@@ -952,8 +950,6 @@ private fun RegisterEntrySection(
         if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
             Spacer(modifier = Modifier.height(10.dp))
             val hint = when {
-                fullName.trim().length < 2 -> if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి (కనీసం 2 అక్షరాలు)" else "Enter your full name (at least 2 characters)"
-                !phoneValid -> if (isTelugu) "చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి" else "Enter a valid 10-digit mobile number"
                 !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
                 else -> null
             }

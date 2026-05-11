@@ -86,6 +86,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- FCM notification click actions used by existing backend payloads. -->
+            <intent-filter>
+                <action android:name="OPEN_ACTIVITY" />
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             
             <!-- Deep Link: dutype://job/{jobId}, dutype://worker/{id}, dutype://refer/{code}, etc. -->
             <intent-filter>

@@ -388,7 +388,7 @@ fun RoleCard(
             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
             shape = RoundedCornerShape(22.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 5.dp,
+                defaultElevation = 0.dp,
                 pressedElevation = 0.dp
             ),
             border = BorderStroke(
@@ -415,7 +415,6 @@ fun RoleCard(
                 Box(
                     modifier = Modifier
                         .size(72.dp)
-                        .shadow(10.dp, RoundedCornerShape(20.dp), ambientColor = primaryColor.copy(alpha = 0.12f), spotColor = primaryColor.copy(alpha = 0.12f))
                         .clip(RoundedCornerShape(20.dp))
                         .background(containerColor)
                         .border(1.dp, primaryColor.copy(alpha = 0.10f), RoundedCornerShape(20.dp)),
