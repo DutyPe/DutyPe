@@ -112,7 +112,7 @@ fun ReferralCodeInput(
         if (value.isEmpty() && validationResult == null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Use a referral code to unlock your Rs.25 signup bonus",
+                text = "Use a referral code to unlock your Rs.20 signup bonus",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF6B7280),
                 modifier = Modifier.padding(start = 16.dp)

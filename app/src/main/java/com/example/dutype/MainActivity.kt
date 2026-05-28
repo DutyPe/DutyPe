@@ -47,14 +47,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.ui.theme.LocalDarkMode
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
 import com.example.dutype.utils.InAppUpdateManager
@@ -70,7 +65,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -222,10 +216,11 @@ class MainActivity : ComponentActivity() {
                 if (FirebaseAuth.getInstance().currentUser == null) {
                     fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
+                    com.example.dutype.workers.GuestEngagementWorker.cancelAll(this@MainActivity)
                 } else {
                     fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    com.example.dutype.workers.GuestEngagementWorker.cancelAll(this@MainActivity)
+                    com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(this@MainActivity)
                 }
             }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
         }
@@ -304,8 +299,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // System bar color state
-                    var statusBarColor by remember { mutableStateOf(Color.White) } // White
+                    val darkTheme = LocalDarkMode.current
+                    var statusBarColor by remember { mutableStateOf(Color.White) }
+                    val effectiveStatusBarColor =
+                        if (darkTheme && statusBarColor == Color.White) MaterialTheme.colorScheme.background else statusBarColor
 
                     // PERF (Android best practice): do NOT call
                     // `enableEdgeToEdge` on every status-bar color change.
@@ -320,11 +317,13 @@ class MainActivity : ComponentActivity() {
                     // update the light/dark icon hint. This is what
                     // `SystemBarStyle.auto` does internally, minus the
                     // insets rebind.
-                    LaunchedEffect(statusBarColor) {
+                    LaunchedEffect(effectiveStatusBarColor, darkTheme) {
                         @Suppress("DEPRECATION")
-                        window.statusBarColor = Color.White.toArgb()
-                        WindowCompat.getInsetsController(window, window.decorView)
-                            .isAppearanceLightStatusBars = true
+                        window.statusBarColor = effectiveStatusBarColor.toArgb()
+                        WindowCompat.getInsetsController(window, window.decorView).apply {
+                            isAppearanceLightStatusBars = !darkTheme
+                            isAppearanceLightNavigationBars = !darkTheme
+                        }
                     }
                     
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -339,7 +338,7 @@ class MainActivity : ComponentActivity() {
                         MainNavGraph(
                             navController = navController,
                             onStatusBarColorChange = {
-                                statusBarColor = Color.White
+                                statusBarColor = it
                             },
                             onReady = {
                                 // Dismiss the system splash once MainNavGraph has resolved

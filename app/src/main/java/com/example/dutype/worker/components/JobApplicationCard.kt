@@ -188,7 +188,7 @@ fun JobApplicationCard(
                         Text(
                             text = application.jobTitle,
                             style = AppTypography.cardTitle.copy(
-                                color = Color(0xFF111827)
+                                color = WorkerColors.TextPrimary
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -198,7 +198,7 @@ fun JobApplicationCard(
                             Text(
                                 text = application.companyName,
                                 style = AppTypography.bodyMedium.copy(
-                                    color = Color(0xFF6B7280)
+                                    color = WorkerColors.TextSecondary
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -441,11 +441,11 @@ fun JobApplicationCard(
                         )
                     )
                     
-                    Icon(
-                        imageVector = if (isRatingSectionExpanded) 
-                            Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        Icon(
+                            imageVector = if (isRatingSectionExpanded) 
+                                Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                        tint = WorkerColors.IconSecondary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -586,6 +586,9 @@ private fun ApplicationTimeline(
     Box(
         modifier = modifier.padding(vertical = 4.dp)
     ) {
+        val connectorActiveColor = WorkerColors.TextPrimary
+        val connectorInactiveColor = WorkerColors.Border
+
         // Stepper content
         Row(
             modifier = Modifier.fillMaxWidth()
@@ -643,18 +646,18 @@ private fun ApplicationTimeline(
                 
                 val lineColor = when (index) {
                     0 -> {
-                        if (steps[1].isCompleted || steps[1].isCurrent) Color(0xFF1F2937)
-                        else Color(0xFFE5E7EB)
+                        if (steps[1].isCompleted || steps[1].isCurrent) connectorActiveColor
+                        else connectorInactiveColor
                     }
                     1 -> {
-                        if (steps[2].isCompleted || steps[2].isCurrent) Color(0xFF1F2937)
-                        else Color(0xFFE5E7EB)
+                        if (steps[2].isCompleted || steps[2].isCurrent) connectorActiveColor
+                        else connectorInactiveColor
                     }
                     2 -> {
-                        if (steps[3].isCompleted || steps[3].isCurrent) Color(0xFF1F2937)
-                        else Color(0xFFE5E7EB)
+                        if (steps[3].isCompleted || steps[3].isCurrent) connectorActiveColor
+                        else connectorInactiveColor
                     }
-                    else -> Color(0xFFE5E7EB)
+                    else -> connectorInactiveColor
                 }
                 
                 drawLine(
@@ -767,7 +770,7 @@ private fun StepIndicatorDot(
                         modifier = Modifier
                             .size(6.dp)
                             .background(
-                                Color(0xFF1F2937).copy(alpha = blinkAlpha), 
+                                WorkerColors.TextPrimary.copy(alpha = blinkAlpha), 
                                 CircleShape
                             )
                     )
@@ -778,7 +781,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color(0xFFE5E7EB), CircleShape)
+                        .background(WorkerColors.Border, CircleShape)
                 )
             }
         }

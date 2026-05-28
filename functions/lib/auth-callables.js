@@ -360,6 +360,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
     if (idem.hit)
         return idem.result;
     const phoneRoleRef = db().collection("phoneRoles").doc(phoneE164);
+    const userRef = db().collection("users").doc(uid);
     const profileRef = db()
         .collection(role === "WORKER" ? "worker_profiles" : "employer_profiles")
         .doc(uid);
@@ -412,6 +413,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         if (existing.profileImageUrl)
             profileData.profileImageUrl = existing.profileImageUrl;
         tx.set(profileRef, profileData, { merge: true });
+        tx.set(userRef, Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({ userId: uid, uid, phone: phoneE164, phoneNumber: phoneE164, fullName: profileData.fullName, name: profileData.fullName }, (role === "EMPLOYER" ? { companyName: profileData.companyName } : {})), { role, activeRole: role }), (profileData.referralCode ? { referralCode: profileData.referralCode } : {})), (profileData.referredByCode ? { referredByCode: profileData.referredByCode } : {})), (profileData.referredByUserId ? { referredByUserId: profileData.referredByUserId } : {})), (profileData.profileImageUrl ? { profileImageUrl: profileData.profileImageUrl } : {})), { createdAt: existing.createdAt || now, updatedAt: now }), { merge: true });
         tx.set(phoneRoleRef, {
             phoneNumber: phoneE164,
             uid,

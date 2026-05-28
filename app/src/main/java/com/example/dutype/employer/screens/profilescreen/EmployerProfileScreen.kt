@@ -209,17 +209,14 @@ fun EmployerProfileScreen(
                             )
                         }
 
-                        // TEMP: Dark mode picker disabled until the dark palette
-                        // is fully validated across all screens. Re-enable by
-                        // uncommenting this IconButton + the matching
-                        // ThemeModeBottomSheet block below, and by removing
-                        // the `darkTheme = false` override in dutypeTheme().
-                        // IconButton(onClick = { showThemeBottomSheet = true }) {
-                        //     androidx.compose.material3.Text(
-                        //         text = "\uD83C\uDF17",
-                        //         fontSize = 22.sp,
-                        //     )
-                        // }
+                        IconButton(onClick = { showThemeBottomSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Default.DarkMode,
+                                contentDescription = stringResource(R.string.appearance),
+                                tint = WorkerColors.IconPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         
                         // WhatsApp Support Button - Icon only with WhatsApp green color
                         IconButton(onClick = {
@@ -661,16 +658,15 @@ fun EmployerProfileScreen(
         )
     }
 
-    // TEMP: Theme picker disabled — see comment near the IconButton above.
-    // if (showThemeBottomSheet) {
-    //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
-    //         skipPartiallyExpanded = true
-    //     )
-    //     com.example.dutype.components.ThemeModeBottomSheet(
-    //         sheetState = themeSheetState,
-    //         onDismiss = { showThemeBottomSheet = false },
-    //     )
-    // }
+    if (showThemeBottomSheet) {
+        val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+        com.example.dutype.components.ThemeModeBottomSheet(
+            sheetState = themeSheetState,
+            onDismiss = { showThemeBottomSheet = false },
+        )
+    }
     
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(
@@ -728,13 +724,13 @@ private fun ProfileMenuItem(
     val resolvedIconColor = when {
         isDestructive -> WorkerColors.Error
         iconColor != null -> iconColor
-        else -> Color(0xFF3B82F6)
+        else -> WorkerColors.IconPrimary
     }
 
     val iconBgColor = when {
         isDestructive -> Color(0xFFFEE2E2)
         iconColor != null -> iconColor.copy(alpha = 0.1f)
-        else -> Color(0xFFEFF6FF)
+        else -> WorkerColors.ChipBackground
     }
 
     Row(
@@ -764,7 +760,7 @@ private fun ProfileMenuItem(
             Text(
                 text = title,
                 style = AppTypography.menuItemTitle.copy(
-                    color = if (isDestructive) WorkerColors.Error else Color(0xFF1E293B),
+                    color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Medium,
                     fontSize = 15.sp
                 )
@@ -773,7 +769,7 @@ private fun ProfileMenuItem(
                 Text(
                     text = subtitle,
                     style = AppTypography.menuItemSubtitle.copy(
-                        color = Color(0xFF94A3B8),
+                        color = WorkerColors.TextSecondary,
                         fontSize = 12.sp
                     )
                 )
@@ -783,7 +779,7 @@ private fun ProfileMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFFCBD5E1),
+            tint = WorkerColors.IconSecondary,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -846,7 +842,7 @@ private fun EmployerMenuDivider() {
             .fillMaxWidth()
             .padding(start = 40.dp)
             .height(1.dp)
-            .background(Color(0xFFE5E7EB))
+            .background(WorkerColors.Divider)
     )
 }
 

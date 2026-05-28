@@ -3,7 +3,6 @@ package com.example.dutype.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,17 +13,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,7 +90,7 @@ fun ThemeModeBottomSheet(
             ThemeOptionRow(
                 title = stringResource(R.string.system_default),
                 subtitle = stringResource(R.string.theme_match_phone),
-                emoji = "📱",
+                icon = Icons.Default.PhoneAndroid,
                 selected = current == ThemeMode.SYSTEM,
                 onClick = {
                     viewModel.setMode(ThemeMode.SYSTEM)
@@ -98,7 +101,7 @@ fun ThemeModeBottomSheet(
             ThemeOptionRow(
                 title = stringResource(R.string.light),
                 subtitle = stringResource(R.string.theme_light_subtitle),
-                emoji = "☀️",
+                icon = Icons.Default.LightMode,
                 selected = current == ThemeMode.LIGHT,
                 onClick = {
                     viewModel.setMode(ThemeMode.LIGHT)
@@ -109,7 +112,7 @@ fun ThemeModeBottomSheet(
             ThemeOptionRow(
                 title = stringResource(R.string.dark),
                 subtitle = stringResource(R.string.theme_dark_subtitle),
-                emoji = "🌙",
+                icon = Icons.Default.DarkMode,
                 selected = current == ThemeMode.DARK,
                 onClick = {
                     viewModel.setMode(ThemeMode.DARK)
@@ -125,7 +128,7 @@ fun ThemeModeBottomSheet(
 private fun ThemeOptionRow(
     title: String,
     subtitle: String,
-    emoji: String,
+    icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -146,7 +149,12 @@ private fun ThemeOptionRow(
                 .background(WorkerColors.PrimaryLight, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = emoji, fontSize = 20.sp)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = WorkerColors.Primary,
+                modifier = Modifier.size(22.dp),
+            )
         }
         Spacer(Modifier.size(14.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -154,11 +162,11 @@ private fun ThemeOptionRow(
             Text(text = subtitle, fontSize = 12.sp, color = WorkerColors.TextSecondary)
         }
         if (selected) {
-            Text(
-                text = "✓",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = WorkerColors.Primary,
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = WorkerColors.Primary,
+                modifier = Modifier.size(22.dp),
             )
         }
     }

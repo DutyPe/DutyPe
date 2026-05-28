@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.dutype.ui.theme.EmployerColors
 
 /**
  * P2 PERFORMANCE FIX: Extracted PostJobNavigationButtons composable
@@ -49,9 +50,9 @@ fun PostJobNavigationButtons(
                     .weight(1f)
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                border = BorderStroke(1.dp, EmployerColors.Border),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF374151)
+                    contentColor = EmployerColors.TextPrimary
                 )
             ) {
                 Icon(
@@ -78,7 +79,7 @@ fun PostJobNavigationButtons(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = primaryColor,
-                    disabledContainerColor = Color(0xFFE5E7EB)
+                    disabledContainerColor = EmployerColors.Border
                 )
             ) {
                 Text(

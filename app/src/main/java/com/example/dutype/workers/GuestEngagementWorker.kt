@@ -7,12 +7,15 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.dutype.app.R
@@ -23,31 +26,20 @@ import com.example.dutype.services.NotificationIcons
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.tasks.await
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import timber.log.Timber
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 
 /**
- * Engagement Worker (local)
+ * Local role-aware engagement worker.
  *
- * Delivers local re-engagement nudges to authenticated users after app goes
- * to background. Guest users are handled by server-scheduled topic nudges.
- *
- * This worker is scheduled only from app background event and runs once. *
- * Idempotency contract:
- * - Safe to re-run. Posting the same `NotificationCompat` with the same notification ID
- *   simply replaces the previous notification in the system tray (no duplicate).
- * - Worker is enqueued with `ExistingWorkPolicy.REPLACE`, so duplicate scheduling collapses
- *   into a single pending run. *
- * Anti-spam controls:
- * - Never send to guests
- * - Skip if user already received 3 notifications today (all sources)
- * - Skip if same title was already sent today
- * - Skip if any notification was sent in last 3 hours
+ * WorkManager keeps this repeating work alive while the app is normally closed,
+ * so authenticated users continue receiving daily re-engagement notifications
+ * without needing to reopen the app first. Android can still delay background
+ * work for battery/Doze, and no app can run after the user force-stops it.
  */
 @HiltWorker
 class GuestEngagementWorker @AssistedInject constructor(
@@ -57,71 +49,127 @@ class GuestEngagementWorker @AssistedInject constructor(
     private val firestore: FirebaseFirestore
 ) : CoroutineWorker(context, params) {
 
+    private data class EngagementMessage(
+        val title: String,
+        val body: String,
+        val deepLink: String
+    )
+
     companion object {
-        // Unique work name
         const val WORK_NAME_BACKGROUND = "guest_engagement_background"
-
-        // Delays
+        private const val WORK_NAME_RECURRING = "role_engagement_recurring"
         private const val BACKGROUND_DELAY_MINUTES = 3L
-
-        // Notification ID ranges (avoid collisions)
+        private const val RECURRING_INTERVAL_HOURS = 8L
         private const val BASE_NOTIFICATION_ID = 7000
 
-        // BUG #2 FIX: Local SharedPreferences keys for dedupe state. Replaces
-        // the broken Firestore-based dedupe (notifications collection is
-        // admin-write-only, so the dedupe queries always returned empty).
         private const val ENGAGEMENT_PREFS = "engagement_worker_prefs"
         private const val KEY_DAY_START = "day_start"
         private const val KEY_COUNT_TODAY = "count_today"
         private const val KEY_TITLES_TODAY = "titles_today"
         private const val KEY_LAST_SENT_AT = "last_sent_at"
+        private const val TITLE_SEPARATOR = "\u001F"
 
         private val WORKER_MESSAGES = listOf(
-            Triple(
-                "\uD83D\uDCBC New jobs near you are waiting",
-                "Open DutyPe now and apply early to improve your chances.",
-                "dutype://jobs"
+            listOf(
+                EngagementMessage("Fresh jobs picked for today", "Open DutyPe and apply early before nearby openings fill up.", "dutype://worker/jobs"),
+                EngagementMessage("Your profile can get more calls", "Add or update one detail so employers trust you faster.", "dutype://worker/profile"),
+                EngagementMessage("Evening jobs are moving fast", "Check the latest openings and save the best match for tomorrow.", "dutype://worker/jobs")
             ),
-            Triple(
-                "\u26A1 Quick action can boost your visibility",
-                "Complete one profile update or apply to one job now.",
-                "dutype://profile"
+            listOf(
+                EngagementMessage("New local work is available", "A quick check now can put your application near the top.", "dutype://worker/jobs"),
+                EngagementMessage("Stand out before the next worker", "Complete your profile and make your application look stronger.", "dutype://worker/profile"),
+                EngagementMessage("Do not miss today's best match", "Nearby jobs change daily. Open DutyPe and see what is active.", "dutype://worker/jobs")
             ),
-            Triple(
-                "\uD83D\uDCC8 Small daily steps, bigger opportunities",
-                "Check today\'s nearby openings and keep momentum going.",
-                "dutype://jobs"
+            listOf(
+                EngagementMessage("Employers are looking today", "Apply to suitable roles now while response chances are higher.", "dutype://worker/jobs"),
+                EngagementMessage("One small update can help", "Refresh skills, location, or experience so better jobs find you.", "dutype://worker/profile"),
+                EngagementMessage("Your next duty may be nearby", "Browse fresh job posts and keep your applications moving.", "dutype://worker/jobs")
+            ),
+            listOf(
+                EngagementMessage("Start the day with new openings", "Good jobs go quickly. Check DutyPe before the rush.", "dutype://worker/jobs"),
+                EngagementMessage("Make employers choose you faster", "A complete profile builds trust before they call.", "dutype://worker/profile"),
+                EngagementMessage("Tonight's chance is still open", "Review saved and new jobs before the day ends.", "dutype://worker/jobs")
+            ),
+            listOf(
+                EngagementMessage("More jobs, better timing", "Apply early today and improve your chance of getting noticed.", "dutype://worker/jobs"),
+                EngagementMessage("Your work details matter", "Update availability and skills so the right employer can call.", "dutype://worker/profile"),
+                EngagementMessage("Keep your job search active", "Open DutyPe for fresh nearby work and quick applications.", "dutype://worker/jobs")
+            ),
+            listOf(
+                EngagementMessage("Today's openings need quick action", "Check new jobs and apply before other workers fill the queue.", "dutype://worker/jobs"),
+                EngagementMessage("Boost trust in one minute", "A stronger profile can bring better calls from employers.", "dutype://worker/profile"),
+                EngagementMessage("New work can appear anytime", "See what changed today and save the roles you like.", "dutype://worker/jobs")
+            ),
+            listOf(
+                EngagementMessage("A fresh week of jobs starts here", "Open DutyPe and find work close to your location.", "dutype://worker/jobs"),
+                EngagementMessage("Your profile is your first impression", "Keep it complete so employers feel confident calling you.", "dutype://worker/profile"),
+                EngagementMessage("End the day with one smart apply", "Choose one good job and send your application now.", "dutype://worker/jobs")
             )
         )
 
         private val EMPLOYER_MESSAGES = listOf(
-            Triple(
-                "\uD83D\uDE80 Fast response improves hiring outcomes",
-                "Take one hiring action now and improve conversion.",
-                "dutype://employer/home"
+            listOf(
+                EngagementMessage("Good workers respond fastest", "Review new applications and contact strong matches today.", "dutype://employer/applications"),
+                EngagementMessage("Need staff for tomorrow?", "Post or refresh a job so workers can apply before morning.", "dutype://employer/post-job")
             ),
-            Triple(
-                "\uD83C\uDFAF One update can improve application quality",
-                "Refresh your latest post and attract better-fit workers.",
-                "dutype://post-job"
+            listOf(
+                EngagementMessage("Your next hire may be waiting", "Check applications and shortlist workers before they move on.", "dutype://employer/applications"),
+                EngagementMessage("Keep your job post visible", "A fresh post attracts more serious workers in your area.", "dutype://employer/jobs")
+            ),
+            listOf(
+                EngagementMessage("Hire faster with quick follow-up", "Open DutyPe and call the best applicants while they are active.", "dutype://employer/applications"),
+                EngagementMessage("One new post can solve today's need", "Tell workers what you need and start receiving applications.", "dutype://employer/post-job")
+            ),
+            listOf(
+                EngagementMessage("Workers are checking jobs today", "Make sure your openings are active and easy to apply for.", "dutype://employer/jobs"),
+                EngagementMessage("Do not lose a strong applicant", "Review pending applications and move quickly on good matches.", "dutype://employer/applications")
+            ),
+            listOf(
+                EngagementMessage("Need reliable help this week?", "Post a clear job with pay, timing, and location now.", "dutype://employer/post-job"),
+                EngagementMessage("Your hiring queue needs a look", "Shortlist or contact applicants before the day ends.", "dutype://employer/applications")
+            ),
+            listOf(
+                EngagementMessage("Fresh applicants can arrive anytime", "Open DutyPe and check who is ready to work.", "dutype://employer/applications"),
+                EngagementMessage("Better job details bring better workers", "Update your post and attract people who fit the role.", "dutype://employer/jobs")
+            ),
+            listOf(
+                EngagementMessage("Start the week with stronger hiring", "Post your staffing need and reach local workers quickly.", "dutype://employer/post-job"),
+                EngagementMessage("Close hiring gaps before tomorrow", "Review applications and contact the best worker now.", "dutype://employer/applications")
             )
         )
 
-        // ─── Schedule helpers ────────────────────────────────────────────────
-
-        /** Deprecated: kept for compatibility; no foreground scheduling to avoid duplicates. */
         fun scheduleForeground(context: Context) {
-            Timber.d("🔔 EngagementWorker: foreground scheduling disabled")
+            scheduleRecurring(context)
         }
 
-        /**
-         * Call this when the app goes to background.
-         * Fires after [BACKGROUND_DELAY_MINUTES] for authenticated users only.
-         */
+        fun scheduleRecurring(context: Context) {
+            if (FirebaseAuth.getInstance().currentUser == null) return
+
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val request = PeriodicWorkRequestBuilder<GuestEngagementWorker>(
+                RECURRING_INTERVAL_HOURS,
+                TimeUnit.HOURS
+            )
+                .setInitialDelay(2, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .addTag(WORK_NAME_RECURRING)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                WORK_NAME_RECURRING,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request
+            )
+            Timber.d("EngagementWorker: recurring role notifications scheduled every %dh", RECURRING_INTERVAL_HOURS)
+        }
+
         fun scheduleBackground(context: Context) {
-            if (FirebaseAuth.getInstance().currentUser == null) {
-                return
-            }
+            if (FirebaseAuth.getInstance().currentUser == null) return
+
+            scheduleRecurring(context)
 
             val shortRequest = OneTimeWorkRequestBuilder<GuestEngagementWorker>()
                 .setInitialDelay(BACKGROUND_DELAY_MINUTES, TimeUnit.MINUTES)
@@ -129,21 +177,22 @@ class GuestEngagementWorker @AssistedInject constructor(
                 .addTag(WORK_NAME_BACKGROUND)
                 .build()
 
-            val wm = WorkManager.getInstance(context)
-            wm.enqueueUniqueWork(WORK_NAME_BACKGROUND, ExistingWorkPolicy.REPLACE, shortRequest)
-            Timber.d("🔔 EngagementWorker: background scheduled (${BACKGROUND_DELAY_MINUTES}m)")
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                WORK_NAME_BACKGROUND,
+                ExistingWorkPolicy.REPLACE,
+                shortRequest
+            )
+            Timber.d("EngagementWorker: short background notification scheduled in %dm", BACKGROUND_DELAY_MINUTES)
         }
 
-        /**
-         * Cancel all guest engagement work — call this immediately after the user signs in.
-         */
         fun cancelAll(context: Context) {
             val wm = WorkManager.getInstance(context)
             wm.cancelUniqueWork(WORK_NAME_BACKGROUND)
-            Timber.d("🔔 EngagementWorker: all cancelled")
+            wm.cancelUniqueWork(WORK_NAME_RECURRING)
+            Timber.d("EngagementWorker: local engagement work cancelled")
         }
 
-        private fun getSlot(calendar: Calendar): Int {
+        private fun workerSlot(calendar: Calendar): Int {
             val hour = calendar.get(Calendar.HOUR_OF_DAY)
             return when {
                 hour < 12 -> 0
@@ -151,49 +200,29 @@ class GuestEngagementWorker @AssistedInject constructor(
                 else -> 2
             }
         }
+
+        private fun employerSlot(calendar: Calendar): Int {
+            return if (calendar.get(Calendar.HOUR_OF_DAY) < 15) 0 else 1
+        }
     }
 
     override suspend fun doWork(): Result {
-        val user = auth.currentUser
-        if (user == null) {
-            Timber.d("🔔 EngagementWorker: guest user - skip local engagement")
+        val user = auth.currentUser ?: run {
+            Timber.d("EngagementWorker: no authenticated user, skipping")
             return Result.success()
         }
 
-        val userId = user.uid
-
+        val role = resolveRole(user.uid, user.phoneNumber) ?: return Result.success()
         val now = Calendar.getInstance()
-        val slot = getSlot(now)
-
-        val role = try {
-            val normalizedPhone = user.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
-            val phoneRoleDoc = normalizedPhone.takeIf { it.isNotBlank() }
-                ?.let { firestore.collection(FirestoreCollections.PHONE_ROLES).document(it).get().await() }
-            val resolved = phoneRoleDoc?.getString("role")?.uppercase()
-                ?: when {
-                    firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().exists() -> "EMPLOYER"
-                    firestore.collection(FirestoreCollections.WORKER_PROFILES).document(userId).get().await().exists() -> "WORKER"
-                    else -> null
-                }
-            if (resolved.isNullOrBlank()) {
-                Timber.w("🔔 EngagementWorker: no canonical role doc, skipping")
-                return Result.success()
-            }
-            resolved
-        } catch (e: Exception) {
-            Timber.w(e, "🔔 EngagementWorker: role lookup failed, skipping notification")
-            return Result.success()
+        val dayIndex = now.get(Calendar.DAY_OF_YEAR) % 7
+        val slot = if (role == "EMPLOYER") employerSlot(now) else workerSlot(now)
+        val dailyCap = if (role == "EMPLOYER") 2 else 3
+        val message = if (role == "EMPLOYER") {
+            EMPLOYER_MESSAGES[dayIndex][slot]
+        } else {
+            WORKER_MESSAGES[dayIndex][slot]
         }
 
-        val pool = if (role == "EMPLOYER") EMPLOYER_MESSAGES else WORKER_MESSAGES
-        val (title, body, deepLink) = pool[slot % pool.size]
-
-        // BUG #2 FIX: Local dedupe via SharedPreferences. The `notifications`
-        // Firestore collection is admin-write-only (`allow create: if false`),
-        // so the previous server-side dedupe queries always returned empty
-        // and every guard silently passed — letting the same title fire on
-        // every WorkManager tick. SharedPreferences is also a network-free
-        // path, removing one Firestore read per tick.
         val prefs = context.getSharedPreferences(ENGAGEMENT_PREFS, Context.MODE_PRIVATE)
         val dayStart = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -207,60 +236,88 @@ class GuestEngagementWorker @AssistedInject constructor(
         } else {
             0 to ""
         }
-        val titlesToday = titlesTodayCsv.split('\u001F').filter { it.isNotBlank() }.toMutableSet()
+        val titlesToday = titlesTodayCsv.split(TITLE_SEPARATOR).filter { it.isNotBlank() }.toMutableSet()
 
-        if (countToday >= 3) {
-            Timber.d("🔔 EngagementWorker: daily cap reached ($countToday)")
+        if (countToday >= dailyCap) {
+            Timber.d("EngagementWorker: daily cap reached for role=%s count=%d", role, countToday)
             return Result.success()
         }
 
-        if (title in titlesToday) {
-            Timber.d("🔔 EngagementWorker: duplicate title today, skipping")
+        if (message.title in titlesToday) {
+            Timber.d("EngagementWorker: duplicate title today, skipping")
             return Result.success()
         }
 
         val lastSentAt = prefs.getLong(KEY_LAST_SENT_AT, 0L)
         val minGapMs = 3 * 60 * 60 * 1000L
         if (lastSentAt > 0 && (System.currentTimeMillis() - lastSentAt) < minGapMs) {
-            Timber.d("🔔 EngagementWorker: last notification too recent, skipping")
+            Timber.d("EngagementWorker: last notification too recent, skipping")
             return Result.success()
         }
 
-        showLocalNotification(title, body, deepLink, role)
-        Timber.d("🔔 EngagementWorker: notification shown — \"$title\" for role=$role")
+        val shown = showLocalNotification(message, role)
+        if (!shown) return Result.success()
 
-        // Record the send so the next tick's dedupe actually sees it.
-        titlesToday += title
+        titlesToday += message.title
         prefs.edit()
             .putLong(KEY_DAY_START, dayStart)
             .putInt(KEY_COUNT_TODAY, countToday + 1)
-            .putString(KEY_TITLES_TODAY, titlesToday.joinToString("\u001F"))
+            .putString(KEY_TITLES_TODAY, titlesToday.joinToString(TITLE_SEPARATOR))
             .putLong(KEY_LAST_SENT_AT, System.currentTimeMillis())
             .apply()
+
+        Timber.d("EngagementWorker: notification shown for role=%s title=%s", role, message.title)
         return Result.success()
     }
 
-    // ─── Notification display ────────────────────────────────────────────────
+    private suspend fun resolveRole(userId: String, phoneNumber: String?): String? {
+        return try {
+            val normalizedPhone = phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+            val phoneRoleDoc = normalizedPhone.takeIf { it.isNotBlank() }
+                ?.let { firestore.collection(FirestoreCollections.PHONE_ROLES).document(it).get().await() }
+            val resolved = phoneRoleDoc?.getString("role")?.uppercase()
+                ?: when {
+                    firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().exists() -> "EMPLOYER"
+                    firestore.collection(FirestoreCollections.WORKER_PROFILES).document(userId).get().await().exists() -> "WORKER"
+                    else -> null
+                }
 
-    private fun showLocalNotification(title: String, body: String, deepLink: String, role: String) {
+            if (resolved !in setOf("WORKER", "EMPLOYER")) {
+                Timber.w("EngagementWorker: no canonical role found, skipping")
+                null
+            } else {
+                resolved
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "EngagementWorker: role lookup failed, skipping notification")
+            null
+        }
+    }
+
+    private fun showLocalNotification(message: EngagementMessage, role: String): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = androidx.core.content.ContextCompat.checkSelfPermission(
-                context, android.Manifest.permission.POST_NOTIFICATIONS
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!granted) {
-                Timber.w("🔔 GuestEngagementWorker: POST_NOTIFICATIONS not granted, skipping")
-                return
+                Timber.w("EngagementWorker: POST_NOTIFICATIONS not granted, skipping")
+                return false
             }
         }
 
+        NotificationChannelManager.createNotificationChannels(context)
         val notificationId = BASE_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt()
-
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+        val deepLink = Uri.parse(message.deepLink)
+        val intent = Intent(Intent.ACTION_VIEW, deepLink).apply {
             setClass(context, MainActivity::class.java)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("engagement", true)
             putExtra("from_notification", true)
+            putExtra("login_role", role)
             putExtra("notification_system_id", notificationId)
+            putExtra("notification_deep_link", message.deepLink)
+            putExtra("notification_type", "RE_ENGAGEMENT")
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -269,28 +326,19 @@ class GuestEngagementWorker @AssistedInject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val actionIntent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
-            setClass(context, MainActivity::class.java)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra("from_notification", true)
-            putExtra("login_role", role)
-            putExtra("notification_system_id", notificationId)
-        }
         val actionPendingIntent = PendingIntent.getActivity(
             context,
             notificationId + 1,
-            actionIntent,
+            intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val channelId = NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY
-
-        val notification = NotificationCompat.Builder(context, channelId)
+        val notification = NotificationCompat.Builder(context, NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NotificationIcons.tintColor(context))
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(message.title)
+            .setContentText(message.body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -299,14 +347,20 @@ class GuestEngagementWorker @AssistedInject constructor(
             .apply {
                 NotificationIcons.largeIcon(context)?.let { setLargeIcon(it) }
             }
-            .addAction(R.drawable.ic_notification, if (role == "EMPLOYER") "Review Now" else "Explore Jobs", actionPendingIntent)
+            .addAction(
+                R.drawable.ic_notification,
+                if (role == "EMPLOYER") "Open Hiring" else "Explore Jobs",
+                actionPendingIntent
+            )
             .build()
 
-        try {
+        return try {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.notify(notificationId, notification)
+            true
         } catch (e: Exception) {
-            Timber.e(e, "🔔 GuestEngagementWorker: failed to post notification")
+            Timber.e(e, "EngagementWorker: failed to post notification")
+            false
         }
     }
 }

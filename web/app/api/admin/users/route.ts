@@ -43,6 +43,17 @@ function normalizeRole(value: unknown) {
   return role ? "OTHER" : "";
 }
 
+function normalizePhoneForDoc(value: unknown) {
+  const raw = firstNonEmptyString(value);
+  if (!raw) return "";
+  if (/^\+[1-9]\d{6,14}$/.test(raw)) return raw;
+
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length >= 7 && digits.length <= 15) return `+${digits}`;
+  return raw;
+}
+
 function withId(id: string, value: Record<string, unknown> | null) {
   return value ? { id, ...value } : null;
 }
@@ -138,7 +149,10 @@ export async function GET(request: NextRequest) {
     const userIds = new Set<string>([
       ...userDocsById.keys(),
       ...authUsersById.keys(),
-      ...phoneRoleDocsByUid.keys()
+      ...phoneRoleDocsByUid.keys(),
+      ...workerProfileById.keys(),
+      ...employerProfileById.keys(),
+      ...referralCodeByUserId.keys()
     ]);
 
     const users = Array.from(userIds).map((userId) => {
@@ -173,17 +187,34 @@ export async function GET(request: NextRequest) {
         activeRole: canonicalRole || rawDoc.activeRole,
         fullName: firstNonEmptyString(
           rawDoc.fullName,
+          rawDoc.name,
           phoneRole?.name,
           phoneRole?.fullName,
+          workerProfile?.fullName,
+          workerProfile?.name,
+          employerProfile?.fullName,
+          employerProfile?.name,
+          employerProfile?.companyName,
           authUser?.displayName
         ),
         phone: firstNonEmptyString(
           rawDoc.phone,
+          rawDoc.phoneNumber,
           phoneRole?.phoneNumber,
           phoneRole?.phone,
+          workerProfile?.phone,
+          workerProfile?.phoneNumber,
+          employerProfile?.phone,
+          employerProfile?.phoneNumber,
           authUser?.phone
         ),
-        email: firstNonEmptyString(rawDoc.email, authUser?.email)
+        email: firstNonEmptyString(
+          rawDoc.email,
+          workerProfile?.email,
+          employerProfile?.email,
+          authUser?.email
+        ),
+        referralCode: firstNonEmptyString(rawDoc.referralCode, referralCodeByUserId.get(userId))
       };
 
       const normalized = normalizeUserRecord(userId, merged, {
@@ -301,7 +332,7 @@ export async function PATCH(request: NextRequest) {
   const userId = body.userId?.trim();
   const newRole = body.newRole?.trim().toUpperCase();
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : undefined;
-  const phone = typeof body.phone === "string" ? body.phone.trim() : undefined;
+  const phone = typeof body.phone === "string" ? normalizePhoneForDoc(body.phone) : undefined;
   const isBanned = typeof body.isBanned === "boolean" ? body.isBanned : undefined;
   const isVerified = typeof body.isVerified === "boolean" ? body.isVerified : undefined;
   const banReason = typeof body.banReason === "string" ? body.banReason.trim() : undefined;
@@ -345,6 +376,7 @@ export async function PATCH(request: NextRequest) {
 
     if (phone !== undefined) {
       payload.phone = phone;
+      payload.phoneNumber = phone;
     }
 
     if (isBanned !== undefined) {
@@ -396,18 +428,60 @@ export async function PATCH(request: NextRequest) {
           }
         });
         await batch.commit();
-      } else if (phone && newRole && fullName) {
+      } else if (phone && newRole) {
         await db.collection("phoneRoles").doc(phone).set(
           {
             phoneNumber: phone,
             role: newRole,
-            name: fullName,
+            ...(fullName ? { name: fullName } : {}),
             uid: userId,
             createdAt: new Date(),
             updatedAt: new Date()
           },
           { merge: true }
         );
+      }
+    }
+
+    const profilePayload: Record<string, unknown> = {};
+    if (hasRoleUpdate && newRole) {
+      profilePayload.role = newRole;
+    }
+    if (fullName !== undefined) {
+      profilePayload.fullName = fullName;
+    }
+    if (phone !== undefined) {
+      profilePayload.phone = phone;
+    }
+
+    if (Object.keys(profilePayload).length > 0) {
+      const withProfileTimestamp = {
+        ...profilePayload,
+        userId,
+        updatedAt: new Date()
+      };
+
+      if (hasRoleUpdate && newRole) {
+        const profileCollection = newRole === "EMPLOYER" ? "employer_profiles" : "worker_profiles";
+        await db.collection(profileCollection).doc(userId).set(
+          withProfileTimestamp,
+          { merge: true }
+        );
+      } else {
+        const [workerProfile, employerProfile] = await Promise.all([
+          db.collection("worker_profiles").doc(userId).get(),
+          db.collection("employer_profiles").doc(userId).get()
+        ]);
+        const batch = db.batch();
+        if (workerProfile.exists) {
+          batch.set(workerProfile.ref, withProfileTimestamp, { merge: true });
+        }
+        if (employerProfile.exists) {
+          batch.set(employerProfile.ref, withProfileTimestamp, { merge: true });
+        }
+        if (workerProfile.exists || employerProfile.exists) {
+          await batch.commit();
+        }
       }
     }
 

@@ -76,7 +76,7 @@ fun HomeHeader(
                         text = locationText,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Normal,
-                            color = Color(0xFF6B7280),
+                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
                             fontSize = 12.sp
                         ),
                         maxLines = 1,
@@ -86,13 +86,13 @@ fun HomeHeader(
                         CircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
                             strokeWidth = 1.5.dp,
-                            color = Color.Black
+                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = null,
-                            tint = Color(0xFF374151),
+                            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -108,7 +108,7 @@ fun HomeHeader(
                 Surface(
                     onClick = onMapViewClick,
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFFF8FAFC),
+                    color = com.example.dutype.ui.theme.WorkerColors.ChipBackground,
                     modifier = Modifier.height(32.dp)
                 ) {
                     Row(
@@ -119,14 +119,14 @@ fun HomeHeader(
                         Icon(
                             painter = painterResource(id = R.drawable.location_view),
                             contentDescription = null,
-                            tint = Color(0xFF374151),
+                            tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = stringResource(R.string.map_view),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF374151)
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                     }
@@ -155,7 +155,7 @@ private fun NotificationButton(
             Icon(
                 imageVector = Icons.Default.Notifications,
                 contentDescription = "Notifications",
-                tint = Color.Black,
+                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                 modifier = Modifier.size(26.dp)
             )
         }

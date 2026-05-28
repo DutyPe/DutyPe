@@ -70,7 +70,7 @@ fun HomeJobsSection(
                 Text(
                     text = stringResource(R.string.view_all),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
+                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp
                     )
@@ -78,7 +78,7 @@ fun HomeJobsSection(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color(0xFF6B7280),
+                    tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
                     modifier = Modifier.size(16.dp)
                 )
             }

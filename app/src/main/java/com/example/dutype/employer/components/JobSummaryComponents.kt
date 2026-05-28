@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.*
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.EmployerColors
 
 @Composable
 fun JobSummaryCard(
@@ -62,7 +63,7 @@ fun JobSummaryCard(
                     text = "Job Preview",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    color = EmployerColors.TextPrimary
                 )
             }
 
@@ -101,12 +102,12 @@ fun JobSummaryCard(
                                 text = title.ifBlank { "Job Title" },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
+                                color = EmployerColors.TextPrimary
                             )
                         }
                     }
 
-                    HorizontalDivider(color = Color(0xFFE2E8F0))
+                    HorizontalDivider(color = EmployerColors.Divider)
 
                     // Job details grid
                     Column(
@@ -141,7 +142,7 @@ fun JobSummaryCard(
                         Text(
                             text = description.take(80) + if (description.length > 80) "..." else "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280),
+                            color = EmployerColors.TextSecondary,
                             lineHeight = 18.sp
                         )
                     }
@@ -163,21 +164,21 @@ private fun SummaryDetailRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFF64748B),
+            tint = EmployerColors.IconSecondary,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "$label:",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF6B7280),
+            color = EmployerColors.TextSecondary,
             modifier = Modifier.width(70.dp)
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF1E293B)
+            color = EmployerColors.TextPrimary
         )
     }
 }

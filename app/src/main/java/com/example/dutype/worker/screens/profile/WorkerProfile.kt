@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
@@ -407,17 +408,14 @@ fun WorkerProfileScreen(
                             )
                         }
 
-                        // TEMP: Dark mode picker disabled until the dark palette
-                        // is fully validated across all screens. Re-enable by
-                        // uncommenting this IconButton + the matching
-                        // ThemeModeBottomSheet block below, and by removing
-                        // the `darkTheme = false` override in dutypeTheme().
-                        // IconButton(onClick = { showThemeBottomSheet = true }) {
-                        //     androidx.compose.material3.Text(
-                        //         text = "\uD83C\uDF17",
-                        //         fontSize = 22.sp,
-                        //     )
-                        // }
+                        IconButton(onClick = { showThemeBottomSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Default.DarkMode,
+                                contentDescription = stringResource(R.string.appearance),
+                                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         
                         // WhatsApp Support Icon
                         IconButton(onClick = {
@@ -959,16 +957,15 @@ fun WorkerProfileScreen(
         )
     }
 
-    // TEMP: Theme picker disabled — see comment near the IconButton above.
-    // if (showThemeBottomSheet) {
-    //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
-    //         skipPartiallyExpanded = true
-    //     )
-    //     com.example.dutype.components.ThemeModeBottomSheet(
-    //         sheetState = themeSheetState,
-    //         onDismiss = { showThemeBottomSheet = false },
-    //     )
-    // }
+    if (showThemeBottomSheet) {
+        val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+        com.example.dutype.components.ThemeModeBottomSheet(
+            sheetState = themeSheetState,
+            onDismiss = { showThemeBottomSheet = false },
+        )
+    }
     
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(
@@ -1066,7 +1063,7 @@ private fun ModernEditDialog(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF6B7280)
+                            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary
                         )
                     }
                 }
@@ -1090,8 +1087,10 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF1F2937),
-                                focusedLabelColor = Color(0xFF1F2937)
+                                focusedBorderColor = com.example.dutype.ui.theme.WorkerColors.BorderFocused,
+                                focusedLabelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                     }
@@ -1136,8 +1135,10 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF1F2937),
-                                focusedLabelColor = Color(0xFF1F2937)
+                                focusedBorderColor = com.example.dutype.ui.theme.WorkerColors.BorderFocused,
+                                focusedLabelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                     }
@@ -1159,8 +1160,10 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF1F2937),
-                                focusedLabelColor = Color(0xFF1F2937)
+                                focusedBorderColor = com.example.dutype.ui.theme.WorkerColors.BorderFocused,
+                                focusedLabelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                     }
@@ -1177,8 +1180,10 @@ private fun ModernEditDialog(
                             shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF1F2937),
-                                focusedLabelColor = Color(0xFF1F2937)
+                                focusedBorderColor = com.example.dutype.ui.theme.WorkerColors.BorderFocused,
+                                focusedLabelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
                     }
@@ -1196,7 +1201,7 @@ private fun ModernEditDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(0.dp)
                     ) {
-                        Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
+                        Text(stringResource(R.string.cancel), color = com.example.dutype.ui.theme.WorkerColors.TextSecondary)
                     }
                     
                     Button(
@@ -1244,13 +1249,13 @@ private fun MeeshoMenuItem(
     val resolvedIconColor = when {
         isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
         iconColor != null -> iconColor
-        else -> Color(0xFF475569)
+        else -> com.example.dutype.ui.theme.WorkerColors.IconPrimary
     }
 
     val iconBgColor = when {
         isDestructive -> Color(0xFFFEE2E2)
         iconColor != null -> iconColor.copy(alpha = 0.1f)
-        else -> Color(0xFFF1F5F9)
+        else -> com.example.dutype.ui.theme.WorkerColors.ChipBackground
     }
 
     Row(
@@ -1282,7 +1287,7 @@ private fun MeeshoMenuItem(
                 color = if (isDestructive)
                     com.example.dutype.ui.theme.WorkerColors.Error
                 else
-                    Color(0xFF1E293B),
+                    com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,
                 fontSize = 15.sp
             ),
@@ -1309,7 +1314,7 @@ private fun MeeshoMenuItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFFCBD5E1),
+            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -1375,7 +1380,7 @@ private fun MenuDivider() {
             .fillMaxWidth()
             .padding(start = 52.dp)
             .height(1.dp)
-            .background(Color(0xFFE5E7EB))
+            .background(com.example.dutype.ui.theme.WorkerColors.Divider)
     )
 }
 
@@ -1505,7 +1510,7 @@ private fun RoleManagementMenuItem(
             Icon(
                 imageVector = roleIcon,
                 contentDescription = "Role",
-                tint = Color(0xFF4B5563), // Match other menu icons
+                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                 modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
             )
             

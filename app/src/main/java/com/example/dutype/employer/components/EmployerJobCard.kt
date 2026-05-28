@@ -21,6 +21,7 @@ import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +57,7 @@ fun EmployerJobCard(
             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(0.5.dp, Color(0xFFE5E7EB)),
+        border = BorderStroke(0.5.dp, EmployerColors.Border),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -88,7 +89,7 @@ fun EmployerJobCard(
                     Text(
                         text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
                         style = AppTypography.caption,
-                        color = Color.Gray
+                        color = EmployerColors.TextSecondary
                     )
                 }
             }
@@ -127,6 +128,7 @@ fun EmployerJobCard(
                         Text(
                             text = jobPosting.title,
                             style = AppTypography.cardTitle,
+                            color = EmployerColors.TextPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -255,13 +257,13 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
             Icon(
                 imageVector = Icons.Default.CurrencyRupee,
                 contentDescription = null,
-                tint = Color(0xFF0F172A),
+                tint = EmployerColors.IconPrimary,
                 modifier = Modifier.size(16.dp)
             )
             Text(
                 text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
                 style = AppTypography.price,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             )
         }
 
@@ -272,13 +274,13 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = EmployerColors.IconSecondary,
                 modifier = Modifier.size(16.dp)
             )
             Text(
                 text = jobPosting.location,
                 style = AppTypography.bodyMedium,
-                color = Color.Gray,
+                color = EmployerColors.TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -306,7 +308,7 @@ private fun JobCardFooter(
     onShowManagementDialog: () -> Unit = {}
 ) {
     Column {
-        HorizontalDivider(color = Color(0xFFE5E7EB))
+        HorizontalDivider(color = EmployerColors.Divider)
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -355,7 +357,7 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
             Text(
                 text = "applications",
                 style = AppTypography.caption,
-                color = Color.Gray
+                color = EmployerColors.TextSecondary
             )
         }
     }
@@ -380,7 +382,7 @@ private fun JobActionsRow(
             Icon(
                 imageVector = Icons.Default.Edit,
                 contentDescription = "Edit job",
-                tint = Color(0xFF6B7280),
+                tint = EmployerColors.IconSecondary,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -423,7 +425,7 @@ private fun JobManagementDialog(
             ) {
                 // Job info
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                    colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(
@@ -432,12 +434,13 @@ private fun JobManagementDialog(
                     ) {
                         Text(
                             text = jobPosting.title,
-                            style = AppTypography.cardTitle
+                            style = AppTypography.cardTitle,
+                            color = EmployerColors.TextPrimary
                         )
                         Text(
                             text = "${jobPosting.applicationsReceived} applications received",
                             style = AppTypography.bodyMedium,
-                            color = Color.Gray
+                            color = EmployerColors.TextSecondary
                         )
                     }
                 }
@@ -445,7 +448,8 @@ private fun JobManagementDialog(
                 // Management options
                 Text(
                     text = "What would you like to do?",
-                    style = AppTypography.labelLarge
+                    style = AppTypography.labelLarge,
+                    color = EmployerColors.TextPrimary
                 )
             }
         },

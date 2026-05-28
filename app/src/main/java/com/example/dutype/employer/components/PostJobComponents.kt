@@ -66,6 +66,7 @@ import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.ui.theme.EmployerColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,12 +172,12 @@ private fun ShiftChip(
             .defaultMinSize(minWidth = 0.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF3B82F6) else Color.White
+            containerColor = if (isSelected) Color(0xFF3B82F6) else EmployerColors.CardBackground
         ),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
-            if (isSelected) Color(0xFF3B82F6) else Color(0xFFE5E7EB)
+            if (isSelected) Color(0xFF3B82F6) else EmployerColors.Border
         )
     ) {
         Row(
@@ -193,7 +194,7 @@ private fun ShiftChip(
             Text(
                 text = shift.displayName,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = if (isSelected) Color.White else Color(0xFF374151),
+                    color = if (isSelected) Color.White else EmployerColors.TextPrimary,
                     fontWeight = FontWeight.Medium
                 ),
                 fontSize = 11.sp,
@@ -280,7 +281,7 @@ fun StepHeader(title: String, subtitle: String) {
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
-            color = Color(0xFF1E293B)
+            color = EmployerColors.TextPrimary
         )
         Text(
             text = subtitle,
@@ -343,7 +344,7 @@ fun JobDescriptionSection(
                     text = stringResource(R.string.job_description),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    color = EmployerColors.TextPrimary
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -421,7 +422,7 @@ fun PaymentSection(
                 text = stringResource(R.string.pay_type),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF475569)
+                color = EmployerColors.TextSecondary
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(PayType.values().toList()) { type ->
@@ -442,12 +443,12 @@ fun PaymentSection(
                             selectedContainerColor = Color(0xFF3B82F6),
                             selectedLabelColor = Color.White,
                             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                            labelColor = Color(0xFF374151)
+                            labelColor = EmployerColors.TextPrimary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = selected,
-                            borderColor = Color(0xFFE5E7EB),
+                            borderColor = EmployerColors.Border,
                             selectedBorderColor = Color(0xFF3B82F6)
                         )
                     )
@@ -525,7 +526,7 @@ fun VacanciesSection(
                 text = "Number of Positions",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1E293B)
+                color = EmployerColors.TextPrimary
             )
             OutlinedTextField(
                 value = vacancies,
@@ -555,7 +556,7 @@ fun VacanciesSection(
                     Icon(
                         Icons.Default.People, 
                         contentDescription = null,
-                        tint = if (isError) Color(0xFFDC2626) else Color(0xFF6B7280)
+                        tint = if (isError) Color(0xFFDC2626) else EmployerColors.IconSecondary
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -590,7 +591,7 @@ fun ContactSection(
                     text = "Contact Information",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF1E293B)
+                    color = EmployerColors.TextPrimary
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -613,7 +614,7 @@ fun ContactSection(
                     Icon(
                         Icons.Default.Phone,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280)
+                        tint = EmployerColors.IconSecondary
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -639,7 +640,7 @@ fun ContactSection(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280)
+                        tint = EmployerColors.IconSecondary
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(

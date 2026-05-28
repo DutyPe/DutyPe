@@ -76,14 +76,14 @@ fun HomeCategoriesSection(
                 Text(
                     text = stringResource(R.string.view_all),
                     style = AppTypography.buttonSmall.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color(0xFF6B7280),
+                    tint = WorkerColors.IconSecondary,
                     modifier = Modifier.size(16.dp)
                 )
             }

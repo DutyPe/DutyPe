@@ -194,7 +194,7 @@ private fun JobCardInternal(
             .clickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        border = BorderStroke(1.dp, WorkerColors.Border),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
@@ -258,7 +258,7 @@ private fun JobCardInternal(
                     Text(
                         text = ValidationUtils.capitalizeWords(title),
                         style = AppTypography.cardTitle.copy(
-                            color = if (isClosed) Color(0xFF6B7280) else Color(0xFF111827),
+                            color = if (isClosed) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         ),
@@ -275,7 +275,7 @@ private fun JobCardInternal(
                             Text(
                                 text = companyName,
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF374151),
+                                    color = WorkerColors.TextSecondary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
@@ -295,7 +295,7 @@ private fun JobCardInternal(
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .border(1.dp, WorkerColors.Border, CircleShape)
                 ) {
                     Icon(
                         imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -314,7 +314,7 @@ private fun JobCardInternal(
                     Text(
                         text = payDisplay,
                         style = MaterialTheme.typography.labelMedium.copy(
-                            color = Color(0xFF6B7280),
+                            color = WorkerColors.TextSecondary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp
                         )
@@ -323,7 +323,7 @@ private fun JobCardInternal(
                     Text(
                         text = "₹${payDisplay.substringBefore("/")}",
                         style = MaterialTheme.typography.labelMedium.copy(
-                            color = Color(0xFF111827),
+                            color = WorkerColors.TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -332,7 +332,7 @@ private fun JobCardInternal(
                         Text(
                             text = "/${payDisplay.substringAfter("/")}",
                             style = MaterialTheme.typography.labelMedium.copy(
-                                color = Color(0xFF6B7280),
+                                color = WorkerColors.TextSecondary,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 13.sp
                             )
@@ -352,13 +352,13 @@ private fun JobCardInternal(
                     Icon(
                         imageVector = Icons.Outlined.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        tint = WorkerColors.IconSecondary,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = locationDisplay,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280),
+                            color = WorkerColors.TextSecondary,
                             fontSize = 12.sp
                         ),
                         maxLines = 1,
@@ -416,9 +416,9 @@ private fun CompactChip(
         backgroundColor != Color.Transparent -> Triple(backgroundColor, textColor, borderColor)
         else -> when (chipType) {
             ChipType.VACANCY -> Triple(
-                Color(0xFF374151).copy(alpha = 0.1f), // Light black/gray background
-                Color(0xFF374151), // Dark gray text (not full black)
-                Color(0xFF374151)  // Dark gray border
+                WorkerColors.ChipBackground,
+                WorkerColors.ChipText,
+                WorkerColors.Border
             )
             ChipType.JOB_TYPE -> Triple(
                 Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background

@@ -17,6 +17,7 @@ export * from './job-landing';
 export * from './worker-landing';
 export * from './employer-landing';
 export * from './auth-callables';
+export * from './identity-mirror';
 
 const db = admin.firestore();
 const messaging = admin.messaging();

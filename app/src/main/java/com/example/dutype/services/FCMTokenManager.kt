@@ -61,6 +61,7 @@ class FCMTokenManager @Inject constructor(
             subscribeToTopic(TOPIC_ALL_USERS)
             subscribeToLanguageTopic(TOPIC_ALL_USERS)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
+            com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
             
             Result.success(token)
         } catch (e: Exception) {
@@ -90,6 +91,7 @@ class FCMTokenManager @Inject constructor(
             // Subscribe to role-based topics
             subscribeToRoleTopics(role)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
+            com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
             
             Result.success(token)
         } catch (e: Exception) {

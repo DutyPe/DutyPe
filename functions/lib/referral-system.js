@@ -423,6 +423,7 @@ async function ensureCanonicalReferralCodeForUser(userId, userRole, userName, ex
     const normalizedExistingCode = normalizeReferralCodeInput(existingCode);
     const statsRef = db.collection("referral_stats").doc(userId);
     const profileRef = db.collection(profileCollectionForRole(resolvedUserRole)).doc(userId);
+    const userRef = db.collection("users").doc(userId);
     const currentStatsDoc = await statsRef.get();
     const currentStatsCode = currentStatsDoc.exists
         ? normalizeReferralCodeInput(getStringValue(currentStatsDoc.get("referralCode")))
@@ -480,6 +481,16 @@ async function ensureCanonicalReferralCodeForUser(userId, userRole, userName, ex
                 }, { merge: true });
                 transaction.set(profileRef, {
                     referralCode: codeToUse
+                }, { merge: true });
+                transaction.set(userRef, {
+                    userId,
+                    uid: userId,
+                    role: resolvedUserRole,
+                    activeRole: resolvedUserRole,
+                    fullName: resolvedUserName,
+                    name: resolvedUserName,
+                    referralCode: codeToUse,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 return codeToUse;
             });
