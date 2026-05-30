@@ -4,6 +4,7 @@ import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.JobCategoryResolver
 import com.example.dutype.utils.JobEditPolicy
+import com.example.dutype.utils.JobSearchMatcher
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,6 +43,7 @@ class JobFirestoreService @Inject constructor(
         const val JOB_DETAILS_COLLECTION = FirestoreCollections.JOB_DETAILS    // Full details loaded on click (~1KB)
         private const val EMPLOYER_PROFILES_COLLECTION = "employer_profiles"
         private const val MAX_JOB_QUERY_LIMIT = 100L
+        private const val SEARCH_SCAN_LIMIT = 300L
     }
 
     private fun toEpochMillis(value: Any?): Long {
@@ -946,17 +948,18 @@ class JobFirestoreService @Inject constructor(
     suspend fun searchJobs(query: String, limit: Long = 100L): Result<List<Map<String, Any>>> {
         return try {
             val lowercaseQuery = query.lowercase().trim()
-            val searchTokens = JobCategoryResolver.searchQueryTokens(lowercaseQuery)
+            val searchTokens = JobSearchMatcher.queryTokens(lowercaseQuery)
             Timber.d("Search: '$lowercaseQuery'")
             if (searchTokens.isEmpty()) return Result.success(emptyList())
             val categorySearchName = (JobCategoryResolver.enumNameForDisplay(lowercaseQuery)
                 ?: JobCategoryResolver.inferCategory(lowercaseQuery)?.name)
                 ?.takeIf { it != "OTHER" }
             val queryLimit = limit.coerceIn(20L, MAX_JOB_QUERY_LIMIT)
+            val scanLimit = (queryLimit * 3).coerceAtMost(SEARCH_SCAN_LIMIT)
             
             val recentSnapshot = firestore.collection(JOBS_COLLECTION)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(queryLimit)
+                .limit(scanLimit)
                 .get()
                 .await()
 
@@ -970,7 +973,20 @@ class JobFirestoreService @Inject constructor(
             } else {
                 emptyList()
             }
-            val candidateDocuments = (recentSnapshot.documents + categoryDocuments).distinctBy { it.id }
+
+            val locationVariants = JobSearchMatcher.locationQueryVariants(lowercaseQuery, searchTokens).toList()
+            val locationDocuments = if (locationVariants.isNotEmpty()) {
+                firestore.collection(JOBS_COLLECTION)
+                    .whereIn("companyCity", locationVariants)
+                    .limit(queryLimit)
+                    .get()
+                    .await()
+                    .documents
+            } else {
+                emptyList()
+            }
+
+            val candidateDocuments = (recentSnapshot.documents + categoryDocuments + locationDocuments).distinctBy { it.id }
             
             val currentTime = System.currentTimeMillis()
             
@@ -983,35 +999,23 @@ class JobFirestoreService @Inject constructor(
                 if (expiresAt > 0L && expiresAt < currentTime) return@mapNotNull null
 
                 val summary = buildJobSummary(doc.id, data, currentTime).toMutableMap()
-                val title = summary["title"].toString().lowercase()
-                val companyName = summary["companyName"].toString().lowercase()
-                val companyCity = summary["companyCity"].toString().lowercase()
-                val addressText = summary["addressText"].toString().lowercase()
-                val jobType = summary["jobType"].toString().lowercase()
-                val category = summary["category"].toString().lowercase()
-                val categoryLabel = JobCategoryResolver.displayNameForName(summary["category"].toString()).lowercase()
-                val searchableText = listOf(title, companyName, companyCity, addressText, jobType, category, categoryLabel)
-                    .joinToString(" ")
+                val match = JobSearchMatcher.evaluate(
+                    query = lowercaseQuery,
+                    tokens = searchTokens,
+                    fields = JobSearchMatcher.Fields(
+                        title = summary["title"].toString(),
+                        companyName = summary["companyName"].toString(),
+                        companyCity = summary["companyCity"].toString(),
+                        addressText = summary["addressText"].toString(),
+                        jobType = summary["jobType"].toString(),
+                        category = summary["category"].toString(),
+                        categoryLabel = JobCategoryResolver.displayNameForName(summary["category"].toString())
+                    )
+                )
 
-                val tokenHits = searchTokens.count { token ->
-                    searchableText.contains(token)
-                }
-                val matches = tokenHits > 0
-
-                if (matches) {
-                    val score = when {
-                        title.startsWith(lowercaseQuery) -> 120
-                        title.contains(lowercaseQuery) -> 110
-                        searchTokens.all { title.contains(it) } -> 100
-                        companyName.contains(lowercaseQuery) -> 90
-                        category.contains(lowercaseQuery) || categoryLabel.contains(lowercaseQuery) -> 85
-                        addressText.contains(lowercaseQuery) || companyCity.contains(lowercaseQuery) -> 80
-                        jobType.contains(lowercaseQuery) -> 70
-                        else -> 50 + tokenHits
-                    }
-
+                if (match.matches) {
                     summary.apply {
-                        put("_score", score)
+                        put("_score", match.score)
                         put("_time", toEpochMillis(data["createdAt"]))
                     }
                 } else null
