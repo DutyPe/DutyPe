@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { IBM_Plex_Sans, Sora } from "next/font/google";
 import { ReactNode } from "react";
 
@@ -16,6 +17,9 @@ const displayFont = Sora({
   subsets: ["latin"],
   variable: "--font-display"
 });
+
+const ADSENSE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID ?? "ca-pub-5503082977524600";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -82,14 +86,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5503082977524600"
+      <head />
+      <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
+        <Script
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+          strategy="afterInteractive"
           crossOrigin="anonymous"
         />
-      </head>
-      <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>{children}</body>
+        {children}
+      </body>
     </html>
   );
 }

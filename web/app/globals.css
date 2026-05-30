@@ -87,6 +87,26 @@ button {
   gap: clamp(22px, 3vw, 30px);
 }
 
+.adsense-banner {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 728px);
+  margin: 0 auto;
+  padding: 14px 16px;
+  border: 1px dashed rgba(9, 9, 9, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow-soft);
+}
+
+.adsense-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .page-shell-plain .page-wrap {
   width: min(1080px, calc(100% - clamp(20px, 4vw, 56px)));
 }

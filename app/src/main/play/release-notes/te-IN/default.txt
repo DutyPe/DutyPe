@@ -1,7 +1,7 @@
-DutyPe v69 లో Refer & Earn, local hiring ఇంకా వేగంగా మారాయి.
+DutyPe v69 లో Refer & Earn experience మరియు local hiring మరింత smooth గా, reliable గా మారాయి.
 
 • Registration తర్వాత signup bonus క్రెడిట్ మరింత నమ్మకంగా కనిపిస్తుంది
-• Refer & Earn wallet balance ఇప్పుడు live గా త్వరగా refresh అవుతుంది
-• Refer & Earn స్క్రీన్‌లో bonus earning మరింత స్పష్టంగా చూపిస్తుంది
-• Admin control తో కొత్త in-app update prompts జోడించాం
-• Nearby cook, maid, helper, driver job flows reliability మెరుగుపడ్డాయి
+• Refer & Earn wallet balance ఇప్పుడు live updates తో త్వరగా refresh అవుతుంది
+• Refer & Earn స్క్రీన్‌లో bonus earning మరింత స్పష్టంగా కనిపిస్తుంది
+• Safe rollout కోసం కొత్త admin-controlled in-app update prompts జోడించాం
+• Nearby cook, maid, helper, మరియు driver job flows reliability మెరుగుపడింది

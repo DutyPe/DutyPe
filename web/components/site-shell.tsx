@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 
+import { AdSenseBanner } from "@/components/public/adsense-banner";
 import { PLAY_STORE_URL, footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
 export function SiteShell({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
@@ -54,6 +55,8 @@ export function SiteShell({ children, plain = false }: { children: ReactNode; pl
             ))}
           </nav>
         </header>
+
+        {!plain ? <AdSenseBanner /> : null}
 
         <main className="site-main">{children}</main>
 
