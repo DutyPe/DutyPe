@@ -88,7 +88,7 @@ fun EmployerProfileScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
-    var showThemeBottomSheet by remember { mutableStateOf(false) }
+    // var showThemeBottomSheet by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     
@@ -209,15 +209,15 @@ fun EmployerProfileScreen(
                             )
                         }
 
-                        IconButton(onClick = { showThemeBottomSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Default.DarkMode,
-                                contentDescription = stringResource(R.string.appearance),
-                                tint = WorkerColors.IconPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        
+                        // IconButton(onClick = { showThemeBottomSheet = true }) {
+                        //     Icon(
+                        //         imageVector = Icons.Default.DarkMode,
+                        //         contentDescription = stringResource(R.string.appearance),
+                        //         tint = WorkerColors.IconPrimary,
+                        //         modifier = Modifier.size(24.dp)
+                        //     )
+                        // }
+
                         // WhatsApp Support Button - Icon only with WhatsApp green color
                         IconButton(onClick = {
                             val whatsappNumber = "919121706236" // DutyPe support number
@@ -658,15 +658,15 @@ fun EmployerProfileScreen(
         )
     }
 
-    if (showThemeBottomSheet) {
-        val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
-            skipPartiallyExpanded = true
-        )
-        com.example.dutype.components.ThemeModeBottomSheet(
-            sheetState = themeSheetState,
-            onDismiss = { showThemeBottomSheet = false },
-        )
-    }
+    // if (showThemeBottomSheet) {
+    //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+    //         skipPartiallyExpanded = true
+    //     )
+    //     com.example.dutype.components.ThemeModeBottomSheet(
+    //         sheetState = themeSheetState,
+    //         onDismiss = { showThemeBottomSheet = false },
+    //     )
+    // }
     
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(

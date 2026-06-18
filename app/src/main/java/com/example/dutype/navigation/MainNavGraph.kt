@@ -477,50 +477,25 @@ fun MainNavGraph(
                         Timber.e(e, "Error navigating to specific screen")
                     }
                 } else {
-                    // Fallback to home screen based on user role - but first check profile completion
+                    // For logged-in users clicking notifications, go to home (NOT profile setup)
                     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     if (currentUser != null && userRole != null) {
-                        // CHECK LOCAL DATASTORE FIRST - same as main navigation logic
-                        val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
-                        Timber.d("MainNavGraph - Notification handler profile complete check (LOCAL DataStore): $isProfileCompleteLocal")
-                        
-                        if (isProfileCompleteLocal) {
-                            try {
-                                if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                    Timber.i("MainNavGraph - Navigating to EMPLOYER_HOME from notification")
-                                    navController.navigate(Routes.EMPLOYER_HOME) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                    Timber.i("MainNavGraph - Worker navigating to WORKER_HOME from notification")
-                                    navController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                        try {
+                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                                Timber.i("MainNavGraph - Logged-in user notification: Navigating to EMPLOYER_HOME")
+                                navController.navigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    launchSingleTop = true
                                 }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error navigating to home from notification")
-                            }
-                        } else {
-                            // Profile incomplete - navigate to appropriate onboarding
-                            try {
-                                if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                    Timber.i("MainNavGraph - Profile incomplete, navigating to EMPLOYER_PROFILE_SETUP from notification")
-                                    navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
-                                } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                    Timber.i("MainNavGraph - Profile incomplete, navigating to PROFILE_SETUP from notification")
-                                    navController.navigate(Routes.PROFILE_SETUP) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                                Timber.i("MainNavGraph - Logged-in user notification: Navigating to WORKER_HOME")
+                                navController.navigate(Routes.WORKER_HOME) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                    launchSingleTop = true
                                 }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error navigating to onboarding from notification")
                             }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error navigating to home from notification")
                         }
                         logPendingNotificationDestinationOpened(source = "cold_start_notification_route")
                     }
@@ -532,54 +507,29 @@ fun MainNavGraph(
             // Add a small delay to ensure NavHost is fully initialized
             delay(200)
             
-            // Check if user is authenticated and profile complete
+            // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 val userRole = profileCompletionViewModel.getUserRole()
                 
                 if (userRole != null) {
-                    // CHECK LOCAL DATASTORE FIRST - same as main navigation logic
-                    val isProfileCompleteLocal = profileCompletionViewModel.isProfileComplete(userRole)
-                    Timber.d("MainNavGraph - Legacy notification profile complete check (LOCAL DataStore): $isProfileCompleteLocal")
-                    
-                    if (isProfileCompleteLocal) {
-                        // Navigate to home if profile is complete
-                        try {
-                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                Timber.i("MainNavGraph - Navigating to EMPLOYER_HOME from legacy notification")
-                                navController.navigate(Routes.EMPLOYER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                Timber.i("MainNavGraph - Worker navigates to WORKER_HOME from legacy notification")
-                                navController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                    launchSingleTop = true
-                                }
+                    // For logged-in users with legacy notifications, go directly to home (NOT profile setup)
+                    try {
+                        if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
+                            Timber.i("MainNavGraph - Legacy notification: Logged-in employer navigating to EMPLOYER_HOME")
+                            navController.navigate(Routes.EMPLOYER_HOME) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                launchSingleTop = true
                             }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error navigating to home from legacy notification")
-                        }
-                    } else {
-                        // Profile incomplete - navigate to appropriate onboarding
-                        try {
-                            if (userRole == com.example.dutype.models.UserRole.EMPLOYER) {
-                                Timber.i("MainNavGraph - Legacy notification: Profile incomplete, navigating to EMPLOYER_PROFILE_SETUP")
-                                navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
-                                Timber.i("MainNavGraph - Legacy notification: Profile incomplete, navigating to PROFILE_SETUP")
-                                navController.navigate(Routes.PROFILE_SETUP) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                    launchSingleTop = true
-                                }
+                        } else if (userRole == com.example.dutype.models.UserRole.WORKER) {
+                            Timber.i("MainNavGraph - Legacy notification: Logged-in worker navigating to WORKER_HOME")
+                            navController.navigate(Routes.WORKER_HOME) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                launchSingleTop = true
                             }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error navigating to onboarding from legacy notification")
                         }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error navigating to home from legacy notification")
                     }
                 }
             }

@@ -5,6 +5,7 @@ const LEGACY_ADMIN_EMAILS = new Set([
   "admin@dutype.com",
   "vamsi@dutype.com",
   "vamsib298@gmail.com",
+  "dutypein@gmail.com",
   "dutpyein@gmail.com"
 ]);
 

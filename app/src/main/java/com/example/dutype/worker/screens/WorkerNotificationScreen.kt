@@ -163,7 +163,7 @@ fun WorkerNotificationScreen(
                 ) {
                     items(8) {
                         NotificationItemShimmer()
-                        HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+                        HorizontalDivider(color = WorkerColors.Divider, thickness = 1.dp)
                     }
                 }
             }
@@ -179,26 +179,27 @@ fun WorkerNotificationScreen(
                         Icon(
                             Icons.Default.Notifications,
                             contentDescription = "Error",
-                            tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+                            tint = WorkerColors.IconPrimary,
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
                             text = stringResource(R.string.notif_failed_load),
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color.Black
+                                color = WorkerColors.TextPrimary
                             )
                         )
                         Button(
                             onClick = { viewModel.loadNotifications() },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFF3F4F6)
+                                containerColor = WorkerColors.Primary,
+                                contentColor = Color.White
                             )
                         ) {
                             Text(
                                 stringResource(R.string.notif_retry), 
-                                color = Color(0xFF374151),
+                                color = Color.White,
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF374151)
+                                    color = Color.White
                                 )
                             )
                         }
@@ -219,7 +220,7 @@ fun WorkerNotificationScreen(
                             modifier = Modifier
                                 .size(120.dp)
                                 .background(
-                                    Color(0xFFF3F4F6),
+                                    WorkerColors.CardBackground,
                                     CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -227,7 +228,7 @@ fun WorkerNotificationScreen(
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "No notifications",
-                                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+                                tint = WorkerColors.IconPrimary,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -238,14 +239,14 @@ fun WorkerNotificationScreen(
                             Text(
                                 text = stringResource(R.string.notif_no_notifications),
                                 style = MaterialTheme.typography.headlineSmall.copy(
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                    color = WorkerColors.TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
                             Text(
                                 text = stringResource(R.string.notif_worker_empty_desc),
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color.Black
+                                    color = WorkerColors.TextSecondary
                                 ),
                                 modifier = Modifier.padding(horizontal = 40.dp),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -377,7 +378,7 @@ fun NotificationItemContent(
             .clickable { onClick() },
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
+            containerColor = if (notification.isRead) WorkerColors.CardBackground.copy(alpha = 0.92f) else WorkerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -419,7 +420,7 @@ fun NotificationItemContent(
                         text = notification.title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.SemiBold,
-                        color = if (notification.isRead) Color(0xFF374151) else Color(0xFF111827),
+                            color = if (notification.isRead) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -433,7 +434,7 @@ fun NotificationItemContent(
                         Text(
                             text = formatNotificationTime(notification.createdAt),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9CA3AF),
+                            color = WorkerColors.TextTertiary,
                             fontWeight = FontWeight.Normal
                         )
                         
@@ -453,7 +454,7 @@ fun NotificationItemContent(
                     text = notification.message,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
-                    color = if (notification.isRead) Color(0xFF6B7280) else Color(0xFF4B5563),
+                    color = if (notification.isRead) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
                     lineHeight = 20.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -465,7 +466,7 @@ fun NotificationItemContent(
                     Text(
                         text = stringResource(R.string.notif_swipe_to_delete),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFBDBDBD),
+                        color = WorkerColors.TextTertiary,
                         fontSize = 10.sp
                     )
                 }
@@ -474,7 +475,7 @@ fun NotificationItemContent(
         
         // Divider
         HorizontalDivider(
-            color = Color(0xFFF3F4F6),
+            color = WorkerColors.Divider,
             thickness = 1.dp
         )
     }

@@ -52,7 +52,7 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 75
+        versionCode = 76
         versionName = "2.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

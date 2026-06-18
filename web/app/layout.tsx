@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { IBM_Plex_Sans, Sora } from "next/font/google";
 import { ReactNode } from "react";
 
@@ -80,19 +79,23 @@ export const metadata: Metadata = {
   },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION
+  },
+  other: {
+    "google-adsense-account": ADSENSE_CLIENT_ID
   }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head />
-      <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
-        <Script
+      <head>
+        <script
+          async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-          strategy="afterInteractive"
           crossOrigin="anonymous"
         />
+      </head>
+      <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
         {children}
       </body>
     </html>

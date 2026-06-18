@@ -1042,17 +1042,17 @@ private fun RegisterNameField(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF)),
+            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = WorkerColors.CardShadow, spotColor = WorkerColors.CardShadow),
         singleLine = true,
         shape = RoundedCornerShape(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFF6D3DFF),
-            unfocusedBorderColor = Color(0xFFE5E7F0),
-            cursorColor = Color(0xFF6D3DFF),
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White
+            focusedBorderColor = WorkerColors.BorderFocused,
+            unfocusedBorderColor = WorkerColors.Border,
+            cursorColor = WorkerColors.Primary,
+            focusedContainerColor = WorkerColors.CardBackground,
+            unfocusedContainerColor = WorkerColors.CardBackground
         ),
-        textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = Color(0xFF071735)),
+        textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = WorkerColors.TextPrimary),
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Text,
             capitalization = KeyboardCapitalization.Words
@@ -1073,14 +1073,14 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
                 .align(Alignment.TopEnd)
                 .size(82.dp)
                 .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFFEDE7FF).copy(alpha = 0.62f))
+                .background(WorkerColors.PrimaryLight.copy(alpha = 0.18f))
         )
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .size(58.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF6D3DFF)),
+                .background(WorkerColors.Primary),
             contentAlignment = Alignment.Center
         ) {
             Icon(
