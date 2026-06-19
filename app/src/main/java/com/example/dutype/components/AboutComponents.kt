@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 import com.example.dutype.ui.theme.AppTypography
@@ -82,14 +84,13 @@ fun AboutHero(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(accentColor.copy(alpha = 0.12f), CircleShape),
+                    .background(Color(0xFF0F0F0F), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = aboutIconFor(badgeEmoji),
+                Image(
+                    painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
                     contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))

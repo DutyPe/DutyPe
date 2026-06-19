@@ -1333,13 +1333,13 @@ private fun WorkerJobRequestCard(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .background(Color(0xFFEFF6FF), CircleShape),
+                        .background(WorkerColors.ChipBackground, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Work,
                         contentDescription = null,
-                        tint = Color(0xFF2563EB),
+                        tint = WorkerColors.Primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1348,7 +1348,7 @@ private fun WorkerJobRequestCard(
                     Text(
                         text = request.employerName.ifBlank { request.companyName },
                         style = MaterialTheme.typography.labelLarge.copy(
-                            color = Color(0xFF2563EB),
+                            color = WorkerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
                         ),
                         maxLines = 1,
@@ -1376,7 +1376,7 @@ private fun WorkerJobRequestCard(
                             }
                             if (isEmpty()) append("Tap to view job")
                         },
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1403,7 +1403,7 @@ private fun WorkerJobRequestCard(
                     enabled = !isUpdating,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
                 ) {
                     if (isUpdating) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
@@ -1835,6 +1835,7 @@ internal fun DynamicHeader(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

@@ -1,7 +1,8 @@
-DutyPe v69 brings a smoother Refer & Earn experience and more reliable local hiring.
+DutyPe v2.8.0 — a clean new look and smarter local job alerts.
 
-• Signup bonus credit now appears more reliably after registration
-• Refer & Earn wallet balance refreshes faster with live updates
-• Bonus earning visibility is clearer on the Refer & Earn screen
-• New admin-controlled in-app update prompts support safer rollouts
-• Improved reliability for nearby cook, maid, helper, and driver job flows
+• Fresh, modern design across the whole app — faster and easier to use
+• Brand-new app icon
+• Smarter notifications matched to nearby jobs that fit your skills
+• No more late-night pings — alerts now arrive at the right time
+• Cleaner, quicker login & sign up
+• Refer & Earn and home-screen fixes for a smoother experience

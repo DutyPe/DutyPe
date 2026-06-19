@@ -720,7 +720,8 @@ private fun LoginPhoneEntrySection(
             onPhoneNumberChange = onPhoneNumberChange,
             selectedCountryCode = selectedCountryCode,
             hasError = phoneValidationError != null,
-            onFocused = onPhoneFocused
+            onFocused = onPhoneFocused,
+            placeholderText = ""
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -732,8 +733,6 @@ private fun LoginPhoneEntrySection(
             onClick = onContinueClick
         )
 
-        Spacer(modifier = Modifier.height(18.dp))
-        SecureOtpLine()
         Spacer(modifier = Modifier.height(28.dp))
 
         Row(
@@ -862,7 +861,8 @@ internal fun AuthPhoneEntryField(
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
     hasError: Boolean,
-    onFocused: () -> Unit
+    onFocused: () -> Unit,
+    placeholderText: String = "98765 43210"
 ) {
     Row(
         modifier = Modifier
@@ -934,9 +934,9 @@ internal fun AuthPhoneEntryField(
                 cursorBrush = SolidColor(WorkerColors.Primary),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 decorationBox = { innerTextField ->
-                    if (phoneNumber.isBlank()) {
+                    if (phoneNumber.isBlank() && placeholderText.isNotBlank()) {
                         Text(
-                            text = "98765 43210",
+                            text = placeholderText,
                             style = AppTypography.bodyLarge.copy(
                                 fontSize = 18.sp,
                                 color = WorkerColors.TextTertiary

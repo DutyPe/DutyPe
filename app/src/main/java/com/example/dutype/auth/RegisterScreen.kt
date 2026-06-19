@@ -912,7 +912,6 @@ private fun RegisterEntrySection(
             modifier = Modifier
                 .fillMaxWidth()
                 .minAuthCardHeight(56.dp)
-                .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
                 .clip(RoundedCornerShape(14.dp))
                 .background(WorkerColors.CardBackground)
                 .border(1.dp, WorkerColors.Border, RoundedCornerShape(14.dp))
@@ -953,9 +952,6 @@ private fun RegisterEntrySection(
             isLoading = isCheckingPhone || otpState.isLoading,
             onClick = onCreateClick
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        SecureOtpLine()
 
         Spacer(modifier = Modifier.height(22.dp))
 

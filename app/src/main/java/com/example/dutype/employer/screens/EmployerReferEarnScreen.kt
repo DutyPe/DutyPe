@@ -379,13 +379,6 @@ fun EmployerReferEarnScreen(
 @Composable
 private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
     val tierName = ReferralRewards.getTierDisplayName(tier)
-    val tierEmoji = when (tier) {
-        ReferralTier.BRONZE -> "??"
-        ReferralTier.SILVER -> "??"
-        ReferralTier.GOLD -> "??"
-        ReferralTier.PLATINUM -> "??"
-        ReferralTier.DIAMOND -> "??"
-    }
     val tierColor = when (tier) {
         ReferralTier.BRONZE -> Color(0xFFCD7F32)
         ReferralTier.SILVER -> Color(0xFF94A3B8)
@@ -410,7 +403,12 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
                     .background(tierColor.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = tierEmoji, fontSize = 28.sp)
+                Icon(
+                    imageVector = Icons.Default.WorkspacePremium,
+                    contentDescription = null,
+                    tint = tierColor,
+                    modifier = Modifier.size(32.dp)
+                )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -439,7 +437,14 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
             Box(
                 modifier = Modifier.size(48.dp).background(EmployerColors.WarningLight, CircleShape),
                 contentAlignment = Alignment.Center
-            ) { Text("??", fontSize = 24.sp) }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CardGiftcard,
+                    contentDescription = null,
+                    tint = EmployerColors.Warning,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
 
             Spacer(Modifier.height(12.dp))
 
