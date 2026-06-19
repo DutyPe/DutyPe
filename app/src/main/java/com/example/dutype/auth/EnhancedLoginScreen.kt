@@ -16,6 +16,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.with
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -809,14 +810,10 @@ internal fun AuthMark(size: androidx.compose.ui.unit.Dp = 52.dp) {
             ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "D",
-            style = AppTypography.displayTitle.copy(
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = (size.value * 0.5f).sp,
-                lineHeight = (size.value * 0.5f).sp
-            )
+        Image(
+            painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
+            contentDescription = null,
+            modifier = Modifier.size(size * 0.7f)
         )
     }
 }
