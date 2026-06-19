@@ -165,9 +165,7 @@ fun EmployerJobPreviewScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             CommonHeader(
                 title = stringResource(R.string.preview),
-                navController = navController,
-                backgroundColor = Color.White,
-                titleColor = Color(0xFF0F172A)
+                navController = navController
             )
 
             when {

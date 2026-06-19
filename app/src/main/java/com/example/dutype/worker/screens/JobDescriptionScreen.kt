@@ -441,7 +441,7 @@ fun JobDescriptionScreen(
                             Icon(
                                 imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 contentDescription = if (isSaved) "Remove from saved" else "Save job",
-                                tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF6B7280),
+                                tint = if (isSaved) WorkerColors.Error else WorkerColors.TextSecondary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -450,7 +450,7 @@ fun JobDescriptionScreen(
                     job?.let { currentJob ->
                         ShareJobIconButton(
                             job = currentJob,
-                            tint = Color(0xFF6B7280)
+                            tint = WorkerColors.TextSecondary
                         )
                     }
                 }
@@ -459,8 +459,8 @@ fun JobDescriptionScreen(
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color(0xFF10B981),
-                    trackColor = Color(0xFFE5E7EB)
+                    color = WorkerColors.Success,
+                    trackColor = WorkerColors.Border
                 )
             }
 
@@ -575,7 +575,7 @@ fun JobDescriptionScreen(
             modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 20.dp, vertical = 110.dp)
         ) {
             LaunchedEffect(showSnackbar) { kotlinx.coroutines.delay(2500); showSnackbar = false }
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = WorkerColors.Primary), shape = RoundedCornerShape(12.dp)) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(if (snackbarMessage.contains("saved")) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = Color.White, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Text(snackbarMessage, color = Color.White, fontWeight = FontWeight.Medium)
@@ -743,7 +743,7 @@ private fun RowScope.ActionButtonsContent(
         },
         modifier = Modifier.weight(1f).height(50.dp),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        border = BorderStroke(1.dp, WorkerColors.Border),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
         Icon(Icons.Default.Phone, null, tint = com.example.dutype.ui.theme.WorkerColors.TextPrimary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -760,9 +760,9 @@ private fun RowScope.ActionButtonsContent(
             modifier = Modifier.weight(1f).height(50.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = when (applicationStatus) {
-                    "ACCEPTED" -> Color(0xFF10B981)
-                    "PENDING", "UNDER_REVIEW" -> Color(0xFFF59E0B)
-                    else -> Color(0xFF6B7280)
+                    "ACCEPTED" -> WorkerColors.Success
+                    "PENDING", "UNDER_REVIEW" -> WorkerColors.Warning
+                    else -> WorkerColors.Primary
                 }
             ),
             shape = RoundedCornerShape(8.dp)
@@ -800,7 +800,7 @@ private fun RowScope.ActionButtonsContent(
                 }
             },
             modifier = Modifier.weight(1f).height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+            colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -846,10 +846,10 @@ private fun JobCallFeedbackSheet(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .background(Color(0xFFEFF6FF), CircleShape),
+                            .background(WorkerColors.Primary.copy(alpha = 0.12f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(21.dp))
+                        Icon(Icons.Default.Phone, contentDescription = null, tint = WorkerColors.Primary, modifier = Modifier.size(21.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -861,19 +861,19 @@ private fun JobCallFeedbackSheet(
                         Text(
                             text = stringResource(R.string.quick_call_update_body),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF6B7280)
+                            color = WorkerColors.TextSecondary
                         )
                     }
                 }
                 IconButton(onClick = onDismiss, enabled = !isSubmitting) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Color(0xFF6B7280))
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = WorkerColors.TextSecondary)
                 }
             }
 
             if (jobTitle.isNotBlank() || companyName.isNotBlank()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground),
                     elevation = CardDefaults.cardElevation(0.dp),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -882,7 +882,7 @@ private fun JobCallFeedbackSheet(
                             Text(jobTitle, color = WorkerColors.TextPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (companyName.isNotBlank()) {
-                            Text(companyName, color = Color(0xFF6B7280), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(companyName, color = WorkerColors.TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -891,7 +891,7 @@ private fun JobCallFeedbackSheet(
             Text(
                 text = stringResource(R.string.did_speak_employer),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = Color(0xFF374151)
+                color = WorkerColors.TextSecondary
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 FeedbackChoiceButton(
@@ -913,7 +913,7 @@ private fun JobCallFeedbackSheet(
             Text(
                 text = stringResource(R.string.job_still_available_question),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = Color(0xFF374151)
+                color = WorkerColors.TextSecondary
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 JobAvailabilityFeedback.entries.forEach { option ->
@@ -930,7 +930,7 @@ private fun JobCallFeedbackSheet(
             AnimatedVisibility(visible = errorMessage != null) {
                 Text(
                     text = errorMessage.orEmpty(),
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -954,7 +954,7 @@ private fun JobCallFeedbackSheet(
                 enabled = !isSubmitting && spokeWithEmployer != null && availability != null,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
@@ -986,10 +986,10 @@ private fun FeedbackChoiceButton(
         enabled = enabled,
         modifier = modifier.height(44.dp),
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, if (selected) Color(0xFF2563EB) else Color(0xFFE5E7EB)),
+        border = BorderStroke(1.dp, if (selected) WorkerColors.Primary else WorkerColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (selected) Color(0xFFEFF6FF) else Color.White,
-            contentColor = if (selected) Color(0xFF1D4ED8) else Color(0xFF374151)
+            containerColor = if (selected) WorkerColors.Primary.copy(alpha = 0.12f) else WorkerColors.CardBackground,
+            contentColor = if (selected) Color(0xFF1D4ED8) else WorkerColors.TextSecondary
         ),
         contentPadding = PaddingValues(horizontal = 12.dp)
     ) {
@@ -1047,10 +1047,10 @@ private fun JobDetailsContent(
                     // Neutral background so portrait/landscape uploads sit on
                     // a clean surface when ContentScale.Fit leaves bars
                     // around the edges.
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground),
                     shape = RoundedCornerShape(10.dp),
                     elevation = CardDefaults.cardElevation(0.dp),
-                    border = BorderStroke(0.5.dp, Color(0xFFE5E7EB))
+                    border = BorderStroke(0.5.dp, WorkerColors.Border)
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
@@ -1074,7 +1074,7 @@ private fun JobDetailsContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0xFFF9FAFB)),
+                                    .background(WorkerColors.ChipBackground),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(
@@ -1137,7 +1137,7 @@ private fun JobDetailsContent(
             // Employer joined time should be fetched from employer profile if needed
             
             Card(
-                modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth().border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
                 colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
@@ -1162,7 +1162,7 @@ private fun JobDetailsContent(
                         Icon(
                             Icons.Default.LocationOn, 
                             null, 
-                            tint = Color(0xFFEF4444), // Bright red for location
+                            tint = WorkerColors.Error, // Bright red for location
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -1175,7 +1175,7 @@ private fun JobDetailsContent(
                                 Text(
                                     "Location:", 
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color(0xFF6B7280),
+                                        color = WorkerColors.TextSecondary,
                                         fontWeight = FontWeight.Medium
                                     )
                                 )
@@ -1195,7 +1195,7 @@ private fun JobDetailsContent(
                                 Text(
                                     distanceText,
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF6B7280),
+                                        color = WorkerColors.TextSecondary,
                                         fontSize = 13.sp
                                     ),
                                     modifier = Modifier.padding(top = 2.dp)
@@ -1206,7 +1206,7 @@ private fun JobDetailsContent(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Salary/Pay
-                    JobDetailRow(Icons.Default.Payments, Color(0xFF10B981), "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
+                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
                     Spacer(modifier = Modifier.height(10.dp))
                     
                     // Vacancies — not in schema, removed
@@ -1217,7 +1217,7 @@ private fun JobDetailsContent(
 
                     JobDetailRow(
                         Icons.Outlined.WorkOutline,
-                        Color(0xFF2563EB),
+                        WorkerColors.Primary,
                         "Education:",
                         job.educationRequired.ifBlank { "No qualification required" }
                     )
@@ -1248,7 +1248,7 @@ private fun JobDetailsContent(
                     // Posted time — shown last, after gender
                     if (job.createdAt > 0) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        JobDetailRow(Icons.Default.AccessTime, Color(0xFF3B82F6), "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
+                        JobDetailRow(Icons.Default.AccessTime, WorkerColors.Primary, "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
                     }
                     
                     /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
@@ -1266,7 +1266,7 @@ private fun JobDetailsContent(
         // Job Description & Requirements Card - White background with light border
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().border(0.5.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth().border(0.5.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
                 colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
@@ -1281,9 +1281,9 @@ private fun JobDetailsContent(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         parseDescriptionToBullets(job.description).forEach { point ->
                             Row(modifier = Modifier.fillMaxWidth()) {
-                                Text("-", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                                Text("-", style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, fontWeight = FontWeight.Bold, fontSize = 16.sp))
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
+                                Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, lineHeight = 22.sp))
                             }
                         }
                     }
@@ -1319,7 +1319,7 @@ private fun JobDetailsContent(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEDF8FF)),
+                colors = CardDefaults.cardColors(containerColor = WorkerColors.InfoLight),
                 shape = RoundedCornerShape(8.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
@@ -1327,17 +1327,17 @@ private fun JobDetailsContent(
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Shield, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                    Icon(Icons.Outlined.Shield, null, tint = WorkerColors.Primary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.dont_pay_fee_for_jobs), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF)))
-                        Text(stringResource(R.string.report_suspicious_jobs), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF3B82F6)))
+                        Text(stringResource(R.string.dont_pay_fee_for_jobs), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.Info))
+                        Text(stringResource(R.string.report_suspicious_jobs), style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Primary))
                     }
                     TextButton(
                         onClick = onReportClick,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(stringResource(R.string.report), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)))
+                        Text(stringResource(R.string.report), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.Error))
                     }
                 }
             }
@@ -1353,7 +1353,7 @@ private fun JobDetailsContent(
         if (inlineActions != null) {
             item { Spacer(modifier = Modifier.height(16.dp)) }
             item {
-                HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+                HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
             }
             item { Spacer(modifier = Modifier.height(12.dp)) }
             item(key = "inline_actions") {
@@ -1381,7 +1381,7 @@ private fun JobDetailsContent(
                             .size(42.dp)
                             // Solid blue tile (no gradient).
                             .background(
-                                color = Color(0xFFDBEAFE),
+                                color = WorkerColors.InfoLight,
                                 shape = RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
@@ -1389,7 +1389,7 @@ private fun JobDetailsContent(
                         Icon(
                             Icons.Outlined.WorkOutline,
                             contentDescription = null,
-                            tint = Color(0xFF1D4ED8),
+                            tint = WorkerColors.Primary,
                             modifier = Modifier.size(21.dp)
                         )
                     }
@@ -1399,13 +1399,13 @@ private fun JobDetailsContent(
                             text = "Similar jobs",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
+                                color = WorkerColors.TextPrimary
                             )
                         )
                         Text(
                             text = "Roles related to this opening",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF64748B)
+                                color = WorkerColors.TextSecondary
                             )
                         )
                     }
@@ -1498,7 +1498,7 @@ private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, val
         Text(
             label, 
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280),
+                color = WorkerColors.TextSecondary,
                 fontWeight = FontWeight.Medium // Added Medium weight for better readability
             )
         )
@@ -1548,15 +1548,15 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
             elevation = CardDefaults.cardElevation(8.dp),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+            border = BorderStroke(1.dp, WorkerColors.Border)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(32.dp)) {
-                Box(modifier = Modifier.size(80.dp).scale(errorAnimation).background(Color(0xFFEF4444).copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Error, "Error", tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
+                Box(modifier = Modifier.size(80.dp).scale(errorAnimation).background(WorkerColors.Error.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Error, "Error", tint = WorkerColors.Error, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                 }
                 Text(stringResource(R.string.oops_something_wrong), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary), textAlign = TextAlign.Center)
-                Text(error, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
-                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
+                Text(error, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary), textAlign = TextAlign.Center)
+                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary), shape = RoundedCornerShape(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Refresh, null, tint = Color.White)
                         Text(stringResource(R.string.try_again_button), color = Color.White, fontWeight = FontWeight.SemiBold)
@@ -1569,7 +1569,7 @@ private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
 
 @Composable
 private fun ShimmerBox(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp? = null, height: androidx.compose.ui.unit.Dp = 16.dp) {
-    val shimmerColors = listOf(Color(0xFFF9FAFB), Color.White, Color(0xFFF9FAFB))
+    val shimmerColors = listOf(WorkerColors.ChipBackground, WorkerColors.CardBackground, WorkerColors.ChipBackground)
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnim = transition.animateFloat(initialValue = 0f, targetValue = 1000f, animationSpec = infiniteRepeatable(animation = tween(1500, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Restart), label = "shimmer")
     val brush = Brush.linearGradient(colors = shimmerColors, start = Offset(translateAnim.value - 300f, translateAnim.value - 300f), end = Offset(translateAnim.value, translateAnim.value))

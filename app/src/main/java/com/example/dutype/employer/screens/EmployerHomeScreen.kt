@@ -644,7 +644,7 @@ private fun EmployerTrustSignalsCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -658,21 +658,21 @@ private fun EmployerTrustSignalsCard() {
                 icon = Icons.Default.CheckCircle,
                 title = "Verified Workers",
                 subtitle = "100% verified professionals",
-                iconTint = Color(0xFF10B981),
+                iconTint = EmployerColors.Success,
                 modifier = Modifier.weight(1f)
             )
             EmployerTrustSignalItem(
                 icon = Icons.Default.Schedule,
                 title = "Quick Response",
                 subtitle = "Get responses in minutes",
-                iconTint = Color(0xFFF59E0B),
+                iconTint = EmployerColors.Warning,
                 modifier = Modifier.weight(1f)
             )
             EmployerTrustSignalItem(
                 icon = Icons.Default.CheckCircle,
                 title = "Safe & Secure",
                 subtitle = "Your data is always protected",
-                iconTint = Color(0xFF3B82F6),
+                iconTint = EmployerColors.Info,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -708,7 +708,7 @@ private fun EmployerTrustSignalItem(
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium.copy(
-                color = Color(0xFF111827),
+                color = EmployerColors.TextPrimary,
                 fontWeight = FontWeight.SemiBold
             ),
             textAlign = TextAlign.Center,
@@ -716,7 +716,7 @@ private fun EmployerTrustSignalItem(
         )
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280)),
+            style = MaterialTheme.typography.labelSmall.copy(color = EmployerColors.TextSecondary),
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
@@ -729,7 +729,7 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.SuccessLight),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -742,13 +742,13 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .background(Color(0xFFD1FAE5), CircleShape),
+                    .background(EmployerColors.Success.copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.PersonAdd,
                     contentDescription = null,
-                    tint = Color(0xFF10B981),
+                    tint = EmployerColors.Success,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -757,13 +757,13 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
                 Text(
                     text = "Invite & Earn ₹$inviteEarnAmount",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color(0xFF065F46),
+                        color = EmployerColors.Success,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
                     text = "Invite other employers and earn ₹$inviteEarnAmount when they post their first job.",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF065F46))
+                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Success)
                 )
             }
 
@@ -771,7 +771,7 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
                 onClick = {},
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF22C55E),
+                    containerColor = EmployerColors.Success,
                     contentColor = Color.White
                 )
             ) {
@@ -796,13 +796,13 @@ private fun EmployerPostJobSection(
                 Text(
                     text = "Post a Job",
                     style = AppTypography.sectionHeader.copy(
-                        color = Color(0xFF0F172A),
+                        color = EmployerColors.TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
                     text = "Choose how you want to post your job today",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
             }
         }
@@ -814,7 +814,7 @@ private fun EmployerPostJobSection(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F2)),
+                colors = CardDefaults.cardColors(containerColor = EmployerColors.ErrorLight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
@@ -824,40 +824,40 @@ private fun EmployerPostJobSection(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .background(Color(0xFFFEE2E2), CircleShape),
+                            .background(EmployerColors.Error.copy(alpha = 0.18f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Schedule,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = EmployerColors.Error,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Text(
                         text = "Post Urgent Need",
                         style = MaterialTheme.typography.titleSmall.copy(
-                            color = Color(0xFF111827),
+                            color = EmployerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
                         text = "Reach workers faster",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFFEF4444),
+                            color = EmployerColors.Error,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
                     Text(
                         text = "Get fast responses from nearby available workers.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         minLines = 2
                     )
                     Button(
                         onClick = onPostUrgentNeed,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Error, contentColor = Color.White)
                     ) {
                         Text("Post Urgent Need")
                     }
@@ -867,7 +867,7 @@ private fun EmployerPostJobSection(
             Card(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
@@ -877,40 +877,40 @@ private fun EmployerPostJobSection(
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .background(Color(0xFFDBEAFE), CircleShape),
+                            .background(EmployerColors.Primary.copy(alpha = 0.18f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Work,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB),
+                            tint = EmployerColors.Primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Text(
                         text = "Post Normal Job",
                         style = MaterialTheme.typography.titleSmall.copy(
-                            color = Color(0xFF111827),
+                            color = EmployerColors.TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
                         text = "Regular hiring",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF2563EB),
+                            color = EmployerColors.Primary,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
                     Text(
                         text = "Post your job and hire at your convenience.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         minLines = 2
                     )
                     Button(
                         onClick = onPostNormalJob,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary, contentColor = Color.White)
                     ) {
                         Text("Post Normal Job")
                     }
@@ -932,7 +932,7 @@ private fun UrgentNeedCtaCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -947,13 +947,13 @@ private fun UrgentNeedCtaCard(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(Color(0xFFFFEDD5), CircleShape),
+                        .background(EmployerColors.Warning.copy(alpha = 0.18f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = null,
-                        tint = Color(0xFFEA580C),
+                        tint = EmployerColors.Warning,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -1178,7 +1178,7 @@ fun WelcomeHeader(
             style = AppTypography.displayTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             ),
             modifier = Modifier.weight(1f)
         )
@@ -1192,7 +1192,7 @@ fun WelcomeHeader(
                 Icon(
                     imageVector = Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color(0xFF1F2937),
+                    tint = EmployerColors.IconPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -1225,25 +1225,25 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             Text(
                 text = "Your Dashboard",
                 style = AppTypography.sectionHeader.copy(
-                    color = Color(0xFF0F172A),
+                    color = EmployerColors.TextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
             )
             if (onViewAnalytics != null) {
                 TextButton(onClick = onViewAnalytics) {
-                    Text(stringResource(R.string.view_analytics), style = AppTypography.buttonMedium.copy(color = Color(0xFF2563EB)))
+                    Text(stringResource(R.string.view_analytics), style = AppTypography.buttonMedium.copy(color = EmployerColors.Primary))
                 }
             }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassStatCard("Active", stats.activeJobs.toString(), Icons.Default.Work, Color(0xFF10B981), Modifier.weight(1f))
-            GlassStatCard("Applications", stats.totalApplications.toString(), Icons.Default.People, Color(0xFF3B82F6), Modifier.weight(1f))
+            GlassStatCard("Active", stats.activeJobs.toString(), Icons.Default.Work, EmployerColors.Success, Modifier.weight(1f))
+            GlassStatCard("Applications", stats.totalApplications.toString(), Icons.Default.People, EmployerColors.Info, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassStatCard("Today", stats.todayJobs.toString(), Icons.Default.CalendarToday, Color(0xFF8B5CF6), Modifier.weight(1f))
-            GlassStatCard("Total", stats.totalJobs.toString(), Icons.Default.Analytics, Color(0xFFF59E0B), Modifier.weight(1f))
+            GlassStatCard("Total", stats.totalJobs.toString(), Icons.Default.Analytics, EmployerColors.Warning, Modifier.weight(1f))
         }
     }
 }
@@ -1280,14 +1280,14 @@ private fun GlassStatCard(
                     text = value,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
+                        color = EmployerColors.TextPrimary,
                         fontSize = 22.sp
                     )
                 )
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF64748B),
+                        color = EmployerColors.TextSecondary,
                         fontSize = 12.sp
                     )
                 )
@@ -1535,7 +1535,7 @@ private fun EmployerProfileCompletionPrompt(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F9FF)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -1550,14 +1550,14 @@ private fun EmployerProfileCompletionPrompt(
                 Icon(
                     Icons.Default.Business,
                     contentDescription = "Profile",
-                    tint = Color(0xFF3B82F6),
+                    tint = EmployerColors.Info,
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
                     text = "Complete Your Company Profile",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E40AF)
+                        color = EmployerColors.Primary
                     )
                 )
             }
@@ -1565,7 +1565,7 @@ private fun EmployerProfileCompletionPrompt(
             Text(
                 text = "Complete your profile to access all features and attract better candidates",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF1E40AF)
+                    color = EmployerColors.Primary
                 )
             )
             
@@ -1579,14 +1579,14 @@ private fun EmployerProfileCompletionPrompt(
                         text = "Profile Completion",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1E40AF)
+                            color = EmployerColors.Primary
                         )
                     )
                     Text(
                         text = "$completionPercentage%",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E40AF)
+                            color = EmployerColors.Primary
                         )
                     )
                 }
@@ -1597,13 +1597,13 @@ private fun EmployerProfileCompletionPrompt(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
-                        .background(Color(0xFFE0E7FF), RoundedCornerShape(3.dp))
+                        .background(EmployerColors.Primary.copy(alpha = 0.18f), RoundedCornerShape(3.dp))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(completionPercentage / 100f)
-                            .background(Color(0xFF3B82F6), RoundedCornerShape(3.dp))
+                            .background(EmployerColors.Info, RoundedCornerShape(3.dp))
                     )
                 }
             }
@@ -1612,7 +1612,7 @@ private fun EmployerProfileCompletionPrompt(
                 Text(
                     text = "Missing: ${missingFields.joinToString(", ")}",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 )
             }
@@ -1621,7 +1621,7 @@ private fun EmployerProfileCompletionPrompt(
                 onClick = onCompleteProfile,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6)
+                    containerColor = EmployerColors.Info
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -1728,7 +1728,7 @@ fun ApplicationAnalyticsSection(
                     Text(
                         text = stringResource(R.string.view_applications),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF3B82F6)
+                            color = EmployerColors.Info
                         )
                     )
                 }
@@ -1744,7 +1744,7 @@ fun ApplicationAnalyticsSection(
                     label = stringResource(R.string.active_jobs),
                     value = activeJobs.toString(),
                     icon = Icons.Default.Work,
-                    color = Color(0xFF10B981),
+                    color = EmployerColors.Success,
                     modifier = Modifier.weight(1f)
                 )
                 AnalyticsItem(
@@ -1765,7 +1765,7 @@ fun ApplicationAnalyticsSection(
                         text = "Recent Job Activity",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF374151)
+                        color = EmployerColors.TextSecondary
                     )
                 )
                 

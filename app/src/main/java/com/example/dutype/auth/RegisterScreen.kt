@@ -262,7 +262,7 @@ private fun RegisterContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFCFBFF))
+            .background(WorkerColors.ScreenBackground)
     ) {
         AuthScreenBackdrop()
         Column(
@@ -816,7 +816,7 @@ private fun RegisterEntrySection(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = if (isTelugu) "వెనక్కి" else "Back",
-                    tint = Color(0xFF071735)
+                    tint = WorkerColors.TextPrimary
                 )
             }
 
@@ -835,7 +835,7 @@ private fun RegisterEntrySection(
                     fontSize = 28.sp,
                     lineHeight = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = WorkerColors.TextPrimary
             ),
             textAlign = TextAlign.Start
         )
@@ -845,7 +845,7 @@ private fun RegisterEntrySection(
         Text(
             text = if (isTelugu) "డ్యూటీపేలో వేలాది కార్మికులు మరియు యజమానులతో చేరండి" else "Join thousands of workers & employers on DutyPe",
             style = AppTypography.bodyLarge.copy(
-                color = Color(0xFF5B6474),
+                color = WorkerColors.TextSecondary,
                 lineHeight = 24.sp
             ),
             textAlign = TextAlign.Start
@@ -857,7 +857,7 @@ private fun RegisterEntrySection(
             text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
             style = AppTypography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = WorkerColors.TextPrimary
             )
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -873,7 +873,7 @@ private fun RegisterEntrySection(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
             style = AppTypography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = WorkerColors.TextPrimary
             )
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -904,8 +904,8 @@ private fun RegisterEntrySection(
                 .minAuthCardHeight(56.dp)
                 .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
-                .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
+                .background(WorkerColors.CardBackground)
+                .border(1.dp, WorkerColors.Border, RoundedCornerShape(14.dp))
                 .clickable { onTermsToggle(!termsAccepted) }
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -915,7 +915,7 @@ private fun RegisterEntrySection(
                 onCheckedChange = onTermsToggle,
                 colors = CheckboxDefaults.colors(
                     checkedColor = Color(0xFF6D3DFF),
-                    uncheckedColor = Color(0xFFB9B7CA),
+                    uncheckedColor = WorkerColors.IconSecondary,
                     checkmarkColor = Color.White
                 )
             )
@@ -930,7 +930,7 @@ private fun RegisterEntrySection(
                         append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
                     }
                 },
-                style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B), lineHeight = 20.sp),
+                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary, lineHeight = 20.sp),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
@@ -963,7 +963,7 @@ private fun RegisterEntrySection(
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = hint,
-                        style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B)),
+                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -981,7 +981,7 @@ private fun RegisterEntrySection(
         ) {
             Text(
                 text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
-                style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextSecondary)
             )
             TextButton(
                 onClick = onLoginClick,
@@ -1025,7 +1025,7 @@ private fun RegisterNameField(
         placeholder = {
             Text(
                 if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name",
-                style = AppTypography.bodyLarge.copy(color = Color(0xFF8A94A6))
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
             )
         },
         leadingIcon = {
@@ -1033,7 +1033,7 @@ private fun RegisterNameField(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF1EDFF)),
+                    .background(Color(0xFF6D3DFF).copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF6D3DFF))
@@ -1393,8 +1393,8 @@ private fun RegisterReferralCard(
             .fillMaxWidth()
             .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
+            .background(WorkerColors.CardBackground)
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(
@@ -1407,7 +1407,7 @@ private fun RegisterReferralCard(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF1EDFF)),
+                        .background(Color(0xFF6D3DFF).copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = "✤", color = Color(0xFF6D3DFF), style = AppTypography.displayTitle.copy(fontSize = 20.sp))
@@ -1416,7 +1416,7 @@ private fun RegisterReferralCard(
                 Text(
                     text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
                     style = AppTypography.bodyLarge.copy(
-                        color = Color(0xFF071735),
+                        color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -1465,7 +1465,7 @@ private fun RegisterReferralCard(
                         placeholder = {
                             Text(
                                 if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
-                                style = AppTypography.bodyMedium.copy(color = Color(0xFF8A94A6))
+                                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                             )
                         },
                         trailingIcon = {
@@ -1506,11 +1506,11 @@ private fun RegisterReferralCard(
                             unfocusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
                                 codeValidationError != null -> WorkerColors.Error
-                                else -> Color(0xFFE5E7F0)
+                                else -> WorkerColors.Border
                             },
                             cursorColor = Color(0xFF6D3DFF),
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
+                            focusedContainerColor = WorkerColors.CardBackground,
+                            unfocusedContainerColor = WorkerColors.CardBackground
                         ),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Text,
@@ -1525,8 +1525,8 @@ private fun RegisterReferralCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF255CEB),
                             contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFECEAF6),
-                            disabledContentColor = Color(0xFF8A94A6)
+                            disabledContainerColor = WorkerColors.Divider,
+                            disabledContentColor = WorkerColors.TextDisabled
                         ),
                         shape = RoundedCornerShape(14.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp)
@@ -1554,7 +1554,7 @@ private fun RegisterReferralCard(
                     )
                     else -> Text(
                         if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
-                        style = AppTypography.caption.copy(color = Color(0xFF64748B))
+                        style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                     )
                 }
             }

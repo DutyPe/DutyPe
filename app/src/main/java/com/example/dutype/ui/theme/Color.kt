@@ -92,10 +92,10 @@ object WorkerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) colorResource(R.color.worker_primary_dark) else colorResource(R.color.worker_primary)
+            if (isAppInDarkTheme()) Color(0xFF2E2E33) else Color(0xFF0F0F0F)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) colorResource(R.color.worker_primary_light_dark) else colorResource(R.color.worker_primary_light)
+            if (isAppInDarkTheme()) Color(0xFF26262B) else Color(0xFFEDEDEF)
     val Secondary: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFFFF8585) else Color(0xFFFF6B6B)
@@ -136,7 +136,7 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF334155) else Color(0xFFE5E7EB)
     val BorderFocused: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFFE6E6EA) else Color(0xFF0F0F0F)
 
     val IconPrimary: Color
         @Composable @ReadOnlyComposable get() =
@@ -146,7 +146,7 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF9CA3AF)
     val IconAccent: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFFE6E6EA) else Color(0xFF0F0F0F)
 
     val BadgeNew: Color
         @Composable @ReadOnlyComposable get() =
@@ -180,13 +180,13 @@ object WorkerColors {
 
     val BottomNavBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) colorResource(R.color.worker_bottom_nav_background_dark) else colorResource(R.color.worker_bottom_nav_background)
+            if (isAppInDarkTheme()) Color(0xFF141416) else Color(0xFFFFFFFF)
     val BottomNavSelected: Color
         @Composable @ReadOnlyComposable get() =
-            WorkerColors.Primary
+            if (isAppInDarkTheme()) Color(0xFFFFFFFF) else Color(0xFF0F0F0F)
     val BottomNavUnselected: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) colorResource(R.color.worker_bottom_nav_unselected_dark) else colorResource(R.color.worker_bottom_nav_unselected)
+            if (isAppInDarkTheme()) Color(0xFF7A7D82) else Color(0xFF9AA0A6)
 
     val CardShadow: Color
         @Composable @ReadOnlyComposable get() =
@@ -236,10 +236,10 @@ object EmployerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFF2E2E33) else Color(0xFF0F0F0F)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0F2A4D) else Color(0xFFDBEAFE)
+            if (isAppInDarkTheme()) Color(0xFF26262B) else Color(0xFFEDEDEF)
     val Secondary: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF38BDF8) else Color(0xFF0EA5E9)
@@ -283,7 +283,7 @@ object EmployerColors {
             if (isAppInDarkTheme()) Color(0xFF334155) else Color(0xFFE2E8F0)
     val BorderFocused: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFFE6E6EA) else Color(0xFF0F0F0F)
 
     val IconPrimary: Color
         @Composable @ReadOnlyComposable get() =
@@ -293,7 +293,7 @@ object EmployerColors {
             if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF94A3B8)
     val IconAccent: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFFE6E6EA) else Color(0xFF0F0F0F)
 
     val BadgeNew: Color
         @Composable @ReadOnlyComposable get() =
@@ -320,13 +320,13 @@ object EmployerColors {
 
     val BottomNavBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF111827) else Color(0xFFFFFFFF)
+            if (isAppInDarkTheme()) Color(0xFF141416) else Color(0xFFFFFFFF)
     val BottomNavSelected: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            if (isAppInDarkTheme()) Color(0xFFFFFFFF) else Color(0xFF0F0F0F)
     val BottomNavUnselected: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF94A3B8)
+            if (isAppInDarkTheme()) Color(0xFF7A7D82) else Color(0xFF9AA0A6)
 
     val CardShadow: Color
         @Composable @ReadOnlyComposable get() =

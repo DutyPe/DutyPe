@@ -43,6 +43,11 @@ import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.utils.CategoryDetector
+import com.example.dutype.components.CategoryIcon
+import com.example.dutype.components.LocationAutocompleteField
+import com.example.dutype.models.LocationData
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.dutype.app.R
@@ -95,6 +100,8 @@ fun AllJobsScreen(
     }
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showLocationSheet by remember { mutableStateOf(false) }
+    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
     
     // Pagination: 10 jobs per page
     val pageSize = PAGE_SIZE
@@ -187,7 +194,13 @@ fun AllJobsScreen(
             onBackClick = { navController.popBackStack() },
             backgroundColor = WorkerColors.CardBackground
         )
-        
+
+        // Location bar — shows the area jobs are sorted around; tap to change.
+        JobLocationBar(
+            locationText = currentLocation?.getShortAddress() ?: "Set your location",
+            onClick = { showLocationSheet = true }
+        )
+
         // Search and Filter Section
         Column(
             modifier = Modifier
@@ -206,12 +219,12 @@ fun AllJobsScreen(
                         onQueryChange = { viewModel.setSearchQuery(it) },
                         placeholder = stringResource(R.string.search_jobs_companies),
                         height = 48,
-                        backgroundColor = Color(0xFFF1F5F9),
+                        backgroundColor = WorkerColors.ChipBackground,
                         borderColor = Color.Transparent,
-                        focusedBorderColor = Color(0xFF1F2937),
-                        searchIconColor = Color(0xFF6B7280),
-                        textColor = Color(0xFF1F2937),
-                        placeholderColor = Color(0xFF9CA3AF),
+                        focusedBorderColor = WorkerColors.Primary,
+                        searchIconColor = WorkerColors.IconSecondary,
+                        textColor = WorkerColors.TextPrimary,
+                        placeholderColor = WorkerColors.TextTertiary,
                         cornerRadius = 12,
                         fontSize = 14
                     )
@@ -222,14 +235,14 @@ fun AllJobsScreen(
                     modifier = Modifier
                         .size(ComponentHeights.MinimumTouchTarget) // Material Design 3: 48dp touch target
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (activeFilterCount > 0) Color(0xFF1F2937) else Color(0xFFF1F5F9))
+                        .background(if (activeFilterCount > 0) WorkerColors.Primary else WorkerColors.ChipBackground)
                         .clickable { showFilterSheet = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.FilterList,
                         contentDescription = "Filter",
-                        tint = if (activeFilterCount > 0) Color.White else Color(0xFF374151),
+                        tint = if (activeFilterCount > 0) Color.White else WorkerColors.IconPrimary,
                         modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
                     )
                     if (activeFilterCount > 0) {
@@ -238,7 +251,7 @@ fun AllJobsScreen(
                                 .align(Alignment.TopEnd)
                                 .offset(x = 4.dp, y = (-4).dp)
                                 .size(18.dp)
-                                .background(Color(0xFFEF4444), CircleShape),
+                                .background(WorkerColors.Error, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -274,31 +287,31 @@ fun AllJobsScreen(
                                 imageVector = icon,
                                 contentDescription = null,
                                 modifier = Modifier.size(IconSizes.Small), // Material Design 3: 20dp
-                                tint = if (selectedChip == chip) Color.White else Color(0xFF374151)
+                                tint = if (selectedChip == chip) Color.White else WorkerColors.IconPrimary
                             )
                             Text(
                                 text = chip,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp,
-                                    color = if (selectedChip == chip) Color.White else Color(0xFF374151)
+                                    color = if (selectedChip == chip) Color.White else WorkerColors.TextSecondary
                                 )
                             )
                         }
                     },
                     selected = selectedChip == chip,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF1F2937),
+                        selectedContainerColor = WorkerColors.Primary,
                         selectedLabelColor = Color.White,
                         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                        labelColor = Color(0xFF374151)
+                        labelColor = WorkerColors.TextSecondary
                     ),
                     shape = RoundedCornerShape(20.dp),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,
                         selected = selectedChip == chip,
-                        borderColor = Color(0xFFE5E7EB),
-                        selectedBorderColor = Color(0xFF1F2937),
+                        borderColor = WorkerColors.Border,
+                        selectedBorderColor = WorkerColors.Primary,
                         borderWidth = 1.dp
                     )
                 )
@@ -315,7 +328,7 @@ fun AllJobsScreen(
             }
         )
         
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
 
         // Job list content
         when {
@@ -367,6 +380,27 @@ fun AllJobsScreen(
         }
     }
     
+    // Location picker sheet — search any area to re-sort jobs by nearest first.
+    if (showLocationSheet) {
+        JobLocationPickerSheet(
+            locationService = viewModel.locationService,
+            onDismiss = { showLocationSheet = false },
+            onLocationSelected = { address, lat, lon ->
+                val data = LocationData(
+                    latitude = lat,
+                    longitude = lon,
+                    city = null,
+                    address = address,
+                    area = address.split(",").firstOrNull()?.trim()
+                )
+                viewModel.locationPreferences.saveLocation(data, forceManualOverride = true)
+                viewModel.setUserLocation(lat, lon)
+                showLocationSheet = false
+                android.widget.Toast.makeText(context, "Showing jobs near $address", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     // Filter Bottom Sheet
     if (showFilterSheet) {
         JobFilterBottomSheet(
@@ -395,49 +429,190 @@ private fun CategoryQuickFilterSection(
             .padding(bottom = 12.dp)
     ) {
         Text(
-            text = "Categories",
-            style = MaterialTheme.typography.titleSmall.copy(
+            text = "Browse by category",
+            style = AppTypography.sectionHeader.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.SemiBold
             ),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(categories) { category ->
                 val isSelected = selectedCategory.equals(category, ignoreCase = true)
-                FilterChip(
-                    onClick = { onCategorySelected(category) },
-                    label = {
-                        Text(
-                            text = category,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 13.sp,
-                                color = if (isSelected) Color.White else Color(0xFF374151)
-                            )
-                        )
-                    },
+                CategoryPill(
+                    label = category,
+                    icon = CategoryIcon.forDisplayName(category),
                     selected = isSelected,
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF16A34A),
-                        selectedLabelColor = Color.White,
-                        containerColor = Color(0xFFF8FAFC),
-                        labelColor = Color(0xFF374151)
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = Color(0xFFE5E7EB),
-                        selectedBorderColor = Color(0xFF16A34A),
-                        borderWidth = 1.dp
-                    )
+                    onClick = { onCategorySelected(category) }
                 )
             }
+        }
+    }
+}
+
+/**
+ * Icon + label category chip used in the category browser. Selected state uses
+ * the role primary colour with white content (readable in light and dark).
+ */
+@Composable
+private fun CategoryPill(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val background = if (selected) WorkerColors.Primary else WorkerColors.ChipBackground
+    val foreground = if (selected) Color.White else WorkerColors.TextSecondary
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = foreground,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = label,
+            style = AppTypography.labelLarge.copy(
+                color = foreground,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+            )
+        )
+    }
+}
+
+/**
+ * Location bar shown under the header. Surfaces the area jobs are sorted around
+ * (previously invisible) and lets the worker change it.
+ */
+@Composable
+private fun JobLocationBar(
+    locationText: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(WorkerColors.CardBackground)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(WorkerColors.Primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = WorkerColors.Primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Showing jobs near",
+                style = AppTypography.labelSmall.copy(color = WorkerColors.TextTertiary)
+            )
+            Text(
+                text = locationText,
+                style = AppTypography.bodyMedium.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(WorkerColors.Primary.copy(alpha = 0.10f))
+                .padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp)
+        ) {
+            Text(
+                text = "Change",
+                style = AppTypography.labelMedium.copy(
+                    color = WorkerColors.Primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = WorkerColors.Primary,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Bottom sheet to pick a job-search location. Reuses the proven
+ * [LocationAutocompleteField]; on selection the caller re-sorts jobs nearest
+ * first via the ViewModel and persists the manual location.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun JobLocationPickerSheet(
+    locationService: com.example.dutype.utils.LocationService,
+    onDismiss: () -> Unit,
+    onLocationSelected: (address: String, latitude: Double, longitude: Double) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var query by remember { mutableStateOf("") }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = WorkerColors.CardBackground
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Choose job location",
+                style = AppTypography.pageTitle.copy(
+                    color = WorkerColors.TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = "Search any area, city or locality to see the nearest jobs there.",
+                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
+            )
+            LocationAutocompleteField(
+                value = query,
+                onValueChange = { query = it },
+                onLocationSelected = onLocationSelected,
+                locationService = locationService,
+                label = "Search location",
+                placeholder = "e.g. Hitech City, Hyderabad",
+                maxLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
@@ -529,7 +704,7 @@ private fun JobsList(
                         } else {
                             Text(
                                 text = stringResource(R.string.jobs_loading_more),
-                                style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                                style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
                             )
                         }
                     }
@@ -556,7 +731,7 @@ private fun JobsList(
                         Timber.d("📦 Jumped to top - ${jobs.size} jobs loaded")
                     }
                 },
-                containerColor = Color(0xFF1F2937),
+                containerColor = WorkerColors.Primary,
                 contentColor = Color.White,
                 elevation = FloatingActionButtonDefaults.elevation(
                     defaultElevation = 6.dp,
@@ -594,30 +769,30 @@ private fun ErrorState(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFFEE2E2)),
+                    .background(WorkerColors.ErrorLight),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Error,
                     contentDescription = null,
-                    tint = Color(0xFFDC2626),
+                    tint = WorkerColors.Error,
                     modifier = Modifier.size(IconSizes.Large) // Material Design 3: 36dp
                 )
             }
             Text(
                 text = stringResource(R.string.jobs_something_went_wrong),
-                style = AppTypography.emptyStateTitle.copy(color = Color(0xFF374151))
+                style = AppTypography.emptyStateTitle.copy(color = WorkerColors.TextPrimary)
             )
             Text(
                 text = error ?: stringResource(R.string.jobs_unable_to_load),
                 style = AppTypography.emptyStateSubtitle.copy(
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     textAlign = TextAlign.Center
                 )
             )
             Button(
                 onClick = onRetry,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
@@ -719,14 +894,14 @@ private fun JobFilterBottomSheet(
                     category = "Any"
                     onResetFilters()
                 }) {
-                    Text(stringResource(R.string.reset), color = Color(0xFFEF4444), fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.reset), color = WorkerColors.Error, fontWeight = FontWeight.Medium)
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.jobs_filter_subtitle),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
             )
             
             Spacer(modifier = Modifier.height(20.dp))
@@ -735,7 +910,7 @@ private fun JobFilterBottomSheet(
                 text = "Category",
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -746,7 +921,7 @@ private fun JobFilterBottomSheet(
                         label = { Text(option, fontSize = 13.sp) },
                         selected = category == option,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedContainerColor = WorkerColors.Primary,
                             selectedLabelColor = Color.White
                         ),
                         shape = RoundedCornerShape(20.dp)
@@ -761,7 +936,7 @@ private fun JobFilterBottomSheet(
                 text = stringResource(R.string.jobs_sort_by),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -770,7 +945,7 @@ private fun JobFilterBottomSheet(
                     text = stringResource(R.string.jobs_pay_type),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF374151)
+                        color = WorkerColors.TextSecondary
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -781,7 +956,7 @@ private fun JobFilterBottomSheet(
                             label = { Text(option, fontSize = 13.sp) },
                             selected = payType == option,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF1F2937),
+                                selectedContainerColor = WorkerColors.Primary,
                                 selectedLabelColor = Color.White
                             ),
                             shape = RoundedCornerShape(20.dp)
@@ -795,7 +970,7 @@ private fun JobFilterBottomSheet(
                     text = stringResource(R.string.post_job_work_type),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF374151)
+                        color = WorkerColors.TextSecondary
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -806,7 +981,7 @@ private fun JobFilterBottomSheet(
                             label = { Text(option, fontSize = 13.sp) },
                             selected = workType == option,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF1F2937),
+                                selectedContainerColor = WorkerColors.Primary,
                                 selectedLabelColor = Color.White
                             ),
                             shape = RoundedCornerShape(20.dp)
@@ -822,7 +997,7 @@ private fun JobFilterBottomSheet(
                         label = { Text(option, fontSize = 13.sp) },
                         selected = sortBy == option,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedContainerColor = WorkerColors.Primary,
                             selectedLabelColor = Color.White
                         ),
                         shape = RoundedCornerShape(20.dp)
@@ -837,13 +1012,13 @@ private fun JobFilterBottomSheet(
                 text = stringResource(R.string.jobs_salary_range),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 )
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "₹${salaryMin} - ₹${if (salaryMax >= 100000) "1L+" else salaryMax}",
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
             )
             Spacer(modifier = Modifier.height(8.dp))
             RangeSlider(
@@ -855,9 +1030,9 @@ private fun JobFilterBottomSheet(
                 valueRange = 0f..100000f,
                 steps = 9,
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF1F2937),
-                    activeTrackColor = Color(0xFF1F2937),
-                    inactiveTrackColor = Color(0xFFE5E7EB)
+                    thumbColor = WorkerColors.Primary,
+                    activeTrackColor = WorkerColors.Primary,
+                    inactiveTrackColor = WorkerColors.Border
                 )
             )
             
@@ -873,13 +1048,13 @@ private fun JobFilterBottomSheet(
                     text = stringResource(R.string.jobs_max_distance),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF374151)
+                        color = WorkerColors.TextSecondary
                     )
                 )
                 Text(
                     text = if (maxDistance == null) "All" else "${maxDistance!!.toInt()} km",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -899,7 +1074,7 @@ private fun JobFilterBottomSheet(
                         },
                         selected = maxDistance == distance,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedContainerColor = WorkerColors.Primary,
                             selectedLabelColor = Color.White
                         ),
                         shape = RoundedCornerShape(20.dp)
@@ -911,7 +1086,7 @@ private fun JobFilterBottomSheet(
             if (maxDistance != null) {
                 Text(
                     text = stringResource(R.string.jobs_fine_tune_distance, maxDistance!!.toInt()),
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                 )
                 Slider(
                     value = maxDistance!!,
@@ -919,16 +1094,16 @@ private fun JobFilterBottomSheet(
                     valueRange = 1f..50f,
                     steps = 49,
                     colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFF1F2937),
-                        activeTrackColor = Color(0xFF1F2937),
-                        inactiveTrackColor = Color(0xFFE5E7EB)
+                        thumbColor = WorkerColors.Primary,
+                        activeTrackColor = WorkerColors.Primary,
+                        inactiveTrackColor = WorkerColors.Border
                     )
                 )
             } else {
                 Text(
                     text = stringResource(R.string.jobs_showing_all),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                     )
                 )
@@ -941,7 +1116,7 @@ private fun JobFilterBottomSheet(
                 text = stringResource(R.string.jobs_experience_level),
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 )
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -952,7 +1127,7 @@ private fun JobFilterBottomSheet(
                         label = { Text(option, fontSize = 13.sp) },
                         selected = experienceLevel == option,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1F2937),
+                            selectedContainerColor = WorkerColors.Primary,
                             selectedLabelColor = Color.White
                         ),
                         shape = RoundedCornerShape(20.dp)
@@ -981,7 +1156,7 @@ private fun JobFilterBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(

@@ -99,6 +99,7 @@ import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.LocalDarkMode
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.FirestoreUtils
@@ -251,7 +252,7 @@ private fun OtpLoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFCFBFF))
+            .background(WorkerColors.ScreenBackground)
     ) {
         AuthScreenBackdrop()
         Column(
@@ -652,7 +653,7 @@ private fun LoginPhoneEntrySection(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = if (isTelugu) "వెనక్కి" else "Back",
-                    tint = Color(0xFF071735)
+                    tint = WorkerColors.TextPrimary
                 )
             }
 
@@ -674,7 +675,7 @@ private fun LoginPhoneEntrySection(
                     fontSize = 28.sp,
                     lineHeight = 34.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF071735)
+                    color = WorkerColors.TextPrimary
                 )
             )
         }
@@ -687,7 +688,7 @@ private fun LoginPhoneEntrySection(
                 fontSize = 30.sp,
                 lineHeight = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = WorkerColors.TextPrimary
             ),
             textAlign = TextAlign.Start
         )
@@ -697,7 +698,7 @@ private fun LoginPhoneEntrySection(
         Text(
             text = if (isTelugu) "సమీప ఉద్యోగాలను వెంటనే కనుగొనండి" else "Find nearby jobs instantly",
             style = AppTypography.bodyLarge.copy(
-                color = Color(0xFF5B6474),
+                color = WorkerColors.TextSecondary,
                 lineHeight = 24.sp
             ),
             textAlign = TextAlign.Start
@@ -713,7 +714,7 @@ private fun LoginPhoneEntrySection(
         Text(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
             style = AppTypography.bodyLarge.copy(
-                color = Color(0xFF475569),
+                color = WorkerColors.TextSecondary,
                 fontWeight = FontWeight.Medium
             )
         )
@@ -750,7 +751,7 @@ private fun LoginPhoneEntrySection(
         ) {
             Text(
                 text = if (isTelugu) "ఖాతా లేదా? " else "Don't have an account? ",
-                style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
             )
             TextButton(
                 onClick = onRegisterClick,
@@ -781,6 +782,9 @@ private fun LoginPhoneEntrySection(
 
 @Composable
 internal fun AuthScreenBackdrop() {
+    val isDark = LocalDarkMode.current
+    val bloomLarge = if (isDark) Color(0xFF2A1E55).copy(alpha = 0.45f) else Color(0xFFEDE7FF).copy(alpha = 0.34f)
+    val bloomSmall = if (isDark) Color(0xFF241C49).copy(alpha = 0.55f) else Color(0xFFF4F0FF).copy(alpha = 0.58f)
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -788,7 +792,7 @@ internal fun AuthScreenBackdrop() {
                 .offset(x = 44.dp, y = 76.dp)
                 .size(196.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFEDE7FF).copy(alpha = 0.34f))
+                .background(bloomLarge)
         )
         Box(
             modifier = Modifier
@@ -796,7 +800,7 @@ internal fun AuthScreenBackdrop() {
                 .offset(x = (-26).dp, y = 260.dp)
                 .size(78.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFF4F0FF).copy(alpha = 0.58f))
+                .background(bloomSmall)
         )
     }
 }
@@ -875,8 +879,8 @@ internal fun AuthPhoneEntryField(
             .height(58.dp)
             .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.White)
-            .border(1.dp, if (hasError) WorkerColors.Error else Color(0xFFE5E7F0), RoundedCornerShape(18.dp)),
+            .background(WorkerColors.CardBackground)
+            .border(1.dp, if (hasError) WorkerColors.Error else WorkerColors.Border, RoundedCornerShape(18.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
@@ -892,7 +896,7 @@ internal fun AuthPhoneEntryField(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = Color(0xFF1E293B),
+                tint = WorkerColors.IconPrimary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -901,7 +905,7 @@ internal fun AuthPhoneEntryField(
             modifier = Modifier
                 .width(1.dp)
                 .height(58.dp)
-                .background(Color(0xFFE5E7F0))
+                .background(WorkerColors.Border)
         )
 
         Row(
@@ -916,7 +920,7 @@ internal fun AuthPhoneEntryField(
                 style = AppTypography.bodyLarge.copy(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF071735)
+                    color = WorkerColors.TextPrimary
                 )
             )
             Spacer(modifier = Modifier.width(22.dp))
@@ -933,7 +937,7 @@ internal fun AuthPhoneEntryField(
                 singleLine = true,
                 textStyle = AppTypography.bodyLarge.copy(
                     fontSize = 18.sp,
-                    color = Color(0xFF071735),
+                    color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Medium
                 ),
                 cursorBrush = SolidColor(Color(0xFF5B2DFF)),
@@ -944,7 +948,7 @@ internal fun AuthPhoneEntryField(
                             text = "98765 43210",
                             style = AppTypography.bodyLarge.copy(
                                 fontSize = 18.sp,
-                                color = Color(0xFF9CA3AF)
+                                color = WorkerColors.TextTertiary
                             )
                         )
                     }
@@ -969,10 +973,10 @@ internal fun AuthPrimaryButton(
             .height(56.dp)
             .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x2D4F28FF), spotColor = Color(0x2D4F28FF)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (enabled) Color(0xFF3D22F5) else Color(0xFFECEAF6),
+            containerColor = if (enabled) Color(0xFF3D22F5) else WorkerColors.Divider,
             contentColor = Color.White,
-            disabledContainerColor = Color(0xFFECEAF6),
-            disabledContentColor = Color(0xFF8A94A6)
+            disabledContainerColor = WorkerColors.Divider,
+            disabledContentColor = WorkerColors.TextDisabled
         ),
         shape = RoundedCornerShape(18.dp),
         enabled = enabled
@@ -1014,7 +1018,7 @@ internal fun SecureOtpLine(text: String = "Secure OTP Login") {
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = text,
-            style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+            style = AppTypography.bodyLarge.copy(color = WorkerColors.TextSecondary)
         )
     }
 }
@@ -1030,18 +1034,18 @@ internal fun OrDivider(label: String = "or") {
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFFE8E8EF))
+                .background(WorkerColors.Border)
         )
         Text(
             text = label,
-            style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B)),
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
             modifier = Modifier.padding(horizontal = 22.dp)
         )
         Box(
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFFE8E8EF))
+                .background(WorkerColors.Border)
         )
     }
 }

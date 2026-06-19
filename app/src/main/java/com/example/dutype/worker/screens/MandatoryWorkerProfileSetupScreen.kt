@@ -47,6 +47,7 @@ import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.crashlytics.FirebaseCrashlytics
@@ -459,7 +460,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 CircularProgressIndicator(
-                    color = Color(0xFF3B82F6)
+                    color = WorkerColors.Primary
                 )
                 Text(
                     "Loading your profile...",
@@ -646,7 +647,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             if (errorMessage != null) {
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                                    colors = CardDefaults.cardColors(containerColor = WorkerColors.ErrorLight),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Row(
@@ -656,14 +657,14 @@ fun MandatoryWorkerProfileSetupScreen(
                                         Icon(
                                             Icons.Default.Warning,
                                             contentDescription = null,
-                                            tint = Color(0xFFEF4444),
+                                            tint = WorkerColors.Error,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
                                             text = errorMessage ?: "",
                                             style = MaterialTheme.typography.bodyMedium.copy(
-                                                color = Color(0xFFEF4444)
+                                                color = WorkerColors.Error
                                             )
                                         )
                                     }
@@ -700,7 +701,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 .size(56.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF1F2937)
+                                contentColor = WorkerColors.Primary
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.5.dp, 
@@ -931,7 +932,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             .weight(1f),
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCurrentStepValid) Color(0xFF1F2937) else Color(0xFF9CA3AF)
+                            containerColor = if (isCurrentStepValid) WorkerColors.Primary else WorkerColors.TextDisabled
                         )
                     ) {
                         if (isLoading) {
@@ -1008,7 +1009,7 @@ private fun PersonalInformationStep(
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
-                    tint = Color(0xFF1F2937),
+                    tint = WorkerColors.TextPrimary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1027,7 +1028,7 @@ private fun PersonalInformationStep(
                 Text(
                     text = "Tell us about yourself",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -1049,18 +1050,18 @@ private fun PersonalInformationStep(
                 shape = RoundedCornerShape(14.dp),
                 isError = fullNameError != null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                    unfocusedBorderColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    focusedLabelColor = if (fullNameError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                    errorBorderColor = Color(0xFFDC2626),
-                    cursorColor = Color(0xFF1F2937)
+                    focusedBorderColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Primary,
+                    unfocusedBorderColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Border,
+                    focusedLabelColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Primary,
+                    errorBorderColor = WorkerColors.Error,
+                    cursorColor = WorkerColors.Primary
                 ),
                 singleLine = true
             )
             if (fullNameError != null) {
                 Text(
                     text = fullNameError,
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -1079,14 +1080,14 @@ private fun PersonalInformationStep(
                 enabled = false,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = Color(0xFFE5E7EB),
-                    disabledTextColor = Color(0xFF6B7280)
+                    disabledBorderColor = WorkerColors.Border,
+                    disabledTextColor = WorkerColors.TextSecondary
                 ),
                 trailingIcon = {
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = "Verified by Google",
-                        tint = Color(0xFF1F2937),
+                        tint = WorkerColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1105,16 +1106,16 @@ private fun PersonalInformationStep(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                        unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                        errorBorderColor = Color(0xFFDC2626)
+                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary,
+                        unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
+                        errorBorderColor = WorkerColors.Error
                     ),
                     singleLine = true
                 )
                 if (emailError != null) {
                     Text(
                         text = emailError,
-                        color = Color(0xFFDC2626),
+                        color = WorkerColors.Error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
@@ -1134,16 +1135,16 @@ private fun PersonalInformationStep(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                        unfocusedBorderColor = if (emailError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                        errorBorderColor = Color(0xFFDC2626)
+                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary,
+                        unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
+                        errorBorderColor = WorkerColors.Error
                     ),
                     singleLine = true
                 )
                 if (emailError != null) {
                     Text(
                         text = emailError,
-                        color = Color(0xFFDC2626),
+                        color = WorkerColors.Error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
@@ -1163,14 +1164,14 @@ private fun PersonalInformationStep(
                 enabled = false,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = Color(0xFFE5E7EB),
-                    disabledTextColor = Color(0xFF6B7280)
+                    disabledBorderColor = WorkerColors.Border,
+                    disabledTextColor = WorkerColors.TextSecondary
                 ),
                 trailingIcon = {
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = "Verified by OTP",
-                        tint = Color(0xFF1F2937),
+                        tint = WorkerColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1194,15 +1195,15 @@ private fun PersonalInformationStep(
                     isError = phoneError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                        unfocusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                        errorBorderColor = Color(0xFFDC2626)
+                        focusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Primary,
+                        unfocusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Border,
+                        errorBorderColor = WorkerColors.Error
                     )
                 )
                 if (phoneError != null) {
                     Text(
                         text = phoneError,
-                        color = Color(0xFFDC2626),
+                        color = WorkerColors.Error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
@@ -1269,7 +1270,7 @@ private fun AdditionalDetailsStep(
                 Icon(
                     Icons.Default.DateRange,
                     contentDescription = null,
-                    tint = Color(0xFF1F2937),
+                    tint = WorkerColors.TextPrimary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1288,7 +1289,7 @@ private fun AdditionalDetailsStep(
                 Text(
                     text = "Complete your profile information",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -1441,15 +1442,15 @@ private fun AdditionalDetailsStep(
                 label = stringResource(R.string.address_label),
                 placeholder = stringResource(R.string.search_or_enter_address_w),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF1F2937),
-                    unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
+                    focusedBorderColor = if (addressError != null) WorkerColors.Error else WorkerColors.Primary,
+                    unfocusedBorderColor = if (addressError != null) WorkerColors.Error else WorkerColors.Border,
+                    errorBorderColor = WorkerColors.Error
                 )
             )
             if (addressError != null) {
                 Text(
                     text = addressError,
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -1553,7 +1554,7 @@ private fun AdditionalDetailsStep(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF6B7280)
+                        tint = WorkerColors.TextSecondary
                     )
                 },
                 trailingIcon = {
@@ -1575,8 +1576,8 @@ private fun AdditionalDetailsStep(
                     focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626),
+                    unfocusedBorderColor = WorkerColors.Border,
+                    errorBorderColor = WorkerColors.Error,
                     focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                     unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 )
@@ -1585,7 +1586,7 @@ private fun AdditionalDetailsStep(
             if (dateOfBirthError != null) {
                 Text(
                     text = dateOfBirthError,
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -1601,7 +1602,7 @@ private fun AdditionalDetailsStep(
             if (genderError != null) {
                 Text(
                     text = genderError,
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -1653,7 +1654,7 @@ private fun ProfessionalInformationStep(
                 Icon(
                     Icons.Default.Work,
                     contentDescription = null,
-                    tint = Color(0xFF1F2937),
+                    tint = WorkerColors.TextPrimary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1672,7 +1673,7 @@ private fun ProfessionalInformationStep(
                 Text(
                     text = "Share your skills and experience",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -1862,7 +1863,7 @@ private fun ProfessionalInformationStep(
                                 containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                 labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                 selectedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                selectedLabelColor = Color(0xFF1F2937),
+                                selectedLabelColor = WorkerColors.TextPrimary,
                                 selectedLeadingIconColor = Color(0xFF111111)
                             ),
                             border = FilterChipDefaults.filterChipBorder(
@@ -1899,7 +1900,7 @@ private fun ProfessionalInformationStep(
                             Text(
                                 "Enter your custom skill",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF9CA3AF)
+                                    color = WorkerColors.TextTertiary
                                 )
                             ) 
                         },
@@ -1922,7 +1923,7 @@ private fun ProfessionalInformationStep(
                                     tint = if (otherSkillText.isNotBlank()) 
                                         Color(0xFF111111) 
                                     else 
-                                        Color(0xFF9CA3AF)
+                                        WorkerColors.TextTertiary
                                 )
                             }
                         },
@@ -1954,7 +1955,7 @@ private fun ProfessionalInformationStep(
                             text = "Custom Skills:",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF6B7280),
+                                color = WorkerColors.TextSecondary,
                                 fontSize = 11.sp
                             ),
                             modifier = Modifier.padding(top = 4.dp)
@@ -1988,7 +1989,7 @@ private fun ProfessionalInformationStep(
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = Color(0xFFF3F4F6),
+                                        containerColor = WorkerColors.ChipBackground,
                                         labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                     ),
                                     border = BorderStroke(1.dp, Color(0xFFD1D5DB))
@@ -2008,12 +2009,12 @@ private fun ProfessionalInformationStep(
                     Icon(
                         Icons.Default.Error,
                         contentDescription = null,
-                        tint = Color(0xFFDC2626),
+                        tint = WorkerColors.Error,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = skillsError,
-                        color = Color(0xFFDC2626),
+                        color = WorkerColors.Error,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -2060,8 +2061,8 @@ private fun ProfessionalInformationStep(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF111111),
                             selectedLabelColor = Color.White,
-                            containerColor = Color(0xFFF3F4F6),
-                            labelColor = Color(0xFF374151)
+                            containerColor = WorkerColors.ChipBackground,
+                            labelColor = WorkerColors.TextSecondary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
@@ -2086,7 +2087,7 @@ private fun ProfessionalInformationStep(
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
+                    unfocusedBorderColor = WorkerColors.Border,
                     cursorColor = Color(0xFF111111),
                     focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
@@ -2116,8 +2117,8 @@ private fun ProfessionalInformationStep(
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626),
+                    unfocusedBorderColor = WorkerColors.Border,
+                    errorBorderColor = WorkerColors.Error,
                     cursorColor = Color(0xFF111111),
                     focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                     unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
@@ -2126,7 +2127,7 @@ private fun ProfessionalInformationStep(
                 supportingText = {
                     Text(
                         text = bioError ?: "${workerBio.trim().length}/$MAX_WORKER_BIO_LENGTH characters",
-                        color = if (bioError != null) Color(0xFFDC2626) else Color(0xFF6B7280)
+                        color = if (bioError != null) WorkerColors.Error else WorkerColors.TextSecondary
                     )
                 }
             )
@@ -2168,9 +2169,9 @@ private fun ProfessionalInformationStep(
                     isError = experienceError != null,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF1F2937),
-                        unfocusedBorderColor = Color(0xFFE5E7EB),
-                        errorBorderColor = Color(0xFFDC2626),
+                        focusedBorderColor = WorkerColors.Primary,
+                        unfocusedBorderColor = WorkerColors.Border,
+                        errorBorderColor = WorkerColors.Error,
                         focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                         unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
                     )
@@ -2196,7 +2197,7 @@ private fun ProfessionalInformationStep(
             if (experienceError != null) {
                 Text(
                     text = experienceError,
-                    color = Color(0xFFDC2626),
+                    color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )

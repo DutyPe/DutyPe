@@ -120,6 +120,7 @@ import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
 import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.JobValidationUtils
 import com.example.dutype.utils.PayRateValidationResult
 import com.example.dutype.utils.ValidationResult
@@ -865,10 +866,10 @@ fun PostJobScreen(
     }
 
     // Hiring Studio palette
-    val primaryBlue = Color(0xFF2563EB)
-    val successGreen = Color(0xFF059669)
+    val primaryBlue = EmployerColors.Primary
+    val successGreen = EmployerColors.Success
     val accentOrange = Color(0xFFFF8A3D)
-    val darkText = Color(0xFF0F172A)
+    val darkText = EmployerColors.TextPrimary
     // Theme-aware canvas for all post-job steps.
     val pageBackground = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
     val basicsReady = title.isNotBlank()
@@ -948,7 +949,7 @@ fun PostJobScreen(
                 Icon(
                     imageVector = Icons.Default.Warning,
                     contentDescription = null,
-                    tint = Color(0xFFDC2626),
+                    tint = EmployerColors.Error,
                     modifier = Modifier.size(48.dp)
                 )
             },
@@ -956,7 +957,7 @@ fun PostJobScreen(
                 Text(
                     text = stringResource(R.string.post_job_location_mismatch_title),
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFDC2626)
+                    color = EmployerColors.Error
                 )
             },
             text = {
@@ -968,13 +969,13 @@ fun PostJobScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF2F2)
+                        color = EmployerColors.ErrorLight
                     ) {
                         Text(
                             text = stringResource(R.string.post_job_location_mismatch_info),
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF991B1B)
+                            color = EmployerColors.Error
                         )
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -996,7 +997,7 @@ fun PostJobScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626)
+                        containerColor = EmployerColors.Error
                     )
                 ) {
                     Text(stringResource(R.string.post_anyway))
@@ -1023,7 +1024,7 @@ fun PostJobScreen(
                 Icon(
                     imageVector = Icons.Default.Warning,
                     contentDescription = null,
-                    tint = Color(0xFFDC2626),
+                    tint = EmployerColors.Error,
                     modifier = Modifier.size(48.dp)
                 )
             },
@@ -1031,7 +1032,7 @@ fun PostJobScreen(
                 Text(
                     text = stringResource(R.string.post_job_blocked_title),
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFDC2626)
+                    color = EmployerColors.Error
                 )
             },
             text = {
@@ -1043,20 +1044,20 @@ fun PostJobScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF2F2)
+                        color = EmployerColors.ErrorLight
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = stringResource(R.string.post_job_blocked_info),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF991B1B)
+                                color = EmployerColors.Error
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = stringResource(R.string.post_job_blocked_desc),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF991B1B)
+                                color = EmployerColors.Error
                             )
                         }
                     }
@@ -1087,7 +1088,7 @@ fun PostJobScreen(
                 Icon(
                     imageVector = Icons.Default.Warning,
                     contentDescription = null,
-                    tint = Color(0xFFFF9800),
+                    tint = EmployerColors.Warning,
                     modifier = Modifier.size(48.dp)
                 )
             },
@@ -1109,7 +1110,7 @@ fun PostJobScreen(
                     Text(
                         stringResource(R.string.post_job_profile_progress, profileCheckResult!!.completionPercentage),
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFFFF9800),
+                        color = EmployerColors.Warning,
                         textAlign = TextAlign.Center
                     )
                     if (profileCheckResult!!.missingFields.isNotEmpty()) {
@@ -1134,7 +1135,7 @@ fun PostJobScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3B82F6)
+                        containerColor = EmployerColors.Primary
                     )
                 ) {
                     Text(stringResource(R.string.complete_profile_button))
@@ -1202,7 +1203,7 @@ fun PostJobScreen(
                     title = stringResource(R.string.post_a_job),
                     navController = navController,
                     backgroundColor = Color.Transparent,
-                    titleColor = Color(0xFF0F172A)
+                    titleColor = EmployerColors.TextPrimary
                 )
 
                 PostingTypeTabs(
@@ -1250,7 +1251,7 @@ fun PostJobScreen(
                             title = stringResource(R.string.tell_us_about_role),
                             subtitle = stringResource(R.string.job_title_work_type_desc),
                             icon = "\uD83D\uDCDD",
-                            accentColor = Color(0xFF2563EB)
+                            accentColor = EmployerColors.Primary
                         ) {
                                 Column(
                                     modifier = Modifier
@@ -1268,7 +1269,7 @@ fun PostJobScreen(
                                         category = category,
                                         hasTitle = title.trim().length >= 3
                                     )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    Divider(color = EmployerColors.Border, thickness = 1.dp)
                                     WorkTypeSelection(
                                         workType = workType,
                                         onWorkTypeChange = { workType = it },
@@ -1279,12 +1280,12 @@ fun PostJobScreen(
                                         onPayTypeChange = { payType = it }
                                     )
                                     if (showAdvancedJobDetails || description.isNotBlank() || hasHeroImage) {
-                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
                                         JobDescriptionSection(
                                             description = description,
                                             onDescriptionChange = { description = it }
                                         )
-                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
                                         JobImageUploadSection(
                                             selectedImageUri = jobImageUri,
                                             isUploading = isUploadingJobImage,
@@ -1363,7 +1364,7 @@ fun PostJobScreen(
                             title = stringResource(R.string.pay_where_work),
                             subtitle = stringResource(R.string.set_pay_pin_location),
                             icon = "\uD83D\uDCB0",
-                            accentColor = Color(0xFF059669)
+                            accentColor = EmployerColors.Success
                         ) {
                                 Column(
                                     modifier = Modifier
@@ -1407,7 +1408,7 @@ fun PostJobScreen(
                                         locationLongitude = locationLongitude,
                                         savedLocations = savedWorkLocations
                                     )
-                                    Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                    Divider(color = EmployerColors.Border, thickness = 1.dp)
                                     // Apr 2026: shift timing moved here from
                                     // Step 3 so the employer sets pay AND
                                     // shift in one place; Step 3 now focuses
@@ -1421,7 +1422,7 @@ fun PostJobScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .size(36.dp)
-                                                    .background(Color(0xFFECFCCB), RoundedCornerShape(10.dp)),
+                                                    .background(EmployerColors.SuccessLight, RoundedCornerShape(10.dp)),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
@@ -1436,7 +1437,7 @@ fun PostJobScreen(
                                                 text = stringResource(R.string.schedule),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF1E293B)
+                                                color = EmployerColors.TextPrimary
                                             )
                                         }
                                         Spacer(modifier = Modifier.height(18.dp))
@@ -1478,7 +1479,7 @@ fun PostJobScreen(
                                         educationRequired != "No qualification required" ||
                                         gender != "Both"
                                     ) {
-                                        Divider(color = Color(0xFFEDF2F7), thickness = 1.dp)
+                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
                                         RequirementsSection(
                                             experienceLevel = experienceLevel,
                                             onExperienceLevelChange = { experienceLevel = it },
@@ -1610,7 +1611,7 @@ private fun PostJobCommandHeader(navController: NavController) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
-                    tint = Color(0xFF0F172A)
+                    tint = EmployerColors.TextPrimary
                 )
             }
         }
@@ -1623,7 +1624,7 @@ private fun PostJobCommandHeader(navController: NavController) {
                 text = "Post a Job",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             )
         }
     }
@@ -1798,7 +1799,7 @@ private fun PostJobSignalStrip(
             title = stringResource(R.string.essentials),
             value = "$readinessCount / 4",
             caption = "Critical publish checks complete",
-            tint = Color(0xFF2563EB)
+            tint = EmployerColors.Primary
         )
         StudioSignalCard(
             title = stringResource(R.string.trust_tier),
@@ -1810,7 +1811,7 @@ private fun PostJobSignalStrip(
             title = stringResource(R.string.map_pin),
             value = if (hasValidJobCoordinates) "Verified" else "Missing",
             caption = if (hasValidJobCoordinates) "Exact work area captured" else "Set a precise local pin",
-            tint = Color(0xFF059669)
+            tint = EmployerColors.Success
         )
         StudioSignalCard(
             title = stringResource(R.string.visual),
@@ -1853,7 +1854,7 @@ private fun PostJobChecklistPanel(
                         text = stringResource(R.string.post_job_launch_checklist),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = EmployerColors.TextPrimary
                     )
                     Text(
                         text = if (missingStudioItems.isEmpty()) {
@@ -1862,7 +1863,7 @@ private fun PostJobChecklistPanel(
                             "Finish the remaining essentials before launch."
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF64748B),
+                        color = EmployerColors.TextSecondary,
                         lineHeight = 19.sp
                     )
                 }
@@ -1912,7 +1913,7 @@ private fun PostJobChecklistPanel(
                         Text(
                             text = item,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF0F172A)
+                            color = EmployerColors.TextPrimary
                         )
                     }
                 }
@@ -1958,13 +1959,13 @@ private fun StudioSectionBanner(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF0F172A),
+                color = EmployerColors.TextPrimary,
                 lineHeight = 30.sp
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B),
+                color = EmployerColors.TextSecondary,
                 lineHeight = 21.sp
             )
         }
@@ -1978,7 +1979,7 @@ private fun PostJobPublishBar(
     onPublish: () -> Unit
 ) {
     Surface(
-        color = Color.White,
+        color = EmployerColors.CardBackground,
         shadowElevation = 12.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1999,8 +2000,8 @@ private fun PostJobPublishBar(
                     .height(54.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2563EB),
-                    disabledContainerColor = Color(0xFFCBD5E1)
+                    containerColor = EmployerColors.Primary,
+                    disabledContainerColor = EmployerColors.Border
                 )
             ) {
                 if (isPublishing) {
@@ -2041,7 +2042,7 @@ private fun PostJobStepperBar(
             .fillMaxWidth()
             .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
-        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        Divider(color = EmployerColors.Border, thickness = 1.dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2057,8 +2058,8 @@ private fun PostJobStepperBar(
                         .weight(1f)
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF0F172A))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.TextPrimary)
                 ) {
                     Text(text = stringResource(R.string.back), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
@@ -2072,10 +2073,10 @@ private fun PostJobStepperBar(
                     enabled = publishEnabled,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937),
+                        containerColor = EmployerColors.Primary,
                         contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF94A3B8)
+                        disabledContainerColor = EmployerColors.Border,
+                        disabledContentColor = EmployerColors.TextTertiary
                     )
                 ) {
                     if (isPublishing) {
@@ -2101,10 +2102,10 @@ private fun PostJobStepperBar(
                     enabled = canAdvance,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
+                        containerColor = EmployerColors.Primary,
                         contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF94A3B8)
+                        disabledContainerColor = EmployerColors.Border,
+                        disabledContentColor = EmployerColors.TextTertiary
                     )
                 ) {
                     Text(
@@ -2129,7 +2130,7 @@ private fun PostJobLaunchBar(
             .fillMaxWidth()
             .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
     ) {
-        Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        Divider(color = EmployerColors.Border, thickness = 1.dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2144,10 +2145,10 @@ private fun PostJobLaunchBar(
                 enabled = publishEnabled,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F2937),
+                    containerColor = EmployerColors.Primary,
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFFE2E8F0),
-                    disabledContentColor = Color(0xFF94A3B8)
+                    disabledContainerColor = EmployerColors.Border,
+                    disabledContentColor = EmployerColors.TextTertiary
                 )
             ) {
                 if (isPublishing) {
@@ -2213,7 +2214,7 @@ private fun StudioMetaChip(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF0F172A),
+                color = EmployerColors.TextPrimary,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -2273,13 +2274,13 @@ private fun StudioSignalCard(
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF0F172A),
+                color = EmployerColors.TextPrimary,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = caption,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B),
+                color = EmployerColors.TextSecondary,
                 lineHeight = 18.sp
             )
         }
@@ -2352,14 +2353,14 @@ private fun PostingTypeTabs(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            color = Color.White,
+            color = EmployerColors.CardBackground,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
             TabRow(
                 selectedTabIndex = selectedIndex,
-                containerColor = Color.White,
-                contentColor = Color(0xFF2563EB)
+                containerColor = EmployerColors.CardBackground,
+                contentColor = EmployerColors.Primary
             ) {
                 Tab(
                     selected = selectedIndex == 0,
@@ -2382,7 +2383,7 @@ private fun PostingTypeTabs(
             } else {
                 stringResource(R.string.post_job_normal_tab_desc)
             },
-            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
             modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
@@ -2432,7 +2433,7 @@ fun EnhancedJobTitleSection(
     title: String,
     onTitleChange: (String) -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = EmployerColors.Primary
     var titleError by remember { mutableStateOf<String?>(null) }
 
     PolishedCard {
@@ -2446,7 +2447,7 @@ fun EnhancedJobTitleSection(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFFEFF6FF), RoundedCornerShape(10.dp)),
+                        .background(EmployerColors.InfoLight, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("\uD83D\uDCDD", fontSize = 18.sp)
@@ -2458,12 +2459,12 @@ fun EnhancedJobTitleSection(
                             text = stringResource(R.string.post_job_title_label),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            color = EmployerColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "*",
-                            color = Color(0xFFEF4444),
+                            color = EmployerColors.Error,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -2471,7 +2472,7 @@ fun EnhancedJobTitleSection(
                     Text(
                         text = stringResource(R.string.post_job_select_position),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 }
             }
@@ -2491,15 +2492,15 @@ fun EnhancedJobTitleSection(
                 singleLine = true,
                 isError = titleError != null,
                 supportingText = if (titleError != null) {
-                    { Text(titleError!!, color = Color(0xFFDC2626)) }
+                    { Text(titleError!!, color = EmployerColors.Error) }
                 } else {
-                    { Text(stringResource(R.string.job_title_hint), color = Color(0xFF6B7280)) }
+                    { Text(stringResource(R.string.job_title_hint), color = EmployerColors.TextSecondary) }
                 },
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
-                    focusedLabelColor = if (titleError != null) Color(0xFFDC2626) else primaryBlue,
-                    unfocusedBorderColor = if (titleError != null) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                    focusedBorderColor = if (titleError != null) EmployerColors.Error else primaryBlue,
+                    focusedLabelColor = if (titleError != null) EmployerColors.Error else primaryBlue,
+                    unfocusedBorderColor = if (titleError != null) EmployerColors.Error else EmployerColors.Border,
                     cursorColor = primaryBlue,
                     unfocusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                     focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
@@ -2523,7 +2524,7 @@ fun WorkTypeSelection(
     payType: PayType,
     onPayTypeChange: (PayType) -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = EmployerColors.Primary
 
     // Apr 2026: market-rate hint and pay-rate guardrail dialog removed.
 
@@ -2537,7 +2538,7 @@ fun WorkTypeSelection(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
+                        .background(EmployerColors.SuccessLight, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("\u23F0", fontSize = 18.sp)
@@ -2548,12 +2549,12 @@ fun WorkTypeSelection(
                         text = stringResource(R.string.post_job_work_type),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        color = EmployerColors.TextPrimary
                     )
                     Text(
                         text = stringResource(R.string.post_job_work_type_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 }
             }
@@ -2577,8 +2578,8 @@ fun WorkTypeSelection(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = primaryBlue,
                             selectedLabelColor = Color.White,
-                            containerColor = Color(0xFFF1F5F9),
-                            labelColor = Color(0xFF475569)
+                            containerColor = EmployerColors.ChipBackground,
+                            labelColor = EmployerColors.TextSecondary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             borderColor = Color.Transparent,
@@ -2598,12 +2599,12 @@ fun WorkTypeSelection(
                             text = stringResource(R.string.payment_details),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            color = EmployerColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "*",
-                            color = Color(0xFFEF4444),
+                            color = EmployerColors.Error,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -2611,7 +2612,7 @@ fun WorkTypeSelection(
                     Text(
                         text = stringResource(R.string.post_job_how_much_pay),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 }
             
@@ -2633,7 +2634,7 @@ fun WorkTypeSelection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = primaryBlue
                 )
             )
@@ -2644,7 +2645,7 @@ fun WorkTypeSelection(
                 text = "Pay type",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF475569)
+                color = EmployerColors.TextSecondary
             )
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2666,12 +2667,12 @@ fun WorkTypeSelection(
                             selectedContainerColor = primaryBlue,
                             selectedLabelColor = Color.White,
                             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                            labelColor = Color(0xFF374151)
+                            labelColor = EmployerColors.TextSecondary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = selected,
-                            borderColor = Color(0xFFE5E7EB),
+                            borderColor = EmployerColors.Border,
                             selectedBorderColor = primaryBlue
                         )
                     )
@@ -2690,7 +2691,7 @@ private fun AutoPickedJobCategory(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -2700,14 +2701,14 @@ private fun AutoPickedJobCategory(
             Text(
                 text = "Auto-picked category",
                 style = MaterialTheme.typography.labelMedium.copy(
-                    color = Color(0xFF1D4ED8),
+                    color = EmployerColors.Primary,
                     fontWeight = FontWeight.SemiBold
                 )
             )
             Text(
                 text = if (hasTitle) category.displayName else "Type the title to detect category",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF1E3A8A),
+                    color = EmployerColors.Primary,
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -2728,8 +2729,8 @@ fun EnhancedLocationSection(
     locationLongitude: Double = 0.0,
     savedLocations: List<com.example.dutype.models.WorkLocation> = emptyList()
 ) {
-    val primaryBlue = Color(0xFF2563EB)
-    val successGreen = Color(0xFF10B981)
+    val primaryBlue = EmployerColors.Primary
+    val successGreen = EmployerColors.Success
     
     // Location search state
     var isSearching by remember { mutableStateOf(false) }
@@ -2799,13 +2800,13 @@ fun EnhancedLocationSection(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFFDBEAFE), RoundedCornerShape(10.dp)),
+                        .background(EmployerColors.InfoLight, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF2563EB),
+                        tint = EmployerColors.Primary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -2816,12 +2817,12 @@ fun EnhancedLocationSection(
                             text = stringResource(R.string.post_job_work_location),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E293B)
+                            color = EmployerColors.TextPrimary
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "*",
-                            color = Color(0xFFEF4444),
+                            color = EmployerColors.Error,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -2885,7 +2886,7 @@ fun EnhancedLocationSection(
                         Icon(
                             imageVector = androidx.compose.material.icons.Icons.Default.Search,
                             contentDescription = "Search",
-                            tint = Color(0xFF6B7280),
+                            tint = EmployerColors.TextSecondary,
                             modifier = Modifier.padding(start = 8.dp)
                         )
                     }
@@ -2926,9 +2927,9 @@ fun EnhancedLocationSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = primaryBlue,
-                    unfocusedContainerColor = Color(0xFFFAFAFA),
+                    unfocusedContainerColor = EmployerColors.ScreenBackground,
                     focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
                 )
             )
@@ -2975,20 +2976,20 @@ fun EnhancedLocationSection(
                                             text = suggestion.area.ifBlank { suggestion.city },
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFF1E293B),
+                                            color = EmployerColors.TextPrimary,
                                             maxLines = 1
                                         )
                                         Text(
                                             text = suggestion.displayName,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF6B7280),
+                                            color = EmployerColors.TextSecondary,
                                             maxLines = 2
                                         )
                                     }
                                 }
                             }
                             if (suggestion != searchSuggestions.last()) {
-                                Divider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                                Divider(color = EmployerColors.Border, thickness = 0.5.dp)
                             }
                         }
                     }
@@ -3024,7 +3025,7 @@ fun EnhancedLocationSection(
                         Text(
                             text = location,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF1E293B),
+                            color = EmployerColors.TextPrimary,
                             lineHeight = 20.sp
                         )
                     }
@@ -3038,8 +3039,8 @@ fun EnhancedLocationSection(
                         .fillMaxWidth()
                         .height(210.dp),
                     shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                    color = EmployerColors.ScreenBackground,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
                 ) {
                     SelectableLocationMap(
                         latitude = locationLatitude,
@@ -3061,14 +3062,14 @@ fun EnhancedLocationSection(
                         String.format("Exact pin: %.6f, %.6f", locationLatitude, locationLongitude)
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B)
+                    color = EmployerColors.TextSecondary
                 )
                 if (isResolvingPinnedAddress) {
                     Spacer(modifier = Modifier.height(6.dp))
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
                         color = primaryBlue,
-                        trackColor = Color(0xFFE2E8F0)
+                        trackColor = EmployerColors.Border
                     )
                 }
             }
@@ -3079,7 +3080,7 @@ fun EnhancedLocationSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            Color(0xFFFEE2E2),
+                            EmployerColors.ErrorLight,
                             RoundedCornerShape(8.dp)
                         )
                         .padding(10.dp),
@@ -3087,7 +3088,7 @@ fun EnhancedLocationSection(
                 ) {
                     Text(
                         text = "Warning: $locationError",
-                        color = Color(0xFFDC2626),
+                        color = EmployerColors.Error,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -3120,7 +3121,7 @@ fun RequirementsSection(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFFF3E8FF), RoundedCornerShape(10.dp)),
+                        .background(EmployerColors.InfoLight, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -3136,12 +3137,12 @@ fun RequirementsSection(
                         text = stringResource(R.string.post_job_requirements),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        color = EmployerColors.TextPrimary
                     )
                     Text(
                         text = stringResource(R.string.post_job_looking_for),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 }
             }
@@ -3155,7 +3156,7 @@ fun RequirementsSection(
                 options = experienceLevels,
                 selectedOption = experienceLevel,
                 onOptionSelected = onExperienceLevelChange,
-                selectedColor = Color(0xFF10B981),
+                selectedColor = EmployerColors.Success,
                 allowCustomOption = true,
                 customOptionHint = stringResource(R.string.add_own_experience)
             )
@@ -3180,7 +3181,7 @@ fun RequirementsSection(
                 text = stringResource(R.string.post_job_gender_preference),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF475569)
+                color = EmployerColors.TextSecondary
             )
             Spacer(modifier = Modifier.height(10.dp))
             LazyRow(
@@ -3204,8 +3205,8 @@ fun RequirementsSection(
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF8B5CF6),
                             selectedLabelColor = Color.White,
-                            containerColor = Color(0xFFF1F5F9),
-                            labelColor = Color(0xFF475569)
+                            containerColor = EmployerColors.ChipBackground,
+                            labelColor = EmployerColors.TextSecondary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             borderColor = Color.Transparent,
@@ -3241,7 +3242,7 @@ private fun RequirementChipSection(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF475569),
+                tint = EmployerColors.TextSecondary,
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -3250,7 +3251,7 @@ private fun RequirementChipSection(
             text = title,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF475569)
+            color = EmployerColors.TextSecondary
         )
     }
     Spacer(modifier = Modifier.height(10.dp))
@@ -3275,8 +3276,8 @@ private fun RequirementChipSection(
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = selectedColor,
                     selectedLabelColor = Color.White,
-                    containerColor = Color(0xFFF1F5F9),
-                    labelColor = Color(0xFF475569)
+                    containerColor = EmployerColors.ChipBackground,
+                    labelColor = EmployerColors.TextSecondary
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     borderColor = Color.Transparent,
@@ -3304,10 +3305,10 @@ private fun RequirementChipSection(
                     selected = false,
                     shape = RoundedCornerShape(8.dp),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFFF1F5F9),
-                        selectedLabelColor = Color(0xFF334155),
-                        containerColor = Color(0xFFF1F5F9),
-                        labelColor = Color(0xFF334155)
+                        selectedContainerColor = EmployerColors.ChipBackground,
+                        selectedLabelColor = EmployerColors.TextSecondary,
+                        containerColor = EmployerColors.ChipBackground,
+                        labelColor = EmployerColors.TextSecondary
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         borderColor = Color.Transparent,
@@ -3338,7 +3339,7 @@ private fun RequirementChipSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
                     focusedLabelColor = selectedColor,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = selectedColor
                 )
             )
@@ -3376,10 +3377,10 @@ private fun PostJobTopStepper(
     currentStep: Int,
     stepLabels: List<String>
 ) {
-    val accent = Color(0xFF2563EB)
-    val mutedCircle = Color(0xFFE2E8F0)
-    val mutedText = Color(0xFF94A3B8)
-    val connector = Color(0xFFE2E8F0)
+    val accent = EmployerColors.Primary
+    val mutedCircle = EmployerColors.Border
+    val mutedText = EmployerColors.TextTertiary
+    val connector = EmployerColors.Border
 
     Surface(color = com.example.dutype.ui.theme.EmployerColors.CardBackground, modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -3428,7 +3429,7 @@ private fun PostJobTopStepper(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = label,
-                        color = if (isActive) Color(0xFF0F172A) else mutedText,
+                        color = if (isActive) EmployerColors.TextPrimary else mutedText,
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
                         fontSize = 11.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -3461,12 +3462,12 @@ private fun PostJobStepNavBar(
     onNext: () -> Unit,
     onPublish: () -> Unit
 ) {
-    val accent = Color(0xFF2563EB)
+    val accent = EmployerColors.Primary
     val isLast = currentStep == totalSteps - 1
     val showBack = currentStep > 0
 
     Surface(
-        color = Color.White,
+        color = EmployerColors.CardBackground,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -3489,9 +3490,9 @@ private fun PostJobStepNavBar(
                         .weight(1f)
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border),
                     colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF0F172A)
+                        contentColor = EmployerColors.TextPrimary
                     )
                 ) {
                     Text(stringResource(R.string.back), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)

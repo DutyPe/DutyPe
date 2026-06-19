@@ -291,8 +291,8 @@ fun SelectRoleScreen(
                         title = stringResource(R.string.worker),
                         subtitle = stringResource(R.string.find_jobs_earn),
                         description = "Explore daily jobs and grow your income",
-                        primaryColor = Color(0xFF1268F3),
-                        containerColor = Color(0xFFEAF1FF),
+                        primaryColor = Color(0xFF0F0F0F),
+                        containerColor = Color(0xFFF1F1F4),
                         delay = 50,
                         onClick = {
                             Timber.d("🔍 Worker role selected")
@@ -312,8 +312,8 @@ fun SelectRoleScreen(
                         title = stringResource(R.string.employer),
                         subtitle = stringResource(R.string.hire_skilled_workers),
                         description = "Find reliable workers for your business",
-                        primaryColor = employerAccent,
-                        containerColor = Color(0xFFEAFBF1),
+                        primaryColor = Color(0xFF0F0F0F),
+                        containerColor = Color(0xFFF1F1F4),
                         delay = 150,
                         onClick = {
                             Timber.d("🔍 Employer role selected")
@@ -393,7 +393,7 @@ fun RoleCard(
             ),
             border = BorderStroke(
                 width = 1.dp,
-                color = Color(0xFFF0EDF9)
+                color = Color(0xFFE8E8EC)
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {

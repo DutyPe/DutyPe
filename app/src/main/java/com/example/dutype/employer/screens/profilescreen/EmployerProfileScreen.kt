@@ -301,7 +301,7 @@ fun EmployerProfileScreen(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFE0E7FF))
+                                        .background(EmployerColors.PrimaryLight)
                                         .clickable {
                                             if (isLoggedIn) {
                                                 imagePickerLauncher.launch("image/*")
@@ -398,7 +398,7 @@ fun EmployerProfileScreen(
                                             rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
                                         },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF1F2937)
+                                            containerColor = EmployerColors.Primary
                                         ),
                                         shape = RoundedCornerShape(0.dp),
                                         modifier = Modifier.height(38.dp)
@@ -728,7 +728,7 @@ private fun ProfileMenuItem(
     }
 
     val iconBgColor = when {
-        isDestructive -> Color(0xFFFEE2E2)
+        isDestructive -> EmployerColors.ErrorLight
         iconColor != null -> iconColor.copy(alpha = 0.1f)
         else -> WorkerColors.ChipBackground
     }
@@ -887,7 +887,7 @@ private fun EmployerFollowUsSection() {
                         .size(40.dp)
                         .clip(CircleShape)
                         
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .border(1.dp, EmployerColors.Border, CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
@@ -900,7 +900,7 @@ private fun EmployerFollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_instagram),
                         contentDescription = "Instagram",
-                        tint = Color(0xFF1F2937),
+                        tint = EmployerColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -911,7 +911,7 @@ private fun EmployerFollowUsSection() {
                         .size(40.dp)
                         .clip(CircleShape)
                         
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .border(1.dp, EmployerColors.Border, CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
@@ -924,7 +924,7 @@ private fun EmployerFollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_whatsapp),
                         contentDescription = "WhatsApp",
-                        tint = Color(0xFF1F2937),
+                        tint = EmployerColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }

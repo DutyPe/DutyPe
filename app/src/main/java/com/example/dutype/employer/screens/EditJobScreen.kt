@@ -31,6 +31,7 @@ import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.models.*
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.JobEditPolicy
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -410,7 +411,7 @@ fun EditJobScreen(
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(48.dp),
-                    color = Color(0xFF3B82F6)
+                    color = EmployerColors.Primary
                 )
                 Text(
                     text = "Loading job details...",
@@ -446,7 +447,7 @@ fun EditJobScreen(
                         onClick = { navController.popBackStack() },
                         modifier = Modifier.size(40.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF3F4F6)
+                        color = EmployerColors.ChipBackground
                     ) {
                         Box(
                             contentAlignment = Alignment.Center,
@@ -455,7 +456,7 @@ fun EditJobScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
-                                tint = Color(0xFF1F2937),
+                                tint = EmployerColors.TextPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -476,7 +477,7 @@ fun EditJobScreen(
                             onClick = { showDeleteDialog = true },
                             modifier = Modifier.size(40.dp),
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFEE2E2)
+                            color = EmployerColors.ErrorLight
                         ) {
                             Box(
                                 contentAlignment = Alignment.Center,
@@ -485,7 +486,7 @@ fun EditJobScreen(
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete Job",
-                                    tint = Color(0xFFDC2626),
+                                    tint = EmployerColors.Error,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -507,7 +508,7 @@ fun EditJobScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp, 8.dp, 16.dp, 0.dp),
-                            color = Color(0xFFFFF3CD),
+                            color = EmployerColors.WarningLight,
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Row(
@@ -517,14 +518,14 @@ fun EditJobScreen(
                                 Icon(
                                     imageVector = Icons.Default.Warning,
                                     contentDescription = null,
-                                    tint = Color(0xFF856404),
+                                    tint = EmployerColors.Warning,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = timeRestrictionMessage,
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFF856404),
+                                        color = EmployerColors.Warning,
                                         fontSize = 12.sp
                                     )
                                 )
@@ -544,11 +545,11 @@ fun EditJobScreen(
                                 .weight(1f)
                                 .height(48.dp),
                             shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
                         ) {
                             Text(
                                 "Cancel",
-                                color = Color(0xFF6B7280),
+                                color = EmployerColors.TextSecondary,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -561,8 +562,8 @@ fun EditJobScreen(
                             enabled = !isLoading && validateForm() && canEditJob,
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6),
-                                disabledContainerColor = Color(0xFFE5E7EB)
+                                containerColor = EmployerColors.Primary,
+                                disabledContainerColor = EmployerColors.Border
                             )
                         ) {
                             if (isLoading) {
@@ -619,13 +620,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFEFF6FF), RoundedCornerShape(8.dp)),
+                                    .background(EmployerColors.Primary.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Work,
                                     contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
+                                    tint = EmployerColors.Primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -642,13 +643,13 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            placeholder = { Text(stringResource(R.string.edit_job_title_hint), color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.edit_job_title_hint), color = EmployerColors.TextTertiary) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
                     }
@@ -673,13 +674,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFDCFCE7), RoundedCornerShape(8.dp)),
+                                    .background(EmployerColors.SuccessLight, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.AttachMoney,
                                     contentDescription = null,
-                                    tint = Color(0xFF16A34A),
+                                    tint = EmployerColors.Success,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -698,14 +699,14 @@ fun EditJobScreen(
                             value = payAmount,
                             onValueChange = { payAmount = it },
                             label = { Text(stringResource(R.string.amount)) },
-                            placeholder = { Text(stringResource(R.string.edit_job_salary_hint), color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.edit_job_salary_hint), color = EmployerColors.TextTertiary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
 
@@ -713,7 +714,7 @@ fun EditJobScreen(
                             text = "Pay type",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF475569)
+                                color = EmployerColors.TextSecondary
                             )
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -732,16 +733,16 @@ fun EditJobScreen(
                                     },
                                     shape = RoundedCornerShape(10.dp),
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFF3B82F6),
+                                        selectedContainerColor = EmployerColors.Primary,
                                         selectedLabelColor = Color.White,
                                         containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                                        labelColor = Color(0xFF374151)
+                                        labelColor = EmployerColors.TextSecondary
                                     ),
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
                                         selected = selected,
-                                        borderColor = Color(0xFFE5E7EB),
-                                        selectedBorderColor = Color(0xFF3B82F6)
+                                        borderColor = EmployerColors.Border,
+                                        selectedBorderColor = EmployerColors.Primary
                                     )
                                 )
                             }
@@ -768,13 +769,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFFEE2E2), RoundedCornerShape(8.dp)),
+                                    .background(EmployerColors.ErrorLight, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = null,
-                                    tint = Color(0xFFDC2626),
+                                    tint = EmployerColors.Error,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -831,15 +832,15 @@ fun EditJobScreen(
                                 }
                             },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
 
                         locationError?.let { error ->
                             Text(
                                 text = error,
-                                color = Color(0xFFDC2626),
+                                color = EmployerColors.Error,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -850,7 +851,7 @@ fun EditJobScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color(0xFF10B981)
+                                    contentColor = EmployerColors.Success
                                 )
                             ) {
                                 Icon(
@@ -884,13 +885,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(8.dp)),
+                                    .background(EmployerColors.WarningLight, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Description,
                                     contentDescription = null,
-                                    tint = Color(0xFFD97706),
+                                    tint = EmployerColors.Warning,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -907,15 +908,15 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = description,
                             onValueChange = { description = it },
-                            placeholder = { Text(stringResource(R.string.describe_job_placeholder), color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.describe_job_placeholder), color = EmployerColors.TextTertiary) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
                             maxLines = 5,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
                     }
@@ -1001,13 +1002,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFDBEAFE), RoundedCornerShape(8.dp)),
+                                    .background(EmployerColors.InfoLight, RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Phone,
                                     contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
+                                    tint = EmployerColors.Primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -1025,27 +1026,27 @@ fun EditJobScreen(
                             value = contactNumber,
                             onValueChange = { contactNumber = it },
                             label = { Text(stringResource(R.string.contact_number_label)) },
-                            placeholder = { Text(stringResource(R.string.phone_number_example_hint), color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.phone_number_example_hint), color = EmployerColors.TextTertiary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
                         OutlinedTextField(
                             value = employerName,
                             onValueChange = { employerName = it },
                             label = { Text(stringResource(R.string.your_name_optional)) },
-                            placeholder = { Text(stringResource(R.string.enter_your_name), color = Color(0xFF9CA3AF)) },
+                            placeholder = { Text(stringResource(R.string.enter_your_name), color = EmployerColors.TextTertiary) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
                     }
@@ -1070,7 +1071,7 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFFCE7F3), RoundedCornerShape(8.dp)),
+                                    .background(Color(0xFFDB2777).copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -1097,7 +1098,7 @@ fun EditJobScreen(
                                 text = "Work type",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF374151)
+                                    color = EmployerColors.TextSecondary
                                 )
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1116,16 +1117,16 @@ fun EditJobScreen(
                                         modifier = Modifier.height(34.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF3B82F6),
+                                            selectedContainerColor = EmployerColors.Primary,
                                             selectedLabelColor = Color.White,
                                             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                                            labelColor = Color(0xFF374151)
+                                            labelColor = EmployerColors.TextSecondary
                                         ),
                                         border = FilterChipDefaults.filterChipBorder(
                                             enabled = true,
                                             selected = selected,
-                                            borderColor = Color(0xFFE5E7EB),
-                                            selectedBorderColor = Color(0xFF3B82F6)
+                                            borderColor = EmployerColors.Border,
+                                            selectedBorderColor = EmployerColors.Primary
                                         )
                                     )
                                 }
@@ -1138,7 +1139,7 @@ fun EditJobScreen(
                                 text = "Shift",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF374151)
+                                    color = EmployerColors.TextSecondary
                                 )
                             )
                             val shiftOptions = listOf(
@@ -1165,16 +1166,16 @@ fun EditJobScreen(
                                             .defaultMinSize(minWidth = 0.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF3B82F6),
+                                            selectedContainerColor = EmployerColors.Primary,
                                             selectedLabelColor = Color.White,
                                             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                                            labelColor = Color(0xFF374151)
+                                            labelColor = EmployerColors.TextSecondary
                                         ),
                                         border = FilterChipDefaults.filterChipBorder(
                                             enabled = true,
                                             selected = selected,
-                                            borderColor = Color(0xFFE5E7EB),
-                                            selectedBorderColor = Color(0xFF3B82F6)
+                                            borderColor = EmployerColors.Border,
+                                            selectedBorderColor = EmployerColors.Primary
                                         )
                                     )
                                 }
@@ -1193,8 +1194,8 @@ fun EditJobScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF3B82F6),
-                                unfocusedBorderColor = Color(0xFFE5E7EB)
+                                focusedBorderColor = EmployerColors.Primary,
+                                unfocusedBorderColor = EmployerColors.Border
                             )
                         )
                     }
@@ -1288,8 +1289,8 @@ fun EditJobScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF9FAFB),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                            color = EmployerColors.ChipBackground,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -1300,13 +1301,13 @@ fun EditJobScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .background(Color(0xFFDCFCE7), RoundedCornerShape(10.dp)),
+                                        .background(EmployerColors.SuccessLight, RoundedCornerShape(10.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         Icons.Default.LocationOn,
                                         contentDescription = null,
-                                        tint = Color(0xFF10B981),
+                                        tint = EmployerColors.Success,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -1328,7 +1329,7 @@ fun EditJobScreen(
                                         Text(
                                             "Used ${workLocation.usageCount} times",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF10B981),
+                                            color = EmployerColors.Success,
                                             fontSize = 11.sp
                                         )
                                     }

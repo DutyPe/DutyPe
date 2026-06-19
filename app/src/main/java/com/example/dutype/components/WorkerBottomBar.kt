@@ -55,7 +55,7 @@ import com.example.dutype.ui.theme.WorkerColors
 fun WorkerBottomBar(
     navController: NavController,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = WorkerColors.Primary,
+    selectedItemColor: Color = WorkerColors.BottomNavSelected,
     unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
     modifier: Modifier = Modifier
 ) {

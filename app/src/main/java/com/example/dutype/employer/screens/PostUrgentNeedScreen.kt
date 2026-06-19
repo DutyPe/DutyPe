@@ -320,8 +320,8 @@ internal fun PostUrgentNeedContent(
                                 null
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFFFEDD5),
-                                selectedLabelColor = Color(0xFF9A3412)
+                                selectedContainerColor = EmployerColors.WarningLight,
+                                selectedLabelColor = EmployerColors.Warning
                             )
                         )
                     }
@@ -340,7 +340,7 @@ internal fun PostUrgentNeedContent(
                     Text(
                         text = scheduleLabel,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF166534),
+                            color = EmployerColors.Success,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
@@ -369,7 +369,7 @@ internal fun PostUrgentNeedContent(
                     Text(
                         text = stringResource(R.string.location_updated),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF166534),
+                            color = EmployerColors.Success,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
@@ -413,7 +413,7 @@ internal fun PostUrgentNeedContent(
                     if (!urgentLocationError.isNullOrBlank()) {
                         Text(
                             text = urgentLocationError ?: "",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Error)
                         )
                     }
                 }
@@ -438,7 +438,7 @@ internal fun PostUrgentNeedContent(
             item {
                 Text(
                     text = state.error ?: "",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFDC2626)),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.Error),
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
             }

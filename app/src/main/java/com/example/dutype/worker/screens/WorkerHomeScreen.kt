@@ -997,7 +997,7 @@ private fun WorkerHomeLocationPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White
+        containerColor = WorkerColors.CardBackground
     ) {
         Column(
             modifier = Modifier
@@ -1010,12 +1010,12 @@ private fun WorkerHomeLocationPickerSheet(
                 text = stringResource(R.string.choose_work_location),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = WorkerColors.TextPrimary
                 )
             )
             Text(
                 text = stringResource(R.string.choose_work_location_body),
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF64748B))
+                style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
             )
 
             Button(
@@ -1023,7 +1023,7 @@ private fun WorkerHomeLocationPickerSheet(
                 enabled = !isFetchingCurrentLocation,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
             ) {
                 if (isFetchingCurrentLocation) {
                     CircularProgressIndicator(
@@ -1058,7 +1058,7 @@ private fun WorkerHomeLocationPickerSheet(
             if (!errorMessage.isNullOrBlank()) {
                 Text(
                     text = errorMessage,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Error)
                 )
             }
 

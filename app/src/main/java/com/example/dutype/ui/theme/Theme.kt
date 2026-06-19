@@ -31,7 +31,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.flowOf
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF8B5CF6),
+    primary = Color(0xFF2E2E33),
     secondary = Color(0xFF38BDF8),
     tertiary = TertiaryGold,
     background = Color(0xFF0B1220),
@@ -44,7 +44,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryBlue,
+    primary = Color(0xFF0F0F0F),
     secondary = SecondaryTeal,
     tertiary = TertiaryGold,
     background = LightBackground,

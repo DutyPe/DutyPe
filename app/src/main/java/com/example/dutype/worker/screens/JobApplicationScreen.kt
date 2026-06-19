@@ -261,7 +261,7 @@ private fun WorkerWorkTipsSection() {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = Color(0xFF2563EB),
+                    tint = WorkerColors.Primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
@@ -282,7 +282,7 @@ private fun WorkerWorkTipsSection() {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = WorkerColors.Success,
                         modifier = Modifier
                             .padding(top = 2.dp)
                             .size(16.dp)
@@ -367,14 +367,14 @@ private fun ApplicationSentSuccess(
                 .size(112.dp)
                 .scale(scale)
                 .clip(CircleShape)
-                .background(Color(0xFF10B981).copy(alpha = 0.12f)),
+                .background(WorkerColors.Success.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF10B981)),
+                    .background(WorkerColors.Success),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -395,7 +395,7 @@ private fun ApplicationSentSuccess(
             style = AppTypography.cardTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = Color(0xFF111827)
+                color = WorkerColors.TextPrimary
             )
         )
 
@@ -404,7 +404,7 @@ private fun ApplicationSentSuccess(
         Text(
             text = "Your application for \"$jobTitle\" has been sent. Calling now gives you the fastest chance to confirm the work.",
             style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF6B7280),
+                color = WorkerColors.TextSecondary,
                 fontSize = 14.sp
             ),
             textAlign = TextAlign.Center
@@ -418,7 +418,7 @@ private fun ApplicationSentSuccess(
                 .fillMaxWidth()
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (canCallEmployer) Color(0xFF10B981) else Color(0xFF1F2937)
+                containerColor = if (canCallEmployer) WorkerColors.Success else WorkerColors.Primary
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -449,7 +449,7 @@ private fun ApplicationSentSuccess(
             Text(
                 text = if (canCallEmployer) "View My Jobs" else "Return to Home",
                 style = AppTypography.buttonMedium.copy(
-                    color = Color(0xFF1F2937),
+                    color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -475,7 +475,7 @@ private fun JobSummaryCard(job: JobListing) {
             Text(
                 text = "Applying for",
                 style = AppTypography.labelMedium.copy(
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     fontSize = 12.sp
                 )
             )
@@ -491,13 +491,13 @@ private fun JobSummaryCard(job: JobListing) {
                     modifier = Modifier
                         .size(56.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF3F4F6)),
+                        .background(WorkerColors.ChipBackground),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Work,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        tint = WorkerColors.TextSecondary,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -531,13 +531,13 @@ private fun JobSummaryCard(job: JobListing) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = WorkerColors.Error,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = job.addressText,
-                            style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                            style = AppTypography.caption.copy(color = WorkerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -555,13 +555,13 @@ private fun JobSummaryCard(job: JobListing) {
                     Text(
                         text = "₹$salaryStr",
                         style = AppTypography.labelMedium.copy(
-                            color = Color(0xFF10B981),
+                            color = WorkerColors.Success,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
                         text = "/$period",
-                        style = AppTypography.caption.copy(color = Color(0xFF6B7280))
+                        style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                     )
                 }
             }
@@ -587,8 +587,8 @@ private fun SubmitApplicationButton(
                 .height(52.dp),
             enabled = !isSubmitting,
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF374151),
-                disabledContainerColor = Color(0xFF9CA3AF)
+                containerColor = WorkerColors.Primary,
+                disabledContainerColor = WorkerColors.TextDisabled
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -643,7 +643,7 @@ private fun SubmitApplicationButton(
         Text(
             text = "By submitting, you agree to share your profile information with the employer.",
             style = AppTypography.caption.copy(
-                color = Color(0xFF9CA3AF),
+                color = WorkerColors.TextTertiary,
                 fontSize = 11.sp
             ),
             modifier = Modifier.padding(horizontal = 8.dp)

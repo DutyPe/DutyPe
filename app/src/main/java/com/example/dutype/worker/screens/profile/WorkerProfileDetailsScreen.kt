@@ -500,7 +500,7 @@ private fun ProfileImageSection(
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF3F4F6)),
+                            .background(WorkerColors.ChipBackground),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
@@ -587,7 +587,7 @@ private fun DefaultProfileIcon(
         modifier = Modifier
             .size(120.dp)
             .clip(CircleShape)
-            .background(Color(0xFFF3F4F6))
+            .background(WorkerColors.ChipBackground)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -601,7 +601,7 @@ private fun DefaultProfileIcon(
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = "Default Profile",
-                tint = Color(0xFF9CA3AF),
+                tint = WorkerColors.TextTertiary,
                 modifier = Modifier.size(56.dp)
             )
         }

@@ -41,6 +41,7 @@ import com.example.dutype.components.ReferralValidationResult
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.di.rememberInAppReviewTriggerService
@@ -455,7 +456,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
             ) {
                 androidx.compose.material3.CircularProgressIndicator(
-                    color = Color(0xFF3B82F6)
+                    color = EmployerColors.Primary
                 )
                 androidx.compose.material3.Text(
                     "Loading your profile...",
@@ -691,7 +692,7 @@ fun MandatoryEmployerProfileSetupContent(
                         if (errorMessage != null) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                                colors = CardDefaults.cardColors(containerColor = EmployerColors.ErrorLight),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Row(
@@ -701,14 +702,14 @@ fun MandatoryEmployerProfileSetupContent(
                                     Icon(
                                         Icons.Default.Warning,
                                         contentDescription = null,
-                                        tint = Color(0xFFEF4444),
+                                        tint = EmployerColors.Error,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = errorMessage,
                                         style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFFEF4444)
+                                            color = EmployerColors.Error
                                         )
                                     )
                                 }
@@ -721,7 +722,7 @@ fun MandatoryEmployerProfileSetupContent(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = EmployerColors.CardBackground,
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -736,7 +737,7 @@ fun MandatoryEmployerProfileSetupContent(
                             modifier = Modifier.size(52.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF3B82F6)
+                                contentColor = EmployerColors.Primary
                             ),
                             contentPadding = PaddingValues(0.dp)
                         ) {
@@ -760,7 +761,7 @@ fun MandatoryEmployerProfileSetupContent(
                             .height(52.dp)
                             .weight(1f),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
@@ -843,7 +844,7 @@ private fun CompanyInformationStep(
                 Text(
                     text = "Tell us about your company",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -861,15 +862,15 @@ private fun CompanyInformationStep(
                 shape = RoundedCornerShape(16.dp),
                 isError = companyNameError != null,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (companyNameError != null) Color(0xFFEF4444) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (companyNameError != null) Color(0xFFEF4444) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFEF4444)
+                    focusedBorderColor = if (companyNameError != null) EmployerColors.Error else EmployerColors.Primary,
+                    unfocusedBorderColor = if (companyNameError != null) EmployerColors.Error else EmployerColors.Border,
+                    errorBorderColor = EmployerColors.Error
                 )
             )
             if (companyNameError != null) {
                 Text(
                     text = companyNameError,
-                    color = Color(0xFFEF4444),
+                    color = EmployerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -889,9 +890,9 @@ private fun CompanyInformationStep(
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = Color(0xFFE5E7EB),
-                    cursorColor = Color(0xFF111111)
+                    focusedBorderColor = EmployerColors.Primary,
+                    unfocusedBorderColor = EmployerColors.Border,
+                    cursorColor = EmployerColors.Primary
                 )
             )
         }
@@ -975,7 +976,7 @@ private fun ContactDetailsStep(
                 Text(
                     text = "How can we reach you?",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -999,15 +1000,15 @@ private fun ContactDetailsStep(
                 isError = phoneError != null,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (phoneError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
+                    focusedBorderColor = if (phoneError != null) EmployerColors.Error else EmployerColors.Primary,
+                    unfocusedBorderColor = if (phoneError != null) EmployerColors.Error else EmployerColors.Border,
+                    errorBorderColor = EmployerColors.Error
                 )
             )
             if (phoneError != null) {
                 Text(
                     text = phoneError,
-                    color = Color(0xFFDC2626),
+                    color = EmployerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
@@ -1055,7 +1056,7 @@ private fun ContactDetailsStep(
                     },
                     modifier = Modifier.height(36.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF111111)
+                        containerColor = EmployerColors.Primary
                     ),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
@@ -1087,15 +1088,15 @@ private fun ContactDetailsStep(
                 placeholder = stringResource(R.string.search_or_enter_work_location),
                 maxLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFF3B82F6),
-                    unfocusedBorderColor = if (addressError != null) Color(0xFFDC2626) else Color(0xFFE5E7EB),
-                    errorBorderColor = Color(0xFFDC2626)
+                    focusedBorderColor = if (addressError != null) EmployerColors.Error else EmployerColors.Primary,
+                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else EmployerColors.Border,
+                    errorBorderColor = EmployerColors.Error
                 )
             )
             if (addressError != null) {
                 Text(
                     text = addressError,
-                    color = Color(0xFFDC2626),
+                    color = EmployerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )

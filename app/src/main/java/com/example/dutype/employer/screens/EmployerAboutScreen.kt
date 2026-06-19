@@ -45,8 +45,7 @@ fun EmployerAboutScreen(
     ) {
         CommonHeader(
             title = stringResource(R.string.about_us),
-            navController = navController,
-            backgroundColor = Color.White
+            navController = navController
         )
 
         Column(

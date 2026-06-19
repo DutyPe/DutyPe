@@ -920,39 +920,15 @@ fun RoleSelectionWithNavigation(
                     }
                 }
             } else {
-                // P0 FIX: Secure Guest Mode - Read-only access with login prompts for actions
-                // User is not signed in - Guest Mode: Navigate to home with limited access
-                Timber.d("User not signed in, navigating to home (Secure Guest Mode - Read Only)")
-                val userRole = when (role) {
-                    "WORKER" -> com.example.dutype.models.UserRole.WORKER
-                    "EMPLOYER" -> com.example.dutype.models.UserRole.EMPLOYER
-                    else -> com.example.dutype.models.UserRole.WORKER
-                }
-                
-                // P0 FIX: Guest users can browse but will be prompted to login for actions
-                // This is handled in individual screens (apply job, post job, etc.)
-                when (userRole) {
-                    com.example.dutype.models.UserRole.WORKER -> {
-                        Timber.i("Secure Guest Mode - Worker navigates to WORKER_HOME (read-only)")
-                        navController.navigate(Routes.WORKER_HOME) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                    com.example.dutype.models.UserRole.EMPLOYER -> {
-                        Timber.i("Secure Guest Mode - Navigating to EMPLOYER_HOME (read-only)")
-                        navController.navigate(Routes.EMPLOYER_HOME) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                    else -> {
-                        Timber.i("Secure Guest Mode Fallback - Navigating to WORKER_HOME (read-only)")
-                        navController.navigate(Routes.WORKER_HOME) {
-                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
+                // Mandatory login: guests are not allowed into Home. Any role
+                // selection without a signed-in user is routed to the login screen.
+                // (This branch is normally unreachable because the onRoleSelected
+                // callback below redirects unsigned users straight to login, but we
+                // keep it consistent so no code path can leak a guest into Home.)
+                val roleArg = if (role == "EMPLOYER") "EMPLOYER" else "WORKER"
+                Timber.i("Mandatory login - unsigned role selection routed to ENHANCED_LOGIN ($roleArg)")
+                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$roleArg") {
+                    launchSingleTop = true
                 }
             }
             
@@ -967,12 +943,11 @@ fun RoleSelectionWithNavigation(
         onRoleSelected = { role ->
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser == null) {
-                val destination = when (role) {
-                    "EMPLOYER" -> Routes.EMPLOYER_HOME
-                    else -> Routes.WORKER_HOME
-                }
-                navController.navigate(destination) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                // Mandatory login: a guest must sign in before entering the app.
+                // Keep SELECT_ROLE on the back stack so "back" returns to role choice.
+                val roleArg = if (role == "EMPLOYER") "EMPLOYER" else "WORKER"
+                Timber.i("Mandatory login - routing unsigned $roleArg to ENHANCED_LOGIN")
+                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$roleArg") {
                     launchSingleTop = true
                 }
             } else {

@@ -48,10 +48,10 @@ fun CommonHeader(
     navController: NavController? = null,
     onBackClick: (() -> Unit)? = null,
     showBackButton: Boolean = true,
-    backgroundColor: Color = Color.White,
-    titleColor: Color = Color(0xFF0F172A),
+    backgroundColor: Color = WorkerColors.CardBackground,
+    titleColor: Color = WorkerColors.TextPrimary,
     subtitle: String? = null,
-    subtitleColor: Color = Color(0xFF6B7280),
+    subtitleColor: Color = WorkerColors.TextTertiary,
     actions: @Composable (() -> Unit)? = null,
     includeStatusBarPadding: Boolean = true
 ) {
