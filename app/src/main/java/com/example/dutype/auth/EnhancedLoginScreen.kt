@@ -254,7 +254,6 @@ private fun OtpLoginScreen(
             .fillMaxSize()
             .background(WorkerColors.ScreenBackground)
     ) {
-        AuthScreenBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -656,15 +655,9 @@ private fun LoginPhoneEntrySection(
                     tint = WorkerColors.TextPrimary
                 )
             }
-
-            LoginArtwork(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 14.dp)
-            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             AuthMark(size = 54.dp)
@@ -683,10 +676,10 @@ private fun LoginPhoneEntrySection(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = if (isTelugu) "తిరిగి స్వాగతం 👋" else "Welcome back 👋",
+            text = if (isTelugu) "తిరిగి స్వాగతం" else "Welcome back",
             style = AppTypography.displayTitle.copy(
-                fontSize = 30.sp,
-                lineHeight = 36.sp,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = WorkerColors.TextPrimary
             ),
@@ -714,8 +707,8 @@ private fun LoginPhoneEntrySection(
         Text(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
             style = AppTypography.bodyLarge.copy(
-                color = WorkerColors.TextSecondary,
-                fontWeight = FontWeight.Medium
+                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.SemiBold
             )
         )
 
@@ -740,9 +733,7 @@ private fun LoginPhoneEntrySection(
 
         Spacer(modifier = Modifier.height(18.dp))
         SecureOtpLine()
-        Spacer(modifier = Modifier.height(32.dp))
-        OrDivider()
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -751,7 +742,7 @@ private fun LoginPhoneEntrySection(
         ) {
             Text(
                 text = if (isTelugu) "ఖాతా లేదా? " else "Don't have an account? ",
-                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextSecondary)
             )
             TextButton(
                 onClick = onRegisterClick,
@@ -818,11 +809,14 @@ internal fun AuthMark(size: androidx.compose.ui.unit.Dp = 52.dp) {
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(size * 0.44f)
+        Text(
+            text = "D",
+            style = AppTypography.displayTitle.copy(
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.5f).sp,
+                lineHeight = (size.value * 0.5f).sp
+            )
         )
     }
 }

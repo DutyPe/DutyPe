@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -63,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -216,13 +218,10 @@ fun SelectRoleScreen(
         }
     }
 
-    val roleAccent = Color(0xFF6C3BFF)
-    val employerAccent = Color(0xFF22C55E)
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFBFAFF))
+            .background(Color(0xFFFFFFFF))
     ) {
         Box(
             modifier = Modifier
@@ -231,13 +230,12 @@ fun SelectRoleScreen(
                     Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFFFFFFFF),
-                            Color(0xFFFBFAFF),
-                            Color(0xFFF8F7FF)
+                            Color(0xFFFAFAFA),
+                            Color(0xFFF4F4F6)
                         )
                     )
                 )
         )
-        SelectRoleDecorations()
 
         Column(
             modifier = Modifier
@@ -260,15 +258,6 @@ fun SelectRoleScreen(
             }
 
             Spacer(modifier = Modifier.height(22.dp))
-
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = fadeIn(tween(320, delayMillis = 60))
-            ) {
-                RoleTrustLine()
-            }
-
-            Spacer(modifier = Modifier.height(26.dp))
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -329,7 +318,6 @@ fun SelectRoleScreen(
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    SafeSecurePill()
                 }
             }
         }
@@ -497,66 +485,49 @@ private fun SelectRoleDecorations() {
 
 @Composable
 private fun RoleHero() {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.62f)
-                .padding(top = 48.dp)
-        ) {
-            SmallBrandSpark()
-            Spacer(modifier = Modifier.height(26.dp))
-            Text(
-                text = "How can we help",
-                style = AppTypography.displayTitle.copy(
-                    fontSize = 32.sp,
-                    lineHeight = 38.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF071735)
-                )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 40.dp)
+    ) {
+        BrandLockup()
+        Spacer(modifier = Modifier.height(30.dp))
+        Text(
+            text = "How can we help\nyou today?",
+            style = AppTypography.displayTitle.copy(
+                fontSize = 32.sp,
+                lineHeight = 38.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F0F0F)
             )
-            Text(
-                text = "you today?",
-                style = AppTypography.displayTitle.copy(
-                    fontSize = 32.sp,
-                    lineHeight = 38.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF6738F7)
-                )
-            )
-            Spacer(modifier = Modifier.height(18.dp))
-            Text(
-                text = "Choose your path. You can switch roles anytime.",
-                style = AppTypography.bodyLarge.copy(
-                    color = Color(0xFF586174),
-                    lineHeight = 24.sp
-                )
-            )
-        }
-
-        HeroPeopleIllustration(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 94.dp)
         )
     }
 }
 
 @Composable
-private fun SmallBrandSpark() {
-    Box(
-        modifier = Modifier
-            .size(54.dp)
-            .shadow(12.dp, CircleShape, ambientColor = Color(0x1A6D3CFF), spotColor = Color(0x1A6D3CFF))
-            .clip(CircleShape)
-            .background(Color.White),
-        contentAlignment = Alignment.Center
-    ) {
+private fun BrandLockup() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF0F0F0F)),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
+                contentDescription = null,
+                modifier = Modifier.size(38.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
         Text(
-            text = "+",
+            text = "DutyPe",
             style = AppTypography.displayTitle.copy(
                 fontSize = 28.sp,
+                lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF6C3BFF)
+                color = Color(0xFF0F0F0F)
             )
         )
     }
@@ -698,31 +669,16 @@ private fun PersonFigure(
 
 @Composable
 private fun RoleTrustLine() {
-    Row(
+    Text(
+        text = "Join thousands finding opportunities every day",
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "✦",
-            style = AppTypography.displayTitle.copy(fontSize = 24.sp, color = Color(0xFF8B5CF6))
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "Join thousands of users finding\nopportunities every day",
-            style = AppTypography.bodyLarge.copy(
-                color = Color(0xFF334155),
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 23.sp
-            ),
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "✦",
-            style = AppTypography.displayTitle.copy(fontSize = 24.sp, color = Color(0xFF8B5CF6))
-        )
-    }
+        style = AppTypography.bodyMedium.copy(
+            color = Color(0xFF6B7280),
+            fontWeight = FontWeight.Medium,
+            lineHeight = 22.sp
+        ),
+        textAlign = TextAlign.Center
+    )
 }
 
 @Composable
@@ -730,7 +686,7 @@ private fun SafeSecurePill() {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF5F1FF))
+            .background(Color(0xFFF4F4F6))
             .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -738,14 +694,14 @@ private fun SafeSecurePill() {
         Icon(
             imageVector = Icons.Default.Security,
             contentDescription = null,
-            tint = Color(0xFF6D3DFF),
+            tint = Color(0xFF0F0F0F),
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = "Safe • Secure • Trusted by 1L+ users",
             style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF475569),
+                color = Color(0xFF6B7280),
                 fontWeight = FontWeight.Medium
             )
         )

@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +66,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
+import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -97,102 +100,94 @@ fun GuestWelcomeBonusCard(
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "surprise")
-    val surpriseBob by infiniteTransition.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "surpriseBob"
-    )
-    val surpriseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "surpriseScale"
-    )
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 328.dp)
             .clickable {
                 onVariantClick(variant)
                 onClick()
             },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, WorkerColors.Border)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFFE9FFF2),
-                            Color(0xFFB8F8D0),
-                            Color(0xFF74DDBB)
-                        )
-                    )
-                )
-                .padding(12.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            SurprisePosterBackground(modifier = Modifier.matchParentSize())
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF3A3A40), Color(0xFF0F0F0F))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    RibbonBadge(text = urgencyText)
-                    OneTimeBadge(text = trustText)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1.05f),
-                        verticalArrangement = Arrangement.spacedBy(9.dp)
-                    ) {
-                        SurpriseCopy(
-                            title = title,
-                            message = message
-                        )
-                        MysteryPanel()
-                    }
-
-                    GiftRevealVisual(
-                        modifier = Modifier
-                            .weight(0.95f)
-                            .height(174.dp),
-                        bob = surpriseBob,
-                        scale = surpriseScale
+                    Icon(
+                        imageVector = Icons.Default.CardGiftcard,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = AppTypography.cardTitle.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = WorkerColors.TextPrimary
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = message,
+                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
-                TrustFeatureBar()
-
-                SlidingSurpriseButton(
-                    onClick = {
-                        onVariantClick(variant)
-                        onClick()
-                    },
-                    text = buttonText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
+            Button(
+                onClick = {
+                    onVariantClick(variant)
+                    onClick()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WorkerColors.Primary,
+                    contentColor = Color.White
                 )
-
-                LimitedOfferFooter(text = ctaSubtext)
+            ) {
+                Text(
+                    text = buttonText,
+                    style = AppTypography.buttonLarge.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

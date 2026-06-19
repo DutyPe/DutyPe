@@ -221,12 +221,25 @@ function parseDateOfBirth(dateOfBirth: string): { day: number; month: number } |
   }
 }
 
+/** Current hour (0-23) in India Standard Time, independent of the server time zone. */
+function istHour(): number {
+  const hourStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  return parseInt(hourStr, 10) % 24;
+}
+
 /**
- * Check if it's quiet hours (10 PM - 8 AM)
+ * Check if it's quiet hours in IST (10 PM - 8 AM).
+ *
+ * NOTE: Cloud Functions run in UTC, so `new Date().getHours()` returns UTC hours.
+ * We must convert to Asia/Kolkata before comparing, otherwise the quiet window is
+ * shifted by 5.5 hours and night notifications (e.g. ~2 AM IST) slip through.
  */
 function isQuietHours(): boolean {
-  const now = new Date();
-  const hour = now.getHours();
+  const hour = istHour();
   return hour >= 22 || hour < 8;
 }
 
@@ -258,7 +271,7 @@ function simpleHash(input: string): number {
 type TimeOfDay = 'morning' | 'afternoon' | 'evening';
 
 function currentTimeOfDay(): TimeOfDay {
-  const hour = new Date().getHours();
+  const hour = istHour();
   if (hour < 12) return 'morning';
   if (hour < 17) return 'afternoon';
   return 'evening';
@@ -519,7 +532,6 @@ export const checkBirthdays = functions.pubsub
                 type: 'BIRTHDAY',
                 userName: userName,
                 action: 'birthday_wish',
-                deepLink: 'dutype://profile',
                 locale,
               },
               priority: 'high',
@@ -1128,7 +1140,7 @@ async function sendGuestEngagementTopicMessage(): Promise<void> {
     return;
   }
 
-  const hour = new Date().getHours();
+  const hour = istHour();
   const tod: TimeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
   const pool = SE_GUEST_POOL.filter((m) => m.timeOfDay === tod);
   if (pool.length === 0) {

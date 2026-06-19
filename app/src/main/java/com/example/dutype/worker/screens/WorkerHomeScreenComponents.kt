@@ -634,16 +634,17 @@ fun HomeSectionsContent(
                 }
             }
 
-            item {
-                WorkerEarningsSummarySection(
-                    todayEarningsAmount = todayEarningsAmount,
-                    todayJobsDone = todayJobsDone,
-                    thisWeekEarningsAmount = thisWeekEarningsAmount,
-                    weekJobsDone = weekJobsDone,
-                    ratingValue = ratingValue,
-                    reviewCount = reviewCount
-                )
-            }
+            // Earnings section hidden on the home feed (commented out per request).
+            // item {
+            //     WorkerEarningsSummarySection(
+            //         todayEarningsAmount = todayEarningsAmount,
+            //         todayJobsDone = todayJobsDone,
+            //         thisWeekEarningsAmount = thisWeekEarningsAmount,
+            //         weekJobsDone = weekJobsDone,
+            //         ratingValue = ratingValue,
+            //         reviewCount = reviewCount
+            //     )
+            // }
 
             if (announcements.isNotEmpty()) {
                 item {

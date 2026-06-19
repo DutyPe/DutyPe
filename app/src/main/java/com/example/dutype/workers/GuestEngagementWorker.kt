@@ -26,6 +26,7 @@ import com.example.dutype.services.NotificationIcons
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.Calendar
@@ -61,6 +62,9 @@ class GuestEngagementWorker @AssistedInject constructor(
         private const val BACKGROUND_DELAY_MINUTES = 3L
         private const val RECURRING_INTERVAL_HOURS = 8L
         private const val BASE_NOTIFICATION_ID = 7000
+        // Quiet hours — never post local engagement notifications late night / early morning.
+        private const val QUIET_HOURS_START_HOUR = 22 // 10 PM (inclusive)
+        private const val QUIET_HOURS_END_HOUR = 8    // 8 AM (exclusive)
 
         private const val ENGAGEMENT_PREFS = "engagement_worker_prefs"
         private const val KEY_DAY_START = "day_start"
@@ -72,37 +76,37 @@ class GuestEngagementWorker @AssistedInject constructor(
         private val WORKER_MESSAGES = listOf(
             listOf(
                 EngagementMessage("Fresh jobs picked for today", "Open DutyPe and apply early before nearby openings fill up.", "dutype://worker/jobs"),
-                EngagementMessage("Your profile can get more calls", "Add or update one detail so employers trust you faster.", "dutype://worker/profile"),
+                EngagementMessage("A job near you is hiring today", "Open DutyPe and apply early before this opening fills up.", "dutype://worker/jobs"),
                 EngagementMessage("Evening jobs are moving fast", "Check the latest openings and save the best match for tomorrow.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("New local work is available", "A quick check now can put your application near the top.", "dutype://worker/jobs"),
-                EngagementMessage("Stand out before the next worker", "Complete your profile and make your application look stronger.", "dutype://worker/profile"),
+                EngagementMessage("Someone nearby is hiring now", "Check the newest opening and send a quick application.", "dutype://worker/jobs"),
                 EngagementMessage("Do not miss today's best match", "Nearby jobs change daily. Open DutyPe and see what is active.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("Employers are looking today", "Apply to suitable roles now while response chances are higher.", "dutype://worker/jobs"),
-                EngagementMessage("One small update can help", "Refresh skills, location, or experience so better jobs find you.", "dutype://worker/profile"),
+                EngagementMessage("A fresh job just opened near you", "Tap to view the details and apply in seconds.", "dutype://worker/jobs"),
                 EngagementMessage("Your next duty may be nearby", "Browse fresh job posts and keep your applications moving.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("Start the day with new openings", "Good jobs go quickly. Check DutyPe before the rush.", "dutype://worker/jobs"),
-                EngagementMessage("Make employers choose you faster", "A complete profile builds trust before they call.", "dutype://worker/profile"),
+                EngagementMessage("New work is waiting for you", "See today's openings and pick the one that fits you.", "dutype://worker/jobs"),
                 EngagementMessage("Tonight's chance is still open", "Review saved and new jobs before the day ends.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("More jobs, better timing", "Apply early today and improve your chance of getting noticed.", "dutype://worker/jobs"),
-                EngagementMessage("Your work details matter", "Update availability and skills so the right employer can call.", "dutype://worker/profile"),
+                EngagementMessage("Don't miss today's best job", "Good openings get filled fast — apply before they close.", "dutype://worker/jobs"),
                 EngagementMessage("Keep your job search active", "Open DutyPe for fresh nearby work and quick applications.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("Today's openings need quick action", "Check new jobs and apply before other workers fill the queue.", "dutype://worker/jobs"),
-                EngagementMessage("Boost trust in one minute", "A stronger profile can bring better calls from employers.", "dutype://worker/profile"),
+                EngagementMessage("A job that fits you is live now", "Open DutyPe and grab it before other workers do.", "dutype://worker/jobs"),
                 EngagementMessage("New work can appear anytime", "See what changed today and save the roles you like.", "dutype://worker/jobs")
             ),
             listOf(
                 EngagementMessage("A fresh week of jobs starts here", "Open DutyPe and find work close to your location.", "dutype://worker/jobs"),
-                EngagementMessage("Your profile is your first impression", "Keep it complete so employers feel confident calling you.", "dutype://worker/profile"),
+                EngagementMessage("Your next job could be one tap away", "Browse fresh openings near you and apply right now.", "dutype://worker/jobs"),
                 EngagementMessage("End the day with one smart apply", "Choose one good job and send your application now.", "dutype://worker/jobs")
             )
         )
@@ -214,6 +218,14 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         val role = resolveRole(user.uid, user.phoneNumber) ?: return Result.success()
         val now = Calendar.getInstance()
+
+        // Quiet hours: never disturb users late at night / early morning (no ~2 AM pings).
+        val hourOfDay = now.get(Calendar.HOUR_OF_DAY)
+        if (hourOfDay >= QUIET_HOURS_START_HOUR || hourOfDay < QUIET_HOURS_END_HOUR) {
+            Timber.d("EngagementWorker: within quiet hours (hour=%d), skipping notification", hourOfDay)
+            return Result.success()
+        }
+
         val dayIndex = now.get(Calendar.DAY_OF_YEAR) % 7
         val slot = if (role == "EMPLOYER") employerSlot(now) else workerSlot(now)
         val dailyCap = if (role == "EMPLOYER") 2 else 3
@@ -252,6 +264,20 @@ class GuestEngagementWorker @AssistedInject constructor(
         val minGapMs = 3 * 60 * 60 * 1000L
         if (lastSentAt > 0 && (System.currentTimeMillis() - lastSentAt) < minGapMs) {
             Timber.d("EngagementWorker: last notification too recent, skipping")
+            return Result.success()
+        }
+
+        // Advanced: right after the app goes to the background, try to surface a job that
+        // matches the worker's skills and open it straight on the Job Description screen
+        // (deep link dutype://job/{id}) so the tap feels personal and relevant.
+        if (tags.contains(WORK_NAME_BACKGROUND) && role == "WORKER" && trySendJobMatchNotification(user.uid)) {
+            prefs.edit()
+                .putLong(KEY_DAY_START, dayStart)
+                .putInt(KEY_COUNT_TODAY, countToday + 1)
+                .putString(KEY_TITLES_TODAY, titlesToday.joinToString(TITLE_SEPARATOR))
+                .putLong(KEY_LAST_SENT_AT, System.currentTimeMillis())
+                .apply()
+            Timber.d("EngagementWorker: skill-matched job notification sent (background run)")
             return Result.success()
         }
 
@@ -294,6 +320,123 @@ class GuestEngagementWorker @AssistedInject constructor(
         }
     }
 
+    /**
+     * Look up the worker's skills and find a recent open job that matches, then post a
+     * notification that deep-links straight to that job's description screen.
+     * Falls back to the most recent open job when no explicit skill match is found.
+     */
+    private suspend fun trySendJobMatchNotification(userId: String): Boolean {
+        return try {
+            val profileDoc = firestore.collection(FirestoreCollections.WORKER_PROFILES)
+                .document(userId).get().await()
+            val skills = (profileDoc.get("skills") as? List<*>)
+                ?.mapNotNull { it?.toString()?.trim()?.lowercase() }
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+
+            // Single-field order → no composite index required.
+            val snapshot = firestore.collection(FirestoreCollections.JOBS)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(40)
+                .get()
+                .await()
+
+            val openJobs = snapshot.documents.filter { doc ->
+                val status = doc.getString("status")?.lowercase()
+                if (status != null) {
+                    status == "open"
+                } else {
+                    (doc.getBoolean("isActive") ?: true) && (doc.getBoolean("isFilled") != true)
+                }
+            }
+            if (openJobs.isEmpty()) return false
+
+            val matched = if (skills.isEmpty()) {
+                null
+            } else {
+                openJobs.firstOrNull { doc ->
+                    val haystack = buildString {
+                        append(doc.getString("title") ?: "")
+                        append(' ')
+                        append(doc.getString("category") ?: "")
+                        append(' ')
+                        append(doc.getString("jobType") ?: "")
+                    }.lowercase()
+                    skills.any { skill -> haystack.contains(skill) }
+                }
+            }
+
+            val chosen = matched ?: openJobs.first()
+            val jobId = chosen.id
+            val jobTitle = (chosen.getString("title") ?: "").ifBlank { "A new job near you" }
+            sendJobMatchNotification(jobId, jobTitle, isSkillMatch = matched != null)
+        } catch (e: Exception) {
+            Timber.w(e, "EngagementWorker: job-match lookup failed")
+            false
+        }
+    }
+
+    private fun sendJobMatchNotification(jobId: String, jobTitle: String, isSkillMatch: Boolean): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                Timber.w("EngagementWorker: POST_NOTIFICATIONS not granted, skipping job match")
+                return false
+            }
+        }
+
+        NotificationChannelManager.createNotificationChannels(context)
+        val notificationId = BASE_NOTIFICATION_ID + 500 + (System.currentTimeMillis() % 400).toInt()
+        val deepLinkString = "dutype://job/$jobId"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLinkString)).apply {
+            setClass(context, MainActivity::class.java)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("from_notification", true)
+            putExtra("login_role", "WORKER")
+            putExtra("notification_system_id", notificationId)
+            putExtra("notification_deep_link", deepLinkString)
+            putExtra("notification_type", "JOB_MATCH")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val title = if (isSkillMatch) "A job that matches your skills \uD83C\uDFAF" else "New job near you \uD83D\uDD14"
+        val body = "$jobTitle is hiring now. Tap to view the details and apply."
+
+        val notification = NotificationCompat.Builder(context, NotificationChannelManager.CHANNEL_MEDIUM_PRIORITY)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotificationIcons.tintColor(context))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .apply {
+                NotificationIcons.largeIcon(context)?.let { setLargeIcon(it) }
+            }
+            .addAction(R.drawable.ic_notification, "View Job", pendingIntent)
+            .build()
+
+        return try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(notificationId, notification)
+            true
+        } catch (e: Exception) {
+            Timber.w(e, "EngagementWorker: failed to post job-match notification")
+            false
+        }
+    }
+
     private fun showLocalNotification(message: EngagementMessage, role: String): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
@@ -308,7 +451,14 @@ class GuestEngagementWorker @AssistedInject constructor(
 
         NotificationChannelManager.createNotificationChannels(context)
         val notificationId = BASE_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt()
-        val deepLink = Uri.parse(message.deepLink)
+        // Re-engagement "profile" nudges must not strand a logged-in worker on the
+        // profile detail screen — route them to Home (which shows the profile prompt).
+        val resolvedDeepLink = if (message.deepLink == "dutype://worker/profile") {
+            "dutype://worker/home"
+        } else {
+            message.deepLink
+        }
+        val deepLink = Uri.parse(resolvedDeepLink)
         val intent = Intent(Intent.ACTION_VIEW, deepLink).apply {
             setClass(context, MainActivity::class.java)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -316,7 +466,7 @@ class GuestEngagementWorker @AssistedInject constructor(
             putExtra("from_notification", true)
             putExtra("login_role", role)
             putExtra("notification_system_id", notificationId)
-            putExtra("notification_deep_link", message.deepLink)
+            putExtra("notification_deep_link", resolvedDeepLink)
             putExtra("notification_type", "RE_ENGAGEMENT")
         }
         val pendingIntent = PendingIntent.getActivity(

@@ -646,15 +646,19 @@ fun WorkerProfileScreen(
                                     rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1F2937)  // Dark/Black for Worker
+                                    containerColor = Color.Transparent,
+                                    contentColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                 ),
                                 shape = RoundedCornerShape(0.dp),
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                                 modifier = Modifier.height(38.dp)
                             ) {
                                 Text(
                                     text = stringResource(R.string.profile_login_signup),
-                                    style = com.example.dutype.ui.theme.AppTypography.buttonMedium.copy(
-                                        color = Color.White
+                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 )
                             }

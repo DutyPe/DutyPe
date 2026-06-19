@@ -84,8 +84,18 @@ fun LanguageSelectionBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 32.dp)
+                .padding(bottom = 28.dp)
         ) {
+            // Subtle grab handle
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 8.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(WorkerColors.Border)
+            )
+
             // Header with close button
             Row(
                 modifier = Modifier
@@ -94,19 +104,26 @@ fun LanguageSelectionBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.size(24.dp)) // Balance for close button
+                Spacer(modifier = Modifier.size(0.dp))
                 
-                Text(
-                    text = stringResource(R.string.change_language_title),
-                    style = AppTypography.screenTitle.copy(
-                        color = WorkerColors.TextPrimary,
-                        fontWeight = FontWeight.SemiBold
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.change_language_title),
+                        style = AppTypography.pageTitle.copy(
+                            color = WorkerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "మీకు నచ్చిన భాషను ఎంచుకోండి" else "Choose your preferred language",
+                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
+                    )
+                }
                 
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -118,12 +135,12 @@ fun LanguageSelectionBottomSheet(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Language options in 2-column grid
-            Row(
+            // Language options — clean vertical list
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 languages.forEach { language ->
                     LanguageOptionCard(
@@ -137,7 +154,7 @@ fun LanguageSelectionBottomSheet(
                                 }
                             }
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -242,7 +259,7 @@ private fun LanguageOptionCard(
     )
     
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.dp else 1.dp,
+        targetValue = if (isSelected) 1.5.dp else 1.dp,
         animationSpec = tween(200),
         label = "border_width"
     )
@@ -252,12 +269,12 @@ private fun LanguageOptionCard(
             .border(
                 width = borderWidth,
                 color = borderColor,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = WorkerColors.CardBackground
+            containerColor = if (isSelected) WorkerColors.PrimaryLight else WorkerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -274,8 +291,8 @@ private fun LanguageOptionCard(
                 // Script character box - Black background
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(WorkerColors.Primary), // Black background
                     contentAlignment = Alignment.Center
                 ) {
@@ -295,7 +312,7 @@ private fun LanguageOptionCard(
                     text = language.nativeName,
                     style = AppTypography.cardTitle.copy(
                         color = WorkerColors.TextPrimary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 )
             }

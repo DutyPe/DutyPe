@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  * Features:
  * - Runs every 6 hours
  * - One notification per job (rate limited to once per 24 hours)
- * - No quiet hours restriction (as per requirements)
+ * - Quiet hours respected (skips ~10 PM–8 AM)
  * - Includes deep link to JobDescriptionScreen
  * 
  * Notification Message:
@@ -57,7 +57,14 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                 Timber.w("🔔 PendingApplicationNotificationWorker - No authenticated user, skipping")
                 return Result.success()
             }
-            
+
+            // Quiet hours: never send reminders late night / early morning (no ~2 AM pings).
+            val hourOfDay = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            if (hourOfDay >= 22 || hourOfDay < 8) {
+                Timber.d("🔔 PendingApplicationNotificationWorker - quiet hours (hour=$hourOfDay), skipping")
+                return Result.success()
+            }
+
             Timber.d("🔔 PendingApplicationNotificationWorker - Starting for user $currentUserId")
             
             val now = System.currentTimeMillis()

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon foreground: the same white DutyPe logo shown on the splash
+    screen (ic_splash_logo_foreground), inset so it sits inside the launcher's
+    safe zone (centre ~66dp of the 108dp canvas) for circle/squircle masks.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_splash_logo_foreground"
+    android:insetLeft="22dp"
+    android:insetTop="22dp"
+    android:insetRight="22dp"
+    android:insetBottom="22dp" />

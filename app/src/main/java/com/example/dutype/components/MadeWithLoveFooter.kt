@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,7 +27,7 @@ import com.example.dutype.ui.theme.WorkerColors
 @Composable
 fun MadeWithLoveFooter(modifier: Modifier = Modifier) {
     val labelColor = WorkerColors.TextPrimary
-    val heartColor = WorkerColors.Primary
+    val heartColor = Color(0xFF2563EB)
 
     Row(
         modifier = modifier

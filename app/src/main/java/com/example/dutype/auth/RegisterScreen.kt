@@ -264,7 +264,6 @@ private fun RegisterContent(
             .fillMaxSize()
             .background(WorkerColors.ScreenBackground)
     ) {
-        AuthScreenBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -820,20 +819,31 @@ private fun RegisterEntrySection(
                 )
             }
 
-            RegisterShieldArtwork(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 12.dp)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AuthMark(size = 54.dp)
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = "DutyPe",
+                style = AppTypography.displayTitle.copy(
+                    fontSize = 28.sp,
+                    lineHeight = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WorkerColors.TextPrimary
+                )
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(26.dp))
 
         Text(
             text = if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account",
             style = AppTypography.displayTitle.copy(
-                    fontSize = 28.sp,
-                    lineHeight = 32.sp,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = WorkerColors.TextPrimary
             ),
@@ -843,7 +853,7 @@ private fun RegisterEntrySection(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = if (isTelugu) "డ్యూటీపేలో వేలాది కార్మికులు మరియు యజమానులతో చేరండి" else "Join thousands of workers & employers on DutyPe",
+            text = if (isTelugu) "ప్రారంభించడానికి సైన్ అప్ చేయండి" else "Sign up to get started",
             style = AppTypography.bodyLarge.copy(
                 color = WorkerColors.TextSecondary,
                 lineHeight = 24.sp
@@ -856,7 +866,7 @@ private fun RegisterEntrySection(
         Text(
             text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
             style = AppTypography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = WorkerColors.TextPrimary
             )
         )
@@ -872,7 +882,7 @@ private fun RegisterEntrySection(
         Text(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
             style = AppTypography.bodyLarge.copy(
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = WorkerColors.TextPrimary
             )
         )
@@ -944,35 +954,10 @@ private fun RegisterEntrySection(
             onClick = onCreateClick
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
-        SecureOtpLine(text = if (isTelugu) "మీ డేటా మా దగ్గర సురక్షితం" else "Your data is safe with us")
+        Spacer(modifier = Modifier.height(16.dp))
+        SecureOtpLine()
 
-        if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
-            Spacer(modifier = Modifier.height(10.dp))
-            val hint = when {
-                !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
-                else -> null
-            }
-            if (hint != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "✦", color = WorkerColors.Primary, style = AppTypography.bodyLarge)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = hint,
-                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-        OrDivider()
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
