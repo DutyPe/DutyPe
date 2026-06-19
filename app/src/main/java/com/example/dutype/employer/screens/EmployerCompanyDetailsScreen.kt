@@ -433,7 +433,7 @@ private fun CompanyLogoSection(
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFF3F4F6)),
+                            .background(EmployerColors.ChipBackground),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(

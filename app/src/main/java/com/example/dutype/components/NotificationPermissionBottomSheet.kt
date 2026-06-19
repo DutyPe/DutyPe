@@ -15,12 +15,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.dutype.ui.theme.WorkerColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +60,7 @@ fun NotificationPermissionBottomSheet(
             onDismissRequest = onDismiss,
             modifier = modifier,
             containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-            contentColor = Color.Black,
+            contentColor = WorkerColors.TextPrimary,
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
             Column(
@@ -76,13 +76,13 @@ fun NotificationPermissionBottomSheet(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF3B82F6).copy(alpha = 0.1f)),
+                        .background(WorkerColors.Primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = "Notifications",
-                        tint = Color(0xFF3B82F6),
+                        tint = WorkerColors.Primary,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -101,7 +101,7 @@ fun NotificationPermissionBottomSheet(
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
+                        color = WorkerColors.TextSecondary,
                         lineHeight = 20.sp
                     ),
                     textAlign = TextAlign.Center
@@ -122,7 +122,7 @@ fun NotificationPermissionBottomSheet(
                             .weight(0.3f)
                             .height(52.dp),
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color(0xFF6B7280)
+                            contentColor = WorkerColors.TextSecondary
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -144,7 +144,7 @@ fun NotificationPermissionBottomSheet(
                             .weight(0.7f)
                             .height(52.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF3B82F6)
+                            containerColor = WorkerColors.Primary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {

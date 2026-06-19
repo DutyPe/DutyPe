@@ -15,11 +15,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.dutype.models.generateReferralCode as generateCanonicalReferralCode
 import com.example.dutype.models.isValidNormalizedReferralCode
 import com.example.dutype.models.normalizeReferralCode
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Referral validation result
@@ -83,9 +83,9 @@ fun ReferralCodeInput(
                             },
                             contentDescription = null,
                             tint = if (validationResult.isValid) {
-                                Color(0xFF10B981)
+                                WorkerColors.Success
                             } else {
-                                Color(0xFFEF4444)
+                                WorkerColors.Error
                             }
                         )
                     }
@@ -101,9 +101,9 @@ fun ReferralCodeInput(
                 text = validationResult.message,
                 style = MaterialTheme.typography.bodySmall,
                 color = if (validationResult.isValid) {
-                    Color(0xFF10B981)
+                    WorkerColors.Success
                 } else {
-                    Color(0xFFEF4444)
+                    WorkerColors.Error
                 },
                 modifier = Modifier.padding(start = 16.dp)
             )
@@ -114,7 +114,7 @@ fun ReferralCodeInput(
             Text(
                 text = "Use a referral code to unlock your Rs.20 signup bonus",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF6B7280),
+                color = WorkerColors.TextSecondary,
                 modifier = Modifier.padding(start = 16.dp)
             )
         }

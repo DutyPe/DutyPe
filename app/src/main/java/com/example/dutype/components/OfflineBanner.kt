@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Offline Banner - Shows at top of screen when no internet connection
@@ -53,7 +54,7 @@ fun OfflineBanner(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFEF4444)) // Red background
+                .background(WorkerColors.Error) // Red background
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Row(
@@ -99,19 +100,19 @@ fun CompactOfflineIndicator(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFFEF2F2)) // Light red background
+                .background(WorkerColors.ErrorLight) // Light red background
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.CloudOff,
                 contentDescription = "Offline",
-                tint = Color(0xFFEF4444),
+                tint = WorkerColors.Error,
                 modifier = Modifier.size(16.dp)
             )
             
             Text(
                 text = "No internet connection",
-                color = Color(0xFFEF4444),
+                color = WorkerColors.Error,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(start = 6.dp)
@@ -140,19 +141,19 @@ fun InlineOfflineMessage(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFFEF2F2), shape = MaterialTheme.shapes.small)
+                .background(WorkerColors.ErrorLight, shape = MaterialTheme.shapes.small)
                 .padding(12.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.CloudOff,
                 contentDescription = "Offline",
-                tint = Color(0xFFEF4444),
+                tint = WorkerColors.Error,
                 modifier = Modifier.size(18.dp)
             )
             
             Text(
                 text = message,
-                color = Color(0xFF991B1B),
+                color = WorkerColors.Error,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 8.dp)
             )

@@ -58,9 +58,9 @@ fun AnimatedSplashScreen(
         val previousLightNav = controller?.isAppearanceLightNavigationBars
         val previousStatusColor = window?.statusBarColor
         val previousNavColor = window?.navigationBarColor
-        window?.statusBarColor = Color.White.toArgb()
+        window?.statusBarColor = splashBlue.toArgb()
         window?.navigationBarColor = splashBlue.toArgb()
-        controller?.isAppearanceLightStatusBars = true
+        controller?.isAppearanceLightStatusBars = false
         controller?.isAppearanceLightNavigationBars = false
         onDispose {
             previousStatusColor?.let { window.statusBarColor = it }
@@ -108,9 +108,14 @@ fun AnimatedSplashScreen(
                 )
                 Text(
                     text = "DutyPe",
-                    color = Color.White,
                     fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                    style = androidx.compose.ui.text.TextStyle(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(Color.White, Color(0xFFC7CBD4))
+                        )
+                    )
                 )
             }
         }

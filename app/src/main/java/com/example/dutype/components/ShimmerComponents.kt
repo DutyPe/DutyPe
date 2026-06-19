@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.BorderStroke 
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Reusable shimmer components for loading states across the app.
@@ -44,9 +45,9 @@ fun ShimmerBox(
     // shimmer reads as a soft white pulse on the worker home screen's
     // white background instead of visible grey blocks.
     val shimmerColors = listOf(
-        Color(0xFFF9FAFB),
-        Color.White,
-        Color(0xFFF9FAFB)
+        WorkerColors.ShimmerBase,
+        WorkerColors.ShimmerHighlight,
+        WorkerColors.ShimmerBase
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -90,9 +91,9 @@ fun ShimmerCircle(
 ) {
     // Bug #16 fix: white-based shimmer.
     val shimmerColors = listOf(
-        Color(0xFFF9FAFB),
-        Color.White,
-        Color(0xFFF9FAFB)
+        WorkerColors.ShimmerBase,
+        WorkerColors.ShimmerHighlight,
+        WorkerColors.ShimmerBase
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer_circle")
@@ -230,14 +231,14 @@ fun ApplicationDetailShimmer(
         }
         
         // Divider
-        Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFE5E7EB)))
+        Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(WorkerColors.Border))
         
         // Content
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
-                .background(Color(0xFFF8FAFC)),
+                .background(WorkerColors.ChipBackground),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -432,7 +433,7 @@ fun ApplicationManagementShimmer(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(WorkerColors.ChipBackground)
     ) {
         // Header
         Row(
@@ -530,13 +531,13 @@ fun NotificationShimmer(
         }
         
         // Divider
-        Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFE5E7EB)))
+        Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(WorkerColors.Border))
         
         // Notification list
         LazyColumn {
             items(8) {
                 NotificationItemShimmer()
-                Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(Color(0xFFF3F4F6)))
+                Spacer(modifier = Modifier.height(1.dp).fillMaxWidth().background(WorkerColors.ChipBackground))
             }
         }
     }
@@ -744,9 +745,9 @@ private fun WorkerHomePromiseShimmer() {
 fun JobCardShimmer() {
     // Bug #16 fix: white-based shimmer for cards (was light grey).
     val shimmerColors = listOf(
-        Color(0xFFF9FAFB),
-        Color.White,
-        Color(0xFFF9FAFB)
+        WorkerColors.ShimmerBase,
+        WorkerColors.ShimmerHighlight,
+        WorkerColors.ShimmerBase
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")

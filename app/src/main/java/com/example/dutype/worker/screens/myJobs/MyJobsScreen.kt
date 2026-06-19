@@ -286,8 +286,8 @@ fun MyJobsScreen(
                                     label = { Text(stringResource(R.string.all_label)) },
                                     selected = selectedStatusFilter == null,
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFF1F2937).copy(alpha = 0.1f),
-                                        selectedLabelColor = Color(0xFF1F2937)
+                                        selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
+                                        selectedLabelColor = WorkerColors.Primary
                                     )
                                 )
                             }
@@ -438,13 +438,13 @@ fun MyJobsScreen(
                 Text(
                     text = stringResource(R.string.withdraw_application_title),
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+                    color = WorkerColors.TextPrimary
                 )
             },
             text = {
                 Text(
                     text = stringResource(R.string.withdraw_application_message),
-                    color = Color(0xFF6B7280)
+                    color = WorkerColors.TextSecondary
                 )
             },
             confirmButton = {
@@ -465,7 +465,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.withdraw),
-                        color = Color(0xFFEF4444),
+                        color = WorkerColors.Error,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -479,7 +479,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.cancel),
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 }
             }

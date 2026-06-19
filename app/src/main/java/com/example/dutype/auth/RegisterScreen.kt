@@ -902,7 +902,7 @@ private fun RegisterEntrySection(
             modifier = Modifier
                 .fillMaxWidth()
                 .minAuthCardHeight(56.dp)
-                .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+                .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
                 .clip(RoundedCornerShape(14.dp))
                 .background(WorkerColors.CardBackground)
                 .border(1.dp, WorkerColors.Border, RoundedCornerShape(14.dp))
@@ -914,7 +914,7 @@ private fun RegisterEntrySection(
                 checked = termsAccepted,
                 onCheckedChange = onTermsToggle,
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF6D3DFF),
+                    checkedColor = WorkerColors.Primary,
                     uncheckedColor = WorkerColors.IconSecondary,
                     checkmarkColor = Color.White
                 )
@@ -922,11 +922,11 @@ private fun RegisterEntrySection(
             Text(
                 text = buildAnnotatedString {
                     append(if (isTelugu) "నేను ఈ వాటికి అంగీకరిస్తున్నాను: " else "I agree to the ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF5D35E8))) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Primary)) {
                         append(if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service")
                     }
                     append(if (isTelugu) " మరియు " else " and ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color(0xFF5D35E8))) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.Primary)) {
                         append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
                     }
                 },
@@ -959,7 +959,7 @@ private fun RegisterEntrySection(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "✦", color = Color(0xFF8B5CF6), style = AppTypography.bodyLarge)
+                    Text(text = "✦", color = WorkerColors.Primary, style = AppTypography.bodyLarge)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = hint,
@@ -989,13 +989,13 @@ private fun RegisterEntrySection(
             ) {
                 Text(
                     text = if (isTelugu) "లాగిన్" else "Login",
-                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF255CEB))
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Primary)
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = Color(0xFF255CEB),
+                tint = WorkerColors.Primary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1033,10 +1033,10 @@ private fun RegisterNameField(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF6D3DFF).copy(alpha = 0.12f)),
+                    .background(WorkerColors.Primary.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFF6D3DFF))
+                Icon(Icons.Filled.Person, contentDescription = null, tint = WorkerColors.Primary)
             }
         },
         modifier = Modifier
@@ -1092,7 +1092,7 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
         }
         Text(
             text = "✦",
-            color = Color(0xFFFFB86B),
+            color = WorkerColors.Primary,
             style = AppTypography.displayTitle.copy(fontSize = 18.sp),
             modifier = Modifier.align(Alignment.CenterStart).offset(x = 28.dp)
         )
@@ -1391,7 +1391,7 @@ private fun RegisterReferralCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
             .clip(RoundedCornerShape(14.dp))
             .background(WorkerColors.CardBackground)
             .border(1.dp, WorkerColors.Border, RoundedCornerShape(14.dp))
@@ -1407,10 +1407,10 @@ private fun RegisterReferralCard(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF6D3DFF).copy(alpha = 0.12f)),
+                        .background(WorkerColors.Primary.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "✤", color = Color(0xFF6D3DFF), style = AppTypography.displayTitle.copy(fontSize = 20.sp))
+                    Text(text = "✤", color = WorkerColors.Primary, style = AppTypography.displayTitle.copy(fontSize = 20.sp))
                 }
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
@@ -1434,14 +1434,14 @@ private fun RegisterReferralCard(
                     },
                     style = AppTypography.bodyLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF255CEB)
+                        color = WorkerColors.Primary
                     )
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    tint = Color(0xFF255CEB),
+                    tint = WorkerColors.Primary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -1473,7 +1473,7 @@ private fun RegisterReferralCard(
                                 isValidatingCode -> CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color(0xFF6D3DFF)
+                                    color = WorkerColors.Primary
                                 )
                                 validatedReferrerName != null -> Icon(
                                     Icons.Filled.CheckCircle,
@@ -1501,14 +1501,14 @@ private fun RegisterReferralCard(
                             focusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
                                 codeValidationError != null -> WorkerColors.Error
-                                else -> Color(0xFF6D3DFF)
+                                else -> WorkerColors.Primary
                             },
                             unfocusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
                                 codeValidationError != null -> WorkerColors.Error
                                 else -> WorkerColors.Border
                             },
-                            cursorColor = Color(0xFF6D3DFF),
+                            cursorColor = WorkerColors.Primary,
                             focusedContainerColor = WorkerColors.CardBackground,
                             unfocusedContainerColor = WorkerColors.CardBackground
                         ),
@@ -1523,7 +1523,7 @@ private fun RegisterReferralCard(
                         modifier = Modifier.height(56.dp),
                         enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF255CEB),
+                            containerColor = WorkerColors.Primary,
                             contentColor = Color.White,
                             disabledContainerColor = WorkerColors.Divider,
                             disabledContentColor = WorkerColors.TextDisabled

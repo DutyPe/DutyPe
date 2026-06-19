@@ -225,7 +225,7 @@ fun JobApplicationCard(
                     Text(
                         text = "Applied ${formatDate(application.createdAt)}",
                         style = AppTypography.caption.copy(
-                            color = Color(0xFF9CA3AF)
+                            color = WorkerColors.TextTertiary
                         )
                     )
                 }
@@ -241,7 +241,7 @@ fun JobApplicationCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                color = Color(0xFFFFF7ED),
+                                color = WorkerColors.WarningLight,
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -251,13 +251,13 @@ fun JobApplicationCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            tint = Color(0xFFEA580C),
+                            tint = WorkerColors.Warning,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "This job was filled. Your application is still saved here.",
                             style = AppTypography.caption.copy(
-                                color = Color(0xFF9A3412),
+                                color = WorkerColors.Warning,
                                 fontWeight = FontWeight.Medium
                             ),
                             maxLines = 2,
@@ -271,7 +271,7 @@ fun JobApplicationCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                color = Color(0xFFECFDF5),
+                                color = WorkerColors.SuccessLight,
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -281,13 +281,13 @@ fun JobApplicationCard(
                         Icon(
                             imageVector = Icons.Default.FlashOn,
                             contentDescription = null,
-                            tint = Color(0xFF059669),
+                            tint = WorkerColors.Success,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "Call employer to confirm availability and next steps.",
                             style = AppTypography.caption.copy(
-                                color = Color(0xFF065F46),
+                                color = WorkerColors.Success,
                                 fontWeight = FontWeight.Medium
                             ),
                             maxLines = 2,
@@ -303,7 +303,7 @@ fun JobApplicationCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                color = Color(0xFFFFFBEB),
+                                color = WorkerColors.WarningLight,
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -313,13 +313,13 @@ fun JobApplicationCard(
                         Icon(
                             imageVector = Icons.Default.Work,
                             contentDescription = null,
-                            tint = Color(0xFFD97706),
+                            tint = WorkerColors.Warning,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "Employer not responding? Try one call, then keep applying to similar active jobs.",
                             style = AppTypography.caption.copy(
-                                color = Color(0xFF92400E),
+                                color = WorkerColors.Warning,
                                 fontWeight = FontWeight.Medium
                             ),
                             maxLines = 2,
@@ -350,7 +350,7 @@ fun JobApplicationCard(
                             .fillMaxWidth()
                             .height(46.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF10B981)
+                            containerColor = WorkerColors.Success
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -381,14 +381,14 @@ fun JobApplicationCard(
                             Button(
                                 onClick = { onWithdrawClick(application) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFEF4444).copy(alpha = 0.1f)
+                                    containerColor = WorkerColors.Error.copy(alpha = 0.1f)
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
                                     text = "Withdraw",
                                     style = AppTypography.buttonSmall.copy(
-                                        color = Color(0xFFEF4444)
+                                        color = WorkerColors.Error
                                     )
                                 )
                             }
@@ -398,7 +398,7 @@ fun JobApplicationCard(
                             Button(
                                 onClick = { onCardClick(application) },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1F2937)
+                                    containerColor = WorkerColors.Primary
                                 ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
@@ -417,7 +417,7 @@ fun JobApplicationCard(
             // Rating Section for Completed Jobs - Clean separate section
             if (isCompleted) {
                 HorizontalDivider(
-                    color = Color(0xFFF3F4F6),
+                    color = WorkerColors.ChipBackground,
                     thickness = 1.dp
                 )
                 
@@ -427,7 +427,7 @@ fun JobApplicationCard(
                         .fillMaxWidth()
                         .clickable { isRatingSectionExpanded = !isRatingSectionExpanded }
                         .background(
-                            if (canRate) Color(0xFFFEF3C7).copy(alpha = 0.5f) else Color(0xFFF9FAFB)
+                            if (canRate) WorkerColors.WarningLight.copy(alpha = 0.5f) else WorkerColors.ChipBackground
                         )
                         .padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -437,7 +437,7 @@ fun JobApplicationCard(
                         text = if (canRate) "Rate this employer" else "Rating submitted",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = if (canRate) Color(0xFFB45309) else Color(0xFF059669)
+                            color = if (canRate) WorkerColors.Warning else WorkerColors.Success
                         )
                     )
                     
@@ -460,7 +460,7 @@ fun JobApplicationCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                if (canRate) Color(0xFFFEF3C7).copy(alpha = 0.3f) else Color(0xFFF0FDF4)
+                                if (canRate) WorkerColors.WarningLight.copy(alpha = 0.3f) else WorkerColors.SuccessLight
                             )
                             .padding(20.dp)
                     ) {
@@ -469,7 +469,7 @@ fun JobApplicationCard(
                             Text(
                                 text = "How was your experience working with ${application.companyName}?",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF78350F)
+                                    color = WorkerColors.Warning
                                 )
                             )
                             
@@ -480,7 +480,7 @@ fun JobApplicationCard(
                                 onClick = { onRateClick?.invoke(application) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFF59E0B)
+                                    containerColor = WorkerColors.Warning
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -501,13 +501,13 @@ fun JobApplicationCard(
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
-                                    tint = Color(0xFF10B981),
+                                    tint = WorkerColors.Success,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
                                     text = "Thank you for rating ${application.companyName}!",
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = Color(0xFF059669)
+                                        color = WorkerColors.Success
                                     )
                                 )
                             }
@@ -699,7 +699,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(WorkerColors.Success, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -715,7 +715,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color(0xFFDC2626), CircleShape),
+                        .background(WorkerColors.Error, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -731,7 +731,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color(0xFF10B981), CircleShape),
+                        .background(WorkerColors.Success, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -758,7 +758,7 @@ private fun StepIndicatorDot(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color(0xFFEBF4FF), CircleShape)
+                        .background(WorkerColors.InfoLight, CircleShape)
                         .border(
                             width = 1.5.dp,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,

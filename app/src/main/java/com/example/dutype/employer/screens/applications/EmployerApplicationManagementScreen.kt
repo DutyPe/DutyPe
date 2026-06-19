@@ -46,6 +46,7 @@ import com.example.dutype.models.MatchedWorker
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
@@ -321,7 +322,7 @@ fun EmployerApplicationManagementScreen(
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
-                contentColor = Color(0xFF1F2937)
+                contentColor = EmployerColors.TextPrimary
             ) {
                 Tab(
                     selected = selectedTabIndex == 0,
@@ -536,7 +537,7 @@ private fun MatchedWorkersContent(
                 ) {
                     Text(
                         text = state.error ?: "Failed to load matched workers",
-                        style = AppTypography.bodyMedium.copy(color = Color(0xFF991B1B)),
+                        style = AppTypography.bodyMedium.copy(color = EmployerColors.Error),
                         textAlign = TextAlign.Center
                     )
                     Button(onClick = onRefresh, shape = RoundedCornerShape(12.dp)) {
@@ -557,7 +558,7 @@ private fun MatchedWorkersContent(
                     Icon(
                         imageVector = if (isJobLive) Icons.Default.Search else Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        tint = EmployerColors.TextSecondary,
                         modifier = Modifier.size(42.dp)
                     )
                     Text(
@@ -570,7 +571,7 @@ private fun MatchedWorkersContent(
                         } else {
                             "Accepted workers will stay visible here when available."
                         },
-                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -601,7 +602,7 @@ private fun MatchedWorkersContent(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF6B7280),
+                            tint = EmployerColors.TextSecondary,
                             modifier = Modifier.size(42.dp)
                         )
                         Text(
@@ -610,7 +611,7 @@ private fun MatchedWorkersContent(
                         )
                         Text(
                             text = "New matches are hidden. Accepted workers will stay visible here.",
-                            style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                             textAlign = TextAlign.Center
                         )
                     }
@@ -626,7 +627,7 @@ private fun MatchedWorkersContent(
                             text = if (isJobLive) stringResource(R.string.best_workers_for_job) else stringResource(R.string.filled_job_matches),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF111827)
+                                color = EmployerColors.TextPrimary
                             )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -636,7 +637,7 @@ private fun MatchedWorkersContent(
                             } else {
                                 "Selected workers stay active. Remaining matches are shown as disabled cards."
                             },
-                            style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                            style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary)
                         )
                         if (!state.actionError.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -704,12 +705,12 @@ private fun HiringRoomSummaryCard(
 
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isLive) Color(0xFFDCFCE7) else Color(0xFFE5E7EB)
+                    color = if (isLive) EmployerColors.SuccessLight else EmployerColors.Border
                 ) {
                     Text(
                         text = if (isLive) stringResource(R.string.live) else stringResource(R.string.filled),
                         style = AppTypography.caption.copy(
-                            color = if (isLive) Color(0xFF047857) else Color(0xFF374151),
+                            color = if (isLive) Color(0xFF047857) else EmployerColors.TextSecondary,
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -723,7 +724,7 @@ private fun HiringRoomSummaryCard(
                         value = applicantsCount.toString(),
                         label = stringResource(R.string.applicants),
                         icon = Icons.Default.Person,
-                        color = Color(0xFF2563EB),
+                        color = EmployerColors.Primary,
                         modifier = Modifier.weight(1f)
                     )
                     HiringRoomMetricItem(
@@ -739,14 +740,14 @@ private fun HiringRoomSummaryCard(
                         value = callReadyCandidates.toString(),
                         label = stringResource(R.string.call_ready),
                         icon = Icons.Default.Call,
-                        color = Color(0xFF059669),
+                        color = EmployerColors.Success,
                         modifier = Modifier.weight(1f)
                     )
                     HiringRoomMetricItem(
                         value = if (isLive) stringResource(R.string.open_status) else stringResource(R.string.done_status),
                         label = stringResource(R.string.hiring_status),
                         icon = Icons.Default.CheckCircle,
-                        color = if (isLive) Color(0xFFEA580C) else Color(0xFF6B7280),
+                        color = if (isLive) EmployerColors.Warning else EmployerColors.TextSecondary,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -761,7 +762,7 @@ private fun HiringRoomSummaryCard(
                     enabled = isLive && !isClosingJob,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                 ) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -810,7 +811,7 @@ private fun HiringRoomMetricItem(
             )
             Text(
                 text = label,
-                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -823,15 +824,15 @@ private fun RankingHintBanner() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFEFF6FF), RoundedCornerShape(12.dp))
+            .background(EmployerColors.InfoLight, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.Call, contentDescription = null, tint = EmployerColors.Primary, modifier = Modifier.size(18.dp))
         Text(
             text = stringResource(R.string.ranking_hint_best_first),
-            style = AppTypography.bodySmall.copy(color = Color(0xFF1E40AF)),
+            style = AppTypography.bodySmall.copy(color = EmployerColors.Info),
             modifier = Modifier.weight(1f)
         )
     }
@@ -847,23 +848,23 @@ private fun TooManyApplicationsBanner(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFFFFBEB), RoundedCornerShape(12.dp))
+            .background(EmployerColors.WarningLight, RoundedCornerShape(12.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = stringResource(R.string.best_first_for_applicants, totalApplications),
-            style = AppTypography.labelLarge.copy(color = Color(0xFF92400E), fontWeight = FontWeight.Bold)
+            style = AppTypography.labelLarge.copy(color = EmployerColors.Warning, fontWeight = FontWeight.Bold)
         )
         Text(
             text = stringResource(R.string.call_ready_lifted_first, callReadyCandidates),
-            style = AppTypography.bodySmall.copy(color = Color(0xFF92400E))
+            style = AppTypography.bodySmall.copy(color = EmployerColors.Warning)
         )
         if (isJobLive) {
             OutlinedButton(
                 onClick = onCloseJob,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF92400E))
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.Warning)
             ) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
@@ -893,7 +894,7 @@ private fun MatchedWorkerCard(
     }
     val contentAlpha = if (isDisabledForFilledJob) 0.58f else 1f
     val cardContainerColor = if (isDisabledForFilledJob) {
-        Color(0xFFF3F4F6)
+        EmployerColors.ChipBackground
     } else {
         com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
     }
@@ -916,7 +917,7 @@ private fun MatchedWorkerCard(
                 Box(
                     modifier = Modifier
                         .size(54.dp)
-                        .background(if (isDisabledForFilledJob) Color(0xFFE5E7EB) else Color(0xFFEFF6FF), CircleShape),
+                        .background(if (isDisabledForFilledJob) EmployerColors.Border else EmployerColors.InfoLight, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     if (worker.profileImageUrl.isNotBlank()) {
@@ -931,7 +932,7 @@ private fun MatchedWorkerCard(
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = null,
-                            tint = Color(0xFF1D4ED8),
+                            tint = EmployerColors.Info,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -942,14 +943,14 @@ private fun MatchedWorkerCard(
                         text = worker.fullName,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827).copy(alpha = contentAlpha)
+                            color = EmployerColors.TextPrimary.copy(alpha = contentAlpha)
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = workerStatusText,
-                        style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                        style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -966,7 +967,7 @@ private fun MatchedWorkerCard(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFECFDF5)
+                    color = EmployerColors.SuccessLight
                 ) {
                     Text(
                         text = if (isJobLive) {
@@ -984,11 +985,11 @@ private fun MatchedWorkerCard(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFE5E7EB)
+                    color = EmployerColors.Border
                 ) {
                     Text(
                         text = stringResource(R.string.disabled_job_filled),
-                        style = AppTypography.bodySmall.copy(color = Color(0xFF4B5563)),
+                        style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
@@ -999,11 +1000,11 @@ private fun MatchedWorkerCard(
                     items(worker.skills.take(5)) { skill ->
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFFF3F4F6)
+                            color = EmployerColors.ChipBackground
                         ) {
                             Text(
                                 text = skill.replaceFirstChar { it.titlecase(Locale.ROOT) },
-                                style = AppTypography.caption.copy(color = Color(0xFF374151)),
+                                style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
@@ -1014,7 +1015,7 @@ private fun MatchedWorkerCard(
             if (worker.matchReasons.isNotEmpty()) {
                 Text(
                     text = worker.matchReasons.joinToString(" • "),
-                    style = AppTypography.bodySmall.copy(color = Color(0xFF4B5563)),
+                    style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1050,7 +1051,7 @@ private fun MatchedWorkerCard(
                     enabled = canCall && !isDisabledForFilledJob,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1071,21 +1072,21 @@ private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
             icon = Icons.Default.LocationOn,
             label = "Away",
             value = formatWorkerDistanceShort(worker.distanceKm),
-            color = Color(0xFF2563EB),
+            color = EmployerColors.Primary,
             modifier = Modifier.weight(1f)
         )
         WorkerMetricBlock(
             icon = Icons.Default.CheckCircle,
             label = "Jobs done",
             value = worker.completedJobs.toString(),
-            color = Color(0xFF059669),
+            color = EmployerColors.Success,
             modifier = Modifier.weight(1f)
         )
         WorkerMetricBlock(
             icon = Icons.Default.Star,
             label = formatWorkerRatingCount(worker.ratingCount),
             value = formatWorkerRatingValue(worker.rating),
-            color = Color(0xFFF59E0B),
+            color = EmployerColors.Warning,
             modifier = Modifier.weight(1f)
         )
         WorkerMetricBlock(
@@ -1117,13 +1118,13 @@ private fun WorkerMetricBlock(
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
         Text(
             text = value,
-            style = AppTypography.labelLarge.copy(color = Color(0xFF111827), fontWeight = FontWeight.Bold),
+            style = AppTypography.labelLarge.copy(color = EmployerColors.TextPrimary, fontWeight = FontWeight.Bold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = label,
-            style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+            style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1134,10 +1135,10 @@ private fun WorkerMetricBlock(
 private fun RequestStatusPill(status: String) {
     val normalized = status.lowercase(Locale.ROOT)
     val color = when (normalized) {
-        "accepted" -> Color(0xFF16A34A)
-        "rejected" -> Color(0xFFDC2626)
-        "expired" -> Color(0xFF6B7280)
-        else -> Color(0xFFF59E0B)
+        "accepted" -> EmployerColors.Success
+        "rejected" -> EmployerColors.Error
+        "expired" -> EmployerColors.TextSecondary
+        else -> EmployerColors.Warning
     }
     Surface(
         color = color.copy(alpha = 0.12f),
@@ -1227,7 +1228,7 @@ private fun JobReportSummaryCard(
                 text = "Community Reports",
                 style = AppTypography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF991B1B)
+                    color = EmployerColors.Error
                 )
             )
 
@@ -1292,7 +1293,7 @@ private fun ApplicationStatsSummary(
             .fillMaxWidth()
             .padding(16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -1304,14 +1305,14 @@ private fun ApplicationStatsSummary(
             StatsSummaryItem(
                 value = stats.totalApplications.toString(),
                 label = stringResource(R.string.total_label),
-                color = Color(0xFF3B82F6),
+                color = EmployerColors.Primary,
                 isSelected = selectedFilter == null,
                 onClick = { onFilterSelected(null) }
             )
             StatsSummaryItem(
                 value = stats.appliedApplications.toString(),
                 label = stringResource(R.string.applied),
-                color = Color(0xFFF59E0B),
+                color = EmployerColors.Warning,
                 isSelected = selectedFilter == ApplicationStatus.APPLIED,
                 onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
             )
@@ -1325,7 +1326,7 @@ private fun ApplicationStatsSummary(
             StatsSummaryItem(
                 value = stats.hiredApplications.toString(),
                 label = stringResource(R.string.hired),
-                color = Color(0xFF10B981),
+                color = EmployerColors.Success,
                 isSelected = selectedFilter == ApplicationStatus.HIRED,
                 onClick = { onFilterSelected(ApplicationStatus.HIRED) }
             )
@@ -1358,7 +1359,7 @@ private fun StatsSummaryItem(
         Text(
             text = label,
             style = AppTypography.caption.copy(
-                color = if (isSelected) color else Color(0xFF6B7280)
+                color = if (isSelected) color else EmployerColors.TextSecondary
             )
         )
     }
@@ -1430,7 +1431,7 @@ private fun ApplicationCard(
                         modifier = Modifier
                             .size(50.dp)
                             .background(
-                                color = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                color = EmployerColors.Primary.copy(alpha = 0.1f),
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -1451,14 +1452,14 @@ private fun ApplicationCard(
                                     text = initials,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF3B82F6)
+                                        color = EmployerColors.Primary
                                     )
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = null,
-                                    tint = Color(0xFF3B82F6),
+                                    tint = EmployerColors.Primary,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -1478,7 +1479,7 @@ private fun ApplicationCard(
                         if (workerEmail.isNotBlank()) {
                             Text(
                                 text = workerEmail,
-                                style = AppTypography.caption.copy(color = Color(0xFF6B7280)),
+                                style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1516,7 +1517,7 @@ private fun ApplicationCard(
                         Box(
                             modifier = Modifier
                                 .background(
-                                    color = Color(0xFF3B82F6).copy(alpha = 0.1f),
+                                    color = EmployerColors.Primary.copy(alpha = 0.1f),
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -1524,7 +1525,7 @@ private fun ApplicationCard(
                             Text(
                                 text = skill,
                                 style = AppTypography.labelSmall.copy(
-                                    color = Color(0xFF3B82F6)
+                                    color = EmployerColors.Primary
                                 ),
                                 maxLines = 1
                             )
@@ -1548,13 +1549,13 @@ private fun ApplicationCard(
                     Icon(
                         imageVector = Icons.Default.Schedule,
                         contentDescription = null,
-                        tint = Color(0xFF9CA3AF),
+                        tint = EmployerColors.TextTertiary,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Applied ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
-                        style = AppTypography.caption.copy(color = Color(0xFF9CA3AF))
+                        style = AppTypography.caption.copy(color = EmployerColors.TextTertiary)
                     )
                 }
                 
@@ -1577,7 +1578,7 @@ private fun ApplicationCard(
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Call,
@@ -1601,7 +1602,7 @@ private fun ApplicationCard(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFDC2626)
+                            contentColor = EmployerColors.Error
                         )
                     ) {
                         Icon(
@@ -1617,7 +1618,7 @@ private fun ApplicationCard(
                         onClick = { onStatusUpdate(ApplicationStatus.HIRED, "Hired from applications list") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
@@ -1636,7 +1637,7 @@ private fun ApplicationCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            color = if (hasAlreadyRated) Color(0xFFF0FDF4) else Color(0xFFFFFBEB),
+                            color = if (hasAlreadyRated) EmployerColors.SuccessLight else EmployerColors.WarningLight,
                             shape = RoundedCornerShape(12.dp)
                         )
                         .padding(12.dp)
@@ -1650,7 +1651,7 @@ private fun ApplicationCard(
                             "Rate this worker"
                         },
                         style = AppTypography.labelLarge,
-                        color = if (hasAlreadyRated) Color(0xFF059669) else Color(0xFFB45309)
+                        color = if (hasAlreadyRated) EmployerColors.Success else EmployerColors.Warning
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
@@ -1659,8 +1660,8 @@ private fun ApplicationCard(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFFF59E0B),
-                            disabledContentColor = Color(0xFF059669)
+                            contentColor = EmployerColors.Warning,
+                            disabledContentColor = EmployerColors.Success
                         )
                     ) {
                         Icon(
@@ -1680,13 +1681,13 @@ private fun ApplicationCard(
             // Cover Letter Preview (if available)
             if (application.coverLetter.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFE5E7EB))
+                HorizontalDivider(color = EmployerColors.Border)
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Text(
                     text = application.coverLetter.take(120) + if (application.coverLetter.length > 120) "..." else "",
                     style = AppTypography.bodySmall.copy(
-                        color = Color(0xFF6B7280),
+                        color = EmployerColors.TextSecondary,
                         lineHeight = 18.sp
                     ),
                     maxLines = 2,
@@ -1719,13 +1720,13 @@ private fun EmptyApplicationsState(
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .background(Color(0xFFF3F4F6), CircleShape),
+                .background(EmployerColors.ChipBackground, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.PersonAdd,
                 contentDescription = null,
-                tint = Color(0xFF9CA3AF),
+                tint = EmployerColors.TextTertiary,
                 modifier = Modifier.size(40.dp)
             )
         }
@@ -1742,7 +1743,7 @@ private fun EmptyApplicationsState(
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280),
+                color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
             )
         )
@@ -1909,7 +1910,7 @@ private fun FreeContactsBanner(freeRemaining: Int) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5))
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.SuccessLight)
     ) {
         Row(
             modifier = Modifier
@@ -1921,13 +1922,13 @@ private fun FreeContactsBanner(freeRemaining: Int) {
             Icon(
                 imageVector = Icons.Default.CardGiftcard,
                 contentDescription = null,
-                tint = Color(0xFF10B981),
+                tint = EmployerColors.Success,
                 modifier = Modifier.size(20.dp)
             )
             Text(
                 text = "🎁 $freeRemaining free contact unlocks remaining",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF065F46),
+                    color = EmployerColors.Success,
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -1952,13 +1953,13 @@ private fun ContactUnlockDialog(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(Color(0xFFFEF3C7), CircleShape),
+                    .background(EmployerColors.WarningLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = Color(0xFFD97706),
+                    tint = EmployerColors.Warning,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1978,14 +1979,14 @@ private fun ContactUnlockDialog(
             ) {
                 Text(
                     text = stringResource(R.string.unlock_worker_contact_desc, application.workerName),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
                 )
                 
                 // Price card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC))
+                    colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground)
                 ) {
                     Row(
                         modifier = Modifier
@@ -1996,13 +1997,13 @@ private fun ContactUnlockDialog(
                     ) {
                         Text(
                             text = stringResource(R.string.unlock_price),
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                            style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
                         )
                         Text(
                             text = "₹$unlockPrice",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
+                                color = EmployerColors.Success
                             )
                         )
                     }
@@ -2022,7 +2023,7 @@ private fun ContactUnlockDialog(
             Button(
                 onClick = onConfirmPayment,
                 enabled = !isProcessing,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isProcessing) {
@@ -2049,7 +2050,7 @@ private fun ContactUnlockDialog(
                 onClick = onDismiss,
                 enabled = !isProcessing
             ) {
-                Text(stringResource(R.string.cancel), color = Color(0xFF6B7280))
+                Text(stringResource(R.string.cancel), color = EmployerColors.TextSecondary)
             }
         },
         shape = RoundedCornerShape(20.dp),
@@ -2066,12 +2067,12 @@ private fun UnlockBenefitItem(text: String) {
         Icon(
             imageVector = Icons.Default.Check,
             contentDescription = null,
-            tint = Color(0xFF10B981),
+            tint = EmployerColors.Success,
             modifier = Modifier.size(16.dp)
         )
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151))
+            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
         )
     }
 }

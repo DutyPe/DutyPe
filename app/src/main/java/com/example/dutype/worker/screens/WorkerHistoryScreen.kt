@@ -128,7 +128,7 @@ fun WorkerHistoryScreen(
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
                 containerColor = WorkerColors.ScreenBackground,
-            contentColor = Color(0xFF1F2937),
+            contentColor = WorkerColors.TextPrimary,
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
@@ -258,7 +258,7 @@ private fun MonthHeader(monthYear: String) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF1F2937)),
+                .background(WorkerColors.Primary),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -305,13 +305,13 @@ private fun WorkerUrgentHistoryContent(
                         modifier = Modifier
                             .size(100.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFFFF7ED)),
+                            .background(WorkerColors.WarningLight),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Bolt,
                             contentDescription = null,
-                            tint = Color(0xFFEA580C),
+                            tint = WorkerColors.Warning,
                             modifier = Modifier.size(48.dp)
                         )
                     }
@@ -319,13 +319,13 @@ private fun WorkerUrgentHistoryContent(
                         text = stringResource(R.string.no_urgent_work_yet),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF374151)
+                            color = WorkerColors.TextSecondary
                         ),
                         textAlign = TextAlign.Center
                     )
                     Text(
                         text = stringResource(R.string.urgent_history_empty_body),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF)),
+                        style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextTertiary),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -355,11 +355,11 @@ private fun WorkerUrgentHistoryCard(
 ) {
     val status = response.status.lowercase(Locale.ROOT)
     val statusColor = when (status) {
-        "accepted" -> Color(0xFF2563EB)
+        "accepted" -> WorkerColors.Primary
         "completed" -> Color(0xFF16A34A)
-        "applied", "called", "interested" -> Color(0xFFEA580C)
-        "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
-        else -> Color(0xFF64748B)
+        "applied", "called", "interested" -> WorkerColors.Warning
+        "busy", "rejected", "cancelled", "no_show" -> WorkerColors.Error
+        else -> WorkerColors.TextSecondary
     }
 
     Card(
@@ -382,7 +382,7 @@ private fun WorkerUrgentHistoryCard(
                         text = response.requestTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
+                            color = WorkerColors.TextPrimary
                         ),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -392,7 +392,7 @@ private fun WorkerUrgentHistoryCard(
                             .filter { it.isNotBlank() }
                             .joinToString(" • ")
                             .ifBlank { stringResource(R.string.urgent_work) },
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                        style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -426,7 +426,7 @@ private fun WorkerUrgentHistoryCard(
             if (response.addressText.isNotBlank()) {
                 Text(
                     text = response.addressText,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -435,7 +435,7 @@ private fun WorkerUrgentHistoryCard(
             if (response.failureReason.isNotBlank()) {
                 Text(
                     text = response.failureReason,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626)),
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Error),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -460,17 +460,17 @@ private fun WorkerUrgentHistoryCard(
 private fun WorkerUrgentInfoPill(icon: ImageVector, text: String) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFFF1F5F9)
+        color = WorkerColors.ChipBackground
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(14.dp))
+            Icon(icon, contentDescription = null, tint = WorkerColors.TextSecondary, modifier = Modifier.size(14.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -484,7 +484,7 @@ private fun TimelineJobCard(
     isLastInMonth: Boolean,
     onClick: () -> Unit
 ) {
-    val lineColor = Color(0xFFE5E7EB)
+    val lineColor = WorkerColors.Border
     
     Row(
         modifier = Modifier
@@ -512,9 +512,9 @@ private fun TimelineJobCard(
                     .clip(CircleShape)
                     .background(
                         when (application.status) {
-                            ApplicationStatus.HIRED -> Color(0xFF10B981)
-                            ApplicationStatus.SHORTLISTED -> Color(0xFF3B82F6)
-                            else -> Color(0xFF6B7280)
+                            ApplicationStatus.HIRED -> WorkerColors.Success
+                            ApplicationStatus.SHORTLISTED -> WorkerColors.Info
+                            else -> WorkerColors.TextSecondary
                         }
                     ),
                 contentAlignment = Alignment.Center
@@ -558,7 +558,7 @@ private fun TimelineJobCard(
                     Text(
                         text = formatTimelineDate(application.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF9CA3AF)
+                            color = WorkerColors.TextTertiary
                         )
                     )
                 }
@@ -570,7 +570,7 @@ private fun TimelineJobCard(
                     text = application.jobTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -582,7 +582,7 @@ private fun TimelineJobCard(
                 Text(
                     text = application.companyName,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 )
                 
@@ -622,13 +622,13 @@ private fun EmptyHistoryState(selectedTab: Int) {
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF3F4F6)),
+                    .background(WorkerColors.ChipBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
+                    tint = WorkerColors.TextTertiary,
                     modifier = Modifier.size(48.dp)
                 )
             }
@@ -639,14 +639,14 @@ private fun EmptyHistoryState(selectedTab: Int) {
                 text = message,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 ),
                 textAlign = TextAlign.Center
             )
             Text(
                 text = subMessage,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = WorkerColors.TextTertiary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -680,7 +680,7 @@ private fun HistoryApplicationCard(
                         text = application.jobTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827)
+                            color = WorkerColors.TextPrimary
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -688,7 +688,7 @@ private fun HistoryApplicationCard(
                     Text(
                         text = application.companyName,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
+                            color = WorkerColors.TextSecondary
                         )
                     )
                 }
@@ -706,8 +706,8 @@ private fun HistoryApplicationCard(
                     InfoChip(
                         icon = Icons.Default.LocationOn,
                         text = application.jobLocation.take(20),
-                        backgroundColor = Color(0xFFF3F4F6),
-                        iconColor = Color(0xFF6B7280)
+                        backgroundColor = WorkerColors.ChipBackground,
+                        iconColor = WorkerColors.TextSecondary
                     )
                 }
             }
@@ -717,7 +717,7 @@ private fun HistoryApplicationCard(
             Text(
                 text = stringResource(R.string.history_applied_time, DateTimeUtils.formatRelativeTime(application.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = WorkerColors.TextTertiary
                 )
             )
         }
@@ -730,8 +730,8 @@ private fun HistoryApplicationCard(
 private fun InfoChip(
     icon: ImageVector,
     text: String,
-    backgroundColor: Color = Color(0xFFF3F4F6),
-    iconColor: Color = Color(0xFF6B7280)
+    backgroundColor: Color = WorkerColors.ChipBackground,
+    iconColor: Color = WorkerColors.TextSecondary
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -751,7 +751,7 @@ private fun InfoChip(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF374151),
+                    color = WorkerColors.TextSecondary,
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = 1,

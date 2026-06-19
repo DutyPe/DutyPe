@@ -41,6 +41,7 @@ import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.employer.viewmodels.EmployerNotificationViewModel
 import com.example.dutype.components.NotificationItemShimmer
 import com.example.dutype.navigation.Routes
@@ -131,7 +132,7 @@ fun EmployerNotificationScreen(
             title = stringResource(R.string.notifications),
             onBackClick = onBackClick,
             backgroundColor = com.example.dutype.ui.theme.EmployerColors.ScreenBackground,
-            titleColor = Color(0xFF1F2937)
+            titleColor = EmployerColors.TextPrimary
         )
 
         when {
@@ -139,7 +140,7 @@ fun EmployerNotificationScreen(
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(8) {
                         NotificationItemShimmer()
-                        HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+                        HorizontalDivider(color = EmployerColors.ChipBackground, thickness = 1.dp)
                     }
                 }
             }
@@ -165,7 +166,7 @@ fun EmployerNotificationScreen(
                         )
                         Button(
                             onClick = { viewModel.loadNotifications() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                            colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                         ) {
                             Text(stringResource(R.string.retry), color = Color.White)
                         }
@@ -185,13 +186,13 @@ fun EmployerNotificationScreen(
                         Box(
                             modifier = Modifier
                                 .size(120.dp)
-                                .background(Color(0xFFF3F4F6), CircleShape),
+                                .background(EmployerColors.ChipBackground, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "No notifications",
-                                tint = Color(0xFF3B82F6).copy(alpha = 0.6f),
+                                tint = EmployerColors.Primary.copy(alpha = 0.6f),
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -208,7 +209,7 @@ fun EmployerNotificationScreen(
                             Text(
                                 text = stringResource(R.string.notif_employer_empty_desc),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF6B7280),
+                                color = EmployerColors.TextSecondary,
                                 modifier = Modifier.padding(horizontal = 40.dp),
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
@@ -257,7 +258,7 @@ fun EmployerNotificationScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(
-                                    color = Color(0xFF3B82F6),
+                                    color = EmployerColors.Primary,
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -294,7 +295,7 @@ fun EmployerSwipeToDeleteNotificationItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFEF4444))
+                    .background(EmployerColors.Error)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
@@ -337,7 +338,7 @@ fun EmployerNotificationItemContent(
             .clickable { onClick() },
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color(0xFFF8F9FA) else Color.White
+            containerColor = if (notification.isRead) EmployerColors.ChipBackground else EmployerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -377,7 +378,7 @@ fun EmployerNotificationItemContent(
                         text = notification.title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.SemiBold,
-                        color = if (notification.isRead) Color(0xFF374151) else Color(0xFF111827),
+                        color = if (notification.isRead) EmployerColors.TextSecondary else EmployerColors.TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -390,7 +391,7 @@ fun EmployerNotificationItemContent(
                         Text(
                             text = formatEmployerNotificationTime(notification.createdAt),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9CA3AF),
+                            color = EmployerColors.TextTertiary,
                             fontWeight = FontWeight.Normal
                         )
                         
@@ -400,7 +401,7 @@ fun EmployerNotificationItemContent(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFEF4444))
+                                    .background(EmployerColors.Error)
                             )
                         }
                     }
@@ -410,7 +411,7 @@ fun EmployerNotificationItemContent(
                     text = notification.message,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Normal,
-                    color = if (notification.isRead) Color(0xFF6B7280) else Color(0xFF4B5563),
+                    color = if (notification.isRead) EmployerColors.TextSecondary else EmployerColors.TextSecondary,
                     lineHeight = 20.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -421,14 +422,14 @@ fun EmployerNotificationItemContent(
                     Text(
                         text = stringResource(R.string.notif_swipe_to_delete),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFBDBDBD),
+                        color = EmployerColors.TextTertiary,
                         fontSize = 10.sp
                     )
                 }
             }
         }
         
-        HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+        HorizontalDivider(color = EmployerColors.ChipBackground, thickness = 1.dp)
     }
 }
 

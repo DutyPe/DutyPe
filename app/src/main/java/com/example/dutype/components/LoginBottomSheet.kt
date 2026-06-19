@@ -641,7 +641,7 @@ private fun PhoneInputContent(
                     contentColor = WorkerColors.TextPrimary
                 ),
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                border = BorderStroke(1.dp, WorkerColors.Border),
                 elevation = ButtonDefaults.buttonElevation(
                     defaultElevation = 0.dp,
                     pressedElevation = 0.dp,
@@ -1037,10 +1037,10 @@ private fun PhoneInputContent(
                 .fillMaxWidth()
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (buttonEnabled) Color(0xFF1F2937) else Color(0xFFF3F4F6),
-                contentColor = if (buttonEnabled) Color.White else Color(0xFF9CA3AF),
-                disabledContainerColor = Color(0xFFF3F4F6),
-                disabledContentColor = Color(0xFF9CA3AF)
+                containerColor = if (buttonEnabled) WorkerColors.Primary else WorkerColors.ChipBackground,
+                contentColor = if (buttonEnabled) Color.White else WorkerColors.TextTertiary,
+                disabledContainerColor = WorkerColors.ChipBackground,
+                disabledContentColor = WorkerColors.TextTertiary
             ),
             shape = RoundedCornerShape(12.dp),
             enabled = buttonEnabled,
@@ -1052,7 +1052,7 @@ private fun PhoneInputContent(
         ) {
             if (isCheckingPhone || otpState.isLoading) {
                 CircularProgressIndicator(
-                    color = if (buttonEnabled) Color.White else Color(0xFF9CA3AF),
+                    color = if (buttonEnabled) Color.White else WorkerColors.TextTertiary,
                     strokeWidth = 2.dp,
                     modifier = Modifier.size(20.dp)
                 )

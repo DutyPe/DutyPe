@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Enterprise-level Profile Completion Prompt
@@ -53,7 +54,7 @@ fun ProfileCompletionPrompt(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clickable { onCompleteProfile() },
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFEF3C7)
+                containerColor = WorkerColors.WarningLight
             ),
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -74,13 +75,13 @@ fun ProfileCompletionPrompt(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                            .background(WorkerColors.Warning.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Profile",
-                            tint = Color(0xFFF59E0B),
+                            tint = WorkerColors.Warning,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -93,13 +94,13 @@ fun ProfileCompletionPrompt(
                             text = "Complete Your Profile",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E)
+                                color = WorkerColors.Warning
                             )
                         )
                         Text(
                             text = "$completionPercentage% complete • ${missingFields.size} fields missing",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF92400E).copy(alpha = 0.8f)
+                                color = WorkerColors.Warning.copy(alpha = 0.8f)
                             )
                         )
                     }
@@ -114,7 +115,7 @@ fun ProfileCompletionPrompt(
                     Button(
                         onClick = onCompleteProfile,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFF59E0B)
+                            containerColor = WorkerColors.Warning
                         ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.height(36.dp)
@@ -135,7 +136,7 @@ fun ProfileCompletionPrompt(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss",
-                            tint = Color(0xFF92400E).copy(alpha = 0.6f),
+                            tint = WorkerColors.Warning.copy(alpha = 0.6f),
                             modifier = Modifier.size(18.dp)
                         )
                     }

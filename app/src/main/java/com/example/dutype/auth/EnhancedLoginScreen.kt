@@ -759,13 +759,13 @@ private fun LoginPhoneEntrySection(
             ) {
                 Text(
                     text = if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now",
-                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF255CEB))
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Primary)
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = Color(0xFF255CEB),
+                tint = WorkerColors.Primary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -783,8 +783,8 @@ private fun LoginPhoneEntrySection(
 @Composable
 internal fun AuthScreenBackdrop() {
     val isDark = LocalDarkMode.current
-    val bloomLarge = if (isDark) Color(0xFF2A1E55).copy(alpha = 0.45f) else Color(0xFFEDE7FF).copy(alpha = 0.34f)
-    val bloomSmall = if (isDark) Color(0xFF241C49).copy(alpha = 0.55f) else Color(0xFFF4F0FF).copy(alpha = 0.58f)
+    val bloomLarge = if (isDark) Color(0xFF26262B).copy(alpha = 0.45f) else Color(0xFFEDEDEF).copy(alpha = 0.34f)
+    val bloomSmall = if (isDark) Color(0xFF26262B).copy(alpha = 0.55f) else Color(0xFFEDEDEF).copy(alpha = 0.58f)
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -813,7 +813,7 @@ internal fun AuthMark(size: androidx.compose.ui.unit.Dp = 52.dp) {
             .clip(RoundedCornerShape(size / 3))
             .background(
                 Brush.verticalGradient(
-                    listOf(Color(0xFF8A4CFF), Color(0xFF4E24F5))
+                    listOf(Color(0xFF3A3A40), Color(0xFF101013))
                 )
             ),
         contentAlignment = Alignment.Center
@@ -840,7 +840,7 @@ internal fun LoginArtwork(modifier: Modifier = Modifier) {
                 .align(Alignment.TopEnd)
                 .size(106.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFEDE7FF).copy(alpha = 0.52f))
+                .background(WorkerColors.PrimaryLight.copy(alpha = 0.52f))
         )
         listOf(22.dp, 52.dp, 84.dp).forEachIndexed { index, xOffset ->
             Box(
@@ -850,13 +850,13 @@ internal fun LoginArtwork(modifier: Modifier = Modifier) {
                     .width(18.dp)
                     .height((36 + index * 14).dp)
                     .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                    .background(Color(0xFFD7CEF8).copy(alpha = 0.42f))
+                    .background(WorkerColors.Border.copy(alpha = 0.42f))
             )
         }
         Icon(
             imageVector = Icons.Default.LocationOn,
             contentDescription = null,
-            tint = Color(0xFF6D3DFF),
+            tint = WorkerColors.Primary,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .offset(x = (-24).dp, y = 8.dp)
@@ -877,7 +877,7 @@ internal fun AuthPhoneEntryField(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
+            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
             .clip(RoundedCornerShape(18.dp))
             .background(WorkerColors.CardBackground)
             .border(1.dp, if (hasError) WorkerColors.Error else WorkerColors.Border, RoundedCornerShape(18.dp)),
@@ -940,7 +940,7 @@ internal fun AuthPhoneEntryField(
                     color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Medium
                 ),
-                cursorBrush = SolidColor(Color(0xFF5B2DFF)),
+                cursorBrush = SolidColor(WorkerColors.Primary),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 decorationBox = { innerTextField ->
                     if (phoneNumber.isBlank()) {
@@ -971,9 +971,9 @@ internal fun AuthPrimaryButton(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x2D4F28FF), spotColor = Color(0x2D4F28FF)),
+            .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (enabled) Color(0xFF3D22F5) else WorkerColors.Divider,
+            containerColor = if (enabled) WorkerColors.Primary else WorkerColors.Divider,
             contentColor = Color.White,
             disabledContainerColor = WorkerColors.Divider,
             disabledContentColor = WorkerColors.TextDisabled
@@ -1012,7 +1012,7 @@ internal fun SecureOtpLine(text: String = "Secure OTP Login") {
         Icon(
             imageVector = Icons.Default.Security,
             contentDescription = null,
-            tint = Color(0xFF6D3DFF),
+            tint = WorkerColors.Primary,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))

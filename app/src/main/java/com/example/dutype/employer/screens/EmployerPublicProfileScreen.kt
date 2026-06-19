@@ -311,15 +311,15 @@ private fun EmployerProfileMetric(label: String, value: String) {
 private fun EmployerJobStatusPill(status: String) {
     val normalizedStatus = status.uppercase()
     val background = when (normalizedStatus) {
-        "OPEN" -> Color(0xFFD1FAE5)
-        "CLOSED" -> Color(0xFFFEE2E2)
-        "EXPIRED" -> Color(0xFFE5E7EB)
-        else -> Color(0xFFDBEAFE)
+        "OPEN" -> EmployerColors.SuccessLight
+        "CLOSED" -> EmployerColors.ErrorLight
+        "EXPIRED" -> EmployerColors.Border
+        else -> EmployerColors.InfoLight
     }
     val foreground = when (normalizedStatus) {
         "OPEN" -> Color(0xFF047857)
         "CLOSED" -> Color(0xFFB91C1C)
-        "EXPIRED" -> Color(0xFF4B5563)
+        "EXPIRED" -> EmployerColors.TextSecondary
         else -> EmployerColors.Primary
     }
 

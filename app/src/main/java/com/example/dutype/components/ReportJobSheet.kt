@@ -28,6 +28,7 @@ import com.example.dutype.services.ReportType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Report Job Bottom Sheet - Improved Design
@@ -84,13 +85,13 @@ fun ReportJobSheet(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .background(Color(0xFFFEE2E2), CircleShape),
+                                .background(WorkerColors.ErrorLight, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Flag,
                                 contentDescription = null,
-                                tint = Color(0xFFDC2626),
+                                tint = WorkerColors.Error,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -105,7 +106,7 @@ fun ReportJobSheet(
                             Text(
                                 text = "Help us keep DutyPe safe",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF6B7280)
+                                color = WorkerColors.TextSecondary
                             )
                         }
                     }
@@ -113,12 +114,12 @@ fun ReportJobSheet(
                         onClick = onDismiss,
                         modifier = Modifier
                             .size(36.dp)
-                            .background(Color(0xFFF3F4F6), CircleShape)
+                            .background(WorkerColors.ChipBackground, CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFF6B7280),
+                            tint = WorkerColors.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -129,7 +130,7 @@ fun ReportJobSheet(
                 // Job info card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB)),
+                    colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground),
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
@@ -140,14 +141,14 @@ fun ReportJobSheet(
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color.White, CircleShape)
-                                .border(1.dp, Color(0xFFE5E7EB), CircleShape),
+                                .background(WorkerColors.CardBackground, CircleShape)
+                                .border(1.dp, WorkerColors.Border, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Work,
                                 contentDescription = null,
-                                tint = Color(0xFF6B7280),
+                                tint = WorkerColors.TextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -163,7 +164,7 @@ fun ReportJobSheet(
                             Text(
                                 text = companyName,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF6B7280),
+                                color = WorkerColors.TextSecondary,
                                 maxLines = 1
                             )
                         }
@@ -177,7 +178,7 @@ fun ReportJobSheet(
                     text = "What's the issue?",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 )
                 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -210,17 +211,17 @@ fun ReportJobSheet(
                             placeholder = { 
                                 Text(
                                     "Add more details (optional)",
-                                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF9CA3AF))
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                                 ) 
                             },
                             minLines = 2,
                             maxLines = 2,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFFDC2626),
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedContainerColor = Color(0xFFFEF2F2),
-                                unfocusedContainerColor = Color(0xFFF9FAFB)
+                                focusedBorderColor = WorkerColors.Error,
+                                unfocusedBorderColor = WorkerColors.Border,
+                                focusedContainerColor = WorkerColors.ErrorLight,
+                                unfocusedContainerColor = WorkerColors.ChipBackground
                             )
                         )
                     }
@@ -232,7 +233,7 @@ fun ReportJobSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2)),
+                        colors = CardDefaults.cardColors(containerColor = WorkerColors.ErrorLight),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Row(
@@ -242,14 +243,14 @@ fun ReportJobSheet(
                             Icon(
                                 Icons.Default.Error,
                                 contentDescription = null,
-                                tint = Color(0xFFDC2626),
+                                tint = WorkerColors.Error,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = errorMessage,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFDC2626)
+                                color = WorkerColors.Error
                             )
                         }
                     }
@@ -292,8 +293,8 @@ fun ReportJobSheet(
                         .height(50.dp),
                     enabled = selectedType != null && !isSubmitting,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626),
-                        disabledContainerColor = Color(0xFFDC2626).copy(alpha = 0.4f)
+                        containerColor = WorkerColors.Error,
+                        disabledContainerColor = WorkerColors.Error.copy(alpha = 0.4f)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -323,14 +324,14 @@ fun ReportJobSheet(
                     Icon(
                         Icons.Default.Lock,
                         contentDescription = null,
-                        tint = Color(0xFF9CA3AF),
+                        tint = WorkerColors.TextTertiary,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Your report is anonymous",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF9CA3AF)
+                        color = WorkerColors.TextTertiary
                     )
                 }
             }
@@ -356,14 +357,14 @@ private fun ImprovedReportTypeOption(
     }
     
     val iconColor = when (type) {
-        ReportType.SCAM -> Color(0xFFDC2626)
-        ReportType.FAKE -> Color(0xFFF59E0B)
-        ReportType.INAPPROPRIATE -> Color(0xFFEF4444)
-        ReportType.DUPLICATE -> Color(0xFF6B7280)
-        ReportType.MISLEADING -> Color(0xFF3B82F6)
+        ReportType.SCAM -> WorkerColors.Error
+        ReportType.FAKE -> WorkerColors.Warning
+        ReportType.INAPPROPRIATE -> WorkerColors.Error
+        ReportType.DUPLICATE -> WorkerColors.TextSecondary
+        ReportType.MISLEADING -> WorkerColors.Info
         ReportType.HARASSMENT -> Color(0xFF7C3AED)
-        ReportType.SPAM -> Color(0xFFF97316)
-        ReportType.OTHER -> Color(0xFF6B7280)
+        ReportType.SPAM -> WorkerColors.Warning
+        ReportType.OTHER -> WorkerColors.TextSecondary
     }
     
     val scale by animateFloatAsState(
@@ -377,12 +378,12 @@ private fun ImprovedReportTypeOption(
             .scale(scale)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFFFEF2F2) else Color.White
+            containerColor = if (isSelected) WorkerColors.ErrorLight else WorkerColors.CardBackground
         ),
         border = if (isSelected) 
-            androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFDC2626))
+            androidx.compose.foundation.BorderStroke(2.dp, WorkerColors.Error)
         else 
-            androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border),
         shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isSelected) 2.dp else 0.dp
@@ -400,14 +401,14 @@ private fun ImprovedReportTypeOption(
                     .clip(CircleShape)
                     .background(
                         if (isSelected) iconColor.copy(alpha = 0.15f)
-                        else Color(0xFFF3F4F6)
+                        else WorkerColors.ChipBackground
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = if (isSelected) iconColor else Color(0xFF6B7280),
+                    tint = if (isSelected) iconColor else WorkerColors.TextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -419,12 +420,12 @@ private fun ImprovedReportTypeOption(
                     text = type.displayName,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isSelected) Color(0xFFDC2626) else Color(0xFF1F2937)
+                    color = if (isSelected) WorkerColors.Error else WorkerColors.TextPrimary
                 )
                 Text(
                     text = type.description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     lineHeight = 16.sp
                 )
             }
@@ -435,10 +436,10 @@ private fun ImprovedReportTypeOption(
                     .size(22.dp)
                     .border(
                         width = if (isSelected) 6.dp else 2.dp,
-                        color = if (isSelected) Color(0xFFDC2626) else Color(0xFFD1D5DB),
+                        color = if (isSelected) WorkerColors.Error else WorkerColors.TextTertiary,
                         shape = CircleShape
                     )
-                    .background(Color.White, CircleShape)
+                    .background(WorkerColors.CardBackground, CircleShape)
             )
         }
     }
@@ -460,13 +461,13 @@ private fun SuccessContent(
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .background(Color(0xFF10B981).copy(alpha = 0.1f), CircleShape),
+                .background(WorkerColors.Success.copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(Color(0xFF10B981), CircleShape),
+                    .background(WorkerColors.Success, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -492,7 +493,7 @@ private fun SuccessContent(
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF6B7280),
+            color = WorkerColors.TextSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp)
         )
@@ -502,7 +503,7 @@ private fun SuccessContent(
         Text(
             text = "Thank you for helping keep DutyPe safe!",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF10B981),
+            color = WorkerColors.Success,
             fontWeight = FontWeight.Medium
         )
         
@@ -513,7 +514,7 @@ private fun SuccessContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+            colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(stringResource(R.string.done), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
@@ -528,7 +529,7 @@ private fun SuccessContent(
 fun ReportJobIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF9CA3AF)
+    tint: Color = WorkerColors.TextTertiary
 ) {
     IconButton(
         onClick = onClick,

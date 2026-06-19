@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.sin
@@ -171,7 +172,7 @@ fun WelcomeCelebrationOverlay(
                     .padding(horizontal = 24.dp)
                     .graphicsLayer { scaleX = cardScale; scaleY = cardScale }
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
+                    .background(WorkerColors.CardBackground)
                     .padding(horizontal = 22.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -194,14 +195,14 @@ fun WelcomeCelebrationOverlay(
                     text = stringResource(R.string.welcome_scratch_ready_title),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF0F172A)
+                        color = WorkerColors.TextPrimary
                     ),
                     textAlign = TextAlign.Center
                 )
                 Text(
                     text = stringResource(R.string.welcome_scratch_ready_body),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF475569),
+                        color = WorkerColors.TextSecondary,
                         lineHeight = 22.sp
                     ),
                     textAlign = TextAlign.Center

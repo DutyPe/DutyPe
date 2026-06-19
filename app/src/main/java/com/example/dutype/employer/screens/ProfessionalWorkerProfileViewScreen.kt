@@ -80,6 +80,7 @@ import com.example.dutype.models.getStatusColor
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
@@ -536,7 +537,7 @@ private fun ProfessionalWorkerProfileHeader(
                 modifier = Modifier
                     .size(88.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF3B82F6).copy(alpha = 0.10f)),
+                    .background(EmployerColors.Primary.copy(alpha = 0.10f)),
                 contentAlignment = Alignment.Center
             ) {
                 val imageUrl = workerProfile?.profileImageUrl
@@ -560,14 +561,14 @@ private fun ProfessionalWorkerProfileHeader(
                             text = initials,
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF3B82F6)
+                                color = EmployerColors.Primary
                             )
                         )
                     } else {
                         Icon(
                             Icons.Default.Person,
                             contentDescription = "Profile",
-                            tint = Color(0xFF3B82F6),
+                            tint = EmployerColors.Primary,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -579,7 +580,7 @@ private fun ProfessionalWorkerProfileHeader(
                 text = workerProfile?.fullName.orEmpty().ifBlank { "Worker" },
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+                    color = EmployerColors.TextPrimary
                 )
             )
 
@@ -589,7 +590,7 @@ private fun ProfessionalWorkerProfileHeader(
                 Text(
                     text = "Applied for $appliedFor",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 )
             }
@@ -604,13 +605,13 @@ private fun ProfessionalWorkerProfileHeader(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        tint = EmployerColors.TextSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = location,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
+                            color = EmployerColors.TextSecondary
                         )
                     )
                 }
@@ -670,14 +671,14 @@ private fun ApplicationStatusCard(
             Text(
                 text = "Applied for ${application.jobTitle} at ${application.companyName}",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
             
             Text(
                 text = "Applied on ${dateFormat.format(Date(application.createdAt))}",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = EmployerColors.TextTertiary
                 )
             )
             
@@ -685,7 +686,7 @@ private fun ApplicationStatusCard(
             if (application.coverLetter.isNotEmpty()) {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF8FAFC)
+                        containerColor = EmployerColors.ChipBackground
                     ),
                     shape = RoundedCornerShape(0.dp)
                 ) {
@@ -696,14 +697,14 @@ private fun ApplicationStatusCard(
                             text = "Cover Letter",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF374151)
+                                color = EmployerColors.TextSecondary
                             )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = application.coverLetter,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B7280)
+                                color = EmployerColors.TextSecondary
                             )
                         )
                     }
@@ -744,7 +745,7 @@ private fun PersonalInformationCard(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF3B82F6).copy(alpha = 0.10f)),
+                        .background(EmployerColors.Primary.copy(alpha = 0.10f)),
                     contentAlignment = Alignment.Center
                 ) {
                     val imageUrl = workerProfile.profileImageUrl
@@ -768,14 +769,14 @@ private fun PersonalInformationCard(
                                 text = initials,
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF3B82F6)
+                                    color = EmployerColors.Primary
                                 )
                             )
                         } else {
                             Icon(
                                 Icons.Default.Person,
                                 contentDescription = "Profile",
-                                tint = Color(0xFF3B82F6),
+                                tint = EmployerColors.Primary,
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -789,7 +790,7 @@ private fun PersonalInformationCard(
                         text = workerProfile.fullName.ifBlank { "Worker" },
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF111827)
+                            color = EmployerColors.TextPrimary
                         )
                     )
                 }
@@ -798,7 +799,7 @@ private fun PersonalInformationCard(
                     Text(
                         text = "Applied $appliedAt",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF6B7280)
+                            color = EmployerColors.TextSecondary
                         ),
                         textAlign = TextAlign.End
                     )
@@ -806,7 +807,7 @@ private fun PersonalInformationCard(
             }
 
             androidx.compose.material3.HorizontalDivider(
-                color = Color(0xFFE5E7EB),
+                color = EmployerColors.Border,
                 thickness = 0.5.dp
             )
 
@@ -877,7 +878,7 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
         Text(
             text = "$label : ",
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color(0xFF6B7280)
+                color = EmployerColors.TextSecondary
             )
         )
         Text(
@@ -885,7 +886,7 @@ private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = fal
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Medium,
-                color = if (isPhone && value.isNotBlank()) Color(0xFF2563EB) else Color(0xFF1F2937)
+                color = if (isPhone && value.isNotBlank()) EmployerColors.Primary else EmployerColors.TextPrimary
             )
         )
     }
@@ -922,7 +923,7 @@ private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
 private fun ExperienceItem(experience: WorkExperienceDisplay) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF8FAFC)
+            containerColor = EmployerColors.ChipBackground
         ),
         shape = RoundedCornerShape(0.dp)
     ) {
@@ -945,7 +946,7 @@ private fun ExperienceItem(experience: WorkExperienceDisplay) {
                 Text(
                     text = experience.duration,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 )
             }
@@ -953,14 +954,14 @@ private fun ExperienceItem(experience: WorkExperienceDisplay) {
             Text(
                 text = experience.company,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF3B82F6)
+                    color = EmployerColors.Primary
                 )
             )
             
             Text(
                 text = experience.description,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
         }
@@ -994,7 +995,7 @@ private fun SkillsCard(skills: List<String>) {
                 items(skills) { skill ->
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF3B82F6).copy(alpha = 0.1f)
+                            containerColor = EmployerColors.Primary.copy(alpha = 0.1f)
                         ),
                         shape = RoundedCornerShape(0.dp)
                     ) {
@@ -1003,7 +1004,7 @@ private fun SkillsCard(skills: List<String>) {
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF3B82F6)
+                                color = EmployerColors.Primary
                             )
                         )
                     }
@@ -1037,7 +1038,7 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
                 Text(
                     text = "Languages: ${workerProfile.languages.joinToString(", ")}",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 )
             }
@@ -1072,7 +1073,7 @@ private fun ActionButtonsCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFDC2626)
+                        contentColor = EmployerColors.Error
                     )
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -1084,7 +1085,7 @@ private fun ActionButtonsCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
+                        containerColor = EmployerColors.Success
                     )
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -1119,8 +1120,8 @@ private fun ActionButtonsCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFF59E0B),
-                    disabledContentColor = Color(0xFF059669)
+                    contentColor = EmployerColors.Warning,
+                    disabledContentColor = EmployerColors.Success
                 )
             ) {
                 Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -1172,9 +1173,9 @@ private fun ApplicationActionDialog(
                 onClick = { onConfirm(action) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = when (action) {
-                        ApplicationAction.SHORTLIST -> Color(0xFF10B981)
-                        ApplicationAction.REJECT -> Color(0xFFDC2626)
-                        ApplicationAction.SEND_MESSAGE -> Color(0xFF3B82F6)
+                        ApplicationAction.SHORTLIST -> EmployerColors.Success
+                        ApplicationAction.REJECT -> EmployerColors.Error
+                        ApplicationAction.SEND_MESSAGE -> EmployerColors.Primary
                         ApplicationAction.MARK_COMPLETED -> Color(0xFF1F8B4C)
                     }
                 )
@@ -1202,12 +1203,12 @@ private fun LoadingWorkerProfileState() {
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = Color(0xFF3B82F6)
+                color = EmployerColors.Primary
             )
             Text(
                 text = "Loading worker profile...",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
         }
@@ -1237,7 +1238,7 @@ private fun ErrorWorkerProfileState(
                     Icons.Default.Error,
                     contentDescription = "Error",
                     modifier = Modifier.size(48.dp),
-                    tint = Color(0xFFDC2626)
+                    tint = EmployerColors.Error
                 )
                 Text(
                     text = "Failed to load worker profile",
@@ -1249,14 +1250,14 @@ private fun ErrorWorkerProfileState(
                 Text(
                     text = error,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     ),
                     textAlign = TextAlign.Center
                 )
                 Button(
                     onClick = onRetry,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3B82F6)
+                        containerColor = EmployerColors.Primary
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {

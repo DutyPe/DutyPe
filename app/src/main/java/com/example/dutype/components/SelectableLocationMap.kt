@@ -18,11 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.GeoUtils
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -110,7 +110,7 @@ fun SelectableLocationMap(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFFF8FAFC)),
+                        .background(WorkerColors.ChipBackground),
                     contentAlignment = Alignment.Center
                 ) {
                     if (showFallback) {
@@ -121,7 +121,7 @@ fun SelectableLocationMap(
                             Text(
                                 text = "Map unavailable",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF111111),
+                                    color = WorkerColors.TextPrimary,
                                     fontWeight = FontWeight.SemiBold,
                                     textAlign = TextAlign.Center
                                 )
@@ -129,7 +129,7 @@ fun SelectableLocationMap(
                             Text(
                                 text = "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF64748B),
+                                    color = WorkerColors.TextSecondary,
                                     textAlign = TextAlign.Center
                                 ),
                                 modifier = Modifier.padding(top = 6.dp)
@@ -138,7 +138,7 @@ fun SelectableLocationMap(
                     } else {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = Color(0xFF111111),
+                            color = WorkerColors.TextPrimary,
                             strokeWidth = 2.dp
                         )
                     }

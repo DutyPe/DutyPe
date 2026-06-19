@@ -157,7 +157,7 @@ fun CategoriesScreen(
                     modifier = Modifier
                         .width(1.dp)
                         .fillMaxHeight()
-                        .background(Color(0xFFE5E7EB))
+                        .background(WorkerColors.Border)
                 )
                 
                 // Right Side - Jobs List
@@ -215,12 +215,12 @@ private fun CategoryItemView(
     onClick: () -> Unit
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) Color(0xFFEDF8FF) else Color.Transparent,
+        targetValue = if (isSelected) WorkerColors.InfoLight else Color.Transparent,
         animationSpec = tween(200),
         label = "bgColor"
     )
     val textColor by animateColorAsState(
-        targetValue = if (isSelected) Color(0xFF1F2937) else Color(0xFF6B7280),
+        targetValue = if (isSelected) WorkerColors.TextPrimary else WorkerColors.TextSecondary,
         animationSpec = tween(200),
         label = "textColor"
     )
@@ -262,7 +262,7 @@ private fun CategoryItemView(
                     .width(24.dp)
                     .height(3.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFF3B82F6))
+                    .background(WorkerColors.Primary)
             )
         }
     }
@@ -313,7 +313,7 @@ private fun JobsListSection(
     
     Column(modifier = modifier.background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)) {
         // Divider at top
-        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 1.dp)
+        HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
         
         // Loading state
         if (isLoading && jobs.isEmpty()) {
@@ -342,14 +342,14 @@ private fun JobsListSection(
                     Icon(
                         imageVector = Icons.Default.Work,
                         contentDescription = null,
-                        tint = Color(0xFFD1D5DB),
+                        tint = WorkerColors.TextTertiary,
                         modifier = Modifier.size(64.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = if (selectedCategory == "All") "No nearby jobs right now" else "No $selectedCategory jobs nearby",
                         style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280),
+                            color = WorkerColors.TextSecondary,
                             textAlign = TextAlign.Center
                         )
                     )
@@ -357,7 +357,7 @@ private fun JobsListSection(
                     Text(
                         text = "We checked 10km and 15km around your location. Try another area to unlock more jobs.",
                         style = AppTypography.bodySmall.copy(
-                            color = Color(0xFF9CA3AF),
+                            color = WorkerColors.TextTertiary,
                             textAlign = TextAlign.Center
                         )
                     )
@@ -410,7 +410,7 @@ private fun JobsListSection(
                             } else {
                                 Text(
                                     text = "Loading more jobs...",
-                                    style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280))
+                                    style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
                                 )
                             }
                         }

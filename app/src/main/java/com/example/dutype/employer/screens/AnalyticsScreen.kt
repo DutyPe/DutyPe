@@ -50,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.employer.models.JobStats
 import java.text.SimpleDateFormat
 import java.util.*
@@ -157,7 +158,7 @@ fun OverviewStatsSection(
                 title = stringResource(R.string.active_jobs),
                 value = activeJobs.toString(),
                 icon = Icons.Default.Work,
-                color = Color(0xFF10B981),
+                color = EmployerColors.Success,
                 modifier = Modifier.weight(1f)
             )
             StatCard(
@@ -175,7 +176,7 @@ fun OverviewStatsSection(
                 title = stringResource(R.string.todays_posts),
                 value = jobStats.todayJobs.toString(),
                 icon = Icons.Default.CalendarToday,
-                color = Color(0xFF3B82F6),
+                color = EmployerColors.Primary,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -188,7 +189,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -210,12 +211,12 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 ApplicationStatItem(
                     label = stringResource(R.string.total_label),
                     value = appStats.totalApplications.toString(),
-                    color = Color(0xFF3B82F6)
+                    color = EmployerColors.Primary
                 )
                 ApplicationStatItem(
                     label = stringResource(R.string.applied),
                     value = appStats.appliedApplications.toString(),
-                    color = Color(0xFFF59E0B)
+                    color = EmployerColors.Warning
                 )
                 ApplicationStatItem(
                     label = stringResource(R.string.shortlisted),
@@ -225,7 +226,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 ApplicationStatItem(
                     label = stringResource(R.string.hired),
                     value = appStats.hiredApplications.toString(),
-                    color = Color(0xFF10B981)
+                    color = EmployerColors.Success
                 )
             }
         }
@@ -251,7 +252,7 @@ private fun ApplicationStatItem(
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6B7280)
+                color = EmployerColors.TextSecondary
             )
         )
     }
@@ -291,7 +292,7 @@ fun RecentApplicationsSection(
                     Text(
                         text = "View All",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF3B82F6),
+                            color = EmployerColors.Primary,
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -311,14 +312,14 @@ fun RecentApplicationsSection(
                         Icon(
                             imageVector = Icons.Default.PersonAdd,
                             contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
+                            tint = EmployerColors.TextTertiary,
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "No applications yet",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
+                                color = EmployerColors.TextSecondary
                             )
                         )
                     }
@@ -371,14 +372,14 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
                         Icon(
                             imageVector = Icons.Default.Work,
                             contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
+                            tint = EmployerColors.TextTertiary,
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "No jobs posted yet",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
+                                color = EmployerColors.TextSecondary
                             )
                         )
                     }
@@ -397,7 +398,7 @@ private fun JobActivityItem(job: JobListing) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
+            .background(EmployerColors.ChipBackground, RoundedCornerShape(8.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -405,7 +406,7 @@ private fun JobActivityItem(job: JobListing) {
             modifier = Modifier
                 .size(40.dp)
                 .background(
-                    Color(0xFF10B981).copy(alpha = 0.1f),
+                    EmployerColors.Success.copy(alpha = 0.1f),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -413,7 +414,7 @@ private fun JobActivityItem(job: JobListing) {
             Icon(
                 imageVector = Icons.Default.Work,
                 contentDescription = null,
-                tint = Color(0xFF10B981),
+                tint = EmployerColors.Success,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -433,7 +434,7 @@ private fun JobActivityItem(job: JobListing) {
             Text(
                 text = "Posted ${DateTimeUtils.formatRelativeTime(job.createdAt)}",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
         }
@@ -442,7 +443,7 @@ private fun JobActivityItem(job: JobListing) {
         Box(
             modifier = Modifier
                 .background(
-                    Color(0xFFD1FAE5),
+                    EmployerColors.SuccessLight,
                     RoundedCornerShape(4.dp)
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -451,7 +452,7 @@ private fun JobActivityItem(job: JobListing) {
                 text = "Open",
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF059669)
+                    color = EmployerColors.Success
                 )
             )
         }
@@ -496,7 +497,7 @@ fun StatCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF6B7280),
+                    color = EmployerColors.TextSecondary,
                     textAlign = TextAlign.Center
                 )
             )
@@ -531,7 +532,7 @@ fun AnalyticsItem(
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
             )
         }
     }
@@ -551,7 +552,7 @@ fun ActivityItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFF6B7280),
+            tint = EmployerColors.TextSecondary,
             modifier = Modifier.size(16.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -561,7 +562,7 @@ fun ActivityItem(
             )
                 Text(
                 text = time,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
             )
         }
     }
@@ -582,7 +583,7 @@ fun RecentApplicationItem(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -597,7 +598,7 @@ fun RecentApplicationItem(
                 )
                 Text(
                     text = "Job ${application.jobId.takeLast(6)}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
             }
 
@@ -605,12 +606,12 @@ fun RecentApplicationItem(
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = when (application.status) {
-                        ApplicationStatus.APPLIED -> Color(0xFFFEF3C7)
-                        ApplicationStatus.SHORTLISTED -> Color(0xFFDBEAFE)
-                        ApplicationStatus.HIRED -> Color(0xFFD1FAE5)
-                        ApplicationStatus.COMPLETED -> Color(0xFFD1FAE5)
-                        ApplicationStatus.REJECTED -> Color(0xFFFEE2E2)
-                        ApplicationStatus.WITHDRAWN -> Color(0xFFF3F4F6)
+                        ApplicationStatus.APPLIED -> EmployerColors.WarningLight
+                        ApplicationStatus.SHORTLISTED -> EmployerColors.InfoLight
+                        ApplicationStatus.HIRED -> EmployerColors.SuccessLight
+                        ApplicationStatus.COMPLETED -> EmployerColors.SuccessLight
+                        ApplicationStatus.REJECTED -> EmployerColors.ErrorLight
+                        ApplicationStatus.WITHDRAWN -> EmployerColors.ChipBackground
                     }
                 )
             ) {
@@ -619,11 +620,11 @@ fun RecentApplicationItem(
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontWeight = FontWeight.Medium,
                         color = when (application.status) {
-                            ApplicationStatus.APPLIED -> Color(0xFF92400E)
-                            ApplicationStatus.SHORTLISTED -> Color(0xFF1E40AF)
-                            ApplicationStatus.HIRED -> Color(0xFF065F46)
-                            ApplicationStatus.COMPLETED -> Color(0xFF065F46)
-                            ApplicationStatus.REJECTED -> Color(0xFF991B1B)
+                            ApplicationStatus.APPLIED -> EmployerColors.Warning
+                            ApplicationStatus.SHORTLISTED -> EmployerColors.Info
+                            ApplicationStatus.HIRED -> EmployerColors.Success
+                            ApplicationStatus.COMPLETED -> EmployerColors.Success
+                            ApplicationStatus.REJECTED -> EmployerColors.Error
                             ApplicationStatus.WITHDRAWN -> Color(0xFF4B5563)
                         }
                     ),

@@ -34,10 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.dutype.services.Rating
+import com.example.dutype.ui.theme.WorkerColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -74,7 +74,7 @@ fun UserReviewsBottomSheet(
                 text = title,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+                    color = WorkerColors.TextPrimary
                 )
             )
 
@@ -87,20 +87,20 @@ fun UserReviewsBottomSheet(
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = Color(0xFFFBBF24),
+                    tint = WorkerColors.Warning,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = String.format("%.1f", averageRating),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     )
                 )
                 Text(
                     text = "($totalRatings ${if (totalRatings == 1) "review" else "reviews"})",
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 )
             }
@@ -147,7 +147,7 @@ fun UserReviewsBottomSheet(
                         Text(
                             text = emptyText,
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
+                                color = WorkerColors.TextSecondary
                             )
                         )
                     }
@@ -192,7 +192,7 @@ private fun ReviewItem(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground)
     ) {
         Column(
             modifier = Modifier
@@ -209,14 +209,14 @@ private fun ReviewItem(
                     text = displayLabel,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     ),
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     text = formatter.format(Date(review.createdAt)),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF9CA3AF)
+                        color = WorkerColors.TextTertiary
                     )
                 )
             }
@@ -226,7 +226,7 @@ private fun ReviewItem(
                     Icon(
                         imageVector = if (index < review.rating) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = null,
-                        tint = Color(0xFFFBBF24),
+                        tint = WorkerColors.Warning,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -236,7 +236,7 @@ private fun ReviewItem(
                 Text(
                     text = review.review,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF374151)
+                        color = WorkerColors.TextSecondary
                     )
                 )
             }
@@ -245,7 +245,7 @@ private fun ReviewItem(
                 Text(
                     text = review.tags.joinToString("  •  "),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 )
             }

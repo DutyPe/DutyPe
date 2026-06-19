@@ -257,7 +257,7 @@ private fun SavedJobsHeader(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF8FAFC)
+            containerColor = WorkerColors.ChipBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp)
@@ -277,7 +277,7 @@ private fun SavedJobsHeader(
                         .size(40.dp)
                         .clip(CircleShape)
                         // Solid worker-primary tint icon background (no gradient).
-                        .background(Color(0xFF1F2937)),
+                        .background(WorkerColors.Primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -294,13 +294,13 @@ private fun SavedJobsHeader(
                     Text(
                         text = stringResource(R.string.saved_jobs),
                         style = AppTypography.sectionHeader.copy(
-                            color = Color(0xFF1E293B)
+                            color = WorkerColors.TextPrimary
                         )
                     )
                     Text(
                         text = "$savedJobsCount ${if (savedJobsCount == 1) stringResource(R.string.job_singular) else stringResource(R.string.jobs_plural)} ${stringResource(R.string.saved_lowercase)}",
                         style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
+                            color = WorkerColors.TextSecondary
                         )
                     )
                 }
@@ -314,7 +314,7 @@ private fun SavedJobsHeader(
                 TextButton(
                     onClick = onClearAll,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFDC2626)
+                        contentColor = WorkerColors.Error
                     )
                 ) {
                     Icon(

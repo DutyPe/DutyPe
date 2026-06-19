@@ -22,6 +22,7 @@ import com.example.dutype.components.AboutHero
 import com.example.dutype.components.AboutParagraph
 import com.example.dutype.components.AboutSectionCard
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.appVersionName
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
@@ -35,7 +36,7 @@ fun EmployerAboutScreen(
         onStatusBarColorChange(Color.White)
     }
 
-    val accent = Color(0xFF2563EB)
+    val accent = EmployerColors.Primary
     val appVersion = LocalContext.current.appVersionName()
 
     Column(
@@ -64,7 +65,7 @@ fun EmployerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_mission),
-                accentColor = Color(0xFF10B981),
+                accentColor = EmployerColors.Success,
                 icon = "\uD83C\uDFAF"
             ) {
                 AboutParagraph(
@@ -74,7 +75,7 @@ fun EmployerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_vision),
-                accentColor = Color(0xFFF59E0B),
+                accentColor = EmployerColors.Warning,
                 icon = "\uD83D\uDD2D"
             ) {
                 AboutParagraph(
@@ -84,7 +85,7 @@ fun EmployerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.key_features_employers),
-                accentColor = Color(0xFF2563EB),
+                accentColor = EmployerColors.Primary,
                 icon = "\u2728"
             ) {
                 AboutBullet(stringResource(R.string.about_emp_feat_post_jobs), accent)
@@ -99,16 +100,16 @@ fun EmployerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.hire_for_any_role),
-                accentColor = Color(0xFFEF4444),
+                accentColor = EmployerColors.Error,
                 icon = "\uD83D\uDC65"
             ) {
-                AboutBullet(stringResource(R.string.about_emp_cat_delivery), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_kitchen), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_housekeeping), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_shop), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_childcare), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_maintenance_w), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_emp_cat_event), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_emp_cat_delivery), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_kitchen), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_housekeeping), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_shop), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_childcare), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_maintenance_w), EmployerColors.Error)
+                AboutBullet(stringResource(R.string.about_emp_cat_event), EmployerColors.Error)
             }
 
             AboutSectionCard(

@@ -42,27 +42,27 @@ private data class AnnouncementStyle(
 private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
     return when (type) {
         AnnouncementType.INFO -> AnnouncementStyle(
-            containerColor = Color(0xFFEFF6FF),
-            accentColor = Color(0xFF2563EB),
-            iconContainerColor = Color(0xFFDBEAFE),
+            containerColor = WorkerColors.InfoLight,
+            accentColor = WorkerColors.Primary,
+            iconContainerColor = WorkerColors.InfoLight,
             icon = Icons.Default.Info,
         )
         AnnouncementType.SUCCESS -> AnnouncementStyle(
-            containerColor = Color(0xFFECFDF5),
-            accentColor = Color(0xFF059669),
-            iconContainerColor = Color(0xFFD1FAE5),
+            containerColor = WorkerColors.SuccessLight,
+            accentColor = WorkerColors.Success,
+            iconContainerColor = WorkerColors.SuccessLight,
             icon = Icons.Default.CheckCircle,
         )
         AnnouncementType.WARNING -> AnnouncementStyle(
-            containerColor = Color(0xFFFFFBEB),
-            accentColor = Color(0xFFD97706),
-            iconContainerColor = Color(0xFFFEF3C7),
+            containerColor = WorkerColors.WarningLight,
+            accentColor = WorkerColors.Warning,
+            iconContainerColor = WorkerColors.WarningLight,
             icon = Icons.Default.Warning,
         )
         AnnouncementType.ERROR -> AnnouncementStyle(
-            containerColor = Color(0xFFFEF2F2),
-            accentColor = Color(0xFFDC2626),
-            iconContainerColor = Color(0xFFFEE2E2),
+            containerColor = WorkerColors.ErrorLight,
+            accentColor = WorkerColors.Error,
+            iconContainerColor = WorkerColors.ErrorLight,
             icon = Icons.Default.Error,
         )
         AnnouncementType.FEATURE -> AnnouncementStyle(
@@ -72,9 +72,9 @@ private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
             icon = Icons.Default.Star,
         )
         AnnouncementType.PROMOTION -> AnnouncementStyle(
-            containerColor = Color(0xFFFFF7ED),
-            accentColor = Color(0xFFEA580C),
-            iconContainerColor = Color(0xFFFFEDD5),
+            containerColor = WorkerColors.WarningLight,
+            accentColor = WorkerColors.Warning,
+            iconContainerColor = WorkerColors.WarningLight,
             icon = Icons.Default.LocalOffer,
         )
     }
@@ -104,7 +104,7 @@ fun AnnouncementCard(
             .padding(horizontal = 16.dp)
             .then(actionModifier),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Box(
@@ -112,7 +112,7 @@ fun AnnouncementCard(
                 .fillMaxWidth()
                 .background(
                     Brush.horizontalGradient(
-                        colors = listOf(style.containerColor, Color.White)
+                        colors = listOf(style.containerColor, WorkerColors.CardBackground)
                     )
                 )
         ) {
@@ -246,7 +246,7 @@ fun AnnouncementCarousel(
                         .padding(horizontal = 3.dp)
                         .size(width = if (isSelected) 18.dp else 7.dp, height = 7.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSelected) dotStyle.accentColor else Color(0xFFE5E7EB))
+                        .background(if (isSelected) dotStyle.accentColor else WorkerColors.Border)
                 )
             }
         }

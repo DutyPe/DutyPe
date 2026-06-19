@@ -109,7 +109,7 @@ fun PayTypeDropdown(
                             Icon(
                                 imageVector = JobPostingHelpers.getPayTypeIcon(payType),
                                 contentDescription = null,
-                                tint = Color(0xFF3B82F6),
+                                tint = EmployerColors.Primary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
@@ -172,12 +172,12 @@ private fun ShiftChip(
             .defaultMinSize(minWidth = 0.dp)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFF3B82F6) else EmployerColors.CardBackground
+            containerColor = if (isSelected) EmployerColors.Primary else EmployerColors.CardBackground
         ),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
-            if (isSelected) Color(0xFF3B82F6) else EmployerColors.Border
+            if (isSelected) EmployerColors.Primary else EmployerColors.Border
         )
     ) {
         Row(
@@ -240,7 +240,7 @@ fun PostJobBottomBar(
                 modifier = Modifier.weight(2f),
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6)
+                    containerColor = EmployerColors.Primary
                 )
             ) {
                 if (isLoading) {
@@ -286,7 +286,7 @@ fun StepHeader(title: String, subtitle: String) {
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF6B7280),
+            color = EmployerColors.TextSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -331,7 +331,7 @@ fun JobDescriptionSection(
     description: String,
     onDescriptionChange: (String) -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = EmployerColors.Primary
 
     SectionContainer {
         Column(
@@ -349,7 +349,7 @@ fun JobDescriptionSection(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "*",
-                    color = Color(0xFFEF4444),
+                    color = EmployerColors.Error,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -359,7 +359,7 @@ fun JobDescriptionSection(
                 placeholder = { 
                     Text(
                         stringResource(R.string.job_description_hint),
-                        color = Color(0xFF94A3B8)
+                        color = EmployerColors.TextTertiary
                     ) 
                 },
                 modifier = Modifier
@@ -369,7 +369,7 @@ fun JobDescriptionSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = primaryBlue
                 )
             )
@@ -440,7 +440,7 @@ fun PaymentSection(
                         },
                         shape = RoundedCornerShape(10.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF3B82F6),
+                            selectedContainerColor = EmployerColors.Primary,
                             selectedLabelColor = Color.White,
                             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
                             labelColor = EmployerColors.TextPrimary
@@ -449,7 +449,7 @@ fun PaymentSection(
                             enabled = true,
                             selected = selected,
                             borderColor = EmployerColors.Border,
-                            selectedBorderColor = Color(0xFF3B82F6)
+                            selectedBorderColor = EmployerColors.Primary
                         )
                     )
                 }
@@ -515,7 +515,7 @@ fun VacanciesSection(
     vacancies: String,
     onVacanciesChange: (String) -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = EmployerColors.Primary
     val isError = vacancies.isNotEmpty() && (vacancies.toIntOrNull() ?: 0) > 50
 
     SectionContainer {
@@ -549,22 +549,22 @@ fun VacanciesSection(
                 singleLine = true,
                 isError = isError,
                 supportingText = if (isError) {
-                    { Text(stringResource(R.string.max_50_vacancies_hint), color = Color(0xFFDC2626)) }
+                    { Text(stringResource(R.string.max_50_vacancies_hint), color = EmployerColors.Error) }
                 } else null,
                 shape = RoundedCornerShape(12.dp),
                 leadingIcon = {
                     Icon(
                         Icons.Default.People, 
                         contentDescription = null,
-                        tint = if (isError) Color(0xFFDC2626) else EmployerColors.IconSecondary
+                        tint = if (isError) EmployerColors.Error else EmployerColors.IconSecondary
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (isError) Color(0xFFDC2626) else primaryBlue,
-                    focusedLabelColor = if (isError) Color(0xFFDC2626) else primaryBlue,
-                    unfocusedBorderColor = if (isError) Color(0xFFDC2626) else Color(0xFFE2E8F0),
+                    focusedBorderColor = if (isError) EmployerColors.Error else primaryBlue,
+                    focusedLabelColor = if (isError) EmployerColors.Error else primaryBlue,
+                    unfocusedBorderColor = if (isError) EmployerColors.Error else EmployerColors.Border,
                     cursorColor = primaryBlue,
-                    errorBorderColor = Color(0xFFDC2626)
+                    errorBorderColor = EmployerColors.Error
                 )
             )
         }
@@ -578,7 +578,7 @@ fun ContactSection(
     employerName: String,
     onEmployerNameChange: (String) -> Unit
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = EmployerColors.Primary
 
     SectionContainer {
         Column(
@@ -596,7 +596,7 @@ fun ContactSection(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "*",
-                    color = Color(0xFFEF4444),
+                    color = EmployerColors.Error,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -620,7 +620,7 @@ fun ContactSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = primaryBlue
                 )
             )
@@ -646,7 +646,7 @@ fun ContactSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryBlue,
                     focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                    unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = primaryBlue
                 )
             )

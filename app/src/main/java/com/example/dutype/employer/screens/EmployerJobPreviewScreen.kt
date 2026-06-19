@@ -56,6 +56,7 @@ import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ImageUploadUtils
 import com.example.dutype.utils.JobEditPolicy
@@ -174,7 +175,7 @@ fun EmployerJobPreviewScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF2563EB))
+                        CircularProgressIndicator(color = EmployerColors.Primary)
                     }
                 }
                 notFound || job == null -> {
@@ -184,7 +185,7 @@ fun EmployerJobPreviewScreen(
                     ) {
                         Text(
                             text = "Job not found",
-                            color = Color(0xFF6B7280),
+                            color = EmployerColors.TextSecondary,
                             fontSize = 14.sp
                         )
                     }
@@ -281,7 +282,7 @@ fun EmployerJobPreviewScreen(
                     },
                     enabled = !isDeletingJob,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626),
+                        containerColor = EmployerColors.Error,
                         contentColor = Color.White
                     )
                 ) {
@@ -323,7 +324,7 @@ private fun HeroBlock(
         // Neutral background so the full image is visible without edge
         // cropping (ContentScale.Fit). Replaces the previous near-black
         // surface that visually merged with cropped edges.
-        color = Color(0xFFF3F4F6)
+        color = EmployerColors.ChipBackground
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!imageUrl.isNullOrBlank()) {
@@ -342,11 +343,11 @@ private fun HeroBlock(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFFF9FAFB)),
+                            .background(EmployerColors.ChipBackground),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            color = Color(0xFF2563EB),
+                            color = EmployerColors.Primary,
                             strokeWidth = 2.5.dp,
                             modifier = Modifier.size(32.dp)
                         )
@@ -395,7 +396,7 @@ private fun HeroBlock(
                         onClick = onUploadClick,
                         enabled = !isUploading,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2563EB),
+                            containerColor = EmployerColors.Primary,
                             contentColor = Color.White
                         )
                     ) {
@@ -428,14 +429,14 @@ private fun HeroBlock(
 private fun TitleBlock(job: JobListing) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White
+        color = EmployerColors.CardBackground
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = job.title.ifBlank { "Untitled job" },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             )
             if (job.location.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
@@ -445,14 +446,14 @@ private fun TitleBlock(job: JobListing) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF6B7280),
+                        tint = EmployerColors.TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = job.location,
                         fontSize = 14.sp,
-                        color = Color(0xFF374151)
+                        color = EmployerColors.TextSecondary
                     )
                 }
             }
@@ -466,7 +467,7 @@ private fun DetailsCard(job: JobListing) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White
+        color = EmployerColors.CardBackground
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(
@@ -479,13 +480,13 @@ private fun DetailsCard(job: JobListing) {
                     text = "Job details",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0F172A),
+                    color = EmployerColors.TextPrimary,
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = null,
-                    tint = Color(0xFF6B7280)
+                    tint = EmployerColors.TextSecondary
                 )
             }
 
@@ -528,37 +529,37 @@ private fun InfoRow(label: String, value: String) {
         Text(
             text = label,
             fontSize = 14.sp,
-            color = Color(0xFF6B7280),
+            color = EmployerColors.TextSecondary,
             modifier = Modifier.weight(1f)
         )
         Text(
             text = value,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF0F172A)
+            color = EmployerColors.TextPrimary
         )
     }
-    HorizontalDivider(color = Color(0xFFF1F5F9))
+    HorizontalDivider(color = EmployerColors.ChipBackground)
 }
 
 @Composable
 private fun DescriptionCard(description: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White
+        color = EmployerColors.CardBackground
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Description",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = description,
                 fontSize = 14.sp,
-                color = Color(0xFF374151),
+                color = EmployerColors.TextSecondary,
                 lineHeight = 22.sp
             )
         }
@@ -572,7 +573,7 @@ private fun StickyEditBar(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
+        color = EmployerColors.CardBackground,
         shadowElevation = 8.dp
     ) {
         Row(
@@ -588,9 +589,9 @@ private fun StickyEditBar(
                     .weight(1f)
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Error),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFFDC2626)
+                    contentColor = EmployerColors.Error
                 )
             ) {
                 Icon(
@@ -613,7 +614,7 @@ private fun StickyEditBar(
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2563EB),
+                    containerColor = EmployerColors.Primary,
                     contentColor = Color.White
                 )
             ) {

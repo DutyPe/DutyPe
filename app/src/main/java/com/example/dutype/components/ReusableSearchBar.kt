@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 
 data class SearchSuggestion(
@@ -89,12 +90,12 @@ fun ReusableSearchBar(
     placeholder: String = "Search for opportunities...",
     height: Int = 58,
     showClearButton: Boolean = true,
-    searchIconColor: Color = Color(0xFF3B82F6),
-    textColor: Color = Color(0xFF1E293B),
-    placeholderColor: Color = Color(0xFF9CA3AF),
-    backgroundColor: Color = Color.White,
-    borderColor: Color = Color(0xFFE2E8F0),
-    focusedBorderColor: Color = Color(0xFF3B82F6),
+    searchIconColor: Color = WorkerColors.Primary,
+    textColor: Color = WorkerColors.TextPrimary,
+    placeholderColor: Color = WorkerColors.TextTertiary,
+    backgroundColor: Color = WorkerColors.CardBackground,
+    borderColor: Color = WorkerColors.Border,
+    focusedBorderColor: Color = WorkerColors.Primary,
     cornerRadius: Int = 16,
     fontSize: Int = 16,
     onSearch: (() -> Unit)? = null,
@@ -358,7 +359,7 @@ fun ReusableSearchBar(
                         modifier = Modifier
                             .size(32.dp)
                             .background(
-                                color = Color(0xFF6B7280).copy(alpha = 0.1f),
+                                color = WorkerColors.TextSecondary.copy(alpha = 0.1f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .clickable(
@@ -373,7 +374,7 @@ fun ReusableSearchBar(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Clear search",
-                            tint = Color(0xFF6B7280),
+                            tint = WorkerColors.TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -450,7 +451,7 @@ private fun EnhancedSuggestionItem(
     var isPressed by remember { mutableStateOf(false) }
 
     val animatedBackgroundColor by animateColorAsState(
-        targetValue = if (isPressed) Color(0xFFF8FAFC) else Color.Transparent,
+        targetValue = if (isPressed) WorkerColors.ChipBackground else Color.Transparent,
         animationSpec = tween(200), label = ""
     )
 
@@ -479,7 +480,7 @@ private fun EnhancedSuggestionItem(
                     Icons.Default.Search
                 },
                 contentDescription = null,
-                tint = if (suggestion.isRecent) Color(0xFF9CA3AF) else Color(0xFF6B7280),
+                tint = if (suggestion.isRecent) WorkerColors.TextTertiary else WorkerColors.TextSecondary,
                 modifier = Modifier.size(20.dp)
             )
 
@@ -498,12 +499,12 @@ private fun EnhancedSuggestionItem(
             if (suggestion.isRecent) {
                 Text(
                     text = "Recent",
-                    color = Color(0xFF9CA3AF),
+                    color = WorkerColors.TextTertiary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier
                         .background(
-                            color = Color(0xFF9CA3AF).copy(alpha = 0.1f),
+                            color = WorkerColors.TextTertiary.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(8.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -514,7 +515,7 @@ private fun EnhancedSuggestionItem(
             Icon(
                 imageVector = Icons.Default.NorthWest,
                 contentDescription = "Use suggestion",
-                tint = Color(0xFF9CA3AF),
+                tint = WorkerColors.TextTertiary,
                 modifier = Modifier.size(16.dp)
             )
         }

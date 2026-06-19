@@ -449,14 +449,6 @@ fun RoleCard(
                             lineHeight = 21.sp
                         )
                     )
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(
-                        text = description,
-                        style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF586174),
-                            lineHeight = 20.sp
-                        )
-                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))

@@ -13,8 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 import timber.log.Timber
 
@@ -101,7 +101,7 @@ fun LocationAutocompleteField(
                     Icon(
                         Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = Color(0xFF6B7280)
+                        tint = WorkerColors.TextSecondary
                     )
                 }
             },
@@ -111,7 +111,7 @@ fun LocationAutocompleteField(
                         Icon(
                             Icons.Default.MyLocation,
                             contentDescription = "Use Current Location",
-                            tint = Color(0xFF3B82F6)
+                            tint = WorkerColors.Primary
                         )
                     }
                 }
@@ -156,7 +156,7 @@ fun LocationAutocompleteField(
                             Icon(
                                 Icons.Default.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFF6B7280),
+                                tint = WorkerColors.TextSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))

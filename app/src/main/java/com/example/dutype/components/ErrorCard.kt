@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -113,12 +112,12 @@ fun WarningCard(
                 .fillMaxWidth()
                 .padding(top = 16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFFBEB) // Light yellow background
+                containerColor = WorkerColors.WarningLight // Light yellow background
             ),
             shape = RoundedCornerShape(12.dp),
             border = CardDefaults.outlinedCardBorder().copy(
                 width = 1.dp, 
-                brush = SolidColor(Color(0xFFFDE68A)) // Yellow border
+                brush = SolidColor(WorkerColors.Warning.copy(alpha = 0.4f)) // Yellow border
             )
         ) {
             Row(
@@ -131,13 +130,13 @@ fun WarningCard(
                 Icon(
                     imageVector = Icons.Rounded.ErrorOutline,
                     contentDescription = "Warning",
-                    tint = Color(0xFFD97706), // Amber icon
+                    tint = WorkerColors.Warning, // Amber icon
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = message ?: "",
-                    color = Color(0xFFD97706), // Amber text
+                    color = WorkerColors.Warning, // Amber text
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Start

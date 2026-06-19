@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -113,14 +114,14 @@ private fun LogoutBottomSheetContent(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFFFF3E0)),
+                .background(WorkerColors.WarningLight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ExitToApp,
                 contentDescription = "Logout",
                 modifier = Modifier.size(26.dp),
-                tint = Color(0xFFFF9800)
+                tint = WorkerColors.Warning
             )
         }
         
@@ -137,7 +138,7 @@ private fun LogoutBottomSheetContent(
         Text(
             text = "Are you sure you want to sign out?",
             style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF6B7280)
+                color = WorkerColors.TextSecondary
             ),
             textAlign = TextAlign.Center
         )
@@ -158,7 +159,7 @@ private fun LogoutBottomSheetContent(
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF6B7280)
+                    contentColor = WorkerColors.TextSecondary
                 )
             ) {
                 Text(
@@ -179,7 +180,7 @@ private fun LogoutBottomSheetContent(
                 enabled = !isLoggingOut,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF000000)
+                    containerColor = WorkerColors.Primary
                 )
             ) {
                 if (isLoggingOut) {

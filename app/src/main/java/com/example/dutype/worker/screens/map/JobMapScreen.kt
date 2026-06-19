@@ -34,6 +34,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.utils.LocationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -113,10 +114,10 @@ fun JobMapScreen(
     val defaultLongitude = 78.486671
     
     // Colors
-    val primaryBlue = Color(0xFF2563EB)
-    val urgentRed = Color(0xFFEF4444)
-    val availableGreen = Color(0xFF10B981)
-    val warningOrange = Color(0xFFF59E0B)
+    val primaryBlue = WorkerColors.Primary
+    val urgentRed = WorkerColors.Error
+    val availableGreen = WorkerColors.Success
+    val warningOrange = WorkerColors.Warning
     
     // Get user location on launch
     LaunchedEffect(locationPermissionState.status.isGranted) {
@@ -215,7 +216,7 @@ fun JobMapScreen(
             // Main header
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = WorkerColors.CardBackground,
                 shadowElevation = 8.dp
             ) {
                 Column {
@@ -229,7 +230,7 @@ fun JobMapScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = Color(0xFF1E293B)
+                                tint = WorkerColors.TextPrimary
                             )
                         }
                         
@@ -238,7 +239,7 @@ fun JobMapScreen(
                                 text = stringResource(R.string.jobs_near_you_map),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
+                                color = WorkerColors.TextPrimary
                             )
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -256,7 +257,7 @@ fun JobMapScreen(
                                         DistanceFilter.ALL -> stringResource(R.string.map_all)
                                     }}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF6B7280)
+                                    color = WorkerColors.TextSecondary
                                 )
                             }
                         }
@@ -269,7 +270,7 @@ fun JobMapScreen(
                                 Icon(
                                     Icons.Outlined.FilterList,
                                     contentDescription = "Filters",
-                                    tint = if (showFilters) primaryBlue else Color(0xFF6B7280)
+                                    tint = if (showFilters) primaryBlue else WorkerColors.TextSecondary
                                 )
                             }
                         }
@@ -320,7 +321,7 @@ fun JobMapScreen(
                                         onClick = { selectedCategory = null },
                                         label = { Text(stringResource(R.string.all)) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF374151),
+                                            selectedContainerColor = WorkerColors.Primary,
                                             selectedLabelColor = Color.White
                                         )
                                     )
@@ -333,7 +334,7 @@ fun JobMapScreen(
                                         },
                                         label = { Text(category) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFF374151),
+                                            selectedContainerColor = WorkerColors.Primary,
                                             selectedLabelColor = Color.White
                                         )
                                     )
@@ -389,7 +390,7 @@ fun JobMapScreen(
                 },
                 modifier = Modifier.size(44.dp),
                 containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                contentColor = Color(0xFF1E293B),
+                contentColor = WorkerColors.TextPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Zoom In", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -407,7 +408,7 @@ fun JobMapScreen(
                 },
                 modifier = Modifier.size(44.dp),
                 containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                contentColor = Color(0xFF1E293B),
+                contentColor = WorkerColors.TextPrimary,
                 shape = CircleShape
             ) {
                 Icon(Icons.Default.Remove, contentDescription = "Zoom Out", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -511,13 +512,13 @@ fun JobMapScreen(
                         }),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        color = WorkerColors.TextPrimary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.try_expanding_search),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(
@@ -582,12 +583,12 @@ private fun DistanceFilterChip(
     jobCount: Int,
     onClick: () -> Unit
 ) {
-    val selectedColor = Color(0xFF374151) // Dark gray for selected state
+    val selectedColor = WorkerColors.Primary // Dark gray for selected state
     
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) selectedColor else Color.White,
+        color = if (isSelected) selectedColor else WorkerColors.CardBackground,
         border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)) else null,
         shadowElevation = if (isSelected) 4.dp else 0.dp
     ) {
@@ -643,9 +644,9 @@ private fun EnhancedJobMapCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val primaryBlue = Color(0xFF2563EB)
-    val urgentRed = Color(0xFFEF4444)
-    val successGreen = Color(0xFF10B981)
+    val primaryBlue = WorkerColors.Primary
+    val urgentRed = WorkerColors.Error
+    val successGreen = WorkerColors.Success
     
     val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
     
@@ -717,7 +718,7 @@ private fun EnhancedJobMapCard(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color(0xFF9CA3AF),
+                        tint = WorkerColors.TextTertiary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -730,7 +731,7 @@ private fun EnhancedJobMapCard(
                 text = job.title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1E293B),
+                color = WorkerColors.TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -746,8 +747,8 @@ private fun EnhancedJobMapCard(
                 InfoChip(
                     icon = "💰",
                     text = salaryDisplay,
-                    backgroundColor = Color(0xFFF0FDF4),
-                    textColor = Color(0xFF166534)
+                    backgroundColor = WorkerColors.SuccessLight,
+                    textColor = WorkerColors.Success
                 )
                 
                 // Distance
@@ -765,7 +766,7 @@ private fun EnhancedJobMapCard(
                     InfoChip(
                         icon = "📅",
                         text = job.jobType,
-                        backgroundColor = Color(0xFFFEF3C7),
+                        backgroundColor = WorkerColors.WarningLight,
                         textColor = Color(0xFF92400E)
                     )
                 }

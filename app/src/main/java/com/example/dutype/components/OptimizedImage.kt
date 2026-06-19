@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.size.Scale
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * P1 PERFORMANCE FIX: Enterprise-Grade Image Loading
@@ -48,7 +49,7 @@ fun OptimizedImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    placeholderColor: Color = Color(0xFFF3F4F6)
+    placeholderColor: Color = WorkerColors.ChipBackground
 ) {
     val context = LocalContext.current
     
@@ -71,7 +72,7 @@ fun OptimizedImage(
             ) {
                 CircularProgressIndicator(
                     strokeWidth = 2.dp,
-                    color = Color(0xFF6366F1)
+                    color = WorkerColors.Info
                 )
             }
         },
@@ -94,7 +95,7 @@ fun OptimizedProfileImage(
     imageUrl: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    placeholderColor: Color = Color(0xFFE5E7EB)
+    placeholderColor: Color = WorkerColors.Border
 ) {
     OptimizedImage(
         imageUrl = imageUrl,
@@ -119,6 +120,6 @@ fun OptimizedJobImage(
         contentDescription = contentDescription,
         modifier = modifier,
         contentScale = ContentScale.Crop,
-        placeholderColor = Color(0xFFF3F4F6)
+        placeholderColor = WorkerColors.ChipBackground
     )
 }

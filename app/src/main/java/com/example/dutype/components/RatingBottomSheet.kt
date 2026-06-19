@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 
 /**
  * Rating Bottom Sheet for rating employers/workers after job completion.
@@ -73,11 +74,11 @@ fun RatingBottomSheet(
                     text = ratingLabel,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
+                        color = WorkerColors.TextPrimary
                     )
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, "Close", tint = Color(0xFF6B7280))
+                    Icon(Icons.Default.Close, "Close", tint = WorkerColors.TextSecondary)
                 }
             }
 
@@ -85,7 +86,7 @@ fun RatingBottomSheet(
 
             Text(
                 text = "How was your experience with $targetName?",
-                style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)),
+                style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary),
                 textAlign = TextAlign.Center
             )
 
@@ -99,7 +100,7 @@ fun RatingBottomSheet(
                 (1..5).forEach { star ->
                     val isSelected = star <= selectedRating
                     val color by animateColorAsState(
-                        targetValue = if (isSelected) Color(0xFFFBBF24) else Color(0xFFD1D5DB),
+                        targetValue = if (isSelected) WorkerColors.Warning else WorkerColors.TextTertiary,
                         label = "starColor"
                     )
                     IconButton(
@@ -130,7 +131,7 @@ fun RatingBottomSheet(
                     },
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFF59E0B)
+                        color = WorkerColors.Warning
                     )
                 )
             }
@@ -142,7 +143,7 @@ fun RatingBottomSheet(
                 text = "What stood out?",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF374151)
+                    color = WorkerColors.TextSecondary
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -170,8 +171,8 @@ fun RatingBottomSheet(
                                     )
                                 },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFFFEF3C7),
-                                    selectedLabelColor = Color(0xFFB45309)
+                                    selectedContainerColor = WorkerColors.WarningLight,
+                                    selectedLabelColor = WorkerColors.Warning
                                 )
                             )
                         }
@@ -192,8 +193,8 @@ fun RatingBottomSheet(
                 maxLines = 4,
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFF59E0B),
-                    unfocusedBorderColor = Color(0xFFE5E7EB)
+                    focusedBorderColor = WorkerColors.Warning,
+                    unfocusedBorderColor = WorkerColors.Border
                 )
             )
 
@@ -212,8 +213,8 @@ fun RatingBottomSheet(
                     .height(52.dp),
                 enabled = selectedRating > 0 && !isSubmitting,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF59E0B),
-                    disabledContainerColor = Color(0xFFE5E7EB)
+                    containerColor = WorkerColors.Warning,
+                    disabledContainerColor = WorkerColors.Border
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {

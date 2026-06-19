@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 import com.example.dutype.components.EmptyListState
@@ -92,7 +93,7 @@ fun EmployerAddressManagementScreen(
     val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
     
     // Employer theme color
-    val employerBlue = Color(0xFF3B82F6)
+    val employerBlue = EmployerColors.Primary
     
     // Office addresses derived from SavedWorkLocationsStore
     val officeAddresses = remember(savedWorkLocations) {
@@ -180,7 +181,7 @@ fun EmployerAddressManagementScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
@@ -397,7 +398,7 @@ private fun AddressCard(
     onSetDefault: () -> Unit,
     onToggleActive: () -> Unit
 ) {
-    val employerBlue = Color(0xFF3B82F6)
+    val employerBlue = EmployerColors.Primary
     
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -422,7 +423,7 @@ private fun AddressCard(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = if (address.isActive) employerBlue else Color(0xFF9CA3AF),
+                        tint = if (address.isActive) employerBlue else EmployerColors.TextTertiary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -430,7 +431,7 @@ private fun AddressCard(
                         text = address.name,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (address.isActive) Color(0xFF1F2937) else Color(0xFF9CA3AF),
+                        color = if (address.isActive) EmployerColors.TextPrimary else EmployerColors.TextTertiary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -439,7 +440,7 @@ private fun AddressCard(
                         Spacer(modifier = Modifier.width(8.dp))
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF10B981).copy(alpha = 0.1f)
+                                containerColor = EmployerColors.Success.copy(alpha = 0.1f)
                             ),
                             shape = RoundedCornerShape(4.dp)
                         ) {
@@ -447,7 +448,7 @@ private fun AddressCard(
                                 text = "DEFAULT",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981),
+                                color = EmployerColors.Success,
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -461,7 +462,7 @@ private fun AddressCard(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
-                            tint = Color(0xFF6B7280),
+                            tint = EmployerColors.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -469,7 +470,7 @@ private fun AddressCard(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete",
-                            tint = Color(0xFFEF4444),
+                            tint = EmployerColors.Error,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -481,7 +482,7 @@ private fun AddressCard(
             Text(
                 text = address.address,
                 fontSize = 13.sp,
-                color = if (address.isActive) Color(0xFF6B7280) else Color(0xFF9CA3AF),
+                color = if (address.isActive) EmployerColors.TextSecondary else EmployerColors.TextTertiary,
                 lineHeight = 18.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -504,14 +505,14 @@ private fun AddressCard(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = employerBlue,
                             uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFE5E7EB)
+                            uncheckedTrackColor = EmployerColors.Border
                         )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (address.isActive) "Active" else "Inactive",
                         fontSize = 12.sp,
-                        color = if (address.isActive) Color(0xFF10B981) else Color(0xFF6B7280)
+                        color = if (address.isActive) EmployerColors.Success else EmployerColors.TextSecondary
                     )
                 }
                 

@@ -22,6 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.example.dutype.navigation.Routes
+import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.utils.DateTimeUtils
@@ -65,17 +66,17 @@ fun NotificationDetailScreen(
                     Icon(
                         Icons.Default.Notifications,
                         contentDescription = null,
-                        tint = Color(0xFFBDBDBD),
+                        tint = WorkerColors.TextTertiary,
                         modifier = Modifier.size(64.dp)
                     )
                     Text(
                         text = stringResource(R.string.notif_not_found),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                     Button(
                         onClick = onBackClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                        colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
                     ) {
                         Text(stringResource(R.string.go_back))
                     }
@@ -118,24 +119,24 @@ fun NotificationDetailScreen(
                         Text(
                             text = formatDetailTime(notification.createdAt),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9CA3AF)
+                            color = WorkerColors.TextTertiary
                         )
                     }
                 }
                 
-                HorizontalDivider(color = Color(0xFFF3F4F6))
+                HorizontalDivider(color = WorkerColors.ChipBackground)
                 
                 Text(
                     text = notification.title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF111827)
+                    color = WorkerColors.TextPrimary
                 )
                 
                 Text(
                     text = notification.message,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF4B5563),
+                    color = WorkerColors.TextSecondary,
                     lineHeight = 26.sp
                 )
 
@@ -145,7 +146,7 @@ fun NotificationDetailScreen(
                 if (!jobTitle.isNullOrEmpty()) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+                        colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
@@ -156,13 +157,13 @@ fun NotificationDetailScreen(
                             Icon(
                                 Icons.Default.Work,
                                 contentDescription = null,
-                                tint = Color(0xFF6B7280),
+                                tint = WorkerColors.TextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = stringResource(R.string.notif_job_label, jobTitle),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF374151)
+                                color = WorkerColors.TextSecondary
                             )
                         }
                     }
@@ -181,7 +182,7 @@ fun NotificationDetailScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
+                        colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(actionButton.icon, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -204,8 +205,8 @@ fun NotificationDetailScreen(
                         onBackClick()
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = WorkerColors.Error),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Error),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))

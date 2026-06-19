@@ -36,7 +36,7 @@ fun WorkerAboutScreen(
         onStatusBarColorChange(Color.White)
     }
 
-    val accent = Color(0xFF2563EB)
+    val accent = WorkerColors.Primary
     val appVersion = LocalContext.current.appVersionName()
 
     Column(
@@ -66,7 +66,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_mission),
-                accentColor = Color(0xFF10B981),
+                accentColor = WorkerColors.Success,
                 icon = "\uD83C\uDFAF"
             ) {
                 AboutParagraph(
@@ -76,7 +76,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_vision),
-                accentColor = Color(0xFFF59E0B),
+                accentColor = WorkerColors.Warning,
                 icon = "\uD83D\uDD2D"
             ) {
                 AboutParagraph(
@@ -86,7 +86,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.key_features),
-                accentColor = Color(0xFF2563EB),
+                accentColor = WorkerColors.Primary,
                 icon = "\u2728"
             ) {
                 AboutBullet(stringResource(R.string.about_feat_quick_apply), accent)
@@ -99,15 +99,15 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.job_categories),
-                accentColor = Color(0xFFEF4444),
+                accentColor = WorkerColors.Error,
                 icon = "\uD83D\uDEE0\uFE0F"
             ) {
-                AboutBullet(stringResource(R.string.about_cat_delivery), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_cat_food), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_cat_housekeeping), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_cat_shop), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_cat_childcare), Color(0xFFEF4444))
-                AboutBullet(stringResource(R.string.about_cat_maintenance), Color(0xFFEF4444))
+                AboutBullet(stringResource(R.string.about_cat_delivery), WorkerColors.Error)
+                AboutBullet(stringResource(R.string.about_cat_food), WorkerColors.Error)
+                AboutBullet(stringResource(R.string.about_cat_housekeeping), WorkerColors.Error)
+                AboutBullet(stringResource(R.string.about_cat_shop), WorkerColors.Error)
+                AboutBullet(stringResource(R.string.about_cat_childcare), WorkerColors.Error)
+                AboutBullet(stringResource(R.string.about_cat_maintenance), WorkerColors.Error)
             }
 
             AboutSectionCard(

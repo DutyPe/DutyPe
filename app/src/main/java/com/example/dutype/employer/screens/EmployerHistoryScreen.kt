@@ -43,6 +43,7 @@ import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.DateTimeUtils
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import java.text.SimpleDateFormat
@@ -230,12 +231,12 @@ fun EmployerHistoryScreen(
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-            contentColor = Color(0xFF3B82F6),
+            contentColor = EmployerColors.Primary,
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = Color(0xFF3B82F6),
+                    color = EmployerColors.Primary,
                     height = 3.dp
                 )
             }
@@ -287,7 +288,7 @@ fun EmployerHistoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF3B82F6))
+                    CircularProgressIndicator(color = EmployerColors.Primary)
                 }
             }
             uiState.hasError -> {
@@ -303,19 +304,19 @@ fun EmployerHistoryScreen(
                         Icon(
                             imageVector = Icons.Default.Error,
                             contentDescription = "Error",
-                            tint = Color(0xFFEF4444),
+                            tint = EmployerColors.Error,
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
                             text = uiState.error ?: stringResource(R.string.history_failed_load_jobs),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color(0xFF6B7280),
+                            color = EmployerColors.TextSecondary,
                             textAlign = TextAlign.Center
                         )
                         Button(
                             onClick = { employerJobViewModel.loadMyJobs() },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6)
+                                containerColor = EmployerColors.Primary
                             )
                         ) {
                             Text(stringResource(R.string.retry))
@@ -422,7 +423,7 @@ private fun MonthHeader(monthYear: String) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF3B82F6)),
+                .background(EmployerColors.Primary),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -455,7 +456,7 @@ private fun TimelineJobCard(
     onClick: () -> Unit,
     onRepostExpiredJob: () -> Unit
 ) {
-    val lineColor = Color(0xFFE5E7EB)
+    val lineColor = EmployerColors.Border
     val isExpired = job.isExpired() // Use calculated expiry
     val isClosed = job.status != "open"
     
@@ -485,9 +486,9 @@ private fun TimelineJobCard(
                     .clip(CircleShape)
                     .background(
                         when {
-                            isExpired -> Color(0xFFEF4444)
-                            isClosed -> Color(0xFF6B7280)
-                            else -> Color(0xFF10B981)
+                            isExpired -> EmployerColors.Error
+                            isClosed -> EmployerColors.TextSecondary
+                            else -> EmployerColors.Success
                         }
                     ),
                 contentAlignment = Alignment.Center
@@ -515,7 +516,7 @@ private fun TimelineJobCard(
                 .clickable { onClick() },
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isExpired || isClosed) Color(0xFFF9FAFB) else Color.White
+                containerColor = if (isExpired || isClosed) EmployerColors.ChipBackground else EmployerColors.CardBackground
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -536,7 +537,7 @@ private fun TimelineJobCard(
                     Text(
                         text = formatTimelineDate(job.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF9CA3AF)
+                            color = EmployerColors.TextTertiary
                         )
                     )
                 }
@@ -548,7 +549,7 @@ private fun TimelineJobCard(
                     text = job.title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (isExpired || isClosed) Color(0xFF6B7280) else Color(0xFF111827)
+                        color = if (isExpired || isClosed) EmployerColors.TextSecondary else EmployerColors.TextPrimary
                     ),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -560,7 +561,7 @@ private fun TimelineJobCard(
                 Text(
                     text = job.getCategory(),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = EmployerColors.TextSecondary
                     )
                 )
                 
@@ -574,15 +575,15 @@ private fun TimelineJobCard(
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
                         text = "₹${job.salary.ifBlank { "-" }}",
-                        backgroundColor = Color(0xFFECFDF5),
-                        iconColor = Color(0xFF10B981)
+                        backgroundColor = EmployerColors.SuccessLight,
+                        iconColor = EmployerColors.Success
                     )
                     
                     InfoChip(
                         icon = Icons.Default.LocationOn,
                         text = job.addressText.ifBlank { job.location }.take(15),
-                        backgroundColor = Color(0xFFF3F4F6),
-                        iconColor = Color(0xFF6B7280)
+                        backgroundColor = EmployerColors.ChipBackground,
+                        iconColor = EmployerColors.TextSecondary
                     )
                 }
                 
@@ -602,14 +603,14 @@ private fun TimelineJobCard(
                         Icon(
                             imageVector = Icons.Default.People,
                             contentDescription = null,
-                            tint = Color(0xFF3B82F6),
+                            tint = EmployerColors.Primary,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = stringResource(R.string.history_view_applications),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF3B82F6)
+                                color = EmployerColors.Primary
                             )
                         )
                     }
@@ -625,9 +626,9 @@ private fun TimelineJobCard(
                             else -> stringResource(R.string.history_days_left, daysLeft)
                         },
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isExpired) Color(0xFFEF4444) 
-                                   else if (daysLeft <= 2) Color(0xFFF59E0B)
-                                   else Color(0xFF6B7280),
+                            color = if (isExpired) EmployerColors.Error 
+                                   else if (daysLeft <= 2) EmployerColors.Warning
+                                   else EmployerColors.TextSecondary,
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -674,13 +675,13 @@ private fun EmptyHistoryState(selectedTab: Int) {
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF3F4F6)),
+                    .background(EmployerColors.ChipBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
+                    tint = EmployerColors.TextTertiary,
                     modifier = Modifier.size(48.dp)
                 )
             }
@@ -691,14 +692,14 @@ private fun EmptyHistoryState(selectedTab: Int) {
                 text = message,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF374151)
+                    color = EmployerColors.TextSecondary
                 ),
                 textAlign = TextAlign.Center
             )
             Text(
                 text = subMessage,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = EmployerColors.TextTertiary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -723,7 +724,7 @@ private fun HistoryJobCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isExpired || isClosed) Color(0xFFF9FAFB) else Color.White
+            containerColor = if (isExpired || isClosed) EmployerColors.ChipBackground else EmployerColors.CardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -740,7 +741,7 @@ private fun HistoryJobCard(
                         text = job.title,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = if (isExpired || isClosed) Color(0xFF6B7280) else Color(0xFF111827)
+                            color = if (isExpired || isClosed) EmployerColors.TextSecondary else EmployerColors.TextPrimary
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -748,7 +749,7 @@ private fun HistoryJobCard(
                     Text(
                         text = job.getCategory(), // Use auto-detected category
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
+                            color = EmployerColors.TextSecondary
                         )
                     )
                 }
@@ -768,14 +769,14 @@ private fun HistoryJobCard(
                 InfoChip(
                     icon = Icons.Default.LocationOn,
                     text = job.addressText.ifBlank { job.location }.take(20),
-                    backgroundColor = Color(0xFFF3F4F6),
-                    iconColor = Color(0xFF6B7280)
+                    backgroundColor = EmployerColors.ChipBackground,
+                    iconColor = EmployerColors.TextSecondary
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
                     text = "₹${job.salary.ifBlank { "-" }}",
-                    backgroundColor = Color(0xFFECFDF5),
-                    iconColor = Color(0xFF10B981)
+                    backgroundColor = EmployerColors.SuccessLight,
+                    iconColor = EmployerColors.Success
                 )
             }
             
@@ -793,14 +794,14 @@ private fun HistoryJobCard(
                     Icon(
                         imageVector = Icons.Default.People,
                         contentDescription = null,
-                        tint = Color(0xFF3B82F6),
+                        tint = EmployerColors.Primary,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = stringResource(R.string.history_view_applications),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF3B82F6)
+                            color = EmployerColors.Primary
                         )
                     )
                 }
@@ -816,9 +817,9 @@ private fun HistoryJobCard(
                         else -> stringResource(R.string.history_days_left, daysLeft)
                     },
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (isExpired) Color(0xFFEF4444) 
-                               else if (daysLeft <= 2) Color(0xFFF59E0B)
-                               else Color(0xFF6B7280),
+                        color = if (isExpired) EmployerColors.Error 
+                               else if (daysLeft <= 2) EmployerColors.Warning
+                               else EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
@@ -829,7 +830,7 @@ private fun HistoryJobCard(
             Text(
                 text = stringResource(R.string.history_posted_date, formatDate(job.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = EmployerColors.TextTertiary
                 )
             )
 
@@ -915,9 +916,9 @@ private fun JobStatusBadge(
     isExpired: Boolean
 ) {
     val (color, text, icon) = when {
-        isExpired -> Triple(Color(0xFFEF4444), stringResource(R.string.history_expired), Icons.Default.EventBusy)
-        isClosed -> Triple(Color(0xFF6B7280), "Closed", Icons.Default.Cancel)
-        else -> Triple(Color(0xFF10B981), "Open", Icons.Default.CheckCircle)
+        isExpired -> Triple(EmployerColors.Error, stringResource(R.string.history_expired), Icons.Default.EventBusy)
+        isClosed -> Triple(EmployerColors.TextSecondary, "Closed", Icons.Default.Cancel)
+        else -> Triple(EmployerColors.Success, "Open", Icons.Default.CheckCircle)
     }
     
     Surface(
@@ -950,8 +951,8 @@ private fun JobStatusBadge(
 private fun InfoChip(
     icon: ImageVector,
     text: String,
-    backgroundColor: Color = Color(0xFFF3F4F6),
-    iconColor: Color = Color(0xFF6B7280)
+    backgroundColor: Color = EmployerColors.ChipBackground,
+    iconColor: Color = EmployerColors.TextSecondary
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -971,7 +972,7 @@ private fun InfoChip(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF374151),
+                    color = EmployerColors.TextSecondary,
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = 1,

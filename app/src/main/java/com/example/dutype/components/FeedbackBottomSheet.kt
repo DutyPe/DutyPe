@@ -33,6 +33,7 @@ import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
+import com.example.dutype.ui.theme.WorkerColors
 
 // Helper function to get app version dynamically
 private fun getAppVersion(context: android.content.Context): String {
@@ -125,8 +126,8 @@ fun FeedbackBottomSheet(
                                     .background(
                                         Brush.linearGradient(
                                             colors = listOf(
-                                                Color(0xFF10B981),
-                                                Color(0xFF059669)
+                                                WorkerColors.Success,
+                                                WorkerColors.Success
                                             )
                                         )
                                     ),
@@ -156,7 +157,7 @@ fun FeedbackBottomSheet(
                         Text(
                             text = "Your feedback helps us improve DutyPe",
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
+                                color = WorkerColors.TextSecondary
                             )
                         )
                         
@@ -186,7 +187,7 @@ fun FeedbackBottomSheet(
                     Text(
                         text = "Help us improve DutyPe by sharing your experience",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF6B7280),
+                            color = WorkerColors.TextSecondary,
                             textAlign = TextAlign.Center
                         )
                     )
@@ -198,7 +199,7 @@ fun FeedbackBottomSheet(
                         text = "How would you rate your experience?",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF374151)
+                            color = WorkerColors.TextSecondary
                         )
                     )
                     
@@ -213,7 +214,7 @@ fun FeedbackBottomSheet(
                             Icon(
                                 imageVector = if (rating <= selectedRating) Icons.Filled.Star else Icons.Filled.StarBorder,
                                 contentDescription = "Rating $rating",
-                                tint = if (rating <= selectedRating) Color(0xFFFBBF24) else Color(0xFFD1D5DB),
+                                tint = if (rating <= selectedRating) Color(0xFFFBBF24) else WorkerColors.TextTertiary,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clickable { selectedRating = rating }
@@ -234,7 +235,7 @@ fun FeedbackBottomSheet(
                                 else -> ""
                             },
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF6B7280)
+                                color = WorkerColors.TextSecondary
                             )
                         )
                     }
@@ -246,7 +247,7 @@ fun FeedbackBottomSheet(
                         text = "Feedback Category",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF374151)
+                            color = WorkerColors.TextSecondary
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -264,8 +265,8 @@ fun FeedbackBottomSheet(
                                 onClick = { selectedCategory = category },
                                 label = { Text(category, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                    selectedLabelColor = Color(0xFF3B82F6)
+                                    selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
+                                    selectedLabelColor = WorkerColors.Primary
                                 )
                             )
                         }
@@ -283,8 +284,8 @@ fun FeedbackBottomSheet(
                                 onClick = { selectedCategory = category },
                                 label = { Text(category, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = Color(0xFF3B82F6).copy(alpha = 0.1f),
-                                    selectedLabelColor = Color(0xFF3B82F6)
+                                    selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
+                                    selectedLabelColor = WorkerColors.Primary
                                 )
                             )
                         }
@@ -303,8 +304,8 @@ fun FeedbackBottomSheet(
                             .height(120.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF3B82F6),
-                            unfocusedBorderColor = Color(0xFFE5E7EB)
+                            focusedBorderColor = WorkerColors.Primary,
+                            unfocusedBorderColor = WorkerColors.Border
                         ),
                         maxLines = 4
                     )
@@ -330,7 +331,7 @@ fun FeedbackBottomSheet(
                                 .height(52.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFF6B7280)
+                                contentColor = WorkerColors.TextSecondary
                             )
                         ) {
                             Text(
@@ -399,7 +400,7 @@ fun FeedbackBottomSheet(
                                 .height(52.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF3B82F6)
+                                containerColor = WorkerColors.Primary
                             )
                         ) {
                             if (isSubmitting) {

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.EmployerColors
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 
@@ -162,7 +163,7 @@ fun EmployerSupportScreen(
                     Text(
                         text = stringResource(R.string.employer_help_subtitle),
                         style = AppTypography.bodyMedium.copy(
-                            color = Color(0xFF6B7280)
+                            color = EmployerColors.TextSecondary
                         ),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
@@ -181,7 +182,7 @@ fun EmployerSupportScreen(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Default.Phone,
                     label = stringResource(R.string.whatsapp_label),
-                    bg = Color(0xFFDCFCE7),
+                    bg = EmployerColors.SuccessLight,
                     tint = Color(0xFF16A34A)
                 ) {
                     val msg = context.getString(R.string.whatsapp_employer_message)
@@ -278,7 +279,7 @@ fun EmployerSupportScreen(
                         if (index < filteredGuides.size - 1) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
-                                color = Color(0xFFE5E7EB)
+                                color = EmployerColors.Border
                             )
                         }
                     }
@@ -316,7 +317,7 @@ fun EmployerSupportScreen(
                         if (index < filteredFaqs.size - 1) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 12.dp),
-                                color = Color(0xFFE5E7EB)
+                                color = EmployerColors.Border
                             )
                         }
                     }
@@ -342,19 +343,19 @@ fun EmployerSupportScreen(
                         Icon(
                             Icons.Default.SearchOff,
                             contentDescription = null,
-                            tint = Color(0xFF94A3B8),
+                            tint = EmployerColors.TextTertiary,
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             stringResource(R.string.no_matching_topics),
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF0F172A)
+                            color = EmployerColors.TextPrimary
                         )
                         Text(
                             stringResource(R.string.no_matching_topics_hint),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF64748B)
+                            color = EmployerColors.TextSecondary
                         )
                     }
                 }
@@ -388,7 +389,7 @@ fun EmployerSupportScreen(
                             context.startActivity(intent)
                         }
                     )
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
+                    HorizontalDivider(color = EmployerColors.Border)
                     QuickLinkItem(
                         icon = Icons.Default.Feedback,
                         title = stringResource(R.string.send_feedback),
@@ -435,7 +436,7 @@ fun EmployerSupportScreen(
             Text(
                 text = "App Version 1.0.5",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF9CA3AF)
+                    color = EmployerColors.TextTertiary
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -480,7 +481,7 @@ private fun EmployerQuickActionTile(
                 label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F172A)
+                color = EmployerColors.TextPrimary
             )
         }
     }
@@ -508,13 +509,13 @@ private fun ContactOptionCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF3B82F6).copy(alpha = 0.1f)),
+                    .background(EmployerColors.Primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Color(0xFF3B82F6),
+                    tint = EmployerColors.Primary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -528,7 +529,7 @@ private fun ContactOptionCard(
             Text(
                 text = subtitle,
                 style = AppTypography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
         }
@@ -574,7 +575,7 @@ private fun GuideItemCard(
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = Color(0xFF6B7280)
+                tint = EmployerColors.TextSecondary
             )
         }
         
@@ -588,7 +589,7 @@ private fun GuideItemCard(
                 Text(
                     text = guide.content,
                     style = AppTypography.bodySmall.copy(
-                        color = Color(0xFF374151),
+                        color = EmployerColors.TextSecondary,
                         lineHeight = 20.sp
                     ),
                     modifier = Modifier.padding(12.dp)
@@ -626,7 +627,7 @@ private fun FaqItemCard(
             Icon(
                 imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = Color(0xFF6B7280)
+                tint = EmployerColors.TextSecondary
             )
         }
         
@@ -635,7 +636,7 @@ private fun FaqItemCard(
             Text(
                 text = faq.answer,
                 style = AppTypography.bodySmall.copy(
-                    color = Color(0xFF6B7280)
+                    color = EmployerColors.TextSecondary
                 )
             )
         }
@@ -658,7 +659,7 @@ private fun QuickLinkItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFF3B82F6),
+            tint = EmployerColors.Primary,
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
@@ -672,7 +673,7 @@ private fun QuickLinkItem(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF)
+            tint = EmployerColors.TextTertiary
         )
     }
 }

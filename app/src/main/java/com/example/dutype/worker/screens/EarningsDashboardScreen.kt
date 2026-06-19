@@ -297,7 +297,7 @@ private fun PeriodFilterRow(
                     ) 
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = WorkerColors.TextPrimary,
+                    selectedContainerColor = WorkerColors.Primary,
                     selectedLabelColor = Color.White,
                     containerColor = WorkerColors.CardBackground,
                     labelColor = WorkerColors.TextSecondary

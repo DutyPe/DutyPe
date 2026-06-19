@@ -144,13 +144,13 @@ fun WorkerReferEarnScreen(
                         Icon(
                             Icons.Default.Error,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = WorkerColors.Error,
                             modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = uiState.error ?: stringResource(R.string.something_went_wrong),
-                            color = Color(0xFF6B7280)
+                            color = WorkerColors.TextSecondary
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { viewModel.loadReferralData() }) {
@@ -185,7 +185,7 @@ fun WorkerReferEarnScreen(
                                 modifier = Modifier
                                     .size(80.dp)
                                     .background(
-                                        Color(0xFFF3F4F6),
+                                        WorkerColors.ChipBackground,
                                         CircleShape
                                     ),
                                 contentAlignment = Alignment.Center
@@ -193,7 +193,7 @@ fun WorkerReferEarnScreen(
                                 Icon(
                                     Icons.Default.Person,
                                     contentDescription = null,
-                                    tint = Color(0xFF6B7280),
+                                    tint = WorkerColors.TextSecondary,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
@@ -216,7 +216,7 @@ fun WorkerReferEarnScreen(
                             Text(
                                 text = stringResource(R.string.refer_worker_complete_profile_desc),
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = Color(0xFF6B7280),
+                                    color = WorkerColors.TextSecondary,
                                     lineHeight = 24.sp
                                 ),
                                 textAlign = TextAlign.Center
@@ -231,7 +231,7 @@ fun WorkerReferEarnScreen(
                                     .fillMaxWidth()
                                     .height(50.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1F2937)
+                                    containerColor = WorkerColors.Primary
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -462,7 +462,7 @@ fun WorkerReferEarnScreen(
                     .padding(16.dp)
                     .padding(bottom = 32.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)),
+                colors = CardDefaults.cardColors(containerColor = WorkerColors.Primary),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -472,7 +472,7 @@ fun WorkerReferEarnScreen(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = WorkerColors.Success,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -529,7 +529,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+        border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
     ) {
         Row(
             modifier = Modifier
@@ -560,7 +560,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
                 Text(
                     text = stringResource(R.string.refer_successful_referrals_count, successfulReferrals),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 )
             }
@@ -568,7 +568,7 @@ private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
             Icon(
                 Icons.AutoMirrored.Filled.TrendingUp,
                 contentDescription = null,
-                tint = Color(0xFF10B981),
+                tint = WorkerColors.Success,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -598,7 +598,7 @@ private fun ReferralCodeSection(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(Color(0xFFFEF3C7), CircleShape),
+                    .background(WorkerColors.WarningLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text("??", fontSize = 24.sp)
@@ -610,7 +610,7 @@ private fun ReferralCodeSection(
                 text = stringResource(R.string.your_referral_code),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF6B7280)
+                    color = WorkerColors.TextSecondary
                 )
             )
             
@@ -619,7 +619,7 @@ private fun ReferralCodeSection(
             // Code in a dashed box
             Box(
                 modifier = Modifier
-                    .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                    .background(WorkerColors.ChipBackground, RoundedCornerShape(12.dp))
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 SelectionContainer {
@@ -640,7 +640,7 @@ private fun ReferralCodeSection(
             Text(
                 text = stringResource(R.string.refer_share_friend_bonus, signupBonus.toInt()),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280)
+                    color = WorkerColors.TextSecondary
                 ),
                 textAlign = TextAlign.Center
             )
@@ -656,8 +656,8 @@ private fun ReferralCodeSection(
                     onClick = onCopyClick,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = WorkerColors.TextSecondary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
                 ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -668,7 +668,7 @@ private fun ReferralCodeSection(
                     onClick = onShareClick,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))
+                    colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
                 ) {
                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -710,17 +710,17 @@ private fun StatsGrid(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(totalReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
+            HorizontalDivider(color = WorkerColors.Border)
             Spacer(modifier = Modifier.height(16.dp))
             
             Row(
@@ -728,11 +728,11 @@ private fun StatsGrid(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
             }
@@ -743,7 +743,7 @@ private fun StatsGrid(
                     text = stringResource(R.string.refer_signup_bonus_earned, String.format("%.0f", signupBonusAmount)),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF059669)
+                        color = WorkerColors.Success
                     )
                 )
             }
@@ -770,7 +770,7 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.available_to_withdraw),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                        style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                     )
                     Text(
                         text = "Rs.${String.format("%.0f", availableBalance)}",
@@ -784,8 +784,8 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                     onClick = onWithdrawClick,
                     enabled = canWithdraw,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937),
-                        disabledContainerColor = Color(0xFFD1D5DB)
+                        containerColor = WorkerColors.Primary,
+                        disabledContainerColor = WorkerColors.TextTertiary
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -797,7 +797,7 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                 val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
                 Text(
                     text = "Earn ?${String.format("%.0f", remaining)} more to unlock withdrawal (min ?${String.format("%.0f", minWithdrawal)})",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)),
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -825,7 +825,7 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, 
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                trackColor = Color(0xFFE5E7EB)
+                trackColor = WorkerColors.Border
             )
             Spacer(Modifier.height(12.dp))
             Row(
@@ -834,7 +834,7 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, 
             ) {
                 Text(
                     text = stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563))
+                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                 )
                 if (milestoneBonus > 0) {
                     Text(
@@ -882,7 +882,7 @@ private fun HowItWorksSection() {
                         ),
                         modifier = Modifier.width(24.dp)
                     )
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                 }
             }
         }
@@ -925,10 +925,10 @@ private fun RewardRow(text: String) {
             imageVector = Icons.Default.CheckCircle,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
-            tint = Color(0xFF1F2937)
+            tint = WorkerColors.TextPrimary
         )
         Spacer(Modifier.width(12.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+        Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
     }
 }
 
@@ -964,10 +964,10 @@ private fun RewardsSection() {
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF1F2937)
+                        tint = WorkerColors.TextPrimary
                     )
                     Spacer(Modifier.width(12.dp))
-                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                 }
             }
         }
@@ -1012,7 +1012,7 @@ private fun RedemptionInstructionsSection(minWithdrawal: Double = 100.0) {
                         ),
                         modifier = Modifier.width(24.dp)
                     )
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
+                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                 }
             }
 
@@ -1049,17 +1049,17 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(48.dp))
+                    Icon(Icons.Default.People, null, tint = WorkerColors.TextTertiary, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(12.dp))
-                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF374151)))
+                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = WorkerColors.TextSecondary))
                     Spacer(Modifier.height(4.dp))
-                    Text(stringResource(R.string.share_code_to_earn), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+                    Text(stringResource(R.string.share_code_to_earn), style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
                 }
             } else {
                 referralHistory.forEachIndexed { index, referral ->
                     ReferralHistoryItem(referral)
                     if (index < referralHistory.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE5E7EB))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = WorkerColors.Border)
                     }
                 }
             }
@@ -1104,7 +1104,7 @@ private fun ReferralHistoryItem(referral: Referral) {
                 else -> Icons.Default.Person
             },
             null,
-            tint = Color(0xFF1F2937),
+            tint = WorkerColors.TextPrimary,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
@@ -1116,12 +1116,12 @@ private fun ReferralHistoryItem(referral: Referral) {
                     color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                 )
             )
-            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
             if (rewardBreakdown.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = rewardBreakdown,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                 )
             }
         }
@@ -1161,13 +1161,13 @@ private fun WithdrawalHistorySection(withdrawals: List<WithdrawalRequest>) {
             if (withdrawals.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_withdrawals_yet),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                 )
             } else {
                 withdrawals.forEachIndexed { index, withdrawal ->
                     WithdrawalHistoryItem(withdrawal)
                     if (index < withdrawals.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE5E7EB))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = WorkerColors.Border)
                     }
                 }
             }
@@ -1186,7 +1186,7 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
         Icon(
             imageVector = Icons.Default.AccountBalanceWallet,
             contentDescription = null,
-            tint = Color(0xFF1F2937),
+            tint = WorkerColors.TextPrimary,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
@@ -1195,7 +1195,7 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
                 text = "Rs.${String.format("%.0f", withdrawal.amount)}",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             )
-            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF9CA3AF)))
+            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
         }
         Text(
             text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(java.util.Locale.getDefault()) },
@@ -1230,7 +1230,7 @@ private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Code: ${referrerInfo.referredByCode}",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                 )
             }
         }
@@ -1253,7 +1253,7 @@ private fun WithdrawDialog(
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
+                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.Success))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = upiId,
@@ -1266,11 +1266,11 @@ private fun WithdrawDialog(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.refer_withdraw_full_balance_note),
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                 )
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
-                    Text(error!!, color = Color(0xFFEF4444), style = MaterialTheme.typography.bodySmall)
+                    Text(error!!, color = WorkerColors.Error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -1284,11 +1284,11 @@ private fun WithdrawDialog(
                         else -> onWithdraw(upiId)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Success)
             ) { Text(stringResource(R.string.withdraw_button)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = Color(0xFF6B7280)) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = WorkerColors.TextSecondary) }
         },
         shape = RoundedCornerShape(16.dp)
     )
@@ -1320,7 +1320,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 Icon(
                     Icons.AutoMirrored.Filled.TrendingUp,
                     contentDescription = null,
-                    tint = Color(0xFF10B981),
+                    tint = WorkerColors.Success,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -1341,17 +1341,17 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(
                         "${String.format("%.1f", analytics.conversionRate)}%",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF10B981)
+                            color = WorkerColors.Success
                         )
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(
                         analytics.totalClicks.toString(),
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1363,7 +1363,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
             }
             
             Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
+            HorizontalDivider(color = WorkerColors.Border)
             Spacer(Modifier.height(16.dp))
             
             // Rankings
@@ -1372,7 +1372,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(
                         "#${analytics.rankOverall}",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -1382,12 +1382,12 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                     Text(
                         "Top ${analytics.percentile}%",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFF59E0B)
+                            color = WorkerColors.Warning
                         )
                     )
                 }
@@ -1395,7 +1395,7 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
 
             if (analytics.projectedMonthlyEarnings > 0) {
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = Color(0xFFE5E7EB))
+                HorizontalDivider(color = WorkerColors.Border)
                 Spacer(Modifier.height(16.dp))
                 
                 // Projected Earnings
@@ -1405,19 +1405,19 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
                         Text(
                         "Rs.${analytics.projectedMonthlyEarnings}",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
+                                color = WorkerColors.Success
                             )
                         )
                     }
                     Icon(
                         Icons.AutoMirrored.Filled.TrendingUp,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = WorkerColors.Success,
                         modifier = Modifier.size(32.dp)
                     )
                     }
@@ -1431,7 +1431,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -1439,7 +1439,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                 Icon(
                     Icons.Default.EmojiEvents,
                     contentDescription = null,
-                    tint = Color(0xFFF59E0B),
+                    tint = WorkerColors.Warning,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -1447,7 +1447,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                     text = stringResource(R.string.top_performers),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF92400E)
+                        color = WorkerColors.Warning
                     )
                 )
             }
@@ -1464,7 +1464,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                     Icon(
                         Icons.Default.Star,
                         contentDescription = null,
-                        tint = Color(0xFFF59E0B),
+                        tint = WorkerColors.Warning,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(8.dp))
@@ -1472,7 +1472,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                         stringResource(R.string.refer_performer_from_city, story.userName, story.city),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF92400E)
+                            color = WorkerColors.Warning
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -1480,7 +1480,7 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
                         "Rs.${story.totalEarnings.toInt()}",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF92400E)
+                            color = WorkerColors.Warning
                         )
                     )
                 }
@@ -1506,7 +1506,7 @@ private fun LegalDisclaimerCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -1514,7 +1514,7 @@ private fun LegalDisclaimerCard() {
                 Icon(
                     Icons.Default.Info,
                     contentDescription = null,
-                    tint = Color(0xFFF59E0B),
+                    tint = WorkerColors.Warning,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
@@ -1522,7 +1522,7 @@ private fun LegalDisclaimerCard() {
                     text = "Important Information",
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF92400E)
+                        color = WorkerColors.Warning
                     )
                 )
             }
@@ -1531,27 +1531,27 @@ private fun LegalDisclaimerCard() {
             
             Text(
                 text = stringResource(R.string.refer_legal_not_pyramid),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = stringResource(R.string.refer_legal_taxable),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = stringResource(R.string.refer_legal_kyc),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = stringResource(R.string.refer_legal_pan),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             Text(
                 text = stringResource(R.string.refer_legal_fraud),
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
                 modifier = Modifier.padding(vertical = 4.dp)
             )
             

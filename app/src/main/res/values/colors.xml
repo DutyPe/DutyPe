@@ -8,7 +8,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="icon_stroke">#FF000000</color>
-    <color name="splash_blue">#FF275DF5</color>
+    <color name="splash_blue">#FF000000</color>
     <color name="worker_home_header_top">#FF275DF5</color>
     <color name="worker_home_header_mid">#FF275DF5</color>
     <color name="worker_home_header_bottom">#FFFFFFFF</color>

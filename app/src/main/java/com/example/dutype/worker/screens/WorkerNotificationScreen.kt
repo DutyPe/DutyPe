@@ -297,7 +297,7 @@ fun WorkerNotificationScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 androidx.compose.material3.CircularProgressIndicator(
-                                    color = Color(0xFF374151),
+                                    color = WorkerColors.TextSecondary,
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -335,7 +335,7 @@ fun SwipeToDeleteNotificationItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFEF4444))
+                    .background(WorkerColors.Error)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
@@ -444,7 +444,7 @@ fun NotificationItemContent(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFEF4444)) // Red dot
+                                    .background(WorkerColors.Error) // Red dot
                             )
                         }
                     }

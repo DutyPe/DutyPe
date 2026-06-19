@@ -236,7 +236,7 @@ private fun LanguageOptionCard(
     modifier: Modifier = Modifier
 ) {
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) Color(0xFF1F2937) else WorkerColors.Border,
+        targetValue = if (isSelected) WorkerColors.Primary else WorkerColors.Border,
         animationSpec = tween(200),
         label = "border_color"
     )
@@ -276,7 +276,7 @@ private fun LanguageOptionCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1F2937)), // Black background
+                        .background(WorkerColors.Primary), // Black background
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -308,7 +308,7 @@ private fun LanguageOptionCard(
                             .offset(x = (-8).dp, y = 8.dp)
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1F2937)), // Black checkmark background
+                        .background(WorkerColors.Primary), // Black checkmark background
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

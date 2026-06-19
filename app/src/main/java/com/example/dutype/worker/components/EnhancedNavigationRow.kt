@@ -14,11 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 
 @Composable
@@ -53,9 +53,9 @@ fun EnhancedNavigationRow(
                 .size(48.dp)
                 .background(
                     color = if (isDestructive)
-                        Color(0xFFFFEBEE)
+                        WorkerColors.ErrorLight
                     else
-                        Color(0xFFF0F7FF),
+                        WorkerColors.InfoLight,
                     shape = RoundedCornerShape(12.dp)
                 ),
             contentAlignment = Alignment.Center
@@ -64,14 +64,14 @@ fun EnhancedNavigationRow(
                 Icon(
                     painter = painterResource(id = imageResId),
                     contentDescription = null,
-                    tint = if (isDestructive) Color(0xFFE53E3E) else Color.Black,
+                    tint = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             } else if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = if (isDestructive) Color(0xFFE53E3E) else Color.Black,
+                    tint = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -86,13 +86,13 @@ fun EnhancedNavigationRow(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    color = if (isDestructive) Color(0xFFE53E3E) else Color(0xFF1A1A1A)
+                    color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary
                 )
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF666666)
+                    color = WorkerColors.TextSecondary
                 )
             )
         }
@@ -100,7 +100,7 @@ fun EnhancedNavigationRow(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = "Navigate",
-            tint = Color(0xFFCCCCCC),
+            tint = WorkerColors.TextTertiary,
             modifier = Modifier.size(20.dp)
         )
     }

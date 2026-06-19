@@ -300,7 +300,7 @@ private fun JobCardInternal(
                     Icon(
                         imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = null,
-                        tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF9CA3AF),
+                        tint = if (isSaved) WorkerColors.Error else WorkerColors.TextTertiary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -407,8 +407,8 @@ private fun JobCardInternal(
 private fun CompactChip(
     text: String,
     backgroundColor: Color = Color.Transparent,
-    borderColor: Color = Color(0xFFE5E7EB),
-    textColor: Color = Color(0xFF374151),
+    borderColor: Color = WorkerColors.Border,
+    textColor: Color = WorkerColors.TextSecondary,
     chipType: ChipType = ChipType.DEFAULT
 ) {
     // Determine colors based on chip type - matching the provided style
@@ -421,34 +421,34 @@ private fun CompactChip(
                 WorkerColors.Border
             )
             ChipType.JOB_TYPE -> Triple(
-                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
-                Color(0xFF92400E), // Dark amber text
-                Color(0xFFF59E0B)  // Amber border
+                WorkerColors.Warning.copy(alpha = 0.1f), // Light amber background
+                WorkerColors.Warning, // Dark amber text
+                WorkerColors.Warning  // Amber border
             )
             ChipType.CATEGORY -> Triple(
-                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
-                Color(0xFF92400E), // Dark amber text
-                Color(0xFFF59E0B)  // Amber border
+                WorkerColors.Warning.copy(alpha = 0.1f), // Light amber background
+                WorkerColors.Warning, // Dark amber text
+                WorkerColors.Warning  // Amber border
             )
             ChipType.URGENT -> Triple(
-                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
-                Color(0xFF92400E), // Dark amber text
-                Color(0xFFF59E0B)  // Amber border
+                WorkerColors.Warning.copy(alpha = 0.1f), // Light amber background
+                WorkerColors.Warning, // Dark amber text
+                WorkerColors.Warning  // Amber border
             )
             ChipType.FILLED -> Triple(
-                Color(0xFFDCFCE7),
-                Color(0xFF166534),
-                Color(0xFF22C55E)
+                WorkerColors.SuccessLight,
+                WorkerColors.Success,
+                WorkerColors.Success
             )
             ChipType.EXPIRED -> Triple(
-                Color(0xFFFEE2E2),
-                Color(0xFF991B1B),
-                Color(0xFFEF4444)
+                WorkerColors.ErrorLight,
+                WorkerColors.Error,
+                WorkerColors.Error
             )
             ChipType.DEFAULT -> Triple(
-                Color(0xFFF59E0B).copy(alpha = 0.1f), // Light amber background
-                Color(0xFF92400E), // Dark amber text
-                Color(0xFFF59E0B)  // Amber border
+                WorkerColors.Warning.copy(alpha = 0.1f), // Light amber background
+                WorkerColors.Warning, // Dark amber text
+                WorkerColors.Warning  // Amber border
             )
         }
     }
@@ -666,8 +666,8 @@ private fun JobImageOrAnimation(
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(Color(0xFFFEF3C7))
-                .border(1.dp, Color(0xFFFDE68A), CircleShape),
+                .background(WorkerColors.WarningLight)
+                .border(1.dp, WorkerColors.Border, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(

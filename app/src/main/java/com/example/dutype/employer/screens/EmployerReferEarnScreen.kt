@@ -40,6 +40,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
 import com.example.dutype.di.rememberInAppReviewTriggerService
@@ -126,9 +127,9 @@ fun EmployerReferEarnScreen(
             isProfileCompleted && uiState.error != null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Error, null, tint = Color(0xFFEF4444), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
+                        Icon(Icons.Default.Error, null, tint = EmployerColors.Error, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
                         Spacer(Modifier.height(16.dp))
-                        Text(uiState.error ?: stringResource(R.string.something_went_wrong), color = Color(0xFF6B7280))
+                        Text(uiState.error ?: stringResource(R.string.something_went_wrong), color = EmployerColors.TextSecondary)
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = { viewModel.loadReferralData() }) { Text(stringResource(R.string.retry)) }
                     }
@@ -160,7 +161,7 @@ fun EmployerReferEarnScreen(
                                 modifier = Modifier
                                     .size(80.dp)
                                     .background(
-                                        Color(0xFFF3F4F6),
+                                        EmployerColors.ChipBackground,
                                         CircleShape
                                     ),
                                 contentAlignment = Alignment.Center
@@ -168,7 +169,7 @@ fun EmployerReferEarnScreen(
                                 Icon(
                                     Icons.Default.Business,
                                     contentDescription = null,
-                                    tint = Color(0xFF6B7280),
+                                    tint = EmployerColors.TextSecondary,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
@@ -191,7 +192,7 @@ fun EmployerReferEarnScreen(
                             Text(
                                 text = stringResource(R.string.refer_employer_complete_profile_desc),
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = Color(0xFF6B7280),
+                                    color = EmployerColors.TextSecondary,
                                     lineHeight = 24.sp
                                 ),
                                 textAlign = TextAlign.Center
@@ -206,7 +207,7 @@ fun EmployerReferEarnScreen(
                                     .fillMaxWidth()
                                     .height(50.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1F2937)
+                                    containerColor = EmployerColors.Primary
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -348,11 +349,11 @@ fun EmployerReferEarnScreen(
             Card(
                 modifier = Modifier.padding(16.dp).padding(bottom = 32.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2937)),
+                colors = CardDefaults.cardColors(containerColor = EmployerColors.Primary),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF10B981), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                    Icon(Icons.Default.CheckCircle, null, tint = EmployerColors.Success, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(Modifier.width(10.dp))
                     Text(stringResource(R.string.code_copied), color = Color.White, fontWeight = FontWeight.Medium)
                 }
@@ -398,7 +399,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+        border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -414,7 +415,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(tierName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = tierColor))
-                Text(stringResource(R.string.refer_successful_referrals_count, successfulReferrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.refer_successful_referrals_count, successfulReferrals), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
             }
         }
     }
@@ -436,32 +437,32 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(20.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
-                modifier = Modifier.size(48.dp).background(Color(0xFFFEF3C7), CircleShape),
+                modifier = Modifier.size(48.dp).background(EmployerColors.WarningLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) { Text("??", fontSize = 24.sp) }
 
             Spacer(Modifier.height(12.dp))
 
-            Text(stringResource(R.string.your_referral_code), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF6B7280)))
+            Text(stringResource(R.string.your_referral_code), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = EmployerColors.TextSecondary))
             Spacer(Modifier.height(8.dp))
 
             Box(
-                modifier = Modifier.background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp)).padding(horizontal = 24.dp, vertical = 12.dp)
+                modifier = Modifier.background(EmployerColors.ChipBackground, RoundedCornerShape(12.dp)).padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 SelectionContainer {
                     Text(referralCode, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary, letterSpacing = 3.sp, fontSize = 28.sp))
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.share_code_friend_bonus), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
+            Text(stringResource(R.string.share_code_friend_bonus), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary), textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF374151))) {
+                OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.TextSecondary)) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.copy_button), fontWeight = FontWeight.SemiBold)
                 }
-                Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937))) {
+                Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)) {
                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.share_button), fontWeight = FontWeight.SemiBold)
@@ -493,26 +494,26 @@ private fun EmployerStatsCard(
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text(totalReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.successful), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
             }
             
             Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
+            HorizontalDivider(color = EmployerColors.Border)
             Spacer(Modifier.height(16.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", totalEarnings)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.available), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
             }
@@ -521,7 +522,7 @@ private fun EmployerStatsCard(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = stringResource(R.string.refer_signup_bonus_earned, String.format("%.0f", signupBonusAmount)),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = EmployerColors.Success)
                 )
             }
         }
@@ -532,7 +533,7 @@ private fun EmployerStatsCard(
 private fun EmployerStatItem(title: String, value: String, icon: ImageVector, color: Color, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(12.dp)) {
         Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+            Text(title, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
             Spacer(Modifier.height(4.dp))
             Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
         }
@@ -545,10 +546,10 @@ private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.available_to_withdraw), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.available_to_withdraw), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                 Text(stringResource(R.string.rupees_amount, String.format("%.0f", availableBalance)), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             }
-            Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)), shape = RoundedCornerShape(12.dp)) {
+            Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary), shape = RoundedCornerShape(12.dp)) {
                 Text(stringResource(R.string.withdraw_button))
             }
         }
@@ -569,7 +570,7 @@ private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMileston
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
                 color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
-                trackColor = Color(0xFFE5E7EB)
+                trackColor = EmployerColors.Border
             )
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -638,7 +639,7 @@ private fun EmployerRewardsCard() {
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFF1F2937)
+                        tint = EmployerColors.TextPrimary
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
@@ -703,19 +704,19 @@ private fun EmployerReferralHistoryCard(referralHistory: List<Referral>) {
             Spacer(Modifier.height(16.dp))
             if (referralHistory.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
-                    Box(modifier = Modifier.size(64.dp).background(Color(0xFFF3F4F6), CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.People, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Large))
+                    Box(modifier = Modifier.size(64.dp).background(EmployerColors.ChipBackground, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.People, null, tint = EmployerColors.TextTertiary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Large))
                     }
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF374151)))
+                    Text(stringResource(R.string.no_referrals_yet), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = EmployerColors.TextSecondary))
                     Spacer(Modifier.height(4.dp))
-                    Text(stringResource(R.string.share_code_employers), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)), textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.share_code_employers), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary), textAlign = TextAlign.Center)
                 }
             } else {
                 referralHistory.forEachIndexed { index, referral ->
                     EmployerReferralHistoryItem(referral)
                     if (index < referralHistory.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF3F4F6))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = EmployerColors.ChipBackground)
                     }
                 }
             }
@@ -759,18 +760,18 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
                 else -> Icons.Default.People
             },
             null,
-            tint = Color(0xFF1F2937),
+            tint = EmployerColors.TextPrimary,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(referral.referredUserName.ifBlank { stringResource(R.string.employer_label) }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
             if (rewardBreakdown.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = rewardBreakdown,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280))
+                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
             }
         }
@@ -798,12 +799,12 @@ private fun EmployerWithdrawalHistoryCard(withdrawals: List<WithdrawalRequest>) 
             Text(stringResource(R.string.withdrawal_history), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
             if (withdrawals.isEmpty()) {
-                Text(stringResource(R.string.no_withdrawals_yet), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.no_withdrawals_yet), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
             } else {
                 withdrawals.forEachIndexed { index, withdrawal ->
                     EmployerWithdrawalHistoryItem(withdrawal)
                     if (index < withdrawals.lastIndex) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF3F4F6))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = EmployerColors.ChipBackground)
                     }
                 }
             }
@@ -818,11 +819,11 @@ private fun EmployerWithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
     }
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.AccountBalanceWallet, null, tint = Color(0xFF1F2937), modifier = Modifier.size(20.dp))
+        Icon(Icons.Default.AccountBalanceWallet, null, tint = EmployerColors.TextPrimary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(stringResource(R.string.rupees_amount, String.format("%.0f", withdrawal.amount)), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+            Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
         }
         Text(withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
     }
@@ -839,7 +840,7 @@ private fun EmployerReferrerInfoCard(referrerInfo: ReferrerInfo) {
             Text(referrerInfo.referrerName.ifBlank { stringResource(R.string.referred_by_unknown) }, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             if (referrerInfo.referredByCode.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.referral_code_format, referrerInfo.referredByCode), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.referral_code_format, referrerInfo.referredByCode), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
             }
         }
     }
@@ -856,14 +857,14 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF10B981)))
+                Text(stringResource(R.string.refer_available_balance, availableBalance.toInt()), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.Success))
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(value = upiId, onValueChange = { upiId = it }, label = { Text(stringResource(R.string.upi_id)) }, placeholder = { Text(stringResource(R.string.refer_upi_placeholder)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.refer_withdraw_full_balance_note), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)))
+                Text(stringResource(R.string.refer_withdraw_full_balance_note), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
                 if (error != null) {
                     Spacer(Modifier.height(8.dp))
-                    Text(error!!, color = Color(0xFFEF4444), style = MaterialTheme.typography.bodySmall)
+                    Text(error!!, color = EmployerColors.Error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -877,10 +878,10 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
                         else -> onWithdraw(upiId)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
             ) { Text(stringResource(R.string.withdraw_button)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = Color(0xFF6B7280)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = EmployerColors.TextSecondary) } },
         shape = RoundedCornerShape(16.dp)
     )
 }
@@ -903,7 +904,7 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = EmployerColors.Success, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.performance_analytics), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             }
@@ -913,43 +914,43 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
             // Conversion Rate
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text("${String.format("%.1f", analytics.conversionRate)}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
+                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text("${String.format("%.1f", analytics.conversionRate)}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text(analytics.totalClicks.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
             }
             
             Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFFE5E7EB))
+            HorizontalDivider(color = EmployerColors.Border)
             Spacer(Modifier.height(16.dp))
             
             // Rankings
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
+                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
                     Text("#${analytics.rankOverall}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                    Text(stringResource(R.string.top_percent_format, analytics.percentile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B)))
+                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                    Text(stringResource(R.string.top_percent_format, analytics.percentile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
                 }
             }
 
             if (analytics.projectedMonthlyEarnings > 0) {
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = Color(0xFFE5E7EB))
+                HorizontalDivider(color = EmployerColors.Border)
                 Spacer(Modifier.height(16.dp))
                 
                 // Projected Earnings
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF6B7280)))
-                        Text(stringResource(R.string.rupees_amount, analytics.projectedMonthlyEarnings.toString()), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF10B981)))
+                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                        Text(stringResource(R.string.rupees_amount, analytics.projectedMonthlyEarnings.toString()), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
                     }
-                    Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(32.dp))
+                    Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = EmployerColors.Success, modifier = Modifier.size(32.dp))
                 }
             }
             
@@ -959,22 +960,22 @@ private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
 
 @Composable
 private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFEF3C7), shape = RoundedCornerShape(16.dp)) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = EmployerColors.WarningLight, shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.top_performers), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                Text(stringResource(R.string.top_performers), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
             }
             
             Spacer(Modifier.height(12.dp))
             
             stories.take(3).forEach { story ->
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Star, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.refer_performer_from_city, story.userName, story.city), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color(0xFF92400E)), modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.rupees_amount, story.totalEarnings.toInt().toString()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                    Text(stringResource(R.string.refer_performer_from_city, story.userName, story.city), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = EmployerColors.Warning), modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.rupees_amount, story.totalEarnings.toInt().toString()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
                 }
             }
             
@@ -989,21 +990,21 @@ private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
 
 @Composable
 private fun EmployerLegalDisclaimerCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFEF3C7), shape = RoundedCornerShape(16.dp)) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = EmployerColors.WarningLight, shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Info, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.important_information), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF92400E)))
+                Text(stringResource(R.string.important_information), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
             }
             
             Spacer(Modifier.height(12.dp))
             
-            Text(stringResource(R.string.refer_legal_not_pyramid), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_taxable), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_kyc), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_pan), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_fraud), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF92400E)), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_not_pyramid), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_taxable), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_kyc), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_pan), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
+            Text(stringResource(R.string.refer_legal_fraud), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
             
             Spacer(Modifier.height(8.dp))
             
