@@ -20,21 +20,15 @@ class WorkerNotificationViewModel @Inject constructor(
     override val roleLabel = "WORKER"
     override val testNotificationType = NotificationType.APPLICATION_STATUS
 
+    // NotificationService already filters every notification by role (see
+    // parseNotificationDocument), and that is the exact same filter the unread
+    // badge count uses. Applying a second, narrower type whitelist here hid
+    // legitimate worker notifications (referral rewards, profile reminders,
+    // shortlisted/rejected, birthday, weekly summary, etc.), which made the
+    // home-screen badge show a count while this list appeared empty. Pass the
+    // already role-filtered list through unchanged so the badge and the list
+    // always match.
     override fun filterRoleNotifications(notifications: List<NotificationData>): List<NotificationData> {
-        return notifications.filter { notification ->
-            when (notification.type) {
-                NotificationType.APPLICATION_STATUS,
-                NotificationType.APPLICATION_STATUS_UPDATE,
-                NotificationType.NEW_JOB_ALERT,
-                NotificationType.JOB_RECOMMENDATION,
-                NotificationType.INTERVIEW_SCHEDULED,
-                NotificationType.PROFILE_COMPLETE,
-                NotificationType.WORKER_HIRED,
-                NotificationType.WELCOME,
-                NotificationType.SYSTEM_UPDATE,
-                NotificationType.GENERAL -> true
-                else -> false
-            }
-        }
+        return notifications
     }
 }

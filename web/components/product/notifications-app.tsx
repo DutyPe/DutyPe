@@ -6,6 +6,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -83,7 +84,8 @@ function NotificationsClient({ session, role }: RoleProps) {
     const q = query(
       ref,
       where("recipientId", "==", session.user.uid),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(100)
     );
 
     const unsub = onSnapshot(
