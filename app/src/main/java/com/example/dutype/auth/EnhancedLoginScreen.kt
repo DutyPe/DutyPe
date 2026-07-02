@@ -623,7 +623,7 @@ private fun PhoneInputSection(
 }
 
 @Composable
-private fun LoginPhoneEntrySection(
+internal fun LoginPhoneEntrySection(
     phoneNumber: String,
     selectedCountryCode: String,
     phoneValidationError: String?,
@@ -636,6 +636,7 @@ private fun LoginPhoneEntrySection(
     onBackClick: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
+    val appContext = LocalContext.current
     val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
 
     Column(
@@ -750,15 +751,59 @@ private fun LoginPhoneEntrySection(
             ) {
                 Text(
                     text = if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now",
-                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Primary)
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black)
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = WorkerColors.Primary,
+                tint = Color.Black,
                 modifier = Modifier.size(20.dp)
             )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(
+            onClick = {
+                val whatsappNumber = "919121706236" // DutyPe support number
+                val message = "Hello DutyPe Team! I am having trouble with the login/registration process."
+                val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
+                
+                try {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        data = android.net.Uri.parse(whatsappUrl)
+                        setPackage("com.whatsapp")
+                    }
+                    appContext.startActivity(intent)
+                } catch (e: Exception) {
+                    // If WhatsApp is not installed, open in browser
+                    val browserIntent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(whatsappUrl)
+                    )
+                    appContext.startActivity(browserIntent)
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_whatsapp),
+                    contentDescription = "WhatsApp Support",
+                    tint = Color(0xFF25D366), // WhatsApp green color
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isTelugu) "WhatsApp ద్వారా సహాయం" else "Contact support on WhatsApp",
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary)
+                )
+            }
         }
 
         AnimatedVisibility(

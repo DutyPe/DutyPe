@@ -2525,6 +2525,7 @@ fun WorkTypeSelection(
     onPayTypeChange: (PayType) -> Unit
 ) {
     val primaryBlue = EmployerColors.Primary
+    var payAmountError by remember { mutableStateOf<String?>(null) }
 
     // Apr 2026: market-rate hint and pay-rate guardrail dialog removed.
 
@@ -2621,23 +2622,35 @@ fun WorkTypeSelection(
             OutlinedTextField(
                 value = payAmount,
                 onValueChange = { newValue ->
-                    // Allow flexible input: numbers, ranges (10000-15000), or text
                     onPayAmountChange(newValue)
+                    payAmountError = if (newValue.length < 4) {
+                        "Minimum 4 characters required"
+                    } else {
+                        null
+                    }
                 },
                 label = { Text(stringResource(R.string.amount_rupees)) },
                 placeholder = { Text(stringResource(R.string.amount_example_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = false,
+                isError = payAmountError != null,
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryBlue,
-                    focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = EmployerColors.Border,
+                    focusedBorderColor = if (payAmountError != null) EmployerColors.Error else primaryBlue,
+                    focusedLabelColor = if (payAmountError != null) EmployerColors.Error else primaryBlue,
+                    unfocusedBorderColor = if (payAmountError != null) EmployerColors.Error else EmployerColors.Border,
                     cursorColor = primaryBlue
                 )
             )
+            if (payAmountError != null) {
+                Text(
+                    text = payAmountError!!,
+                    color = EmployerColors.Error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

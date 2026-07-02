@@ -307,7 +307,7 @@ fun EditJobScreen(
     fun validateForm(): Boolean {
         val vacancyCount = vacancies.toIntOrNull()
         return title.isNotBlank() &&
-                payAmount.isNotBlank() &&
+                payAmount.trim().length >= 4 &&
                 location.isNotBlank() &&
                 description.isNotBlank() &&
                 contactNumber.isNotBlank() &&
@@ -695,6 +695,7 @@ fun EditJobScreen(
                             )
                         }
 
+                        val isPayAmountInvalid = payAmount.isNotBlank() && payAmount.trim().length < 4
                         OutlinedTextField(
                             value = payAmount,
                             onValueChange = { payAmount = it },
@@ -707,7 +708,16 @@ fun EditJobScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = EmployerColors.Primary,
                                 unfocusedBorderColor = EmployerColors.Border
-                            )
+                            ),
+                            isError = isPayAmountInvalid,
+                            supportingText = {
+                                if (isPayAmountInvalid) {
+                                    Text(
+                                        "Salary must be at least 4 characters",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
                         )
 
                         Text(

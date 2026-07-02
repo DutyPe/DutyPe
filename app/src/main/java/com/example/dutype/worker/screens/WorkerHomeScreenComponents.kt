@@ -1220,7 +1220,7 @@ private fun AnimatedInviteNowText() {
             .clip(RoundedCornerShape(999.dp))
             .background(
                 Brush.horizontalGradient(
-                    listOf(Color(0xFF6D28D9), Color(0xFF4C1D95))
+                    listOf(Color.Black, Color(0xFF1F2937))
                 )
             ),
         contentAlignment = Alignment.Center
@@ -1503,15 +1503,28 @@ fun RecommendedJobsSection(
             )
             
             // Arrow button - clean minimal style
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "View All",
-                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier
-                    .size(IconSizes.Standard)
                     .clickable { onViewAllClick() }
-                    .padding(4.dp)
-            )
+                    .padding(vertical = 4.dp, horizontal = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.view_all),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "View All",
+                    tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -1903,12 +1916,12 @@ internal fun DynamicHeader(
                     enabled = !isInstantAvailabilitySaving,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = WorkerColors.Success,
+                        checkedTrackColor = Color.Black,
                         uncheckedThumbColor = Color.White,
                         uncheckedTrackColor = Color(0xFFCBD5E1),
                         uncheckedBorderColor = Color.Transparent,
                         checkedBorderColor = Color.Transparent,
-                        disabledCheckedTrackColor = WorkerColors.Success.copy(alpha = 0.5f),
+                        disabledCheckedTrackColor = Color.Black.copy(alpha = 0.5f),
                         disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
                     )
                 )
