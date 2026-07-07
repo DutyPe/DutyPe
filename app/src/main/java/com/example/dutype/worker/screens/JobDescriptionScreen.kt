@@ -37,6 +37,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -122,6 +124,7 @@ import com.dutype.app.R
 import com.example.dutype.ads.AdManager
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
+import com.example.dutype.components.CallUpdateBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.parseTrustTier
@@ -215,26 +218,38 @@ fun JobDescriptionScreen(
     val callLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        if (pendingCallFeedbackJob != null) {
-            showCallFeedbackSheet = true
+        val feedbackJob = pendingCallFeedbackJob
+        if (feedbackJob != null) {
+            scope.launch {
+                showCallFeedbackSheet = !jobCallFeedbackService.hasSubmittedFeedback(feedbackJob.id.ifBlank { feedbackJob.jobId })
+            }
         }
     }
     val launchEmployerDialer: (JobListing) -> Unit = { currentJob ->
         val phone = currentJob.contactNumber.trim()
-        if (phone.isNotEmpty()) {
-            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                data = android.net.Uri.parse("tel:$phone")
-            }
-            try {
-                pendingCallFeedbackJob = currentJob
-                callLauncher.launch(intent)
-            } catch (e: Exception) {
-                pendingCallFeedbackJob = null
-                Timber.e(e, "Failed to start dialer for $phone")
-                android.widget.Toast.makeText(context, context.getString(R.string.no_dialer_app_available), android.widget.Toast.LENGTH_SHORT).show()
-            }
-        } else {
+        if (phone.isBlank()) {
             android.widget.Toast.makeText(context, context.getString(R.string.contact_number_not_available), android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            scope.launch {
+                smartApplicationViewModel.jobInteractionService.logCallButtonTap(currentJob)
+                    .onSuccess {
+                        pendingCallFeedbackJob = currentJob
+                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                            data = android.net.Uri.parse("tel:$phone")
+                        }
+                        try {
+                            callLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            pendingCallFeedbackJob = null
+                            Timber.e(e, "Failed to start dialer for $phone")
+                            android.widget.Toast.makeText(context, context.getString(R.string.no_dialer_app_available), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .onFailure { e ->
+                        Timber.e(e, "📞 Failed to log call tap for job: ${currentJob.id}")
+                        android.widget.Toast.makeText(context, context.getString(R.string.save_feedback_failed), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+            }
         }
     }
 
@@ -651,23 +666,35 @@ fun JobDescriptionScreen(
     )
 
     if (showCallFeedbackSheet && pendingCallFeedbackJob != null) {
-        JobCallFeedbackSheet(
+        CallUpdateBottomSheet(
             jobTitle = pendingCallFeedbackJob?.title.orEmpty(),
             companyName = pendingCallFeedbackJob?.companyName.orEmpty(),
             onDismiss = {
                 showCallFeedbackSheet = false
                 pendingCallFeedbackJob = null
             },
-            onSubmit = { spokeWithEmployer, availability ->
+            onSubmit = { spokeWithEmployer, availability, jobOfferAccepted ->
                 val feedbackJob = pendingCallFeedbackJob
+                val currentUserId = currentUser?.uid
                 if (feedbackJob == null) {
                     Result.failure(Exception(context.getString(R.string.job_not_found)))
                 } else {
-                    jobCallFeedbackService.submitCallFeedback(
+                    val feedbackResult = jobCallFeedbackService.submitCallFeedback(
                         job = feedbackJob,
                         spokeWithEmployer = spokeWithEmployer,
-                        availability = availability
+                        availability = availability,
+                        jobOfferAccepted = jobOfferAccepted
                     )
+                    if (feedbackResult.isFailure) {
+                        feedbackResult
+                    } else if (jobOfferAccepted == true && currentUserId != null) {
+                        smartApplicationViewModel.jobApplicationService.applyFromCall(
+                            feedbackJob.id.ifBlank { feedbackJob.jobId },
+                            currentUserId
+                        ).map { }
+                    } else {
+                        Result.success(Unit)
+                    }
                 }
             },
             onSubmitted = {
@@ -814,13 +841,14 @@ private fun JobCallFeedbackSheet(
     jobTitle: String,
     companyName: String,
     onDismiss: () -> Unit,
-    onSubmit: suspend (Boolean, JobAvailabilityFeedback) -> Result<Unit>,
+    onSubmit: suspend (Boolean, JobAvailabilityFeedback?, Boolean?) -> Result<Unit>,
     onSubmitted: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var spokeWithEmployer by remember { mutableStateOf<Boolean?>(null) }
     var availability by remember { mutableStateOf<JobAvailabilityFeedback?>(null) }
+    var jobOfferAccepted by remember { mutableStateOf<Boolean?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -915,16 +943,50 @@ private fun JobCallFeedbackSheet(
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = WorkerColors.TextSecondary
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 JobAvailabilityFeedback.entries.forEach { option ->
                     FeedbackChoiceButton(
                         text = jobAvailabilityFeedbackLabel(option),
                         selected = availability == option,
                         onClick = { availability = option },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.width(140.dp),
                         enabled = !isSubmitting
                     )
                 }
+            }
+
+            Text(
+                text = "Did you get selected or hired from this call?",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = WorkerColors.TextSecondary
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FeedbackChoiceButton(
+                    text = "Yes",
+                    selected = jobOfferAccepted == true,
+                    onClick = { jobOfferAccepted = true },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSubmitting
+                )
+                FeedbackChoiceButton(
+                    text = "No",
+                    selected = jobOfferAccepted == false,
+                    onClick = { jobOfferAccepted = false },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSubmitting
+                )
+                FeedbackChoiceButton(
+                    text = "Skip",
+                    selected = jobOfferAccepted == null,
+                    onClick = { jobOfferAccepted = null },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSubmitting
+                )
             }
 
             AnimatedVisibility(visible = errorMessage != null) {
@@ -938,12 +1000,10 @@ private fun JobCallFeedbackSheet(
             Button(
                 onClick = {
                     val spoke = spokeWithEmployer
-                    val selectedAvailability = availability
-                    if (spoke == null || selectedAvailability == null) return@Button
                     scope.launch {
                         isSubmitting = true
                         errorMessage = null
-                        val result = onSubmit(spoke, selectedAvailability)
+                        val result = onSubmit(spoke ?: false, availability, jobOfferAccepted)
                         isSubmitting = false
                         result.fold(
                             onSuccess = { onSubmitted() },
@@ -951,7 +1011,7 @@ private fun JobCallFeedbackSheet(
                         )
                     }
                 },
-                enabled = !isSubmitting && spokeWithEmployer != null && availability != null,
+                enabled = !isSubmitting,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)

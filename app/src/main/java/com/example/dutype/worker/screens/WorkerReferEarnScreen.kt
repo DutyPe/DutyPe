@@ -583,7 +583,7 @@ private fun ReferralCodeSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -596,13 +596,13 @@ private fun ReferralCodeSection(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(WorkerColors.WarningLight, CircleShape),
+                    .background(Color(0xFFF3F4F6), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.CardGiftcard,
                     contentDescription = null,
-                    tint = WorkerColors.Warning,
+                    tint = Color.Black,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -613,7 +613,7 @@ private fun ReferralCodeSection(
                 text = stringResource(R.string.your_referral_code),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
+                    color = Color.Black
                 )
             )
             
@@ -622,7 +622,7 @@ private fun ReferralCodeSection(
             // Code in a dashed box
             Box(
                 modifier = Modifier
-                    .background(WorkerColors.ChipBackground, RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 SelectionContainer {
@@ -630,7 +630,7 @@ private fun ReferralCodeSection(
                         text = referralCode,
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                            color = Color.Black,
                             letterSpacing = 3.sp,
                             fontSize = 28.sp
                         )
@@ -643,7 +643,7 @@ private fun ReferralCodeSection(
             Text(
                 text = stringResource(R.string.refer_share_friend_bonus, signupBonus.toInt()),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary
+                    color = Color.Black
                 ),
                 textAlign = TextAlign.Center
             )

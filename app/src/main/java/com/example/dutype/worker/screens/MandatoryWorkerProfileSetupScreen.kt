@@ -111,6 +111,22 @@ fun MandatoryWorkerProfileSetupScreen(
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
     
+    // Aadhaar Identity state
+    var aadhaarNumber by rememberSaveable { mutableStateOf("") }
+    var aadhaarNumberError by remember { mutableStateOf<String?>(null) }
+    var aadhaarPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val aadhaarPhotoUri = aadhaarPhotoUriString?.let { Uri.parse(it) }
+    var aadhaarPhotoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    
+    val aadhaarPhotoPicker = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            aadhaarPhotoUriString = uri.toString()
+            aadhaarPhotoUrl = null
+        }
+    }
+    
     // Referral code state - REMOVED: Now handled in login flow before profile setup
     // Referral codes must be entered during registration, not profile setup
     var referralCode by rememberSaveable { mutableStateOf("") }
@@ -131,7 +147,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var authMethod by rememberSaveable { mutableStateOf<String?>(null) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     var isCompletionInProgress by remember { mutableStateOf(false) }  // Prevent double-execution
-    val totalSteps = 3  // Selfie capture step removed
+    val totalSteps = 3  // Identity Verification step removed
 
     fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
         runCatching {
@@ -189,6 +205,8 @@ fun MandatoryWorkerProfileSetupScreen(
                         else -> emptyList()
                     }
                     val savedProfileImageUrl = existingData["profileImageUrl"] as? String
+                    val savedAadhaarNumber = existingData["aadhaarNumber"] as? String
+                    val savedAadhaarPhotoUrl = existingData["aadhaarPhotoUrl"] as? String
                     
                     // Apply prefilled values (only if current field is empty)
                     if (fullName.isBlank() && !savedFullName.isNullOrBlank()) {
@@ -232,6 +250,13 @@ fun MandatoryWorkerProfileSetupScreen(
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
                         Timber.d("📦 PREFILL: profileImageUrl exists")
+                    }
+                    if (aadhaarNumber.isBlank() && !savedAadhaarNumber.isNullOrBlank()) {
+                        aadhaarNumber = savedAadhaarNumber
+                        Timber.d("📦 PREFILL: aadhaarNumber = ****${savedAadhaarNumber.takeLast(4)}")
+                    }
+                    if (aadhaarPhotoUrl.isNullOrBlank() && !savedAadhaarPhotoUrl.isNullOrBlank()) {
+                        aadhaarPhotoUrl = savedAadhaarPhotoUrl
                     }
                 }
             }
@@ -347,10 +372,10 @@ fun MandatoryWorkerProfileSetupScreen(
     val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
     val isStep3Valid = skills.isNotBlank() &&
         experience.isNotBlank()
-    val isStep4Valid = true  // Selfie is optional - always valid
+    val isStep4Valid = true // Identity Verification step removed
     
     // Overall form validation
-    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid && isStep4Valid
+    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
     
     
     // Current step validation
@@ -403,6 +428,12 @@ fun MandatoryWorkerProfileSetupScreen(
             // Update address error
             addressError = when {
                 address.isBlank() -> "Address is required"
+                else -> null
+            }
+            
+            // Update Aadhaar error
+            aadhaarNumberError = when {
+                aadhaarNumber.length < 4 -> "Must be exactly 4 digits"
                 else -> null
             }
             
@@ -642,7 +673,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                     )
                                 }
                             }
-                        
+
                             // Error Message
                             if (errorMessage != null) {
                                 Card(
@@ -790,6 +821,34 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     }
                                                 }
                                                 
+                                                // Upload Aadhaar photo if available
+                                                var uploadedAadhaarPhotoUrl: String? = null
+                                                if (false && aadhaarPhotoUri != null) { // Identity Verification step removed
+                                                    try {
+                                                        val uploadResult = profileCompletionViewModel.uploadProfileImage(
+                                                            aadhaarPhotoUri!!,
+                                                            currentUser.uid,
+                                                            "WORKER_AADHAAR"
+                                                        )
+                                                        uploadResult.fold(
+                                                            onSuccess = { url ->
+                                                                uploadedAadhaarPhotoUrl = url
+                                                                aadhaarPhotoUrl = url
+                                                                Timber.d("📸 Worker Aadhaar photo uploaded: $url")
+                                                            },
+                                                            onFailure = { e ->
+                                                                Timber.e(e, "📸 Failed to upload worker Aadhaar photo")
+                                                                errorMessage = "Aadhaar photo upload failed. Please try again."
+                                                                throw Exception("Aadhaar photo upload failed")
+                                                            }
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        Timber.e(e, "📸 Exception during Aadhaar photo upload")
+                                                        errorMessage = "Aadhaar photo upload failed. Please try again."
+                                                        throw e
+                                                    }
+                                                }
+                                                
                                                 // skills are normalized in ProfileCompletionService.saveWorkerProfileData
                                                 val workerProfileData = mutableMapOf<String, Any>(
                                                     "fullName" to fullName,
@@ -800,6 +859,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     "gender" to gender,
                                                     "experience" to experience,
                                                     "bio" to workerBio.trim()
+                                                    // "aadhaarNumber" to aadhaarNumber
                                                 )
 
                                                 // Store email if provided
@@ -826,7 +886,8 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     workerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
                                                 }
                                                 
-                                                // Save to Firestore using ProfileCompletionViewModel
+                                                // Add Aadhaar Photo URL if uploaded
+                                                // Identity Verification step removed
                                                 profileCompletionViewModel
                                                     .saveWorkerProfileData(workerProfileData)
                                                     .getOrThrow()

@@ -199,7 +199,6 @@ private fun getNotificationDialogColor(type: NotificationType): Color {
     return when (type) {
         NotificationType.APPLICATION_STATUS,
         NotificationType.APPLICATION_STATUS_UPDATE,
-        NotificationType.SHORTLISTED,
         NotificationType.INTERVIEW_SCHEDULED -> Color(0xFF3B82F6) // Blue
         
         NotificationType.NEW_APPLICATION,
@@ -227,7 +226,6 @@ private fun getNotificationDialogColor(type: NotificationType): Color {
 private fun getNotificationDialogIcon(type: NotificationType): ImageVector = when (type) {
     NotificationType.APPLICATION_STATUS,
     NotificationType.APPLICATION_STATUS_UPDATE,
-    NotificationType.SHORTLISTED,
     NotificationType.PROFILE_COMPLETE -> Icons.Default.CheckCircle
     NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.EventAvailable
     NotificationType.NEW_APPLICATION -> Icons.Default.PersonAdd

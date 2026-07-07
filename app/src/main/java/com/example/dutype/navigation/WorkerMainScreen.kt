@@ -68,27 +68,32 @@ fun WorkerMainScreen(
     //
     // Rule: ALL worker screens use white status bar color to keep consistency
     // across the app. The status bar overlay is always white regardless of route.
-    val statusBarColor = Color.White
+    var currentStatusBarColor by remember { mutableStateOf(Color.White) }
     val navigationBarColor = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
-    // This replaces deprecated window.statusBarColor and window.navigationBarColor
-    LaunchedEffect(statusBarColor) {
+    LaunchedEffect(currentStatusBarColor) {
         val activity = view.context as? ComponentActivity
         
         // Calculate luminance to determine if status bar is light or dark
-        val luminance = (0.299 * statusBarColor.red + 0.587 * statusBarColor.green + 0.114 * statusBarColor.blue)
-        val isLightStatusBar = luminance > 0.5f
+        val red = currentStatusBarColor.red
+        val green = currentStatusBarColor.green
+        val blue = currentStatusBarColor.blue
+        val luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+        val isColorDark = luminance < 0.5f && currentStatusBarColor != Color.White && currentStatusBarColor != Color.Transparent
         
-        val statusBarStyle = if (isLightStatusBar) {
+        val statusBarStyle = if (currentStatusBarColor == Color.Transparent) {
+            // Transparent status bar - allow drawing behind it
+            SystemBarStyle.dark(scrim = 0)
+        } else if (!isColorDark) {
             // Light status bar - dark icons
             SystemBarStyle.light(
-                scrim = statusBarColor.toArgb(),
-                darkScrim = statusBarColor.toArgb()
+                scrim = currentStatusBarColor.toArgb(),
+                darkScrim = currentStatusBarColor.toArgb()
             )
         } else {
             // Dark status bar - light icons
-            SystemBarStyle.dark(scrim = statusBarColor.toArgb())
+            SystemBarStyle.dark(scrim = currentStatusBarColor.toArgb())
         }
         
         activity?.enableEdgeToEdge(
@@ -110,6 +115,7 @@ fun WorkerMainScreen(
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
+        WorkerBottomRoutes.MY_JOBS, "myjobs", // Hide bottom bar on my jobs screen
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
         Routes.JOB_APPLICATION, "job_application" // Hide bottom bar on apply for job screen
@@ -143,7 +149,7 @@ fun WorkerMainScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(statusBarColor)
+                .background(currentStatusBarColor)
                 .align(Alignment.TopCenter)
                 .zIndex(1000f) // Ensure it's always on top
         )
@@ -195,11 +201,10 @@ fun WorkerMainScreen(
                 WorkerNavGraph(
                     navController = navController,
                     rootNavController = rootNavController,
-                    // Per-screen colour callbacks are now no-ops; the
-                    // status-bar colour is derived from `currentRoute`
-                    // above. We still forward to the parent in case the
-                    // host activity (MainActivity) wants to react.
-                    onStatusBarColorChange = { color -> onStatusBarColorChange(color) },
+                    onStatusBarColorChange = { color ->
+                        currentStatusBarColor = color
+                        onStatusBarColorChange(color)
+                    },
                     scrollStateManager = scrollStateManager,
                     notificationPermissionManager = notificationPermissionManager
                 )

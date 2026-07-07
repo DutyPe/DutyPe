@@ -60,7 +60,7 @@ class NotificationService @Inject constructor(
     private val workerTypes = setOf(
         NotificationType.APPLICATION_STATUS,
         NotificationType.APPLICATION_STATUS_UPDATE,
-        NotificationType.SHORTLISTED,
+        NotificationType.APPLICATION_STATUS_UPDATE,
         NotificationType.REJECTED,
         NotificationType.WORKER_HIRED,
         NotificationType.NEW_JOB_ALERT,
@@ -447,7 +447,6 @@ class NotificationService @Inject constructor(
     ): NotificationData {
         val titleRes = when (newStatus) {
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_title
-            ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_title
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_title
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_title
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_title
@@ -455,7 +454,6 @@ class NotificationService @Inject constructor(
         }
         val msgRes = when (newStatus) {
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_msg
-            ApplicationStatus.SHORTLISTED -> R.string.notif_app_status_shortlisted_msg
             ApplicationStatus.HIRED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_msg
@@ -763,7 +761,7 @@ class NotificationService @Inject constructor(
             NotificationType.NEW_APPLICATION,
             NotificationType.WORKER_HIRED,
             NotificationType.BIRTHDAY,
-            NotificationType.SHORTLISTED,
+            NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.REJECTED -> NotificationChannelManager.CHANNEL_HIGH_PRIORITY
 
             NotificationType.JOB_RECOMMENDATION,

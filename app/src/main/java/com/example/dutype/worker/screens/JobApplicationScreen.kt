@@ -13,6 +13,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import com.example.dutype.ui.theme.MeeshoFontFamily
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -234,68 +236,172 @@ fun JobApplicationScreen(
 
 @Composable
 private fun WorkerWorkTipsSection() {
-    val tips = listOf(
-        stringResource(R.string.apply_tip_confirm_details),
-        stringResource(R.string.apply_tip_reach_on_time),
-        stringResource(R.string.apply_tip_polite_work),
-        stringResource(R.string.apply_tip_no_fee)
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Critical Alert Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
             ) {
                 Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = WorkerColors.Primary,
-                    modifier = Modifier.size(20.dp)
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Warning",
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier.size(24.dp)
                 )
-                Text(
-                    text = stringResource(R.string.apply_work_tips_title),
-                    style = AppTypography.sectionHeader.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.TextPrimary,
-                        fontSize = 15.sp
+                Column {
+                    Text(
+                        text = "SAFETY WARNING",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFF991B1B)
                     )
-                )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.apply_tip_no_fee),
+                        style = AppTypography.bodySmall.copy(
+                            color = Color(0xFF7F1D1D),
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 16.sp
+                        )
+                    )
+                }
             }
+        }
 
-            tips.forEach { tip ->
+        // Guidelines Checklist Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
                 Row(
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = WorkerColors.Success,
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .size(16.dp)
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = tip,
-                        style = AppTypography.bodyMedium.copy(
-                            color = WorkerColors.TextSecondary,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
+                        text = stringResource(R.string.apply_work_tips_title),
+                        style = AppTypography.sectionHeader.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF111827),
+                            fontSize = 14.sp
                         ),
-                        modifier = Modifier.weight(1f)
+                        fontFamily = MeeshoFontFamily
                     )
+                }
+
+                // Tip 1: Confirm Details
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color(0xFFEFF6FF), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = Color(0xFF3B82F6),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Verify Phone Details",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF111827)
+                        )
+                        Text(
+                            text = stringResource(R.string.apply_tip_confirm_details),
+                            fontSize = 12.sp,
+                            color = Color(0xFF4B5563),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                // Tip 2: Punctuality
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color(0xFFECFDF5), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Reach on Time",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF111827)
+                        )
+                        Text(
+                            text = stringResource(R.string.apply_tip_reach_on_time),
+                            fontSize = 12.sp,
+                            color = Color(0xFF4B5563),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                // Tip 3: Polite Work
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color(0xFFFDF2F8), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ThumbUp,
+                            contentDescription = null,
+                            tint = Color(0xFFEC4899),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Polite Behaviour",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF111827)
+                        )
+                        Text(
+                            text = stringResource(R.string.apply_tip_polite_work),
+                            fontSize = 12.sp,
+                            color = Color(0xFF4B5563),
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
         }

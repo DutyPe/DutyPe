@@ -30,7 +30,6 @@ enum class NotificationType {
     APPLICATION_STATUS_UPDATE,
     APPLICATION_REMINDER,
     NEW_APPLICATION,
-    SHORTLISTED,
     REJECTED,
     JOB_UPDATE,
     JOB_POSTED,
@@ -57,7 +56,6 @@ fun NotificationType.getDisplayName(): String = when (this) {
     NotificationType.APPLICATION_STATUS_UPDATE -> "Application Status Update"
     NotificationType.APPLICATION_REMINDER -> "Pending Applications"
     NotificationType.NEW_APPLICATION -> "New Application"
-    NotificationType.SHORTLISTED -> "Shortlisted"
     NotificationType.REJECTED -> "Application Rejected"
     NotificationType.JOB_UPDATE -> "Job Update"
     NotificationType.JOB_POSTED -> "Job Posted"
@@ -141,7 +139,6 @@ enum class NotificationPriority {
 fun NotificationType.getColor(): Long = when (this) {
     NotificationType.APPLICATION_STATUS,
     NotificationType.APPLICATION_STATUS_UPDATE,
-    NotificationType.SHORTLISTED -> 0xFF2196F3 // Blue
     
     NotificationType.NEW_APPLICATION,
     NotificationType.WORKER_HIRED -> 0xFF4CAF50 // Green
@@ -171,7 +168,6 @@ fun NotificationType.getIcon(): String = when (this) {
     NotificationType.APPLICATION_STATUS_UPDATE -> "📋"
     
     NotificationType.NEW_APPLICATION -> "📨"
-    NotificationType.SHORTLISTED -> "⭐"
     NotificationType.REJECTED -> "❌"
     NotificationType.WORKER_HIRED -> "🎉"
     

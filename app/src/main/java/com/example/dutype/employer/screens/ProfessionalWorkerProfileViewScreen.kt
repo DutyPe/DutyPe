@@ -124,6 +124,7 @@ fun ProfessionalWorkerProfileViewScreen(
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedAction by remember { mutableStateOf<ApplicationAction?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
+    var showReportSheet by remember { mutableStateOf(false) }
     var hasRatedWorker by remember { mutableStateOf(false) }
     // Batch-k fix: let the Retry button actually trigger a re-fetch by
     // bumping this counter into the LaunchedEffect key set.
@@ -160,6 +161,16 @@ fun ProfessionalWorkerProfileViewScreen(
                             educationQualification = app.workerEducationQualification,
                             bio = app.workerBio
                         )
+                        
+                        // Auto-mark application as viewed (Seen by Employer) when employer opens details
+                        if (app.status == ApplicationStatus.APPLIED) {
+                            scope.launch {
+                                val markResult = jobApplicationService.markApplicationAsUnderReview(app.id, app.employerId)
+                                markResult.onSuccess { updatedApp ->
+                                    application = updatedApp
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -289,7 +300,8 @@ fun ProfessionalWorkerProfileViewScreen(
         }
     }
 
-    if (showRatingSheet && application != null) {
+    // Rating Sheet
+    if (showRatingSheet && workerProfile != null) {
         RatingBottomSheet(
             isVisible = showRatingSheet,
             targetName = workerProfile?.fullName?.ifBlank { application?.workerName.orEmpty() } ?: "this worker",
@@ -337,7 +349,16 @@ fun ProfessionalWorkerProfileViewScreen(
             CommonHeader(
                 title = stringResource(R.string.worker_profile_label),
                 onBackClick = { navController.popBackStack() },
-                backgroundColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground
+                backgroundColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
+                actions = {
+                    IconButton(onClick = { showReportSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Report User",
+                            tint = EmployerColors.TextSecondary
+                        )
+                    }
+                }
             )
 
             // Batch-k fix: the previous `ProfessionalWorkerProfileHeader`
@@ -405,7 +426,7 @@ fun ProfessionalWorkerProfileViewScreen(
         // profile actually loaded.
         val showActionBar = application?.status in setOf(
             ApplicationStatus.APPLIED,
-            ApplicationStatus.SHORTLISTED,
+            ApplicationStatus.APPLIED,
             ApplicationStatus.HIRED,
             ApplicationStatus.COMPLETED
         )
@@ -1063,7 +1084,7 @@ private fun ActionButtonsCard(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (application?.status == ApplicationStatus.APPLIED || application?.status == ApplicationStatus.SHORTLISTED) {
+        if (application?.status == ApplicationStatus.APPLIED || application?.status == ApplicationStatus.APPLIED) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1149,7 +1170,6 @@ private fun ApplicationActionDialog(
                 text = when (action) {
                     ApplicationAction.SHORTLIST -> "Accept Candidate"
                     ApplicationAction.REJECT -> "Reject Application"
-                    ApplicationAction.SEND_MESSAGE -> "Send Message"
                     ApplicationAction.MARK_COMPLETED -> "Mark Work Done"
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -1162,7 +1182,6 @@ private fun ApplicationActionDialog(
                 text = when (action) {
                     ApplicationAction.SHORTLIST -> "Are you sure you want to accept $workerName for this position?"
                     ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
-                    ApplicationAction.SEND_MESSAGE -> "Do you want to send a message to $workerName?"
                     ApplicationAction.MARK_COMPLETED -> "Mark this work as completed for $workerName? Their earnings will be unlocked."
                 },
                 style = MaterialTheme.typography.bodyMedium
@@ -1175,7 +1194,6 @@ private fun ApplicationActionDialog(
                     containerColor = when (action) {
                         ApplicationAction.SHORTLIST -> EmployerColors.Success
                         ApplicationAction.REJECT -> EmployerColors.Error
-                        ApplicationAction.SEND_MESSAGE -> EmployerColors.Primary
                         ApplicationAction.MARK_COMPLETED -> Color(0xFF1F8B4C)
                     }
                 )
@@ -1325,7 +1343,6 @@ data class WorkExperienceDisplay(
 enum class ApplicationAction {
     SHORTLIST,
     REJECT,
-    SEND_MESSAGE,
     // Bug #15 fix: employer marks a HIRED application as COMPLETED, which
     // unlocks the worker's earnings entry on the Earnings dashboard.
     MARK_COMPLETED

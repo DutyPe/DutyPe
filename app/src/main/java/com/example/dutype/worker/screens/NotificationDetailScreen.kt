@@ -231,7 +231,7 @@ private fun getActionButton(notification: Notification): ActionButtonData? {
     val jobId = notification.actionData["jobId"]
     return when (notification.type) {
         NotificationType.APPLICATION_STATUS_UPDATE,
-        NotificationType.SHORTLISTED,
+        NotificationType.APPLICATION_STATUS_UPDATE,
         NotificationType.REJECTED -> ActionButtonData("VIEW_APPLICATIONS", Icons.Default.Work, "my_jobs")
         NotificationType.JOB_POSTED,
         NotificationType.NEW_JOB_ALERT,
@@ -246,7 +246,7 @@ private fun getActionButton(notification: Notification): ActionButtonData? {
 private fun getNotificationDetailIcon(type: NotificationType): ImageVector {
     return when (type) {
         NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.CheckCircle
-        NotificationType.SHORTLISTED -> Icons.Default.Star
+        NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.Star
         NotificationType.REJECTED -> Icons.Default.Cancel
         NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.Schedule
         NotificationType.EMPLOYER_MESSAGE -> Icons.Default.Message
@@ -261,7 +261,7 @@ private fun getNotificationDetailIcon(type: NotificationType): ImageVector {
 private fun getNotificationDetailColor(type: NotificationType): Color {
     return when (type) {
         NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF10B981)
-        NotificationType.SHORTLISTED -> Color(0xFF10B981)
+        NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF10B981)
         NotificationType.REJECTED -> Color(0xFFEF4444)
         NotificationType.INTERVIEW_SCHEDULED -> Color(0xFF3B82F6)
         NotificationType.EMPLOYER_MESSAGE -> Color(0xFF8B5CF6)
@@ -277,7 +277,7 @@ private fun getNotificationDetailColor(type: NotificationType): Color {
 private fun getNotificationTypeLabel(type: NotificationType): String {
     return when (type) {
         NotificationType.APPLICATION_STATUS_UPDATE -> stringResource(R.string.notif_type_application_update)
-        NotificationType.SHORTLISTED -> stringResource(R.string.notif_type_shortlisted)
+        NotificationType.APPLICATION_STATUS_UPDATE -> stringResource(R.string.notif_type_shortlisted)
         NotificationType.REJECTED -> stringResource(R.string.notif_type_application_update)
         NotificationType.INTERVIEW_SCHEDULED -> stringResource(R.string.notif_type_interview)
         NotificationType.EMPLOYER_MESSAGE -> stringResource(R.string.notif_type_message)

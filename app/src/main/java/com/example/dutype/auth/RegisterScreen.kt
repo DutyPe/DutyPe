@@ -453,10 +453,7 @@ private fun RegisterInputSection(
         fullName = fullName,
         onFullNameChange = onFullNameChange,
         phoneNumber = phoneNumber,
-        onPhoneNumberChange = { newValue ->
-            hasPhoneInteracted = true
-            onPhoneNumberChange(newValue)
-        },
+        onPhoneNumberChange = onPhoneNumberChange,
         selectedCountryCode = selectedCountryCode,
         phoneValidationError = phoneValidationError,
         otpState = otpState,
@@ -859,11 +856,47 @@ private fun RegisterEntrySection(
                 )
             }
 
-            RegisterShieldArtwork(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 12.dp)
-            )
+            TextButton(
+                onClick = {
+                    val whatsappNumber = "919121706236" // DutyPe support number
+                    val message = "Hello DutyPe Team! I am having trouble with the registration/OTP process."
+                    val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                    val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
+
+                    try {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            data = android.net.Uri.parse(whatsappUrl)
+                            setPackage("com.whatsapp")
+                        }
+                        appContext.startActivity(intent)
+                    } catch (e: Exception) {
+                        val browserIntent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(whatsappUrl)
+                        )
+                        appContext.startActivity(browserIntent)
+                    }
+                },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_whatsapp),
+                        contentDescription = null,
+                        tint = Color(0xFF25D366),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isTelugu) "సపోర్ట్" else "Contact Support",
+                        style = AppTypography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF071735)
+                        )
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -932,12 +965,13 @@ private fun RegisterEntrySection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onTermsToggle(!termsAccepted) }
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .padding(horizontal = 0.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = termsAccepted,
                 onCheckedChange = onTermsToggle,
+                modifier = Modifier.size(20.dp),
                 colors = CheckboxDefaults.colors(
                     checkedColor = Color.Black,
                     uncheckedColor = Color(0xFFB9B7CA),
@@ -956,7 +990,7 @@ private fun RegisterEntrySection(
                     }
                 },
                 style = AppTypography.bodyMedium.copy(color = Color.Black, lineHeight = 20.sp),
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.padding(start = 2.dp)
             )
         }
 
@@ -1052,15 +1086,7 @@ private fun RegisterNameField(
             )
         },
         leadingIcon = {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF1EDFF)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.Person, contentDescription = null, tint = Color.Black)
-            }
+            Icon(Icons.Filled.Person, contentDescription = null, tint = Color.Black)
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -1392,36 +1418,20 @@ private fun RegisterReferralCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x0F6B4BFF), spotColor = Color(0x0F6B4BFF))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFEDEBF5), RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .padding(horizontal = 0.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF1EDFF)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "✤", color = Color.Black, style = AppTypography.displayTitle.copy(fontSize = 20.sp))
-                }
-                Spacer(modifier = Modifier.width(14.dp))
-                Text(
-                    text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
-                    style = AppTypography.bodyLarge.copy(
-                        color = Color(0xFF071735),
-                        fontWeight = FontWeight.Medium
-                    )
+            Text(
+                text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+                style = AppTypography.bodyMedium.copy(
+                    color = Color(0xFF071735),
+                    fontWeight = FontWeight.Medium
                 )
-            }
+            )
 
             TextButton(
                 onClick = onToggle,
@@ -1433,17 +1443,10 @@ private fun RegisterReferralCard(
                     } else {
                         if (isTelugu) "కోడ్ నమోదు" else "Enter Code"
                     },
-                    style = AppTypography.bodyLarge.copy(
-                        fontWeight = FontWeight.Bold,
+                    style = AppTypography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.Black
                     )
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = Color.Black,
-                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -1454,7 +1457,7 @@ private fun RegisterReferralCard(
             exit = slideOutVertically(targetOffsetY = { -20 }, animationSpec = tween(300)) + fadeOut(tween(300))
         ) {
             Column {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1497,10 +1500,10 @@ private fun RegisterReferralCard(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(52.dp),
                         singleLine = true,
                         isError = codeValidationError != null && referralCode.length >= 7,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
@@ -1524,7 +1527,7 @@ private fun RegisterReferralCard(
 
                     Button(
                         onClick = onVerify,
-                        modifier = Modifier.height(56.dp),
+                        modifier = Modifier.height(52.dp),
                         enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF255CEB),
@@ -1532,7 +1535,7 @@ private fun RegisterReferralCard(
                             disabledContainerColor = Color(0xFFECEAF6),
                             disabledContentColor = Color(0xFF8A94A6)
                         ),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp)
                     ) {
                         if (isValidatingCode) {

@@ -490,42 +490,11 @@ private fun RoleHero() {
             .fillMaxWidth()
             .padding(top = 40.dp)
     ) {
-        BrandLockup()
-        Spacer(modifier = Modifier.height(30.dp))
         Text(
             text = "How can we help\nyou today?",
             style = AppTypography.displayTitle.copy(
                 fontSize = 32.sp,
                 lineHeight = 38.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F0F0F)
-            )
-        )
-    }
-}
-
-@Composable
-private fun BrandLockup() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF0F0F0F)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_splash_logo_foreground),
-                contentDescription = null,
-                modifier = Modifier.size(38.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Text(
-            text = "DutyPe",
-            style = AppTypography.displayTitle.copy(
-                fontSize = 28.sp,
-                lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F0F0F)
             )

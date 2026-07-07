@@ -31,6 +31,7 @@ object FirestoreCollections {
     // ── Social ──────────────────────────────────────────
     const val RATINGS = "ratings"
     const val JOB_REPORTS = "job_reports"
+    const val JOB_CALL_SESSIONS = "job_call_sessions"
     const val JOB_CALL_FEEDBACK = "job_call_feedback"
     const val NOTIFICATIONS = "notifications"
 

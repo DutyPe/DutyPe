@@ -75,6 +75,13 @@ class UserMetadata @Inject constructor(
     val employerStats: StateFlow<EmployerStats> = _employerStats.asStateFlow()
     
     // ==========================================
+    // EMPLOYER SUBSCRIPTION
+    // ==========================================
+    
+    private val _subscription = MutableStateFlow(com.example.dutype.models.EmployerSubscription())
+    val subscription: StateFlow<com.example.dutype.models.EmployerSubscription> = _subscription.asStateFlow()
+    
+    // ==========================================
     // USAGE LIMITS
     // ==========================================
     
@@ -249,6 +256,9 @@ class UserMetadata @Inject constructor(
                 val resolvedFullName = profileDoc.getString("fullName") ?: phoneRoleDoc?.getString("name") ?: ""
                 val resolvedProfileImageUrl = profileDoc.getString("profileImageUrl") ?: ""
 
+                val subscriptionMap = profileDoc.get("subscription") as? Map<String, Any?>
+                _subscription.value = com.example.dutype.models.EmployerSubscription.fromMap(subscriptionMap)
+
                 _userStats.value = UserStats(
                     userId = userId,
                     fullName = resolvedFullName,
@@ -257,7 +267,7 @@ class UserMetadata @Inject constructor(
                     createdAt = getEpochMillis(profileDoc, "createdAt", System.currentTimeMillis()),
                     isVerified = profileDoc.getBoolean("isVerified") ?: false
                 )
-                Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}, image=${_userStats.value.profileImageUrl.isNotBlank()}")
+                Timber.d("📊 UserStats loaded: name=${_userStats.value.fullName}, phone=${_userStats.value.phone}, image=${_userStats.value.profileImageUrl.isNotBlank()}, sub=${_subscription.value.status}")
             } else {
                 // User document doesn't exist yet (new user) - use Firebase Auth phone
                 _userStats.value = UserStats(
@@ -398,14 +408,20 @@ class UserMetadata @Inject constructor(
     
     private suspend fun loadUsageLimits(userId: String) {
         try {
-            // Default to free limits (subscriptions collection removed)
+            val sub = _subscription.value
+            val isSubActive = sub.status == "ACTIVE"
+            val maxJobs = if (isSubActive) {
+                sub.normalCredits
+            } else {
+                3
+            }
             _usageLimits.value = UsageLimits(
                 maxApplicationsPerMonth = 10,
-                maxActiveJobs = 3,
+                maxActiveJobs = maxJobs,
                 maxSavedJobs = 20,
                 hasReachedApplicationLimit = _workerStats.value.applicationsThisMonth >= 10,
-                hasReachedJobPostLimit = _employerStats.value.activeJobs >= 3,
-                isPremium = false
+                hasReachedJobPostLimit = if (isSubActive) sub.normalCredits <= 0 else _employerStats.value.activeJobs >= 3,
+                isPremium = isSubActive
             )
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load usage limits")

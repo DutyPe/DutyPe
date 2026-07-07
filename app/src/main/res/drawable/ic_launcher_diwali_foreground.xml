@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        <!-- Flame -->
+        <path
+            android:pathData="M54,25 C58,35 50,42 54,48 C58,42 50,35 54,25 Z"
+            android:fillColor="#FFE082" />
+        <path
+            android:pathData="M54,30 C56,36 52,40 54,44 C56,40 52,36 54,30 Z"
+            android:fillColor="#FFD54F" />
+        <!-- Diya Bowl -->
+        <path
+            android:pathData="M30,55 C30,75 78,75 78,55 C78,55 70,65 54,65 C38,65 30,55 30,55 Z"
+            android:fillColor="#FFB300" />
+        <!-- Light Rays -->
+        <path
+            android:pathData="M54,12 L54,18 M38,24 L42,28 M70,24 L66,28"
+            android:strokeColor="#FFE082"
+            android:strokeWidth="2"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

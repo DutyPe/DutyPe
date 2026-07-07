@@ -140,6 +140,9 @@ export function DeleteUserByPhoneClient() {
             <li>Phone role mapping</li>
             <li>Referral codes owned by user</li>
             <li>Referral stats</li>
+            <li>All jobs created by user (if employer)</li>
+            <li>All job applications made or received by user</li>
+            <li>All saved jobs made by user</li>
             <li>Firebase Auth user</li>
           </ul>
         </div>
@@ -149,7 +152,6 @@ export function DeleteUserByPhoneClient() {
           <ul>
             <li>This action is <strong>irreversible</strong></li>
             <li>User cannot login after deletion</li>
-            <li>All job postings and applications will become orphaned</li>
             <li>Referral relationships involving this user are NOT deleted</li>
             <li>A log of this deletion is recorded in Firebase audit logs</li>
           </ul>

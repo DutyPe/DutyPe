@@ -173,9 +173,7 @@ fun AllJobsScreen(
         "All Jobs" to Icons.Default.Star,
         "Daily Jobs" to Icons.Default.CalendarToday,
         "Hourly Jobs" to Icons.Default.AccessTime,
-        "Nearby" to Icons.Default.LocationOn,
-        "Part Time" to Icons.Default.Work,
-        "Full Time" to Icons.Default.CheckCircle
+        "Nearby" to Icons.Default.LocationOn
     )
     
     Column(
@@ -429,7 +427,7 @@ private fun CategoryQuickFilterSection(
             .padding(bottom = 12.dp)
     ) {
         Text(
-            text = "Browse by category",
+            text = stringResource(R.string.filter_by_category),
             style = AppTypography.sectionHeader.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.SemiBold
@@ -852,11 +850,13 @@ private fun JobFilterBottomSheet(
     var payType by remember { mutableStateOf(filters.payType) }
     var workType by remember { mutableStateOf(filters.workType) }
     var category by remember { mutableStateOf(filters.category) }
+    var shiftTiming by remember { mutableStateOf(filters.shiftTiming) }
     
     val experienceOptions = listOf("Any", "Fresher", "1-3 years", "3-5 years", "5+ years")
     val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
     val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
     val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
+    val shiftTimingOptions = listOf("Any", "Morning", "Afternoon", "Evening", "Night", "Flexible")
     val categoryOptions = remember { listOf("Any") + com.example.dutype.utils.CategoryDetector.getAllCategories() }
     
     ModalBottomSheet(
@@ -892,6 +892,7 @@ private fun JobFilterBottomSheet(
                     payType = "Any"
                     workType = "Any"
                     category = "Any"
+                    shiftTiming = "Any"
                     onResetFilters()
                 }) {
                     Text(stringResource(R.string.reset), color = WorkerColors.Error, fontWeight = FontWeight.Medium)
@@ -980,6 +981,31 @@ private fun JobFilterBottomSheet(
                             onClick = { workType = option },
                             label = { Text(option, fontSize = 13.sp) },
                             selected = workType == option,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = WorkerColors.Primary,
+                                selectedLabelColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "Shift Timing",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = WorkerColors.TextSecondary
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(shiftTimingOptions) { option ->
+                        FilterChip(
+                            onClick = { shiftTiming = option },
+                            label = { Text(option, fontSize = 13.sp) },
+                            selected = shiftTiming == option,
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = WorkerColors.Primary,
                                 selectedLabelColor = Color.White
@@ -1149,7 +1175,8 @@ private fun JobFilterBottomSheet(
                             sortBy = sortBy,
                             payType = payType,
                             workType = workType,
-                            category = category
+                            category = category,
+                            shiftTiming = shiftTiming
                         )
                     )
                 },

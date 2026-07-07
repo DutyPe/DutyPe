@@ -1,10 +1,12 @@
 package com.example.dutype.services
 
 import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.models.JobApplication
 import com.example.dutype.models.JobListing
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -21,15 +23,67 @@ class JobCallFeedbackService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
+    suspend fun hasSubmittedFeedback(jobId: String): Boolean {
+        val workerId = auth.currentUser?.uid ?: return false
+        if (jobId.isBlank()) return false
+
+        return try {
+            firestore.collection(FirestoreCollections.JOB_CALL_FEEDBACK)
+                .document(buildFeedbackId(workerId, jobId))
+                .get()
+                .await()
+                .exists()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun submitCallFeedback(
+        application: JobApplication,
+        spokeWithEmployer: Boolean,
+        availability: JobAvailabilityFeedback?,
+        jobOfferAccepted: Boolean?
+    ): Result<Unit> {
+        return submitCallFeedback(
+            jobId = application.jobId,
+            employerId = application.employerId,
+            jobTitle = application.jobTitle,
+            companyName = application.companyName,
+            spokeWithEmployer = spokeWithEmployer,
+            availability = availability,
+            jobOfferAccepted = jobOfferAccepted
+        )
+    }
+
     suspend fun submitCallFeedback(
         job: JobListing,
         spokeWithEmployer: Boolean,
-        availability: JobAvailabilityFeedback
+        availability: JobAvailabilityFeedback?,
+        jobOfferAccepted: Boolean?
+    ): Result<Unit> {
+        return submitCallFeedback(
+            jobId = job.id.ifBlank { job.jobId },
+            employerId = job.employerId,
+            jobTitle = job.title,
+            companyName = job.companyName,
+            spokeWithEmployer = spokeWithEmployer,
+            availability = availability,
+            jobOfferAccepted = jobOfferAccepted
+        )
+    }
+
+    private suspend fun submitCallFeedback(
+        jobId: String,
+        employerId: String,
+        jobTitle: String,
+        companyName: String,
+        spokeWithEmployer: Boolean,
+        availability: JobAvailabilityFeedback?,
+        jobOfferAccepted: Boolean?
     ): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid
                 ?: return Result.failure(Exception("Please login to submit feedback"))
-            val jobId = job.id.ifBlank { job.jobId }
             if (jobId.isBlank()) return Result.failure(Exception("Job not found"))
 
             val feedbackRef = firestore.collection(FirestoreCollections.JOB_CALL_FEEDBACK)
@@ -41,18 +95,30 @@ class JobCallFeedbackService @Inject constructor(
                 "jobId" to jobId,
                 "workerId" to userId,
                 "spokeWithEmployer" to spokeWithEmployer,
-                "jobAvailability" to availability.name,
-                "source" to "JOB_DESCRIPTION_CALL_RETURN",
+                "source" to "JOB_DESCRIPTION_CALL_TAP",
+                "feedbackSubmittedAt" to now,
                 "updatedAt" to now
             )
-            if (job.employerId.isNotBlank()) {
-                feedbackData["employerId"] = job.employerId
+            if (availability != null) {
+                feedbackData["jobAvailability"] = availability.name
+            }
+            if (jobOfferAccepted != null) {
+                feedbackData["jobOfferAccepted"] = jobOfferAccepted
+            }
+            if (employerId.isNotBlank()) {
+                feedbackData["employerId"] = employerId
+            }
+            if (jobTitle.isNotBlank()) {
+                feedbackData["jobTitle"] = jobTitle
+            }
+            if (companyName.isNotBlank()) {
+                feedbackData["companyName"] = companyName
             }
             if (!existing.exists()) {
                 feedbackData["createdAt"] = now
                 feedbackRef.set(feedbackData).await()
             } else {
-                feedbackRef.update(feedbackData).await()
+                feedbackRef.set(feedbackData, SetOptions.merge()).await()
             }
 
             Result.success(Unit)

@@ -707,17 +707,24 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val batch = firestore.batch()
-            batch.set(
-                firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
-                mapOf(
-                    "phoneNumber" to PhoneNumberUtils.normalize(phone),
-                    "role" to "WORKER",
-                    "name" to fullName,
-                    "uid" to currentUser.uid,
-                    "updatedAt" to now
-                ),
-                com.google.firebase.firestore.SetOptions.merge()
-            )
+            
+            // Only write to phoneRoles if the user has an authenticated phone number.
+            // firestore.rules enforces that users can only write to their own phoneRoles document.
+            val authPhone = currentUser.phoneNumber?.trim()?.takeIf { it.isNotBlank() }
+            if (authPhone != null) {
+                batch.set(
+                    firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(authPhone)),
+                    mapOf(
+                        "phoneNumber" to PhoneNumberUtils.normalize(authPhone),
+                        "role" to "WORKER",
+                        "name" to fullName,
+                        "uid" to currentUser.uid,
+                        "updatedAt" to now
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+            }
+            
             batch.set(workerRef, workerProfile, com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
             
@@ -770,6 +777,8 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(IllegalArgumentException("Company name is required"))
             }
 
+            val isNewProfile = existingEmployer.isEmpty()
+
             val employerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "fullName" to fullName,
@@ -777,6 +786,7 @@ class ProfileCompletionService @Inject constructor(
                 "role" to "EMPLOYER",
                 "updatedAt" to now,
                 "companyName" to companyName
+
                 // Notes:
                 //  - `userId` removed: redundant with doc ID (no readers use the body field).
                 //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
@@ -802,6 +812,23 @@ class ProfileCompletionService @Inject constructor(
             if (businessLat != null && businessLng != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLat, businessLng)) {
                 employerProfile["businessLocation"] = mapOf("lat" to businessLat, "lng" to businessLng)
                 employerProfile["geohash"] = com.example.dutype.utils.GeoUtils.encodeGeohash(businessLat, businessLng)
+            }
+
+            if (isNewProfile) {
+                // Grant 7-day free trial on new employer registration
+                val trialExpiry = System.currentTimeMillis() + (7L * 24 * 60 * 60 * 1000)
+                employerProfile["subscription"] = mapOf(
+                    "status" to "TRIAL",
+                    "planId" to "FREE_TRIAL",
+                    "startDate" to System.currentTimeMillis(),
+                    "expiryDate" to trialExpiry,
+                    "credits" to mapOf(
+                        "normal" to 1,
+                        "instant" to 1
+                    ),
+                    "trialJobsUsed" to 0,
+                    "trialInstantJobsUsed" to 0
+                )
             }
 
             val batch = firestore.batch()

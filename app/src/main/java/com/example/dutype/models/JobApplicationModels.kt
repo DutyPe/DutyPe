@@ -71,17 +71,15 @@ data class JobApplication(
 // ─── Supporting types ────────────────────────────────────────────────────────
 
 /**
- * 5-state machine. Bug #15 fix: added COMPLETED so the employer can mark a
- * hired worker's job as finished, which unlocks the worker's earnings entry.
+ * Simplified state machine for hyper-local hiring:
  *   APPLIED     -> worker submitted, awaiting employer review
- *   SHORTLISTED -> employer marked as candidate
- *   REJECTED    -> rejected (employer) or withdrawn (worker) — terminal failure
+ *   REJECTED    -> rejected (employer) or withdrawn (worker)
+ *   WITHDRAWN   -> worker withdrew application
  *   HIRED       -> worker hired, work underway
- *   COMPLETED   -> employer marked work done — terminal success, earnings unlocked
+ *   COMPLETED   -> employer marked work done
  */
 enum class ApplicationStatus {
     APPLIED,
-    SHORTLISTED,
     REJECTED,
     WITHDRAWN,
     HIRED,
@@ -89,7 +87,6 @@ enum class ApplicationStatus {
 
     fun toFirestoreValue(): String = when (this) {
         APPLIED -> "applied"
-        SHORTLISTED -> "shortlisted"
         REJECTED -> "rejected"
         WITHDRAWN -> "withdrawn"
         HIRED -> "hired"
@@ -97,13 +94,12 @@ enum class ApplicationStatus {
     }
 
     companion object {
-        fun fromFirestoreValue(value: String): ApplicationStatus = when (value.lowercase()) {
-            "applied" -> APPLIED
-            "shortlisted" -> SHORTLISTED
+        fun fromFirestoreValue(value: String): ApplicationStatus = when (value.lowercase().trim()) {
+            "applied", "pending", "viewed", "seen", "under_review", "shortlisted" -> APPLIED // Legacy mapping back to APPLIED
+            "accepted", "hired", "in_progress" -> HIRED
+            "completed" -> COMPLETED
             "rejected" -> REJECTED
             "withdrawn" -> WITHDRAWN
-            "hired" -> HIRED
-            "completed" -> COMPLETED
             else -> APPLIED
         }
     }
@@ -111,16 +107,14 @@ enum class ApplicationStatus {
 
 fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.APPLIED -> "Applied"
-    ApplicationStatus.SHORTLISTED -> "Shortlisted"
-    ApplicationStatus.REJECTED -> "Rejected"
     ApplicationStatus.WITHDRAWN -> "Withdrawn"
     ApplicationStatus.HIRED -> "Hired"
     ApplicationStatus.COMPLETED -> "Completed"
+    ApplicationStatus.REJECTED -> "Rejected"
 }
 
 fun ApplicationStatus.getStatusColor(): Color = when (this) {
     ApplicationStatus.APPLIED -> Color(0xFFFFA500)
-    ApplicationStatus.SHORTLISTED -> Color(0xFF2196F3)
     ApplicationStatus.HIRED -> Color(0xFF4CAF50)
     ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C)
     ApplicationStatus.REJECTED -> Color(0xFFF44336)
@@ -146,7 +140,6 @@ data class JobApplicationUiState(
 data class ApplicationStats(
     val totalApplications: Int = 0,
     val appliedApplications: Int = 0,
-    val shortlistedApplications: Int = 0,
     val rejectedApplications: Int = 0,
     val hiredApplications: Int = 0,
     val recentApplications: List<JobApplication> = emptyList()

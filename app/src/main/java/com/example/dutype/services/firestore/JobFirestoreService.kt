@@ -1,9 +1,10 @@
-﻿package com.example.dutype.services.firestore
+package com.example.dutype.services.firestore
 
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.JobListing
 import com.example.dutype.utils.JobCategoryResolver
 import com.example.dutype.utils.JobEditPolicy
+import com.example.dutype.utils.JobDeletePolicy
 import com.example.dutype.utils.JobSearchMatcher
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -68,7 +69,7 @@ class JobFirestoreService @Inject constructor(
 
     private fun normalizeReadStatus(data: Map<String, Any>): String {
         val explicit = (data["status"] as? String)?.trim()?.lowercase()
-        if (explicit == "open" || explicit == "closed" || explicit == "expired") {
+        if (explicit == "open" || explicit == "closed" || explicit == "expired" || explicit == "paused" || explicit == "deleted" || explicit == "filled") {
             return explicit
         }
         val isActive = data["isActive"] as? Boolean
@@ -366,15 +367,7 @@ class JobFirestoreService @Inject constructor(
             if (payloadEmployerId.isNotBlank() && payloadEmployerId != authUid) {
                 Timber.w(" FIRESTORE DEBUG: employerId mismatch (payload=$payloadEmployerId, auth=$authUid). Using authenticated UID.")
             }
-
-            val employerProfile = firestore.collection(EMPLOYER_PROFILES_COLLECTION)
-                .document(employerId)
-                .get()
-                .await()
-            val companyName = employerProfile.getString("companyName").orEmpty().trim()
-            if (companyName.isBlank()) {
-                return Result.failure(IllegalArgumentException("Employer company name is required"))
-            }
+            val employerProfileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(employerId)
             val location = mapOf("lat" to latitude, "lng" to longitude)
             val geohash = com.example.dutype.utils.GeoUtils.encodeGeohash(latitude, longitude)
             val createdAt = Timestamp(Date(currentTime))
@@ -390,7 +383,6 @@ class JobFirestoreService @Inject constructor(
 
             val cardData = linkedMapOf<String, Any>(
                 "title" to title,
-                "companyName" to companyName,
                 "salary" to salary,
                 "salaryType" to salaryType,
                 "location" to location,
@@ -400,22 +392,9 @@ class JobFirestoreService @Inject constructor(
                 "category" to category,
                 "status" to "open",
                 "createdAt" to createdAt,
-                // BUG #14 FIX: `getJobsByEmployer` queries `jobmetadata` by
-                // `employerId`. Without this field, the employer's own posts
-                // never appear in their My Jobs / dashboard list, even though
-                // they're saved (workers see them because workers query by
-                // geohash, not employerId).
                 "employerId" to employerId,
-                // Bug fix (Apr 2026): mirror vacancies into the slim card
-                // payload so list-only queries (employer home, history) can
-                // render the real number of positions without an extra
-                // job_details fetch. Without this, getJobsByEmployerRealtime
-                // returned no vacancies field and JobListing defaulted to 1.
                 "vacancies" to vacancies
             )
-            // #5 fix: persist the employer-uploaded hero image URL on the
-            // slim card payload so it can render on every job list without
-            // hitting job_details.
             normalizeString(jobData["jobImageUrl"]).takeIf { it.isNotBlank() }?.let {
                 cardData["jobImageUrl"] = it
             }
@@ -432,14 +411,62 @@ class JobFirestoreService @Inject constructor(
                 "applicationCount" to 0
             )
 
-            Timber.d(" Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
+            Timber.d("  Creating job: lat=$latitude, lon=$longitude, id=${jobRef.id}")
 
-            val batch = firestore.batch()
-            batch.set(jobRef, cardData)                                                          // ~200 bytes
-            batch.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), detailsData) // ~1KB
-            batch.commit().await()
+            firestore.runTransaction { transaction ->
+                val profileSnap = transaction.get(employerProfileRef)
+                if (!profileSnap.exists()) {
+                    throw IllegalStateException("Employer profile not found")
+                }
+                val companyName = profileSnap.getString("companyName").orEmpty().trim()
+                if (companyName.isBlank()) {
+                    throw IllegalArgumentException("Employer company name is required")
+                }
+
+                val subMap = profileSnap.get("subscription") as? Map<String, Any?>
+                val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
+
+                val isExpired = sub.expiryDate > 0 && sub.expiryDate < currentTime
+                val totalCredits = sub.normalCredits + sub.instantCredits
+
+                if (sub.status == "NONE" || isExpired || totalCredits <= 0) {
+                    throw IllegalArgumentException("You have 0 credits left under your current subscription. Please upgrade or renew your plan to post more jobs.")
+                }
+
+                // Decrement credits (decrement normal first, then instant)
+                val currentCredits = subMap?.get("credits") as? Map<String, Any?>
+                val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                    if (sub.normalCredits > 0) {
+                        put("normal", maxOf(0, sub.normalCredits - 1))
+                    } else {
+                        put("instant", maxOf(0, sub.instantCredits - 1))
+                    }
+                }
+                val newSubMap = subMap.orEmpty().toMutableMap().apply {
+                    put("credits", newCredits)
+                }
+
+
+                // Determine job expiry based on subscription plan
+                val isTrial = sub.status == "TRIAL" || sub.planId == "FREE_TRIAL"
+                val jobDurationDays = if (isTrial) 7L else 30L
+                val calculatedExpiresAt = Timestamp(java.util.Date(currentTime + (jobDurationDays * 24 * 60 * 60 * 1000L)))
+                
+                // Apply transaction-resolved companyName and expiresAt
+                val finalCardData = cardData.toMutableMap()
+                finalCardData["companyName"] = companyName
+                finalCardData["expiresAt"] = calculatedExpiresAt
+                
+                // Update details data with correct expiry
+                val finalDetailsData = detailsData.toMutableMap()
+                finalDetailsData["expiresAt"] = calculatedExpiresAt
+
+                transaction.update(employerProfileRef, "subscription", newSubMap)
+                transaction.set(jobRef, finalCardData)
+                transaction.set(firestore.collection(JOB_DETAILS_COLLECTION).document(jobRef.id), finalDetailsData)
+            }.await()
             
-            Timber.i(" âœ… Job saved (2-collection split: jobmetadata + job_details)")
+            Timber.i("  ✅ Job saved transactionally and 1 credit deducted")
 
             // Nearby-worker notifications run server-side via Cloud Functions
 
@@ -617,7 +644,7 @@ class JobFirestoreService @Inject constructor(
             val jobs = snapshot.documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
                 
-                // Filter 1: status check
+                // Filter 1: status check — exclude deleted, paused, and closed from worker feeds
                 val normalizedStatus = normalizeReadStatus(data)
                 val isOpen = normalizedStatus == "open"
                 if (!isOpen) {
@@ -682,7 +709,13 @@ class JobFirestoreService @Inject constructor(
                 .get()
                 .await()
             
-            val jobs = query.documents.mapNotNull { it.data }
+            // Filter deleted/admin-purged jobs from employer's own list (they used soft delete)
+            val jobs = query.documents.mapNotNull { doc ->
+                val data = doc.data ?: return@mapNotNull null
+                val status = (data["status"] as? String)?.lowercase()
+                if (status == "deleted") return@mapNotNull null  // Hidden from employer (admin only)
+                data
+            }
             Result.success(jobs)
         } catch (e: Exception) {
             Result.failure(e)
@@ -707,6 +740,9 @@ class JobFirestoreService @Inject constructor(
                     launch {
                         val jobs = snapshot.documents.mapNotNull { doc ->
                             val core = doc.data ?: return@mapNotNull null
+                            // Exclude deleted jobs from real-time employer feed
+                            val status = (core["status"] as? String)?.lowercase()
+                            if (status == "deleted") return@mapNotNull null
                             val details = runCatching {
                                 firestore.collection(JOB_DETAILS_COLLECTION).document(doc.id).get().await().data
                             }.getOrNull()
@@ -826,7 +862,7 @@ class JobFirestoreService @Inject constructor(
             }
             (data["status"] as? String)?.let {
                 val v = it.lowercase()
-                if (v in listOf("open", "closed", "expired")) cardUpdates["status"] = v
+                if (v in listOf("open", "closed", "expired", "paused", "filled")) cardUpdates["status"] = v
             }
             (data["expiresAt"] as? Timestamp)?.let { cardUpdates["expiresAt"] = it }
 
@@ -926,14 +962,139 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * Delete a job posting
+     * Soft-delete a job posting.
+     * IMPORTANT: We never hard-delete job documents because worker applications
+     * reference the job. Hard deletes break application history and cause nulls on
+     * the worker side. Instead we set status="deleted" to hide the job from all feeds.
+     * Only admins can hard-delete via the web console.
+     *
+     * Credit refund: if the employer deletes within 30 minutes of posting,
+     * 1 normal credit is refunded to their subscription pool.
      */
     suspend fun deleteJob(jobId: String): Result<Unit> {
         return try {
-            val batch = firestore.batch()
-            batch.delete(firestore.collection(JOBS_COLLECTION).document(jobId))
-            batch.delete(firestore.collection(JOB_DETAILS_COLLECTION).document(jobId))
-            batch.commit().await()
+            val jobDocRef = firestore.collection(JOBS_COLLECTION).document(jobId)
+            
+            firestore.runTransaction { transaction ->
+                val jobSnap = transaction.get(jobDocRef)
+                if (!jobSnap.exists()) {
+                    throw IllegalStateException("Job not found")
+                }
+                
+                val employerId = jobSnap.getString("employerId").orEmpty()
+                val createdAtVal = jobSnap.get("createdAt")
+                val createdAtMillis = toEpochMillis(createdAtVal)
+                val currentTime = System.currentTimeMillis()
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val deletedBy = auth.currentUser?.uid ?: employerId
+                
+                // SOFT DELETE — preserve document so worker applications stay valid
+                transaction.update(jobDocRef, mapOf(
+                    "status" to "deleted",
+                    "deletedAt" to currentTime,
+                    "deletedBy" to deletedBy
+                ))
+                
+                // If deleted within 30 minutes, refund subscription credit
+                if (employerId.isNotBlank() && createdAtMillis > 0 && (currentTime - createdAtMillis) <= JobDeletePolicy.DELETE_WINDOW_MILLIS) {
+                    val employerProfileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(employerId)
+                    val profileSnap = transaction.get(employerProfileRef)
+                    if (profileSnap.exists()) {
+                        @Suppress("UNCHECKED_CAST")
+                        val subMap = profileSnap.get("subscription") as? Map<String, Any?>
+                        if (subMap != null) {
+                            @Suppress("UNCHECKED_CAST")
+                            val currentCredits = subMap["credits"] as? Map<String, Any?>
+                            val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                                val normalCredits = (get("normal") as? Number)?.toInt() ?: 0
+                                put("normal", normalCredits + 1)
+                            }
+                            val newSubMap = subMap.toMutableMap().apply {
+                                put("credits", newCredits)
+                            }
+                            transaction.update(employerProfileRef, "subscription", newSubMap)
+                        }
+                    }
+                }
+            }.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Pause a job posting — hides it from worker feeds without consuming credits.
+     * Employer can resume it later. Only valid for jobs older than 30 minutes
+     * (within 30 min, the Delete option is shown instead).
+     */
+    suspend fun pauseJob(jobId: String): Result<Unit> {
+        return try {
+            firestore.collection(JOBS_COLLECTION).document(jobId)
+                .update("status", "paused")
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Resume a paused job — makes it visible in worker feeds again.
+     */
+    suspend fun resumeJob(jobId: String): Result<Unit> {
+        return try {
+            firestore.collection(JOBS_COLLECTION).document(jobId)
+                .update("status", "open")
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Renew an expired job posting.
+     * Resets expiresAt to 30 days from now, sets status back to open,
+     * and deducts 1 normal credit from employer subscription.
+     * Returns failure if employer has no credits.
+     */
+    suspend fun renewJob(jobId: String, employerId: String): Result<Unit> {
+        return try {
+            val jobDocRef = firestore.collection(JOBS_COLLECTION).document(jobId)
+            val employerProfileRef = firestore.collection(EMPLOYER_PROFILES_COLLECTION).document(employerId)
+
+            firestore.runTransaction { transaction ->
+                val jobSnap = transaction.get(jobDocRef)
+                if (!jobSnap.exists()) throw IllegalStateException("Job not found")
+
+                val profileSnap = transaction.get(employerProfileRef)
+                if (!profileSnap.exists()) throw IllegalStateException("Employer profile not found")
+
+                @Suppress("UNCHECKED_CAST")
+                val subMap = profileSnap.get("subscription") as? Map<String, Any?>
+                    ?: throw IllegalStateException("No subscription found")
+
+                @Suppress("UNCHECKED_CAST")
+                val currentCredits = subMap["credits"] as? Map<String, Any?>
+                val normalCredits = (currentCredits?.get("normal") as? Number)?.toInt() ?: 0
+                if (normalCredits <= 0) {
+                    throw IllegalStateException("No remaining credits to renew this job")
+                }
+
+                val newNormal = normalCredits - 1
+                val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                    put("normal", newNormal)
+                }
+                val newSubMap = subMap.toMutableMap().apply { put("credits", newCredits) }
+
+                val newExpiry = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
+                transaction.update(jobDocRef, mapOf(
+                    "status" to "open",
+                    "expiresAt" to newExpiry
+                ))
+                transaction.update(employerProfileRef, "subscription", newSubMap)
+            }.await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

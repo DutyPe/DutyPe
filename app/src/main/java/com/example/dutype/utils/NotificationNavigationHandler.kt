@@ -150,7 +150,7 @@ object NotificationNavigationHandler {
             // Worker: Application Status Updates (including pending reminders)
             NotificationType.APPLICATION_STATUS,
             NotificationType.APPLICATION_STATUS_UPDATE,
-            NotificationType.SHORTLISTED,
+            NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.REJECTED -> {
                 navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
             }

@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -211,30 +212,45 @@ class LocationService(private val context: Context) {
      *        - First with last known location (instant)
      *        - Second with GPS location (after 2-5 seconds)
      */
+    /**
+     * UBER/SWIGGY STRATEGY: Get location instantly using hybrid approach
+     *
+     * FIXED: Now properly handles:
+     * - Timeout for GPS fetch (5 seconds)
+     * - Error state when all location sources fail
+     * - Proper loading state management
+     *
+     * @param onLocationUpdate Callback that may be called multiple times:
+     *        - First with last known location (instant)
+     *        - Second with GPS location (after 2-5 seconds)
+     *        - Or with null if all location sources fail
+     */
     suspend fun getLocationFast(
         locationPreferences: com.example.dutype.location.LocationPreferences,
         onLocationUpdate: (LocationInfo?) -> Unit
     ): LocationInfo? {
         Timber.d("📍 FAST LOCATION: Starting hybrid location strategy...")
-        
+
         if (!hasLocationPermission()) {
             Timber.w("📍 FAST LOCATION: No permission")
             locationPreferences.setLoading(false)
             locationPreferences.setError("Location permission not granted")
+            onLocationUpdate(null)
             return null
         }
-        
+
         if (!isLocationEnabled()) {
             Timber.w("📍 FAST LOCATION: Location disabled")
             locationPreferences.setLoading(false)
             locationPreferences.setError("Please enable location services")
+            onLocationUpdate(null)
             return null
         }
-        
+
         // Set loading state
         locationPreferences.setLoading(true)
         locationPreferences.setError(null)
-        
+
         // STEP 1: Return cached location immediately (0ms)
         val cached: LocationInfo? = locationPreferences
             .getSavedLocationIfFresh(MAX_LAST_KNOWN_AGE_MS)
@@ -246,66 +262,99 @@ class LocationService(private val context: Context) {
             locationPreferences.saveLocation(locationData)
             locationPreferences.setLoading(false)
             onLocationUpdate(cached)
-            // Don't return yet - continue to get fresh GPS location
         }
-        
+
         // STEP 2: Get last known location (usually < 50ms)
         var lastKnownReturned = false
+        // Use a CompletableDeferred to properly await last known location
+        val lastKnownDeferred = kotlinx.coroutines.CompletableDeferred<LocationInfo?>()
         withContext(Dispatchers.IO) {
             try {
                 @Suppress("MissingPermission")
-                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                    if (location != null && !lastKnownReturned && isUsableLocation(location, MAX_LAST_KNOWN_AGE_MS)) {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location: android.location.Location? ->
+                    if (location != null && isUsableLocation(location, MAX_LAST_KNOWN_AGE_MS)) {
                         lastKnownReturned = true
                         Timber.d("📍 FAST LOCATION: ⚡ Got last known location (${location.accuracy}m)")
-                        processLocationWithAccuracy(location.latitude, location.longitude, location.accuracy) { locationInfo ->
+                        processLocationWithAccuracy(location.latitude, location.longitude, location.accuracy) { locationInfo: LocationInfo? ->
                             if (locationInfo != null) {
                                 cachedLocation = locationInfo
                                 lastLocationTime = System.currentTimeMillis()
-                                
-                                // Save to preferences immediately
                                 val locationData = toLocationData(locationInfo)
                                 locationPreferences.saveLocation(locationData)
                                 locationPreferences.setLoading(false)
-                                
                                 onLocationUpdate(locationInfo)
                             }
+                            lastKnownDeferred.complete(locationInfo)
                         }
-                    } else if (location != null) {
-                        Timber.w("📍 FAST LOCATION: Skipping stale/invalid last known location")
+                    } else {
+                        lastKnownDeferred.complete(null)
                     }
+                }.addOnFailureListener {
+                    lastKnownDeferred.complete(null)
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📍 FAST LOCATION: Error getting last known location")
+                lastKnownDeferred.complete(null)
             }
         }
-        
+
+        // Wait for last known location with timeout
+        val lastKnownResult = withTimeoutOrNull(500L) {
+            lastKnownDeferred.await()
+        } ?: run {
+            if (!lastKnownReturned) {
+                Timber.w("📍 FAST LOCATION: Last known location timed out")
+                null
+            } else null
+        }
+
         // STEP 3: Get fresh GPS location in background (2-5 seconds)
         // This runs in parallel and updates when ready
         serviceScope.launch {
+            val timeoutJob = kotlinx.coroutines.Job()
             try {
-                val gpsLocation = getHighAccuracyLocation(
-                    timeoutMs = 5000L, // 5 second timeout (Swiggy approach)
-                    minAccuracyMeters = 20f // Accept 20m accuracy
-                )
+                // Add a hard timeout for the entire GPS fetch
+                val gpsLocation = withTimeoutOrNull(5000L) {
+                    getHighAccuracyLocation(
+                        timeoutMs = 5000L, // 5 second timeout (Swiggy approach)
+                        minAccuracyMeters = 20f // Accept 20m accuracy
+                    )
+                }
                 if (gpsLocation != null) {
                     Timber.d("📍 FAST LOCATION: 🎯 Got GPS location (${gpsLocation.accuracy}m)")
-                    
-                    // Save GPS location to preferences
                     val locationData = toLocationData(gpsLocation)
                     locationPreferences.saveLocation(locationData)
                     locationPreferences.setLoading(false)
-                    
                     onLocationUpdate(gpsLocation)
+                } else {
+                    // GPS fetch failed or timed out
+                    Timber.w("📍 FAST LOCATION: GPS location failed or timed out")
+                    // If we have a cached or last known location, keep using it
+                    if (cached == null && lastKnownResult == null) {
+                        locationPreferences.setError("Unable to get location")
+                        locationPreferences.setLoading(false)
+                        onLocationUpdate(null)
+                    } else {
+                        // We already have a valid location, just stop loading
+                        locationPreferences.setLoading(false)
+                    }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📍 FAST LOCATION: GPS update failed")
-                locationPreferences.setLoading(false)
+                if (cached == null && lastKnownResult == null) {
+                    locationPreferences.setError("Unable to get location")
+                    locationPreferences.setLoading(false)
+                    onLocationUpdate(null)
+                } else {
+                    locationPreferences.setLoading(false)
+                }
+            } finally {
+                timeoutJob.cancel()
             }
         }
-        
+
         // Return cached or last known immediately
-        return cached
+        return cached ?: lastKnownResult
     }
 
     /**

@@ -87,11 +87,7 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFFD97706),
             Icons.Default.Schedule
         )
-        ApplicationStatus.SHORTLISTED -> Triple(
-            Color(0xFFE0E7FF),
-            Color(0xFF3730A3),
-            Icons.Default.Visibility
-        )
+            
         ApplicationStatus.HIRED -> Triple(
             Color(0xFFD1FAE5),
             Color(0xFF059669),
@@ -122,7 +118,6 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
 private fun ApplicationStatus.getDisplayName(): String {
     return when (this) {
         ApplicationStatus.APPLIED -> "Applied"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"

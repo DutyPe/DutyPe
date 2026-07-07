@@ -84,6 +84,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
+    var gstin by rememberSaveable { mutableStateOf("") }
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -171,6 +172,11 @@ fun MandatoryEmployerProfileSetupScreen(
                         businessAddress = savedBusinessAddress
                         Timber.d("PREFILL: businessAddress loaded")
                     }
+                    val savedGstin = existingData["gstin"] as? String
+                    if (gstin.isBlank() && !savedGstin.isNullOrBlank()) {
+                        gstin = savedGstin
+                        Timber.d("PREFILL: gstin = $gstin")
+                    }
                     if (businessLatitude == 0.0 && businessLongitude == 0.0 && savedBusinessLocation != null) {
                         val savedLat = (savedBusinessLocation["lat"] as? Number)?.toDouble()
                         val savedLng = (savedBusinessLocation["lng"] as? Number)?.toDouble()
@@ -226,6 +232,7 @@ fun MandatoryEmployerProfileSetupScreen(
     var companyNameError by remember { mutableStateOf<String?>(null) }
     var industryError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
+    var gstinError by remember { mutableStateOf<String?>(null) }
 
     // Update errors only when showValidationErrors is true
     val phoneNumberRequiredError = stringResource(R.string.phone_number_required_error)
@@ -243,11 +250,13 @@ fun MandatoryEmployerProfileSetupScreen(
             companyNameError = if (companyName.isBlank()) companyNameRequiredError else null
             industryError = null
             addressError = if (businessAddress.isBlank()) workLocationRequiredError else null
+            gstinError = if (gstin.isNotBlank() && gstin.length != 15) "GSTIN must be 15 characters" else null
         } else {
             phoneError = null
             companyNameError = null
             industryError = null
             addressError = null
+            gstinError = null
         }
     }
 
@@ -313,6 +322,9 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     if (businessAddress.isNotBlank()) {
                         employerProfileData["businessAddress"] = businessAddress.trim()
+                    }
+                    if (gstin.isNotBlank()) {
+                        employerProfileData["gstin"] = gstin.trim()
                     }
                     if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
                         employerProfileData["businessLocation"] = mapOf(
@@ -474,6 +486,7 @@ fun MandatoryEmployerProfileSetupScreen(
         businessLatitude = businessLatitude,
         businessLongitude = businessLongitude,
         industry = industry,
+        gstin = gstin,
         selfieUri = selfieUri,
         isUploadingSelfie = isUploadingSelfie,
         selfieError = selfieError,
@@ -487,6 +500,7 @@ fun MandatoryEmployerProfileSetupScreen(
         companyNameError = if (showValidationErrors) companyNameError else null,
         industryError = if (showValidationErrors) industryError else null,
         addressError = if (showValidationErrors) addressError else null,
+        gstinError = if (showValidationErrors) gstinError else null,
         referralCode = referralCode,
         isValidatingReferral = isValidatingReferral,
         referralValidationResult = referralValidationResult,
@@ -501,6 +515,7 @@ fun MandatoryEmployerProfileSetupScreen(
             businessLongitude = lng
         },
         onIndustryChange = { industry = it },
+        onGstinChange = { gstin = it },
         onReferralCodeChange = { newCode ->
             referralCode = newCode
             if (referralValidationResult != null) {
@@ -596,6 +611,7 @@ fun MandatoryEmployerProfileSetupContent(
     businessLatitude: Double,
     businessLongitude: Double,
     industry: String,
+    gstin: String,
     selfieUri: Uri?,
     isUploadingSelfie: Boolean,
     selfieError: String?,
@@ -609,6 +625,7 @@ fun MandatoryEmployerProfileSetupContent(
     companyNameError: String?,
     industryError: String?,
     addressError: String?,
+    gstinError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -620,6 +637,7 @@ fun MandatoryEmployerProfileSetupContent(
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
     onIndustryChange: (String) -> Unit,
+    onGstinChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -663,8 +681,10 @@ fun MandatoryEmployerProfileSetupContent(
                         CompanyInformationStep(
                             companyName = companyName,
                             industry = industry,
+                            gstin = gstin,
                             companyNameError = companyNameError,
                             industryError = industryError,
+                            gstinError = gstinError,
                             referralCode = referralCode,
                             isValidatingReferral = isValidatingReferral,
                             referralValidationResult = referralValidationResult,
@@ -672,6 +692,7 @@ fun MandatoryEmployerProfileSetupContent(
                             hasAlreadyUsedReferral = hasAlreadyUsedReferral,
                             onCompanyNameChange = onCompanyNameChange,
                             onIndustryChange = onIndustryChange,
+                            onGstinChange = onGstinChange,
                             onReferralCodeChange = onReferralCodeChange,
                             onValidateReferral = onValidateReferral
                         )
@@ -787,8 +808,10 @@ fun MandatoryEmployerProfileSetupContent(
 private fun CompanyInformationStep(
     companyName: String,
     industry: String,
+    gstin: String,
     companyNameError: String?,
     industryError: String?,
+    gstinError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -796,6 +819,7 @@ private fun CompanyInformationStep(
     hasAlreadyUsedReferral: Boolean,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
+    onGstinChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit
 ) {
@@ -895,6 +919,36 @@ private fun CompanyInformationStep(
                     cursorColor = EmployerColors.Primary
                 )
             )
+        }
+
+        Column {
+            OutlinedTextField(
+                value = gstin,
+                onValueChange = { onGstinChange(it.uppercase().take(15)) },
+                label = { Text("GSTIN (Optional)") },
+                placeholder = { Text("Enter 15-character GSTIN") },
+                leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                isError = gstinError != null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Primary,
+                    unfocusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Border,
+                    cursorColor = EmployerColors.Primary,
+                    errorBorderColor = EmployerColors.Error
+                )
+            )
+            if (gstinError != null) {
+                Text(
+                    text = gstinError,
+                    color = EmployerColors.Error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
         }
 
         // Referral Code Input - REMOVED: Now handled in login/signup flow

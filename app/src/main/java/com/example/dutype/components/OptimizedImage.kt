@@ -49,31 +49,34 @@ fun OptimizedImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    placeholderColor: Color = WorkerColors.ChipBackground
+    placeholderColor: Color = WorkerColors.ChipBackground,
+    showLoadingIndicator: Boolean = true,
+    crossfadeMillis: Int = 300
 ) {
     val context = LocalContext.current
     
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(300) // Smooth fade-in
+            .crossfade(crossfadeMillis) // Smooth fade-in when desired
             .scale(Scale.FIT) // Efficient scaling
             .build(),
         contentDescription = contentDescription,
         modifier = modifier,
         contentScale = contentScale,
         loading = {
-            // Blur placeholder during load (LinkedIn pattern)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(placeholderColor),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    strokeWidth = 2.dp,
-                    color = WorkerColors.Info
-                )
+                if (showLoadingIndicator) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = WorkerColors.Info
+                    )
+                }
             }
         },
         error = {

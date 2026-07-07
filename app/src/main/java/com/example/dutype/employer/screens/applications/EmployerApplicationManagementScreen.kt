@@ -281,7 +281,7 @@ fun EmployerApplicationManagementScreen(
             matchedWorkersState.workers.count { it.isCallReadyMatch() }
     }
     val shortlistedCount = remember(uiState.applications) {
-        uiState.applications.count { it.status == ApplicationStatus.SHORTLISTED }
+        uiState.applications.count { it.status == ApplicationStatus.APPLIED }
     }
     val hiredCount = remember(uiState.applications) {
         uiState.applications.count { it.status in filledApplicationStatuses }
@@ -1317,11 +1317,11 @@ private fun ApplicationStatsSummary(
                 onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
             )
             StatsSummaryItem(
-                value = stats.shortlistedApplications.toString(),
+                value = stats.totalApplications.toString(),
                 label = stringResource(R.string.shortlisted),
                 color = Color(0xFF8B5CF6),
-                isSelected = selectedFilter == ApplicationStatus.SHORTLISTED,
-                onClick = { onFilterSelected(ApplicationStatus.SHORTLISTED) }
+                isSelected = selectedFilter == ApplicationStatus.APPLIED,
+                onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
             )
             StatsSummaryItem(
                 value = stats.hiredApplications.toString(),
@@ -1591,7 +1591,7 @@ private fun ApplicationCard(
             }
 
             // Quick actions on list card (replaces hidden menu flow)
-            if (application.status == ApplicationStatus.APPLIED || application.status == ApplicationStatus.SHORTLISTED) {
+            if (application.status == ApplicationStatus.APPLIED || application.status == ApplicationStatus.APPLIED) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1828,7 +1828,7 @@ private fun JobApplication.connectNowScore(): Int {
     var score = 0
     if (status in connectableApplicationStatuses) score += 1_000
     if (!workerPhone.isNullOrBlank()) score += 500
-    if (status == ApplicationStatus.SHORTLISTED) score += 120
+    if (status == ApplicationStatus.APPLIED) score += 120
     if (status == ApplicationStatus.APPLIED) score += 90
     if (status == ApplicationStatus.HIRED) score += 60
     score += profileCompletenessScore()
@@ -1879,7 +1879,7 @@ private fun MatchedWorker.isCallReadyMatch(): Boolean {
 
 private val connectableApplicationStatuses = setOf(
     ApplicationStatus.APPLIED,
-    ApplicationStatus.SHORTLISTED,
+    ApplicationStatus.APPLIED,
     ApplicationStatus.HIRED
 )
 

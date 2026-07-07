@@ -487,7 +487,7 @@ fun NotificationItemContent(
 private fun getNotificationIcon(type: NotificationType): ImageVector {
     return when (type) {
         NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.CheckCircle
-        NotificationType.SHORTLISTED -> Icons.Default.CheckCircle
+        NotificationType.APPLICATION_STATUS_UPDATE -> Icons.Default.CheckCircle
         NotificationType.REJECTED -> Icons.Default.Notifications
         NotificationType.INTERVIEW_SCHEDULED -> Icons.Default.Schedule
         NotificationType.EMPLOYER_MESSAGE -> Icons.AutoMirrored.Filled.Message
@@ -501,7 +501,7 @@ private fun getNotificationIcon(type: NotificationType): ImageVector {
 private fun getNotificationColor(type: NotificationType): Color {
     return when (type) {
         NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF10B981) // Green
-        NotificationType.SHORTLISTED -> Color(0xFF10B981) // Green
+        NotificationType.APPLICATION_STATUS_UPDATE -> Color(0xFF10B981) // Green
         NotificationType.REJECTED -> Color(0xFFEF4444) // Red
         NotificationType.INTERVIEW_SCHEDULED -> Color(0xFF3B82F6) // Blue
         NotificationType.EMPLOYER_MESSAGE -> Color(0xFF8B5CF6) // Purple

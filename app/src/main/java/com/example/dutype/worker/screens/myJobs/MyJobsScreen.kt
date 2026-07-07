@@ -30,11 +30,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -425,6 +427,30 @@ fun MyJobsScreen(
             }
         }
         }
+        
+        // Home FAB
+        FloatingActionButton(
+            onClick = {
+                kotlin.runCatching {
+                    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+                        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }.onFailure { error ->
+                    Timber.e(error, "Failed to navigate to home tab from my jobs FAB")
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 76.dp, end = 16.dp),
+            containerColor = WorkerColors.Primary,
+            contentColor = Color.White
+        ) {
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Home"
+            )
+        }
     }
     
     // Withdraw Confirmation Dialog
@@ -566,7 +592,7 @@ private fun JobApplication.myJobsPipelineBucket(): Int {
 
 private val activeWorkerApplicationStatuses = setOf(
     ApplicationStatus.APPLIED,
-    ApplicationStatus.SHORTLISTED,
+    ApplicationStatus.APPLIED,
     ApplicationStatus.HIRED
 )
 

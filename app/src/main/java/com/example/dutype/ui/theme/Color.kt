@@ -201,22 +201,17 @@ object WorkerColors {
  */
 object EmployerColors {
     val HomeGradientStart: Color
-        @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1426) else Color(0xFFF2F8FD)
+        @Composable @ReadOnlyComposable get() = Color(0xFFFFFFFF)
     val HomeGradientMiddle: Color
-        @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0E1A30) else Color(0xFFEDF5FB)
+        @Composable @ReadOnlyComposable get() = Color(0xFFFFFFFF)
     val HomeGradientEnd: Color
-        @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF11203A) else Color(0xFFE9F2FA)
+        @Composable @ReadOnlyComposable get() = Color(0xFFFFFFFF)
 
     val StatusBarColor: Color
-        @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1426) else Color(0xFFF2F8FD)
+        @Composable @ReadOnlyComposable get() = Color(0xFFFFFFFF)
 
     val ScreenBackground: Color
-        @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+        @Composable @ReadOnlyComposable get() = Color(0xFFFFFFFF)
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)

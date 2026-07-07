@@ -25,12 +25,16 @@ import androidx.navigation.navArgument
 import com.example.dutype.auth.EnhancedLoginScreen
 import com.example.dutype.auth.RegisterScreen
 import com.example.dutype.common.screens.SelectRoleScreen
+import com.example.dutype.common.screens.TermsOfServiceScreen
+import com.example.dutype.common.screens.PrivacyPolicyScreen
+
 import com.example.dutype.employer.screens.AnalyticsScreen
 import com.example.dutype.employer.screens.MandatoryEmployerProfileSetupScreen
 import com.example.dutype.employer.screens.applications.EmployerApplicationManagementScreen
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.employer.screens.EditJobScreen
 import com.example.dutype.employer.screens.EmployerCompanyDetailsScreen
+import com.example.dutype.employer.screens.EmployerSubscriptionScreen
 import com.example.dutype.employer.screens.EmployerPublicProfileScreen
 import com.example.dutype.employer.screens.profilescreen.EmployerProfileScreen
 import com.example.dutype.models.UserRole
@@ -223,7 +227,7 @@ fun MainNavGraph(
                     val firestoreRoleStr = phoneRoleDoc?.getString("role")
 
                     val profileDocExists = try {
-                        kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                        val result = kotlinx.coroutines.withTimeoutOrNull(2000L) {
                             val profileCollection = if (firestoreRoleStr?.uppercase() == "EMPLOYER") {
                                 com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
                             } else {
@@ -235,10 +239,12 @@ fun MainNavGraph(
                                 .await()
                                 .exists()
                         }
+                        // Fallback to true if request times out to trust local cache offline
+                        result ?: true
                     } catch (e: Exception) {
-                        Timber.e(e, " MainNavGraph - Error reading role profile doc")
-                        false
-                    } == true
+                        Timber.e(e, "🚀 MainNavGraph - Error reading role profile doc, fallback to true (offline-first)")
+                        true // Fallback to true under network errors/offline
+                    }
 
                     // Single-role architecture: trust the Firestore document as the
                     // source of truth for the user's role. Falls back to DataStore for
@@ -375,13 +381,14 @@ fun MainNavGraph(
         )
         if (correctableRoute && currentRoute != startDestination) {
             Timber.i("MainNavGraph - Correcting cached start route from $currentRoute to $startDestination")
-            runCatching {
+            try {
                 navController.navigate(startDestination) {
                     popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     launchSingleTop = true
                 }
-            }.onFailure {
-                Timber.w(it, "MainNavGraph - Cached start route correction failed")
+                Timber.d("MainNavGraph - Successfully navigated to $startDestination from cached route $currentRoute")
+            } catch (e: Exception) {
+                Timber.w(e, "MainNavGraph - Cached start route correction failed")
             }
         }
     }
@@ -579,6 +586,12 @@ fun MainNavGraph(
                 profileCompletionViewModel = profileCompletionViewModel
             )
         }
+        composable(Routes.TERMS_OF_SERVICE) {
+            TermsOfServiceScreen(navController)
+        }
+        composable(Routes.PRIVACY_POLICY) {
+            PrivacyPolicyScreen(navController)
+        }
         composable(Routes.WORKER_HOME) {
             WorkerMainScreen(
                 rootNavController = navController,
@@ -672,6 +685,9 @@ fun MainNavGraph(
         }
         composable(Routes.EMPLOYER_COMPANY_DETAILS) {
             EmployerCompanyDetailsScreen(navController = navController)
+        }
+        composable(Routes.EMPLOYER_SUBSCRIPTION) {
+            EmployerSubscriptionScreen(navController = navController)
         }
         composable(Routes.WORKER_PROFILE_DETAILS) {
             val context = LocalContext.current

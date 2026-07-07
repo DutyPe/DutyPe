@@ -253,7 +253,7 @@ service cloud.firestore {
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -269,7 +269,8 @@ service cloud.firestore {
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -536,6 +537,23 @@ service cloud.firestore {
           get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId ||
           get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId
         );
+
+      // STATE MACHINE: only status can change.
+      // ADDITION: Allow a worker to log a call tap. This can be a create or an update.
+      // This rule is checked BEFORE the more restrictive status-update rule.
+      allow write: if isSignedIn() &&
+        appDocOwnedByCaller() &&
+        // This write is ONLY for logging a call.
+        request.resource.data.keys().hasOnly([
+          'hasCalled', 'lastCalledAt', 'callButtonTaps', 'jobId'
+        ]) &&
+        request.resource.data.hasCalled == true &&
+        request.resource.data.lastCalledAt is timestamp &&
+        request.resource.data.callButtonTaps is number &&
+        request.resource.data.jobId is string &&
+        // Ensure the jobId in the data matches the one in the document ID.
+        applicationId.matches('^' + request.resource.data.jobId + '_.*$');
+
 
       // STATE MACHINE: only status can change.
       //   applied      → shortlisted | rejected | hired   (employer)
@@ -982,32 +1000,68 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── job_call_sessions ────────────────────────────────────────────
+    // Append-only tap records used for dashboards and audit trails.
+    match /job_call_sessions/{sessionId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() && resource != null && resource.data.workerId == request.auth.uid;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'jobTitle', 'companyName', 'contactNumber',
+          'callButtonTaps', 'callStartedAt', 'source', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'workerId', 'callButtonTaps', 'callStartedAt', 'source', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.jobId is string &&
+        request.resource.data.workerId == request.auth.uid &&
+        (!('employerId' in request.resource.data) || request.resource.data.employerId is string) &&
+        (!('jobTitle' in request.resource.data) || request.resource.data.jobTitle is string) &&
+        (!('companyName' in request.resource.data) || request.resource.data.companyName is string) &&
+        (!('contactNumber' in request.resource.data) || request.resource.data.contactNumber is string) &&
+        request.resource.data.callButtonTaps == 1 &&
+        request.resource.data.callStartedAt is timestamp &&
+        request.resource.data.source == 'JOB_DESCRIPTION_CALL_TAP' &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
+
+      allow update, delete: if false;
+    }
+
     // ── job_call_feedback ─────────────────────────────────────────────
-    // Deterministic doc id: {workerId}_{jobId}. Workers update their latest
-    // post-call signal; admins use this for stale/filled-job moderation.
+    // Canonical per-job feedback record used to remember whether the worker
+    // already finished the post-call sheet for a given job.
     match /job_call_feedback/{feedbackId} {
-      function feedbackIdOwnedByCaller() {
+      function feedbackOwnedByCaller() {
         return feedbackId.matches('^' + request.auth.uid + '_.+$');
       }
 
       function validCallFeedbackData(data) {
         return data.keys().hasOnly([
-          'jobId', 'workerId', 'employerId',
-          'spokeWithEmployer', 'jobAvailability', 'source',
-          'createdAt', 'updatedAt'
+          'jobId', 'workerId', 'employerId', 'jobTitle', 'companyName',
+          'spokeWithEmployer', 'jobAvailability', 'jobOfferAccepted',
+          'source', 'createdAt', 'updatedAt', 'feedbackSubmittedAt'
         ]) &&
         data.keys().hasAll([
-          'jobId', 'workerId', 'spokeWithEmployer', 'jobAvailability', 'source', 'updatedAt'
+          'jobId', 'workerId', 'spokeWithEmployer', 'source', 'createdAt', 'updatedAt'
         ]) &&
         feedbackId == (request.auth.uid + '_' + data.jobId) &&
         data.jobId is string &&
         data.workerId == request.auth.uid &&
         (!('employerId' in data) || data.employerId is string) &&
+        (!('jobTitle' in data) || data.jobTitle is string) &&
+        (!('companyName' in data) || data.companyName is string) &&
         data.spokeWithEmployer is bool &&
-        data.jobAvailability in ['STILL_AVAILABLE', 'FILLED', 'NOT_SURE'] &&
-        data.source == 'JOB_DESCRIPTION_CALL_RETURN' &&
+        (!('jobAvailability' in data) || data.jobAvailability in ['STILL_AVAILABLE', 'FILLED', 'NOT_SURE']) &&
+        (!('jobOfferAccepted' in data) || data.jobOfferAccepted is bool) &&
+        data.source == 'JOB_DESCRIPTION_CALL_TAP' &&
         (!('createdAt' in data) || data.createdAt is timestamp) &&
         data.updatedAt is timestamp &&
+        (!('feedbackSubmittedAt' in data) || data.feedbackSubmittedAt is timestamp) &&
         exists(/databases/$(database)/documents/jobmetadata/$(data.jobId));
       }
 
@@ -1016,21 +1070,20 @@ service cloud.firestore {
       allow get: if isSignedIn() &&
         (
           (resource != null && resource.data.workerId == request.auth.uid) ||
-          (resource == null && feedbackIdOwnedByCaller())
+          (resource == null && feedbackOwnedByCaller())
         );
       allow list: if false;
 
-      allow create: if isSignedIn() &&
-        request.resource.data.keys().hasAll(['createdAt']) &&
-        validCallFeedbackData(request.resource.data);
+      allow create: if isSignedIn() && validCallFeedbackData(request.resource.data);
 
       allow update: if isSignedIn() &&
-        resource.data.workerId == request.auth.uid &&
+        feedbackOwnedByCaller() &&
         request.resource.data.workerId == resource.data.workerId &&
         request.resource.data.jobId == resource.data.jobId &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'employerId', 'spokeWithEmployer', 'jobAvailability', 'source', 'updatedAt'
+          'employerId', 'jobTitle', 'companyName', 'spokeWithEmployer',
+          'jobAvailability', 'jobOfferAccepted', 'source', 'updatedAt', 'feedbackSubmittedAt'
         ]) &&
         validCallFeedbackData(request.resource.data);
 
@@ -1135,6 +1188,31 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
       allow create, update, delete: if false;
+    }
+
+    // ── system_metrics ────────────────────────────────────────────────
+    // Global counters for dashboards. Read-only for clients.
+    match /system_metrics/{docId} {
+      allow read, write: if isAdmin();
+
+      allow get: if true; // Allow web app to read stats
+      allow list, create, update, delete: if false; // Deny all client writes
+    }
+
+    // ── active_qr_codes ───────────────────────────────────────────────
+    match /active_qr_codes/{docId} {
+      allow read, write: if isAdmin();
+      allow list, get: if isSignedIn();
+    }
+
+    // ── subscription_payment_requests ────────────────────────────────
+    match /subscription_payment_requests/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.employerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      allow list: if isSignedIn() && (
+        resource == null || resource.data.employerId == request.auth.uid
+      );
     }
 
     // ── deny everything else ──────────────────────────────────────────

@@ -9,6 +9,7 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
+import com.example.dutype.models.UserRole
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.ads.AdManager
 import com.example.dutype.models.ApplicationStats
@@ -39,10 +40,12 @@ class SmartJobApplicationViewModel @Inject constructor(
     private val profileCompletionService: ProfileCompletionService,
     private val applicationStateManager: ApplicationStateManager,
     private val auth: FirebaseAuth,
+    val jobInteractionService: com.example.dutype.services.JobInteractionService,
     val reportingService: com.example.dutype.services.ReportingService,
     val jobCallFeedbackService: com.example.dutype.services.JobCallFeedbackService,
     val adManager: AdManager,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val profileSetupStateManager: com.example.dutype.state.ProfileSetupStateManager
 ) : ViewModel() {
 
     // =============================================================================
@@ -92,6 +95,7 @@ class SmartJobApplicationViewModel @Inject constructor(
     
     // Guard to prevent duplicate loadMyApplications calls
     private var hasInitiallyLoaded = false
+    private var myApplicationsJob: kotlinx.coroutines.Job? = null
     
     // Guard to prevent duplicate loadUserCapabilities calls
     private var hasLoadedCapabilities = false
@@ -109,6 +113,7 @@ class SmartJobApplicationViewModel @Inject constructor(
             applicationStateManager.applications.collect { applications ->
                 _uiState.value = _uiState.value.copy(applications = applications)
                 _legacyUiState.value = _legacyUiState.value.copy(applications = applications)
+                loadApplicationStats()
             }
         }
     }
@@ -127,7 +132,7 @@ class SmartJobApplicationViewModel @Inject constructor(
         }
         
         // Skip if already loading or has loaded (prevents duplicate calls from recomposition)
-        if (_legacyUiState.value.isLoading && hasInitiallyLoaded) {
+        if (myApplicationsJob != null && myApplicationsJob?.isActive == true) {
             return
         }
         
@@ -138,7 +143,7 @@ class SmartJobApplicationViewModel @Inject constructor(
         
         hasInitiallyLoaded = true
         
-        viewModelScope.launch {
+        myApplicationsJob = viewModelScope.launch {
             _legacyUiState.value = _legacyUiState.value.copy(isLoading = true)
             
             jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
@@ -194,6 +199,8 @@ class SmartJobApplicationViewModel @Inject constructor(
      * Refresh applications
      */
     fun refreshApplications() {
+        myApplicationsJob?.cancel()
+        myApplicationsJob = null
         hasInitiallyLoaded = false
         loadMyApplications()
     }
@@ -217,10 +224,13 @@ class SmartJobApplicationViewModel @Inject constructor(
             val currentUser = auth.currentUser
             if (currentUser != null) {
                 try {
+                    // Get current user role dynamically, fallback to WORKER if not set
+                    val userRole = profileSetupStateManager.getUserRole() ?: UserRole.WORKER
+
                     // Single API call to get all profile completion data
                     val status = profileCompletionService.getProfileCompletionStatus(
                         currentUser.uid,
-                        com.example.dutype.models.UserRole.WORKER.name
+                        userRole.name
                     )
                     
                     // Update all states from single response
@@ -334,6 +344,41 @@ class SmartJobApplicationViewModel @Inject constructor(
         }
     }
 
+    fun applyFromCall(jobId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSubmitting = true)
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                _uiState.value = _uiState.value.copy(isSubmitting = false, error = "User not authenticated")
+                return@launch
+            }
+
+            jobApplicationService.applyFromCall(jobId, currentUser.uid)
+                .onSuccess { application ->
+                    val canonicalId = application.id
+                    val updatedApplications = listOf(application) + _legacyUiState.value.applications
+                        .filterNot { it.id == canonicalId || it.jobId == application.jobId }
+                    _legacyUiState.value = _legacyUiState.value.copy(applications = updatedApplications)
+                    _uiState.value = _uiState.value.copy(
+                        isSubmitting = false,
+                        submissionSuccess = true,
+                        applications = updatedApplications,
+                        lastApplication = application,
+                        applicationSuccess = true
+                    )
+                    applicationStateManager.updateApplications(updatedApplications)
+                    loadApplicationStats()
+                }
+                .onFailure { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        isSubmitting = false,
+                        error = exception.message,
+                        applicationSuccess = false
+                    )
+                }
+        }
+    }
+
     /**
      * Check if user has applied for a job
      */
@@ -429,20 +474,16 @@ class SmartJobApplicationViewModel @Inject constructor(
     // STATISTICS & VACANCY STATUS
     // =============================================================================
     
-    /**
-     * Load application statistics
-     */
     private fun loadApplicationStats() {
-        val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
-            val result = jobApplicationService.getWorkerApplicationStats(currentUser.uid)
-            result.onSuccess { stats ->
-                _stats.value = stats
-            }.onFailure { _ ->
-                // Don't show error for stats, just keep default values
-            }
-        }
+        val applications = _uiState.value.applications
+        val stats = ApplicationStats(
+            totalApplications = applications.size,
+            appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
+            rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
+            hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
+            recentApplications = applications.take(5)
+        )
+        _stats.value = stats
     }
     
     /**

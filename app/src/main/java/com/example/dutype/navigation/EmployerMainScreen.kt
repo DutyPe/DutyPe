@@ -108,10 +108,11 @@ fun EmployerMainScreen(
         Routes.HELP,
         Routes.ABOUT_US,
         Routes.EMPLOYER_ABOUT,
+        Routes.EMPLOYER_SUBSCRIPTION,
         Routes.EMPLOYER_HELP,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_HISTORY,
-        Routes.EMPLOYER_REFER_EARN,
+        // Routes.EMPLOYER_REFER_EARN,
     )
     
     // Check if current route should hide bottom bar
@@ -247,6 +248,11 @@ fun EmployerMainScreen(
                     }
                     composable(Routes.EMPLOYER_COMPANY_DETAILS) {
                         EmployerCompanyDetailsScreen(
+                            navController = navController
+                        )
+                    }
+                    composable(Routes.EMPLOYER_SUBSCRIPTION) {
+                        com.example.dutype.employer.screens.EmployerSubscriptionScreen(
                             navController = navController
                         )
                     }
@@ -420,12 +426,14 @@ fun EmployerMainScreen(
                         )
                     }
 
+                    /*
                     composable(Routes.EMPLOYER_REFER_EARN) {
                         EmployerReferEarnScreen(
                             navController = navController,
                             onStatusBarColorChange = { color -> currentStatusBarColor = color }
                         )
                     }
+                    */
 
                     composable(
                         route = Routes.EMPLOYER_HISTORY_WITH_TAB,

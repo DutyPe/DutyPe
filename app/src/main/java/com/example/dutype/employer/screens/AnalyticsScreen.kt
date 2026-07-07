@@ -26,7 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
-
+import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.ApplicationStats
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
@@ -58,6 +59,29 @@ import java.util.Calendar
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
 
+private fun InstantRequest.toJobListing(): JobListing {
+    return JobListing(
+        id = requestId,
+        employerId = employerId,
+        title = "[Urgent] $title",
+        salary = budgetText,
+        salaryType = "HOURLY",
+        jobType = "Urgent Gig",
+        geohash = geohash,
+        urgency = "HIGH",
+        status = status,
+        createdAt = createdAt,
+        expiresAt = expiresAt,
+        lat = lat,
+        lng = lng,
+        companyName = employerName,
+        description = description,
+        addressText = addressText,
+        contactNumber = contactNumber,
+        vacancies = workersNeeded
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(navController: NavController) {
@@ -68,11 +92,17 @@ fun AnalyticsScreen(navController: NavController) {
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
+
+    // Get instant request statistics
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     
-    // Calculate stats directly from JobListing
-    val activeJobs = uiState.myJobs.count { it.status == "open" }
-    val totalJobs = uiState.myJobs.size
-    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.createdAt) }
+    val urgentRequests = instantHelpState.employerInstantRequests
+    
+    // Calculate stats directly from JobListing + InstantRequest
+    val activeJobs = uiState.myJobs.count { it.status == "open" } + urgentRequests.count { it.status == "open" }
+    val totalJobs = uiState.myJobs.size + urgentRequests.size
+    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.createdAt) } + urgentRequests.count { DateTimeUtils.isToday(it.createdAt) }
     val totalApplications = appStats.totalApplications
     
     val jobStats = JobStats(
@@ -82,14 +112,14 @@ fun AnalyticsScreen(navController: NavController) {
         totalJobs = totalJobs
     )
 
+    val combinedJobs = (uiState.myJobs + urgentRequests.map { it.toJobListing() })
+        .sortedByDescending { it.createdAt }
+
     // Load applications data when screen loads.
-    // Bug #2 fix: This screen owns its own FirestoreEmployerJobViewModel via
-    // hiltViewModel(), so we must trigger loadMyJobs() here. Otherwise the VM's
-    // uiState.myJobs stays empty and every dashboard count (active/today/total/paused)
-    // renders as 0 even though EmployerHomeScreen (with its own VM) shows them fine.
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
         applicationViewModel.loadEmployerApplications()
+        instantHelpViewModel.loadEmployerUrgentNeeds()
     }
 
     Column(
@@ -131,7 +161,7 @@ fun AnalyticsScreen(navController: NavController) {
             
             // Recent Jobs Activity
             item {
-                RecentJobsActivitySection(jobs = uiState.myJobs)
+                RecentJobsActivitySection(jobs = combinedJobs)
             }
         }
     }
@@ -220,7 +250,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 )
                 ApplicationStatItem(
                     label = stringResource(R.string.shortlisted),
-                    value = appStats.shortlistedApplications.toString(),
+                    value = appStats.totalApplications.toString(),
                     color = Color(0xFF8B5CF6)
                 )
                 ApplicationStatItem(
@@ -607,11 +637,11 @@ fun RecentApplicationItem(
                 colors = CardDefaults.cardColors(
                     containerColor = when (application.status) {
                         ApplicationStatus.APPLIED -> EmployerColors.WarningLight
-                        ApplicationStatus.SHORTLISTED -> EmployerColors.InfoLight
                         ApplicationStatus.HIRED -> EmployerColors.SuccessLight
                         ApplicationStatus.COMPLETED -> EmployerColors.SuccessLight
                         ApplicationStatus.REJECTED -> EmployerColors.ErrorLight
                         ApplicationStatus.WITHDRAWN -> EmployerColors.ChipBackground
+                        ApplicationStatus.APPLIED -> EmployerColors.InfoLight
                     }
                 )
             ) {
@@ -621,11 +651,11 @@ fun RecentApplicationItem(
                         fontWeight = FontWeight.Medium,
                         color = when (application.status) {
                             ApplicationStatus.APPLIED -> EmployerColors.Warning
-                            ApplicationStatus.SHORTLISTED -> EmployerColors.Info
                             ApplicationStatus.HIRED -> EmployerColors.Success
                             ApplicationStatus.COMPLETED -> EmployerColors.Success
                             ApplicationStatus.REJECTED -> EmployerColors.Error
                             ApplicationStatus.WITHDRAWN -> Color(0xFF4B5563)
+                            ApplicationStatus.APPLIED -> EmployerColors.Info
                         }
                     ),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

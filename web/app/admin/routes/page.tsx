@@ -28,6 +28,8 @@ const adminRoutes = [
   { href: "/admin/app-update", label: "App Update", description: "Control the Android update prompt for worker and employer homes." },
   { href: "/admin/notifications", label: "Notifications", description: "Broadcast app alerts to all users or one role." },
   { href: "/admin/announcements", label: "Announcements", description: "Send notices and updates to users." },
+  { href: "/admin/dynamic-config", label: "Dynamic Config", description: "Manage dynamic app icons, feature flags, and assets remotely." },
+  { href: "/admin/payments", label: "Subscription Payments", description: "Verify employer UTRs, manage active QR codes, and extend job postings." },
   { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },
   { href: "/admin/create-test-referral", label: "Create Test Referral", description: "Generate test referral entries." },
   { href: "/admin/test-referral", label: "Test Referral", description: "Validate referral behavior and logs." }

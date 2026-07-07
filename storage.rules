@@ -8,6 +8,26 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    function isAdmin() {
+      return request.auth != null && (
+        (request.auth.token.get('admin', false) == true) ||
+        (request.auth.token.get('role', '') == 'ADMIN') ||
+        (request.auth.token.get('activeRole', '') == 'ADMIN') ||
+        (request.auth.token.get('email', '') is string &&
+          (
+            request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
+            request.auth.token.email.lower() in [
+              'admin@dutype.com',
+              'vamsi@dutype.com',
+              'vamsib298@gmail.com',
+              'dutpyein@gmail.com'
+            ]
+          )
+        )
+      );
+    }
+
+
     // Profile images — public read (displayed in job cards), owner-only write.
     // 5 MB cap, image content types only.
     match /profile_images/{userId}/{allPaths=**} {
@@ -39,6 +59,18 @@ service firebase.storage {
         request.resource.size < 10 * 1024 * 1024 &&
         request.resource.contentType == 'application/pdf';
       allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Active payment QR codes — public read (workers/employers scan to pay), auth write/delete.
+    match /active_qrs/{allPaths=**} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+
+    // Dynamic configuration assets (banners, lottie) — public read, admin-only write.
+    match /dynamic_assets/{allPaths=**} {
+      allow read: if true;
+      allow write, delete: if isAdmin();
     }
 
     // Deny everything else.

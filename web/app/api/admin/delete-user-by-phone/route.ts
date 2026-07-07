@@ -86,6 +86,50 @@ export async function POST(request: NextRequest) {
       await batch.commit();
     }
 
+    // Delete jobs created by this user (if employer)
+    const jobs = await db.collection("jobs").where("employerId", "==", userId).get();
+    if (!jobs.empty) {
+      const batch = db.batch();
+      jobs.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        deletedCount++;
+      });
+      await batch.commit();
+    }
+
+    // Delete applications made by this user (if worker)
+    const workerApps = await db.collection("jobApplications").where("workerId", "==", userId).get();
+    if (!workerApps.empty) {
+      const batch = db.batch();
+      workerApps.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        deletedCount++;
+      });
+      await batch.commit();
+    }
+
+    // Delete applications received by this user (if employer)
+    const employerApps = await db.collection("jobApplications").where("employerId", "==", userId).get();
+    if (!employerApps.empty) {
+      const batch = db.batch();
+      employerApps.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        deletedCount++;
+      });
+      await batch.commit();
+    }
+
+    // Delete saved jobs made by this user
+    const savedJobs = await db.collection("saved_jobs").where("workerId", "==", userId).get();
+    if (!savedJobs.empty) {
+      const batch = db.batch();
+      savedJobs.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+        deletedCount++;
+      });
+      await batch.commit();
+    }
+
     // Delete auth user
     try {
       await auth.deleteUser(userId);

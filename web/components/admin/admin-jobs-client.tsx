@@ -389,6 +389,7 @@ export function AdminJobsClient() {
           <option value="open">Open</option>
           <option value="closed">Closed</option>
           <option value="expired">Expired</option>
+          <option value="deleted">Deleted</option>
         </select>
         <span className="admin-count">{filteredJobs.length} jobs</span>
       </div>

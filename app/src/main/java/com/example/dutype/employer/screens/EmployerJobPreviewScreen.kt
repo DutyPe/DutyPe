@@ -60,6 +60,7 @@ import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ImageUploadUtils
 import com.example.dutype.utils.JobEditPolicy
+import com.example.dutype.utils.JobDeletePolicy
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -95,6 +96,8 @@ fun EmployerJobPreviewScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var isDeletingJob by remember { mutableStateOf(false) }
+    var isPausingJob by remember { mutableStateOf(false) }
+    var isRenewingJob by remember { mutableStateOf(false) }
 
     fun uploadAndSaveHeroImage(uri: Uri) {
         val currentJob = job ?: return
@@ -231,6 +234,14 @@ fun EmployerJobPreviewScreen(
         // Sticky bottom Edit bar — direct child of outer Box so we can align.
         if (!isLoading && job != null) {
             val j = job!!
+            val currentStatus = j.status.lowercase()
+            val isPaused = currentStatus == "paused"
+            val isExpired = currentStatus == "expired"
+            val isDeleted = currentStatus == "deleted"
+            val showDelete = JobDeletePolicy.canDeleteNormal(j.createdAt) && !isDeleted
+            val showPauseResume = !JobDeletePolicy.canDeleteNormal(j.createdAt) && currentStatus in listOf("open", "paused") && !isDeleted
+            val showRenew = isExpired && !isDeleted
+
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 StickyEditBar(
                     onEdit = {
@@ -240,7 +251,47 @@ fun EmployerJobPreviewScreen(
                             Toast.makeText(context, JobEditPolicy.blockedMessage(j.createdAt), Toast.LENGTH_LONG).show()
                         }
                     },
-                    onDelete = { showDeleteConfirm = true }
+                    onDelete = { showDeleteConfirm = true },
+                    showDelete = showDelete,
+                    isPaused = isPaused,
+                    showPauseResume = showPauseResume,
+                    onPauseResume = {
+                        scope.launch {
+                            isPausingJob = true
+                            val result = if (isPaused) {
+                                viewModel.resumeJob(j.id)
+                            } else {
+                                viewModel.pauseJob(j.id)
+                            }
+                            result.onSuccess {
+                                val newStatus = if (isPaused) "open" else "paused"
+                                job = j.copy(status = newStatus)
+                                val msg = if (isPaused) "Job resumed — visible to workers" else "Job paused — hidden from workers"
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }.onFailure { e ->
+                                Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                            isPausingJob = false
+                        }
+                    },
+                    showRenew = showRenew,
+                    onRenew = {
+                        scope.launch {
+                            isRenewingJob = true
+                            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                            if (currentUser != null) {
+                                val result = viewModel.renewJob(j.id, currentUser.uid)
+                                result.onSuccess {
+                                    job = j.copy(status = "open")
+                                    Toast.makeText(context, "Job renewed for 30 more days (1 credit used)", Toast.LENGTH_LONG).show()
+                                }.onFailure { e ->
+                                    Toast.makeText(context, "Renew failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            isRenewingJob = false
+                        }
+                    },
+                    isProcessing = isPausingJob || isRenewingJob
                 )
             }
         }
@@ -569,66 +620,141 @@ private fun DescriptionCard(description: String) {
 @Composable
 private fun StickyEditBar(
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    showDelete: Boolean = true,
+    isPaused: Boolean = false,
+    showPauseResume: Boolean = false,
+    onPauseResume: () -> Unit = {},
+    showRenew: Boolean = false,
+    onRenew: () -> Unit = {},
+    isProcessing: Boolean = false
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = EmployerColors.CardBackground,
         shadowElevation = 8.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
-            OutlinedButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Error),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = EmployerColors.Error
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Delete",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+            // Top row: Pause/Resume + Renew (contextual actions for older jobs)
+            if (showPauseResume || showRenew) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (showPauseResume) {
+                        OutlinedButton(
+                            onClick = onPauseResume,
+                            enabled = !isProcessing,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isPaused) EmployerColors.Primary else EmployerColors.TextSecondary
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (isPaused) EmployerColors.Primary else EmployerColors.TextSecondary
+                            )
+                        ) {
+                            if (isProcessing) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(
+                                    text = if (isPaused) "▶ Resume Job" else "⏸ Pause Job",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                    if (showRenew) {
+                        Button(
+                            onClick = onRenew,
+                            enabled = !isProcessing,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EmployerColors.Primary.copy(alpha = 0.85f),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            if (isProcessing) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                            } else {
+                                Text(
+                                    text = "🔄 Renew (1 credit)",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
             }
-
-            Button(
-                onClick = onEdit,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Primary,
-                    contentColor = Color.White
-                )
+            // Bottom row: Delete + Edit
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Edit",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                if (showDelete) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Error),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = EmployerColors.Error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Delete",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .weight(if (showDelete) 1f else 2f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EmployerColors.Primary,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Edit Job",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

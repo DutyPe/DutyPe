@@ -198,6 +198,33 @@ class FirestoreJobRepository @Inject constructor(
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
+
+    fun pauseJob(jobId: String): Flow<Result<Unit>> = flow {
+        try {
+            val result = firestoreService.pauseJob(jobId)
+            emit(result)
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    fun resumeJob(jobId: String): Flow<Result<Unit>> = flow {
+        try {
+            val result = firestoreService.resumeJob(jobId)
+            emit(result)
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    fun renewJob(jobId: String, employerId: String): Flow<Result<Unit>> = flow {
+        try {
+            val result = firestoreService.renewJob(jobId, employerId)
+            emit(result)
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }.flowOn(Dispatchers.IO)
     
     /**
      * Search jobs by query - NO CACHE

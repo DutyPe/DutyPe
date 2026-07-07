@@ -1340,4 +1340,14 @@
     <string name="notif_worker_hired_msg">శుభవార్త! మీరు \'%1$s\' కోసం ఎంపికయ్యారు. తదుపరి దశల కోసం యజమానిని సంప్రదించండి.</string>
     <string name="notif_employer_hired_title">కార్మికుడు విజయవంతంగా ఎంపికయ్యారు! ✅</string>
     <string name="notif_employer_hired_msg">మీరు \'%2$s\' కోసం %1$sని విజయవంతంగా ఎంపిక చేశారు. ప్రారంభ తేదీని సమన్వయం చేయడానికి వారిని సంప్రదించండి.</string>
+    
+    <!-- Quick Actions on Worker Home Screen -->
+    <string name="quick_action_browse_jobs">ఉద్యోగాలు</string>
+    <string name="quick_action_browse_jobs_sub">పనులు వెతకండి</string>
+    <string name="quick_action_applied">దరఖాస్తులు</string>
+    <string name="quick_action_applied_sub">స్టేటస్ చూడండి</string>
+    <string name="quick_action_earnings">సంపాదన</string>
+    <string name="quick_action_earnings_sub">డబ్బులు చూడండి</string>
+    <string name="quick_action_support">సహాయం</string>
+    <string name="quick_action_support_sub">మద్దతు పొందండి</string>
 </resources>

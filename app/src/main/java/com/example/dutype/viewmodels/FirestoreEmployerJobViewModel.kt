@@ -466,6 +466,36 @@ class FirestoreEmployerJobViewModel @Inject constructor(
             }
         }
     }
+
+    suspend fun pauseJob(jobId: String): Result<Unit> {
+        return try {
+            var result: Result<Unit> = Result.failure(Exception("Unknown error"))
+            firestoreJobRepository.pauseJob(jobId).collect { result = it }
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resumeJob(jobId: String): Result<Unit> {
+        return try {
+            var result: Result<Unit> = Result.failure(Exception("Unknown error"))
+            firestoreJobRepository.resumeJob(jobId).collect { result = it }
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun renewJob(jobId: String, employerId: String): Result<Unit> {
+        return try {
+            var result: Result<Unit> = Result.failure(Exception("Unknown error"))
+            firestoreJobRepository.renewJob(jobId, employerId).collect { result = it }
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
     
     fun getJobById(jobId: String, callback: (JobListing?) -> Unit) {
         viewModelScope.launch {

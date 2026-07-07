@@ -7,6 +7,7 @@ import com.example.dutype.models.LocationData
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.models.WorkerAvailability
 import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.JobDeletePolicy
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -182,73 +183,112 @@ class InstantHelpService @Inject constructor(
         }
 
         return@withContext try {
-            val employerDoc = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES)
-                .document(employerId)
-                .get()
-                .await()
-            val employerData = employerDoc.data.orEmpty()
-            val location = employerData["businessLocation"] as? Map<*, *>
-            val latitude = location?.getNumber("lat")?.toDouble() ?: 0.0
-            val longitude = location?.getNumber("lng")?.toDouble() ?: 0.0
-            if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
-                return@withContext Result.failure(IllegalStateException("Add your business location before posting an urgent need"))
-            }
-            val profilePhone = employerData.getString("phone")
-                .ifBlank { employerData.getString("phoneNumber") }
-                .ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
-            val contactNumber = input.contactNumber.trim().ifBlank { profilePhone }.take(20)
-            if (contactNumber.isBlank()) {
-                return@withContext Result.failure(IllegalArgumentException("Enter contact number"))
-            }
-            val workersNeeded = input.workersNeeded.coerceIn(1, 20)
-
-            val now = Timestamp.now()
-            val expiryMs = when (input.needType) {
-                "scheduled" -> 48 * 60 * 60 * 1000L
-                else -> 24 * 60 * 60 * 1000L
-            }
-            val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
-                Timestamp(Date(input.scheduledAtMillis))
-            } else {
-                null
-            }
-            val expiresAt = Timestamp(Date(nowMillis + expiryMs))
+            val employerProfileRef = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(employerId)
             val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document()
-            val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
-            val data = mutableMapOf<String, Any>(
-                "requestId" to requestRef.id,
-                "employerId" to employerId,
-                "employerName" to (employerData.getString("companyName").ifBlank { employerData.getString("fullName") }.ifBlank { "DutyPe employer" }),
-                "employerPhone" to contactNumber,
-                "contactNumber" to contactNumber,
-                "title" to input.title.trim(),
-                "description" to input.description.trim(),
-                "category" to input.category.trim().ifBlank { "Helper" },
-                "workersNeeded" to workersNeeded,
-                "needType" to input.needType,
-                "status" to "open",
-                "urgency" to if (input.needType == "urgent_now") "urgent" else "today",
-                "budgetText" to input.budgetText.trim(),
-                "lat" to latitude,
-                "lng" to longitude,
-                "geohash" to GeoUtils.encodeGeohash(latitude, longitude),
-                "addressText" to employerData.getString("businessAddress"),
-                "radiusKm" to safeRadius,
-                "createdAt" to now,
-                "expiresAt" to expiresAt,
-                "responseCount" to 0,
-                "callCount" to 0,
-                "selectedWorkerId" to "",
-                "selectedWorkerIds" to emptyList<String>(),
-                "completedWorkerIds" to emptyList<String>(),
-                "failureReason" to ""
-            )
-            if (scheduledAt != null) {
-                data["scheduledAt"] = scheduledAt
-                data["scheduleLabel"] = input.scheduleLabel.trim().take(80)
-            }
+            
+            firestore.runTransaction { transaction ->
+                val employerDoc = transaction.get(employerProfileRef)
+                if (!employerDoc.exists()) {
+                    throw IllegalStateException("Employer profile not found")
+                }
+                
+                val location = employerDoc.get("businessLocation") as? Map<*, *>
+                val latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
+                val longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
+                if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
+                    throw IllegalStateException("Add your business location before posting an urgent need")
+                }
+                
+                val profilePhone = employerDoc.getString("phone").orEmpty().trim()
+                    .ifBlank { employerDoc.getString("phoneNumber").orEmpty().trim() }
+                    .ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
+                val contactNumber = input.contactNumber.trim().ifBlank { profilePhone }.take(20)
+                if (contactNumber.isBlank()) {
+                    throw IllegalArgumentException("Enter contact number")
+                }
+                
+                val subMap = employerDoc.get("subscription") as? Map<String, Any?>
+                val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
+                
+                val isExpired = sub.expiryDate > 0 && sub.expiryDate < nowMillis
+                val totalCredits = sub.normalCredits + sub.instantCredits
+                
+                if (sub.status == "NONE" || isExpired || totalCredits <= 0) {
+                    throw IllegalArgumentException("You have 0 credits left under your current subscription. Please upgrade or renew your plan to post more jobs.")
+                }
+                
+                val workersNeeded = input.workersNeeded.coerceIn(1, 20)
+                val now = Timestamp.now()
+                val isPaidSubscriber = sub.status == "ACTIVE"
+                
+                val expiryMs = if (isPaidSubscriber) {
+                    7L * 24 * 60 * 60 * 1000L // 7 days for paid subscribers
+                } else {
+                    3L * 24 * 60 * 60 * 1000L // 3 days for trial or non-subscribed
+                }
+                val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
+                    Timestamp(Date(input.scheduledAtMillis))
+                } else {
+                    null
+                }
+                val expiresAt = Timestamp(Date(nowMillis + expiryMs))
+                val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
+                
+                val employerName = employerDoc.getString("companyName").orEmpty().trim()
+                    .ifBlank { employerDoc.getString("fullName").orEmpty().trim() }
+                    .ifBlank { "DutyPe employer" }
+                val businessAddress = employerDoc.getString("businessAddress").orEmpty().trim()
 
-            requestRef.set(data).await()
+                val data = mutableMapOf<String, Any>(
+                    "requestId" to requestRef.id,
+                    "employerId" to employerId,
+                    "employerName" to employerName,
+                    "employerPhone" to contactNumber,
+                    "contactNumber" to contactNumber,
+                    "title" to input.title.trim(),
+                    "description" to input.description.trim(),
+                    "category" to input.category.trim().ifBlank { "Helper" },
+                    "workersNeeded" to workersNeeded,
+                    "needType" to input.needType,
+                    "status" to "open",
+                    "urgency" to if (input.needType == "urgent_now") "urgent" else "today",
+                    "budgetText" to input.budgetText.trim(),
+                    "lat" to latitude,
+                    "lng" to longitude,
+                    "geohash" to GeoUtils.encodeGeohash(latitude, longitude),
+                    "addressText" to businessAddress,
+                    "radiusKm" to safeRadius,
+                    "createdAt" to now,
+                    "expiresAt" to expiresAt,
+                    "responseCount" to 0,
+                    "callCount" to 0,
+                    "selectedWorkerId" to "",
+                    "selectedWorkerIds" to emptyList<String>(),
+                    "completedWorkerIds" to emptyList<String>(),
+                    "failureReason" to ""
+                )
+                if (scheduledAt != null) {
+                    data["scheduledAt"] = scheduledAt
+                    data["scheduleLabel"] = input.scheduleLabel.trim().take(80)
+                }
+                
+                // Decrement credits (decrement instant first, then normal)
+                val currentCredits = subMap?.get("credits") as? Map<String, Any?>
+                val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                    if (sub.instantCredits > 0) {
+                        put("instant", maxOf(0, sub.instantCredits - 1))
+                    } else {
+                        put("normal", maxOf(0, sub.normalCredits - 1))
+                    }
+                }
+                val newSubMap = subMap.orEmpty().toMutableMap().apply {
+                    put("credits", newCredits)
+                }
+                
+                transaction.update(employerProfileRef, "subscription", newSubMap)
+                transaction.set(requestRef, data)
+            }.await()
+            
             Result.success(requestRef.id)
         } catch (error: Exception) {
             Result.failure(error)
@@ -517,41 +557,73 @@ class InstantHelpService @Inject constructor(
 
         return@withContext try {
             val now = Timestamp.now()
+            val currentTime = System.currentTimeMillis()
             val safeReason = reason.trim().take(300).ifBlank { "Cancelled by employer" }
-            val batch = firestore.batch()
             val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(request.requestId)
-            batch.set(
-                requestRef,
-                mapOf(
-                    "status" to "cancelled",
-                    "cancelledAt" to now,
-                    "cancellationReason" to safeReason,
-                    "failureReason" to safeReason
-                ),
-                SetOptions.merge()
-            )
+            val isEarlyDelete = (currentTime - request.createdAt) <= JobDeletePolicy.INSTANT_DELETE_WINDOW_MILLIS
 
+            firestore.runTransaction { transaction ->
+                if (isEarlyDelete) {
+                    // 1. Delete request document completely
+                    transaction.delete(requestRef)
+                    
+                    // 2. Refund credits to the employer profile
+                    val employerProfileRef = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(employerId)
+                    val profileSnap = transaction.get(employerProfileRef)
+                    if (profileSnap.exists()) {
+                        val subMap = profileSnap.get("subscription") as? Map<String, Any?>
+                        if (subMap != null) {
+                            val currentCredits = subMap["credits"] as? Map<String, Any?>
+                            val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                                val instantCredits = (get("instant") as? Number)?.toInt() ?: 0
+                                put("instant", instantCredits + 1)
+                            }
+                            val newSubMap = subMap.toMutableMap().apply {
+                                put("credits", newCredits)
+                            }
+                            transaction.update(employerProfileRef, "subscription", newSubMap)
+                        }
+                    }
+                } else {
+                    // Normal cancel
+                    transaction.set(
+                        requestRef,
+                        mapOf(
+                            "status" to "cancelled",
+                            "cancelledAt" to now,
+                            "cancellationReason" to safeReason,
+                            "failureReason" to safeReason
+                        ),
+                        SetOptions.merge()
+                    )
+                }
+            }.await()
+
+            // Responses cleanup
             val responses = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
                 .whereEqualTo("requestId", request.requestId)
                 .limit(50)
                 .get()
                 .await()
 
-            responses.documents.filter { document ->
-                document.getString("employerId") == employerId
-            }.forEach { document ->
-                batch.set(
-                    document.reference,
-                    mapOf(
-                        "status" to "cancelled",
-                        "failureReason" to safeReason,
-                        "updatedAt" to now
-                    ),
-                    SetOptions.merge()
-                )
+            val batch = firestore.batch()
+            responses.documents.forEach { document ->
+                if (isEarlyDelete) {
+                    batch.delete(document.reference)
+                } else {
+                    batch.set(
+                        document.reference,
+                        mapOf(
+                            "status" to "cancelled",
+                            "failureReason" to safeReason,
+                            "updatedAt" to now
+                        ),
+                        SetOptions.merge()
+                    )
+                }
             }
-
             batch.commit().await()
+
             Result.success(Unit)
         } catch (error: Exception) {
             Result.failure(error)

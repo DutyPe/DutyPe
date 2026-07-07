@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -648,83 +651,136 @@ class JobApplicationService @Inject constructor(
             }
         }
     }
+
+    /**
+     * Force-mark a job as applied after a positive call outcome.
+     * This skips the open-job pre-check so a hired/selected worker still
+     * appears in Applications even if the job has already moved on.
+     */
+    suspend fun applyFromCall(jobId: String, userId: String): Result<JobApplication> {
+        return try {
+            val jobResult = getJobDetailsWithLocalFallback(jobId)
+            if (jobResult.isFailure) {
+                return Result.failure(jobResult.exceptionOrNull() ?: Exception("Job not found"))
+            }
+
+            val jobData = jobResult.getOrNull()!!
+            val employerId = jobData["employerId"] as? String ?: ""
+            if (employerId.isBlank()) {
+                return Result.failure(Exception("Job is missing employer information"))
+            }
+
+            val workerProfileSnapshot = runCatching {
+                profileCompletionService.getWorkerProfileData(userId).getOrNull().orEmpty()
+            }.getOrDefault(emptyMap())
+            val workerName = runCatching {
+                sequenceOf("fullName", "name", "displayName")
+                    .map { key -> workerProfileSnapshot[key]?.toString()?.trim().orEmpty() }
+                    .firstOrNull { it.isNotBlank() }
+                    .orEmpty()
+            }.getOrDefault("").ifBlank {
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName?.trim().orEmpty()
+            }
+            val jobTitle = jobData.stringValue("title", "jobTitle")
+            val companyName = jobData.stringValue("companyName", "company", "employerName")
+            val jobLocation = jobData.stringValue("addressText", "jobLocation", "location")
+            val employerContactPhone = jobData.stringValue("contactNumber", "contactPhone", "phone")
+                .takeIf { it.isNotBlank() }
+
+            val application = JobApplication(
+                id = "${jobId}_${userId}",
+                jobId = jobId,
+                workerId = userId,
+                employerId = employerId,
+                status = ApplicationStatus.APPLIED,
+                createdAt = System.currentTimeMillis(),
+                workerName = workerName,
+                jobTitle = jobTitle,
+                jobLocation = jobLocation,
+                companyName = companyName,
+                employerPhone = employerContactPhone
+            )
+
+            val saveResult = submitApplication(application, allowOfflineQueue = true)
+            if (saveResult.isSuccess) {
+                applicationStateManager.addAppliedJob(jobId)
+                metadataManager.userMetadata.incrementApplicationCount()
+                Result.success(saveResult.getOrNull()?.withCanonicalId(application.id) ?: application)
+            } else if (isAlreadyAppliedError(saveResult.exceptionOrNull())) {
+                applicationStateManager.addAppliedJob(jobId)
+                Result.success(application)
+            } else {
+                Result.failure(saveResult.exceptionOrNull() ?: Exception("Failed to save application"))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "JobApplicationService.applyFromCall - Error")
+            Result.failure(e)
+        }
+    }
     
     /**
      * Get all applications for a worker
      * Uses fallback queries to handle missing Firestore indexes
      */
-    fun getWorkerApplications(workerId: String): Flow<Result<List<JobApplication>>> = flow {
+    fun getWorkerApplications(workerId: String): Flow<Result<List<JobApplication>>> = callbackFlow {
         try {
-            Timber.d("[Applications] Getting applications for workerId: $workerId")
-            val localApplications = getLocalApplications(workerId)
+            Timber.d("[Applications] Listening to applications for workerId: $workerId")
             
-            // Try simple query first (without ordering to avoid index issues)
-            val simpleSnapshot = try {
-                firestore.collection(applicationsCollection)
-                    .whereEqualTo("workerId", workerId)
-                    .limit(200)
-                    .get()
-                    .await()
-            } catch (e: Exception) {
-                Timber.e(e, "[Applications] Simple query failed for workerId: $workerId")
-                null
-            }
-
-            if (simpleSnapshot != null && !simpleSnapshot.isEmpty) {
-                val applications = simpleSnapshot.documents.mapNotNull { doc ->
-                    try {
-                        doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
-                    } catch (e: Exception) {
-                        Timber.e(e, "[Applications] Failed to parse document ${doc.id}")
-                        null
-                    }
-                }
-
-                val enrichedApplications = enrichApplicationsWithJobDetails(applications)
-
-                cacheApplicationsLocally(enrichedApplications)
-                emit(Result.success(mergeWorkerApplications(enrichedApplications, localApplications)))
-                return@flow
-            }
-            
-            val snapshot = try {
-                firestore.collection(applicationsCollection)
-                    .whereEqualTo("workerId", workerId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .limit(200)
-                    .get()
-                    .await()
-            } catch (e: Exception) {
-                Timber.e(e, "[Applications] Ordered query failed, using unordered query")
-                firestore.collection(applicationsCollection)
-                    .whereEqualTo("workerId", workerId)
-                    .limit(200)
-                    .get()
-                    .await()
-            }
-
-            Timber.d("[Applications] workerId=$workerId ordered/unordered query -> ${snapshot.size()} docs")
-
-            val applications = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
-            
-            cacheApplicationsLocally(enrichedApplications)
-            emit(Result.success(mergeWorkerApplications(enrichedApplications, localApplications)))
-        } catch (e: Exception) {
-            Timber.e(e, "[Applications] Error getting applications for workerId: $workerId")
+            // Emit local cache first to show cached data immediately (offline-first)
             val localApplications = getLocalApplications(workerId)
             if (localApplications.isNotEmpty()) {
-                emit(Result.success(localApplications.sortedByDescending { it.createdAt }))
-            } else {
-                emit(Result.failure(e))
+                trySend(Result.success(localApplications.sortedByDescending { it.createdAt }))
             }
+
+            val query = firestore.collection(applicationsCollection)
+                .whereEqualTo("workerId", workerId)
+                .limit(200)
+
+            val registration = query.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "[Applications] Snapshot listener failed for workerId: $workerId")
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val applications = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            doc.toJobApplicationOrNull()?.withCanonicalId(doc.id)
+                        } catch (e: Exception) {
+                            Timber.e(e, "[Applications] Failed to parse document ${doc.id}")
+                            null
+                        }
+                    }
+
+                    // Since enriching and caching are suspend operations, launch in scope
+                    launch(Dispatchers.IO) {
+                        try {
+                            val enrichedApplications = enrichApplicationsWithJobDetails(applications)
+                            cacheApplicationsLocally(enrichedApplications)
+                            
+                            // Merge with local applications to preserve any pending offline actions
+                            val merged = mergeWorkerApplications(enrichedApplications, localApplications)
+                            trySend(Result.success(merged))
+                        } catch (e: Exception) {
+                            Timber.e(e, "[Applications] Error enriching snapshot data for workerId: $workerId")
+                            trySend(Result.success(applications))
+                        }
+                    }
+                }
+            }
+
+            awaitClose {
+                Timber.d("[Applications] Removing snapshot listener for workerId: $workerId")
+                registration.remove()
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) {
+                throw e
+            }
+            Timber.e(e, "[Applications] Error setting up listener for workerId: $workerId")
+            val localApplications = getLocalApplications(workerId)
+            trySend(Result.success(localApplications.sortedByDescending { it.createdAt }))
+            close(e)
         }
     }.flowOn(Dispatchers.IO)
     
@@ -873,7 +929,6 @@ class JobApplicationService @Inject constructor(
             val stats = ApplicationStats(
                 totalApplications = applications.size,
                 appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
                 hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.take(5) // Last 5 applications
@@ -969,9 +1024,8 @@ class JobApplicationService @Inject constructor(
                     return@retryWithBackoffResult Result.failure(Exception("You can only withdraw your own applications"))
                 }
                 
-                // Can only withdraw PENDING or UNDER_REVIEW applications
-                if (currentApplication.status != ApplicationStatus.APPLIED && 
-                    currentApplication.status != ApplicationStatus.SHORTLISTED) {
+                // Can only withdraw pre-hire applications (APPLIED)
+                if (currentApplication.status != ApplicationStatus.APPLIED) {
                     return@retryWithBackoffResult Result.failure(Exception("Cannot withdraw application with status: ${currentApplication.status.name}"))
                 }
                 
@@ -1051,7 +1105,6 @@ class JobApplicationService @Inject constructor(
             val stats = ApplicationStats(
                 totalApplications = applications.size,
                 appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
-                shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
                 rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
                 hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
                 recentApplications = applications.take(5)
@@ -1115,25 +1168,33 @@ class JobApplicationService @Inject constructor(
                 )
 
                 docRef.update(updates).await()
-                // Cloud Functions owns cross-user status notifications.
                 
                 // Close the job only when the hired count reaches vacancies.
                 if (newStatus == ApplicationStatus.HIRED) {
                     updateJobVacancyStatusIfNeeded(updatedApplication.jobId)
                 }
-                if (false) {
-                    try {
-                        notificationService.sendWorkerHiredNotification(
-                            workerName = "Worker",
-                            jobTitle = getJobTitle(updatedApplication.jobId),
-                            workerId = updatedApplication.workerId,
-                            employerId = updatedApplication.employerId,
-                            jobId = updatedApplication.jobId
-                        )
-                        Timber.d("Worker hired notification sent")
-                    } catch (e: Exception) {
-                        Timber.e(e, "Failed to send worker hired notification")
+
+                // Send status notifications to the worker for key transitions
+                try {
+                    when (newStatus) {
+                        ApplicationStatus.HIRED ->
+                            notificationService.sendWorkerHiredNotification(
+                                workerName = updatedApplication.workerName.ifBlank { "Worker" },
+                                jobTitle = getJobTitle(updatedApplication.jobId),
+                                workerId = updatedApplication.workerId,
+                                employerId = updatedApplication.employerId,
+                                jobId = updatedApplication.jobId
+                            )
+                        ApplicationStatus.REJECTED ->
+                            notificationService.sendApplicationStatusNotification(
+                                updatedApplication,
+                                newStatus,
+                                updatedApplication.workerId
+                            )
+                        else -> { /* no notification needed for other transitions */ }
                     }
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to send status notification (non-fatal)")
                 }
                 
                 Result.success(updatedApplication)
@@ -1209,9 +1270,8 @@ class JobApplicationService @Inject constructor(
     // ==================== ENHANCED METHODS ====================
 
     /**
-     * Update application status to UNDER_REVIEW when employer opens application
-     * 
-     * DEDUPLICATION FIX: Notifications sent by updateApplicationStatus() only
+     * Update application status to VIEWED when employer opens application card.
+     * Shows "Seen by employer" badge to the worker in their My Jobs screen.
      */
     suspend fun markApplicationAsUnderReview(applicationId: String, employerId: String): Result<JobApplication> {
         return try {
@@ -1225,25 +1285,32 @@ class JobApplicationService @Inject constructor(
             val currentApplication = doc.toJobApplicationOrNull()
                 ?: return Result.failure(Exception("Invalid application data"))
             
-            if (currentApplication.status == ApplicationStatus.APPLIED) {
-                val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.SHORTLISTED
-                )
+            // Only advance from APPLIED -> VIEWED (don't regress from a later state)
+            // (Legacy behavior, now a no-op since VIEWED is removed)
+            Result.success(currentApplication)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Auto-advances the application status when an employer initiates a call.
+     * Advances APPLIED -> VIEWED, or VIEWED -> SHORTLISTED.
+     */
+    suspend fun markApplicationAsContacted(applicationId: String): Result<JobApplication> {
+        return try {
+            val docRef = firestore.collection(applicationsCollection).document(applicationId)
+            val doc = docRef.get().await()
             
-            docRef.update("status", ApplicationStatus.SHORTLISTED.toFirestoreValue()).await()
-                
-                // DEDUPLICATION FIX: Notification sent by updateApplicationStatus() to avoid duplicates
-                // Only send if called directly (not through updateApplicationStatus)
-                if (false) notificationService.sendApplicationStatusNotification(
-                    updatedApplication, 
-                    ApplicationStatus.SHORTLISTED, 
-                    updatedApplication.workerId
-                )
-                
-                Result.success(updatedApplication)
-            } else {
-                Result.success(currentApplication)
+            if (!doc.exists()) {
+                return Result.failure(Exception("Application not found"))
             }
+            
+            val currentApplication = doc.toJobApplicationOrNull()
+                ?: return Result.failure(Exception("Invalid application data"))
+            
+            // Legacy behavior, now a no-op since SHORTLISTED/VIEWED are removed
+            Result.success(currentApplication)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1309,9 +1376,7 @@ class JobApplicationService @Inject constructor(
     }
 
     /**
-     * Reject application (employer action)
-     * 
-     * DEDUPLICATION FIX: Notifications sent by updateApplicationStatus() only
+     * Reject application (employer action) — notifies the worker.
      */
     suspend fun rejectApplication(applicationId: String, employerId: String, reason: String? = null): Result<JobApplication> {
         return try {
@@ -1331,13 +1396,16 @@ class JobApplicationService @Inject constructor(
             
             docRef.update("status", ApplicationStatus.REJECTED.toFirestoreValue()).await()
             
-            // DEDUPLICATION FIX: Notification sent by updateApplicationStatus() to avoid duplicates
-            // Only send if called directly (not through updateApplicationStatus)
-            if (false) notificationService.sendApplicationStatusNotification(
-                updatedApplication, 
-                ApplicationStatus.REJECTED, 
-                updatedApplication.workerId
-            )
+            // Notify worker they were not selected
+            try {
+                notificationService.sendApplicationStatusNotification(
+                    updatedApplication,
+                    ApplicationStatus.REJECTED,
+                    updatedApplication.workerId
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to send rejection notification (non-fatal)")
+            }
             
             Result.success(updatedApplication)
         } catch (e: Exception) {
@@ -1346,17 +1414,33 @@ class JobApplicationService @Inject constructor(
     }
 
     /**
-     * Update job status to "closed" when a worker is hired.
-     * vacancies field removed — closes job immediately on first hire.
+     * Update job status to "filled" when all vacancies are hired.
+     * Auto-rejects all remaining APPLIED/VIEWED applications with a "position filled" message.
      */
     private suspend fun updateJobVacancyStatusIfNeeded(jobId: String) {
         try {
             val remaining = getRemainingVacancies(jobId).getOrDefault(1)
             if (remaining <= 0) {
+                // Mark job as filled
                 firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
                     .document(jobId)
-                    .update("status", "closed")
+                    .update("status", "filled")
                     .await()
+                // Batch-reject all remaining pending applications
+                val pendingSnap = firestore.collection(applicationsCollection)
+                    .whereEqualTo("jobId", jobId)
+                    .whereIn("status", listOf("applied", "viewed"))
+                    .limit(100)
+                    .get()
+                    .await()
+                if (pendingSnap.documents.isNotEmpty()) {
+                    val batch = firestore.batch()
+                    pendingSnap.documents.forEach { doc ->
+                        batch.update(doc.reference, "status", ApplicationStatus.REJECTED.toFirestoreValue())
+                    }
+                    batch.commit().await()
+                    Timber.d("[JobApplicationService] Auto-rejected ${pendingSnap.size()} pending applications for filled job $jobId")
+                }
             }
         } catch (e: Exception) {
             Timber.e(e, "Error updating job vacancy status")

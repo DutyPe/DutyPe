@@ -3,6 +3,135 @@
 import { useEffect, useMemo, useState } from "react";
 import { CsvTable, MarkdownView } from "@/components/marketing-shell";
 
+type CallFeedbackRow = {
+  id: string;
+  jobId?: string;
+  workerId?: string;
+  jobTitle?: string;
+  companyName?: string;
+  spokeWithEmployer?: boolean;
+  jobAvailability?: string;
+  jobOfferAccepted?: boolean;
+  createdAt?: { toDate?: () => Date } | string | number;
+};
+
+function CallStatsDisplay() {
+  const [totalCalls, setTotalCalls] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setTotalCalls(data.totalCalls);
+        }
+      } catch (error) {
+        console.error('Failed to fetch call stats', error);
+        setTotalCalls(0); // Default to 0 on error
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
+  return (
+    <div className="marketing-hero-stat">
+      {isLoading ? (
+        <strong>...</strong>
+      ) : (
+        <strong>
+          {totalCalls !== null ? new Intl.NumberFormat('en-IN').format(totalCalls) : 'N/A'}
+        </strong>
+      )}
+      <span>Total Calls Made</span>
+    </div>
+  );
+}
+
+function RecentCallFeedback() {
+  const [rows, setRows] = useState<CallFeedbackRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/admin/call-feedback');
+        if (response.ok) {
+          const data = await response.json();
+          setRows(Array.isArray(data.callFeedback) ? data.callFeedback : []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recent call feedback', error);
+        setRows([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
+  const formatDate = (value: CallFeedbackRow['createdAt']) => {
+    if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+      return value.toDate().toLocaleString();
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+    }
+    return '—';
+  };
+
+  return (
+    <section className="marketing-panel" style={{ marginTop: 24 }}>
+      <div className="marketing-panel-header">
+        <h2>Recent call sessions</h2>
+        <p>Latest call taps and worker feedback stored in Firestore.</p>
+      </div>
+      {isLoading ? (
+        <div style={{ padding: 16 }}>Loading call sessions…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ padding: 16 }}>No call sessions yet.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="marketing-data-table">
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Worker</th>
+                <th>Spoke</th>
+                <th>Availability</th>
+                <th>Hired</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <strong>{row.jobTitle || row.jobId || '—'}</strong>
+                    <div style={{ color: '#64748b', fontSize: 12 }}>{row.companyName || '—'}</div>
+                  </td>
+                  <td>{row.workerId || '—'}</td>
+                  <td>{row.spokeWithEmployer === true ? 'Yes' : row.spokeWithEmployer === false ? 'No' : '—'}</td>
+                  <td>{row.jobAvailability || '—'}</td>
+                  <td>{row.jobOfferAccepted === true ? 'Yes' : row.jobOfferAccepted === false ? 'No' : '—'}</td>
+                  <td>{formatDate(row.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 const MARKETING_SECTIONS = [
   { id: "growth-assets", icon: "🎨", title: "Assets", count: 11, desc: "Pamphlets, posters, one-pagers, screenshots." },
   { id: "growth-campaigns", icon: "📣", title: "Campaigns", count: 7, desc: "Field visits, partnerships, reactivation runs." },
@@ -63,6 +192,7 @@ export default function MarketingLandingPage() {
               <strong>{totalDocs}</strong>
               <span>Documents</span>
             </div>
+            <CallStatsDisplay />
             <div className="marketing-hero-stat">
               <strong>9</strong>
               <span>Categories</span>
@@ -74,6 +204,8 @@ export default function MarketingLandingPage() {
           </div>
         </div>
       </header>
+
+      <RecentCallFeedback />
 
       <div className="marketing-search-bar">
         <span className="search-icon">🔍</span>

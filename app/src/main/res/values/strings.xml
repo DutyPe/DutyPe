@@ -1362,4 +1362,14 @@
     <string name="notif_worker_hired_msg">Great news! You\'ve been hired for \'%1$s\'. Contact the employer to discuss next steps.</string>
     <string name="notif_employer_hired_title">Worker Hired Successfully! ✅</string>
     <string name="notif_employer_hired_msg">You\'ve successfully hired %1$s for \'%2$s\'. Contact them to coordinate the start date.</string>
+    
+    <!-- Quick Actions on Worker Home Screen -->
+    <string name="quick_action_browse_jobs">Browse Jobs</string>
+    <string name="quick_action_browse_jobs_sub">Find new work</string>
+    <string name="quick_action_applied">Applied Jobs</string>
+    <string name="quick_action_applied_sub">Track status</string>
+    <string name="quick_action_earnings">Earnings</string>
+    <string name="quick_action_earnings_sub">View payouts</string>
+    <string name="quick_action_support">Help Desk</string>
+    <string name="quick_action_support_sub">Get assistance</string>
 </resources>

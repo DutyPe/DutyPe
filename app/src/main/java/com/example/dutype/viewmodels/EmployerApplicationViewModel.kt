@@ -510,7 +510,6 @@ class EmployerApplicationViewModel @Inject constructor(
         val stats = ApplicationStats(
             totalApplications = applications.size,
             appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
-            shortlistedApplications = applications.count { it.status == ApplicationStatus.SHORTLISTED },
             rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
             hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
             recentApplications = applications.take(5)

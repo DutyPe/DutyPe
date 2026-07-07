@@ -4,6 +4,9 @@ object Routes {
     // Main Navigation Routes
     const val ONBOARDING = "onboarding"
     const val ENHANCED_LOGIN = "enhanced_login"
+    const val REFER_EARN = "refer_earn"
+    const val TERMS_OF_SERVICE = "terms_of_service"
+    const val PRIVACY_POLICY = "privacy_policy"
     const val REGISTER = "register"
     const val SELECT_ROLE = "select_role"
     const val WORKER_HOME = "worker_home"
@@ -48,6 +51,7 @@ object Routes {
     const val EMPLOYER_HISTORY = "employer_history"
     const val EMPLOYER_HISTORY_WITH_TAB = "employer_history?tab={tab}"
     const val CONTACT_US = "contact_us"
+    const val EMPLOYER_SUBSCRIPTION = "employer_subscription"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"

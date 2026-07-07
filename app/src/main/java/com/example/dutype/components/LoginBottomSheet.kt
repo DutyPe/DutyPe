@@ -1075,7 +1075,7 @@ private fun PhoneInputContent(
                 text = if (isRegistrationMode) {
                     if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? "
                 } else {
-                    if (isTelugu) "డ్యూటీపీకి కొత్తవారా? " else "New to DutyPe? "
+                    if (isTelugu) "కొత్త ఖాతా కావాలా? " else "Create a new account? "
                 },
                 style = AppTypography.bodyMedium.copy(
                     color = WorkerColors.TextSecondary
@@ -1089,7 +1089,7 @@ private fun PhoneInputContent(
                     text = if (isRegistrationMode) {
                         if (isTelugu) "లాగిన్" else "Login"
                     } else {
-                        if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now"
+                        if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account"
                     },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,

@@ -19,4 +19,5 @@ class AppConfigViewModel @Inject constructor(
 ) : ViewModel() {
     val referralConfig: StateFlow<ReferralConfig> = appConfigRepository.referralConfig
     val appUpdateConfig: StateFlow<AppUpdateConfig> = appConfigRepository.appUpdateConfig
+    val dynamicFeaturesConfig: StateFlow<com.example.dutype.repositories.DynamicFeaturesConfig> = appConfigRepository.dynamicFeaturesConfig
 }

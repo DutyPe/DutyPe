@@ -56,7 +56,8 @@ data class JobFilters(
     val sortBy: String = "Relevance",
     val payType: String = "Any",
     val workType: String = "Any",
-    val category: String = "Any"
+    val category: String = "Any",
+    val shiftTiming: String = "Any"
 )
 
 /**
@@ -160,12 +161,12 @@ class AllJobsViewModel @Inject constructor(
             filters.salaryMax < 100000 ||
             filters.payType != "Any"
     }
-
     private fun shouldReloadForCurrentFilters(filters: JobFilters): Boolean {
         return shouldUseServerSideFiltering(filters) ||
             filters.experienceLevel != "Any" ||
             filters.workType != "Any" ||
-            filters.category != "Any"
+            filters.category != "Any" ||
+            filters.shiftTiming != "Any"
     }
 
     private fun matchesWorkType(job: JobListing, selectedWorkType: String): Boolean {
@@ -181,6 +182,23 @@ class AllJobsViewModel @Inject constructor(
             "contract" -> text.contains("contract")
             "temporary" -> text.contains("temporary") || text.contains("temp")
             else -> text.contains(selectedWorkType.lowercase())
+        }
+    }
+
+    private fun matchesShiftTiming(job: JobListing, selectedShiftTiming: String): Boolean {
+        if (selectedShiftTiming.equals("Any", ignoreCase = true)) return true
+
+        val text = listOf(job.shiftTiming, job.description, job.title)
+            .joinToString(" ")
+            .lowercase()
+
+        return when (selectedShiftTiming.lowercase()) {
+            "morning" -> listOf("morning", "day shift").any(text::contains)
+            "afternoon" -> text.contains("afternoon")
+            "evening" -> text.contains("evening")
+            "night" -> listOf("night", "graveyard").any(text::contains)
+            "flexible" -> text.contains("flexible")
+            else -> text.contains(selectedShiftTiming.lowercase())
         }
     }
 
@@ -511,8 +529,9 @@ class AllJobsViewModel @Inject constructor(
             val payTypeMatch = filters.payType == "Any" || job.salaryType.equals(filters.payType, ignoreCase = true)
             val workTypeMatch = matchesWorkType(job, filters.workType)
             val experienceMatch = matchesExperienceLevel(job, filters.experienceLevel)
+            val shiftTimingMatch = matchesShiftTiming(job, filters.shiftTiming)
             
-            salaryMatch && distanceMatch && payTypeMatch && workTypeMatch && experienceMatch
+            salaryMatch && distanceMatch && payTypeMatch && workTypeMatch && experienceMatch && shiftTimingMatch
         }
         
         Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs (was ${chipFiltered.size})")
@@ -578,6 +597,7 @@ class AllJobsViewModel @Inject constructor(
         if (f.payType != "Any") count++
         if (f.workType != "Any") count++
         if (f.category != "Any") count++
+        if (f.shiftTiming != "Any") count++
         count
     }.stateIn(
         scope = viewModelScope,

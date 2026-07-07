@@ -513,7 +513,7 @@ private fun TimelineJobCard(
                     .background(
                         when (application.status) {
                             ApplicationStatus.HIRED -> WorkerColors.Success
-                            ApplicationStatus.SHORTLISTED -> WorkerColors.Info
+                            ApplicationStatus.APPLIED -> WorkerColors.Info
                             else -> WorkerColors.TextSecondary
                         }
                     ),
@@ -522,7 +522,7 @@ private fun TimelineJobCard(
                 Icon(
                     imageVector = when (application.status) {
                         ApplicationStatus.HIRED -> Icons.Default.CheckCircle
-                        ApplicationStatus.SHORTLISTED -> Icons.Default.ThumbUp
+                        ApplicationStatus.APPLIED -> Icons.Default.ThumbUp
                         else -> Icons.Default.Work
                     },
                     contentDescription = null,

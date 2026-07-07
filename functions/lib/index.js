@@ -33,6 +33,7 @@ __exportStar(require("./job-landing"), exports);
 __exportStar(require("./worker-landing"), exports);
 __exportStar(require("./employer-landing"), exports);
 __exportStar(require("./auth-callables"), exports);
+__exportStar(require("./metrics-aggregation"), exports);
 __exportStar(require("./identity-mirror"), exports);
 const db = admin.firestore();
 const messaging = admin.messaging();

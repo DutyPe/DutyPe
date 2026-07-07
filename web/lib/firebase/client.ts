@@ -2,6 +2,7 @@ import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
 import { Functions, getFunctions } from "firebase/functions";
+import { FirebaseStorage, getStorage } from "firebase/storage";
 
 import { firebaseConfig, hasFirebaseConfig } from "@/lib/firebase/config";
 
@@ -12,6 +13,7 @@ type FirebaseServices = {
   auth: Auth;
   db: Firestore;
   functions: Functions;
+  storage: FirebaseStorage;
 };
 
 let cachedServices: FirebaseServices | null = null;
@@ -33,7 +35,8 @@ export function getFirebaseServices(): FirebaseServices | null {
     app,
     auth: getAuth(app),
     db: getFirestore(app),
-    functions: getFunctions(app)
+    functions: getFunctions(app),
+    storage: getStorage(app)
   };
 
   return cachedServices;

@@ -75,6 +75,16 @@ fun EmployerProfileScreen(
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
+    val subState by subscriptionViewModel.activeSubscription.collectAsState()
+    val formattedExpiryDate = remember(subState.expiryDate) {
+        if (subState.expiryDate > 0) {
+            val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            sdf.format(java.util.Date(subState.expiryDate))
+        } else {
+            ""
+        }
+    }
     val context = LocalContext.current
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
@@ -433,6 +443,127 @@ fun EmployerProfileScreen(
                     }
                 }
             }
+
+            // ------------------------------------------
+            // EMPLOYER SUBSCRIPTION SECTION
+            // ------------------------------------------
+            if (currentUserId.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Job Posting Subscription",
+                                style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, color = Color(0xFF111827))
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            val isSubActive = subState.status == "ACTIVE"
+                            val isTrialActive = subState.status == "TRIAL"
+                            
+                            val planName = when {
+                                isSubActive -> {
+                                    val planSuffix = when (subState.planId) {
+                                        "starter_119" -> "Starter Plan"
+                                        "growth_179" -> "Growth Plan"
+                                        "premium_299" -> "Premium Plan"
+                                        else -> "Active Subscription"
+                                    }
+                                    planSuffix
+                                }
+                                isTrialActive -> "Free Registration Trial"
+                                else -> "No Active Subscription"
+                            }
+                            
+                            val planColor = if (isSubActive) Color(0xFF8B5CF6) else if (isTrialActive) Color(0xFF3B82F6) else Color(0xFFEF4444)
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(planColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = planName,
+                                        color = planColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                
+                                if (isSubActive || isTrialActive) {
+                                    Text(
+                                        text = "Expires: ${formattedExpiryDate.ifEmpty { "N/A" }}",
+                                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFFAF5FF), RoundedCornerShape(8.dp))
+                                        .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(8.dp))
+                                        .padding(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Remaining Credits (Vacancy Post or Instant Gig)",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF6B7280)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${subState.normalCredits + subState.instantCredits} posts left",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF8B5CF6)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(14.dp))
+                            
+                            Button(
+                                onClick = {
+                                    val navControllerToUse = localNavController ?: rootNavController
+                                    navControllerToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                                },
+                                modifier = Modifier.fillMaxWidth().height(42.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = if (isSubActive) "Upgrade Subscription" else "Activate Monthly Subscription",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             
             // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // MY ACTIVITY SECTION
@@ -686,7 +817,7 @@ fun EmployerProfileScreen(
                 }.onFailure {
                     timber.log.Timber.e(it, "Error navigating to pending locations action")
                 }
-                "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
+                // "refer_earn" -> localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
             }
             pendingMenuAction = null
         },
@@ -697,7 +828,7 @@ fun EmployerProfileScreen(
             "profile" -> stringResource(R.string.login_company_profile)
             "job_posts" -> stringResource(R.string.login_job_posts)
             "locations" -> stringResource(R.string.login_manage_work_locations)
-            "refer_earn" -> stringResource(R.string.login_refer_earn)
+            // "refer_earn" -> stringResource(R.string.login_refer_earn)
             else -> stringResource(R.string.login_access_feature)
         }
     )

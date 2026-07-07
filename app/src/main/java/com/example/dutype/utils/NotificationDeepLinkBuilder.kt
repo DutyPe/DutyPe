@@ -51,7 +51,7 @@ object NotificationDeepLinkBuilder {
             // Application Notifications - Worker Side
             NotificationType.APPLICATION_STATUS,
             NotificationType.APPLICATION_STATUS_UPDATE,
-            NotificationType.SHORTLISTED,
+            NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.REJECTED -> {
                 val applicationId = data["applicationId"] ?: data["application_id"]
                 val jobId = data["jobId"] ?: data["job_id"]

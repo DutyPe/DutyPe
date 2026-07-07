@@ -56,11 +56,18 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     ]
   },
   {
+    label: "Payments",
+    links: [
+      { href: "/admin/payments", label: "Payments Panel", icon: "PM", summary: "Verify employer UTRs, manage active QR codes, and extend job postings." }
+    ]
+  },
+  {
     label: "Messaging",
     links: [
       { href: "/admin/app-update", label: "App Update", icon: "UP", summary: "Control Android update prompts." },
       { href: "/admin/notifications", label: "Notifications", icon: "NT", summary: "Campaign sends and notification history." },
-      { href: "/admin/announcements", label: "Announcements", icon: "AN", summary: "In-app announcements and message control." }
+      { href: "/admin/announcements", label: "Announcements", icon: "AN", summary: "In-app announcements and message control." },
+      { href: "/admin/dynamic-config", label: "Dynamic Config", icon: "DC", summary: "Control launcher icons, feature flags, and settings." }
     ]
   }
 ];

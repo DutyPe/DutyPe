@@ -25,6 +25,19 @@ class EmployerNotificationViewModel @Inject constructor(
     // notifications and made the badge count disagree with this list. Pass the
     // already role-filtered list through unchanged so badge and list match.
     override fun filterRoleNotifications(notifications: List<NotificationData>): List<NotificationData> {
-        return notifications
+        return notifications.filter { notif ->
+            val typeStr = notif.type.name.uppercase()
+            val titleLower = notif.title.lowercase()
+            val msgLower = notif.message.lowercase()
+            
+            // Filter out refer/referral/milestone/signup bonus notifications
+            !typeStr.contains("REFERRAL") &&
+            !titleLower.contains("refer") &&
+            !msgLower.contains("refer") &&
+            !titleLower.contains("signup bonus") &&
+            !msgLower.contains("signup bonus") &&
+            !titleLower.contains("welcome gift") &&
+            !msgLower.contains("welcome gift")
+        }
     }
 }

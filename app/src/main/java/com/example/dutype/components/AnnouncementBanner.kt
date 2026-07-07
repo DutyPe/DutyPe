@@ -101,11 +101,13 @@ fun AnnouncementCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .height(115.dp)
             .then(actionModifier),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
     ) {
         Box(
             modifier = Modifier
@@ -119,7 +121,7 @@ fun AnnouncementCard(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .height(72.dp)
+                    .fillMaxHeight()
                     .width(5.dp)
                     .background(style.accentColor)
             )
@@ -231,25 +233,6 @@ fun AnnouncementCarousel(
         }
         
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            announcements.forEachIndexed { index, announcement ->
-                val isSelected = pagerState.currentPage == index
-                val dotStyle = getAnnouncementStyle(announcement.type)
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(width = if (isSelected) 18.dp else 7.dp, height = 7.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(if (isSelected) dotStyle.accentColor else WorkerColors.Border)
-                )
-            }
-        }
     }
 }
 

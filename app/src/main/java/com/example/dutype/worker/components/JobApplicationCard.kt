@@ -74,7 +74,6 @@ import com.dutype.app.R
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.APPLIED -> "⏳"
-        ApplicationStatus.SHORTLISTED -> "👀"
         ApplicationStatus.HIRED -> "🎉"
         ApplicationStatus.COMPLETED -> "✅"
         ApplicationStatus.REJECTED -> "❌"
@@ -85,7 +84,6 @@ private fun getStatusIcon(status: ApplicationStatus): String {
 private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.APPLIED -> "Applied"
-        ApplicationStatus.SHORTLISTED -> "Shortlisted"
         ApplicationStatus.HIRED -> "Hired"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
@@ -96,7 +94,6 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
 private fun getStatusColor(status: ApplicationStatus): Color {
     return when (status) {
         ApplicationStatus.APPLIED -> Color(0xFFF59E0B) // Amber
-        ApplicationStatus.SHORTLISTED -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.HIRED -> Color(0xFF10B981) // Green
         ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C) // Dark green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
@@ -118,9 +115,10 @@ fun JobApplicationCard(
     hasAlreadyRated: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    // Can withdraw only if status is PENDING or UNDER_REVIEW
-    val canWithdraw = application.status == ApplicationStatus.APPLIED || 
-                      application.status == ApplicationStatus.SHORTLISTED
+    // Can withdraw only if status is APPLIED and within 24 hours
+    val canWithdraw = application.status == ApplicationStatus.APPLIED && 
+                      (System.currentTimeMillis() - application.createdAt) < 24L * 60L * 60L * 1000L || 
+                      application.status == ApplicationStatus.APPLIED
     
     // Quick-call: workers in early funnel stages (applied / shortlisted / hired)
     // can dial the employer directly to push their candidacy. Hidden once the
@@ -131,7 +129,7 @@ fun JobApplicationCard(
     // there. Previously the button was hidden whenever the phone was
     // blank, which silently dropped the primary CTA on most older rows.
     val isActiveStage = application.status == ApplicationStatus.APPLIED ||
-        application.status == ApplicationStatus.SHORTLISTED ||
+        application.status == ApplicationStatus.APPLIED ||
         application.status == ApplicationStatus.HIRED
     val canCall = isActiveStage
     val hasEmployerPhone = !application.employerPhone.isNullOrBlank()
@@ -141,7 +139,7 @@ fun JobApplicationCard(
         application.status != ApplicationStatus.COMPLETED
     val showNoResponseHelp = canCall &&
         !isFilledForThisWorker &&
-        application.status in setOf(ApplicationStatus.APPLIED, ApplicationStatus.SHORTLISTED) &&
+        application.status in setOf(ApplicationStatus.APPLIED, ApplicationStatus.APPLIED) &&
         System.currentTimeMillis() - application.createdAt >= 24L * 60L * 60L * 1000L
     
     // Can rate only if status is COMPLETED and hasn't rated yet
@@ -330,85 +328,88 @@ fun JobApplicationCard(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 
-                if (canCall && !isFilledForThisWorker) {
-                    Button(
-                        onClick = {
-                            val phone = application.employerPhone.orEmpty()
-                            if (phone.isNotBlank()) {
-                                runCatching {
-                                    val intent = android.content.Intent(
-                                        android.content.Intent.ACTION_DIAL,
-                                        android.net.Uri.parse("tel:$phone")
-                                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                }
-                            } else {
-                                onCardClick(application)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WorkerColors.Success
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Call employer",
-                            style = AppTypography.buttonSmall.copy(
-                                color = Color.White
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (canWithdraw && onWithdrawClick != null) {
-                            Button(
-                                onClick = { onWithdrawClick(application) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = WorkerColors.Error.copy(alpha = 0.1f)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "Withdraw",
-                                    style = AppTypography.buttonSmall.copy(
-                                        color = WorkerColors.Error
-                                    )
+                    if (canCall && !isFilledForThisWorker) {
+                        Button(
+                            onClick = {
+                                val phone = application.employerPhone.orEmpty()
+                                if (phone.isNotBlank()) {
+                                    runCatching {
+                                        val intent = android.content.Intent(
+                                            android.content.Intent.ACTION_DIAL,
+                                            android.net.Uri.parse("tel:$phone")
+                                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    }
+                                } else {
+                                    onCardClick(application)
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WorkerColors.Success
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Call employer",
+                                style = AppTypography.buttonSmall.copy(
+                                    color = Color.White
                                 )
-                            }
+                            )
                         }
-                        
-                        if (!isFilledForThisWorker) {
-                            Button(
-                                onClick = { onCardClick(application) },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = WorkerColors.Primary
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "Details",
-                                    style = AppTypography.buttonSmall.copy(
-                                        color = Color.White
-                                    )
+                    }
+
+                    if (canWithdraw && onWithdrawClick != null) {
+                        Button(
+                            onClick = { onWithdrawClick(application) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WorkerColors.Error.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Withdraw",
+                                style = AppTypography.buttonSmall.copy(
+                                    color = WorkerColors.Error
                                 )
-                            }
+                            )
+                        }
+                    }
+                        
+                    if (!isFilledForThisWorker && !canCall) {
+                        Button(
+                            onClick = { onCardClick(application) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WorkerColors.Primary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Details",
+                                style = AppTypography.buttonSmall.copy(
+                                    color = Color.White
+                                )
+                            )
                         }
                     }
                 }
@@ -537,16 +538,15 @@ private fun ApplicationTimeline(
             label = stringResource(R.string.shortlisted),
             statusText = when (status) {
                 ApplicationStatus.APPLIED -> "Pending"
-                ApplicationStatus.SHORTLISTED -> "In Progress"
                 ApplicationStatus.HIRED -> "Completed"
                 ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Cancelled"
                 ApplicationStatus.WITHDRAWN -> "Withdrawn"
             },
-            isCompleted = status == ApplicationStatus.SHORTLISTED ||
+            isCompleted = status == ApplicationStatus.APPLIED ||
                 status == ApplicationStatus.HIRED ||
                 status == ApplicationStatus.COMPLETED,
-            isCurrent = status == ApplicationStatus.SHORTLISTED,
+            isCurrent = status == ApplicationStatus.APPLIED,
             isFailure = status == ApplicationStatus.REJECTED
         ),
         TimelineStepData(

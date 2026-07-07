@@ -438,7 +438,7 @@ object DeepLinkHandler {
 
     private fun navigateToReferralHome(navController: NavController) {
         if (tryNavigate(navController, Routes.WORKER_REFER_EARN, "worker-referrals")) return
-        if (tryNavigate(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")) return
+        // if (tryNavigate(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")) return
         safeNavigate(navController, Routes.WORKER_HOME, "referrals-fallback")
     }
     
@@ -484,7 +484,8 @@ object DeepLinkHandler {
     }
 
     private fun navigateToEmployerReferralHome(navController: NavController) {
-        safeNavigateEmployerInner(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")
+        // safeNavigateEmployerInner(navController, Routes.EMPLOYER_REFER_EARN, "employer-referrals")
+        safeNavigateEmployerInner(navController, Routes.EMPLOYER_HOME, "employer-home-fallback")
     }
     
     private fun navigateToProfile(navController: NavController) {

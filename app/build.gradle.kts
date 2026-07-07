@@ -387,7 +387,8 @@ dependencies {
 
     // P1 FIX: Image loading with WebP support (30% smaller images)
     implementation("io.coil-kt:coil-compose:2.4.0")
-    // Note: WebP is natively supported on Android 4.0+ (API 14+)
+    // Lottie Compose for rich animations (e.g. rain animation header)
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
 
     // Compose and Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7") 

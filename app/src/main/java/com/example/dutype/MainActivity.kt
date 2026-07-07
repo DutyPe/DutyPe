@@ -42,9 +42,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.MainNavGraph
@@ -62,6 +65,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -102,6 +106,9 @@ class MainActivity : ComponentActivity() {
      */
     @Inject
     lateinit var deepLinkBus: com.example.dutype.navigation.DeepLinkBus
+
+    @Inject
+    lateinit var appConfigRepository: com.example.dutype.repositories.AppConfigRepository
     
     // Activity result launcher kept for the update manager API.
     private val updateResultLauncher = registerForActivityResult(
@@ -151,34 +158,15 @@ class MainActivity : ComponentActivity() {
         // setKeepOnScreenCondition is invoked on the main thread, same
         // thread that mutates the flag.
         var keepSplashOnScreen = true
-        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen }
+        var startupOverlayCommitted = false
+        splashScreen.setKeepOnScreenCondition { keepSplashOnScreen && !startupOverlayCommitted }
 
-        // Safety cap: 500 ms. Normal path flips the flag via the
-        // OnPreDrawListener below, usually within 1 frame (~16 ms).
+        // Safety cap: keep the system splash long enough for the remote
+        // launch config to resolve on slower networks.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
-        }, 500L)
-
-        // Google canonical pattern: wait for the content view's first
-        // pre-draw to guarantee we have real UI to show before dropping
-        // the splash. We return false the first time (so this frame is
-        // skipped — the splash is still on top), and true thereafter.
-        // Since we attach BEFORE super.onCreate+setContent below, the
-        // listener fires on the first compose layout pass.
-        val content: android.view.View = findViewById(android.R.id.content)
-        content.viewTreeObserver.addOnPreDrawListener(
-            object : android.view.ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    if (keepSplashOnScreen) {
-                        // First real pre-draw — release the splash on
-                        // the next frame, then detach.
-                        keepSplashOnScreen = false
-                        content.viewTreeObserver.removeOnPreDrawListener(this)
-                    }
-                    return true
-                }
-            }
-        )
+            startupOverlayCommitted = true
+        }, 4000L)
         
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
@@ -207,6 +195,15 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
+        // Dynamic Launcher Icon Updater (2026 Enterprise Feature)
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                appConfigRepository.dynamicFeaturesConfig.collect { config ->
+                    com.example.dutype.utils.DynamicIconManager.queueIconSwitch(this@MainActivity, config.activeLauncherIcon)
+                }
+            }
+        }
+
         // Guest engagement notifications.
         // PERF: Run off the main thread — FirebaseAuth.currentUser triggers a token
         // store disk read, FirebaseMessaging.getInstance() does first-call I/O, and
@@ -229,12 +226,12 @@ class MainActivity : ComponentActivity() {
         // This is the recommended way for SDK 35+
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
-                scrim = android.graphics.Color.WHITE,
-                darkScrim = android.graphics.Color.WHITE
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
             ),
             navigationBarStyle = SystemBarStyle.light(
-                scrim = android.graphics.Color.WHITE,
-                darkScrim = android.graphics.Color.WHITE
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT
             )
         )
         Timber.d("✅ Edge-to-edge enabled with white status bar (Android 15+ compatible)")
@@ -286,6 +283,8 @@ class MainActivity : ComponentActivity() {
             dutypeTheme {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
                     val navController = rememberNavController()
+                    val appConfigViewModel: com.example.dutype.viewmodels.AppConfigViewModel = hiltViewModel()
+                    val dynamicFeatures by appConfigViewModel.dynamicFeaturesConfig.collectAsStateWithLifecycle()
 
                     // P3-7: Crashlytics breadcrumb on every nav route change so crash
                     // reports include the user's recent navigation path.
@@ -304,6 +303,36 @@ class MainActivity : ComponentActivity() {
                     val effectiveStatusBarColor =
                         if (darkTheme && statusBarColor == Color.White) MaterialTheme.colorScheme.background else statusBarColor
 
+                    var mainNavReady by remember { mutableStateOf(false) }
+                    var launchExperienceResolved by remember { mutableStateOf(false) }
+                    var showLaunchPromo by remember { mutableStateOf(false) }
+                    var showStartupOverlay by remember { mutableStateOf(false) }
+                    var committedStartupUsesPromo by remember { mutableStateOf<Boolean?>(null) }
+
+                    LaunchedEffect(dynamicFeatures.isRemoteLoaded) {
+                        if (dynamicFeatures.isRemoteLoaded) {
+                            showLaunchPromo = dynamicFeatures.launchPromoEnabled && dynamicFeatures.launchPromoBannerUrl.isNotBlank()
+                            launchExperienceResolved = true
+                        }
+                    }
+
+                    LaunchedEffect(Unit) {
+                        delay(1200L)
+                        if (!launchExperienceResolved) {
+                            showLaunchPromo = false
+                            launchExperienceResolved = true
+                        }
+                    }
+
+                    LaunchedEffect(mainNavReady, launchExperienceResolved) {
+                        if (mainNavReady && launchExperienceResolved && committedStartupUsesPromo == null) {
+                            committedStartupUsesPromo = showLaunchPromo
+                            startupOverlayCommitted = true
+                            keepSplashOnScreen = false
+                            showStartupOverlay = true
+                        }
+                    }
+
                     // PERF (Android best practice): do NOT call
                     // `enableEdgeToEdge` on every status-bar color change.
                     // That API is meant to be invoked once per Activity
@@ -317,11 +346,21 @@ class MainActivity : ComponentActivity() {
                     // update the light/dark icon hint. This is what
                     // `SystemBarStyle.auto` does internally, minus the
                     // insets rebind.
-                    LaunchedEffect(effectiveStatusBarColor, darkTheme) {
+                    val isColorDark = remember(effectiveStatusBarColor) {
+                        val red = effectiveStatusBarColor.red
+                        val green = effectiveStatusBarColor.green
+                        val blue = effectiveStatusBarColor.blue
+                        val luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+                        luminance < 0.5
+                    }
+
+                    LaunchedEffect(effectiveStatusBarColor, darkTheme, isColorDark) {
                         @Suppress("DEPRECATION")
                         window.statusBarColor = effectiveStatusBarColor.toArgb()
                         WindowCompat.getInsetsController(window, window.decorView).apply {
-                            isAppearanceLightStatusBars = !darkTheme
+                            // If dark theme is enabled, or the custom status bar color is dark,
+                            // use light-colored system status bar icons (white). Otherwise, use dark icons.
+                            isAppearanceLightStatusBars = !darkTheme && !isColorDark
                             isAppearanceLightNavigationBars = !darkTheme
                         }
                     }
@@ -343,21 +382,30 @@ class MainActivity : ComponentActivity() {
                             onReady = {
                                 // Dismiss the system splash once MainNavGraph has resolved
                                 // the start destination and is ready to render content.
-                                keepSplashOnScreen = false
+                                mainNavReady = true
                             },
                             notificationData = launchIntent?.extras?.getString("notificationId"),
                             notificationPermissionManager = notificationPermissionManager,
                             notificationIntent = launchIntent
                         )
 
-                        // Compose-side animated splash overlay. The platform
-                        // splash is visually hidden by the launch theme, so
-                        // this is the only branded splash the user sees.
-                        var showAnimatedSplash by remember { mutableStateOf(true) }
-                        if (showAnimatedSplash) {
-                            com.example.dutype.components.AnimatedSplashScreen(
-                                onAnimationEnd = { showAnimatedSplash = false }
-                            )
+                        // Startup experience: a backend-controlled full-screen promo banner
+                        // can replace the branded splash during special events/deals.
+                        if (showStartupOverlay) {
+                            if (committedStartupUsesPromo == true) {
+                                com.example.dutype.components.LaunchPromoScreen(
+                                    mediaType = dynamicFeatures.launchPromoMediaType,
+                                    bannerUrl = dynamicFeatures.launchPromoBannerUrl,
+                                    animationUrl = dynamicFeatures.launchPromoAnimationUrl,
+                                    backgroundColorHex = dynamicFeatures.launchPromoBackgroundColor,
+                                    statusBarColorHex = dynamicFeatures.launchPromoStatusBarColor,
+                                    onAnimationEnd = { showStartupOverlay = false }
+                                )
+                            } else {
+                                com.example.dutype.components.AnimatedSplashScreen(
+                                    onAnimationEnd = { showStartupOverlay = false }
+                                )
+                            }
                         }
 
                         // Maintenance Mode Sheet
@@ -411,17 +459,17 @@ class MainActivity : ComponentActivity() {
         setIntent(normalizedIntent) // CRITICAL: Update the activity's intent
         cancelTappedSystemNotification(normalizedIntent)
         logNotificationTapTelemetry(source = "on_new_intent", sourceIntent = normalizedIntent)
-        
+
         Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
         Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
         Timber.d("🔗 DEEP LINK: Intent action = ${newIntent.action}")
-        
+
         // Log notification intent if present
         if (normalizedIntent.getBooleanExtra("from_notification", false)) {
             Timber.i("🔗 DEEP LINK: New intent from notification")
             Timber.d("🔗 DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
         }
-        
+
         // Dispatch deep links to the active navigation graph without recreating the activity.
         // This avoids a full UI rebuild while still handling notification taps reliably.
         val deepLinkUri = normalizedIntent.data
@@ -429,7 +477,10 @@ class MainActivity : ComponentActivity() {
             Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
             // P2-4: Emit through DeepLinkBus instead of LocalBroadcastManager.
             // MainNavGraph collects this flow inside a LaunchedEffect.
-            deepLinkBus.emit(deepLinkUri)
+            // FIXED: Use a non-blocking emit so the UI isn't delayed
+            lifecycleScope.launch {
+                deepLinkBus.emit(deepLinkUri)
+            }
             logNotificationTapTelemetry(source = "deeplink_dispatched", sourceIntent = normalizedIntent)
         } else {
             Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
@@ -478,12 +529,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * FIXED: Now covers all notification-related intents including:
+     * - from_notification extra
+     * - notification_deep_link extra
+     * - deepLink extra
+     * - link extra
+     * - Any intent with a data URI or notification action
+     */
     private fun logNotificationTapTelemetry(source: String, sourceIntent: Intent?) {
-        if (sourceIntent?.getBooleanExtra("from_notification", false) != true) return
-        val deepLink = sourceIntent.data?.toString().orEmpty()
-            .ifBlank { sourceIntent.getStringExtra("notification_deep_link").orEmpty() }
-        val notificationType = sourceIntent.getStringExtra("notification_type").orEmpty()
-        val systemId = sourceIntent.getIntExtra("notification_system_id", Int.MIN_VALUE)
+        val intent = sourceIntent ?: return
+
+        val isNotificationLaunch = intent.getBooleanExtra("from_notification", false) ||
+                !intent.getStringExtra("notification_deep_link").isNullOrBlank() ||
+                intent.data != null ||
+                !intent.getStringExtra("deepLink").isNullOrBlank() ||
+                !intent.getStringExtra("link").isNullOrBlank()
+
+        if (!isNotificationLaunch) return
+
+        val deepLink = intent.data?.toString().orEmpty()
+            .ifBlank { intent.getStringExtra("notification_deep_link").orEmpty() }
+            .ifBlank { intent.getStringExtra("deepLink").orEmpty() }
+            .ifBlank { intent.getStringExtra("link").orEmpty() }
+
+        val notificationType = intent.getStringExtra("notification_type").orEmpty()
+        val systemId = intent.getIntExtra("notification_system_id", Int.MIN_VALUE)
 
         runCatching {
             val crashlytics = FirebaseCrashlytics.getInstance()
@@ -559,6 +630,12 @@ class MainActivity : ComponentActivity() {
         Timber.d("📱 MainActivity.onPause()")
         // Schedule background re-engagement check (worker itself skips guests).
         com.example.dutype.workers.GuestEngagementWorker.scheduleBackground(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Timber.d("📱 MainActivity.onStop() - App in background, applying pending launcher icon switch")
+        com.example.dutype.utils.DynamicIconManager.applyPendingIconSwitch(this)
     }
     
     override fun onDestroy() {

@@ -33,6 +33,7 @@ fun EmployerJobCard(
     onShareClick: (String) -> Unit = {},
     showActions: Boolean = true,
     onViewTrack: (String) -> Unit = {},
+    onExtendJobClick: (String) -> Unit = {},
     onCardClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -176,6 +177,29 @@ fun EmployerJobCard(
                 Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.view_applications))
+            }
+
+            // Extension button for expired jobs
+            val expiresAtMillis = jobPosting.expiresAt ?: 0L
+            val isExpired = jobPosting.status.lowercase() == "expired" ||
+                (!jobPosting.isFilled && expiresAtMillis > 0L && expiresAtMillis <= System.currentTimeMillis())
+                
+            if (isExpired) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { onExtendJobClick(jobPosting.jobId) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Extend for ₹49")
+                }
             }
 
             // Perks display removed as per user request
