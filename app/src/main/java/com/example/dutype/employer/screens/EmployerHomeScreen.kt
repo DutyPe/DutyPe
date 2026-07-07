@@ -23,6 +23,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.ui.unit.sp
 import com.example.dutype.navigation.Routes
 import androidx.compose.material.icons.Icons
@@ -37,8 +40,11 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,9 +72,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.airbnb.lottie.compose.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -156,6 +167,9 @@ fun EmployerHomeScreen(
     val appConfigViewModel: AppConfigViewModel = hiltViewModel()
     val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
     val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
+    val dynamicFeatures by appConfigViewModel.dynamicFeaturesConfig.collectAsStateWithLifecycle()
+    val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
+    val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
     
     // NotificationService for unread count (lightweight)
@@ -258,6 +272,50 @@ fun EmployerHomeScreen(
     
     // Note: We don't track views for employers viewing their own jobs
     
+    // Check subscription expiry to trigger on-device push warning
+    LaunchedEffect(subscription) {
+        val currentUserId = hiltAuth.currentUser?.uid
+        val hasActiveSub = subscription.status == "ACTIVE" || subscription.status == "TRIAL"
+        if (currentUserId != null && hasActiveSub && subscription.expiryDate > 0L) {
+            val msRemaining = subscription.expiryDate - System.currentTimeMillis()
+            val fiveDaysMs = 5L * 24L * 60L * 60L * 1000L
+            if (msRemaining in 0L..fiveDaysMs) {
+                val daysRemaining = (msRemaining / (24L * 60L * 60L * 1000L)).coerceAtLeast(0).toInt()
+                
+                // Only notify once per day to prevent spam
+                val sharedPrefs = context.getSharedPreferences("dutype_employer_prefs", android.content.Context.MODE_PRIVATE)
+                val lastShownKey = "sub_expiry_notif_last_shown"
+                val lastShown = sharedPrefs.getLong(lastShownKey, 0L)
+                val todayStart = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                
+                if (lastShown < todayStart) {
+                    try {
+                        val notification = com.example.dutype.models.NotificationData(
+                            id = "sub_expiry_${subscription.expiryDate}",
+                            recipientId = currentUserId,
+                            title = "Subscription Expiring Soon!",
+                            message = "Your plan expires in $daysRemaining days. Renew now to avoid interruption.",
+                            type = com.example.dutype.models.NotificationType.JOB_EXPIRY_REMINDER,
+                            targetRole = "EMPLOYER",
+                            createdAt = System.currentTimeMillis(),
+                            isRead = false
+                        )
+                        notificationService.sendNotification(notification, currentUserId)
+                        sharedPrefs.edit().putLong(lastShownKey, System.currentTimeMillis()).apply()
+                        Timber.d("Triggered on-device sub expiry notification. Days left: $daysRemaining")
+                    } catch (e: java.lang.Exception) {
+                        Timber.w(e, "Failed to send local subscription expiry notification")
+                    }
+                }
+            }
+        }
+    }
+    
     // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
     // Here we only show bottom sheets for returning users who denied permissions
     LaunchedEffect(Unit) {
@@ -288,26 +346,30 @@ fun EmployerHomeScreen(
     // Helper functions to handle job actions
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
-    // Bug fix: status bar now matches the calm employer surface instead of
-    // the previous jarring black header. Reads the dark-mode-aware token so
-    // it follows the user's theme choice.
-    val employerSurface = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
-    LaunchedEffect(employerSurface) {
-        onStatusBarColorChange(employerSurface)
+    val employerStatusBarColor = remember(dynamicFeatures.employerPrimaryColor) {
+        runCatching {
+            Color(android.graphics.Color.parseColor(dynamicFeatures.employerPrimaryColor))
+        }.getOrElse {
+            com.example.dutype.ui.theme.EmployerColors.ScreenBackground
+        }
+    }
+    LaunchedEffect(employerStatusBarColor) {
+        onStatusBarColorChange(employerStatusBarColor)
     }
 
     val recentJobs: List<JobListing> = employerJobUiState.myJobs
+    val urgentRequests = instantHelpState.employerInstantRequests
     val jobStats = JobStats(
-        activeJobs = recentJobs.count { it.status == "open" },
+        activeJobs = recentJobs.count { it.status == "open" } + urgentRequests.count { it.status == "open" },
         totalApplications = appStats.totalApplications,
-        todayJobs = recentJobs.count { DateTimeUtils.isToday(it.createdAt) },
-        totalJobs = recentJobs.size
+        todayJobs = recentJobs.count { DateTimeUtils.isToday(it.createdAt) } + urgentRequests.count { DateTimeUtils.isToday(it.createdAt) },
+        totalJobs = recentJobs.size + urgentRequests.size
     )
     val isLoading = employerJobUiState.isLoading
     val isRefreshing = employerJobUiState.isRefreshing
     val error = employerJobUiState.error
-    val showEmployerCashBonus = referralConfig.employerSignupBonusEnabled && referralConfig.employerSignupBonus > 0.0
-    val showEmployerWelcomeCard = isGuestEmployer
+    val showEmployerCashBonus = false
+    val showEmployerWelcomeCard = false
     val employerWelcomeMessage = when {
         referralConfig.employerUnlimitedJobPostingEnabled && showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_with_bonus)
         referralConfig.employerUnlimitedJobPostingEnabled -> stringResource(R.string.guest_employer_welcome_message_posts)
@@ -358,7 +420,6 @@ fun EmployerHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
         ) {
         // Offline banner at the very top
         val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
@@ -368,6 +429,8 @@ fun EmployerHomeScreen(
         WelcomeHeader(
             companyName = companyName.ifEmpty { "" },
             unreadCount = unreadNotificationCount,
+            headerLottieUrl = dynamicFeatures.headerLottieUrl,
+            employerPrimaryColorHex = dynamicFeatures.employerPrimaryColor,
             onNotificationClick = {
                 navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
             }
@@ -382,6 +445,47 @@ fun EmployerHomeScreen(
         }
         
         // Profile completion prompt removed - not needed for hyper-local employers
+
+        // Subscription Expiry Warning Banner
+        val daysUntilExpiry = if (subscription.expiryDate > 0) {
+            (subscription.expiryDate - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
+        } else {
+            Long.MAX_VALUE
+        }
+        
+        if ((subscription.status == "ACTIVE" || subscription.status == "TRIAL") && daysUntilExpiry in 0..2) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Subscription Expiring Soon!",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "Your plan expires in $daysUntilExpiry days. Renew now to avoid interruption.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+        }
 
         // Show dashboard content directly with pull-to-refresh
         val pullToRefreshState = rememberPullToRefreshState()
@@ -411,6 +515,8 @@ fun EmployerHomeScreen(
                 onDismissAnnouncement = { announcementId ->
                     announcementViewModel.dismissAnnouncement(announcementId)
                 },
+                employerPromoBannerUrl = dynamicFeatures.employerPromoBannerUrl,
+                subscription = subscription,
                 urgentRequests = instantHelpState.employerInstantRequests,
                 urgentResponsesByRequestId = instantHelpState.employerInstantResponses,
                 isLoadingUrgentRequests = instantHelpState.isLoadingEmployerUrgentNeeds,
@@ -508,6 +614,8 @@ fun DashboardContent(
     applicationCountsByJobId: Map<String, Int> = emptyMap(),
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
+    employerPromoBannerUrl: String = "",
+    subscription: com.example.dutype.models.EmployerSubscription = com.example.dutype.models.EmployerSubscription(),
     urgentRequests: List<com.example.dutype.models.InstantRequest> = emptyList(),
     urgentResponsesByRequestId: Map<String, List<com.example.dutype.models.InstantResponse>> = emptyMap(),
     isLoadingUrgentRequests: Boolean = false,
@@ -560,12 +668,13 @@ fun DashboardContent(
                 }
             }
 
-            if (announcements.isNotEmpty()) {
+            if (employerPromoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
                 item {
-                    AnnouncementList(
+                    com.example.dutype.worker.screens.PromoAndAnnouncementCarousel(
+                        promoBannerUrl = employerPromoBannerUrl,
                         announcements = announcements,
-                        onDismiss = onDismissAnnouncement,
-                        onAction = { announcement ->
+                        onDismissAnnouncement = onDismissAnnouncement,
+                        onAnnouncementAction = { announcement ->
                             announcement.actionRoute?.let { route: String ->
                                 DeepLinkHandler.handleAnnouncementAction(route, navController, context)
                             }
@@ -574,13 +683,215 @@ fun DashboardContent(
                 }
             }
 
+            val totalCredits = subscription.normalCredits + subscription.instantCredits
+            val hasActiveSub = subscription.status == "ACTIVE" || subscription.status == "TRIAL"
+            
+            // Check if subscription is expiring within 5 days
+            val isExpiringSoon = hasActiveSub && subscription.expiryDate > 0L && 
+                (subscription.expiryDate - System.currentTimeMillis()) in 0L..(5L * 24L * 60L * 60L * 1000L)
+
+            val expiringJobs = recentJobs.filter { job ->
+                val daysUntilExpiry = if (job.expiresAt > System.currentTimeMillis()) {
+                    (job.expiresAt - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)
+                } else {
+                    -1L
+                }
+                job.status.lowercase() == "open" && daysUntilExpiry in 0..2
+            }
+
+            if (isExpiringSoon) {
+                val daysRemaining = ((subscription.expiryDate - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)).coerceAtLeast(0)
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)), // Amber yellow tint
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color(0xFFFEF3C7), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Subscription Expiring Soon!",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF92400E)
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Text(
+                                    text = "Your plan expires in $daysRemaining days. Click to renew or upgrade.",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+
+            if (expiringJobs.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        expiringJobs.forEach { job ->
+                            val daysRemaining = ((job.expiresAt - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)).coerceAtLeast(0)
+                            val dayText = if (daysRemaining == 0L) "1 day" else "$daysRemaining days"
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS) }, // Navigate to My Jobs to manage
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), // Red tint
+                                border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color(0xFFFEE2E2), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = Color(0xFFDC2626),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Job Expiring: ${job.title}",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF991B1B)
+                                        )
+                                        Spacer(modifier = Modifier.height(1.dp))
+                                        Text(
+                                            text = "Expires in $dayText. Click to extend job.",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFFB91C1C)
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (hasActiveSub && totalCredits > 0) Color(0xFFF5F3FF) else Color(0xFFFFF1F2)
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (hasActiveSub && totalCredits > 0) Color(0xFFDDD6FE) else Color(0xFFFECDD3)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(
+                                        color = if (hasActiveSub && totalCredits > 0) Color(0xFFEDE9FE) else Color(0xFFFFE4E6),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (hasActiveSub && totalCredits > 0) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = if (hasActiveSub && totalCredits > 0) Color(0xFF8B5CF6) else Color(0xFFF43F5E),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = if (hasActiveSub) "Subscription Active: ${subscription.planId.replace("_", " ").uppercase()}" else "No Active Plan",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (hasActiveSub && totalCredits > 0) Color(0xFF5B21B6) else Color(0xFF9F1239)
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Text(
+                                    text = if (hasActiveSub && totalCredits > 0) {
+                                        "$totalCredits posts remaining (Normal or Urgent)"
+                                    } else {
+                                        "Click to buy subscription to post jobs"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (hasActiveSub && totalCredits > 0) Color(0xFF7C3AED) else Color(0xFFE11D48)
+                                )
+                            }
+                        }
+                        
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = if (hasActiveSub && totalCredits > 0) Color(0xFF8B5CF6) else Color(0xFFF43F5E),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
             item {
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
             }
 
-            item {
-                EmployerTrustSignalsCard()
-            }
 
             /*
             if (isGuestEmployer) {
@@ -629,6 +940,10 @@ fun DashboardContent(
                     context = context,
                     applicationCountsByJobId = applicationCountsByJobId
                 )
+            }
+
+            item {
+                EmployerTrustSignalsCard()
             }
 
             item {
@@ -786,134 +1101,166 @@ private fun EmployerPostJobSection(
     onPostUrgentNeed: () -> Unit,
     onPostNormalJob: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Post a Job",
-                    style = AppTypography.sectionHeader.copy(
-                        color = EmployerColors.TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Text(
-                    text = "Choose how you want to post your job today",
-                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                )
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column {
+            Text(
+                text = "Create a New Posting",
+                style = AppTypography.sectionHeader.copy(
+                    color = EmployerColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                ),
+                fontFamily = MeeshoFontFamily
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Choose the posting format that fits your immediate staffing need.",
+                style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
+            )
         }
 
-        Row(
+        // Card 1: Urgent Need
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFF3F4F6)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = EmployerColors.ErrorLight),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .background(EmployerColors.Error.copy(alpha = 0.18f), CircleShape),
+                            .size(48.dp)
+                            .background(Color(0xFFFEF2F2), CircleShape)
+                            .border(1.dp, Color(0xFFFEE2E2), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Schedule,
+                            imageVector = Icons.Default.FlashOn,
                             contentDescription = null,
-                            tint = EmployerColors.Error,
-                            modifier = Modifier.size(20.dp)
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Text(
-                        text = "Post Urgent Need",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Post Urgent Need",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color(0xFF111827),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFFFEF2F2), RoundedCornerShape(99.dp))
+                                    .border(1.dp, Color(0xFFFEE2E2), RoundedCornerShape(99.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "🔥 INSTANT MATCH",
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Hire nearby workers immediately for hourly/daily gigs.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                         )
-                    )
-                    Text(
-                        text = "Reach workers faster",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = EmployerColors.Error,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Text(
-                        text = "Get fast responses from nearby available workers.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                        minLines = 2
-                    )
-                    Button(
-                        onClick = onPostUrgentNeed,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Error, contentColor = Color.White)
-                    ) {
-                        Text("Post Urgent Need")
                     }
                 }
+                
+                Button(
+                    onClick = onPostUrgentNeed,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White)
+                ) {
+                    Text("Post Urgent Need", fontWeight = FontWeight.Bold)
+                }
             }
+        }
 
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Card 2: Normal Job
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFF3F4F6)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .background(EmployerColors.Primary.copy(alpha = 0.18f), CircleShape),
+                            .size(48.dp)
+                            .background(Color(0xFFF5F3FF), CircleShape)
+                            .border(1.dp, Color(0xFFEDE9FE), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Work,
                             contentDescription = null,
-                            tint = EmployerColors.Primary,
-                            modifier = Modifier.size(20.dp)
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Text(
-                        text = "Post Normal Job",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Post Normal Job",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = Color(0xFF111827),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFFF5F3FF), RoundedCornerShape(99.dp))
+                                    .border(1.dp, Color(0xFFEDE9FE), RoundedCornerShape(99.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "📄 STANDARD",
+                                    color = Color(0xFF8B5CF6),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Create detailed vacancies for full-time/part-time employment.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                         )
-                    )
-                    Text(
-                        text = "Regular hiring",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = EmployerColors.Primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Text(
-                        text = "Post your job and hire at your convenience.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                        minLines = 2
-                    )
-                    Button(
-                        onClick = onPostNormalJob,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary, contentColor = Color.White)
-                    ) {
-                        Text("Post Normal Job")
                     }
+                }
+                
+                Button(
+                    onClick = onPostNormalJob,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6), contentColor = Color.White)
+                ) {
+                    Text("Post Normal Job", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1153,62 +1500,99 @@ fun LoadingScreen() {
 fun WelcomeHeader(
     companyName: String,
     unreadCount: Int = 0,
+    headerLottieUrl: String = "",
+    employerPrimaryColorHex: String = "#8B5CF6",
     onNotificationClick: () -> Unit = {}
 ) {
-    // Bug fix: header now uses the same light employer surface as the rest
-    // of the screen so there is no harsh black band cutting under the
-    // status bar.
-    Row(
+    val headerColor = remember(employerPrimaryColorHex) {
+        try {
+            Color(android.graphics.Color.parseColor(employerPrimaryColorHex))
+        } catch (_: Exception) {
+            Color(0xFF8B5CF6)
+        }
+    }
+
+    val compositionResult = rememberLottieComposition(
+        spec = LottieCompositionSpec.Url(headerLottieUrl.ifBlank { "https://localhost/dummy.json" })
+    )
+    val composition = compositionResult.value
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(com.example.dutype.ui.theme.EmployerColors.ScreenBackground)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        headerColor,
+                        Color(0xFF0F172A)
+                    )
+                )
+            )
     ) {
-        // Show welcoming text instead of company name when not logged in
-        val greetingText = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
-            in 0..11 -> "Good Morning!"
-            in 12..16 -> "Good Afternoon!"
-            else -> "Good Evening!"
+        if (headerLottieUrl.isNotBlank() && composition != null) {
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier
+                    .matchParentSize()
+                    .alpha(0.35f),
+                contentScale = ContentScale.Crop
+            )
         }
 
-        Text(
-            text = if (companyName.isNotEmpty()) companyName else greetingText,
-            style = AppTypography.displayTitle.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = EmployerColors.TextPrimary
-            ),
-            modifier = Modifier.weight(1f)
-        )
-
-        // Notification icon with badge
-        Box {
-            IconButton(
-                onClick = onNotificationClick,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Notifications,
-                    contentDescription = "Notifications",
-                    tint = EmployerColors.IconPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val greetingText = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+                in 0..11 -> "Good Morning!"
+                in 12..16 -> "Good Afternoon!"
+                else -> "Good Evening!"
             }
-            
-            // Notification badge - simple dot without count (matching worker side)
-            if (unreadCount > 0) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(
-                            WorkerColors.Error,
-                            shape = CircleShape
-                        )
-                        .align(Alignment.TopEnd)
-                        .offset(x = 2.dp, y = (-2).dp)
-                )
+
+            Text(
+                text = if (companyName.isNotEmpty()) companyName else greetingText,
+                style = AppTypography.displayTitle.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = Color.White
+                ),
+                modifier = Modifier.weight(1f)
+            )
+
+            Box {
+                IconButton(
+                    onClick = onNotificationClick,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = "Notifications",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                if (unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(
+                                Color.Red,
+                                shape = CircleShape
+                            )
+                            .align(Alignment.TopEnd)
+                            .offset(x = 2.dp, y = (-2).dp)
+                    )
+                }
             }
         }
     }
@@ -1459,6 +1843,10 @@ fun RecentJobsSection(
                                 e.printStackTrace()
                                 Toast.makeText(context, context.getString(R.string.error_open_applications, e.message ?: ""), Toast.LENGTH_SHORT).show()
                             }
+                        },
+                        onExtendJobClick = { jobId ->
+                            Timber.d("EmployerHomeScreen - Extend job clicked for job ID: $jobId")
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION)
                         },
                             onShareClick = { jobId ->
                                 // Share job functionality

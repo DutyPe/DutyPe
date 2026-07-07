@@ -66,6 +66,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -93,6 +94,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -110,6 +112,7 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.BirthdayBanner
+import com.example.dutype.components.CategoryIcon
 import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
@@ -122,6 +125,7 @@ import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.WorkerAvailability
 import com.example.dutype.models.WorkerJobRequest
 import com.example.dutype.navigation.Routes
+import com.example.dutype.navigation.WorkerBottomRoutes
 import com.example.dutype.location.TopCityChips
 import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
@@ -129,6 +133,7 @@ import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.CategoryDetector
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.viewmodels.ConnectivityViewModel
@@ -416,9 +421,9 @@ internal fun ErrorContent(
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-//            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            shape = RoundedCornerShape(16.dp)
+            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -429,40 +434,33 @@ internal fun ErrorContent(
                     imageVector = Icons.Outlined.ErrorOutline,
                     contentDescription = "Error",
                     tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(IconSizes.ExtraLarge) // Material Design 3: 48dp
+                    modifier = Modifier.size(IconSizes.ExtraLarge)
                 )
 
                 Text(
                     text = "Oops! Something went wrong",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827)
-                    )
+                    color = Color(0xFF111827),
+                    fontWeight = FontWeight.Bold
                 )
 
                 Text(
                     text = error,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center
+                        color = Color(0xFF6B7280)
                     )
                 )
 
                 Button(
                     onClick = onRetry,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1F2937)
+                        containerColor = Color.White,
+                        contentColor = Color.Black
                     ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(IconSizes.Small) // Material Design 3: 20dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.try_again))
+                    Text(stringResource(R.string.try_again), color = Color.Black)
                 }
             }
         }
@@ -524,7 +522,8 @@ fun HomeSectionsContent(
     thisWeekEarningsAmount: Double = 0.0,
     weekJobsDone: Int = 0,
     ratingValue: Float = 0f,
-    reviewCount: Int = 0
+    reviewCount: Int = 0,
+    appliedJobsCount: Int = 0
 ) {
     val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     val recentHires by workerHomeViewModel.uiState.collectAsState()
@@ -632,6 +631,26 @@ fun HomeSectionsContent(
                         onInviteClick = onReferEarnClick
                     )
                 }
+            }
+
+            item {
+                AppliedJobsSummaryCard(
+                    appliedJobsCount = appliedJobsCount,
+                    onOpenMyJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) }
+                )
+            }
+
+            item {
+                WorkerCategoryRail(
+                    onCategorySelected = { category ->
+                        val route = if (category.equals("All Jobs", ignoreCase = true)) {
+                            Routes.WORKER_ALL_JOBS
+                        } else {
+                            Routes.categoriesRoute(category)
+                        }
+                        navController.navigate(route)
+                    }
+                )
             }
 
             // Earnings section hidden on the home feed (commented out per request).
@@ -842,6 +861,121 @@ fun HomeSectionsContent(
         }
         
     }
+    }
+}
+
+@Composable
+private fun AppliedJobsSummaryCard(
+    appliedJobsCount: Int,
+    onOpenMyJobs: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE0F2FE)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = WorkerColors.Primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.applied_jobs),
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        color = WorkerColors.TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "$appliedJobsCount job${if (appliedJobsCount == 1) "" else "s"} tracked in My Jobs",
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            TextButton(onClick = onOpenMyJobs) {
+                Text(stringResource(R.string.my_jobs), color = WorkerColors.Primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerCategoryRail(
+    onCategorySelected: (String) -> Unit
+) {
+    val categories = remember {
+        listOf("All Jobs") + CategoryDetector.getAllCategories()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 4.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.filter_by_category),
+            style = MaterialTheme.typography.titleSmall.copy(
+                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.SemiBold
+            ),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(categories) { category ->
+                val isSelected = category.equals("All Jobs", ignoreCase = true)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onCategorySelected(category) },
+                    label = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = CategoryIcon.forDisplayName(category),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(category, fontSize = 13.sp)
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = WorkerColors.Primary,
+                        selectedLabelColor = Color.White,
+                        containerColor = WorkerColors.CardBackground,
+                        labelColor = WorkerColors.TextPrimary
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -1138,7 +1272,7 @@ private fun ReferEarnStripCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F3FF)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -1151,7 +1285,7 @@ private fun ReferEarnStripCard(
             Icon(
                 imageVector = Icons.Default.CardGiftcard,
                 contentDescription = null,
-                tint = Color(0xFF6D28D9),
+                tint = Color.Black,
                 modifier = Modifier.size(24.dp)
             )
 
@@ -1163,7 +1297,7 @@ private fun ReferEarnStripCard(
                         stringResource(R.string.refer_earn_guest_title)
                     },
                     style = MaterialTheme.typography.titleSmall.copy(
-                        color = Color(0xFF312E81),
+                        color = Color.Black,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -1173,14 +1307,18 @@ private fun ReferEarnStripCard(
                     } else {
                         stringResource(R.string.refer_earn_guest_subtitle)
                     },
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569))
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Black)
                 )
             }
 
             Button(
                 onClick = onInviteClick,
                 shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
                 contentPadding = PaddingValues(0.dp),
                 modifier = Modifier.height(40.dp)
             ) {
@@ -1908,8 +2046,8 @@ internal fun DynamicHeader(
             ) {
                 Switch(
                     modifier = Modifier.graphicsLayer {
-                        scaleX = 0.83f
-                        scaleY = 0.83f
+                        scaleX = 0.80f
+                        scaleY = 0.80f
                     },
                     checked = isInstantAvailable,
                     onCheckedChange = onInstantAvailabilityChange,

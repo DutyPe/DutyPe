@@ -174,6 +174,8 @@ fun WorkerHomeScreen(
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
     val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
+    val dynamicFeaturesConfig by appConfigViewModel.dynamicFeaturesConfig.collectAsStateWithLifecycle()
+    val applicationStats by jobApplicationViewModel.stats.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
     val scope = rememberCoroutineScope()
     val jobApplicationService = jobApplicationViewModel.jobApplicationService
@@ -612,11 +614,18 @@ fun WorkerHomeScreen(
         }
     }
 
-    val workerHomeHeaderTopColor = WorkerHomeHeaderTopColor
+    val defaultHeaderColor = WorkerHomeHeaderTopColor
+    val workerHomeHeaderTopColor = remember(dynamicFeaturesConfig.primaryColor, defaultHeaderColor) {
+        try {
+            Color(android.graphics.Color.parseColor(dynamicFeaturesConfig.primaryColor))
+        } catch (_: Exception) {
+            defaultHeaderColor
+        }
+    }
 
-    // Update status bar color (was previously also keyed on pagerState.currentPage; pager removed in P1-2).
+    // Update status bar color.
     LaunchedEffect(workerHomeHeaderTopColor) {
-        onStatusBarColorChange(Color.White)
+        onStatusBarColorChange(workerHomeHeaderTopColor)
     }
 
 
@@ -741,13 +750,14 @@ fun WorkerHomeScreen(
                                     userEmail = currentUser?.email ?: "",
                                     userSkills = emptyList(),
                                     onScrollOffsetChange = { offset ->
-                                        onStatusBarColorChange(Color.White)
+                                        onStatusBarColorChange(workerHomeHeaderTopColor)
                                     },
                                     onLocationBarAlphaChange = { alpha ->
                                         locationBarAlpha = alpha
                                     },
                                     showEmptyJobsState = showEmptyJobsState,
                                     emptyJobsIsAppliedAllVariant = isAppliedAllVariant,
+                                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl,
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
                                     emptyJobsSuggestedCities = topLocationChips,
                                     onEmptyJobsCitySelected = onLocationChipSelected,
@@ -759,6 +769,7 @@ fun WorkerHomeScreen(
                                         rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                                     },
                                     referralRewardAmount = referralConfig.rewardPerReferral.toInt(),
+                                    appliedJobsCount = applicationStats.appliedApplications,
                                     onReferEarnClick = {
                                         if (isGuestUser) {
                                             android.widget.Toast.makeText(

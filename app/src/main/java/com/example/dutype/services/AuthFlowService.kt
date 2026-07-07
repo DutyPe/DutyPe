@@ -261,6 +261,21 @@ class AuthFlowService @Inject constructor(
                     "updatedAt" to now
                 )
 
+                if (role == "EMPLOYER") {
+                    val trialStart = System.currentTimeMillis()
+                    val trialExpiry = trialStart + 7L * 24L * 60L * 60L * 1000L // 7 days
+                    profileData["subscription"] = mapOf(
+                        "status" to "TRIAL",
+                        "planId" to "trial_free",
+                        "startDate" to trialStart,
+                        "expiryDate" to trialExpiry,
+                        "credits" to mapOf(
+                            "normal" to 1,
+                            "instant" to 1
+                        )
+                    )
+                }
+
                 if (ownReferralCode.isNotBlank()) {
                     userData["referralCode"] = ownReferralCode
                     profileData["referralCode"] = ownReferralCode
