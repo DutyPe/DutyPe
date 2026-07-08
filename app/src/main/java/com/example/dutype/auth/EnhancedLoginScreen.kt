@@ -661,7 +661,7 @@ internal fun LoginPhoneEntrySection(
             TextButton(
                 onClick = {
                     val whatsappNumber = "919121706236" // DutyPe support number
-                    val message = "Hello DutyPe Team! I am having trouble with the login/registration process."
+                    val message = "Hello DutyPe Team! I am facing a login issue. Please help me log in."
                     val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
                     val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
 
@@ -779,7 +779,7 @@ internal fun LoginPhoneEntrySection(
             ) {
                 Text(
                     text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
-                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black)
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
             }
         }

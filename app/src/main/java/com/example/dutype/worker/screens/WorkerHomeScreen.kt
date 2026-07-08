@@ -757,7 +757,6 @@ fun WorkerHomeScreen(
                                     },
                                     showEmptyJobsState = showEmptyJobsState,
                                     emptyJobsIsAppliedAllVariant = isAppliedAllVariant,
-                                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl,
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
                                     emptyJobsSuggestedCities = topLocationChips,
                                     onEmptyJobsCitySelected = onLocationChipSelected,
@@ -768,19 +767,7 @@ fun WorkerHomeScreen(
                                     onGuestWelcomeClick = {
                                         rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                                     },
-                                    referralRewardAmount = referralConfig.rewardPerReferral.toInt(),
                                     appliedJobsCount = applicationStats.appliedApplications,
-                                    onReferEarnClick = {
-                                        if (isGuestUser) {
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                context.getString(R.string.login_to_refer_earn),
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
-                                            navController.navigate(Routes.WORKER_REFER_EARN)
-                                        }
-                                    },
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
@@ -876,6 +863,20 @@ fun WorkerHomeScreen(
                     weekJobsDone = thisWeekJobsDone,
                     ratingValue = workerRating,
                     reviewCount = workerReviewCount,
+                    primaryColorHex = dynamicFeaturesConfig.primaryColor,
+                    headerLottieUrl = dynamicFeaturesConfig.headerLottieUrl,
+                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl,
+                    onCategoryTap = { category ->
+                        val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
+                            "All Jobs"
+                        } else {
+                            category
+                        }
+                        navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=${Uri.encode(normalizedCategory)}")
+                    },
+                    onSearchTap = {
+                        navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs")
+                    },
                     onInstantAvailabilityChange = { isAvailable ->
                         val selectedLocation = currentLocation
                         if (isGuestUser) {

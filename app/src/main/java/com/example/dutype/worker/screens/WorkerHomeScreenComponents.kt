@@ -4,6 +4,11 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -98,6 +103,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -116,6 +122,7 @@ import com.example.dutype.components.CategoryIcon
 import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.components.OfflineBanner
+import com.example.dutype.components.ReusableSearchBar
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
@@ -498,8 +505,6 @@ fun HomeSectionsContent(
     guestWelcomeMessage: String = "",
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
-    referralRewardAmount: Int = 20,
-    onReferEarnClick: () -> Unit = {},
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
     birthdayService: BirthdayService,
@@ -605,66 +610,12 @@ fun HomeSectionsContent(
                 .background(Color.Transparent), // Transparent to show purple background
             state = listState,
             contentPadding = PaddingValues(
-                top = 108.dp,
+                top = 260.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
-            if (showGuestWelcomeCard) {
-                item {
-                    GuestWelcomeBonusCard(
-                        title = guestWelcomeTitle,
-                        message = guestWelcomeMessage,
-                        buttonText = stringResource(R.string.guest_welcome_claim_gift),
-                        onClick = onGuestWelcomeClick,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-
-            if (!showGuestWelcomeCard) {
-                item {
-                    ReferEarnStripCard(
-                        rewardAmount = referralRewardAmount,
-                        showRewardAmount = !showGuestWelcomeCard,
-                        onInviteClick = onReferEarnClick
-                    )
-                }
-            }
-
-            item {
-                AppliedJobsSummaryCard(
-                    appliedJobsCount = appliedJobsCount,
-                    onOpenMyJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) }
-                )
-            }
-
-            item {
-                WorkerCategoryRail(
-                    onCategorySelected = { category ->
-                        val route = if (category.equals("All Jobs", ignoreCase = true)) {
-                            Routes.WORKER_ALL_JOBS
-                        } else {
-                            Routes.categoriesRoute(category)
-                        }
-                        navController.navigate(route)
-                    }
-                )
-            }
-
-            // Earnings section hidden on the home feed (commented out per request).
-            // item {
-            //     WorkerEarningsSummarySection(
-            //         todayEarningsAmount = todayEarningsAmount,
-            //         todayJobsDone = todayJobsDone,
-            //         thisWeekEarningsAmount = thisWeekEarningsAmount,
-            //         weekJobsDone = weekJobsDone,
-            //         ratingValue = ratingValue,
-            //         reviewCount = reviewCount
-            //     )
-            // }
-
             if (announcements.isNotEmpty()) {
                 item {
                     AnnouncementList(
@@ -679,6 +630,15 @@ fun HomeSectionsContent(
                         }
                     )
                 }
+            }
+
+            item {
+                WorkerQuickActionsGrid(
+                    onBrowseJobs = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
+                    onAppliedJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) },
+                    onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
+                    onHelpDesk = { navController.navigate(Routes.HELP) }
+                )
             }
 
             if (
@@ -865,6 +825,136 @@ fun HomeSectionsContent(
 }
 
 @Composable
+private fun WorkerQuickActionsGrid(
+    onBrowseJobs: () -> Unit,
+    onAppliedJobs: () -> Unit,
+    onEarnings: () -> Unit,
+    onHelpDesk: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WorkerQuickActionCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.quick_action_browse_jobs),
+                subtitle = stringResource(R.string.quick_action_browse_jobs_sub),
+                icon = Icons.Default.Work,
+                iconTint = Color(0xFFA855F7),
+                backgroundColor = Color(0xFFF2ECFB),
+                onClick = onBrowseJobs
+            )
+            WorkerQuickActionCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.quick_action_applied),
+                subtitle = stringResource(R.string.quick_action_applied_sub),
+                icon = Icons.Default.CheckCircle,
+                iconTint = Color(0xFF10B981),
+                backgroundColor = Color(0xFFE3F7EF),
+                onClick = onAppliedJobs
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WorkerQuickActionCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.quick_action_earnings),
+                subtitle = stringResource(R.string.quick_action_earnings_sub),
+                icon = Icons.Default.CalendarToday,
+                iconTint = Color(0xFFF59E0B),
+                backgroundColor = Color(0xFFF9F2D8),
+                onClick = onEarnings
+            )
+            WorkerQuickActionCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.quick_action_support),
+                subtitle = stringResource(R.string.quick_action_support_sub),
+                icon = Icons.Default.Headset,
+                iconTint = Color(0xFFEF4444),
+                backgroundColor = Color(0xFFFBECEF),
+                onClick = onHelpDesk
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkerQuickActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    iconTint: Color,
+    backgroundColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(100.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Color.White.copy(alpha = 0.65f), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color(0xFFB7B7B7),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    color = Color(0xFF111827),
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppliedJobsSummaryCard(
     appliedJobsCount: Int,
     onOpenMyJobs: () -> Unit
@@ -917,63 +1007,6 @@ private fun AppliedJobsSummaryCard(
 
             TextButton(onClick = onOpenMyJobs) {
                 Text(stringResource(R.string.my_jobs), color = WorkerColors.Primary)
-            }
-        }
-    }
-}
-
-@Composable
-private fun WorkerCategoryRail(
-    onCategorySelected: (String) -> Unit
-) {
-    val categories = remember {
-        listOf("All Jobs") + CategoryDetector.getAllCategories()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 4.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.filter_by_category),
-            style = MaterialTheme.typography.titleSmall.copy(
-                color = WorkerColors.TextPrimary,
-                fontWeight = FontWeight.SemiBold
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-        )
-
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(categories) { category ->
-                val isSelected = category.equals("All Jobs", ignoreCase = true)
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { onCategorySelected(category) },
-                    label = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = CategoryIcon.forDisplayName(category),
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(category, fontSize = 13.sp)
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = WorkerColors.Primary,
-                        selectedLabelColor = Color.White,
-                        containerColor = WorkerColors.CardBackground,
-                        labelColor = WorkerColors.TextPrimary
-                    ),
-                    shape = RoundedCornerShape(20.dp)
-                )
             }
         }
     }
@@ -1259,154 +1292,6 @@ private fun instantWorkerResponseMessage(status: String): String = when (status)
     "accepted" -> stringResource(R.string.employer_selected_urgent)
     "completed" -> stringResource(R.string.urgent_work_completed)
     else -> stringResource(R.string.urgent_work_applied_no_apply)
-}
-
-@Composable
-private fun ReferEarnStripCard(
-    rewardAmount: Int,
-    showRewardAmount: Boolean,
-    onInviteClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.CardGiftcard,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(24.dp)
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (showRewardAmount) {
-                        stringResource(R.string.refer_earn_amount, rewardAmount)
-                    } else {
-                        stringResource(R.string.refer_earn_guest_title)
-                    },
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Text(
-                    text = if (showRewardAmount) {
-                        stringResource(R.string.refer_invite_subtitle)
-                    } else {
-                        stringResource(R.string.refer_earn_guest_subtitle)
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Black)
-                )
-            }
-
-            Button(
-                onClick = onInviteClick,
-                shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.height(40.dp)
-            ) {
-                AnimatedInviteNowText()
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnimatedInviteNowText() {
-    val transition = rememberInfiniteTransition(label = "invite_now_shine")
-    val shineProgress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1250, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "invite_now_shine_progress"
-    )
-    val arrowShift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 620, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "invite_now_arrow_shift"
-    )
-    val inviteText = stringResource(R.string.invite_now)
-
-    BoxWithConstraints(
-        modifier = Modifier
-            .width(128.dp)
-            .height(40.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(Color.Black, Color(0xFF1F2937))
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        val shineOffset = (-64).dp + (maxWidth + 128.dp) * shineProgress
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = shineOffset)
-                .width(42.dp)
-                .height(52.dp)
-                .graphicsLayer { rotationZ = -18f }
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.42f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 12.dp)
-        ) {
-            Text(
-                text = inviteText,
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = Color.White,
-                    fontWeight = FontWeight.ExtraBold
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(17.dp)
-                    .graphicsLayer { translationX = arrowShift }
-            )
-        }
-    }
 }
 
 @Composable
@@ -1970,127 +1855,233 @@ internal fun DynamicHeader(
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
+    primaryColorHex: String = "",
+    headerLottieUrl: String = "",
+    promoBannerUrl: String = "",
+    onCategoryTap: (String) -> Unit = {},
+    onSearchTap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val compositionResult = rememberLottieComposition(
+        spec = LottieCompositionSpec.Url(headerLottieUrl.ifBlank { "https://localhost/dummy.json" })
+    )
+    val lottieComposition = compositionResult.value
+    val lottieProgress by animateLottieCompositionAsState(
+        composition = lottieComposition,
+        iterations = LottieConstants.IterateForever
+    )
+    val categoryTabs = remember {
+        listOf(
+            "All" to "📋",
+            "Cook" to "👨‍🍳",
+            "Maid" to "🧹",
+            "Driver" to "🚗",
+            "Delivery" to "📦",
+            "Security" to "🛡️",
+            "Electrician" to "💡",
+            "Plumber" to "🔧",
+            "Shop Helper" to "🏪",
+            "Office Staff" to "🗂️",
+            "Teacher" to "📚",
+            "Telecaller" to "📞"
+        )
+    }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var searchQuery by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(WorkerColors.ScreenBackground)
             .statusBarsPadding()
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .height(220.dp)
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "DutyPe",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 21.sp,
-                            color = WorkerColors.TextPrimary
-                        )
-                    )
+            if (headerLottieUrl.isNotBlank() && lottieComposition != null) {
+                LottieAnimation(
+                    composition = lottieComposition,
+                    progress = { lottieProgress },
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
-                    if (locationBarAlpha > 0.05f) {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .clickable(onClick = onLocationClick)
-                                .padding(end = 6.dp)
-                                .graphicsLayer { alpha = locationBarAlpha.coerceIn(0f, 1f) },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (isLocationLoading) {
-                                androidx.compose.material3.CircularProgressIndicator(
-                                    modifier = Modifier.size(9.dp),
-                                    strokeWidth = 1.2.dp,
-                                    color = WorkerColors.TextSecondary
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "DutyPe",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 21.sp,
+                                    color = WorkerColors.TextPrimary
                                 )
-                            } else {
+                            )
+
+                            if (locationBarAlpha > 0.05f) {
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .clickable(onClick = onLocationClick)
+                                        .padding(end = 6.dp)
+                                        .graphicsLayer { alpha = locationBarAlpha.coerceIn(0f, 1f) },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (isLocationLoading) {
+                                        androidx.compose.material3.CircularProgressIndicator(
+                                            modifier = Modifier.size(9.dp),
+                                            strokeWidth = 1.2.dp,
+                                            color = WorkerColors.TextSecondary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Outlined.LocationOn,
+                                            contentDescription = null,
+                                            tint = WorkerColors.TextSecondary,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                    }
+
+                                    Text(
+                                        text = locationText,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = WorkerColors.TextSecondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Switch(
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = 0.80f
+                                scaleY = 0.80f
+                            },
+                            checked = isInstantAvailable,
+                            onCheckedChange = onInstantAvailabilityChange,
+                            enabled = !isInstantAvailabilitySaving,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color.Black,
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color(0xFFCBD5E1),
+                                uncheckedBorderColor = Color.Transparent,
+                                checkedBorderColor = Color.Transparent,
+                                disabledCheckedTrackColor = Color.Black.copy(alpha = 0.5f),
+                                disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
+                            )
+                        )
+
+                        Box {
+                            IconButton(
+                                onClick = onNotificationClick,
+                                modifier = Modifier.size(40.dp)
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = WorkerColors.TextSecondary,
-                                    modifier = Modifier.size(10.dp)
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = "Notifications",
+                                    tint = WorkerColors.TextPrimary,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
 
+                            if (unreadNotificationCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(9.dp)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = (-3).dp, y = 7.dp)
+                                        .background(
+                                            color = Color(0xFFDC2626),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                ReusableSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onSearch = { onSearchTap() },
+                    placeholder = stringResource(R.string.search_jobs_skills),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(end = 12.dp)
+                ) {
+                    items(categoryTabs) { (label, emoji) ->
+                        val selected = selectedCategory == label
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .width(64.dp)
+                                .clickable {
+                                    selectedCategory = label
+                                    onCategoryTap(label)
+                                }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .background(
+                                        color = if (selected) WorkerColors.Primary else Color(0xFFF3F4F6),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = emoji, fontSize = 24.sp)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = locationText,
+                                text = label,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = WorkerColors.TextSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                    color = if (selected) WorkerColors.Primary else Color(0xFF4B5563),
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
                             )
                         }
                     }
                 }
             }
+        }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Switch(
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = 0.80f
-                        scaleY = 0.80f
-                    },
-                    checked = isInstantAvailable,
-                    onCheckedChange = onInstantAvailabilityChange,
-                    enabled = !isInstantAvailabilitySaving,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color.Black,
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFCBD5E1),
-                        uncheckedBorderColor = Color.Transparent,
-                        checkedBorderColor = Color.Transparent,
-                        disabledCheckedTrackColor = Color.Black.copy(alpha = 0.5f),
-                        disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
-                    )
-                )
-
-                Box {
-                    IconButton(
-                        onClick = onNotificationClick,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Notifications,
-                            contentDescription = "Notifications",
-                            tint = WorkerColors.TextPrimary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    if (unreadNotificationCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(9.dp)
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-3).dp, y = 7.dp)
-                                .background(
-                                    color = Color(0xFFDC2626),
-                                    shape = CircleShape
-                                )
-                        )
-                    }
-                }
-            }
+        if (promoBannerUrl.isNotBlank()) {
+            // Reserved for remote-config promo banner below header if needed.
         }
 
         Spacer(modifier = Modifier.height(8.dp))

@@ -95,6 +95,7 @@ import com.example.dutype.auth.rememberPhoneNumberHintRequester
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.ui.theme.LocalDarkMode
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.FirestoreUtils
@@ -764,7 +765,7 @@ private fun RegisterInputSection(
         TextButton(
             onClick = {
                 val whatsappNumber = "919121706236" // DutyPe support number
-                val message = "Hello DutyPe Team! I am having trouble with the registration/OTP process."
+                val message = "Hello DutyPe Team! I am facing a registration issue. Please help me create my account."
                 val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
                 val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
 
@@ -797,7 +798,7 @@ private fun RegisterInputSection(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (isTelugu) "WhatsApp ద్వారా సహాయం" else "Contact support on WhatsApp",
-                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color.Black)
+                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary)
                 )
             }
         }
@@ -833,6 +834,8 @@ private fun RegisterEntrySection(
     onLoginClick: () -> Unit
 ) {
     val appContext = LocalContext.current
+    val isDarkMode = LocalDarkMode.current
+    val foregroundTextColor = if (isDarkMode) Color.White else Color(0xFF071735)
     val nameValid = fullName.trim().length >= 2
     val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
     val buttonEnabled = nameValid && phoneValid && termsAccepted && !otpState.isLoading && !isCheckingPhone
@@ -852,14 +855,14 @@ private fun RegisterEntrySection(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = if (isTelugu) "వెనక్కి" else "Back",
-                    tint = Color(0xFF071735)
+                    tint = foregroundTextColor
                 )
             }
 
             TextButton(
                 onClick = {
                     val whatsappNumber = "919121706236" // DutyPe support number
-                    val message = "Hello DutyPe Team! I am having trouble with the registration/OTP process."
+                    val message = "Hello DutyPe Team! I am facing a registration issue. Please help me create my account."
                     val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
                     val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
 
@@ -892,7 +895,7 @@ private fun RegisterEntrySection(
                         text = if (isTelugu) "సపోర్ట్" else "Contact Support",
                         style = AppTypography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF071735)
+                            color = foregroundTextColor
                         )
                     )
                 }
@@ -907,7 +910,7 @@ private fun RegisterEntrySection(
                     fontSize = 28.sp,
                     lineHeight = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = foregroundTextColor
             ),
             textAlign = TextAlign.Start
         )
@@ -920,7 +923,7 @@ private fun RegisterEntrySection(
             text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
             style = AppTypography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = foregroundTextColor
             )
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -936,7 +939,7 @@ private fun RegisterEntrySection(
             text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
             style = AppTypography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF071735)
+                color = foregroundTextColor
             )
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -973,7 +976,7 @@ private fun RegisterEntrySection(
                 onCheckedChange = onTermsToggle,
                 modifier = Modifier.size(20.dp),
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color.Black,
+                    checkedColor = foregroundTextColor,
                     uncheckedColor = Color(0xFFB9B7CA),
                     checkmarkColor = Color.White
                 )
@@ -981,15 +984,15 @@ private fun RegisterEntrySection(
             Text(
                 text = buildAnnotatedString {
                     append(if (isTelugu) "నేను ఈ వాటికి అంగీకరిస్తున్నాను: " else "I agree to the ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.Black)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = foregroundTextColor)) {
                         append(if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service")
                     }
                     append(if (isTelugu) " మరియు " else " and ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.Black)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = foregroundTextColor)) {
                         append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
                     }
                 },
-                style = AppTypography.bodyMedium.copy(color = Color.Black, lineHeight = 20.sp),
+                style = AppTypography.bodyMedium.copy(color = foregroundTextColor, lineHeight = 20.sp),
                 modifier = Modifier.padding(start = 2.dp)
             )
         }

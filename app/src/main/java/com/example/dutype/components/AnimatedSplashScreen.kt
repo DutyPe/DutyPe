@@ -75,7 +75,7 @@ fun AnimatedSplashScreen(
             targetValue = 1f,
             animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
         )
-        delay(260L)
+        delay(2000L)
         visible = false
         delay(100L)
         onAnimationEnd()
