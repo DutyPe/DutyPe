@@ -10,7 +10,7 @@ import { LottiePreview } from "./lottie-preview";
 type DynamicConfig = {
   isDirectCallEnabled: boolean;
   isUrgentJobsEnabled: boolean;
-  activeLauncherIcon: "default" | "diwali" | "independence";
+  activeLauncherIcon: "default" | "birthday" | "independence";
   promoBannerUrl: string;
   employerPromoBannerUrl: string;
   lottieLoadingUrl: string;
@@ -74,8 +74,8 @@ export function AdminDynamicConfigClient() {
         const normalizedLauncherIcon: DynamicConfig["activeLauncherIcon"] =
           launcherIcon === "independence"
             ? "independence"
-            : launcherIcon === "diwali" || launcherIcon === "christmas" || launcherIcon === "ramadan"
-              ? "diwali"
+            : launcherIcon === "birthday"
+              ? "birthday"
               : "default";
 
         setConfig({
@@ -213,7 +213,7 @@ export function AdminDynamicConfigClient() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12 }}>
             {[
               { id: "default", name: "Default (Purple)", color: "linear-gradient(135deg, #7c3aed, #4f46e5)", icon: "D" },
-              { id: "diwali", name: "Diwali (Gold)", color: "linear-gradient(135deg, #f59e0b, #d97706)", icon: "🪔" },
+              { id: "birthday", name: "Birthday", color: "linear-gradient(135deg, #f59e0b, #d97706)", icon: "🎂" },
               { id: "independence", name: "Independence", color: "linear-gradient(135deg, #f97316, #16a34a)", icon: "🇮🇳" }
             ].map((opt) => {
               const isSelected = config.activeLauncherIcon === opt.id;

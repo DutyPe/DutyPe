@@ -686,8 +686,17 @@ fun MainNavGraph(
         composable(Routes.EMPLOYER_COMPANY_DETAILS) {
             EmployerCompanyDetailsScreen(navController = navController)
         }
-        composable(Routes.EMPLOYER_SUBSCRIPTION) {
-            EmployerSubscriptionScreen(navController = navController)
+        composable(
+            route = Routes.EMPLOYER_SUBSCRIPTION,
+            arguments = listOf(
+                androidx.navigation.navArgument("isExtension") {
+                    type = androidx.navigation.NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) { backStackEntry ->
+            val isExtension = backStackEntry.arguments?.getBoolean("isExtension") ?: false
+            EmployerSubscriptionScreen(navController = navController, isExtension = isExtension)
         }
         composable(Routes.WORKER_PROFILE_DETAILS) {
             val context = LocalContext.current

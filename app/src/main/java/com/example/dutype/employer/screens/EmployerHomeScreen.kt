@@ -91,6 +91,7 @@ import androidx.navigation.NavController
 import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.AppUpdatePrompt
+import com.example.dutype.components.OptimizedImage
 import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.WelcomeCelebrationOverlay
 import com.example.dutype.components.consumeWelcomeCelebrationFlag
@@ -350,7 +351,7 @@ fun EmployerHomeScreen(
         runCatching {
             Color(android.graphics.Color.parseColor(dynamicFeatures.employerPrimaryColor))
         }.getOrElse {
-            com.example.dutype.ui.theme.EmployerColors.ScreenBackground
+            Color.White
         }
     }
     LaunchedEffect(employerStatusBarColor) {
@@ -458,7 +459,7 @@ fun EmployerHomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                    .clickable { navController.navigate("employer_subscription?isExtension=false") },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
             ) {
                 Row(
@@ -668,14 +669,21 @@ fun DashboardContent(
                 }
             }
 
-            if (employerPromoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
+            if (employerPromoBannerUrl.isNotBlank()) {
                 item {
-                    com.example.dutype.worker.screens.PromoAndAnnouncementCarousel(
-                        promoBannerUrl = employerPromoBannerUrl,
+                    EmployerPromoBanner(
+                        promoBannerUrl = employerPromoBannerUrl
+                    )
+                }
+            }
+
+            if (announcements.isNotEmpty()) {
+                item {
+                    AnnouncementList(
                         announcements = announcements,
-                        onDismissAnnouncement = onDismissAnnouncement,
-                        onAnnouncementAction = { announcement ->
-                            announcement.actionRoute?.let { route: String ->
+                        onDismiss = { announcementId -> onDismissAnnouncement(announcementId) },
+                        onAction = { announcement ->
+                            announcement.actionRoute?.let { route ->
                                 DeepLinkHandler.handleAnnouncementAction(route, navController, context)
                             }
                         }
@@ -705,7 +713,7 @@ fun DashboardContent(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                            .clickable { navController.navigate("employer_subscription?isExtension=false") },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)), // Amber yellow tint
                         border = BorderStroke(1.dp, Color(0xFFFDE68A)),
@@ -821,7 +829,7 @@ fun DashboardContent(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
+                        .clickable { navController.navigate("employer_subscription?isExtension=false") },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (hasActiveSub && totalCredits > 0) Color(0xFFF5F3FF) else Color(0xFFFFF1F2)
@@ -951,6 +959,27 @@ fun DashboardContent(
             }
             
         }
+    }
+}
+
+@Composable
+private fun EmployerPromoBanner(promoBannerUrl: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        OptimizedImage(
+            imageUrl = promoBannerUrl,
+            contentDescription = "Employer promo banner",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(142.dp)
+                .clip(RoundedCornerShape(14.dp)),
+            contentScale = ContentScale.Crop,
+            crossfadeMillis = 120
+        )
     }
 }
 
@@ -1846,7 +1875,7 @@ fun RecentJobsSection(
                         },
                         onExtendJobClick = { jobId ->
                             Timber.d("EmployerHomeScreen - Extend job clicked for job ID: $jobId")
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION)
+                            navController.navigate("employer_subscription?isExtension=true")
                         },
                             onShareClick = { jobId ->
                                 // Share job functionality

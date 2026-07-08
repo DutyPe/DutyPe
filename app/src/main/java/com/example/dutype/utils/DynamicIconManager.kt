@@ -12,7 +12,7 @@ object DynamicIconManager {
 
     private val aliases = listOf(
         "com.example.dutype.DefaultAlias",
-        "com.example.dutype.DiwaliAlias",
+        "com.example.dutype.BirthdayAlias",
         "com.example.dutype.IndependenceAlias"
     )
 
@@ -44,9 +44,7 @@ object DynamicIconManager {
         val pendingIcon = prefs.getString(KEY_PENDING_ICON, null) ?: return
         
         val targetAlias = when (pendingIcon) {
-            "diwali" -> "com.example.dutype.DiwaliAlias"
-            "christmas" -> "com.example.dutype.DiwaliAlias"
-            "ramadan" -> "com.example.dutype.DiwaliAlias"
+            "birthday" -> "com.example.dutype.BirthdayAlias"
             "independence" -> "com.example.dutype.IndependenceAlias"
             else -> "com.example.dutype.DefaultAlias"
         }

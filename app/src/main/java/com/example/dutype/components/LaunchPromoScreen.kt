@@ -31,7 +31,7 @@ fun LaunchPromoScreen(
     backgroundColorHex: String,
     statusBarColorHex: String,
     onAnimationEnd: () -> Unit,
-    displayMillis: Long = 2200L
+    displayMillis: Long = 4000L
 ) {
     val view = LocalView.current
     val backgroundColor = remember(backgroundColorHex) { parseColorOrDefault(backgroundColorHex, Color.White) }

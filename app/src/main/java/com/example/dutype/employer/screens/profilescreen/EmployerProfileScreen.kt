@@ -548,7 +548,7 @@ fun EmployerProfileScreen(
                             Button(
                                 onClick = {
                                     val navControllerToUse = localNavController ?: rootNavController
-                                    navControllerToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                                    navControllerToUse.navigate("employer_subscription?isExtension=false")
                                 },
                                 modifier = Modifier.fillMaxWidth().height(42.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),

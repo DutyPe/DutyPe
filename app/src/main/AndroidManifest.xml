@@ -164,7 +164,7 @@
         </activity-alias>
 
         <activity-alias
-            android:name="com.example.dutype.DiwaliAlias"
+            android:name="com.example.dutype.BirthdayAlias"
             android:targetActivity="com.example.dutype.MainActivity"
             android:icon="@mipmap/ic_launcher_birthday"
             android:roundIcon="@mipmap/ic_launcher_birthday_round"

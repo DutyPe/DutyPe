@@ -49,6 +49,7 @@
     <string name="urgent">Urgent</string>
     <string name="hiring_now">Hiring Now!</string>
     <string name="search_jobs">Search jobs...</string>
+    <string name="search_jobs_skills">Search jobs, skills...</string>
     <string name="categories">Popular Categories</string>
     <string name="view_all">View All</string>
     <string name="recommended">Recommended</string>
