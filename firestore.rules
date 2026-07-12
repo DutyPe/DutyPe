@@ -277,7 +277,7 @@ service cloud.firestore {
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -293,7 +293,8 @@ service cloud.firestore {
         (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map);
 
       allow delete: if isSelf(userId);
     }
@@ -339,7 +340,7 @@ service cloud.firestore {
           'jobType', 'status', 'createdAt', 'employerId',
           // Legacy Android builds may still send this field; Cloud Functions
           // strips it from jobmetadata immediately so the card stays small.
-          'category', 'searchKeywords',
+          'category', 'searchKeywords', 'expiresAt',
           // #5 fix: optional hero image URL stored on the slim card payload
           // so worker/employer job lists can render it without an extra read.
           'jobImageUrl',

@@ -152,9 +152,9 @@ fun PostJobScreen(
 ) {
     val context = LocalContext.current
     
-    // Set status bar to white for this screen
-    LaunchedEffect(Unit) {
-        onStatusBarColorChange?.invoke(Color.White)
+    val statusBarColorToken = EmployerColors.StatusBarColor
+    LaunchedEffect(statusBarColorToken) {
+        onStatusBarColorChange?.invoke(statusBarColorToken)
     }
     val scope = rememberCoroutineScope()
     // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
@@ -3045,48 +3045,7 @@ fun EnhancedLocationSection(
                 }
             }
 
-            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(locationLatitude, locationLongitude)) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(210.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = EmployerColors.ScreenBackground,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
-                ) {
-                    SelectableLocationMap(
-                        latitude = locationLatitude,
-                        longitude = locationLongitude,
-                        modifier = Modifier.fillMaxSize(),
-                        markerTitle = stringResource(R.string.work_location),
-                        markerSnippet = location.takeIf { it.isNotBlank() },
-                        onLocationPicked = { latitude, longitude ->
-                            onLocationSelected?.invoke(latitude, longitude)
-                            pendingPinnedLocation = LatLng(latitude, longitude)
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (isResolvingPinnedAddress) {
-                        "Updating exact address..."
-                    } else {
-                        String.format("Exact pin: %.6f, %.6f", locationLatitude, locationLongitude)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = EmployerColors.TextSecondary
-                )
-                if (isResolvingPinnedAddress) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = primaryBlue,
-                        trackColor = EmployerColors.Border
-                    )
-                }
-            }
-            
+
             if (locationError != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(

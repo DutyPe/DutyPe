@@ -136,15 +136,10 @@ fun EmployerMainScreen(
                 .background(roleColors.screenBackground)
         ) {
 
-        // Status bar overlay - ALWAYS at the top
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(Color.White)
-                .align(Alignment.TopCenter)
-                .zIndex(1000f) // Ensure it's always on top
-        )
+        // The global status bar overlay was removed because it blocked edge-to-edge
+        // backgrounds (like EmployerHomeScreen's gradient and Lottie animation) 
+        // from drawing under the status bar area. Individual screens handle their 
+        // own statusBarsPadding.
 
         // Navigation bar overlay — rendered only on routes where the
         // EmployerBottomBar is NOT shown. The bottom bar itself now

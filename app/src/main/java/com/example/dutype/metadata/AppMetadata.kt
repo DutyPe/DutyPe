@@ -360,7 +360,7 @@ data class FeatureFlags(
     val isDigitalCardEnabled: Boolean = true,
     
     // Limits
-    val maxFreeJobPosts: Int = 3,
+    val maxFreeJobPosts: Int = 2,
     val maxFreeApplications: Int = 10,
     val jobExpiryDays: Int = 15,
     

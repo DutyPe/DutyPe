@@ -309,15 +309,15 @@ class MainActivity : ComponentActivity() {
                     var showStartupOverlay by remember { mutableStateOf(false) }
                     var committedStartupUsesPromo by remember { mutableStateOf<Boolean?>(null) }
 
-                    LaunchedEffect(dynamicFeatures.isRemoteLoaded) {
-                        if (dynamicFeatures.isRemoteLoaded) {
-                            showLaunchPromo = dynamicFeatures.launchPromoEnabled && dynamicFeatures.launchPromoBannerUrl.isNotBlank()
+                    LaunchedEffect(dynamicFeatures) {
+                        if (dynamicFeatures.launchPromoEnabled && dynamicFeatures.launchPromoBannerUrl.isNotBlank()) {
+                            showLaunchPromo = true
                             launchExperienceResolved = true
                         }
                     }
 
                     LaunchedEffect(Unit) {
-                        delay(1200L)
+                        delay(50L)
                         if (!launchExperienceResolved) {
                             showLaunchPromo = false
                             launchExperienceResolved = true
@@ -329,7 +329,7 @@ class MainActivity : ComponentActivity() {
                             committedStartupUsesPromo = showLaunchPromo
                             startupOverlayCommitted = true
                             keepSplashOnScreen = false
-                            showStartupOverlay = true
+                            showStartupOverlay = showLaunchPromo
                         }
                     }
 
@@ -356,7 +356,7 @@ class MainActivity : ComponentActivity() {
 
                     LaunchedEffect(effectiveStatusBarColor, darkTheme, isColorDark) {
                         @Suppress("DEPRECATION")
-                        window.statusBarColor = effectiveStatusBarColor.toArgb()
+                        window.statusBarColor = android.graphics.Color.TRANSPARENT
                         WindowCompat.getInsetsController(window, window.decorView).apply {
                             // If dark theme is enabled, or the custom status bar color is dark,
                             // use light-colored system status bar icons (white). Otherwise, use dark icons.
@@ -365,7 +365,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         // PERF: Log only once when MainNavGraph first mounts. Without this
                         // gate, every parent recomposition (e.g. statusBarColor change from
                         // navigation events) re-fires both Timber lines.
@@ -391,21 +391,13 @@ class MainActivity : ComponentActivity() {
 
                         // Startup experience: a backend-controlled full-screen promo banner
                         // can replace the branded splash during special events/deals.
-                        if (showStartupOverlay) {
-                            if (committedStartupUsesPromo == true) {
-                                com.example.dutype.components.LaunchPromoScreen(
-                                    mediaType = dynamicFeatures.launchPromoMediaType,
-                                    bannerUrl = dynamicFeatures.launchPromoBannerUrl,
-                                    animationUrl = dynamicFeatures.launchPromoAnimationUrl,
-                                    backgroundColorHex = dynamicFeatures.launchPromoBackgroundColor,
-                                    statusBarColorHex = dynamicFeatures.launchPromoStatusBarColor,
-                                    onAnimationEnd = { showStartupOverlay = false }
-                                )
-                            } else {
-                                com.example.dutype.components.AnimatedSplashScreen(
-                                    onAnimationEnd = { showStartupOverlay = false }
-                                )
-                            }
+                        if (showStartupOverlay && committedStartupUsesPromo == true) {
+                            com.example.dutype.components.LaunchPromoScreen(
+                                mediaType = dynamicFeatures.launchPromoMediaType,
+                                bannerUrl = dynamicFeatures.launchPromoBannerUrl,
+                                animationUrl = dynamicFeatures.launchPromoAnimationUrl,
+                                onAnimationEnd = { showStartupOverlay = false }
+                            )
                         }
 
                         // Maintenance Mode Sheet

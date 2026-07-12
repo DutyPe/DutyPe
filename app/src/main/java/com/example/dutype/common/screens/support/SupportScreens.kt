@@ -114,8 +114,9 @@ fun HelpMainScreen(
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        onStatusBarColorChange(androidx.compose.ui.graphics.Color.White)
+    val statusBarColor = WorkerColors.StatusBarColor
+    androidx.compose.runtime.LaunchedEffect(statusBarColor) {
+        onStatusBarColorChange(statusBarColor)
     }
     var expandedGuideIndex by remember { mutableStateOf(-1) }
     var expandedFaqIndex by remember { mutableStateOf(-1) }

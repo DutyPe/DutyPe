@@ -823,8 +823,8 @@ class ProfileCompletionService @Inject constructor(
                     "startDate" to System.currentTimeMillis(),
                     "expiryDate" to trialExpiry,
                     "credits" to mapOf(
-                        "normal" to 1,
-                        "instant" to 1
+                        "normal" to 2,
+                        "instant" to 0
                     ),
                     "trialJobsUsed" to 0,
                     "trialInstantJobsUsed" to 0

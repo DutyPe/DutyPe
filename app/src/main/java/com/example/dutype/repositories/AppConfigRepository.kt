@@ -94,8 +94,8 @@ data class DynamicFeaturesConfig(
     val launchPromoMediaType: String = "IMAGE",
     val launchPromoBannerUrl: String = "",
     val launchPromoAnimationUrl: String = "",
-    val launchPromoBackgroundColor: String = "#FFFFFF",
-    val launchPromoStatusBarColor: String = "#FFFFFF",
+    val supportEmail: String = "support@dutype.com",
+    val headerTextColor: String = "#FFFFFF",
     val isRemoteLoaded: Boolean = false
 )
 
@@ -200,10 +200,10 @@ class AppConfigRepository @Inject constructor(
                 launchPromoEnabled = (data["launchPromoEnabled"] as? Boolean) ?: false,
                 launchPromoMediaType = (data["launchPromoMediaType"] as? String)?.trim()?.uppercase()
                     ?.takeIf { it == "IMAGE" || it == "ANIMATION" } ?: "IMAGE",
-                launchPromoBannerUrl = (data["launchPromoBannerUrl"] as? String).orEmpty(),
-                launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String).orEmpty(),
-                launchPromoBackgroundColor = (data["launchPromoBackgroundColor"] as? String) ?: "#FFFFFF",
-                launchPromoStatusBarColor = (data["launchPromoStatusBarColor"] as? String) ?: "#FFFFFF",
+                launchPromoBannerUrl = (data["launchPromoBannerUrl"] as? String) ?: "",
+                launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String) ?: "",
+                supportEmail = (data["supportEmail"] as? String) ?: "support@dutype.com",
+                headerTextColor = (data["headerTextColor"] as? String) ?: "#FFFFFF",
                 isRemoteLoaded = true
             )
             saveCachedDynamicFeatures(config)
@@ -233,8 +233,8 @@ class AppConfigRepository @Inject constructor(
                     .takeIf { it == "IMAGE" || it == "ANIMATION" } ?: "IMAGE",
                 launchPromoBannerUrl = json.optString("launchPromoBannerUrl", ""),
                 launchPromoAnimationUrl = json.optString("launchPromoAnimationUrl", ""),
-                launchPromoBackgroundColor = json.optString("launchPromoBackgroundColor", "#FFFFFF"),
-                launchPromoStatusBarColor = json.optString("launchPromoStatusBarColor", "#FFFFFF"),
+                supportEmail = json.optString("supportEmail", "support@dutype.com"),
+                headerTextColor = json.optString("headerTextColor", "#FFFFFF"),
                 isRemoteLoaded = json.optBoolean("isRemoteLoaded", true)
             )
         }.getOrNull()
@@ -260,8 +260,8 @@ class AppConfigRepository @Inject constructor(
         put("launchPromoMediaType", launchPromoMediaType)
         put("launchPromoBannerUrl", launchPromoBannerUrl)
         put("launchPromoAnimationUrl", launchPromoAnimationUrl)
-        put("launchPromoBackgroundColor", launchPromoBackgroundColor)
-        put("launchPromoStatusBarColor", launchPromoStatusBarColor)
+        put("supportEmail", supportEmail)
+        put("headerTextColor", headerTextColor)
         put("isRemoteLoaded", isRemoteLoaded)
     }
 

@@ -450,13 +450,14 @@ fun EmployerProfileScreen(
             if (currentUserId.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
+                    val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
+                        border = BorderStroke(1.dp, EmployerColors.Border),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
@@ -464,7 +465,7 @@ fun EmployerProfileScreen(
                         ) {
                             Text(
                                 text = "Job Posting Subscription",
-                                style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, color = Color(0xFF111827))
+                                style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, color = EmployerColors.TextPrimary)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             
@@ -481,11 +482,17 @@ fun EmployerProfileScreen(
                                     }
                                     planSuffix
                                 }
-                                isTrialActive -> "Free Registration Trial"
+                                isTrialActive -> "Free Trial (2 Posts)"
                                 else -> "No Active Subscription"
                             }
                             
-                            val planColor = if (isSubActive) Color(0xFF8B5CF6) else if (isTrialActive) Color(0xFF3B82F6) else Color(0xFFEF4444)
+                            val planColor = if (isSubActive) {
+                                if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6)
+                            } else if (isTrialActive) {
+                                if (isDark) Color(0xFF60A5FA) else Color(0xFF3B82F6)
+                            } else {
+                                if (isDark) Color(0xFFF87171) else Color(0xFFEF4444)
+                            }
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -508,7 +515,7 @@ fun EmployerProfileScreen(
                                 if (isSubActive || isTrialActive) {
                                     Text(
                                         text = "Expires: ${formattedExpiryDate.ifEmpty { "N/A" }}",
-                                        style = AppTypography.bodySmall.copy(color = Color(0xFF6B7280)),
+                                        style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -523,22 +530,29 @@ fun EmployerProfileScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(Color(0xFFFAF5FF), RoundedCornerShape(8.dp))
-                                        .border(1.dp, Color(0xFFE9D5FF), RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (isDark) Color(0xFF2C243B) else Color(0xFFFAF5FF),
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isDark) Color(0xFF4C1D95) else Color(0xFFE9D5FF),
+                                            RoundedCornerShape(8.dp)
+                                        )
                                         .padding(10.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
                                         text = "Remaining Credits (Vacancy Post or Instant Gig)",
                                         fontSize = 11.sp,
-                                        color = Color(0xFF6B7280)
+                                        color = EmployerColors.TextSecondary
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "${subState.normalCredits + subState.instantCredits} posts left",
+                                        text = "${subState.normalCredits} posts left",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color(0xFF8B5CF6)
+                                        color = planColor
                                     )
                                 }
                             }
@@ -551,13 +565,16 @@ fun EmployerProfileScreen(
                                     navControllerToUse.navigate("employer_subscription?isExtension=false")
                                 },
                                 modifier = Modifier.fillMaxWidth().height(42.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6)
+                                ),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
                                     text = if (isSubActive) "Upgrade Subscription" else "Activate Monthly Subscription",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    color = if (isDark) Color.Black else Color.White
                                 )
                             }
                         }

@@ -9,7 +9,9 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
+
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -33,6 +35,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -100,6 +105,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -138,6 +144,7 @@ import com.example.dutype.services.BirthdayInfo
 import com.example.dutype.services.BirthdayService
 import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ui.theme.isAppInDarkTheme
 import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.CategoryDetector
@@ -272,7 +279,7 @@ fun EmptyJobsState(
             Text(
                 text = humorMessage,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     lineHeight = 22.sp
                 ),
                 textAlign = TextAlign.Center
@@ -346,7 +353,7 @@ private fun JobHuntingIllustration(
     }
     val currentEmoji = cast[castIndex]
 
-    val accent = if (isAppliedAllVariant) Color(0xFF10B981) else Color(0xFF6366F1)
+    val accent = if (isAppliedAllVariant) WorkerColors.Success else Color(0xFF6366F1)
     val accentSoft = accent.copy(alpha = 0.18f)
     val accentFaint = accent.copy(alpha = 0.08f)
 
@@ -440,34 +447,34 @@ internal fun ErrorContent(
                 Icon(
                     imageVector = Icons.Outlined.ErrorOutline,
                     contentDescription = "Error",
-                    tint = Color(0xFFDC2626),
+                    tint = WorkerColors.Error,
                     modifier = Modifier.size(IconSizes.ExtraLarge)
                 )
 
                 Text(
                     text = "Oops! Something went wrong",
-                    color = Color(0xFF111827),
+                    color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
                     text = error,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color(0xFF6B7280)
+                        color = WorkerColors.TextSecondary
                     )
                 )
 
                 Button(
                     onClick = onRetry,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black
+                        containerColor = WorkerColors.CardBackground,
+                        contentColor = WorkerColors.TextPrimary
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.TextPrimary),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(stringResource(R.string.try_again), color = Color.Black)
+                    Text(stringResource(R.string.try_again), color = WorkerColors.TextPrimary)
                 }
             }
         }
@@ -495,6 +502,7 @@ fun HomeSectionsContent(
     userSkills: List<String> = emptyList(),
     onScrollOffsetChange: (Float) -> Unit = {},
     onLocationBarAlphaChange: (Float) -> Unit = {},
+    headerHeightDp: androidx.compose.ui.unit.Dp = 180.dp,
     showEmptyJobsState: Boolean = false,
     emptyJobsIsAppliedAllVariant: Boolean = false,
     emptyJobsCurrentLocationName: String? = null,
@@ -528,7 +536,8 @@ fun HomeSectionsContent(
     weekJobsDone: Int = 0,
     ratingValue: Float = 0f,
     reviewCount: Int = 0,
-    appliedJobsCount: Int = 0
+    appliedJobsCount: Int = 0,
+    promoBannerUrl: String = ""
 ) {
     val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     val recentHires by workerHomeViewModel.uiState.collectAsState()
@@ -610,16 +619,17 @@ fun HomeSectionsContent(
                 .background(Color.Transparent), // Transparent to show purple background
             state = listState,
             contentPadding = PaddingValues(
-                top = 260.dp,
+                top = headerHeightDp + 16.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
-            if (announcements.isNotEmpty()) {
+            if (promoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
                 item {
                     AnnouncementList(
                         announcements = announcements,
+                        promoBannerUrl = promoBannerUrl,
                         onDismiss = { announcementId ->
                             onDismissAnnouncement(announcementId)
                         },
@@ -663,7 +673,12 @@ fun HomeSectionsContent(
                 item {
                     BirthdayBanner(
                         userName = birthdayInfo!!.userName,
-                        onDismiss = { showBirthdayBanner = false }
+                        onDismiss = { 
+                            showBirthdayBanner = false 
+                            FirebaseAuth.getInstance().currentUser?.uid?.let { userId ->
+                                birthdayService.markWishedToday(context, userId)
+                            }
+                        }
                     )
                 }
             }
@@ -723,7 +738,7 @@ fun HomeSectionsContent(
                             // Simple chip without elevation
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                color = Color.White,
+                                color = WorkerColors.CardBackground,
                                 shape = RoundedCornerShape(20.dp)
                             ) {
                                 Row(
@@ -737,7 +752,7 @@ fun HomeSectionsContent(
                                     Icon(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        tint = Color(0xFF10B981),
+                                        tint = WorkerColors.Success,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
@@ -831,6 +846,11 @@ private fun WorkerQuickActionsGrid(
     onEarnings: () -> Unit,
     onHelpDesk: () -> Unit
 ) {
+    val isDark = isAppInDarkTheme()
+    val bgBrowse = if (isDark) Color(0xFF231C30) else Color(0xFFF2ECFB)
+    val bgApplied = if (isDark) Color(0xFF1B2E26) else Color(0xFFE3F7EF)
+    val bgEarnings = if (isDark) Color(0xFF2F291B) else Color(0xFFF9F2D8)
+    val bgSupport = if (isDark) Color(0xFF2E1C20) else Color(0xFFFBECEF)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -847,7 +867,7 @@ private fun WorkerQuickActionsGrid(
                 subtitle = stringResource(R.string.quick_action_browse_jobs_sub),
                 icon = Icons.Default.Work,
                 iconTint = Color(0xFFA855F7),
-                backgroundColor = Color(0xFFF2ECFB),
+                backgroundColor = bgBrowse,
                 onClick = onBrowseJobs
             )
             WorkerQuickActionCard(
@@ -855,8 +875,8 @@ private fun WorkerQuickActionsGrid(
                 title = stringResource(R.string.quick_action_applied),
                 subtitle = stringResource(R.string.quick_action_applied_sub),
                 icon = Icons.Default.CheckCircle,
-                iconTint = Color(0xFF10B981),
-                backgroundColor = Color(0xFFE3F7EF),
+                iconTint = WorkerColors.Success,
+                backgroundColor = bgApplied,
                 onClick = onAppliedJobs
             )
         }
@@ -871,7 +891,7 @@ private fun WorkerQuickActionsGrid(
                 subtitle = stringResource(R.string.quick_action_earnings_sub),
                 icon = Icons.Default.CalendarToday,
                 iconTint = Color(0xFFF59E0B),
-                backgroundColor = Color(0xFFF9F2D8),
+                backgroundColor = bgEarnings,
                 onClick = onEarnings
             )
             WorkerQuickActionCard(
@@ -879,8 +899,8 @@ private fun WorkerQuickActionsGrid(
                 title = stringResource(R.string.quick_action_support),
                 subtitle = stringResource(R.string.quick_action_support_sub),
                 icon = Icons.Default.Headset,
-                iconTint = Color(0xFFEF4444),
-                backgroundColor = Color(0xFFFBECEF),
+                iconTint = WorkerColors.Error,
+                backgroundColor = bgSupport,
                 onClick = onHelpDesk
             )
         }
@@ -918,7 +938,7 @@ private fun WorkerQuickActionCard(
                 Box(
                     modifier = Modifier
                         .size(28.dp)
-                        .background(Color.White.copy(alpha = 0.65f), RoundedCornerShape(8.dp)),
+                        .background(WorkerColors.CardBackground.copy(alpha = 0.65f), RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -940,14 +960,14 @@ private fun WorkerQuickActionCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall.copy(
-                    color = Color(0xFF111827),
+                    color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Bold
                 ),
                 maxLines = 1
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                 maxLines = 1
             )
         }
@@ -964,7 +984,7 @@ private fun AppliedJobsSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -978,7 +998,7 @@ private fun AppliedJobsSummaryCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFE0F2FE)),
+                    .background(WorkerColors.ChipBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -1048,7 +1068,7 @@ private fun InstantRequestSection(
                 )
                 Text(
                     text = stringResource(R.string.instant_works_switch_on),
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1061,7 +1081,7 @@ private fun InstantRequestSection(
         if (!error.isNullOrBlank()) {
             Text(
                 text = error,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626))
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Error)
             )
         }
 
@@ -1095,7 +1115,7 @@ private fun InstantRequestCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -1160,7 +1180,7 @@ private fun InstantRequestCard(
                                 }
                                 if (isEmpty()) append(request.category)
                             },
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -1169,7 +1189,7 @@ private fun InstantRequestCard(
                     if (request.addressText.isNotBlank()) {
                         Text(
                             text = request.addressText,
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF6B7280)),
+                            style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1243,7 +1263,7 @@ private fun InstantRequestCard(
                     )
                 ) {
                     if (isUpdating) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                     } else {
                         if (hasWorkerResponded) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -1341,7 +1361,7 @@ private fun WorkerJobRequestCard(
             .fillMaxWidth()
             .clickable(onClick = onOpen),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -1429,7 +1449,7 @@ private fun WorkerJobRequestCard(
                     colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
                 ) {
                     if (isUpdating) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                     } else {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
@@ -1724,7 +1744,7 @@ internal fun CategoryChip(
         Text(
             text = category.name,
             style = MaterialTheme.typography.labelSmall.copy(
-                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                color = Color.White,
                 fontWeight = FontWeight.Medium,
                 fontSize = 10.sp
             ),
@@ -1753,8 +1773,8 @@ internal fun DutyPePromiseCarousel() {
                 icon = Icons.Default.CheckCircle,
                 title = "100% Free",
                 subtitle = stringResource(R.string.no_charges),
-                iconColor = Color(0xFF10B981),
-                textColor = Color(0xFF111827)
+                iconColor = WorkerColors.Success,
+                textColor = WorkerColors.TextPrimary
             )
             
             PromiseItemWithIcon(
@@ -1762,7 +1782,7 @@ internal fun DutyPePromiseCarousel() {
                 title = stringResource(R.string.verified_label),
                 subtitle = stringResource(R.string.safe_jobs),
                 iconColor = Color(0xFF3B82F6),
-                textColor = Color(0xFF111827)
+                textColor = WorkerColors.TextPrimary
             )
             
             PromiseItemWithIcon(
@@ -1770,7 +1790,7 @@ internal fun DutyPePromiseCarousel() {
                 title = stringResource(R.string.support),
                 subtitle = "24/7 help",
                 iconColor = Color(0xFFF59E0B),
-                textColor = Color(0xFF111827)
+                textColor = WorkerColors.TextPrimary
             )
         }
     }
@@ -1782,7 +1802,7 @@ fun PromiseItemWithIcon(
     title: String,
     subtitle: String = "",
     iconColor: Color,
-    textColor: Color = Color(0xFF111827)
+    textColor: Color = WorkerColors.TextPrimary
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1827,7 +1847,7 @@ fun PromiseItemWithIcon(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Normal,
-                    color = Color(0xFF6B7280),
+                    color = WorkerColors.TextSecondary,
                     fontSize = 11.sp
                 ),
                 maxLines = 1,
@@ -1855,9 +1875,10 @@ internal fun DynamicHeader(
     onMapClick: () -> Unit,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
+    isUrgentJobsEnabled: Boolean = true,
     primaryColorHex: String = "",
+    headerTextColorHex: String = "",
     headerLottieUrl: String = "",
-    promoBannerUrl: String = "",
     onCategoryTap: (String) -> Unit = {},
     onSearchTap: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -1889,95 +1910,119 @@ internal fun DynamicHeader(
     var selectedCategory by remember { mutableStateOf("All") }
     var searchQuery by remember { mutableStateOf("") }
 
-    Column(
+    // Parse dynamic primary color; fall back to worker_home_header_top resource
+    val defaultBannerColor = WorkerHomeHeaderTopColor
+    val bannerColor = remember(primaryColorHex, defaultBannerColor) {
+        if (primaryColorHex.isNotBlank()) {
+            try { Color(android.graphics.Color.parseColor(primaryColorHex)) }
+            catch (_: Exception) { defaultBannerColor }
+        } else defaultBannerColor
+    }
+    // Use white text/icons on the colored banner area for contrast
+    val defaultTextColor = Color.White
+    val bannerContentColor = remember(headerTextColorHex, defaultTextColor) {
+        if (headerTextColorHex.isNotBlank()) {
+            try { Color(android.graphics.Color.parseColor(headerTextColorHex)) }
+            catch (_: Exception) { defaultTextColor }
+        } else defaultTextColor
+    }
+    val bannerContentSecondaryColor = bannerContentColor.copy(alpha = 0.75f)
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(WorkerColors.ScreenBackground)
-            .statusBarsPadding()
+            .background(bannerColor)
     ) {
-        Box(
+
+        if (headerLottieUrl.isNotBlank() && lottieComposition != null) {
+            LottieAnimation(
+                composition = lottieComposition,
+                progress = { lottieProgress },
+                modifier = Modifier
+                    .matchParentSize()
+                    .alpha(0.85f),
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.BottomCenter
+            )
+        }
+
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .animateContentSize()
         ) {
-            if (headerLottieUrl.isNotBlank() && lottieComposition != null) {
-                LottieAnimation(
-                    composition = lottieComposition,
-                    progress = { lottieProgress },
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            Column(
-                modifier = Modifier.fillMaxSize()
+            // Status bar spacer — makes the Box (and Lottie) tall enough to fill behind the system bar
+            Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+            // Top bar row: DutyPe brand + location | Availability switch + Notifications
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Left: Brand name + location
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = "DutyPe",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 21.sp,
-                                    color = WorkerColors.TextPrimary
-                                )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "DutyPe",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 21.sp,
+                                color = bannerContentColor
                             )
+                        )
 
-                            if (locationBarAlpha > 0.05f) {
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .clickable(onClick = onLocationClick)
-                                        .padding(end = 6.dp)
-                                        .graphicsLayer { alpha = locationBarAlpha.coerceIn(0f, 1f) },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    if (isLocationLoading) {
-                                        androidx.compose.material3.CircularProgressIndicator(
-                                            modifier = Modifier.size(9.dp),
-                                            strokeWidth = 1.2.dp,
-                                            color = WorkerColors.TextSecondary
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Outlined.LocationOn,
-                                            contentDescription = null,
-                                            tint = WorkerColors.TextSecondary,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                    }
-
-                                    Text(
-                                        text = locationText,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = WorkerColors.TextSecondary,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Medium
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                        if (locationBarAlpha > 0.05f) {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .clickable(onClick = onLocationClick)
+                                    .padding(end = 6.dp)
+                                    .graphicsLayer { alpha = locationBarAlpha.coerceIn(0f, 1f) },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (isLocationLoading) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(9.dp),
+                                        strokeWidth = 1.2.dp,
+                                        color = bannerContentSecondaryColor
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = bannerContentSecondaryColor,
+                                        modifier = Modifier.size(10.dp)
                                     )
                                 }
+
+                                Text(
+                                    text = locationText,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = bannerContentSecondaryColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
+                }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                // Right: Availability switch + notifications
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isUrgentJobsEnabled) {
                         Switch(
                             modifier = Modifier.graphicsLayer {
                                 scaleX = 0.80f
@@ -1987,104 +2032,92 @@ internal fun DynamicHeader(
                             onCheckedChange = onInstantAvailabilityChange,
                             enabled = !isInstantAvailabilitySaving,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = Color.Black,
-                                uncheckedThumbColor = Color.White,
+                                checkedThumbColor = WorkerColors.CardBackground,
+                                checkedTrackColor = WorkerColors.TextPrimary,
+                                uncheckedThumbColor = WorkerColors.CardBackground,
                                 uncheckedTrackColor = Color(0xFFCBD5E1),
                                 uncheckedBorderColor = Color.Transparent,
                                 checkedBorderColor = Color.Transparent,
-                                disabledCheckedTrackColor = Color.Black.copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = WorkerColors.TextPrimary.copy(alpha = 0.5f),
                                 disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
                             )
                         )
-
-                        Box {
-                            IconButton(
-                                onClick = onNotificationClick,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = "Notifications",
-                                    tint = WorkerColors.TextPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-
-                            if (unreadNotificationCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(9.dp)
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = (-3).dp, y = 7.dp)
-                                        .background(
-                                            color = Color(0xFFDC2626),
-                                            shape = CircleShape
-                                        )
-                                )
-                            }
-                        }
                     }
-                }
 
-                ReusableSearchBar(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    onSearch = { onSearchTap() },
-                    placeholder = stringResource(R.string.search_jobs_skills),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(end = 12.dp)
-                ) {
-                    items(categoryTabs) { (label, emoji) ->
-                        val selected = selectedCategory == label
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .width(64.dp)
-                                .clickable {
-                                    selectedCategory = label
-                                    onCategoryTap(label)
-                                }
+                    Box {
+                        IconButton(
+                            onClick = onNotificationClick,
+                            modifier = Modifier.size(40.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = "Notifications",
+                                tint = bannerContentColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        if (unreadNotificationCount > 0) {
                             Box(
                                 modifier = Modifier
-                                    .size(52.dp)
+                                    .size(9.dp)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-3).dp, y = 7.dp)
                                     .background(
-                                        color = if (selected) WorkerColors.Primary else Color(0xFFF3F4F6),
+                                        color = WorkerColors.Error,
                                         shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = emoji, fontSize = 24.sp)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = if (selected) WorkerColors.Primary else Color(0xFF4B5563),
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
+                                    )
                             )
                         }
                     }
                 }
             }
-        }
 
-        if (promoBannerUrl.isNotBlank()) {
-            // Reserved for remote-config promo banner below header if needed.
-        }
+            // Spacer to separate top bar and category rail
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(8.dp))
+            // Category rail — scrollable horizontal tabs
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(end = 12.dp)
+            ) {
+                items(categoryTabs) { (label, emoji) ->
+                    val selected = selectedCategory == label
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .width(64.dp)
+                            .clickable {
+                                selectedCategory = label
+                                onCategoryTap(label)
+                            }
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    color = if (selected) Color.White else Color.White.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = emoji, fontSize = 24.sp)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = bannerContentColor,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2124,14 +2157,14 @@ private fun WorkerTopMetricItem(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium.copy(
-                color = Color(0xFF111827),
+                color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Bold
             )
         )
 
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF6B7280))
+            style = MaterialTheme.typography.labelSmall.copy(color = WorkerColors.TextSecondary)
         )
     }
 }
@@ -2205,7 +2238,7 @@ private fun WorkerStatCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -2230,7 +2263,7 @@ private fun WorkerStatCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF64748B),
+                    color = WorkerColors.TextSecondary,
                     fontSize = 12.sp
                 )
             )

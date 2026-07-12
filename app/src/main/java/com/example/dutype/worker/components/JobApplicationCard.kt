@@ -393,25 +393,6 @@ fun JobApplicationCard(
                         }
                     }
                         
-                    if (!isFilledForThisWorker && !canCall) {
-                        Button(
-                            onClick = { onCardClick(application) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = WorkerColors.Primary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "Details",
-                                style = AppTypography.buttonSmall.copy(
-                                    color = Color.White
-                                )
-                            )
-                        }
-                    }
                 }
             }
             
@@ -535,7 +516,7 @@ private fun ApplicationTimeline(
         ),
         TimelineStepData(
             stepNumber = 2,
-            label = stringResource(R.string.shortlisted),
+            label = stringResource(R.string.under_review),
             statusText = when (status) {
                 ApplicationStatus.APPLIED -> "Pending"
                 ApplicationStatus.HIRED -> "Completed"

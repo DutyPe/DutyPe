@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,6 +42,7 @@ private data class AnnouncementStyle(
 
 @Composable
 private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
+    val isDark = isSystemInDarkTheme()
     return when (type) {
         AnnouncementType.INFO -> AnnouncementStyle(
             containerColor = WorkerColors.InfoLight,
@@ -66,9 +69,9 @@ private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
             icon = Icons.Default.Error,
         )
         AnnouncementType.FEATURE -> AnnouncementStyle(
-            containerColor = Color(0xFFF5F3FF),
-            accentColor = Color(0xFF7C3AED),
-            iconContainerColor = Color(0xFFEDE9FE),
+            containerColor = if (isDark) Color(0xFF2E1065) else Color(0xFFF5F3FF),
+            accentColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
+            iconContainerColor = if (isDark) Color(0xFF4C1D95) else Color(0xFFEDE9FE),
             icon = Icons.Default.Star,
         )
         AnnouncementType.PROMOTION -> AnnouncementStyle(
@@ -181,31 +184,37 @@ fun AnnouncementCarousel(
     onDismiss: (String) -> Unit,
     onAction: (Announcement) -> Unit,
     modifier: Modifier = Modifier,
+    promoBannerUrl: String = "",
     autoScrollDuration: Long = 5000L // 5 seconds per announcement
 ) {
-    if (announcements.isEmpty()) return
+    val totalItems = announcements.size + if (promoBannerUrl.isNotBlank()) 1 else 0
+    if (totalItems == 0) return
     
-    if (announcements.size == 1) {
-        // Single announcement - no carousel needed
-        AnnouncementCard(
-            announcement = announcements[0],
-            onDismiss = { onDismiss(announcements[0].id) },
-            onAction = if (announcements[0].actionRoute != null) {
-                { onAction(announcements[0]) }
-            } else null,
-            modifier = modifier.padding(vertical = 8.dp)
-        )
+    if (totalItems == 1) {
+        // Single announcement or single banner - no carousel needed
+        if (promoBannerUrl.isNotBlank()) {
+            PromoBannerSlide(promoBannerUrl = promoBannerUrl, modifier = modifier)
+        } else {
+            AnnouncementCard(
+                announcement = announcements[0],
+                onDismiss = { onDismiss(announcements[0].id) },
+                onAction = if (announcements[0].actionRoute != null) {
+                    { onAction(announcements[0]) }
+                } else null,
+                modifier = modifier.padding(vertical = 8.dp)
+            )
+        }
         return
     }
     
-    // Multiple announcements - show carousel
-    val pagerState = rememberPagerState(pageCount = { announcements.size })
+    // Multiple items - show carousel
+    val pagerState = rememberPagerState(pageCount = { totalItems })
     val coroutineScope = rememberCoroutineScope()
     
     // Auto-scroll effect
     LaunchedEffect(pagerState.currentPage) {
         delay(autoScrollDuration)
-        val nextPage = (pagerState.currentPage + 1) % announcements.size
+        val nextPage = (pagerState.currentPage + 1) % totalItems
         coroutineScope.launch {
             pagerState.animateScrollToPage(
                 page = nextPage,
@@ -222,18 +231,36 @@ fun AnnouncementCarousel(
             state = pagerState,
             modifier = Modifier.fillMaxWidth()
         ) { page ->
-            val announcement = announcements[page]
-            AnnouncementCard(
-                announcement = announcement,
-                onDismiss = { onDismiss(announcement.id) },
-                onAction = if (announcement.actionRoute != null) {
-                    { onAction(announcement) }
-                } else null
-            )
+            if (promoBannerUrl.isNotBlank() && page == 0) {
+                PromoBannerSlide(promoBannerUrl = promoBannerUrl)
+            } else {
+                val index = if (promoBannerUrl.isNotBlank()) page - 1 else page
+                val announcement = announcements[index]
+                AnnouncementCard(
+                    announcement = announcement,
+                    onDismiss = { onDismiss(announcement.id) },
+                    onAction = if (announcement.actionRoute != null) {
+                        { onAction(announcement) }
+                    } else null
+                )
+            }
         }
-        
-
     }
+}
+
+@Composable
+private fun PromoBannerSlide(promoBannerUrl: String, modifier: Modifier = Modifier) {
+    com.example.dutype.components.OptimizedImage(
+        imageUrl = promoBannerUrl,
+        contentDescription = "Promotion banner",
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .height(115.dp) // Match AnnouncementCard height
+            .clip(RoundedCornerShape(16.dp)),
+        contentScale = ContentScale.Crop,
+        crossfadeMillis = 120
+    )
 }
 
 /**
@@ -244,13 +271,15 @@ fun AnnouncementList(
     announcements: List<Announcement>,
     onDismiss: (String) -> Unit,
     onAction: (Announcement) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    promoBannerUrl: String = ""
 ) {
     // Use carousel instead
     AnnouncementCarousel(
         announcements = announcements,
         onDismiss = onDismiss,
         onAction = onAction,
-        modifier = modifier
+        modifier = modifier,
+        promoBannerUrl = promoBannerUrl
     )
 }

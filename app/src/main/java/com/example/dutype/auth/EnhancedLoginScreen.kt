@@ -606,7 +606,7 @@ private fun PhoneInputSection(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (isTelugu) "ఇప్పుడే నమోదు చేయండి" else "Register Now",
+                    text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
                     style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = WorkerColors.Info)
                 )
             }
@@ -691,7 +691,7 @@ internal fun LoginPhoneEntrySection(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isTelugu) "సపోర్ట్" else "Contact Support",
+                        text = if (isTelugu) "సహాయం" else "Help",
                         style = AppTypography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = WorkerColors.TextPrimary
@@ -719,7 +719,7 @@ internal fun LoginPhoneEntrySection(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (isTelugu) "సమీప ఉద్యోగాలను వెంటనే కనుగొనండి" else "Find nearby jobs instantly",
+            text = if (isTelugu) "మీ ఉన్న ఖాతాతో లాగిన్ చేయండి" else "Login with your existing account",
             style = AppTypography.bodyLarge.copy(
                 color = WorkerColors.TextSecondary,
                 lineHeight = 24.sp
@@ -756,7 +756,7 @@ internal fun LoginPhoneEntrySection(
         Spacer(modifier = Modifier.height(24.dp))
 
         AuthPrimaryButton(
-            text = stringResource(R.string.continue_text),
+            text = if (isTelugu) "లాగిన్" else "Login",
             enabled = buttonEnabled,
             isLoading = isCheckingPhone || otpState.isLoading,
             onClick = onContinueClick
@@ -770,7 +770,7 @@ internal fun LoginPhoneEntrySection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isTelugu) "కొత్త ఖాతా ఉందా? " else "Create a new account? ",
+                text = if (isTelugu) "ఖాతా లేదా? " else "Don't have an account? ",
                 style = AppTypography.bodyLarge.copy(color = WorkerColors.TextSecondary)
             )
             TextButton(
@@ -778,7 +778,7 @@ internal fun LoginPhoneEntrySection(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
+                    text = if (isTelugu) "కొత్త ఖాతా సృష్టించండి" else "Create new account",
                     style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
             }
@@ -886,6 +886,7 @@ internal fun AuthPhoneEntryField(
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
     hasError: Boolean,
+    textColor: Color = WorkerColors.TextPrimary,
     onFocused: () -> Unit,
     placeholderText: String = "98765 43210"
 ) {
@@ -989,8 +990,8 @@ internal fun AuthPrimaryButton(
             .height(56.dp)
             .shadow(12.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (enabled) WorkerColors.Primary else WorkerColors.Divider,
-            contentColor = Color.White,
+            containerColor = if (enabled) (if (com.example.dutype.ui.theme.LocalDarkMode.current) Color(0xFF2563EB) else WorkerColors.TextPrimary) else WorkerColors.Divider,
+            contentColor = WorkerColors.CardBackground,
             disabledContainerColor = WorkerColors.Divider,
             disabledContentColor = WorkerColors.TextDisabled
         ),
@@ -998,20 +999,13 @@ internal fun AuthPrimaryButton(
         enabled = enabled
     ) {
         if (isLoading) {
-            CircularProgressIndicator(color = Color.White, strokeWidth = 2.2.dp, modifier = Modifier.size(22.dp))
+            CircularProgressIndicator(color = WorkerColors.CardBackground, strokeWidth = 2.2.dp, modifier = Modifier.size(22.dp))
         } else {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = text,
                     style = AppTypography.buttonLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
                     modifier = Modifier.align(Alignment.Center)
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .size(30.dp)
                 )
             }
         }
@@ -1103,38 +1097,35 @@ private fun OtpInputSection(
 
         Spacer(modifier = Modifier.height(3.dp))
 
-        Text(
-            text = buildAnnotatedString {
-                append(if (isTelugu) "SMS ద్వారా పంపిన 6 అంకెల కోడ్‌ను ఇక్కడ నమోదు చేయండి: " else "Enter the 6-digit code sent via SMS at ")
-                withStyle(
-                    style = SpanStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary
-                    )
-                ) {
-                    append("+91 $phoneNumber")
-                }
-                if (!isTelugu) append(".")
-            },
-            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        TextButton(
-            onClick = onBackClick,
-            modifier = Modifier.align(Alignment.Start)
-        ) {
-            Text(
-                text = if (isTelugu) "మొబైల్ నంబర్ మార్చాలా?" else "Change your mobile number?",
-                style = AppTypography.bodyMedium.copy(
-                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                ),
-                color = WorkerColors.TextPrimary
-            )
+        val annotatedText = buildAnnotatedString {
+            append(if (isTelugu) "SMS ద్వారా పంపిన 6 అంకెల కోడ్‌ను ఇక్కడ నమోదు చేయండి: " else "Enter the 6-digit code sent via SMS at ")
+            withStyle(
+                style = SpanStyle(
+                    fontWeight = FontWeight.Bold,
+                    color = WorkerColors.TextPrimary
+                )
+            ) {
+                append("+91 $phoneNumber")
+            }
+            append("  ")
+            pushStringAnnotation(tag = "CHANGE", annotation = "change")
+            withStyle(SpanStyle(color = Color(0xFF2563EB), fontWeight = FontWeight.SemiBold, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
+                append(if (isTelugu) "మార్చు" else "Change Number")
+            }
+            pop()
         }
+
+        androidx.compose.foundation.text.ClickableText(
+            text = annotatedText,
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { offset ->
+                annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
+                    .firstOrNull()?.let {
+                        onBackClick()
+                    }
+            }
+        )
 
         Spacer(modifier = Modifier.height(23.dp))
 

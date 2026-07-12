@@ -666,8 +666,8 @@ fun MandatoryEmployerProfileSetupContent(
                         .shadow(
                             elevation = 28.dp,
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.12f),
-                            spotColor = Color.Black.copy(alpha = 0.08f)
+                            ambientColor = EmployerColors.TextPrimary.copy(alpha = 0.12f),
+                            spotColor = EmployerColors.TextPrimary.copy(alpha = 0.08f)
                         ),
                     colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
@@ -785,7 +785,7 @@ fun MandatoryEmployerProfileSetupContent(
                         colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = EmployerColors.CardBackground, strokeWidth = 2.dp)
                         } else {
                             Text(
                                 if (currentStep == totalSteps) "Finish" else "Next",
@@ -838,7 +838,7 @@ private fun CompanyInformationStep(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                                EmployerColors.Primary.copy(alpha = 0.15f),
                                 Color(0xFFD8B4FE).copy(alpha = 0.1f)
                             )
                         ),
@@ -849,7 +849,7 @@ private fun CompanyInformationStep(
                 Icon(
                     Icons.Default.Business,
                     contentDescription = null,
-                    tint = Color(0xFF8B5CF6),
+                    tint = EmployerColors.Primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1000,7 +1000,7 @@ private fun ContactDetailsStep(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF8B5CF6).copy(alpha = 0.15f),
+                                EmployerColors.Primary.copy(alpha = 0.15f),
                                 Color(0xFFD8B4FE).copy(alpha = 0.1f)
                             )
                         ),
@@ -1011,7 +1011,7 @@ private fun ContactDetailsStep(
                 Icon(
                     Icons.Default.ContactPhone,
                     contentDescription = null,
-                    tint = Color(0xFF8B5CF6),
+                    tint = EmployerColors.Primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1119,13 +1119,13 @@ private fun ContactDetailsStep(
                         Icons.Default.MyLocation,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.White
+                        tint = EmployerColors.CardBackground
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isFetchingLocation) "Fetching..." else "Fetch",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
+                        color = EmployerColors.CardBackground
                     )
                 }
             }

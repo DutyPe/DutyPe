@@ -51,7 +51,8 @@ fun OptimizedImage(
     contentScale: ContentScale = ContentScale.Crop,
     placeholderColor: Color = WorkerColors.ChipBackground,
     showLoadingIndicator: Boolean = true,
-    crossfadeMillis: Int = 300
+    crossfadeMillis: Int = 300,
+    onImageLoaded: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     
@@ -79,8 +80,20 @@ fun OptimizedImage(
                 }
             }
         },
+        success = {
+            onImageLoaded?.invoke()
+            it.painter.let { painter ->
+                androidx.compose.foundation.Image(
+                    painter = painter,
+                    contentDescription = contentDescription,
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        },
         error = {
-            // Fallback on error
+            // Fallback on error — signal loaded so timer isn't stuck waiting
+            onImageLoaded?.invoke()
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -89,6 +102,7 @@ fun OptimizedImage(
         }
     )
 }
+
 
 /**
  * Optimized image for profile pictures (circular)

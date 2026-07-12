@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -53,12 +56,15 @@ import java.util.Date
 import java.util.Locale
 
 // =============================================================================
-// Minimal, professional palette (single accent + neutral slate + hairlines)
+// Redesigned Subscription Palette
 // =============================================================================
-private val Brand = Color(0xFF8B5CF6)
-private val BrandSoft = Color(0xFFF5F3FF)
+private val Brand = Color(0xFF1C3A27) // Dark Green for main buttons
+private val BrandSoft = Color(0xFFECFDF5)
+private val IndicatorYellow = Color(0xFFFBBF24)
+private val IndicatorGreen = Color(0xFF22C55E)
+private val IndicatorOrange = Color(0xFFF97316)
+private val IndicatorPurple = Color(0xFF8B5CF6)
 private val Success = Color(0xFF10B981)
-private val SuccessSoft = Color(0xFFECFDF5)
 private val Ink900 = Color(0xFF0F172A)
 private val Ink700 = Color(0xFF334155)
 private val Ink500 = Color(0xFF64748B)
@@ -66,6 +72,13 @@ private val Ink400 = Color(0xFF94A3B8)
 private val Hairline = Color(0xFFE2E8F0)
 private val SurfaceMuted = Color(0xFFF8FAFC)
 private val Danger = Color(0xFFEF4444)
+
+private fun getPlanColor(planId: String): Color = when(planId) {
+    "starter_119" -> IndicatorGreen
+    "growth_179" -> IndicatorOrange
+    "premium_299" -> IndicatorPurple
+    else -> IndicatorYellow
+}
 
 data class Plan(val id: String, val name: String, val price: Double, val jobs: Int, val description: String)
 
@@ -169,21 +182,13 @@ fun EmployerSubscriptionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Subscription",
-                        fontFamily = MeeshoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Ink900
-                    )
-                },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Ink700
+                            tint = Ink900
                         )
                     }
                 },
@@ -201,61 +206,106 @@ fun EmployerSubscriptionScreen(
                     Column(
                         modifier = Modifier
                             .navigationBarsPadding()
-                            .border(BorderStroke(1.dp, Hairline))
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(
                             onClick = { showPaymentSheet = true },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .height(54.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Brand),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(27.dp)
                         ) {
                             Text(
-                                text = if (isCurrentPlan) "Renew Plan (₹${plan.price.toInt()})" else "Continue with ${plan.name} (₹${plan.price.toInt()})",
+                                text = if (isCurrentPlan) "renew ${plan.name.lowercase()} ${plan.price.toInt()}/m" else "subscribe to ${plan.name.lowercase()} ${plan.price.toInt()}/m",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
+                                fontSize = 16.sp,
                                 color = Color.White
                             )
                         }
+                        Text(
+                            text = buildAnnotatedString {
+                                append("By subscribing, you agree to our ")
+                                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Ink900)) {
+                                    append("Terms of\nService")
+                                }
+                                append(" and ")
+                                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Ink900)) {
+                                    append("Privacy Policy")
+                                }
+                            },
+                            fontSize = 11.sp,
+                            color = Ink500,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
                     }
                 }
             }
         },
-        containerColor = EmployerColors.ScreenBackground
+        containerColor = Color.White
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Header Section
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(
+                                color = IndicatorGreen.copy(alpha = 0.15f),
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            )
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = IndicatorGreen,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Choose your plan",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink900,
+                        fontFamily = MeeshoFontFamily
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+
             // Current plan / empty state
             val hasActiveSub = subState.status == "ACTIVE" || subState.status == "TRIAL"
             if (hasActiveSub) {
                 item {
                     val currentPlanObj = plans.find { it.id == subState.planId }
-                    val currentPlanName = currentPlanObj?.name ?: "Trial (Free Posting)"
+                    val currentPlanName = currentPlanObj?.name ?: "Trial (2 Free Posts)"
                     CurrentPlanCard(
                         planName = currentPlanName,
                         status = subState.status,
-                        remainingCredits = subState.normalCredits + subState.instantCredits,
+                        remainingCredits = subState.normalCredits,
                         expiryDate = subState.expiryDate,
                         dateFormatter = dateFormatter
                     )
                 }
             } else {
                 item { NoPlanCard() }
-            }
-
-            item {
-                SectionHeader(
-                    title = "Choose a plan",
-                    subtitle = "Pick the subscription that fits your hiring pace. All plans are valid for 30 days."
-                )
             }
 
             // Plan list
@@ -271,6 +321,11 @@ fun EmployerSubscriptionScreen(
                     onSelect = {
                         selectedPlan = plan
                         viewModel.resetSubmitState()
+                    },
+                    onProceed = {
+                        selectedPlan = plan
+                        viewModel.resetSubmitState()
+                        showPaymentSheet = true
                     }
                 )
             }
@@ -628,53 +683,49 @@ private fun CurrentPlanCard(
     dateFormatter: SimpleDateFormat
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Hairline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        border = BorderStroke(1.dp, IndicatorYellow.copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Current Plan",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Ink500,
-                    fontFamily = MeeshoFontFamily
-                )
-                PlanPill(
-                    text = status,
-                    background = BrandSoft,
-                    foreground = Brand
-                )
-            }
-            Text(
-                text = planName,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                color = Ink900
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // Left color bar
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(4.dp)
+                    .background(IndicatorYellow)
             )
-            HorizontalDivider(color = Hairline)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Remaining Credits", fontSize = 11.sp, color = Ink500)
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = planName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink900
+                    )
+                    PlanPill(
+                        text = "✓ Current",
+                        background = IndicatorYellow.copy(alpha = 0.15f),
+                        foreground = IndicatorYellow
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "$remainingCredits posts left (Normal or Urgent)",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Ink900
-                )
-            }
-            if (expiryDate > 0) {
-                Text(
-                    text = "Expires on ${dateFormatter.format(Date(expiryDate))}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Brand
+                    text = "$remainingCredits posts left • Expires ${dateFormatter.format(Date(expiryDate))}",
+                    fontSize = 13.sp,
+                    color = Ink500
                 )
             }
         }
@@ -684,28 +735,34 @@ private fun CurrentPlanCard(
 @Composable
 private fun NoPlanCard() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceMuted),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Hairline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Info, contentDescription = null, tint = Ink400)
-            Column {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(4.dp)
+                    .background(Ink400)
+            )
+            Column(
+                modifier = Modifier.padding(16.dp).weight(1f)
+            ) {
                 Text(
                     text = "No Active Subscription",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = Ink700
+                    fontSize = 16.sp,
+                    color = Ink900
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Choose a plan below to get credits and start posting jobs.",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = Ink500
                 )
             }
@@ -719,115 +776,120 @@ private fun PlanCard(
     isSelected: Boolean,
     isCurrent: Boolean,
     isRecommended: Boolean,
-    onSelect: () -> Unit
+    onSelect: () -> Unit,
+    onProceed: () -> Unit
 ) {
-    val border = when {
-        isCurrent -> BorderStroke(1.5.dp, Success)
-        isSelected -> BorderStroke(1.5.dp, Brand)
-        else -> BorderStroke(1.dp, Hairline)
-    }
-    val background = if (isSelected) BrandSoft else Color.White
+    val planColor = getPlanColor(plan.id)
+    val border = if (isSelected) BorderStroke(2.dp, IndicatorGreen.copy(alpha = 0.4f)) else BorderStroke(1.dp, Hairline)
+    val elevation = if (isSelected) 8.dp else 2.dp
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = background),
+            .padding(horizontal = 4.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onSelect
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = border,
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            // Left color bar
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(4.dp)
+                    .background(planColor)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
             ) {
-                Text(
-                    text = plan.name,
-                    style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, color = Ink900)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (isCurrent) PlanPill("CURRENT PLAN", Success, Color.White)
-                    if (isRecommended) PlanPill("RECOMMENDED", Brand, Color.White)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = plan.name,
+                            style = AppTypography.cardTitle.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Ink900,
+                                fontSize = 16.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = plan.description,
+                            style = AppTypography.bodySmall.copy(color = Ink500, fontSize = 13.sp)
+                        )
+                    }
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
                             text = "₹${plan.price.toInt()}",
-                            fontSize = 22.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
-                            color = Brand,
-                            fontFamily = MeeshoFontFamily
+                            color = Ink900
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "/month",
+                            text = " / month",
                             fontSize = 12.sp,
                             color = Ink400,
                             fontWeight = FontWeight.Medium
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = plan.description,
-                        style = AppTypography.bodySmall.copy(color = Ink500)
-                    )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "${plan.jobs}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink900
-                    )
-                    Text(
-                        text = "posts",
-                        fontSize = 11.sp,
-                        color = Ink400
-                    )
+
+                // Expanded Features
+                if (isSelected) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceMuted, RoundedCornerShape(12.dp))
+                                .padding(16.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Features",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Ink700
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                planBenefits(plan.id).forEach { benefit ->
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 6.dp),
+                                        verticalAlignment = Alignment.Top,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = IndicatorGreen,
+                                            modifier = Modifier.size(16.dp).offset(y = 2.dp)
+                                        )
+                                        Text(
+                                            text = benefit,
+                                            fontSize = 13.sp,
+                                            color = Ink700,
+                                            lineHeight = 18.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Hairline)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            planBenefits(plan.id).forEach { benefit ->
-                Row(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = if (isSelected) Brand else Success,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = benefit,
-                        fontSize = 12.5.sp,
-                        color = Ink700,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Both Instant Gigs and Normal Vacancy postings count under these credits.",
-                style = AppTypography.caption.copy(color = Ink400, fontWeight = FontWeight.Medium)
-            )
         }
     }
 }

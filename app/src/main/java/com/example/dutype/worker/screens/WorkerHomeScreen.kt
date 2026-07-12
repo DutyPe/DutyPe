@@ -76,7 +76,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -614,18 +616,18 @@ fun WorkerHomeScreen(
         }
     }
 
+    // Status bar color driven by the dynamic primary color from remote config.
+    // Falls back to the worker_home_header_top resource color if not set.
     val defaultHeaderColor = WorkerHomeHeaderTopColor
-    val workerHomeHeaderTopColor = remember(dynamicFeaturesConfig.primaryColor, defaultHeaderColor) {
+    val dynamicStatusBarColor = remember(dynamicFeaturesConfig.primaryColor, defaultHeaderColor) {
         try {
             Color(android.graphics.Color.parseColor(dynamicFeaturesConfig.primaryColor))
         } catch (_: Exception) {
             defaultHeaderColor
         }
     }
-
-    // Update status bar color.
-    LaunchedEffect(workerHomeHeaderTopColor) {
-        onStatusBarColorChange(workerHomeHeaderTopColor)
+    LaunchedEffect(dynamicStatusBarColor) {
+        onStatusBarColorChange(dynamicStatusBarColor)
     }
 
 
@@ -675,6 +677,8 @@ fun WorkerHomeScreen(
 
         // Track location bar alpha from scroll
         var locationBarAlpha by remember { mutableStateOf(1f) }
+        var headerHeightDp by remember { mutableStateOf(180.dp) }
+        val density = LocalDensity.current
         
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -750,11 +754,12 @@ fun WorkerHomeScreen(
                                     userEmail = currentUser?.email ?: "",
                                     userSkills = emptyList(),
                                     onScrollOffsetChange = { offset ->
-                                        onStatusBarColorChange(workerHomeHeaderTopColor)
+                                        onStatusBarColorChange(dynamicStatusBarColor)
                                     },
                                     onLocationBarAlphaChange = { alpha ->
                                         locationBarAlpha = alpha
                                     },
+                                    headerHeightDp = headerHeightDp,
                                     showEmptyJobsState = showEmptyJobsState,
                                     emptyJobsIsAppliedAllVariant = isAppliedAllVariant,
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
@@ -832,7 +837,8 @@ fun WorkerHomeScreen(
                                     thisWeekEarningsAmount = thisWeekEarningsAmount,
                                     weekJobsDone = thisWeekJobsDone,
                                     ratingValue = workerRating,
-                                    reviewCount = workerReviewCount
+                                    reviewCount = workerReviewCount,
+                                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl
                                 )
                             }
                         }
@@ -849,6 +855,11 @@ fun WorkerHomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
+                    .onGloballyPositioned { coordinates ->
+                        with(density) {
+                            headerHeightDp = coordinates.size.height.toDp()
+                        }
+                    }
             ) {
                 DynamicHeader(
                     locationText = locationText,
@@ -863,9 +874,10 @@ fun WorkerHomeScreen(
                     weekJobsDone = thisWeekJobsDone,
                     ratingValue = workerRating,
                     reviewCount = workerReviewCount,
+                    isUrgentJobsEnabled = dynamicFeaturesConfig.isUrgentJobsEnabled,
                     primaryColorHex = dynamicFeaturesConfig.primaryColor,
+                    headerTextColorHex = dynamicFeaturesConfig.headerTextColor,
                     headerLottieUrl = dynamicFeaturesConfig.headerLottieUrl,
-                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl,
                     onCategoryTap = { category ->
                         val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
                             "All Jobs"

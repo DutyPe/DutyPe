@@ -93,7 +93,7 @@ fun ReusableSearchBar(
     searchIconColor: Color = WorkerColors.Primary,
     textColor: Color = WorkerColors.TextPrimary,
     placeholderColor: Color = WorkerColors.TextTertiary,
-    backgroundColor: Color = WorkerColors.CardBackground,
+    backgroundColor: Color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.Transparent else WorkerColors.CardBackground,
     borderColor: Color = WorkerColors.Border,
     focusedBorderColor: Color = WorkerColors.Primary,
     cornerRadius: Int = 16,

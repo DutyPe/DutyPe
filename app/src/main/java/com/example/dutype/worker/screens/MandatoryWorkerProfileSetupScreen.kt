@@ -341,7 +341,7 @@ fun MandatoryWorkerProfileSetupScreen(
     val isPhoneRequired = true
     
     // Simple white background
-    val backgroundColor = Color.White
+    val backgroundColor = WorkerColors.CardBackground
     
     // Animation state for smooth transitions
     val animatedProgress by animateFloatAsState(
@@ -712,7 +712,7 @@ fun MandatoryWorkerProfileSetupScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(),
-                color = Color.White,
+                color = WorkerColors.CardBackground,
                 shadowElevation = 12.dp
             ) {
                 Row(
@@ -999,7 +999,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = Color.White,
+                                color = WorkerColors.CardBackground,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -1482,13 +1482,13 @@ private fun AdditionalDetailsStep(
                         Icons.Default.MyLocation,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.White
+                        tint = WorkerColors.CardBackground
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isFetchingLocation) "Fetching..." else "Fetch",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
+                        color = WorkerColors.CardBackground
                     )
                 }
             }
@@ -1844,7 +1844,7 @@ private fun ProfessionalInformationStep(
                                                 Icons.Default.CheckCircle,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(16.dp),
-                                                tint = Color.White
+                                                tint = WorkerColors.CardBackground
                                             )
                                         }
                                     } else {
@@ -1867,8 +1867,8 @@ private fun ProfessionalInformationStep(
                                         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                                         labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
                                         selectedContainerColor = Color(0xFF111111),
-                                        selectedLabelColor = Color.White,
-                                        selectedLeadingIconColor = Color.White
+                                        selectedLabelColor = WorkerColors.CardBackground,
+                                        selectedLeadingIconColor = WorkerColors.CardBackground
                                     ),
                                     border = FilterChipDefaults.filterChipBorder(
                                         enabled = true,
@@ -2121,7 +2121,7 @@ private fun ProfessionalInformationStep(
                         shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF111111),
-                            selectedLabelColor = Color.White,
+                            selectedLabelColor = WorkerColors.CardBackground,
                             containerColor = WorkerColors.ChipBackground,
                             labelColor = WorkerColors.TextSecondary
                         ),

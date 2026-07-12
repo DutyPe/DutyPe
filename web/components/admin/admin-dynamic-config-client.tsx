@@ -15,14 +15,13 @@ type DynamicConfig = {
   employerPromoBannerUrl: string;
   lottieLoadingUrl: string;
   primaryColor: string; // Worker Primary Color
+  headerTextColor: string; // Worker Header Text Color
   employerPrimaryColor: string; // Employer Primary Color
   headerLottieUrl: string;
   launchPromoEnabled: boolean;
   launchPromoMediaType: "IMAGE" | "ANIMATION";
   launchPromoBannerUrl: string;
   launchPromoAnimationUrl: string;
-  launchPromoBackgroundColor: string;
-  launchPromoStatusBarColor: string;
   updatedAt?: Timestamp | null;
   updatedBy?: string | null;
 };
@@ -35,14 +34,13 @@ const DEFAULTS: DynamicConfig = {
   employerPromoBannerUrl: "",
   lottieLoadingUrl: "",
   primaryColor: "#1E3A8A",
+  headerTextColor: "#FFFFFF",
   employerPrimaryColor: "#0F0F0F",
   headerLottieUrl: "",
   launchPromoEnabled: false,
   launchPromoMediaType: "IMAGE",
   launchPromoBannerUrl: "",
-  launchPromoAnimationUrl: "",
-  launchPromoBackgroundColor: "#FFFFFF",
-  launchPromoStatusBarColor: "#FFFFFF"
+  launchPromoAnimationUrl: ""
 };
 
 export function AdminDynamicConfigClient() {
@@ -86,14 +84,13 @@ export function AdminDynamicConfigClient() {
           employerPromoBannerUrl: String(data.employerPromoBannerUrl ?? DEFAULTS.employerPromoBannerUrl),
           lottieLoadingUrl: String(data.lottieLoadingUrl ?? DEFAULTS.lottieLoadingUrl),
           primaryColor: String(data.primaryColor ?? DEFAULTS.primaryColor),
+          headerTextColor: String(data.headerTextColor ?? DEFAULTS.headerTextColor),
           employerPrimaryColor: String(data.employerPrimaryColor ?? DEFAULTS.employerPrimaryColor),
           headerLottieUrl: String(data.headerLottieUrl ?? DEFAULTS.headerLottieUrl),
           launchPromoEnabled: Boolean(data.launchPromoEnabled ?? DEFAULTS.launchPromoEnabled),
           launchPromoMediaType: ((data.launchPromoMediaType ?? DEFAULTS.launchPromoMediaType) as DynamicConfig["launchPromoMediaType"]),
           launchPromoBannerUrl: String(data.launchPromoBannerUrl ?? DEFAULTS.launchPromoBannerUrl),
-          launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl),
-          launchPromoBackgroundColor: String(data.launchPromoBackgroundColor ?? DEFAULTS.launchPromoBackgroundColor),
-          launchPromoStatusBarColor: String(data.launchPromoStatusBarColor ?? DEFAULTS.launchPromoStatusBarColor)
+          launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl)
         });
 
         const updatedAt = (data.updatedAt as Timestamp | undefined)?.toDate?.();
@@ -129,14 +126,13 @@ export function AdminDynamicConfigClient() {
             employerPromoBannerUrl: config.employerPromoBannerUrl.trim(),
             lottieLoadingUrl: config.lottieLoadingUrl.trim(),
             primaryColor: config.primaryColor.trim(),
+            headerTextColor: config.headerTextColor.trim(),
             employerPrimaryColor: config.employerPrimaryColor.trim(),
             headerLottieUrl: config.headerLottieUrl.trim(),
             launchPromoEnabled: config.launchPromoEnabled,
             launchPromoMediaType: config.launchPromoMediaType,
             launchPromoBannerUrl: config.launchPromoBannerUrl.trim(),
             launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
-            launchPromoBackgroundColor: config.launchPromoBackgroundColor.trim(),
-            launchPromoStatusBarColor: config.launchPromoStatusBarColor.trim(),
             updatedAt: serverTimestamp(),
             updatedBy: services.auth.currentUser?.email ?? services.auth.currentUser?.uid ?? "admin"
           },
@@ -353,46 +349,6 @@ export function AdminDynamicConfigClient() {
               )}
             </label>
           )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Launch Promo Background Color</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="color"
-                  value={config.launchPromoBackgroundColor}
-                  onChange={(e) => { setConfig({ ...config, launchPromoBackgroundColor: e.target.value }); setDirty(true); }}
-                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
-                />
-                <input
-                  type="text"
-                  value={config.launchPromoBackgroundColor}
-                  placeholder="#FFFFFF"
-                  onChange={(e) => { setConfig({ ...config, launchPromoBackgroundColor: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
-                />
-              </div>
-            </label>
-
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-              <span style={{ color: "#374151", fontWeight: 500 }}>Launch Promo Status Bar Color</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="color"
-                  value={config.launchPromoStatusBarColor}
-                  onChange={(e) => { setConfig({ ...config, launchPromoStatusBarColor: e.target.value }); setDirty(true); }}
-                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
-                />
-                <input
-                  type="text"
-                  value={config.launchPromoStatusBarColor}
-                  placeholder="#FFFFFF"
-                  onChange={(e) => { setConfig({ ...config, launchPromoStatusBarColor: e.target.value }); setDirty(true); }}
-                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
-                />
-              </div>
-            </label>
-          </div>
         </div>
 
         {/* Tab Headers */}
@@ -449,6 +405,25 @@ export function AdminDynamicConfigClient() {
                   value={config.primaryColor}
                   placeholder="#1E3A8A"
                   onChange={(e) => { setConfig({ ...config, primaryColor: e.target.value }); setDirty(true); }}
+                  style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
+                />
+              </div>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, marginTop: 8 }}>
+              <span style={{ color: "#374151", fontWeight: 600 }}>Worker Header Text Color</span>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="color"
+                  value={config.headerTextColor}
+                  onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
+                  style={{ width: 44, height: 44, padding: 0, border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", backgroundColor: "transparent" }}
+                />
+                <input
+                  type="text"
+                  value={config.headerTextColor}
+                  placeholder="#FFFFFF"
+                  onChange={(e) => { setConfig({ ...config, headerTextColor: e.target.value }); setDirty(true); }}
                   style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, fontFamily: "monospace" }}
                 />
               </div>

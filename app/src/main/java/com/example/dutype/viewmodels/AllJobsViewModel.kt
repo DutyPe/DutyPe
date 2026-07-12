@@ -263,39 +263,16 @@ class AllJobsViewModel @Inject constructor(
     private var searchJob: kotlinx.coroutines.Job? = null
     
     // Category mapping from UI names to Firestore category values
-    private val categoryMapping = mapOf(
-        "Delivery" to "DELIVERY",
-        "Shop Helper" to "HELPER",
-        "Housekeeping" to "MAID",
-        "Construction" to "HELPER",
-        "Events" to "WAITER",
-        "Kitchen" to "COOK",
-        "Driver" to "DRIVER",
-        "Security" to "SECURITY",
-        "Electrician" to "ELECTRICIAN",
-        "Plumber" to "PLUMBER",
-        "Gardener" to "GARDENER",
-        "Caretaker" to "CARETAKER",
-        "Painter" to "PAINTER",
-        "Carpenter" to "CARPENTER",
-        "Receptionist" to "RECEPTIONIST",
-        "Cashier" to "CASHIER",
-        "Packer" to "PACKER",
-        "Sales" to "SALES",
-        "Telecaller" to "TELECALLER",
-        "Teacher" to "TEACHER",
-        "Office Staff" to "OFFICE_STAFF",
-        "Customer Support" to "CUSTOMER_SUPPORT",
-        "Field Work" to "FIELD_EXECUTIVE",
-        "Marketing" to "MARKETING",
-        "Finance" to "FINANCE",
-        "Healthcare" to "HEALTHCARE",
-        "Beautician" to "BEAUTICIAN",
-        "Tailor" to "TAILOR",
-        "Mechanic" to "MECHANIC",
-        "Data Entry" to "DATA_ENTRY",
-        "Legal" to "LEGAL"
-    )
+    private val categoryMapping = com.example.dutype.employer.models.JobCategory.entries
+        .associate { it.displayName to it.name }
+        .plus(
+            mapOf(
+                "Housekeeping" to "MAID",
+                "Construction" to "HELPER",
+                "Events" to "WAITER",
+                "Kitchen" to "COOK"
+            )
+        )
     
     // SENIOR FIX: Debounced search query — delays recomputation only on user input, not on initial load
     // Lazy initialization ensures debounce is only applied when user actually searches
@@ -632,6 +609,27 @@ class AllJobsViewModel @Inject constructor(
         if (_uiState.value.searchQuery.isBlank() && chip != "All Jobs" && _uiState.value.jobs.size <= PAGE_SIZE.toInt()) {
             loadJobs(limit = 60L, category = currentQueryCategory())
         }
+    }
+    
+    fun setCategoryAndReload(category: String) {
+        val categoryForQuery = category.takeIf { it != "All Jobs" }
+        _uiState.update { 
+            it.copy(
+                selectedChip = category,
+                initialCategory = categoryForQuery,
+                jobs = emptyList(),
+                lastDocumentId = null,
+                hasMore = true,
+                isLoading = true,
+                error = null,
+                hasError = false
+            )
+        }
+        savedStateHandle[KEY_SELECTED_CHIP] = category
+        savedStateHandle[KEY_INITIAL_CATEGORY] = categoryForQuery
+        Timber.d("📊 AllJobsVM: Category rail tapped, reloading for: $category")
+        
+        loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
     }
     
     fun setSearchQuery(query: String) {

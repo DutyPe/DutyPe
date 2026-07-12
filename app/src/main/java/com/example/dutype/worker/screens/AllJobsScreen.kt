@@ -168,13 +168,13 @@ fun AllJobsScreen(
         timber.log.Timber.d("🔍 Filtered jobs count: ${filteredJobs.size}")
     }
     
-    // Filter chips
-    val filterChips = listOf(
-        "All Jobs" to Icons.Default.Star,
-        "Daily Jobs" to Icons.Default.CalendarToday,
-        "Hourly Jobs" to Icons.Default.AccessTime,
-        "Nearby" to Icons.Default.LocationOn
-    )
+    val categoryTabs = remember {
+        val allCategories = listOf("All Jobs" to "📋")
+        val jobCategories = com.example.dutype.employer.models.JobCategory.entries
+            .filter { it != com.example.dutype.employer.models.JobCategory.OTHER }
+            .map { it.displayName to it.icon }
+        allCategories + jobCategories
+    }
     
     Column(
         modifier = Modifier
@@ -263,68 +263,53 @@ fun AllJobsScreen(
                 }
             }
         }
-        
-        // Filter chips section
+        // Category rail section
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(WorkerColors.CardBackground)
-                .padding(bottom = 12.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 12.dp)
         ) {
-            items(filterChips) { (chip, icon) ->
-                FilterChip(
-                    onClick = { viewModel.setSelectedChip(chip) },
-                    label = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                modifier = Modifier.size(IconSizes.Small), // Material Design 3: 20dp
-                                tint = if (selectedChip == chip) Color.White else WorkerColors.IconPrimary
-                            )
-                            Text(
-                                text = chip,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    color = if (selectedChip == chip) Color.White else WorkerColors.TextSecondary
-                                )
-                            )
-                        }
-                    },
-                    selected = selectedChip == chip,
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = WorkerColors.Primary,
-                        selectedLabelColor = Color.White,
-                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                        labelColor = WorkerColors.TextSecondary
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = selectedChip == chip,
-                        borderColor = WorkerColors.Border,
-                        selectedBorderColor = WorkerColors.Primary,
-                        borderWidth = 1.dp
+            items(categoryTabs) { (label, emoji) ->
+                val isSelected = selectedChip == label || 
+                                 (selectedChip == "Any" && label == "All Jobs") ||
+                                 (selectedChip == "All" && label == "All Jobs")
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .width(64.dp)
+                        .clickable { viewModel.setCategoryAndReload(label) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(
+                                color = if (isSelected) {
+                                    if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.15f)
+                                } else {
+                                    if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color(0xFFF1F5F9)
+                                },
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = emoji, fontSize = 24.sp)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (label == "All Jobs") "All" else label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isSelected) WorkerColors.Primary else WorkerColors.TextSecondary,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
                     )
-                )
+                }
             }
         }
 
-        CategoryQuickFilterSection(
-            selectedCategory = visibleCategory,
-            onCategorySelected = { category ->
-                viewModel.setInitialCategory(null)
-                viewModel.setFilters(
-                    filters.copy(category = if (category == "All") "Any" else category)
-                )
-            }
-        )
+
         
         HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
 
@@ -511,13 +496,13 @@ private fun JobLocationBar(
             modifier = Modifier
                 .size(34.dp)
                 .clip(CircleShape)
-                .background(WorkerColors.Primary.copy(alpha = 0.12f)),
+                .background(if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = WorkerColors.Primary,
+                tint = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White else WorkerColors.Primary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -862,12 +847,12 @@ private fun JobFilterBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
             // Header
@@ -883,140 +868,34 @@ private fun JobFilterBottomSheet(
                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
                 )
-                TextButton(onClick = {
-                    salaryMin = 0
-                    salaryMax = 100000
-                    maxDistance = null
-                    experienceLevel = "Any"
-                    sortBy = "Relevance"
-                    payType = "Any"
-                    workType = "Any"
-                    category = "Any"
-                    shiftTiming = "Any"
-                    onResetFilters()
-                }) {
-                    Text(stringResource(R.string.reset), color = WorkerColors.Error, fontWeight = FontWeight.Medium)
+                TextButton(
+                    onClick = {
+                        salaryMin = 0
+                        salaryMax = 100000
+                        maxDistance = null
+                        experienceLevel = "Any"
+                        sortBy = "Relevance"
+                        payType = "Any"
+                        workType = "Any"
+                        category = "Any"
+                        shiftTiming = "Any"
+                        onResetFilters()
+                    },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(stringResource(R.string.reset), color = WorkerColors.Error, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.jobs_filter_subtitle),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = "Category",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
-                )
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(categoryOptions) { option ->
-                    FilterChip(
-                        onClick = { category = option },
-                        label = { Text(option, fontSize = 13.sp) },
-                        selected = category == option,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = WorkerColors.Primary,
-                            selectedLabelColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
             // Sort By
             Text(
                 text = stringResource(R.string.jobs_sort_by),
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
-                )
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = stringResource(R.string.jobs_pay_type),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(payTypeOptions) { option ->
-                        FilterChip(
-                            onClick = { payType = option },
-                            label = { Text(option, fontSize = 13.sp) },
-                            selected = payType == option,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WorkerColors.Primary,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = stringResource(R.string.post_job_work_type),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(workTypeOptions) { option ->
-                        FilterChip(
-                            onClick = { workType = option },
-                            label = { Text(option, fontSize = 13.sp) },
-                            selected = workType == option,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WorkerColors.Primary,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = "Shift Timing",
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(shiftTimingOptions) { option ->
-                        FilterChip(
-                            onClick = { shiftTiming = option },
-                            label = { Text(option, fontSize = 13.sp) },
-                            selected = shiftTiming == option,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = WorkerColors.Primary,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(sortOptions) { option ->
                     FilterChip(
                         onClick = { sortBy = option },
@@ -1031,72 +910,55 @@ private fun JobFilterBottomSheet(
                 }
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Salary Range
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Job Type (Daily/Hourly)
             Text(
-                text = stringResource(R.string.jobs_salary_range),
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
-                )
+                text = stringResource(R.string.jobs_pay_type),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "₹${salaryMin} - ₹${if (salaryMax >= 100000) "1L+" else salaryMax}",
-                style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            RangeSlider(
-                value = salaryMin.toFloat()..salaryMax.toFloat(),
-                onValueChange = { range ->
-                    salaryMin = range.start.toInt()
-                    salaryMax = range.endInclusive.toInt()
-                },
-                valueRange = 0f..100000f,
-                steps = 9,
-                colors = SliderDefaults.colors(
-                    thumbColor = WorkerColors.Primary,
-                    activeTrackColor = WorkerColors.Primary,
-                    inactiveTrackColor = WorkerColors.Border
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Distance (Optional)
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(payTypeOptions) { option ->
+                    val displayOption = if (option == "Any") "All Types" else option.lowercase().capitalize()
+                    FilterChip(
+                        onClick = { payType = option },
+                        label = { Text(displayOption, fontSize = 13.sp) },
+                        selected = payType == option,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = WorkerColors.Primary,
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Distance
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.jobs_max_distance),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = WorkerColors.TextSecondary
-                    )
+                    text = "Location Radius",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
                 Text(
-                    text = if (maxDistance == null) "All" else "${maxDistance!!.toInt()} km",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    text = if (maxDistance == null) "Everywhere" else "Within ${maxDistance!!.toInt()} km",
+                    style = MaterialTheme.typography.labelMedium.copy(color = WorkerColors.Primary, fontWeight = FontWeight.Bold)
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            val distanceOptions = listOf(null, 1f, 3f, 5f, 10f, 15f, 25f, 50f)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(12.dp))
+            val distanceOptions = listOf(null, 5f, 10f, 25f, 50f)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(distanceOptions) { distance ->
                     FilterChip(
                         onClick = { maxDistance = distance },
                         label = { 
-                            Text(
-                                if (distance == null) "All" else "${distance.toInt()} km", 
-                                fontSize = 13.sp
-                            ) 
+                            Text(if (distance == null) "Anywhere" else "${distance.toInt()} km", fontSize = 13.sp) 
                         },
                         selected = maxDistance == distance,
                         colors = FilterChipDefaults.filterChipColors(
@@ -1107,13 +969,8 @@ private fun JobFilterBottomSheet(
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
             if (maxDistance != null) {
-                Text(
-                    text = stringResource(R.string.jobs_fine_tune_distance, maxDistance!!.toInt()),
-                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
-                )
+                Spacer(modifier = Modifier.height(8.dp))
                 Slider(
                     value = maxDistance!!,
                     onValueChange = { maxDistance = it },
@@ -1125,43 +982,36 @@ private fun JobFilterBottomSheet(
                         inactiveTrackColor = WorkerColors.Border
                     )
                 )
-            } else {
-                Text(
-                    text = stringResource(R.string.jobs_showing_all),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                )
             }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Experience Level
-            Text(
-                text = stringResource(R.string.jobs_experience_level),
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
-                )
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(experienceOptions) { option ->
-                    FilterChip(
-                        onClick = { experienceLevel = option },
-                        label = { Text(option, fontSize = 13.sp) },
-                        selected = experienceLevel == option,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = WorkerColors.Primary,
-                            selectedLabelColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Work Type & Shift
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.post_job_work_type),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(workTypeOptions) { option ->
+                            FilterChip(
+                                onClick = { workType = option },
+                                label = { Text(option, fontSize = 13.sp) },
+                                selected = workType == option,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = WorkerColors.Primary,
+                                    selectedLabelColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                        }
+                    }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(28.dp))
+
+            Spacer(modifier = Modifier.height(24.dp))
             
             // Apply Button
             Button(
@@ -1175,20 +1025,21 @@ private fun JobFilterBottomSheet(
                             sortBy = sortBy,
                             payType = payType,
                             workType = workType,
-                            category = category,
+                            category = category, // Kept for data integrity, though hidden in UI
                             shiftTiming = shiftTiming
                         )
                     )
+                    onDismiss()
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.jobs_apply_filters),
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Apply Filters",
+                    fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
             }

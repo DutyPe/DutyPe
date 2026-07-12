@@ -144,15 +144,9 @@ fun WorkerMainScreen(
                 .background(roleColors.screenBackground)
         ) {
 
-        // Status bar overlay - Dynamic color based on current screen
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(currentStatusBarColor)
-                .align(Alignment.TopCenter)
-                .zIndex(1000f) // Ensure it's always on top
-        )
+        // The global status bar overlay was removed because it blocked edge-to-edge
+        // backgrounds (like WorkerHomeScreen's Lottie animation) from drawing under
+        // the status bar area. Individual screens handle their own statusBarsPadding.
 
         // Navigation bar overlay - Always show
         Box(

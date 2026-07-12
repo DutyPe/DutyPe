@@ -77,7 +77,7 @@ async function seedMetadata() {
     isDigitalCardEnabled: true,
     
     // Limits
-    maxFreeJobPosts: 3,
+    maxFreeJobPosts: 2,
     maxFreeApplications: 10,
     jobExpiryDays: 15,
     

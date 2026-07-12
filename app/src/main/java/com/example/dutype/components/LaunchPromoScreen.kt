@@ -8,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,20 +26,32 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import kotlinx.coroutines.delay
 
+/**
+ * Full-screen launch promo overlay shown on app start when backend enables it.
+ *
+ * Smart timer: The [minDisplayMillis] countdown only begins AFTER the media
+ * finishes loading, so the user always sees the banner for the full intended
+ * duration regardless of network speed.
+ *
+ * @param displayMillis  Hard-cap — dismissed after this ms even if media never loads.
+ * @param minDisplayMillis  Minimum visible time AFTER media loads.
+ */
 @Composable
 fun LaunchPromoScreen(
     mediaType: String,
     bannerUrl: String,
     animationUrl: String,
-    backgroundColorHex: String,
-    statusBarColorHex: String,
     onAnimationEnd: () -> Unit,
-    displayMillis: Long = 4000L
+    displayMillis: Long = 6000L,
+    minDisplayMillis: Long = 3000L
 ) {
     val view = LocalView.current
-    val backgroundColor = remember(backgroundColorHex) { parseColorOrDefault(backgroundColorHex, Color.White) }
-    val systemBarColor = remember(statusBarColorHex) { parseColorOrDefault(statusBarColorHex, backgroundColor) }
-    val isSystemBarDark = remember(systemBarColor) { systemBarColor.isDarkColor() }
+    val backgroundColor = Color.Black
+    val systemBarColor = Color.Black
+    val isSystemBarDark = true
+
+    // Tracks whether the media content has finished loading
+    var mediaLoaded by remember { mutableStateOf(false) }
 
     DisposableEffect(systemBarColor) {
         val window = (view.context as? Activity)?.window
@@ -63,9 +78,19 @@ fun LaunchPromoScreen(
         }
     }
 
+    // Hard-cap: always dismiss after displayMillis even if media never loads.
     LaunchedEffect(mediaType, bannerUrl, animationUrl, displayMillis) {
         delay(displayMillis)
         onAnimationEnd()
+    }
+
+    // Smart timer: also dismiss minDisplayMillis after media finishes loading,
+    // whichever comes first with the hard-cap above.
+    LaunchedEffect(mediaLoaded) {
+        if (mediaLoaded) {
+            delay(minDisplayMillis)
+            onAnimationEnd()
+        }
     }
 
     Box(
@@ -84,6 +109,11 @@ fun LaunchPromoScreen(
                 composition = composition,
                 iterations = LottieConstants.IterateForever
             )
+
+            // Signal loaded when Lottie composition is ready
+            LaunchedEffect(composition) {
+                if (composition != null && !mediaLoaded) mediaLoaded = true
+            }
 
             if (composition != null) {
                 LottieAnimation(
@@ -110,19 +140,9 @@ fun LaunchPromoScreen(
                 contentScale = ContentScale.Crop,
                 placeholderColor = backgroundColor,
                 showLoadingIndicator = false,
-                crossfadeMillis = 0
+                crossfadeMillis = 0,
+                onImageLoaded = { if (!mediaLoaded) mediaLoaded = true }
             )
         }
     }
-}
-
-private fun parseColorOrDefault(colorString: String, fallback: Color): Color {
-    return runCatching {
-        Color(android.graphics.Color.parseColor(colorString))
-    }.getOrElse { fallback }
-}
-
-private fun Color.isDarkColor(): Boolean {
-    val luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
-    return luminance < 0.5
 }

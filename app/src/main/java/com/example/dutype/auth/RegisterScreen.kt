@@ -263,7 +263,7 @@ private fun RegisterContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFCFBFF))
+            .background(WorkerColors.ScreenBackground)
     ) {
         AuthScreenBackdrop()
         Column(
@@ -535,7 +535,7 @@ private fun RegisterInputSection(
                 )
             },
             leadingIcon = {
-                Icon(Icons.Filled.Person, contentDescription = null, tint = Color.Black)
+                Icon(Icons.Filled.Person, contentDescription = null, tint = WorkerColors.TextPrimary)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -647,6 +647,7 @@ private fun RegisterInputSection(
 
         RegisterReferralSection(
             isTelugu = isTelugu,
+            textColor = WorkerColors.TextPrimary,
             onValidatedCodeChanged = { validatedReferralCode = it }
         )
 
@@ -663,7 +664,7 @@ private fun RegisterInputSection(
                 colors = CheckboxDefaults.colors(
                     checkedColor = WorkerColors.TextPrimary,
                     uncheckedColor = WorkerColors.Border,
-                    checkmarkColor = Color.White
+                    checkmarkColor = WorkerColors.CardBackground
                 )
             )
             Text(
@@ -704,7 +705,7 @@ private fun RegisterInputSection(
                 .fillMaxWidth()
                 .height(53.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (buttonEnabled) WorkerColors.TextPrimary else WorkerColors.CardBackground,
+                containerColor = if (buttonEnabled) (if (com.example.dutype.ui.theme.LocalDarkMode.current) Color(0xFF2563EB) else WorkerColors.TextPrimary) else WorkerColors.CardBackground,
                 contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
                 disabledContainerColor = WorkerColors.ChipBackground,
                 disabledContentColor = WorkerColors.TextSecondary
@@ -747,7 +748,7 @@ private fun RegisterInputSection(
         ) {
             Text(
                 text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
-                style = AppTypography.bodyMedium.copy(color = Color.Black)
+                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary)
             )
             TextButton(
                 onClick = onLoginClick,
@@ -755,7 +756,7 @@ private fun RegisterInputSection(
             ) {
                 Text(
                     text = if (isTelugu) "లాగిన్" else "Login",
-                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = Color.Black)
+                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = WorkerColors.TextPrimary)
                 )
             }
         }
@@ -835,7 +836,7 @@ private fun RegisterEntrySection(
 ) {
     val appContext = LocalContext.current
     val isDarkMode = LocalDarkMode.current
-    val foregroundTextColor = if (isDarkMode) Color.White else Color(0xFF071735)
+    val foregroundTextColor = if (isDarkMode) Color.White else WorkerColors.TextPrimary
     val nameValid = fullName.trim().length >= 2
     val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
     val buttonEnabled = nameValid && phoneValid && termsAccepted && !otpState.isLoading && !isCheckingPhone
@@ -892,7 +893,7 @@ private fun RegisterEntrySection(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isTelugu) "సపోర్ట్" else "Contact Support",
+                        text = if (isTelugu) "సహాయం" else "Help",
                         style = AppTypography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = foregroundTextColor
@@ -930,6 +931,7 @@ private fun RegisterEntrySection(
         RegisterNameField(
             value = fullName,
             isTelugu = isTelugu,
+            textColor = foregroundTextColor,
             onValueChange = onFullNameChange
         )
 
@@ -948,6 +950,7 @@ private fun RegisterEntrySection(
             onPhoneNumberChange = onPhoneNumberChange,
             selectedCountryCode = selectedCountryCode,
             hasError = phoneValidationError != null,
+            textColor = foregroundTextColor,
             onFocused = onPhoneFocused
         )
         if (phoneValidationError != null) {
@@ -959,6 +962,7 @@ private fun RegisterEntrySection(
 
         RegisterReferralSection(
             isTelugu = isTelugu,
+            textColor = foregroundTextColor,
             onValidatedCodeChanged = onValidatedCodeChanged
         )
 
@@ -978,7 +982,7 @@ private fun RegisterEntrySection(
                 colors = CheckboxDefaults.colors(
                     checkedColor = foregroundTextColor,
                     uncheckedColor = Color(0xFFB9B7CA),
-                    checkmarkColor = Color.White
+                    checkmarkColor = WorkerColors.CardBackground
                 )
             )
             Text(
@@ -1019,11 +1023,11 @@ private fun RegisterEntrySection(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "✦", color = Color(0xFF8B5CF6), style = AppTypography.bodyLarge)
+                    Text(text = "✦", color = WorkerColors.Primary, style = AppTypography.bodyLarge)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = hint,
-                        style = AppTypography.bodyMedium.copy(color = Color(0xFF64748B)),
+                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1041,7 +1045,7 @@ private fun RegisterEntrySection(
         ) {
             Text(
                 text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
-                style = AppTypography.bodyLarge.copy(color = Color(0xFF64748B))
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextSecondary)
             )
             TextButton(
                 onClick = onLoginClick,
@@ -1049,13 +1053,13 @@ private fun RegisterEntrySection(
             ) {
                 Text(
                     text = if (isTelugu) "లాగిన్" else "Login",
-                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = Color.Black)
+                    style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = Color.Black,
+                tint = WorkerColors.TextPrimary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1074,6 +1078,7 @@ private fun RegisterEntrySection(
 private fun RegisterNameField(
     value: String,
     isTelugu: Boolean,
+    textColor: Color,
     onValueChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -1085,11 +1090,11 @@ private fun RegisterNameField(
         placeholder = {
             Text(
                 if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name",
-                style = AppTypography.bodyLarge.copy(color = Color(0xFF8A94A6))
+                style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
             )
         },
         leadingIcon = {
-            Icon(Icons.Filled.Person, contentDescription = null, tint = Color.Black)
+            Icon(Icons.Filled.Person, contentDescription = null, tint = textColor)
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -1098,13 +1103,13 @@ private fun RegisterNameField(
         singleLine = true,
         shape = RoundedCornerShape(18.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color(0xFF6D3DFF),
-            unfocusedBorderColor = Color(0xFFE5E7F0),
-            cursorColor = Color(0xFF6D3DFF),
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White
+            focusedBorderColor = WorkerColors.Primary,
+            unfocusedBorderColor = WorkerColors.Border,
+            cursorColor = textColor,
+            focusedContainerColor = WorkerColors.CardBackground,
+            unfocusedContainerColor = WorkerColors.CardBackground
         ),
-        textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = Color(0xFF071735)),
+        textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = textColor),
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Text,
             capitalization = KeyboardCapitalization.Words
@@ -1122,7 +1127,7 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
     ) {
         Text(
             text = "✦",
-            color = Color(0xFFFFB86B),
+            color = WorkerColors.Warning,
             style = AppTypography.displayTitle.copy(fontSize = 18.sp),
             modifier = Modifier.align(Alignment.CenterStart).offset(x = 28.dp)
         )
@@ -1134,6 +1139,7 @@ private fun Modifier.minAuthCardHeight(height: androidx.compose.ui.unit.Dp): Mod
 @Composable
 private fun RegisterReferralSection(
     isTelugu: Boolean,
+    textColor: Color,
     onValidatedCodeChanged: (String?) -> Unit
 ) {
     val appContext = LocalContext.current
@@ -1147,6 +1153,7 @@ private fun RegisterReferralSection(
 
     RegisterReferralCard(
         isTelugu = isTelugu,
+        textColor = textColor,
         showReferralInput = showReferralInput,
         referralCode = referralCode,
         isValidatingCode = isValidatingCode,
@@ -1231,7 +1238,7 @@ private fun RegisterReferralSection(
                 },
                 style = AppTypography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
+                    color = WorkerColors.TextPrimary
                 )
             )
         }
@@ -1269,7 +1276,7 @@ private fun RegisterReferralSection(
                             isValidatingCode -> CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = WorkerColors.TextPrimary
+                                color = textColor
                             )
 
                             validatedReferrerName != null -> Icon(
@@ -1313,10 +1320,11 @@ private fun RegisterReferralSection(
                             codeValidationError != null -> WorkerColors.Error
                             else -> WorkerColors.Border
                         },
-                        cursorColor = WorkerColors.TextPrimary,
+                        cursorColor = textColor,
                         focusedContainerColor = WorkerColors.CardBackground,
                         unfocusedContainerColor = WorkerColors.CardBackground
                     ),
+                    textStyle = AppTypography.bodyLarge.copy(fontSize = 18.sp, color = textColor),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
                         capitalization = KeyboardCapitalization.None
@@ -1366,7 +1374,7 @@ private fun RegisterReferralSection(
                     enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = WorkerColors.Info,
-                        contentColor = Color.White,
+                        contentColor = WorkerColors.CardBackground,
                         disabledContainerColor = WorkerColors.ChipBackground,
                         disabledContentColor = WorkerColors.TextSecondary
                     ),
@@ -1374,7 +1382,7 @@ private fun RegisterReferralSection(
                     contentPadding = PaddingValues(horizontal = 16.dp)
                 ) {
                     if (isValidatingCode) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                     } else {
                         Text(
                             text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
@@ -1408,6 +1416,7 @@ private fun RegisterReferralSection(
 @Composable
 private fun RegisterReferralCard(
     isTelugu: Boolean,
+    textColor: Color,
     showReferralInput: Boolean,
     referralCode: String,
     isValidatingCode: Boolean,
@@ -1431,7 +1440,7 @@ private fun RegisterReferralCard(
             Text(
                 text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
                 style = AppTypography.bodyMedium.copy(
-                    color = Color(0xFF071735),
+                    color = textColor,
                     fontWeight = FontWeight.Medium
                 )
             )
@@ -1448,7 +1457,7 @@ private fun RegisterReferralCard(
                     },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        color = textColor
                     )
                 )
             }
@@ -1472,7 +1481,7 @@ private fun RegisterReferralCard(
                         placeholder = {
                             Text(
                                 if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
-                                style = AppTypography.bodyMedium.copy(color = Color(0xFF8A94A6))
+                                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                             )
                         },
                         trailingIcon = {
@@ -1480,7 +1489,7 @@ private fun RegisterReferralCard(
                                 isValidatingCode -> CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color(0xFF6D3DFF)
+                                    color = WorkerColors.Primary
                                 )
                                 validatedReferrerName != null -> Icon(
                                     Icons.Filled.CheckCircle,
@@ -1511,16 +1520,16 @@ private fun RegisterReferralCard(
                             focusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
                                 codeValidationError != null -> WorkerColors.Error
-                                else -> Color(0xFF6D3DFF)
+                                else -> WorkerColors.Primary
                             },
                             unfocusedBorderColor = when {
                                 validatedReferrerName != null -> WorkerColors.Success
                                 codeValidationError != null -> WorkerColors.Error
-                                else -> Color(0xFFE5E7F0)
+                                else -> WorkerColors.Border
                             },
-                            cursorColor = Color(0xFF6D3DFF),
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
+                            cursorColor = WorkerColors.Primary,
+                            focusedContainerColor = WorkerColors.CardBackground,
+                            unfocusedContainerColor = WorkerColors.CardBackground
                         ),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Text,
@@ -1533,16 +1542,16 @@ private fun RegisterReferralCard(
                         modifier = Modifier.height(52.dp),
                         enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF255CEB),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFECEAF6),
-                            disabledContentColor = Color(0xFF8A94A6)
+                            containerColor = WorkerColors.Primary,
+                            contentColor = WorkerColors.CardBackground,
+                            disabledContainerColor = WorkerColors.ChipBackground,
+                            disabledContentColor = WorkerColors.TextTertiary
                         ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp)
                     ) {
                         if (isValidatingCode) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                         } else {
                             Text(
                                 text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
@@ -1564,7 +1573,7 @@ private fun RegisterReferralCard(
                     )
                     else -> Text(
                         if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
-                        style = AppTypography.caption.copy(color = Color(0xFF64748B))
+                        style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                     )
                 }
             }
@@ -1604,33 +1613,35 @@ private fun RegisterOtpSection(
 
         Spacer(modifier = Modifier.height(3.dp))
 
-        Text(
-            text = buildAnnotatedString {
-                append(if (isTelugu) "SMS ద్వారా పంపిన 6 అంకెల కోడ్‌ను ఇక్కడ నమోదు చేయండి: " else "Enter the 6-digit code sent via SMS to ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)) {
-                    append("+91 $phoneNumber")
-                }
-                if (!isTelugu) append(".")
-            },
-            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        TextButton(
-            onClick = onBackClick,
-            modifier = Modifier.align(Alignment.Start)
-        ) {
-            Text(
-                text = if (isTelugu) "మొబైల్ నంబర్ మార్చాలా?" else "Change your mobile number?",
-                style = AppTypography.bodyMedium.copy(
-                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                ),
-                color = WorkerColors.TextPrimary
-            )
+        val annotatedText = buildAnnotatedString {
+            append(if (isTelugu) "SMS ద్వారా పంపిన 6 అంకెల కోడ్‌ను ఇక్కడ నమోదు చేయండి: " else "Enter the 6-digit code sent via SMS at ")
+            withStyle(
+                style = SpanStyle(
+                    fontWeight = FontWeight.Bold,
+                    color = WorkerColors.TextPrimary
+                )
+            ) {
+                append("+91 $phoneNumber")
+            }
+            append("  ")
+            pushStringAnnotation(tag = "CHANGE", annotation = "change")
+            withStyle(SpanStyle(color = Color(0xFF2563EB), fontWeight = FontWeight.SemiBold, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
+                append(if (isTelugu) "మార్చు" else "Change Number")
+            }
+            pop()
         }
+
+        androidx.compose.foundation.text.ClickableText(
+            text = annotatedText,
+            style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { offset ->
+                annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
+                    .firstOrNull()?.let {
+                        onBackClick()
+                    }
+            }
+        )
 
         Spacer(modifier = Modifier.height(23.dp))
 

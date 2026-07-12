@@ -168,18 +168,9 @@ fun MainNavGraph(
         }.onFailure { Timber.w(it, "Failed to log notification destination telemetry") }
     }
 
-    // Bug #9 / #4 fix: Always dismiss the system splash on the very first
-    // composition. The NavHost is already built with either the cached
-    // start destination (warm launch) or ONBOARDING (fresh install). The
-    // async resolver below runs in parallel and will redirect if needed,
-    // but the user never sees a frozen launcher-icon splash — they see
-    // real UI on frame 1. This was the dominant cause of the "splash
-    // takes too long" complaint, because even a 300ms Firestore handshake
-    // on a cold-booted device showed as an eternity of dead splash.
-    LaunchedEffect(Unit) {
-        runCatching { onReady() }
-    }
-    
+    // We no longer blindly dismiss the splash screen here. We wait until
+    // navigationDetermined is true to prevent a blank black screen.
+    // The fast-path below ensures this still happens on frame 1 for returning users.
     LaunchedEffect(Unit) {
         try {
             Timber.d("🚀 MainNavGraph - Starting navigation logic...")
@@ -206,11 +197,22 @@ fun MainNavGraph(
                     // User is authenticated, check their role and profile completion
                     Timber.d("🚀 MainNavGraph - User authenticated, checking role from DataStore...")
                     
-                    val db = com.example.dutype.di.firestoreFromHilt(context)
-                    val normalizedPhone = currentUser.phoneNumber
-                        ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
-                        .orEmpty()
-                    val phoneRoleDoc = try {
+                    val dataStoreRole = profileCompletionViewModel.getUserRole()
+                    if (dataStoreRole != null && profileCompletionViewModel.isProfileComplete(dataStoreRole)) {
+                        // Fast path: DataStore says everything is complete. Skip Firestore!
+                        Timber.d("🚀 MainNavGraph - ✅ Fast path: DataStore profile complete, skipping Firestore")
+                        if (dataStoreRole == com.example.dutype.models.UserRole.WORKER) {
+                            Routes.WORKER_HOME
+                        } else {
+                            Routes.EMPLOYER_HOME
+                        }
+                    } else {
+                        // Slow path: DataStore is missing data or profile is incomplete.
+                        val db = com.example.dutype.di.firestoreFromHilt(context)
+                        val normalizedPhone = currentUser.phoneNumber
+                            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+                            .orEmpty()
+                        val phoneRoleDoc = try {
                         kotlinx.coroutines.withTimeoutOrNull(2000L) {
                             normalizedPhone.takeIf { it.isNotBlank() }?.let {
                                 db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
@@ -326,11 +328,12 @@ fun MainNavGraph(
                             }
                         }
                     } else {
-                        Timber.w("🚀 MainNavGraph - No role found in DataStore or Firestore, navigating to SELECT_ROLE")
+                        Timber.w("🚀 MainNavGraph - Unable to determine role even from fallback, navigating to SELECT_ROLE")
                         Routes.SELECT_ROLE
                     }
                 }
             }
+        }
             
             Timber.d("🚀 MainNavGraph - Final startDestination: $startDestination")
 
@@ -341,7 +344,7 @@ fun MainNavGraph(
             // Set states immediately for instant navigation
             isLoading = false
             navigationDetermined = true
-            // Signal MainActivity to dismiss the system splash \u2014 nav is ready.
+            // Signal MainActivity to dismiss the system splash — nav is ready.
             runCatching { onReady() }
             Timber.d("🚀 MainNavGraph - Navigation completed, startDestination: $startDestination")
             
