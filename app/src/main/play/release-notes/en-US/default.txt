@@ -1,8 +1,9 @@
-DutyPe v2.8.0 — a clean new look and smarter local job alerts.
+DutyPe: Hire Local Staff & Find Jobs Nearby. Easy & Fast!
 
-• Fresh, modern design across the whole app — faster and easier to use
-• Brand-new app icon
-• Smarter notifications matched to nearby jobs that fit your skills
-• No more late-night pings — alerts now arrive at the right time
-• Cleaner, quicker login & sign up
-• Refer & Earn and home-screen fixes for a smoother experience
+What's New:
+• Hiring made easy: Now post urgent/normal jobs with instant credit activation!
+• Smooth navigation: Fixed map-loading issues for seamless posting.
+• Auto-refresh: Subscriptions active state updates instantly upon payment.
+• Fast startup: Reduced splash screen loading time to get you started faster.
+• Birthday banner bugs fixed.
+• Hire cooks, maids, drivers, delivery agents, electricians & security guards nearby without any commission.

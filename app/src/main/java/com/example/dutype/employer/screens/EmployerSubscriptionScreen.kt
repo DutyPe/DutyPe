@@ -396,7 +396,7 @@ fun EmployerSubscriptionScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "dutypeindia@ybl",
+                            text = "dutypein@ybl",
                             fontFamily = MeeshoFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
@@ -404,7 +404,7 @@ fun EmployerSubscriptionScreen(
                         )
                         IconButton(
                             onClick = {
-                                clipboardManager.setText(AnnotatedString("dutypeindia@ybl"))
+                                clipboardManager.setText(AnnotatedString("dutypein@ybl"))
                                 Toast.makeText(context, "UPI ID copied!", Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.size(24.dp)

@@ -64,7 +64,7 @@ data class PaymentRequest(
     val employerPhone: String = "",
     val planId: String = "",
     val amount: Double = 0.0,
-    val upiIdUsed: String = "dutypeindia@ybl",
+    val upiIdUsed: String = "dutypein@ybl",
     val utrNumber: String = "",
     val screenshotUrl: String = "",
     val status: String = "PENDING", // PENDING, VERIFIED, REJECTED
