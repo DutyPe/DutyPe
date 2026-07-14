@@ -156,23 +156,6 @@ fun EmployerSubscriptionScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             selectedImageUri = uri
-            isUploadingScreenshot = true
-            scope.launch {
-                val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
-                val path = "payment_screenshots/$userId/payment_${System.currentTimeMillis()}.jpg"
-                val uploadResult = ImageUploadUtils.uploadWithRetry(context, uri, path)
-                when (uploadResult) {
-                    is ImageUploadUtils.UploadResult.Success -> {
-                        screenshotUrl = uploadResult.downloadUrl
-                        Toast.makeText(context, "Screenshot attached successfully!", Toast.LENGTH_SHORT).show()
-                    }
-                    is ImageUploadUtils.UploadResult.Failure -> {
-                        Toast.makeText(context, "Upload failed: ${uploadResult.error}", Toast.LENGTH_LONG).show()
-                    }
-                    is ImageUploadUtils.UploadResult.Progress -> { /* progress handled below */ }
-                }
-                isUploadingScreenshot = false
-            }
         }
     }
 
@@ -450,38 +433,66 @@ fun EmployerSubscriptionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { screenshotPicker.launch("image/*") }
+                            .clickable { if (selectedImageUri == null) screenshotPicker.launch("image/*") }
                             .background(SurfaceMuted, RoundedCornerShape(10.dp))
                             .border(1.dp, Hairline, RoundedCornerShape(10.dp))
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoCamera,
-                            contentDescription = "Camera",
-                            tint = Ink500
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (screenshotUrl.isNotEmpty()) "Screenshot attached" else "Upload screenshot",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp,
-                            color = Ink700
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = "Camera",
+                                tint = Ink500
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (selectedImageUri != null) "Screenshot attached" else "Upload screenshot",
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp,
+                                color = Ink700
+                            )
+                        }
+                        if (selectedImageUri != null) {
+                            IconButton(
+                                onClick = { selectedImageUri = null },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove screenshot",
+                                    tint = Danger
+                                )
+                            }
+                        }
                     }
-                    if (isUploadingScreenshot) {
-                        LinearProgressIndicator(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            color = Brand
-                        )
-                    }
-                }
 
                 // Submit Button
-                val isSubmitEnabled = utrNumber.trim().length == 12 && !isUploadingScreenshot
+                val isSubmitEnabled = utrNumber.trim().length == 12 && !isUploadingScreenshot && (submitState !is SubmitState.Loading)
                 Button(
-                    onClick = { viewModel.submitPayment(plan.id, plan.price, utrNumber, screenshotUrl) },
+                    onClick = {
+                        if (selectedImageUri != null) {
+                            isUploadingScreenshot = true
+                            scope.launch {
+                                val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
+                                val path = "payment_screenshots/$userId/payment_${System.currentTimeMillis()}.jpg"
+                                val uploadResult = ImageUploadUtils.uploadWithRetry(context, selectedImageUri!!, path)
+                                isUploadingScreenshot = false
+                                when (uploadResult) {
+                                    is ImageUploadUtils.UploadResult.Success -> {
+                                        viewModel.submitPayment(plan.id, plan.price, utrNumber, uploadResult.downloadUrl)
+                                    }
+                                    is ImageUploadUtils.UploadResult.Failure -> {
+                                        Toast.makeText(context, "Image upload failed: ${uploadResult.error}", Toast.LENGTH_LONG).show()
+                                    }
+                                    is ImageUploadUtils.UploadResult.Progress -> { /* progress handled locally if needed */ }
+                                }
+                            }
+                        } else {
+                            viewModel.submitPayment(plan.id, plan.price, utrNumber, "")
+                        }
+                    },
                     enabled = isSubmitEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -489,7 +500,7 @@ fun EmployerSubscriptionScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Brand),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    if (submitState is SubmitState.Loading) {
+                    if (submitState is SubmitState.Loading || isUploadingScreenshot) {
                         com.example.dutype.components.DutyPeLoader(color = Color.White, size = 24.dp)
                     } else {
                         Text(
