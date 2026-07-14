@@ -34,8 +34,6 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.state.AppStateManager
 import com.example.dutype.state.ProfileSetupStateManager
 import com.example.dutype.utils.RequestDeduplicator
-import com.example.dutype.ads.AdManager
-import com.example.dutype.ads.AdPreferences
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.storage.FirebaseStorage
@@ -673,17 +671,7 @@ object AppModule {
     // AD SERVICES
     // ==========================================
 
-    @Provides
-    @Singleton
-    fun provideAdManager(): AdManager {
-        return AdManager()
-    }
 
-    @Provides
-    @Singleton
-    fun provideAdPreferences(): AdPreferences {
-        return AdPreferences()
-    }
     
     @Provides
     @Singleton

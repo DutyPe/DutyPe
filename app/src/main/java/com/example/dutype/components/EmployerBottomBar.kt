@@ -40,12 +40,10 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dutype.app.R
-import com.example.dutype.ads.AdManager
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
-import com.example.dutype.viewmodels.AdViewModel
 import timber.log.Timber
 
 /**
@@ -68,7 +66,6 @@ fun EmployerBottomBar(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
-    val adViewModel: AdViewModel = hiltViewModel()
     
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
@@ -84,21 +81,7 @@ fun EmployerBottomBar(
     }
 
     fun openPostJob() {
-        if (activity != null) {
-            Timber.d("📺 Post Job clicked - showing interstitial ad")
-            adViewModel.showInterstitialAd(
-                activity = activity,
-                onAdDismissed = { navigateTo(Routes.EMPLOYER_POST_JOB) },
-                onAdNotReady = { navigateTo(Routes.EMPLOYER_POST_JOB) }
-            )
-        } else {
-            navigateTo(Routes.EMPLOYER_POST_JOB)
-        }
-    }
-    
-    // Preload interstitial ad when bottom bar is shown
-    LaunchedEffect(Unit) {
-        adViewModel.loadInterstitialAd(context)
+        navigateTo(Routes.EMPLOYER_POST_JOB)
     }
     
     val sideItems = listOf(

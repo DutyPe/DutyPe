@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.outlined.Star
 import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -444,143 +445,7 @@ fun EmployerProfileScreen(
                 }
             }
 
-            // ------------------------------------------
-            // EMPLOYER SUBSCRIPTION SECTION
-            // ------------------------------------------
-            if (currentUserId.isNotEmpty()) {
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-                        border = BorderStroke(1.dp, EmployerColors.Border),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Job Posting Subscription",
-                                style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, color = EmployerColors.TextPrimary)
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            
-                            val isSubActive = subState.status == "ACTIVE"
-                            val isTrialActive = subState.status == "TRIAL"
-                            
-                            val planName = when {
-                                isSubActive -> {
-                                    val planSuffix = when (subState.planId) {
-                                        "starter_119" -> "Starter Plan"
-                                        "growth_179" -> "Growth Plan"
-                                        "premium_299" -> "Premium Plan"
-                                        else -> "Active Subscription"
-                                    }
-                                    planSuffix
-                                }
-                                isTrialActive -> "Free Trial (2 Posts)"
-                                else -> "No Active Subscription"
-                            }
-                            
-                            val planColor = if (isSubActive) {
-                                if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6)
-                            } else if (isTrialActive) {
-                                if (isDark) Color(0xFF60A5FA) else Color(0xFF3B82F6)
-                            } else {
-                                if (isDark) Color(0xFFF87171) else Color(0xFFEF4444)
-                            }
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(planColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = planName,
-                                        color = planColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                
-                                if (isSubActive || isTrialActive) {
-                                    Text(
-                                        text = "Expires: ${formattedExpiryDate.ifEmpty { "N/A" }}",
-                                        style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            if (isDark) Color(0xFF2C243B) else Color(0xFFFAF5FF),
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (isDark) Color(0xFF4C1D95) else Color(0xFFE9D5FF),
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(10.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "Remaining Credits (Vacancy Post or Instant Gig)",
-                                        fontSize = 11.sp,
-                                        color = EmployerColors.TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${subState.normalCredits} posts left",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = planColor
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(14.dp))
-                            
-                            Button(
-                                onClick = {
-                                    val navControllerToUse = localNavController ?: rootNavController
-                                    navControllerToUse.navigate("employer_subscription?isExtension=false")
-                                },
-                                modifier = Modifier.fillMaxWidth().height(42.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6)
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = if (isSubActive) "Upgrade Subscription" else "Activate Monthly Subscription",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = if (isDark) Color.Black else Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+
             
             // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // MY ACTIVITY SECTION
@@ -599,6 +464,25 @@ fun EmployerProfileScreen(
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                         SectionHeader(title = stringResource(R.string.my_activity))
                         Spacer(modifier = Modifier.height(4.dp))
+                        
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Star,
+                            title = "Subscription",
+                            onClick = { 
+                                if (currentUserId.isEmpty()) {
+                                    pendingMenuAction = "subscription"
+                                    showLoginBottomSheet = true
+                                } else {
+                                    try {
+                                        val navControllerToUse = localNavController ?: rootNavController
+                                        navControllerToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                                    } catch (e: Exception) {
+                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_SUBSCRIPTION")
+                                    }
+                                }
+                            }
+                        )
+                        HorizontalDivider(color = EmployerColors.Divider, thickness = 0.5.dp)
                         
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,

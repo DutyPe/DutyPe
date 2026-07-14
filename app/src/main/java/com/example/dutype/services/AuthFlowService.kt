@@ -262,15 +262,13 @@ class AuthFlowService @Inject constructor(
                 )
 
                 if (role == "EMPLOYER") {
-                    val trialStart = System.currentTimeMillis()
-                    val trialExpiry = trialStart + 7L * 24L * 60L * 60L * 1000L // 7 days
                     profileData["subscription"] = mapOf(
-                        "status" to "TRIAL",
-                        "planId" to "trial_free",
-                        "startDate" to trialStart,
-                        "expiryDate" to trialExpiry,
+                        "status" to "NONE",
+                        "planId" to "",
+                        "startDate" to 0L,
+                        "expiryDate" to 0L,
                         "credits" to mapOf(
-                            "normal" to 2,
+                            "normal" to 0,
                             "instant" to 0
                         )
                     )

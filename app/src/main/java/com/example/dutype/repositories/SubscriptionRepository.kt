@@ -1,5 +1,6 @@
 package com.example.dutype.repositories
 
+import com.example.dutype.models.Plan
 import com.example.dutype.models.QrCode
 import com.example.dutype.models.PaymentRequest
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,6 +16,39 @@ import kotlinx.coroutines.flow.callbackFlow
 class SubscriptionRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
+    /**
+     * Real-time listener to get subscription plans from Firestore configuration.
+     * Uses fallback plans if document doesn't exist or is empty.
+     */
+    fun getPlans(): Flow<List<Plan>> = callbackFlow {
+        val listener = firestore.collection("config").document("subscription_plans")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(getFallbackPlans())
+                    return@addSnapshotListener
+                }
+                
+                val plansList = snapshot?.get("plans") as? List<Map<String, Any?>>
+                if (plansList != null && plansList.isNotEmpty()) {
+                    val parsedPlans = plansList.mapNotNull { data ->
+                        val id = (data["id"] as? String) ?: return@mapNotNull null
+                        Plan.fromMap(id, data)
+                    }
+                    trySend(parsedPlans)
+                } else {
+                    trySend(getFallbackPlans())
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+    
+    private fun getFallbackPlans(): List<Plan> = listOf(
+        Plan("single_49", "Single Job", 49.0, 1, 0, "1 Credit to post a new job or extend an existing one", "Perfect for Quick Trial", ""),
+        Plan("starter_99", "Starter Plan", 99.0, 3, 5, "Ideal for micro-employers with few active needs", "Most Popular", ""),
+        Plan("growth_149", "Growth Plan", 149.0, 6, 15, "Best value! 5 + 1 Free job posts with extensions", "🔥 Best Value", "+ 1 Free Job Post"),
+        Plan("premium_299", "Premium Plan", 299.0, 12, 40, "Enterprise plan with 10 + 2 Free posts", "Pro Recruiter", "+ 2 Free Job Posts")
+    )
+
     /**
      * Real-time listener to get all active QR codes from Firestore.
      */

@@ -68,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -381,7 +382,8 @@ private fun RegisterContent(
                             navController.navigate("${Routes.ENHANCED_LOGIN}?role=${role.name}") {
                                 popUpTo("${Routes.REGISTER}?role=${role.name}") { inclusive = true }
                             }
-                        }
+                        },
+                        role = role
                     )
                 } else {
                     val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
@@ -424,7 +426,8 @@ private fun RegisterInputSection(
     profileCompletionViewModel: ProfileCompletionViewModel,
     onContinueClick: () -> Unit,
     onBackClick: () -> Unit,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    role: UserRole
 ) {
     var hasPhoneInteracted by remember { mutableStateOf(false) }
     var hasRequestedPhoneHint by remember { mutableStateOf(false) }
@@ -479,340 +482,9 @@ private fun RegisterInputSection(
             onContinueClick()
         },
         onBackClick = onBackClick,
-        onLoginClick = onLoginClick
+        onLoginClick = onLoginClick,
+        role = role
     )
-    return
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 0.dp),
-        horizontalAlignment = Alignment.Start
-    ) {
-        // Back button
-        IconButton(
-            onClick = onBackClick,
-              modifier = Modifier.offset(x = (-12).dp).padding(bottom = 4.dp).size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = if (isTelugu) "వెనక్కి" else "Back",
-                tint = WorkerColors.TextPrimary
-            )
-        }
-
-        Text(
-            text = if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account",
-            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
-            color = WorkerColors.TextPrimary,
-            textAlign = TextAlign.Start
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // ── Full Name Input ──
-        Text(
-            text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
-            style = AppTypography.labelMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = WorkerColors.TextPrimary
-            )
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        OutlinedTextField(
-            value = fullName,
-            onValueChange = { newValue ->
-                // Allow letters, spaces, and dots only; max 50 chars
-                val filtered = newValue.filter { it.isLetter() || it == ' ' || it == '.' }.take(50)
-                onFullNameChange(filtered)
-            },
-            placeholder = {
-                Text(
-                    if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name",
-                    style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
-                )
-            },
-            leadingIcon = {
-                Icon(Icons.Filled.Person, contentDescription = null, tint = WorkerColors.TextPrimary)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(53.dp),
-            singleLine = true,
-            shape = RoundedCornerShape(6.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = WorkerColors.TextPrimary,
-                unfocusedBorderColor = WorkerColors.Border,
-                cursorColor = WorkerColors.TextPrimary,
-                focusedContainerColor = WorkerColors.CardBackground,
-                unfocusedContainerColor = WorkerColors.CardBackground
-            ),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                capitalization = KeyboardCapitalization.Words
-            )
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // ── Phone Number Input ──
-        Text(
-            text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
-            style = AppTypography.labelMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = WorkerColors.TextPrimary
-            )
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = { /* Country picker - future */ },
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                modifier = Modifier
-                    .width(66.dp)
-                    .height(53.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WorkerColors.CardBackground,
-                    contentColor = WorkerColors.TextPrimary
-                ),
-                shape = RoundedCornerShape(6.dp),
-                border = BorderStroke(1.dp, WorkerColors.Border),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-            ) {
-                Text(text = "🇮🇳", fontSize = 18.sp, fontFamily = MeeshoFontFamily)
-            }
-
-            OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { newValue ->
-                    val filtered = newValue.filter { it.isDigit() }.take(10)
-                    hasPhoneInteracted = true
-                    onPhoneNumberChange(filtered)
-                },
-                placeholder = {
-                    Text("9876543210", style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary))
-                },
-                leadingIcon = {
-                    Text(
-                        text = selectedCountryCode,
-                        style = AppTypography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
-                    )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(53.dp)
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused && !hasRequestedPhoneHint && phoneNumber.isBlank()) {
-                            hasRequestedPhoneHint = true
-                            requestPhoneNumberHint()
-                        }
-                    },
-                // Batch-o #1: removed auto-launch of the Google Phone
-                // Number Hint bottom sheet on focus. The user prefers
-                // the keyboard's native suggestion bar (Phone keyboard
-                // type already surfaces stored numbers) over an
-                // unsolicited modal dialog every time the field is
-                // focused.
-                singleLine = true,
-                isError = phoneValidationError != null,
-                shape = RoundedCornerShape(6.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.TextPrimary,
-                    unfocusedBorderColor = if (phoneValidationError != null) WorkerColors.Error else WorkerColors.Border,
-                    errorBorderColor = WorkerColors.Error,
-                    cursorColor = WorkerColors.TextPrimary,
-                    focusedContainerColor = WorkerColors.CardBackground,
-                    unfocusedContainerColor = WorkerColors.CardBackground
-                ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
-            )
-        }
-
-        if (phoneValidationError != null) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = phoneValidationError,
-                color = WorkerColors.Error,
-                style = AppTypography.caption
-            )
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        RegisterReferralSection(
-            isTelugu = isTelugu,
-            textColor = WorkerColors.TextPrimary,
-            onValidatedCodeChanged = { validatedReferralCode = it }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // ── Terms & Conditions Checkbox ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = termsAccepted,
-                onCheckedChange = onTermsToggle,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = WorkerColors.TextPrimary,
-                    uncheckedColor = WorkerColors.Border,
-                    checkmarkColor = WorkerColors.CardBackground
-                )
-            )
-            Text(
-                text = buildAnnotatedString {
-                    append(if (isTelugu) "నేను ఈ వాటికి అంగీకరిస్తున్నాను: " else "I agree to the ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = policyLinkColor)) {
-                        append(if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service")
-                    }
-                    append(if (isTelugu) " మరియు " else " and ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = policyLinkColor)) {
-                        append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
-                    }
-                },
-                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary, lineHeight = 18.sp),
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Register Button ──
-        val nameValid = fullName.trim().length >= 2
-        val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
-        val buttonEnabled = nameValid && phoneValid && termsAccepted && !otpState.isLoading && !isCheckingPhone
-
-        Button(
-            onClick = {
-                Timber.d("📱 Register - Continue clicked, name=$fullName")
-                // Save referral code if validated
-                if (!validatedReferralCode.isNullOrBlank()) {
-                    scope.launch {
-                        profileCompletionViewModel.saveReferralCode(validatedReferralCode!!)
-                    }
-                }
-                onContinueClick()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(53.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (buttonEnabled) (if (com.example.dutype.ui.theme.LocalDarkMode.current) Color(0xFF2563EB) else WorkerColors.TextPrimary) else WorkerColors.CardBackground,
-                contentColor = if (buttonEnabled) WorkerColors.CardBackground else WorkerColors.TextPrimary,
-                disabledContainerColor = WorkerColors.ChipBackground,
-                disabledContentColor = WorkerColors.TextSecondary
-            ),
-            shape = RoundedCornerShape(6.dp),
-            enabled = buttonEnabled,
-            border = BorderStroke(1.dp, WorkerColors.Border)
-        ) {
-            if (isCheckingPhone || otpState.isLoading) {
-                CircularProgressIndicator(color = WorkerColors.TextSecondary, strokeWidth = 2.2.dp, modifier = Modifier.size(20.dp))
-            } else {
-                Text(if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account", style = AppTypography.buttonLarge)
-            }
-        }
-
-        // Validation hint if not all fields filled
-        if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
-            Spacer(modifier = Modifier.height(6.dp))
-            val hint = when {
-                !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
-                else -> null
-            }
-            if (hint != null) {
-                Text(
-                    text = hint,
-                    style = AppTypography.caption.copy(color = WorkerColors.TextTertiary),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Already have an account? Login ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
-                style = AppTypography.bodyMedium.copy(color = WorkerColors.TextPrimary)
-            )
-            TextButton(
-                onClick = onLoginClick,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-            ) {
-                Text(
-                    text = if (isTelugu) "లాగిన్" else "Login",
-                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = WorkerColors.TextPrimary)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        TextButton(
-            onClick = {
-                val whatsappNumber = "919121706236" // DutyPe support number
-                val message = "Hello DutyPe Team! I am facing a registration issue. Please help me create my account."
-                val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
-                val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
-
-                try {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        data = android.net.Uri.parse(whatsappUrl)
-                        setPackage("com.whatsapp")
-                    }
-                    appContext.startActivity(intent)
-                } catch (e: Exception) {
-                    val browserIntent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(whatsappUrl)
-                    )
-                    appContext.startActivity(browserIntent)
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_whatsapp),
-                    contentDescription = "WhatsApp Support",
-                    tint = Color(0xFF25D366),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isTelugu) "WhatsApp ద్వారా సహాయం" else "Contact support on WhatsApp",
-                    style = AppTypography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary)
-                )
-            }
-        }
-
-        // Error card
-        AnimatedVisibility(
-            visible = otpState.error != null,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
-        ) {
-            com.example.dutype.components.ErrorCard(message = otpState.error)
-        }
-    }
 }
 
 @Composable
@@ -832,14 +504,15 @@ private fun RegisterEntrySection(
     onValidatedCodeChanged: (String?) -> Unit,
     onCreateClick: () -> Unit,
     onBackClick: () -> Unit,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    role: UserRole
 ) {
     val appContext = LocalContext.current
     val isDarkMode = LocalDarkMode.current
     val foregroundTextColor = if (isDarkMode) Color.White else WorkerColors.TextPrimary
     val nameValid = fullName.trim().length >= 2
     val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
-    val buttonEnabled = nameValid && phoneValid && termsAccepted && !otpState.isLoading && !isCheckingPhone
+    val buttonEnabled = nameValid && phoneValid && !otpState.isLoading && !isCheckingPhone
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -921,7 +594,11 @@ private fun RegisterEntrySection(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = if (isTelugu) "పూర్తి పేరు" else "Full Name",
+            text = if (role == com.example.dutype.models.UserRole.EMPLOYER) {
+                if (isTelugu) "కంపెనీ పేరు" else "Company Name"
+            } else {
+                if (isTelugu) "పూర్తి పేరు" else "Full Name"
+            },
             style = AppTypography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = foregroundTextColor
@@ -932,6 +609,7 @@ private fun RegisterEntrySection(
             value = fullName,
             isTelugu = isTelugu,
             textColor = foregroundTextColor,
+            role = role,
             onValueChange = onFullNameChange
         )
 
@@ -960,11 +638,13 @@ private fun RegisterEntrySection(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        RegisterReferralSection(
-            isTelugu = isTelugu,
-            textColor = foregroundTextColor,
-            onValidatedCodeChanged = onValidatedCodeChanged
-        )
+        if (role != com.example.dutype.models.UserRole.EMPLOYER) {
+            RegisterReferralSection(
+                isTelugu = isTelugu,
+                textColor = foregroundTextColor,
+                onValidatedCodeChanged = onValidatedCodeChanged
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -978,7 +658,7 @@ private fun RegisterEntrySection(
             Checkbox(
                 checked = termsAccepted,
                 onCheckedChange = onTermsToggle,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.scale(0.85f),
                 colors = CheckboxDefaults.colors(
                     checkedColor = foregroundTextColor,
                     uncheckedColor = Color(0xFFB9B7CA),
@@ -1007,32 +687,18 @@ private fun RegisterEntrySection(
             text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
             enabled = buttonEnabled,
             isLoading = isCheckingPhone || otpState.isLoading,
-            onClick = onCreateClick
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-        if (!buttonEnabled && !otpState.isLoading && !isCheckingPhone) {
-            Spacer(modifier = Modifier.height(10.dp))
-            val hint = when {
-                !termsAccepted -> if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions"
-                else -> null
-            }
-            if (hint != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "✦", color = WorkerColors.Primary, style = AppTypography.bodyLarge)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = hint,
-                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary),
-                        textAlign = TextAlign.Center
-                    )
+            onClick = {
+                if (!termsAccepted) {
+                    android.widget.Toast.makeText(
+                        appContext, 
+                        if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions", 
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    onCreateClick()
                 }
             }
-        }
+        )
 
         Spacer(modifier = Modifier.height(18.dp))
         OrDivider()
@@ -1079,17 +745,26 @@ private fun RegisterNameField(
     value: String,
     isTelugu: Boolean,
     textColor: Color,
+    role: com.example.dutype.models.UserRole,
     onValueChange: (String) -> Unit
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = { newValue ->
-            val filtered = newValue.filter { it.isLetter() || it == ' ' || it == '.' }.take(50)
+            val filtered = if (role == com.example.dutype.models.UserRole.EMPLOYER) {
+                newValue.filter { it.isLetter() || it.isDigit() || it == ' ' || it == '.' || it == '&' || it == '-' }.take(50)
+            } else {
+                newValue.filter { it.isLetter() || it == ' ' || it == '.' }.take(50)
+            }
             onValueChange(filtered)
         },
         placeholder = {
             Text(
-                if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name",
+                if (role == com.example.dutype.models.UserRole.EMPLOYER) {
+                    if (isTelugu) "మీ కంపెనీ పేరు నమోదు చేయండి" else "Enter your company name"
+                } else {
+                    if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter your full name"
+                },
                 style = AppTypography.bodyLarge.copy(color = WorkerColors.TextTertiary)
             )
         },
@@ -1131,7 +806,7 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
             style = AppTypography.displayTitle.copy(fontSize = 18.sp),
             modifier = Modifier.align(Alignment.CenterStart).offset(x = 28.dp)
         )
-    }
+    }   
 }
 
 private fun Modifier.minAuthCardHeight(height: androidx.compose.ui.unit.Dp): Modifier = this.height(height)

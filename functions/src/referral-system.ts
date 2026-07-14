@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ============================================
  * ENTERPRISE-GRADE REFERRAL SYSTEM
  * ============================================
@@ -196,7 +196,7 @@ function timestampToMillis(value: any): number {
 function welcomeBonusAmountForRole(config: ReferralConfig, role: string): number {
   const normalizedRole = getStringValue(role, "WORKER").toUpperCase();
   if (normalizedRole === "EMPLOYER") {
-    return config.employerSignupBonusEnabled ? Math.max(0, config.employerSignupBonus) : 0;
+    return 0; // Forced 0 to remove employer signup bonus
   }
   return Math.max(0, config.signupBonus);
 }
@@ -210,7 +210,7 @@ async function creditWelcomeBonusForNewProfile(
   const statsRef = db.collection("referral_stats").doc(userId);
   const profileRef = db.collection(profileCollectionForRole(role)).doc(userId);
   const amount = welcomeBonusAmountForRole(config, role);
-  const unlimitedPostingEnabled = role === "EMPLOYER" && config.employerUnlimitedJobPostingEnabled;
+  const unlimitedPostingEnabled = false; // Forced false to remove unlimited job posting feature
   const campaignId = getStringValue(config.welcomeBonusCampaignId, "welcome_bonus_v1");
 
   if (amount <= 0 && !unlimitedPostingEnabled) {
@@ -414,7 +414,7 @@ export const claimWelcomeBonus = functions.https.onCall(async (data, context) =>
     const cashRewardActive = welcomeBonusAmountForRole(config, role) > 0;
     const cashAlreadySettled = getBooleanValue(beforeStats.signupBonusReceived) ||
       getBooleanValue(beforeStats.welcomeBonusReceived);
-    const unlimitedPostingActive = role === "EMPLOYER" && config.employerUnlimitedJobPostingEnabled;
+    const unlimitedPostingActive = false; // Forced false to remove unlimited job posting feature
     const unlimitedPostingAlreadySettled = getBooleanValue(beforeStats.unlimitedJobPostingGranted) ||
       getBooleanValue(profile.data.unlimitedJobPostingGranted);
     const hasMissingEligibleReward = (cashRewardActive && !cashAlreadySettled) ||

@@ -216,12 +216,7 @@ object ReferralRewards {
     
     fun getMilestoneBonus(milestone: Int): Double = MILESTONES[milestone] ?: 0.0
     
-    fun getEmployerFreePostings(milestone: Int): Int = when (milestone) {
-        5 -> 5
-        10 -> 10
-        25 -> 25
-        else -> 0
-    }
+    fun getEmployerFreePostings(milestone: Int): Int = 0
 }
 
 /**

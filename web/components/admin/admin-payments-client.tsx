@@ -123,13 +123,19 @@ export function AdminPaymentsClient() {
 
       // 1. Calculate limits & credits
       let normalCredits = 3;
-      let instantCredits = 0;
-      if (req.planId === "growth_179") {
+      let instantCredits = 5;
+      if (req.planId === "growth_149") {
         normalCredits = 6;
-        instantCredits = 1;
+        instantCredits = 15;
       } else if (req.planId === "premium_299") {
         normalCredits = 12;
-        instantCredits = 2;
+        instantCredits = 40;
+      } else if (req.planId === "single_49") {
+        normalCredits = 1;
+        instantCredits = 0;
+      } else if (req.planId === "starter_99") {
+        normalCredits = 3;
+        instantCredits = 5;
       }
 
       const now = Date.now();

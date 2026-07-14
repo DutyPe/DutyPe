@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -94,6 +95,10 @@ fun PostUrgentNeedScreen(
             subtitleColor = EmployerColors.TextSecondary
         )
 
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
+        val employerSubscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
+
         PostUrgentNeedContent(
             viewModel = viewModel,
             onPosted = { requestId ->
@@ -101,6 +106,15 @@ fun PostUrgentNeedScreen(
                     // Keep dashboard in back stack so system/app-bar back returns home.
                     popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                     launchSingleTop = true
+                }
+            },
+            onInsufficientCredits = {
+                if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
+                    android.widget.Toast.makeText(context, "Please purchase a subscription to post jobs", android.widget.Toast.LENGTH_LONG).show()
+                    navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                    true
+                } else {
+                    false
                 }
             }
         )
@@ -111,6 +125,7 @@ fun PostUrgentNeedScreen(
 internal fun PostUrgentNeedContent(
     viewModel: InstantHelpViewModel,
     onPosted: (String) -> Unit,
+    onInsufficientCredits: () -> Boolean = { false },
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
     showIntroCard: Boolean = true
@@ -456,6 +471,7 @@ internal fun PostUrgentNeedContent(
         item {
             Button(
                 onClick = {
+                    if (onInsufficientCredits()) return@Button
                     viewModel.createUrgentNeed(
                         QuickUrgentNeedInput(
                             title = title,

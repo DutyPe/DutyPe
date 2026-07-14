@@ -253,7 +253,7 @@ service cloud.firestore {
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -270,14 +270,15 @@ service cloud.firestore {
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
-        (!('subscription' in request.resource.data) || request.resource.data.subscription is map);
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -294,7 +295,8 @@ service cloud.firestore {
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
-        (!('subscription' in request.resource.data) || request.resource.data.subscription is map);
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list);
 
       allow delete: if isSelf(userId);
     }

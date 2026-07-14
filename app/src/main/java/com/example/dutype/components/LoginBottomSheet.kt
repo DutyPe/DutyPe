@@ -749,7 +749,7 @@ private fun PhoneInputContent(
         }
 
         // REFERRAL CODE SECTION - Only show in Registration mode
-        if (isRegistrationMode && !hasAlreadyUsedReferral) {
+        if (isRegistrationMode && !hasAlreadyUsedReferral && role == UserRole.WORKER) {
             // Referral code toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),

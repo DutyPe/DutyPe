@@ -623,7 +623,17 @@ export const getWorkerProfileForEmployer = onCallSecured(
       const instantDirectData = (instantDirect.data() || {}) as Record<string, any>;
       const hasApplicationAccess = direct.exists && directData.employerId === uid && directData.workerId === workerId;
       const hasInstantAccess = instantDirect.exists && instantDirectData.employerId === uid && instantDirectData.workerId === workerId;
+      let hasUnlockedAccess = false;
       if (!hasApplicationAccess && !hasInstantAccess) {
+        const employerSnap = await db().collection("employer_profiles").doc(uid).get();
+        const employerData = employerSnap.data() || {};
+        const unlockedContacts = Array.isArray(employerData.unlockedContacts) ? employerData.unlockedContacts : [];
+        const stringContacts = unlockedContacts.map(String);
+        hasUnlockedAccess = stringContacts.includes(String(workerId));
+        functions.logger.warn(`[getWorkerProfileForEmployer] JOB_ID_PATH: uid=${uid}, workerId=${workerId}, stringContacts=${JSON.stringify(stringContacts)}, hasUnlockedAccess=${hasUnlockedAccess}`);
+      }
+      
+      if (!hasApplicationAccess && !hasInstantAccess && !hasUnlockedAccess) {
         throw new functions.https.HttpsError(
           "permission-denied",
           "Caller is not the employer for this worker relationship"
@@ -642,7 +652,17 @@ export const getWorkerProfileForEmployer = onCallSecured(
         const response = (doc.data() || {}) as Record<string, any>;
         return response.employerId === uid && response.workerId === workerId;
       });
+      let hasUnlockedAccess = false;
       if (appSnap.empty && !hasInstantAccess) {
+        const employerSnap = await db().collection("employer_profiles").doc(uid).get();
+        const employerData = employerSnap.data() || {};
+        const unlockedContacts = Array.isArray(employerData.unlockedContacts) ? employerData.unlockedContacts : [];
+        const stringContacts = unlockedContacts.map(String);
+        hasUnlockedAccess = stringContacts.includes(String(workerId));
+        functions.logger.warn(`[getWorkerProfileForEmployer] NO_JOB_ID_PATH: uid=${uid}, workerId=${workerId}, stringContacts=${JSON.stringify(stringContacts)}, hasUnlockedAccess=${hasUnlockedAccess}`);
+      }
+
+      if (appSnap.empty && !hasInstantAccess && !hasUnlockedAccess) {
         throw new functions.https.HttpsError(
           "permission-denied",
           "Caller does not have a worker relationship"

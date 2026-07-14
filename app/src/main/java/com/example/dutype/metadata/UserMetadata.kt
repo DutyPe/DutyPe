@@ -262,6 +262,7 @@ class UserMetadata @Inject constructor(
                 _userStats.value = UserStats(
                     userId = userId,
                     fullName = resolvedFullName,
+                    companyName = profileDoc.getString("companyName") ?: "",
                     phone = phoneToUse,
                     profileImageUrl = resolvedProfileImageUrl,
                     createdAt = getEpochMillis(profileDoc, "createdAt", System.currentTimeMillis()),
@@ -399,7 +400,13 @@ class UserMetadata @Inject constructor(
                 averageTimeToHire = 0.0, // TODO: Calculate from data
                 responseRate = if (totalApplicationsReceived > 0) {
                     (totalHires.toDouble() / totalApplicationsReceived * 100).toInt()
-                } else 0
+                } else 0,
+                unlockedContacts = try {
+                    val profileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await()
+                    (profileDoc.get("unlockedContacts") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                } catch (e: Exception) {
+                    emptyList()
+                }
             )
         } catch (e: Exception) {
             Timber.e(e, "📊 Failed to load employer stats")
@@ -409,18 +416,18 @@ class UserMetadata @Inject constructor(
     private suspend fun loadUsageLimits(userId: String) {
         try {
             val sub = _subscription.value
-            val isSubActive = sub.status == "ACTIVE"
+            val isSubActive = sub.status == "ACTIVE" || sub.status == "TRIAL"
             val maxJobs = if (isSubActive) {
                 sub.normalCredits
             } else {
-                3
+                0
             }
             _usageLimits.value = UsageLimits(
                 maxApplicationsPerMonth = 10,
                 maxActiveJobs = maxJobs,
                 maxSavedJobs = 20,
                 hasReachedApplicationLimit = _workerStats.value.applicationsThisMonth >= 10,
-                hasReachedJobPostLimit = if (isSubActive) sub.normalCredits <= 0 else _employerStats.value.activeJobs >= 3,
+                hasReachedJobPostLimit = if (isSubActive) sub.normalCredits <= 0 else true,
                 isPremium = isSubActive
             )
         } catch (e: Exception) {
@@ -452,6 +459,7 @@ class UserMetadata @Inject constructor(
 data class UserStats(
     val userId: String = "",
     val fullName: String = "",
+    val companyName: String = "",
     val phone: String = "",
     val profileImageUrl: String = "",
     val createdAt: Long = 0L,
@@ -494,7 +502,8 @@ data class EmployerStats(
     val totalApplicationsReceived: Int = 0,
     val totalHires: Int = 0,
     val averageTimeToHire: Double = 0.0, // in days
-    val responseRate: Int = 0 // Percentage of applications responded to
+    val responseRate: Int = 0, // Percentage of applications responded to
+    val unlockedContacts: List<String> = emptyList() // Application IDs whose contacts have been unlocked
 ) {
     val fillRate: Int
         get() = if (totalJobsPosted > 0) {

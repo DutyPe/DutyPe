@@ -996,12 +996,12 @@ fun WorkerHomeScreen(
         }
 
         // Welcome celebration overlay — shown once after new user completes profile
-        var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
-        WelcomeCelebrationOverlay(
-            visible = showCelebration,
-            bonusAmount = referralConfig.signupBonus.toInt().takeIf { it > 0 } ?: 0,
-            onDismiss = { showCelebration = false }
-        )
+        // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
+        // WelcomeCelebrationOverlay(
+        //     visible = showCelebration,
+        //     bonusAmount = referralConfig.signupBonus.toInt().takeIf { it > 0 } ?: 0,
+        //     onDismiss = { showCelebration = false }
+        // )
     }
 }
 

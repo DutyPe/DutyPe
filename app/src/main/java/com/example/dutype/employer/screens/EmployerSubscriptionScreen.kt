@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.dutype.app.R
 import com.example.dutype.models.EmployerSubscription
@@ -73,38 +76,51 @@ private val Hairline = Color(0xFFE2E8F0)
 private val SurfaceMuted = Color(0xFFF8FAFC)
 private val Danger = Color(0xFFEF4444)
 
-private fun getPlanColor(planId: String): Color = when(planId) {
-    "starter_119" -> IndicatorGreen
-    "growth_179" -> IndicatorOrange
-    "premium_299" -> IndicatorPurple
+private fun getPlanColor(planId: String): Color = when {
+    planId.contains("starter") -> IndicatorGreen
+    planId.contains("growth") -> IndicatorOrange
+    planId.contains("premium") -> IndicatorPurple
     else -> IndicatorYellow
 }
 
-data class Plan(val id: String, val name: String, val price: Double, val jobs: Int, val description: String)
+// Plan class is imported from models
 
-private fun planBenefits(planId: String): List<String> = when (planId) {
-    "starter_119" -> listOf(
-        "3 Standard Vacancy Posts",
-        "30 Days Plan Validity",
-        "View Matching Candidate Profiles",
-        "Direct Dial/Chat with Candidates"
-    )
-    "growth_179" -> listOf(
-        "6 Vacancy Posts (5 + 1 Free)",
-        "30 Days Plan Validity",
-        "Enable Job Expiration Extensions",
-        "Priority Placement in Search List",
-        "Dedicated Email Support"
-    )
-    "premium_299" -> listOf(
-        "12 Vacancy Posts (10 + 2 Free)",
-        "30 Days Plan Validity",
-        "Unlimited Job Extensions",
-        "Unlock Instant Gig Posting Tools",
-        "Verified Partner Business Badge",
-        "24/7 Priority Helpline Support"
-    )
-    else -> emptyList()
+@Composable
+private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedString> = buildList {
+    when {
+        plan.name.contains("Single", ignoreCase = true) -> {
+            add(buildAnnotatedString { append(stringResource(R.string.sub_single_job_credit)) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_single_instant_unlocks)) })
+        }
+        plan.name.contains("Starter", ignoreCase = true) -> {
+            add(buildAnnotatedString { append(stringResource(R.string.sub_starter_job_credits)) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_starter_instant_unlocks)) })
+        }
+        plan.name.contains("Growth", ignoreCase = true) -> {
+            add(buildAnnotatedString {
+                append(stringResource(R.string.sub_growth_job_credits))
+                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(stringResource(R.string.sub_growth_bonus)) }
+                append(")")
+            })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_growth_instant_unlocks)) })
+        }
+        plan.name.contains("Premium", ignoreCase = true) -> {
+            add(buildAnnotatedString {
+                append(stringResource(R.string.sub_premium_job_credits))
+                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(stringResource(R.string.sub_premium_bonus)) }
+                append(")")
+            })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_premium_instant_unlocks)) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_premium_ceo_support)) })
+        }
+        else -> {
+            add(buildAnnotatedString { append(stringResource(R.string.sub_dynamic_job_credits, plan.jobs.toString())) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_dynamic_instant_unlocks, plan.instantUnlocks.toString())) })
+        }
+    }
+    
+    // Additional Universal Features
+    add(buildAnnotatedString { append(stringResource(R.string.sub_30_days_validity)) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,22 +138,12 @@ fun EmployerSubscriptionScreen(
     val submitState by viewModel.submitState.collectAsState()
     val paymentRequests by viewModel.paymentRequests.collectAsState()
     val subState by viewModel.activeSubscription.collectAsState()
-
-    val allPlans = listOf(
-        Plan("extend_49", "Single Job Credit", 49.0, 1, "1 Credit to post a new job or extend an existing one"),
-        Plan("starter_119", "Starter Plan", 119.0, 3, "Ideal for micro-employers with few active needs"),
-        Plan("growth_179", "Growth Plan", 179.0, 6, "Best value! 5 + 1 Free job posts with extensions"),
-        Plan("premium_299", "Premium Plan", 299.0, 12, "Enterprise plan with 10 + 2 Free posts")
-    )
-    
-    val plans = remember(isExtension) {
-        if (isExtension) allPlans else allPlans.filter { it.id != "extend_49" }
-    }
+    val plans by viewModel.plans.collectAsState()
 
     val dateTimeFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
 
-    var selectedPlan by remember { mutableStateOf<Plan?>(null) }
+    var selectedPlan by remember { mutableStateOf<com.example.dutype.models.Plan?>(null) }
     var showPaymentSheet by remember { mutableStateOf(false) }
 
     var utrNumber by remember { mutableStateOf("") }
@@ -195,100 +201,17 @@ fun EmployerSubscriptionScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        bottomBar = {
-            selectedPlan?.let { plan ->
-                val isCurrentPlan = subState.planId == plan.id && (subState.status == "ACTIVE" || subState.status == "TRIAL")
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shadowElevation = 0.dp,
-                    color = Color.White
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .navigationBarsPadding()
-                            .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(
-                            onClick = { showPaymentSheet = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(54.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Brand),
-                            shape = RoundedCornerShape(27.dp)
-                        ) {
-                            Text(
-                                text = if (isCurrentPlan) "renew ${plan.name.lowercase()} ${plan.price.toInt()}/m" else "subscribe to ${plan.name.lowercase()} ${plan.price.toInt()}/m",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = Color.White
-                            )
-                        }
-                        Text(
-                            text = buildAnnotatedString {
-                                append("By subscribing, you agree to our ")
-                                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Ink900)) {
-                                    append("Terms of\nService")
-                                }
-                                append(" and ")
-                                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold, color = Ink900)) {
-                                    append("Privacy Policy")
-                                }
-                            },
-                            fontSize = 11.sp,
-                            color = Ink500,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-            }
-        },
         containerColor = Color.White
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 40.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header Section
-            item {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .background(
-                                color = IndicatorGreen.copy(alpha = 0.15f),
-                                shape = androidx.compose.foundation.shape.CircleShape
-                            )
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = IndicatorGreen,
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Choose your plan",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink900,
-                        fontFamily = MeeshoFontFamily
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
+
 
             // Current plan / empty state
             val hasActiveSub = subState.status == "ACTIVE" || subState.status == "TRIAL"
@@ -296,51 +219,80 @@ fun EmployerSubscriptionScreen(
                 item {
                     val currentPlanObj = plans.find { it.id == subState.planId }
                     val currentPlanName = currentPlanObj?.name ?: "Trial (2 Free Posts)"
-                    CurrentPlanCard(
-                        planName = currentPlanName,
-                        status = subState.status,
-                        remainingCredits = subState.normalCredits,
-                        expiryDate = subState.expiryDate,
-                        dateFormatter = dateFormatter
-                    )
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        CurrentPlanCard(
+                            planName = currentPlanName,
+                            status = subState.status,
+                            remainingCredits = subState.normalCredits,
+                            expiryDate = subState.expiryDate,
+                            dateFormatter = dateFormatter
+                        )
+                    }
                 }
             } else {
-                item { NoPlanCard() }
+                item { 
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        NoPlanCard() 
+                    }
+                }
             }
 
             // Plan list
-            items(plans.size) { index ->
-                val plan = plans[index]
-                val isSelected = selectedPlan?.id == plan.id
-                val isCurrentPlan = subState.planId == plan.id && (subState.status == "ACTIVE" || subState.status == "TRIAL")
-                PlanCard(
-                    plan = plan,
-                    isSelected = isSelected,
-                    isCurrent = isCurrentPlan,
-                    isRecommended = plan.id == "growth_179",
-                    onSelect = {
-                        selectedPlan = plan
-                        viewModel.resetSubmitState()
-                    },
-                    onProceed = {
-                        selectedPlan = plan
-                        viewModel.resetSubmitState()
-                        showPaymentSheet = true
+            item {
+                if (plans.isNotEmpty()) {
+                    val pagerState = rememberPagerState(
+                        initialPage = if (plans.size > 2) 2 else 0,
+                        pageCount = { plans.size }
+                    )
+                    
+                    HorizontalPager(
+                        state = pagerState,
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        pageSpacing = 8.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { page ->
+                        val plan = plans[page]
+                        val isSelected = selectedPlan?.id == plan.id
+                        val isCurrentPlan = subState.planId == plan.id && (subState.status == "ACTIVE" || subState.status == "TRIAL")
+                        
+                        PlanCard(
+                            plan = plan,
+                            isSelected = isSelected,
+                            isCurrent = isCurrentPlan,
+                            isRecommended = plan.id.contains("growth"),
+                            onSelect = {
+                                selectedPlan = plan
+                                viewModel.resetSubmitState()
+                            },
+                            onProceed = {
+                                selectedPlan = plan
+                                viewModel.resetSubmitState()
+                                showPaymentSheet = true
+                            }
+                        )
                     }
-                )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+
+                }
             }
 
             if (paymentRequests.isNotEmpty()) {
                 item {
-                    SectionHeader(title = "Recent Transactions")
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        SectionHeader(title = "Recent Transactions")
+                    }
                 }
 
                 items(paymentRequests.size) { index ->
-                    TransactionCard(
-                        req = paymentRequests[index],
-                        dateTimeFormatter = dateTimeFormatter,
-                        dateFormatter = dateFormatter
-                    )
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        TransactionCard(
+                            req = paymentRequests[index],
+                            dateTimeFormatter = dateTimeFormatter,
+                            dateFormatter = dateFormatter
+                        )
+                    }
                 }
             }
         }
@@ -451,21 +403,21 @@ fun EmployerSubscriptionScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFFEF2F2), RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(10.dp))
+                        .background(SurfaceMuted, RoundedCornerShape(10.dp))
+                        .border(1.dp, Hairline, RoundedCornerShape(10.dp))
                         .padding(12.dp)
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
                             imageVector = Icons.Default.Info,
-                            contentDescription = "Warning",
-                            tint = Danger
+                            contentDescription = "Info",
+                            tint = Ink500
                         )
                         Text(
-                            text = "Payments are strictly non-refundable. Verify your UTR before submitting.",
+                            text = "Payments are non-refundable. Verify your UTR before submitting.",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF991B1B)
+                            color = Ink700
                         )
                     }
                 }
@@ -475,7 +427,7 @@ fun EmployerSubscriptionScreen(
                     StepLabel(step = if (qrs.isNotEmpty()) 3 else 2, text = "Enter 12-digit UTR number")
                     OutlinedTextField(
                         value = utrNumber,
-                        onValueChange = { if (it.length <= 12) utrNumber = it },
+                        onValueChange = { if (it.length <= 12 && it.all { char -> char.isDigit() }) utrNumber = it },
                         placeholder = { Text("e.g. 630987123456") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -716,14 +668,14 @@ private fun CurrentPlanCard(
                         color = Ink900
                     )
                     PlanPill(
-                        text = "✓ Current",
+                        text = stringResource(R.string.sub_current_plan_pill),
                         background = IndicatorYellow.copy(alpha = 0.15f),
                         foreground = IndicatorYellow
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "$remainingCredits posts left • Expires ${dateFormatter.format(Date(expiryDate))}",
+                    text = stringResource(R.string.sub_posts_left_expires, remainingCredits, dateFormatter.format(Date(expiryDate))),
                     fontSize = 13.sp,
                     color = Ink500
                 )
@@ -754,14 +706,14 @@ private fun NoPlanCard() {
                 modifier = Modifier.padding(16.dp).weight(1f)
             ) {
                 Text(
-                    text = "No Active Subscription",
+                    text = stringResource(R.string.sub_no_active_plan),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = Ink900
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Choose a plan below to get credits and start posting jobs.",
+                    text = stringResource(R.string.sub_choose_plan_desc),
                     fontSize = 13.sp,
                     color = Ink500
                 )
@@ -772,43 +724,65 @@ private fun NoPlanCard() {
 
 @Composable
 private fun PlanCard(
-    plan: Plan,
+    plan: com.example.dutype.models.Plan,
     isSelected: Boolean,
     isCurrent: Boolean,
     isRecommended: Boolean,
     onSelect: () -> Unit,
     onProceed: () -> Unit
 ) {
-    val planColor = getPlanColor(plan.id)
-    val border = if (isSelected) BorderStroke(2.dp, IndicatorGreen.copy(alpha = 0.4f)) else BorderStroke(1.dp, Hairline)
-    val elevation = if (isSelected) 8.dp else 2.dp
+    val planType = when {
+        plan.name.contains("Premium", true) -> "premium"
+        plan.name.contains("Growth", true) -> "growth"
+        plan.name.contains("Starter", true) -> "starter"
+        else -> "single"
+    }
+    
+    val bgColors = when (planType) {
+        "premium" -> listOf(Color(0xFF0066FF), Color(0xFF0044CC)) // Truecaller Vibrant Blue
+        "growth" -> listOf(Color(0xFF059669), Color(0xFF047857)) // Emerald Green
+        "starter" -> listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)) // Vibrant Purple
+        else -> listOf(Color(0xFF475569), Color(0xFF1E293B)) // Slate
+    }
+    
+    val accentColor = when (planType) {
+        "premium" -> Color(0xFF60A5FA) // Lighter blue for accents
+        "growth" -> Color(0xFF34D399) // Light green
+        "starter" -> Color(0xFFA78BFA) // Light purple
+        else -> Color(0xFF9CA3AF)
+    }
+
+    val textColor = Color.White
+    val subTextColor = Color.White.copy(alpha = 0.7f)
+    val featuresBg = Color.White.copy(alpha = 0.05f)
+    val checkColor = Color.White
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 450.dp, max = 550.dp)
             .padding(horizontal = 4.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onSelect
             ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = border,
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = if (isSelected) BorderStroke(2.dp, accentColor) else BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 12.dp else 4.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            // Left color bar
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(planColor)
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(colors = bgColors)
+                )
+        ) {
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(16.dp)
+                    .fillMaxSize()
+                    .padding(20.dp)
             ) {
                 // Header Row
                 Row(
@@ -817,77 +791,99 @@ private fun PlanCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
+                        if (plan.tag.isNotEmpty()) {
+                            PlanPill(
+                                text = plan.tag,
+                                background = Color.White,
+                                foreground = bgColors[0]
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                         Text(
                             text = plan.name,
                             style = AppTypography.cardTitle.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Ink900,
-                                fontSize = 16.sp
+                                color = textColor,
+                                fontSize = 22.sp
                             )
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = plan.description,
-                            style = AppTypography.bodySmall.copy(color = Ink500, fontSize = 13.sp)
+                            style = AppTypography.bodySmall.copy(color = subTextColor, fontSize = 14.sp)
                         )
                     }
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = "₹${plan.price.toInt()}",
-                            fontSize = 16.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
-                            color = Ink900
+                            color = textColor
                         )
                         Text(
-                            text = " / month",
+                            text = stringResource(R.string.sub_per_month),
                             fontSize = 12.sp,
-                            color = Ink400,
+                            color = subTextColor,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
+                Spacer(modifier = Modifier.height(24.dp))
+
                 // Expanded Features
-                if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(featuresBg, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
                     Column {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(SurfaceMuted, RoundedCornerShape(12.dp))
-                                .padding(16.dp)
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Features",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Ink700
+                        Text(
+                            text = stringResource(R.string.sub_included_features),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = subTextColor,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        planBenefits(plan).forEach { benefit ->
+                            Row(
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = checkColor,
+                                    modifier = Modifier.size(18.dp).offset(y = 2.dp)
                                 )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                planBenefits(plan.id).forEach { benefit ->
-                                    Row(
-                                        modifier = Modifier.padding(vertical = 6.dp),
-                                        verticalAlignment = Alignment.Top,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = IndicatorGreen,
-                                            modifier = Modifier.size(16.dp).offset(y = 2.dp)
-                                        )
-                                        Text(
-                                            text = benefit,
-                                            fontSize = 13.sp,
-                                            color = Ink700,
-                                            lineHeight = 18.sp
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = benefit,
+                                    fontSize = 13.sp,
+                                    color = textColor,
+                                    lineHeight = 18.sp
+                                )
                             }
                         }
                     }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                Button(
+                    onClick = onProceed,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (planType == "single") Brand else Color.White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (isCurrent) stringResource(R.string.sub_renew_now) else stringResource(R.string.sub_get_plan, plan.name), 
+                        fontWeight = FontWeight.Bold, 
+                        color = if (planType == "single") Color.White else bgColors[1], 
+                        fontSize = 16.sp
+                    )
                 }
             }
         }
@@ -911,8 +907,8 @@ private fun TransactionCard(
         else -> "Pending Verification"
     }
     val planName = when (req.planId) {
-        "starter_119" -> "Starter Plan"
-        "growth_179" -> "Growth Plan"
+        "starter_99" -> "Starter Plan"
+        "growth_149" -> "Growth Plan"
         "premium_299" -> "Premium Plan"
         else -> "Subscription Plan"
     }

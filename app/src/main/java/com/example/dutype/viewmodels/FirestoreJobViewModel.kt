@@ -84,7 +84,6 @@ class FirestoreJobViewModel @Inject constructor(
     val locationPreferences: com.example.dutype.location.LocationPreferences,
     val jobShareImageGenerator: com.example.dutype.services.JobShareImageGenerator,
     val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
-    val adManager: com.example.dutype.ads.AdManager,
     val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
 ) : ViewModel() {
     

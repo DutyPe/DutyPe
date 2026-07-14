@@ -278,6 +278,14 @@ object JobValidationUtils {
      * @return ValidationResult with isValid flag and error message if invalid
      */
     fun validateAgainstScamKeywords(title: String, description: String): ValidationResult {
+        // DISABLED: Keyword restrictions temporarily disabled for mass employer acquisition
+        // All keywords and patterns are preserved for future re-enabling
+        return ValidationResult(
+            isValid = true,
+            errorMessage = null,
+            blockedKeyword = null
+        )
+/*
         val combinedText = "$title $description".lowercase()
         
         // Check blocked keywords
@@ -303,6 +311,7 @@ object JobValidationUtils {
         }
         
         return ValidationResult(isValid = true)
+*/
     }
     
     // ==========================================

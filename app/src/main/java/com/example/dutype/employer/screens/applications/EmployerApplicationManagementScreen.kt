@@ -68,7 +68,8 @@ private const val MANY_APPLICANTS_THRESHOLD = 12
 fun EmployerApplicationManagementScreen(
     jobId: String? = null,
     onApplicationClick: (JobApplication) -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onSubscribeClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -100,7 +101,6 @@ fun EmployerApplicationManagementScreen(
     var pendingRatingApplication by remember { mutableStateOf<JobApplication?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
     var ratedApplicationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var isProcessingPayment by remember { mutableStateOf(false) }
     var reportSummary by remember(jobId) { mutableStateOf<JobReportSummary?>(null) }
     var isReportSummaryLoading by remember(jobId) { mutableStateOf(false) }
     var currentJob by remember(jobId) { mutableStateOf<JobListing?>(null) }
@@ -151,33 +151,15 @@ fun EmployerApplicationManagementScreen(
     
     // FINTECH: Contact Unlock Payment Dialog
     if (showUnlockDialog && pendingUnlockApplication != null) {
-        ContactUnlockDialog(
-            application = pendingUnlockApplication!!,
-            unlockPrice = viewModel.getContactUnlockPrice(),
-            isProcessing = isProcessingPayment,
+        NeedSubscriptionDialog(
             onDismiss = { 
                 showUnlockDialog = false
                 pendingUnlockApplication = null
             },
-            onConfirmPayment = {
-                isProcessingPayment = true
-                viewModel.processContactUnlockPayment(
-                    applicationId = pendingUnlockApplication!!.id,
-                    onSuccess = {
-                        isProcessingPayment = false
-                        showUnlockDialog = false
-                        pendingUnlockApplication = null
-                        Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
-                        val activity = context as? Activity
-                        if (activity != null) {
-                            reviewTriggerService.onEmployerContactUnlocked(activity)
-                        }
-                    },
-                    onFailure = { error ->
-                        isProcessingPayment = false
-                        Toast.makeText(context, context.getString(R.string.payment_failed_error, error), Toast.LENGTH_SHORT).show()
-                    }
-                )
+            onSubscribeClick = {
+                showUnlockDialog = false
+                pendingUnlockApplication = null
+                onSubscribeClick()
             }
         )
     }
@@ -344,10 +326,40 @@ fun EmployerApplicationManagementScreen(
                 state = matchedWorkersState,
                 isJobLive = isJobLive,
                 onRefresh = { viewModel.loadMatchedWorkers(jobId, force = true) },
+                isContactUnlocked = { workerId -> viewModel.isContactUnlocked(workerId, 0) },
+                onUnlockContact = { worker -> 
+                    viewModel.unlockContact(
+                        applicationId = worker.workerId,
+                        onSuccess = {
+                            // Contact unlocked, reload to fetch phone number
+                            viewModel.loadMatchedWorkers(jobId, force = true)
+                        },
+                        onPaymentRequired = {
+                            onSubscribeClick()
+                        }
+                    )
+                },
                 onRequestWorker = { worker -> viewModel.requestMatchedWorker(jobId, worker.workerId) },
-                onCallWorker = { phone ->
+                onCallWorker = { worker ->
+                    val phone = worker.phone
                     if (phone.isNotBlank()) {
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    } else {
+                        Toast.makeText(context, "Fetching phone number...", Toast.LENGTH_SHORT).show()
+                        viewModel.fetchPhoneNumberForWorker(
+                            jobId = jobId,
+                            workerId = worker.workerId,
+                            onSuccess = { fetchedPhone ->
+                                if (fetchedPhone.isNotBlank()) {
+                                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$fetchedPhone")))
+                                } else {
+                                    Toast.makeText(context, "Phone number is not available.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onFailure = {
+                                Toast.makeText(context, "Failed to fetch phone number. Please try again.", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -458,8 +470,8 @@ fun EmployerApplicationManagementScreen(
                                         }
                                     },
                                     onPaymentRequired = {
-                                        pendingUnlockApplication = application
                                         showUnlockDialog = true
+                                        pendingUnlockApplication = application
                                     }
                                 )
                             },
@@ -514,8 +526,10 @@ private fun MatchedWorkersContent(
     state: com.example.dutype.viewmodels.MatchedWorkersUiState,
     isJobLive: Boolean,
     onRefresh: () -> Unit,
+    isContactUnlocked: (String) -> Boolean,
+    onUnlockContact: (MatchedWorker) -> Unit,
     onRequestWorker: (MatchedWorker) -> Unit,
-    onCallWorker: (String) -> Unit,
+    onCallWorker: (MatchedWorker) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -654,8 +668,10 @@ private fun MatchedWorkersContent(
                             isJobLive = isJobLive,
                             isDisabledForFilledJob = !isJobLive && !worker.requestStatus.equals("accepted", ignoreCase = true),
                             isRequesting = state.requestingWorkerId == worker.workerId,
+                            isContactUnlocked = isContactUnlocked(worker.workerId),
+                            onUnlockContact = { onUnlockContact(worker) },
                             onRequestWorker = { onRequestWorker(worker) },
-                            onCallWorker = { onCallWorker(worker.phone) }
+                            onCallWorker = { onCallWorker(worker) }
                         )
                     }
                 }
@@ -880,12 +896,15 @@ private fun MatchedWorkerCard(
     isJobLive: Boolean,
     isDisabledForFilledJob: Boolean,
     isRequesting: Boolean,
+    isContactUnlocked: Boolean,
+    onUnlockContact: () -> Unit,
     onRequestWorker: () -> Unit,
-    onCallWorker: () -> Unit
+    onCallWorker: (MatchedWorker) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val status = worker.requestStatus.lowercase(Locale.ROOT)
     val requestSent = status in setOf("pending", "accepted")
-    val canCall = worker.phone.isNotBlank() && !isDisabledForFilledJob
+    val canCall = (worker.phone.isNotBlank() || isContactUnlocked) && !isDisabledForFilledJob
     val workerStatusText = when (status) {
         "accepted" -> stringResource(R.string.selected_worker)
         "pending" -> stringResource(R.string.request_sent)
@@ -1046,16 +1065,32 @@ private fun MatchedWorkerCard(
                     )
                 }
 
-                Button(
-                    onClick = onCallWorker,
-                    enabled = canCall && !isDisabledForFilledJob,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.call))
+                if (!isContactUnlocked) {
+                    Button(
+                        onClick = onUnlockContact,
+                        enabled = !isDisabledForFilledJob,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Unlock")
+                    }
+                } else {
+                    Button(
+                        onClick = { onCallWorker(worker) },
+                        enabled = canCall && !isDisabledForFilledJob,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.call))
+                    }
                 }
             }
         }
@@ -1937,36 +1972,33 @@ private fun FreeContactsBanner(freeRemaining: Int) {
 }
 
 /**
- * Dialog for unlocking contact with payment
+ * Dialog prompting the employer to purchase a subscription to view contact details
  */
 @Composable
-private fun ContactUnlockDialog(
-    application: JobApplication,
-    unlockPrice: Int,
-    isProcessing: Boolean,
+private fun NeedSubscriptionDialog(
     onDismiss: () -> Unit,
-    onConfirmPayment: () -> Unit
+    onSubscribeClick: () -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = { if (!isProcessing) onDismiss() },
+        onDismissRequest = { onDismiss() },
         icon = {
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(EmployerColors.WarningLight, CircleShape),
+                    .background(EmployerColors.PrimaryLight, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = EmployerColors.Warning,
+                    tint = EmployerColors.Primary,
                     modifier = Modifier.size(28.dp)
                 )
             }
         },
         title = {
             Text(
-                text = stringResource(R.string.unlock_contact),
+                text = "Subscription Required",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1974,105 +2006,41 @@ private fun ContactUnlockDialog(
             )
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.unlock_worker_contact_desc, application.workerName),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
-                )
-                
-                // Price card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.unlock_price),
-                            style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary)
-                        )
-                        Text(
-                            text = "₹$unlockPrice",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EmployerColors.Success
-                            )
-                        )
-                    }
-                }
-                
-                // Benefits
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    UnlockBenefitItem(stringResource(R.string.benefit_phone_number))
-                    UnlockBenefitItem(stringResource(R.string.benefit_direct_communication))
-                    UnlockBenefitItem(stringResource(R.string.benefit_faster_hiring))
-                }
-            }
+            Text(
+                text = "You need an active subscription to view worker contact details. Subscribe now to access premium features.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = com.example.dutype.ui.theme.EmployerColors.TextSecondary,
+                textAlign = TextAlign.Center
+            )
         },
         confirmButton = {
             Button(
-                onClick = onConfirmPayment,
-                enabled = !isProcessing,
-                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success),
+                onClick = onSubscribeClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmployerColors.Primary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.processing))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.LockOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.pay_and_unlock, unlockPrice))
-                }
+                Text(
+                    text = "View Plans",
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                enabled = !isProcessing
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.cancel), color = EmployerColors.TextSecondary)
+                Text(
+                    text = "Cancel",
+                    color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
+                )
             }
         },
-        shape = RoundedCornerShape(20.dp),
-        containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp)
     )
-}
-
-@Composable
-private fun UnlockBenefitItem(text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = null,
-            tint = EmployerColors.Success,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-        )
-    }
 }

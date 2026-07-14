@@ -427,20 +427,15 @@ class JobFirestoreService @Inject constructor(
                 val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
 
                 val isExpired = sub.expiryDate > 0 && sub.expiryDate < currentTime
-                val totalCredits = sub.normalCredits + sub.instantCredits
+                val totalCredits = sub.normalCredits
 
                 if (sub.status == "NONE" || isExpired || totalCredits <= 0) {
                     throw IllegalArgumentException("You have 0 credits left under your current subscription. Please upgrade or renew your plan to post more jobs.")
                 }
 
-                // Decrement credits (decrement normal first, then instant)
                 val currentCredits = subMap?.get("credits") as? Map<String, Any?>
                 val newCredits = currentCredits.orEmpty().toMutableMap().apply {
-                    if (sub.normalCredits > 0) {
-                        put("normal", maxOf(0, sub.normalCredits - 1))
-                    } else {
-                        put("instant", maxOf(0, sub.instantCredits - 1))
-                    }
+                    put("normal", maxOf(0, sub.normalCredits - 1))
                 }
                 val newSubMap = subMap.orEmpty().toMutableMap().apply {
                     put("credits", newCredits)
@@ -448,8 +443,7 @@ class JobFirestoreService @Inject constructor(
 
 
                 // Determine job expiry based on subscription plan
-                val isTrial = sub.status == "TRIAL" || sub.planId == "FREE_TRIAL"
-                val jobDurationDays = if (isTrial) 7L else 30L
+                val jobDurationDays = 30L
                 val calculatedExpiresAt = Timestamp(java.util.Date(currentTime + (jobDurationDays * 24 * 60 * 60 * 1000L)))
                 
                 // Apply transaction-resolved companyName and expiresAt
@@ -1017,6 +1011,18 @@ class JobFirestoreService @Inject constructor(
                     }
                 }
             }.await()
+            
+            // Update all applications for this job to 'deleted' status
+            val applicationsRef = firestore.collection("applications")
+            val snapshot = applicationsRef.whereEqualTo("jobId", jobId).get().await()
+            if (!snapshot.isEmpty) {
+                val batch = firestore.batch()
+                for (doc in snapshot.documents) {
+                    batch.update(doc.reference, "status", "deleted")
+                }
+                batch.commit().await()
+            }
+            
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

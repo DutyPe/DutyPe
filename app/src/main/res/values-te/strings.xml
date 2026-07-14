@@ -1350,4 +1350,28 @@
     <string name="quick_action_earnings_sub">డబ్బులు చూడండి</string>
     <string name="quick_action_support">సహాయం</string>
     <string name="quick_action_support_sub">మద్దతు పొందండి</string>
+    <!-- Employer Subscription Screen Telugu Translations -->
+    <string name="sub_current_plan_pill">✓ ప్రస్తుత ప్లాన్</string>
+    <string name="sub_posts_left_expires">%1$d పోస్టులు మిగిలి ఉన్నాయి • గడువు %2$s</string>
+    <string name="sub_no_active_plan">క్రియాశీల సభ్యత్వం లేదు</string>
+    <string name="sub_choose_plan_desc">క్రెడిట్‌లను పొందడానికి మరియు ఉద్యోగాలను పోస్ట్ చేయడానికి దిగువ ప్లాన్‌ను ఎంచుకోండి.</string>
+    <string name="sub_included_features">చేర్చబడిన ఫీచర్లు</string>
+    <string name="sub_per_month">/ నెల</string>
+    <string name="sub_renew_premium">ప్రీమియం పునరుద్ధరించండి</string>
+    <string name="sub_get_plan">%1$s పొందండి</string>
+    <string name="sub_renew_now">ఇప్పుడే పునరుద్ధరించండి</string>
+    <string name="sub_single_job_credit">1 జాబ్ పోస్ట్ క్రెడిట్</string>
+    <string name="sub_single_instant_unlocks">0 తక్షణ కాంటాక్ట్ అన్‌లాక్‌లు (అభ్యర్థులు దరఖాస్తు చేసే వరకు వేచి ఉండాలి)</string>
+    <string name="sub_starter_job_credits">3 జాబ్ క్రెడిట్‌లు</string>
+    <string name="sub_starter_instant_unlocks">5 తక్షణ కాంటాక్ట్ అన్‌లాక్‌లు</string>
+    <string name="sub_growth_job_credits">6 జాబ్ క్రెడిట్‌లు (</string>
+    <string name="sub_growth_bonus">5 + 1 ఉచిత జాబ్ పోస్ట్ ఉచితంగా పొందండి</string>
+    <string name="sub_growth_instant_unlocks">15 తక్షణ కాంటాక్ట్ అన్‌లాక్‌లు</string>
+    <string name="sub_premium_job_credits">12 జాబ్ క్రెడిట్‌లు (</string>
+    <string name="sub_premium_bonus">10 + 2 ఉచిత జాబ్ పోస్ట్‌లు ఉచితంగా పొందండి</string>
+    <string name="sub_premium_instant_unlocks">40 తక్షణ కాంటాక్ట్ అన్‌లాక్‌లు</string>
+    <string name="sub_premium_ceo_support">ప్రత్యేక మద్దతు &amp; CEOతో చాట్ చేసే సదుపాయం</string>
+    <string name="sub_dynamic_job_credits">%1$s జాబ్ క్రెడిట్‌లు</string>
+    <string name="sub_dynamic_instant_unlocks">%1$s తక్షణ కాంటాక్ట్ అన్‌లాక్‌లు</string>
+    <string name="sub_30_days_validity">30 రోజుల ప్లాన్ చెల్లుబాటు</string>
 </resources>

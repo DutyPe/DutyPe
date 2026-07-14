@@ -211,7 +211,7 @@ class InstantHelpService @Inject constructor(
                 val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
                 
                 val isExpired = sub.expiryDate > 0 && sub.expiryDate < nowMillis
-                val totalCredits = sub.normalCredits + sub.instantCredits
+                val totalCredits = sub.normalCredits
                 
                 if (sub.status == "NONE" || isExpired || totalCredits <= 0) {
                     throw IllegalArgumentException("You have 0 credits left under your current subscription. Please upgrade or renew your plan to post more jobs.")
@@ -275,11 +275,7 @@ class InstantHelpService @Inject constructor(
                 // Decrement credits (decrement instant first, then normal)
                 val currentCredits = subMap?.get("credits") as? Map<String, Any?>
                 val newCredits = currentCredits.orEmpty().toMutableMap().apply {
-                    if (sub.instantCredits > 0) {
-                        put("instant", maxOf(0, sub.instantCredits - 1))
-                    } else {
-                        put("normal", maxOf(0, sub.normalCredits - 1))
-                    }
+                    put("normal", maxOf(0, sub.normalCredits - 1))
                 }
                 val newSubMap = subMap.orEmpty().toMutableMap().apply {
                     put("credits", newCredits)

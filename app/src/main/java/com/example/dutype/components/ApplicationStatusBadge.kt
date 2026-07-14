@@ -108,6 +108,16 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFF4B5563),
             Icons.Default.Close
         )
+        ApplicationStatus.DELETED -> Triple(
+            Color(0xFFF3F4F6),
+            Color(0xFF9E9E9E),
+            Icons.Default.Close
+        )
+        ApplicationStatus.FILLED -> Triple(
+            Color(0xFFE0F2FE),
+            Color(0xFF2196F3),
+            Icons.Default.Check
+        )
     }
 }
 
@@ -122,5 +132,7 @@ private fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
+        ApplicationStatus.DELETED -> "Deleted"
+        ApplicationStatus.FILLED -> "Filled"
     }
 }

@@ -100,22 +100,22 @@ exports.NOTIFICATION_TEMPLATES = {
     },
     EMPLOYER_WELCOME_BENEFIT: {
         en: {
-            title: "Welcome Offer Unlocked",
-            body: "Unlimited job posting is unlocked for your new employer account.",
+            title: "🚀 Welcome Offer Unlocked",
+            body: "Unlimited Job Posting is unlocked! Find the best talent for your business and post your first job now.",
         },
         te: {
-            title: "స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
-            body: "మీ కొత్త యజమాని ఖాతాకు అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది.",
+            title: "🚀 స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
+            body: "అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది! మీ వ్యాపారం కోసం ఉత్తమ నైపుణ్యాన్ని కనుగొనండి మరియు మీ మొదటి ఉద్యోగాన్ని ఇప్పుడే పోస్ట్ చేయండి.",
         },
     },
     EMPLOYER_WELCOME_BONUS: {
         en: {
-            title: "Welcome Offer Unlocked",
-            body: "Unlimited job posting is unlocked and ₹{amount} has been added to your DutyPe wallet.",
+            title: "🚀 Welcome Offer Unlocked",
+            body: "Unlimited Job Posting is unlocked! Find the best talent for your business and post your first job now.",
         },
         te: {
-            title: "స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
-            body: "అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది మరియు మీ DutyPe వాలెట్‌లో ₹{amount} జమైంది.",
+            title: "🚀 స్వాగత ఆఫర్ అన్‌లాక్ అయింది",
+            body: "అపరిమిత ఉద్యోగ పోస్టింగ్ అన్‌లాక్ అయింది! మీ వ్యాపారం కోసం ఉత్తమ నైపుణ్యాన్ని కనుగొనండి మరియు మీ మొదటి ఉద్యోగాన్ని ఇప్పుడే పోస్ట్ చేయండి.",
         },
     },
     // ── transactional reminders & re-engagement ────────────────────────

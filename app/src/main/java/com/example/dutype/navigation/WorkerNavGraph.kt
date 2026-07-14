@@ -95,13 +95,11 @@ fun WorkerNavGraph(
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             Timber.i("🔗 DEEP LINK: JobDescriptionScreen opened with jobId: $jobId")
-            // Get FirestoreJobViewModel using hiltViewModel() and then access its adManager
             val firestoreJobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange,
-                adManager = firestoreJobViewModel.adManager
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
         

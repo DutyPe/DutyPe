@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.ApplicationStats
+import com.example.dutype.metadata.UserMetadata
 import com.example.dutype.models.MatchedWorker
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.WorkerMatchingService
@@ -13,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
 import timber.log.Timber
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +37,8 @@ class EmployerApplicationViewModel @Inject constructor(
     private val jobApplicationService: JobApplicationService,
     private val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
     private val workerMatchingService: WorkerMatchingService,
-    private val performanceTracker: com.example.dutype.performance.PerformanceTracker
+    private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
+    val userMetadata: UserMetadata
 ) : ViewModel() {
     
     companion object {
@@ -67,6 +70,25 @@ class EmployerApplicationViewModel @Inject constructor(
     }
     
     private val auth = FirebaseAuth.getInstance()
+    
+    init {
+        loadUnlockedContacts()
+    }
+    
+    private fun loadUnlockedContacts() {
+        val uid = auth.currentUser?.uid ?: return
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        db.collection("employer_profiles").document(uid).get()
+            .addOnSuccessListener { doc ->
+                val contacts = (doc.get("unlockedContacts") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                _uiState.update { state -> 
+                    state.copy(unlockedContacts = state.unlockedContacts + contacts) 
+                }
+            }
+            .addOnFailureListener { e ->
+                Timber.e(e, "[EmployerVM] Failed to load unlocked contacts")
+            }
+    }
     
     // Note: Don't load applications in init - let the screen decide what to load
     // based on whether it's viewing all applications or job-specific applications
@@ -229,6 +251,34 @@ class EmployerApplicationViewModel @Inject constructor(
                         )
                     }
                 )
+            }
+        }
+    }
+
+    fun fetchPhoneNumberForWorker(jobId: String, workerId: String, onSuccess: (String) -> Unit, onFailure: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId, jobId)
+                profileResult.fold(
+                    onSuccess = { profile ->
+                        val phone = profile["phone"]?.toString() ?: ""
+                        
+                        // Also update the local state so the button stays responsive
+                        val currentWorkers = _matchedWorkersState.value.workers
+                        val updatedWorkers = currentWorkers.map { 
+                            if (it.workerId == workerId) it.copy(phone = phone) else it 
+                        }
+                        _matchedWorkersState.value = _matchedWorkersState.value.copy(workers = updatedWorkers)
+                        
+                        onSuccess(phone)
+                    },
+                    onFailure = { 
+                        onFailure() 
+                    }
+                )
+            } catch (e: Exception) {
+                Timber.e(e, "[EmployerVM] Failed to fetch phone number for worker $workerId")
+                onFailure()
             }
         }
     }
@@ -647,46 +697,78 @@ class EmployerApplicationViewModel @Inject constructor(
     
     // ==================== FINTECH: CONTACT UNLOCK ====================
     // First 3 applicants free, 4th+ requires payment
-    
-    /**
+     /**
      * Check if contact is unlocked for an application
-     * First 3 applications are automatically unlocked (free)
+     * Employer MUST have an active subscription to view contacts.
      */
     fun isContactUnlocked(applicationId: String, applicationIndex: Int): Boolean {
-        // First 3 applications are free
-        if (applicationIndex < 3) return true
-        // Check if manually unlocked
-        return _uiState.value.unlockedContacts.contains(applicationId)
+        val inUiState = _uiState.value.unlockedContacts.contains(applicationId)
+        val inMetadata = userMetadata.employerStats.value.unlockedContacts.contains(applicationId)
+        Timber.d("[EmployerVM] isContactUnlocked check for $applicationId -> inUiState: $inUiState, inMetadata: $inMetadata")
+        return inUiState || inMetadata
     }
     
     /**
-     * Unlock contact for an application (simulated payment)
-     * In production, this would integrate with Razorpay/Stripe
+     * Unlock contact for an application
+     * Consumes 1 instant credit (contact credit). If 0, redirects to Subscription screen.
      */
     fun unlockContact(applicationId: String, onSuccess: () -> Unit, onPaymentRequired: () -> Unit) {
-        val currentUnlocked = _uiState.value.unlockedContacts
-        val freeRemaining = _uiState.value.freeContactsRemaining
+        val subscription = userMetadata.subscription.value
+        Timber.d("[EmployerVM] unlockContact called for $applicationId. Instant credits: ${subscription.instantCredits}")
         
-        // Check if already unlocked
-        if (currentUnlocked.contains(applicationId)) {
-            onSuccess()
-            return
-        }
-        
-        // Check if free unlocks remaining
-        if (freeRemaining > 0) {
-            // Use free unlock
-            _uiState.update { state ->
-                state.copy(
-                    unlockedContacts = state.unlockedContacts + applicationId,
-                    freeContactsRemaining = state.freeContactsRemaining - 1
-                )
+        if (subscription.instantCredits > 0) {
+            viewModelScope.launch {
+                try {
+                    val uid = auth.currentUser?.uid ?: return@launch
+                    Timber.d("[EmployerVM] Proceeding to unlock contact for $applicationId with uid: $uid")
+                    
+                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    db.runTransaction { transaction ->
+                        val ref = db.collection("employer_profiles").document(uid)
+                        val snap = transaction.get(ref)
+                        @Suppress("UNCHECKED_CAST")
+                        val subMap = snap.get("subscription") as? Map<String, Any?>
+                        if (subMap != null) {
+                            @Suppress("UNCHECKED_CAST")
+                            val creditsMap = subMap["credits"] as? Map<String, Any?>
+                            val instantCredits = (creditsMap?.get("instant") as? Number)?.toInt() ?: 0
+                            Timber.d("[EmployerVM] Firestore instant credits: $instantCredits")
+                            
+                            if (instantCredits > 0) {
+                                val newCreditsMap = creditsMap?.toMutableMap() ?: mutableMapOf()
+                                newCreditsMap["instant"] = instantCredits - 1
+                                val newSubMap = subMap.toMutableMap()
+                                newSubMap["credits"] = newCreditsMap
+                                transaction.update(
+                                    ref,
+                                    mapOf(
+                                        "subscription" to newSubMap,
+                                        "unlockedContacts" to com.google.firebase.firestore.FieldValue.arrayUnion(applicationId)
+                                    )
+                                )
+                                Timber.d("[EmployerVM] Transaction success, credits deducted and contact added to unlockedContacts array")
+                            } else {
+                                Timber.w("[EmployerVM] Transaction failed: no credits in firestore")
+                                throw Exception("No credits")
+                            }
+                        } else {
+                            Timber.w("[EmployerVM] Transaction failed: subMap is null")
+                            throw Exception("subMap is null")
+                        }
+                    }.await()
+                    
+                    Timber.d("[EmployerVM] Updating UI state with unlocked contact")
+                    _uiState.update { state ->
+                        state.copy(unlockedContacts = state.unlockedContacts + applicationId)
+                    }
+                    onSuccess()
+                } catch (e: Exception) {
+                    Timber.e(e, "[EmployerVM] Transaction failed with exception, triggering onPaymentRequired")
+                    onPaymentRequired()
+                }
             }
-            Timber.d("💰 CONTACT UNLOCK: Free unlock used. Remaining: ${freeRemaining - 1}")
-            onSuccess()
         } else {
-            // Requires payment
-            Timber.d("💰 CONTACT UNLOCK: Payment required for applicationId=$applicationId")
+            Timber.w("[EmployerVM] Local state shows no credits, triggering onPaymentRequired")
             onPaymentRequired()
         }
     }

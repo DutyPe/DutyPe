@@ -78,6 +78,7 @@ private fun getStatusIcon(status: ApplicationStatus): String {
         ApplicationStatus.COMPLETED -> "✅"
         ApplicationStatus.REJECTED -> "❌"
         ApplicationStatus.WITHDRAWN -> ""
+        else -> ""
     }
 }
 
@@ -88,6 +89,8 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
+        ApplicationStatus.DELETED -> "Removed"
+        ApplicationStatus.FILLED -> "Closed"
     }
 }
 
@@ -98,6 +101,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C) // Dark green
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
         ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
+        else -> Color(0xFF6B7280) // Gray
     }
 }
 
@@ -523,6 +527,7 @@ private fun ApplicationTimeline(
                 ApplicationStatus.COMPLETED -> "Completed"
                 ApplicationStatus.REJECTED -> "Cancelled"
                 ApplicationStatus.WITHDRAWN -> "Withdrawn"
+                else -> "Cancelled"
             },
             isCompleted = status == ApplicationStatus.APPLIED ||
                 status == ApplicationStatus.HIRED ||

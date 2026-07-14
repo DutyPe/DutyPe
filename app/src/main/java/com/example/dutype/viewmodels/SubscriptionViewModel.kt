@@ -3,6 +3,7 @@ package com.example.dutype.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.PaymentRequest
+import com.example.dutype.models.Plan
 import com.example.dutype.models.QrCode
 import com.example.dutype.models.EmployerSubscription
 import com.example.dutype.metadata.UserMetadata
@@ -29,12 +30,24 @@ class SubscriptionViewModel @Inject constructor(
     private val _paymentRequests = MutableStateFlow<List<PaymentRequest>>(emptyList())
     val paymentRequests: StateFlow<List<PaymentRequest>> = _paymentRequests.asStateFlow()
 
+    private val _plans = MutableStateFlow<List<Plan>>(emptyList())
+    val plans: StateFlow<List<Plan>> = _plans.asStateFlow()
+
     private val _submitState = MutableStateFlow<SubmitState>(SubmitState.Idle)
     val submitState: StateFlow<SubmitState> = _submitState.asStateFlow()
 
     init {
         loadActiveQrCodes()
         observePaymentRequests()
+        loadPlans()
+    }
+
+    private fun loadPlans() {
+        viewModelScope.launch {
+            subscriptionRepository.getPlans().collectLatest { fetchedPlans ->
+                _plans.value = fetchedPlans
+            }
+        }
     }
 
     private fun loadActiveQrCodes() {

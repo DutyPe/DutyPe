@@ -51,7 +51,7 @@ object Routes {
     const val EMPLOYER_HISTORY = "employer_history"
     const val EMPLOYER_HISTORY_WITH_TAB = "employer_history?tab={tab}"
     const val CONTACT_US = "contact_us"
-    const val EMPLOYER_SUBSCRIPTION = "employer_subscription?isExtension={isExtension}"
+    const val EMPLOYER_SUBSCRIPTION = "employer_subscription"
     
     // History Routes
     const val WORKER_HISTORY = "worker_history"

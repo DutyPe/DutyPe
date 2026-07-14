@@ -121,7 +121,6 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dutype.app.R
-import com.example.dutype.ads.AdManager
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
 import com.example.dutype.components.CallUpdateBottomSheet
@@ -145,8 +144,7 @@ import timber.log.Timber
 fun JobDescriptionScreen(
     jobId: String,
     navController: NavController,
-    onStatusBarColorChange: (Color) -> Unit = {},
-    adManager: AdManager? = null // DISABLED: Ads temporarily disabled
+    onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
@@ -161,22 +159,6 @@ fun JobDescriptionScreen(
     val appliedJobIds by smartApplicationViewModel.appliedJobIds.collectAsStateWithLifecycle()
     val applicationStatuses by smartApplicationViewModel.applicationStatuses.collectAsStateWithLifecycle()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-    // DISABLED: Ads temporarily disabled
-    /*
-    // Get AdManager from Hilt via ViewModel's injection (singleton instance)
-    // This ensures we use the same AdManager that was initialized in Application.onCreate()
-    val adManagerInstance = adManager ?: smartApplicationViewModel.adManager
-
-    // Collect ad ready state
-    val isAdReady by adManagerInstance.isInterstitialReady.collectAsState()
-
-    // Preload interstitial ad when screen loads
-    LaunchedEffect(Unit) {
-        Timber.d("📺 JobDescriptionScreen: Loading interstitial ad... (currently ready: $isAdReady)")
-        adManagerInstance.loadInterstitialAd(context)
-    }
-    */
 
     LaunchedEffect(Unit) { onStatusBarColorChange(Color.White) }
 
@@ -387,30 +369,8 @@ fun JobDescriptionScreen(
         }
     }
 
-    // Function to handle back navigation - DISABLED: Ads temporarily disabled
+    // Function to handle back navigation
     val handleBackNavigation: () -> Unit = {
-        // DISABLED: Ad code commented out
-        /*
-        Timber.d("📺 Back pressed - Ad ready state: $isAdReady")
-        val activity = context as? Activity
-        if (activity != null) {
-            adManagerInstance.showInterstitialAd(
-                activity = activity,
-                onAdDismissed = {
-                    Timber.d("📺 Ad dismissed, navigating back")
-                    navController.popBackStack()
-                },
-                onAdNotReady = {
-                    Timber.d("📺 Ad not ready (isAdReady=$isAdReady), navigating back directly")
-                    navController.popBackStack()
-                }
-            )
-        } else {
-            Timber.d("📺 Activity is null, navigating back directly")
-            navController.popBackStack()
-        }
-        */
-        // Direct navigation without ads
         navController.popBackStack()
     }
 

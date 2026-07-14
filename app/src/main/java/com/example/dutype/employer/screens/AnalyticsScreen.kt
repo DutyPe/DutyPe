@@ -641,7 +641,7 @@ fun RecentApplicationItem(
                         ApplicationStatus.COMPLETED -> EmployerColors.SuccessLight
                         ApplicationStatus.REJECTED -> EmployerColors.ErrorLight
                         ApplicationStatus.WITHDRAWN -> EmployerColors.ChipBackground
-                        ApplicationStatus.APPLIED -> EmployerColors.InfoLight
+                        else -> EmployerColors.InfoLight
                     }
                 )
             ) {
@@ -655,7 +655,7 @@ fun RecentApplicationItem(
                             ApplicationStatus.COMPLETED -> EmployerColors.Success
                             ApplicationStatus.REJECTED -> EmployerColors.Error
                             ApplicationStatus.WITHDRAWN -> Color(0xFF4B5563)
-                            ApplicationStatus.APPLIED -> EmployerColors.Info
+                            else -> EmployerColors.Info
                         }
                     ),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

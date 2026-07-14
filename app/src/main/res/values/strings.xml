@@ -1127,6 +1127,13 @@
     <string name="need_faster_results">Need faster results?</string>
     <string name="need_faster_results_body">Post an urgent need to reach nearby available workers. Today posts expire in 24 hours.</string>
     <string name="post_normal_job">Post normal job</string>
+    <string name="post_normal_job_subtitle">For long-term employment</string>
+    <string name="urgent_and_normal_jobs_posted">Jobs posted</string>
+    <string name="action_due">Action Due</string>
+    <string name="instant_match">🔥 INSTANT MATCH</string>
+    <string name="urgent_need_desc">Hire nearby workers immediately for hourly/daily gigs.</string>
+    <string name="standard_job_tag">📄 STANDARD</string>
+    <string name="standard_job_desc">Create detailed vacancies for full-time/part-time employment.</string>
     <string name="normal_job">Normal job</string>
     <string name="urgent_need">Urgent need</string>
     <string name="post_job_urgent_tab_desc">For same-day local help. Workers can respond quickly from urgent cards.</string>
@@ -1373,4 +1380,28 @@
     <string name="quick_action_earnings_sub">View payouts</string>
     <string name="quick_action_support">Help Desk</string>
     <string name="quick_action_support_sub">Get assistance</string>
+    <!-- Employer Subscription Screen -->
+    <string name="sub_current_plan_pill">✓ Current</string>
+    <string name="sub_posts_left_expires">%1$d posts left • Expires %2$s</string>
+    <string name="sub_no_active_plan">No Active Subscription</string>
+    <string name="sub_choose_plan_desc">Choose a plan below to get credits and start posting jobs.</string>
+    <string name="sub_included_features">Included Features</string>
+    <string name="sub_per_month">/ month</string>
+    <string name="sub_renew_premium">Renew Premium</string>
+    <string name="sub_get_plan">Get %1$s</string>
+    <string name="sub_renew_now">Renew Now</string>
+    <string name="sub_single_job_credit">1 Job Post Credit</string>
+    <string name="sub_single_instant_unlocks">0 Instant Contact Unlocks (Must wait for candidates to apply)</string>
+    <string name="sub_starter_job_credits">3 Job Credits</string>
+    <string name="sub_starter_instant_unlocks">5 Instant Candidate Contact Unlocks</string>
+    <string name="sub_growth_job_credits">6 Job Credits (</string>
+    <string name="sub_growth_bonus">Includes 5 + 1 Free Job Post</string>
+    <string name="sub_growth_instant_unlocks">15 Instant Candidate Contact Unlocks</string>
+    <string name="sub_premium_job_credits">12 Job Credits (</string>
+    <string name="sub_premium_bonus">Includes 10 + 2 Free Job Posts</string>
+    <string name="sub_premium_instant_unlocks">40 Instant Candidate Contact Unlocks</string>
+    <string name="sub_premium_ceo_support">Dedicated support &amp; chat feature with CEO</string>
+    <string name="sub_dynamic_job_credits">%1$s Job Credits</string>
+    <string name="sub_dynamic_instant_unlocks">%1$s Instant Contact Unlocks</string>
+    <string name="sub_30_days_validity">30 Days Plan Validity</string>
 </resources>

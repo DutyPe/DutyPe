@@ -83,7 +83,9 @@ enum class ApplicationStatus {
     REJECTED,
     WITHDRAWN,
     HIRED,
-    COMPLETED;
+    COMPLETED,
+    DELETED,
+    FILLED;
 
     fun toFirestoreValue(): String = when (this) {
         APPLIED -> "applied"
@@ -91,6 +93,8 @@ enum class ApplicationStatus {
         WITHDRAWN -> "withdrawn"
         HIRED -> "hired"
         COMPLETED -> "completed"
+        DELETED -> "deleted"
+        FILLED -> "filled"
     }
 
     companion object {
@@ -100,6 +104,8 @@ enum class ApplicationStatus {
             "completed" -> COMPLETED
             "rejected" -> REJECTED
             "withdrawn" -> WITHDRAWN
+            "deleted", "removed" -> DELETED
+            "filled", "closed" -> FILLED
             else -> APPLIED
         }
     }
@@ -111,6 +117,8 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.HIRED -> "Hired"
     ApplicationStatus.COMPLETED -> "Completed"
     ApplicationStatus.REJECTED -> "Rejected"
+    ApplicationStatus.DELETED -> "Job Removed"
+    ApplicationStatus.FILLED -> "Position Filled"
 }
 
 fun ApplicationStatus.getStatusColor(): Color = when (this) {
@@ -119,6 +127,8 @@ fun ApplicationStatus.getStatusColor(): Color = when (this) {
     ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C)
     ApplicationStatus.REJECTED -> Color(0xFFF44336)
     ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)
+    ApplicationStatus.DELETED -> Color(0xFF9E9E9E)
+    ApplicationStatus.FILLED -> Color(0xFF2196F3)
 }
 
 enum class JobVacancyStatus { OPEN, FILLED, CLOSED, EXPIRED }

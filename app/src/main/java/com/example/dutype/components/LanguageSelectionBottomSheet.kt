@@ -288,24 +288,24 @@ private fun LanguageOptionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Start
             ) {
-                // Script character box - Black background
+                // Script character box - Soft background
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(WorkerColors.Primary), // Black background
+                        .clip(CircleShape)
+                        .background(WorkerColors.Primary.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = language.nativeScript,
                         style = AppTypography.pageTitle.copy(
-                            color = Color.White, // White text on black
+                            color = WorkerColors.Primary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                 }
                 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 
                 // Language name
                 Text(
@@ -313,26 +313,31 @@ private fun LanguageOptionCard(
                     style = AppTypography.cardTitle.copy(
                         color = WorkerColors.TextPrimary,
                         fontWeight = FontWeight.SemiBold
-                    )
+                    ),
+                    modifier = Modifier.weight(1f)
                 )
-            }
-            
-            // Selection checkmark - top right corner (Black)
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                            .offset(x = (-8).dp, y = 8.dp)
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(WorkerColors.Primary), // Black checkmark background
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                
+                // Selection indicator - trailing
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(WorkerColors.Primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .border(1.5.dp, WorkerColors.Border, CircleShape)
                     )
                 }
             }

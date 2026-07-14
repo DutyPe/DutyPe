@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
             startupOverlayCommitted = true
-        }, 4000L)
+        }, 2000L)
         
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
@@ -317,7 +317,9 @@ class MainActivity : ComponentActivity() {
                     }
 
                     LaunchedEffect(Unit) {
-                        delay(50L)
+                        // Wait up to 500ms for the dynamic features config to load the promo banner.
+                        // If it takes longer, we proceed without the banner to ensure a fast launch.
+                        delay(500L)
                         if (!launchExperienceResolved) {
                             showLaunchPromo = false
                             launchExperienceResolved = true

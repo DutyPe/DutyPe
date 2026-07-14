@@ -815,15 +815,14 @@ class ProfileCompletionService @Inject constructor(
             }
 
             if (isNewProfile) {
-                // Grant 7-day free trial on new employer registration
-                val trialExpiry = System.currentTimeMillis() + (7L * 24 * 60 * 60 * 1000)
+                // Grant NONE subscription on new employer registration
                 employerProfile["subscription"] = mapOf(
-                    "status" to "TRIAL",
-                    "planId" to "FREE_TRIAL",
-                    "startDate" to System.currentTimeMillis(),
-                    "expiryDate" to trialExpiry,
+                    "status" to "NONE",
+                    "planId" to "",
+                    "startDate" to 0L,
+                    "expiryDate" to 0L,
                     "credits" to mapOf(
-                        "normal" to 2,
+                        "normal" to 0,
                         "instant" to 0
                     ),
                     "trialJobsUsed" to 0,

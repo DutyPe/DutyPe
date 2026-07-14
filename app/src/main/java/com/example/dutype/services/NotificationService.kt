@@ -451,6 +451,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_title
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_title
             ApplicationStatus.WITHDRAWN -> R.string.notif_application_withdrawn_title
+            else -> R.string.notif_app_status_rejected_title
         }
         val msgRes = when (newStatus) {
             ApplicationStatus.APPLIED -> R.string.notif_app_status_applied_msg
@@ -458,6 +459,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.COMPLETED -> R.string.notif_app_status_hired_msg
             ApplicationStatus.REJECTED -> R.string.notif_app_status_rejected_msg
             ApplicationStatus.WITHDRAWN -> R.string.notif_application_withdrawn_msg
+            else -> R.string.notif_app_status_rejected_msg
         }
         val title = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, titleRes)
         val message = com.example.dutype.utils.LocaleHelper.getLocalizedString(context, msgRes)

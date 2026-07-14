@@ -11,7 +11,6 @@ import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.models.UserRole
 import com.example.dutype.state.ApplicationStateManager
-import com.example.dutype.ads.AdManager
 import com.example.dutype.models.ApplicationStats
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,7 +42,6 @@ class SmartJobApplicationViewModel @Inject constructor(
     val jobInteractionService: com.example.dutype.services.JobInteractionService,
     val reportingService: com.example.dutype.services.ReportingService,
     val jobCallFeedbackService: com.example.dutype.services.JobCallFeedbackService,
-    val adManager: AdManager,
     private val savedStateHandle: SavedStateHandle,
     private val profileSetupStateManager: com.example.dutype.state.ProfileSetupStateManager
 ) : ViewModel() {

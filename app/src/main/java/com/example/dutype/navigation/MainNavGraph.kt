@@ -624,8 +624,7 @@ fun MainNavGraph(
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
-                onStatusBarColorChange = onStatusBarColorChange,
-                adManager = firestoreJobViewModel.adManager
+                onStatusBarColorChange = onStatusBarColorChange
             )
         }
 
@@ -689,17 +688,8 @@ fun MainNavGraph(
         composable(Routes.EMPLOYER_COMPANY_DETAILS) {
             EmployerCompanyDetailsScreen(navController = navController)
         }
-        composable(
-            route = Routes.EMPLOYER_SUBSCRIPTION,
-            arguments = listOf(
-                androidx.navigation.navArgument("isExtension") {
-                    type = androidx.navigation.NavType.BoolType
-                    defaultValue = false
-                }
-            )
-        ) { backStackEntry ->
-            val isExtension = backStackEntry.arguments?.getBoolean("isExtension") ?: false
-            EmployerSubscriptionScreen(navController = navController, isExtension = isExtension)
+        composable(Routes.EMPLOYER_SUBSCRIPTION) {
+            EmployerSubscriptionScreen(navController = navController)
         }
         composable(Routes.WORKER_PROFILE_DETAILS) {
             val context = LocalContext.current
@@ -757,7 +747,10 @@ fun MainNavGraph(
                     // Navigate to detailed application view
                     navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                 },
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onSubscribeClick = {
+                    navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                }
             )
         }
         
@@ -772,7 +765,10 @@ fun MainNavGraph(
                 onApplicationClick = { application ->
                     navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                 },
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onSubscribeClick = {
+                    navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                }
             )
         }
         

@@ -15,6 +15,8 @@ data class EmployerSubscription(
     val trialJobsUsed: Int = 0,
     val trialInstantJobsUsed: Int = 0
 ) {
+    val isActive: Boolean get() = status == "ACTIVE" || status == "TRIAL"
+
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun fromMap(map: Map<String, Any?>?): EmployerSubscription {
@@ -73,3 +75,31 @@ data class PaymentRequest(
     val expiryTimestamp: Long? = null,
     val rejectionReason: String? = null
 )
+
+@Keep
+@Immutable
+data class Plan(
+    val id: String = "",
+    val name: String = "",
+    val price: Double = 0.0,
+    val jobs: Int = 0,
+    val instantUnlocks: Int = 0,
+    val description: String = "",
+    val tag: String = "",
+    val freeBonus: String = ""
+) {
+    companion object {
+        fun fromMap(id: String, map: Map<String, Any?>): Plan {
+            return Plan(
+                id = id,
+                name = (map["name"] as? String) ?: "",
+                price = (map["price"] as? Number)?.toDouble() ?: 0.0,
+                jobs = (map["jobs"] as? Number)?.toInt() ?: 0,
+                instantUnlocks = (map["instantUnlocks"] as? Number)?.toInt() ?: 0,
+                description = (map["description"] as? String) ?: "",
+                tag = (map["tag"] as? String) ?: "",
+                freeBonus = (map["freeBonus"] as? String) ?: ""
+            )
+        }
+    }
+}

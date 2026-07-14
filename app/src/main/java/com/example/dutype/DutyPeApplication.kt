@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.example.dutype.ads.AdManager
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
@@ -99,10 +98,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
     
     @Inject
     lateinit var anrHandler: com.example.dutype.performance.ANRHandler
-
-    @Inject
-    lateinit var adManager: AdManager
-
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
     
@@ -412,19 +407,6 @@ class DutyPeApplication : Application(), Configuration.Provider {
         initializeCrashlytics()
         initializeGoogleMapsServices()
         initializeMetadata()
-        initializeMobileAds()
-    }
-
-    /**
-     * Keep the ad facade initialized without shipping the AdMob SDK in the
-     * base release dex.
-     */
-    private fun initializeMobileAds() {
-        try {
-            adManager.initialize(this)
-        } catch (e: Exception) {
-            Timber.w(e, "📺 MobileAds init skipped")
-        }
     }
     
     /**

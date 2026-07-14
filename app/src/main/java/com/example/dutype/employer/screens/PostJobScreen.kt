@@ -54,7 +54,11 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -127,6 +131,7 @@ import com.example.dutype.utils.ValidationResult
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
+import com.example.dutype.viewmodels.SubscriptionViewModel
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -163,6 +168,20 @@ fun PostJobScreen(
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
+    val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
+    var showNoCreditsDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(employerSubscription) {
+        if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
+            android.widget.Toast.makeText(context, "Please purchase a subscription to post jobs", android.widget.Toast.LENGTH_LONG).show()
+            val navToUse = rootNavController ?: navController
+            navToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION) {
+                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
     
     // Saved work locations quick-pick (process-scoped, in-memory)
     val savedWorkLocationsStore = jobViewModel.savedWorkLocationsStore
@@ -933,9 +952,16 @@ fun PostJobScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
             showLoginBottomSheet = true
-        } else {
-            submitJob(0.0, 0.0)
+            return
         }
+        
+        // Direct credit check before submission
+        if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
+            showNoCreditsDialog = true
+            return
+        }
+
+        submitJob(0.0, 0.0)
     }
     
     // ANTI-FRAUD: Location Consistency Warning Dialog
@@ -1151,6 +1177,81 @@ fun PostJobScreen(
                 }
             }
         )
+    }
+
+    if (showNoCreditsDialog) {
+        ModalBottomSheet(
+            onDismissRequest = { 
+                showNoCreditsDialog = false 
+                navController.popBackStack()
+            },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(EmployerColors.Primary.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = EmployerColors.Primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                
+                Text(
+                    text = "Unlock More Hires!",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = EmployerColors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "You've used all your job posts. Get a subscription to post more jobs and find the best candidates instantly.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = EmployerColors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = {
+                        showNoCreditsDialog = false
+                        val navToUse = rootNavController ?: navController
+                        navToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
+                    shape = RoundedCornerShape(27.dp)
+                ) {
+                    Text("View Plans", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+                
+                TextButton(
+                    onClick = { 
+                        showNoCreditsDialog = false
+                        navController.popBackStack()
+                    }
+                ) {
+                    Text("Maybe Later", color = EmployerColors.TextSecondary)
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -1529,6 +1630,14 @@ fun PostJobScreen(
                         onPosted = { requestId ->
                             navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
                                 launchSingleTop = true
+                            }
+                        },
+                        onInsufficientCredits = {
+                            if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
+                                showNoCreditsDialog = true
+                                true
+                            } else {
+                                false
                             }
                         },
                         contentPadding = PaddingValues(
