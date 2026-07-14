@@ -602,25 +602,18 @@ private fun PlanPill(text: String, background: Color, foreground: Color) {
 private fun StepLabel(step: Int, text: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .background(Brand, RoundedCornerShape(99.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = step.toString(),
-                color = Color.White,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Text(
+            text = "$step.",
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = Brand
+        )
         Text(
             text = text,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             color = Ink700
         )
     }
