@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 784
-        versionName = "3.0.3"
+        versionCode = 785
+        versionName = "3.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -348,6 +348,7 @@ tasks.configureEach {
 dependencies {
 
     implementation(libs.androidx.core.ktx)
+    implementation("com.google.android.play:review-ktx:2.0.1")
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.appcompat.resources)
     implementation(libs.androidx.lifecycle.runtime.ktx)

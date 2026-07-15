@@ -70,7 +70,20 @@ class InAppReviewTriggerService @Inject constructor(
             }
         }
     }
-    
+
+    fun onWorkerDirectContact(activity: Activity) {
+        scope.launch {
+            try {
+                Timber.i("IN-APP REVIEW: onWorkerDirectContact() called")
+                reviewManager.trackPositiveAction()
+                reviewManager.requestInAppReview(activity)
+                Timber.d("Worker contacted employer directly - review triggered")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after direct contact")
+            }
+        }
+    }
+
     /**
      * Trigger after worker completes profile
      */

@@ -172,16 +172,7 @@ fun PostJobScreen(
     val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
     var showNoCreditsDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(employerSubscription) {
-        if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
-            android.widget.Toast.makeText(context, "Please purchase a subscription to post jobs", android.widget.Toast.LENGTH_LONG).show()
-            val navToUse = rootNavController ?: navController
-            navToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION) {
-                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                launchSingleTop = true
-            }
-        }
-    }
+    // Credit check is now handled at submission time.
     
     // Saved work locations quick-pick (process-scoped, in-memory)
     val savedWorkLocationsStore = jobViewModel.savedWorkLocationsStore

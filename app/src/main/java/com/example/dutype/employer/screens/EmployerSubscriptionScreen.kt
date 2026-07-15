@@ -441,18 +441,36 @@ fun EmployerSubscriptionScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.PhotoCamera,
-                                contentDescription = "Camera",
-                                tint = Ink500
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (selectedImageUri != null) "Screenshot attached" else "Upload screenshot",
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 13.sp,
-                                color = Ink700
-                            )
+                            if (selectedImageUri != null) {
+                                AsyncImage(
+                                    model = selectedImageUri,
+                                    contentDescription = "Selected Screenshot",
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Screenshot attached",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = Ink700
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = "Camera",
+                                    tint = Ink500
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Upload screenshot",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    color = Ink700
+                                )
+                            }
                         }
                         if (selectedImageUri != null) {
                             IconButton(
@@ -467,6 +485,7 @@ fun EmployerSubscriptionScreen(
                             }
                         }
                     }
+                }
 
                 // Submit Button
                 val isSubmitEnabled = utrNumber.trim().length == 12 && !isUploadingScreenshot && (submitState !is SubmitState.Loading)
@@ -551,7 +570,7 @@ fun EmployerSubscriptionScreen(
                         fontFamily = MeeshoFontFamily
                     )
                     Text(
-                        text = "Your UPI reference has been submitted. Admin will verify it with the bank and activate your plan within 2-4 hours.",
+                        text = "Your UPI reference has been submitted. Admin will verify it with the bank and activate your plan within 5-10 mins.",
                         style = AppTypography.bodySmall.copy(color = Ink500),
                         textAlign = TextAlign.Center
                     )
@@ -564,6 +583,25 @@ fun EmployerSubscriptionScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Brand)
                     ) {
                         Text("Go to Dashboard", fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            val phoneNumber = "919121706236"
+                            val message = "Hi DutyPe Team, please verify my purchased subscription plan. UTR: $utrNumber"
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${android.net.Uri.encode(message)}")
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Success),
+                        border = BorderStroke(1.dp, Success)
+                    ) {
+                        Text("Contact Admin on WhatsApp", fontWeight = FontWeight.Bold)
                     }
                 }
             }

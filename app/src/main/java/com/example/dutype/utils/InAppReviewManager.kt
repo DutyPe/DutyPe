@@ -57,10 +57,27 @@ class InAppReviewManager @Inject constructor(
             return
         }
 
-        context.reviewDataStore.edit { prefs ->
-            prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+        try {
+            val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
+            val requestInfoTask = manager.requestReviewFlow()
+            requestInfoTask.addOnCompleteListener { request ->
+                if (request.isSuccessful) {
+                    val reviewInfo = request.result
+                    val flow = manager.launchReviewFlow(activity, reviewInfo)
+                    flow.addOnCompleteListener { _ ->
+                        Timber.d("In-app review flow completed")
+                    }
+                } else {
+                    Timber.w(request.exception, "Failed to request review flow")
+                }
+            }
+            context.reviewDataStore.edit { prefs ->
+                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+                prefs[KEY_HAS_RATED] = true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error launching in-app review")
         }
-        Timber.i("Native Play in-app review disabled to keep release dex below 7 MB")
     }
 
     fun openPlayStore(context: Context) {

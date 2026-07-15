@@ -1,6 +1,7 @@
 package com.example.dutype.worker.screens
 
 import android.app.Activity
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
@@ -152,6 +153,7 @@ fun JobDescriptionScreen(
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = hiltViewModel()
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
+    val reviewTriggerService = rememberInAppReviewTriggerService()
 
     val locationPreferences = remember { com.example.dutype.location.LocationPreferences(context) }
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
@@ -220,6 +222,9 @@ fun JobDescriptionScreen(
                             data = android.net.Uri.parse("tel:$phone")
                         }
                         try {
+                            if (context is android.app.Activity) {
+                                reviewTriggerService.onWorkerDirectContact(context)
+                            }
                             callLauncher.launch(intent)
                         } catch (e: Exception) {
                             pendingCallFeedbackJob = null
