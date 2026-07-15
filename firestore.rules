@@ -253,7 +253,7 @@ service cloud.firestore {
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -271,14 +271,15 @@ service cloud.firestore {
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
         (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
-        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list);
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
@@ -296,7 +297,8 @@ service cloud.firestore {
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
         (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
-        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list);
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
 
       allow delete: if isSelf(userId);
     }
@@ -678,6 +680,13 @@ service cloud.firestore {
         ]) &&
         requestId == request.resource.data.requestId &&
         request.resource.data.employerId == request.auth.uid &&
+        (
+          get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.get('freeUrgentJobsPosted', 0) < 3 ||
+          (
+            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.status == 'ACTIVE' &&
+            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.normalCredits > 0
+          )
+        ) &&
         request.resource.data.title is string &&
         request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&

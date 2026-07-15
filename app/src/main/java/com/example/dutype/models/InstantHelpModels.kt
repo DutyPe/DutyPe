@@ -37,7 +37,11 @@ data class InstantRequest(
     val needType: String = "urgent_now",
     val status: String = "open",
     val urgency: String = "urgent",
+    val urgencyType: String = "right_now",
     val budgetText: String = "",
+    val perPersonPayment: Double = 0.0,
+    val totalPayment: Double = 0.0,
+    val durationText: String = "",
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val geohash: String = "",
@@ -98,14 +102,19 @@ data class InstantResponse(
 )
 
 data class QuickUrgentNeedInput(
-    val title: String,
-    val description: String,
-    val category: String,
+    val title: String = "",
+    val description: String = "",
+    val category: String = "Other",
     val workersNeeded: Int = 1,
-    val needType: String,
+    val needType: String = "urgent_now",
+    val urgencyType: String = "right_now",
+    val budgetText: String = "",
+    val perPersonPayment: Double = 0.0,
+    val totalPayment: Double = 0.0,
+    val durationText: String = "",
+    val addressText: String = "",
     val contactNumber: String = "",
-    val budgetText: String,
-    val radiusKm: Double,
+    val radiusKm: Double = 10.0,
     val scheduledAtMillis: Long = 0L,
-    val scheduleLabel: String = ""
+    val scheduledAtLabel: String = ""
 )

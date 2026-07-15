@@ -1047,8 +1047,46 @@
     <string name="profile_not_provided">Not provided</string>
 
     <!-- Urgent hiring and localized active flows. -->
-    <string name="post_urgent_need_title">Post urgent need</string>
-    <string name="post_urgent_need_subtitle">For same-day local help</string>
+    <string name="post_urgent_need_title">Urgent Work</string>
+    <string name="post_urgent_need_subtitle">⚡ Need a Worker Now? Hire in Minutes</string>
+    
+    <string-array name="urgent_work_categories">
+        <item>House Cleaning</item>
+        <item>Deep Cleaning</item>
+        <item>Cook for Today</item>
+        <item>Babysitter</item>
+        <item>Elder Care Helper</item>
+        <item>Gardening</item>
+        <item>House Shifting Helper</item>
+        <item>AC Helper</item>
+        <item>Electrician Helper</item>
+        <item>Plumber Helper</item>
+        <item>Painter Helper</item>
+        <item>Carpenter Helper</item>
+        <item>Catering Boys</item>
+        <item>Serving Staff</item>
+        <item>Decoration Helper</item>
+        <item>Chair/Table Arrangement</item>
+        <item>Function Cleaning</item>
+        <item>Wedding Helper</item>
+        <item>Shop Helper</item>
+        <item>Billing Assistant</item>
+        <item>Packing Helper</item>
+        <item>Warehouse Helper</item>
+        <item>Driver</item>
+        <item>Delivery Partner</item>
+        <item>Loader</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="urgent_work_durations">
+        <item>1 Hour</item>
+        <item>2 Hours</item>
+        <item>Half Day</item>
+        <item>Full Day</item>
+        <item>Multiple Days</item>
+    </string-array>
+
     <string name="urgent_jobs_expire_title">Urgent jobs expire automatically</string>
     <string name="urgent_jobs_expire_body">Now and today posts stay open for 24 hours. Tomorrow posts stay open for 48 hours.</string>
     <string name="urgent_work_details">Work details</string>

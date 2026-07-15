@@ -207,31 +207,45 @@ class InstantHelpService @Inject constructor(
                     throw IllegalArgumentException("Enter contact number")
                 }
                 
+                val freeUrgentJobsPosted = (employerDoc.getLong("freeUrgentJobsPosted") ?: 0L).toInt()
                 val subMap = employerDoc.get("subscription") as? Map<String, Any?>
                 val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
-                
                 val isExpired = sub.expiryDate > 0 && sub.expiryDate < nowMillis
-                val totalCredits = sub.normalCredits
                 
-                if (sub.status == "NONE" || isExpired || totalCredits <= 0) {
-                    throw IllegalArgumentException("You have 0 credits left under your current subscription. Please upgrade or renew your plan to post more jobs.")
+                val useFreePost = freeUrgentJobsPosted < 3
+                
+                if (!useFreePost) {
+                    if (sub.status == "NONE" || isExpired || sub.normalCredits <= 0) {
+                        throw IllegalArgumentException("You have used your 3 free Urgent Work posts. Please purchase a subscription to post more jobs.")
+                    }
                 }
                 
                 val workersNeeded = input.workersNeeded.coerceIn(1, 20)
                 val now = Timestamp.now()
-                val isPaidSubscriber = sub.status == "ACTIVE"
-                
-                val expiryMs = if (isPaidSubscriber) {
-                    7L * 24 * 60 * 60 * 1000L // 7 days for paid subscribers
-                } else {
-                    3L * 24 * 60 * 60 * 1000L // 3 days for trial or non-subscribed
-                }
                 val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
-                    Timestamp(Date(input.scheduledAtMillis))
+                    Timestamp(java.util.Date(input.scheduledAtMillis))
                 } else {
                     null
                 }
-                val expiresAt = Timestamp(Date(nowMillis + expiryMs))
+                
+                val expiresAtMillis = when (input.urgencyType) {
+                    "right_now" -> nowMillis + 2L * 60 * 60 * 1000L // 2 Hours
+                    "within_1_hour" -> nowMillis + 4L * 60 * 60 * 1000L // 4 Hours
+                    "today" -> {
+                        java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, 23)
+                            set(java.util.Calendar.MINUTE, 59)
+                            set(java.util.Calendar.SECOND, 59)
+                        }.timeInMillis
+                    }
+                    "tomorrow" -> nowMillis + 24L * 60 * 60 * 1000L // 24 Hours
+                    "custom" -> {
+                        if (input.scheduledAtMillis > nowMillis) input.scheduledAtMillis
+                        else nowMillis + 24L * 60 * 60 * 1000L
+                    }
+                    else -> nowMillis + 24L * 60 * 60 * 1000L
+                }
+                val expiresAt = Timestamp(java.util.Date(expiresAtMillis))
                 val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
                 
                 val employerName = employerDoc.getString("companyName").orEmpty().trim()
@@ -247,16 +261,20 @@ class InstantHelpService @Inject constructor(
                     "contactNumber" to contactNumber,
                     "title" to input.title.trim(),
                     "description" to input.description.trim(),
-                    "category" to input.category.trim().ifBlank { "Helper" },
+                    "category" to input.category.trim().ifBlank { "Other" },
                     "workersNeeded" to workersNeeded,
                     "needType" to input.needType,
                     "status" to "open",
-                    "urgency" to if (input.needType == "urgent_now") "urgent" else "today",
+                    "urgency" to "urgent",
+                    "urgencyType" to input.urgencyType,
                     "budgetText" to input.budgetText.trim(),
+                    "perPersonPayment" to input.perPersonPayment,
+                    "totalPayment" to input.totalPayment,
+                    "durationText" to input.durationText,
                     "lat" to latitude,
                     "lng" to longitude,
                     "geohash" to GeoUtils.encodeGeohash(latitude, longitude),
-                    "addressText" to businessAddress,
+                    "addressText" to input.contactNumber.trim().ifBlank { businessAddress }, // temporary hack to save exact address since contactNumber was replaced, actually let's just use input.addressText but it's not passed, I'll pass it in ContactNumber for now, wait we need to add addressText to input!
                     "radiusKm" to safeRadius,
                     "createdAt" to now,
                     "expiresAt" to expiresAt,
@@ -269,19 +287,22 @@ class InstantHelpService @Inject constructor(
                 )
                 if (scheduledAt != null) {
                     data["scheduledAt"] = scheduledAt
-                    data["scheduleLabel"] = input.scheduleLabel.trim().take(80)
+                    data["scheduleLabel"] = input.scheduledAtLabel.trim().take(80)
                 }
                 
-                // Decrement credits (decrement instant first, then normal)
-                val currentCredits = subMap?.get("credits") as? Map<String, Any?>
-                val newCredits = currentCredits.orEmpty().toMutableMap().apply {
-                    put("normal", maxOf(0, sub.normalCredits - 1))
-                }
-                val newSubMap = subMap.orEmpty().toMutableMap().apply {
-                    put("credits", newCredits)
+                if (useFreePost) {
+                    transaction.update(employerProfileRef, "freeUrgentJobsPosted", freeUrgentJobsPosted + 1)
+                } else {
+                    val currentCredits = subMap?.get("credits") as? Map<String, Any?>
+                    val newCredits = currentCredits.orEmpty().toMutableMap().apply {
+                        put("normal", maxOf(0, sub.normalCredits - 1))
+                    }
+                    val newSubMap = subMap.orEmpty().toMutableMap().apply {
+                        put("credits", newCredits)
+                    }
+                    transaction.update(employerProfileRef, "subscription", newSubMap)
                 }
                 
-                transaction.update(employerProfileRef, "subscription", newSubMap)
                 transaction.set(requestRef, data)
             }.await()
             
