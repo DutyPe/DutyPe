@@ -52,8 +52,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 790
-        versionName = "3.1"
+        versionCode = 791
+        versionName = "3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -135,10 +135,7 @@ android {
             // proguardFiles. R8 itself reads the mapping at obfuscation time.
             val previousMappingFile = file("mapping/release-mapping.txt")
             if (previousMappingFile.exists()) {
-                val applyMappingRules = layout.buildDirectory
-                    .file("intermediates/dutype/applyMapping.pro")
-                    .get()
-                    .asFile
+                val applyMappingRules = file(".gradle/applyMapping.pro")
                 applyMappingRules.parentFile.mkdirs()
                 applyMappingRules.writeText(
                     "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
@@ -495,4 +492,12 @@ dependencies {
 // or run the build from a CI runner with unrestricted DNS.
 configurations.all {
     exclude(group = "com.google.firebase", module = "firebase-iid")
+    resolutionStrategy {
+        eachDependency {
+            if (requested.group == "androidx.work") {
+                useVersion("2.9.0")
+                because("Force consistent WorkManager version to prevent AbstractMethodError")
+            }
+        }
+    }
 }

@@ -157,14 +157,24 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn java.beans.**
 
-# -----------------------------------------------------------------------------
-# P2: Reflection & Native keep rules for SQLCipher, Play Billing, WorkManager
+# Reflection & Native keep rules for SQLCipher, Play Billing, WorkManager
 # Note: Firebase ships its own consumer rules. Do not use blanket keep on firebase.**
 # -----------------------------------------------------------------------------
 -keep class net.zetetic.database.sqlcipher.** { *; }
 -keep class net.zetetic.database.** { *; }
 -keep class com.android.billingclient.api.** { *; }
+
+# Keep WorkManager internal models, interfaces, services, and generated Room implementations
 -keep class androidx.work.** { *; }
+-keep interface androidx.work.** { *; }
+-keep class androidx.work.impl.model.** { *; }
+-keep interface androidx.work.impl.model.** { *; }
+-keep class * extends androidx.work.impl.model.** { *; }
+-keep class * implements androidx.work.impl.model.** { *; }
+-keep class androidx.work.impl.background.systemjob.SystemJobService { *; }
+-keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
+-keep class androidx.work.impl.foreground.SystemForegroundService { *; }
+-dontwarn androidx.work.impl.**
 
 # Exclude legacy firebase-iid registrars from component discovery
 -dontwarn com.google.firebase.iid.**
