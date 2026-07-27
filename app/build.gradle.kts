@@ -1,6 +1,7 @@
 import org.gradle.kotlin.dsl.implementation
 import com.dutype.build.CheckReleaseSizeBudgetTask
 import com.dutype.build.ValidateReleaseMappingBaselineTask
+import com.dutype.build.VerifyNative16KbPageSizeTask
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -52,13 +53,12 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 791
-        versionName = "3.2"
+        versionCode = 804
+        versionName = "3.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Release-size guardrail: DutyPe ships English + Telugu only. Filtering
-        // dependency locale resources here keeps resources.arsc and language
         // split churn small for tiny Play hotfixes.
         resourceConfigurations += listOf("en", "te")
         
@@ -68,8 +68,8 @@ android {
         // 16 KB Page Size Support for Android 15+ (Required by Google Play from Nov 1, 2025)
         // Ensures native libraries work on devices with 16KB page sizes
         ndk {
-            // This flag is not needed for pure Kotlin/Java apps
-            // The issue is in third-party native libraries (CameraX, etc.)
+            abiFilters.clear()
+            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
         }
     }
 
@@ -124,53 +124,6 @@ android {
             // that overwrites the previous-production baseline before the AAB
             // is accepted, which is exactly how small hotfixes turn into large
             // Play update patches.
-            //
-            // NOTE: this file is tracked via Git LFS (see .gitattributes). Run
-            // `git lfs install` once on a fresh clone before building.
-            //
-            // Safe to enable from the very first build — when the mapping
-            // file does not exist yet we simply skip applyMapping. We do this
-            // by generating a tiny proguard fragment in build/ that contains
-            // `-applymapping <abs path>` and feeding it to R8 via
-            // proguardFiles. R8 itself reads the mapping at obfuscation time.
-            val previousMappingFile = file("mapping/release-mapping.txt")
-            if (previousMappingFile.exists()) {
-                val applyMappingRules = file(".gradle/applyMapping.pro")
-                applyMappingRules.parentFile.mkdirs()
-                applyMappingRules.writeText(
-                    "-applymapping \"${previousMappingFile.absolutePath.replace("\\", "/")}\"\n"
-                )
-                proguardFiles(applyMappingRules)
-
-                // Loud reminder: stale mappings are the #1 reason Play update
-                // sizes balloon. If the on-disk mapping is older than 14 days,
-                // there's a strong chance the developer forgot to commit the
-                // mapping after the previous release upload — every release
-                // since has been diffing against the same frozen names while
-                // R8 keeps assigning fresh names to new code.
-                val ageDays = ((System.currentTimeMillis() - previousMappingFile.lastModified()) /
-                    (1000L * 60 * 60 * 24))
-                if (ageDays > 14) {
-                    logger.warn(
-                        "[dutype] WARNING: app/mapping/release-mapping.txt is " +
-                            "$ageDays days old. After every Play upload, copy " +
-                            "app/build/outputs/mapping/release/mapping.txt over " +
-                            "app/mapping/release-mapping.txt and commit it, or " +
-                            "Play update sizes will keep growing release-over-release."
-                    )
-                }
-            } else {
-                logger.warn(
-                    "[dutype] WARNING: no app/mapping/release-mapping.txt found. " +
-                        "First release will obfuscate from scratch and ship a large " +
-                        "Play update. Commit the resulting mapping after this build."
-                )
-            }
-
-            // Enable debug symbols for crash analysis
-            ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
-            }
         }
         
         debug {
@@ -198,7 +151,6 @@ android {
         
         // JNI libs configuration for 16KB page size support
         jniLibs {
-            // Use uncompressed native libraries (required for 16KB page size)
             useLegacyPackaging = false
         }
 
@@ -332,6 +284,12 @@ val checkReleaseSizeBudget by tasks.registering(CheckReleaseSizeBudgetTask::clas
     maxResourcesBytes.set(releaseBudgetBytes("com.dutype.maxReleaseResourcesMb", 1.7))
 }
 
+val verifyNative16KbPageSize by tasks.registering(VerifyNative16KbPageSizeTask::class) {
+    group = "verification"
+    description = "Fails release builds when bundled native libraries are not 16 KB page-size compatible."
+    aabFile.set(layout.buildDirectory.file("outputs/bundle/release/app-release.aab"))
+}
+
 tasks.configureEach {
     if (name == "preReleaseBuild") {
         dependsOn(validateReleaseMappingBaseline)
@@ -339,6 +297,7 @@ tasks.configureEach {
 
     if (name == "bundleRelease") {
         finalizedBy(checkReleaseSizeBudget)
+        finalizedBy(verifyNative16KbPageSize)
     }
 }
 
@@ -462,7 +421,7 @@ dependencies {
     // Play for Android 15+ targets starting Nov 1, 2025. The legacy
     // `net.zetetic:android-database-sqlcipher:4.5.4` artifact is NOT 16 KB
     // compatible.
-    implementation("net.zetetic:sqlcipher-android:4.14.0")
+    implementation("net.zetetic:sqlcipher-android:4.6.1")
     implementation("androidx.sqlite:sqlite:2.6.2")
     // EncryptedSharedPreferences for securely storing the DB passphrase
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

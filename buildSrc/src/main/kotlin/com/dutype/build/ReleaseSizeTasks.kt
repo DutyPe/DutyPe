@@ -33,6 +33,11 @@ abstract class ValidateReleaseMappingBaselineTask : DefaultTask() {
 
     @TaskAction
     fun validate() {
+        if (allowMissingMapping.get()) {
+            logger.warn("[dutype] Release mapping validation skipped by com.dutype.allowMissingReleaseMapping=true")
+            return
+        }
+
         val mapping = mappingFile.asFile.get()
 
         if (!mapping.exists()) {
@@ -164,7 +169,116 @@ abstract class CheckReleaseSizeBudgetTask : DefaultTask() {
     }
 }
 
+abstract class VerifyNative16KbPageSizeTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val aabFile: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val aab = aabFile.asFile.get()
+        if (!aab.exists()) {
+            throw GradleException("Release AAB not found at ${aab.path}. Run :app:bundleRelease first.")
+        }
+
+        ZipFile(aab).use { zipFile ->
+            val nativeEntries = zipFile.entries().asSequence()
+                .filter { it.name.startsWith("base/lib/") && it.name.endsWith(".so") }
+                .toList()
+
+            if (nativeEntries.isEmpty()) {
+                logger.lifecycle("[dutype] 16 KB native library check: no native libraries in release AAB")
+                return
+            }
+
+            val failures = mutableListOf<String>()
+            nativeEntries.forEach { entry ->
+                val loadAlignments = zipFile.getInputStream(entry).use { input ->
+                    readElfLoadAlignments(input.readBytes())
+                }
+                val undersized = loadAlignments.filter { it < 16_384L }
+                if (undersized.isNotEmpty()) {
+                    failures += "${entry.name} has LOAD alignment(s) ${undersized.toHexList()}; expected at least 0x4000"
+                }
+            }
+
+            if (failures.isNotEmpty()) {
+                throw GradleException(
+                    "Release native library 16 KB page-size check failed:\n" +
+                        failures.joinToString(separator = "\n") { "- $it" } +
+                        "\nUpdate or rebuild the offending native dependency before uploading to Play."
+                )
+            }
+
+            logger.lifecycle(
+                "[dutype] 16 KB native library check OK: " +
+                    nativeEntries.joinToString { it.name.removePrefix("base/lib/") }
+            )
+        }
+    }
+}
+
 private fun Long.toMiBString(): String = String.format(Locale.US, "%.2f MB", this / (1024.0 * 1024.0))
+
+private fun List<Long>.toHexList(): String = joinToString { "0x${it.toString(16)}" }
+
+private fun readElfLoadAlignments(bytes: ByteArray): List<Long> {
+    if (
+        bytes.size < 64 ||
+        bytes[0] != 0x7f.toByte() ||
+        bytes[1] != 'E'.code.toByte() ||
+        bytes[2] != 'L'.code.toByte() ||
+        bytes[3] != 'F'.code.toByte()
+    ) {
+        throw GradleException("Native library is not a valid ELF file")
+    }
+
+    val elfClass = bytes[4].toInt()
+    val isLittleEndian = bytes[5].toInt() == 1
+    fun u16(offset: Int): Int {
+        val b0 = bytes[offset].toInt() and 0xff
+        val b1 = bytes[offset + 1].toInt() and 0xff
+        return if (isLittleEndian) b0 or (b1 shl 8) else (b0 shl 8) or b1
+    }
+    fun u32(offset: Int): Long {
+        val values = (0 until 4).map { bytes[offset + it].toLong() and 0xffL }
+        return if (isLittleEndian) {
+            values[0] or (values[1] shl 8) or (values[2] shl 16) or (values[3] shl 24)
+        } else {
+            (values[0] shl 24) or (values[1] shl 16) or (values[2] shl 8) or values[3]
+        }
+    }
+    fun u64(offset: Int): Long {
+        val values = (0 until 8).map { bytes[offset + it].toLong() and 0xffL }
+        return if (isLittleEndian) {
+            values.foldIndexed(0L) { index, acc, value -> acc or (value shl (8 * index)) }
+        } else {
+            values.fold(0L) { acc, value -> (acc shl 8) or value }
+        }
+    }
+
+    return when (elfClass) {
+        1 -> {
+            val programHeaderOffset = u32(28).toInt()
+            val programHeaderSize = u16(42)
+            val programHeaderCount = u16(44)
+            (0 until programHeaderCount).mapNotNull { index ->
+                val offset = programHeaderOffset + index * programHeaderSize
+                if (u32(offset) == 1L) u32(offset + 28) else null
+            }
+        }
+        2 -> {
+            val programHeaderOffset = u64(32).toInt()
+            val programHeaderSize = u16(54)
+            val programHeaderCount = u16(56)
+            (0 until programHeaderCount).mapNotNull { index ->
+                val offset = programHeaderOffset + index * programHeaderSize
+                if (u32(offset) == 1L) u64(offset + 48) else null
+            }
+        }
+        else -> throw GradleException("Unsupported ELF class: $elfClass")
+    }
+}
 
 private fun java.io.File.sha256(): String {
     val digest = MessageDigest.getInstance("SHA-256")

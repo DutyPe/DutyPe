@@ -1,21 +1,8 @@
 # =============================================================================
 # DutyPe R8 / ProGuard rules
 # =============================================================================
-# Philosophy: trust the consumer-rules.pro that each library ships. Adding
-# `-keep class library.** { *; }` here on top of that is the #1 reason apps
-# ship multi-MB dex bloat — it tells R8 to retain every class/method even if
-# unreachable, which on libraries like material-icons-extended (~30k classes)
-# costs ~15 MB of dex per release.
-#
-# Only add rules here when the app uses reflection, JNI, or serialization in
-# a way that R8 cannot statically prove is reachable.
-# =============================================================================
 
-# -----------------------------------------------------------------------------
-# General Android / Kotlin
-# -----------------------------------------------------------------------------
 -keepattributes SourceFile,LineNumberTable
--renamesourcefileattribute SourceFile
 -keepattributes *Annotation*
 -keepattributes InnerClasses,EnclosingMethod,Signature
 -keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,RuntimeVisibleTypeAnnotations,AnnotationDefault
@@ -25,46 +12,41 @@
     native <methods>;
 }
 
-# Kotlin metadata (needed for reflection on Kotlin types)
+# Kotlin metadata
 -keep class kotlin.Metadata { *; }
 
-# Application class — referenced from the manifest, R8 normally keeps this,
-# but the explicit rule documents the dependency.
--keep class com.dutype.app.DutyPeApplication
--keep class com.example.dutype.DutyPeApplication
+# Application & Activity classes
+-keep class com.dutype.app.DutyPeApplication { *; }
+-keep class com.example.dutype.DutyPeApplication { *; }
+-keep class com.example.dutype.MainActivity { *; }
+-keep class * extends androidx.activity.ComponentActivity { *; }
+-keep class * extends androidx.fragment.app.Fragment { *; }
 
-# -----------------------------------------------------------------------------
-# App data classes that Firestore + Gson + kotlinx.serialization deserialize
-# into. R8 cannot see field accesses through reflection so we must keep these.
-# -----------------------------------------------------------------------------
+# App models
 -keep class com.example.dutype.models.** { *; }
 -keepclassmembers class com.example.dutype.models.** { *; }
-
-# kotlinx.serialization @Serializable types and their generated $$serializer
-# companions (used by Nav 3 typed routes in navigation/destinations/).
 -keep,includedescriptorclasses class com.example.dutype.**$$serializer { *; }
--keepclassmembers class com.example.dutype.** {
-    *** Companion;
-}
--keepclasseswithmembers class com.example.dutype.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
 
 # -----------------------------------------------------------------------------
-# Hilt / Dagger
-# Hilt generates code that R8 must not strip or rename incorrectly. The
-# library ships consumer rules but a few app-side rules are still required
-# for assisted injection + ViewModel discovery.
+# AndroidX Lifecycle, ViewModel, & Hilt
 # -----------------------------------------------------------------------------
--keep,allowobfuscation,allowshrinking class dagger.hilt.android.internal.** { *; }
--keep class * extends androidx.lifecycle.ViewModel
--keepclassmembers class * extends androidx.lifecycle.ViewModel {
+-keep class * extends androidx.lifecycle.ViewModel {
     <init>(...);
 }
 -keep @dagger.hilt.android.lifecycle.HiltViewModel class *
 -keep class * implements dagger.assisted.AssistedFactory
 
-# Standard reflection-driven injection points
+-keep class androidx.lifecycle.** { *; }
+-keep interface androidx.lifecycle.** { *; }
+-keepclassmembers class androidx.lifecycle.** { *; }
+-keepclassmembers interface androidx.lifecycle.** { *; }
+-keep class * implements androidx.lifecycle.HasDefaultViewModelProviderFactory { *; }
+-keepclassmembers class * implements androidx.lifecycle.HasDefaultViewModelProviderFactory { *; }
+
+-keep class dagger.hilt.** { *; }
+-keep interface dagger.hilt.** { *; }
+-keepclassmembers class dagger.hilt.** { *; }
+-keepclassmembers interface dagger.hilt.** { *; }
 -keepclassmembers class * {
     @javax.inject.Inject <init>(...);
     @javax.inject.Inject <fields>;
@@ -73,15 +55,31 @@
 }
 
 # -----------------------------------------------------------------------------
-# Room — DAOs and Entities are accessed reflectively at first DB open.
+# Room & SQLCipher
 # -----------------------------------------------------------------------------
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
--keep @androidx.room.Dao class *
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class * extends androidx.room.RoomOpenHelper$Delegate { *; }
+-keepclassmembers class * extends androidx.room.RoomOpenHelper$Delegate { *; }
+-keep class androidx.room.RoomOpenHelper { *; }
+-keep class androidx.room.RoomOpenHelper$Delegate { *; }
+-keepclassmembers class androidx.room.RoomOpenHelper$Delegate { *; }
+-keep class androidx.room.** { *; }
+-keepclassmembers class androidx.room.** { *; }
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao class * { *; }
+-keepclassmembers @androidx.room.Dao class * { *; }
+
+-keep class androidx.sqlite.db.** { *; }
+-keepclassmembers class androidx.sqlite.db.** { *; }
+
+-keep class net.zetetic.database.** { *; }
+-keep class net.zetetic.database.sqlcipher.** { *; }
+-keep class net.zetetic.security.** { *; }
+-keepclassmembers class net.zetetic.database.** { *; }
+-keepclassmembers class net.zetetic.database.sqlcipher.** { *; }
 
 # -----------------------------------------------------------------------------
-# Parcelable + Serializable + Enum boilerplate (Android requires CREATOR
-# fields to be discoverable via reflection at runtime).
+# Parcelable + Serializable + Enum
 # -----------------------------------------------------------------------------
 -keep class * implements android.os.Parcelable {
     public static final android.os.Parcelable$Creator *;
@@ -105,9 +103,6 @@
 -allowaccessmodification
 -repackageclasses ''
 
-# Production v63 crash guard: Android framework dispatches these callbacks via
-# the OnAttachStateChangeListener interface. R8 must not remove or merge the
-# concrete implementations from AppCompat/Material/Compose listener classes.
 -keep class * implements android.view.View$OnAttachStateChangeListener {
     public void onViewAttachedToWindow(android.view.View);
     public void onViewDetachedFromWindow(android.view.View);
@@ -117,21 +112,13 @@
     public void onViewDetachedFromWindow(android.view.View);
 }
 
-# Production v65 crash guard: Compose draw callbacks are interface-dispatched
-# through DrawModifierNode. Reused release mappings from older Compose internals
-# must not rename the interface method without the concrete implementation.
 -keepclassmembers interface androidx.compose.ui.node.DrawModifierNode {
     public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
 }
 -keepclassmembers class * implements androidx.compose.ui.node.DrawModifierNode {
     public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
 }
--keepclassmembers class * {
-    public void draw(androidx.compose.ui.graphics.drawscope.ContentDrawScope);
-}
 
-# Strip verbose logging in release. R8 will inline + dead-code-eliminate the
-# call sites once it knows these methods have no side effects.
 -assumenosideeffects class android.util.Log {
     public static *** v(...);
     public static *** d(...);
@@ -144,10 +131,6 @@
     public static *** tag(...);
 }
 
-# -----------------------------------------------------------------------------
-# Suppress noisy warnings from libraries that ship with optional / unused
-# transitive references R8 can't resolve.
-# -----------------------------------------------------------------------------
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.animal_sniffer.**
 -dontwarn java.lang.invoke.StringConcatFactory
@@ -157,25 +140,21 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn java.beans.**
 
-# Reflection & Native keep rules for SQLCipher, Play Billing, WorkManager
-# Note: Firebase ships its own consumer rules. Do not use blanket keep on firebase.**
-# -----------------------------------------------------------------------------
--keep class net.zetetic.database.sqlcipher.** { *; }
--keep class net.zetetic.database.** { *; }
--keep class com.android.billingclient.api.** { *; }
-
-# Keep WorkManager internal models, interfaces, services, and generated Room implementations
+# WorkManager
 -keep class androidx.work.** { *; }
 -keep interface androidx.work.** { *; }
+-keepclassmembers class androidx.work.** { *; }
+-keepclassmembers interface androidx.work.** { *; }
 -keep class androidx.work.impl.model.** { *; }
 -keep interface androidx.work.impl.model.** { *; }
+-keepclassmembers class androidx.work.impl.model.** { *; }
+-keepclassmembers interface androidx.work.impl.model.** { *; }
 -keep class * extends androidx.work.impl.model.** { *; }
 -keep class * implements androidx.work.impl.model.** { *; }
+-keepclassmembers class * extends androidx.work.impl.model.** { *; }
+-keepclassmembers class * implements androidx.work.impl.model.** { *; }
 -keep class androidx.work.impl.background.systemjob.SystemJobService { *; }
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }
 -dontwarn androidx.work.impl.**
-
-# Exclude legacy firebase-iid registrars from component discovery
 -dontwarn com.google.firebase.iid.**
-
