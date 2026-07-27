@@ -3,16 +3,16 @@ package com.example.dutype.components
 import android.app.Activity
 import android.content.Intent
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,46 +20,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.dutype.app.R
+import androidx.compose.ui.unit.sp
 import com.example.dutype.MainActivity
-import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.LocaleHelper
 
-/**
- * Language Selection Bottom Sheet - Meesho Style
- * 
- * A clean bottom sheet for language selection with:
- * - 2 languages (English and Telugu)
- * - Native script display with emoji
- * - Selection indicator with checkmark
- * - Consistent with app typography
- */
+private val BrandBluePrimary = Color(0xFF2563EB)
+private val SelectedBg = Color(0xFFEFF6FF)
+private val SoftBlueBg = Color(0xFFDBEAFE)
+private val Ink900 = Color(0xFF0F172A)
+private val Ink600 = Color(0xFF475569)
+private val BorderColor = Color(0xFFE2E8F0)
 
-// Language item data
 data class LanguageItem(
     val code: String,
-    val nativeScript: String,  // Script character like "అ" or "A"
-    val nativeName: String,    // Name in native language
-    val scriptColor: Color     // Color for the script character
+    val name: String,
+    val nativeName: String
 )
 
 private val languages = listOf(
     LanguageItem(
-        code = LocaleHelper.LANGUAGE_TELUGU,
-        nativeScript = "అ",
-        nativeName = "తెలుగు",
-        scriptColor = Color(0xFF1F2937)  // Black/Dark gray
+        code = LocaleHelper.LANGUAGE_ENGLISH,
+        name = "English",
+        nativeName = "English"
     ),
     LanguageItem(
-        code = LocaleHelper.LANGUAGE_ENGLISH,
-        nativeScript = "A",
-        nativeName = "English",
-        scriptColor = Color(0xFF1F2937)  // Black/Dark gray
+        code = "hi",
+        name = "Hindi",
+        nativeName = "हिन्दी"
+    ),
+    LanguageItem(
+        code = LocaleHelper.LANGUAGE_TELUGU,
+        name = "Telugu",
+        nativeName = "తెలుగు"
     )
 )
 
@@ -67,279 +61,144 @@ private val languages = listOf(
 @Composable
 fun LanguageSelectionBottomSheet(
     onDismiss: () -> Unit,
-    sheetState: SheetState = rememberModalBottomSheetState()
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val context = LocalContext.current
     val currentLanguage = remember { LocaleHelper.getLanguage(context) }
     var selectedLanguage by remember { mutableStateOf(currentLanguage) }
-    var showRestartDialog by remember { mutableStateOf(false) }
-    
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = WorkerColors.CardBackground,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-        dragHandle = null
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFFCBD5E1))
+            )
+        }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 28.dp)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
         ) {
-            // Subtle grab handle
-            Box(
-                modifier = Modifier
-                    .padding(top = 12.dp, bottom = 8.dp)
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 40.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(WorkerColors.Border)
-            )
-
-            // Header with close button
+            // Header Bar: "Select Language" (No back arrow)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.size(0.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.change_language_title),
-                        style = AppTypography.pageTitle.copy(
-                            color = WorkerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
+                Text(
+                    text = "Select Language",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink900
                     )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "మీకు నచ్చిన భాషను ఎంచుకోండి" else "Choose your preferred language",
-                        style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
-                    )
-                }
-                
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = WorkerColors.TextSecondary
-                    )
-                }
+                )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Language options — clean vertical list
+
+            // Language Options List matching Image 2
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                languages.forEach { language ->
-                    LanguageOptionCard(
-                        language = language,
-                        isSelected = selectedLanguage == language.code,
+                languages.forEach { item ->
+                    val isSelected = selectedLanguage == item.code
+                    LanguageCardItem(
+                        item = item,
+                        isSelected = isSelected,
                         onClick = {
-                            if (selectedLanguage != language.code) {
-                                selectedLanguage = language.code
-                                if (currentLanguage != language.code) {
-                                    showRestartDialog = true
+                            if (selectedLanguage != item.code) {
+                                selectedLanguage = item.code
+                                LocaleHelper.saveLanguage(context, item.code)
+                                LocaleHelper.setLocale(context.applicationContext, item.code)
+                                LocaleHelper.setLocale(context, item.code)
+
+                                onDismiss()
+
+                                val activity = context as? Activity
+                                if (activity != null) {
+                                    val intent = Intent(activity, MainActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    }
+                                    activity.startActivity(intent)
+                                    activity.finish()
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        }
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-    
-    // Restart confirmation dialog
-    if (showRestartDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showRestartDialog = false
-                selectedLanguage = currentLanguage
-            },
-            shape = RoundedCornerShape(20.dp),
-            containerColor = WorkerColors.CardBackground,
-            title = {
-                Text(
-                    text = stringResource(R.string.change_language_title),
-                    style = AppTypography.pageTitle.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.change_language_message),
-                    style = AppTypography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        LocaleHelper.saveLanguage(context, selectedLanguage)
-                        
-                        // Restart the app
-                        val intent = Intent(context, MainActivity::class.java)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        context.startActivity(intent)
-                        
-                        (context as? Activity)?.finish()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = WorkerColors.TextPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.yes_change),
-                        style = AppTypography.buttonLarge.copy(
-                            color = Color.White
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        showRestartDialog = false
-                        selectedLanguage = currentLanguage
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = WorkerColors.TextSecondary
-                    )
-                ) {
-                    Text(
-                        text = stringResource(R.string.cancel),
-                        style = AppTypography.buttonLarge.copy(
-                            color = WorkerColors.TextSecondary
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            }
-        )
     }
 }
 
 @Composable
-private fun LanguageOptionCard(
-    language: LanguageItem,
+private fun LanguageCardItem(
+    item: LanguageItem,
     isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) WorkerColors.Primary else WorkerColors.Border,
-        animationSpec = tween(200),
-        label = "border_color"
-    )
-    
-    val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 1.5.dp else 1.dp,
-        animationSpec = tween(200),
-        label = "border_width"
-    )
-    
     Card(
-        modifier = modifier
-            .border(
-                width = borderWidth,
-                color = borderColor,
-                shape = RoundedCornerShape(14.dp)
-            )
+        modifier = Modifier
+            .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) WorkerColors.PrimaryLight else WorkerColors.CardBackground
+            containerColor = if (isSelected) SelectedBg else Color.White
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) BrandBluePrimary else BorderColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start
-            ) {
-                // Script character box - Soft background
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(WorkerColors.Primary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = language.nativeScript,
-                        style = AppTypography.pageTitle.copy(
-                            color = WorkerColors.Primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Language name
+            Column {
                 Text(
-                    text = language.nativeName,
-                    style = AppTypography.cardTitle.copy(
-                        color = WorkerColors.TextPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                
-                // Selection indicator - trailing
-                if (isSelected) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(WorkerColors.Primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Selected",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .border(1.5.dp, WorkerColors.Border, CircleShape)
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Ink900
                     )
-                }
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = item.nativeName,
+                    style = MaterialTheme.typography.bodySmall.copy(color = Ink600)
+                )
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = BrandBluePrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Ink600,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

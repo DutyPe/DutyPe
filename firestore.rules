@@ -664,8 +664,9 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'requestId', 'employerId', 'employerName', 'employerPhone',
           'contactNumber', 'whatsappNumber',
-          'title', 'description', 'category', 'workersNeeded', 'needType', 'status', 'urgency',
-          'budgetText', 'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
+          'title', 'description', 'category', 'workersNeeded', 'needType', 'status', 'urgency', 'urgencyType',
+          'budgetText', 'perPersonPayment', 'totalPayment', 'durationText',
+          'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
           'scheduledAt', 'scheduleLabel',
           'createdAt', 'expiresAt', 'expiredAt', 'firstResponseAt', 'lastResponseAt',
           'responseCount', 'callCount', 'notifiedWorkerCount', 'notificationFanoutAt',
@@ -681,10 +682,11 @@ service cloud.firestore {
         requestId == request.resource.data.requestId &&
         request.resource.data.employerId == request.auth.uid &&
         (
+          !exists(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)) ||
           get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.get('freeUrgentJobsPosted', 0) < 3 ||
           (
-            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.status == 'ACTIVE' &&
-            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.normalCredits > 0
+            'subscription' in get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data &&
+            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.get('status', 'NONE') == 'ACTIVE'
           )
         ) &&
         request.resource.data.title is string &&
@@ -698,6 +700,10 @@ service cloud.firestore {
         request.resource.data.workersNeeded is int &&
         request.resource.data.workersNeeded >= 1 && request.resource.data.workersNeeded <= 20 &&
         (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('urgencyType' in request.resource.data) || (request.resource.data.urgencyType is string && request.resource.data.urgencyType.size() <= 50)) &&
+        (!('perPersonPayment' in request.resource.data) || (request.resource.data.perPersonPayment is number && request.resource.data.perPersonPayment >= 0)) &&
+        (!('totalPayment' in request.resource.data) || (request.resource.data.totalPayment is number && request.resource.data.totalPayment >= 0)) &&
+        (!('durationText' in request.resource.data) || (request.resource.data.durationText is string && request.resource.data.durationText.size() <= 80)) &&
         request.resource.data.lat is number &&
         request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
         request.resource.data.lng is number &&

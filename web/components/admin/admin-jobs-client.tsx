@@ -67,6 +67,7 @@ export function AdminJobsClient() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [activatingExpired, setActivatingExpired] = useState(false);
 
   async function loadJobs() {
     try {
@@ -165,6 +166,32 @@ export function AdminJobsClient() {
       );
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : "Failed to toggle job.");
+    }
+  }
+
+  async function handleActivateExpiredJobs() {
+    if (!window.confirm("Are you sure you want to activate ALL expired jobs for 30 days?")) return;
+
+    try {
+      setActivatingExpired(true);
+      setError(null);
+      
+      const response = await adminApiFetch("/api/admin/jobs/activate-expired", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to activate expired jobs.");
+      }
+
+      alert(payload.message || `Activated jobs successfully.`);
+      await loadJobs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to activate jobs.");
+    } finally {
+      setActivatingExpired(false);
     }
   }
 
@@ -392,6 +419,14 @@ export function AdminJobsClient() {
           <option value="deleted">Deleted</option>
         </select>
         <span className="admin-count">{filteredJobs.length} jobs</span>
+        <button 
+          className="button small"
+          onClick={handleActivateExpiredJobs}
+          disabled={activatingExpired}
+          style={{ marginLeft: 'auto' }}
+        >
+          {activatingExpired ? "Activating..." : "Activate Expired Jobs"}
+        </button>
       </div>
 
       {error && <div className="admin-error">{error}</div>}

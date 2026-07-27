@@ -81,7 +81,8 @@ export const metadata: Metadata = {
     google: process.env.GOOGLE_SITE_VERIFICATION
   },
   other: {
-    "google-adsense-account": ADSENSE_CLIENT_ID
+    "google-adsense-account": ADSENSE_CLIENT_ID,
+    "facebook-domain-verification": "pm8w20h5ejx9kch4n7w6ijcbh3gfi8"
   }
 };
 
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
         <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}

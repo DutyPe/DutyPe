@@ -17,7 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
@@ -324,56 +326,28 @@ fun HelpMainScreen(
                 }
             }
 
-            // Worker Guide
+            // Worker Guide (Single Page Layout - No Accordion)
             if (filteredGuides.isNotEmpty()) {
                 SectionLabel(title = stringResource(R.string.worker_guide), count = filteredGuides.size, accent = accent)
-                Surface(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    color = WorkerColors.CardBackground,
-                    shadowElevation = 0.dp
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                        filteredGuides.forEachIndexed { index, item ->
-                            ExpandableHelpRow(
-                                item = item,
-                                expanded = expandedGuideIndex == index,
-                                accent = accent,
-                                onClick = {
-                                    expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
-                                }
-                            )
-                            if (index < filteredGuides.lastIndex) {
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                            }
-                        }
+                    filteredGuides.forEach { item ->
+                        SinglePageHelpItem(item = item, accent = accent)
                     }
                 }
             }
 
-            // FAQs
+            // FAQs (Single Page Layout - No Accordion)
             if (filteredFaqs.isNotEmpty()) {
                 SectionLabel(title = stringResource(R.string.frequently_asked), count = filteredFaqs.size, accent = accent)
-                Surface(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    color = WorkerColors.CardBackground,
-                    shadowElevation = 0.dp
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                        filteredFaqs.forEachIndexed { index, item ->
-                            ExpandableHelpRow(
-                                item = item,
-                                expanded = expandedFaqIndex == index,
-                                accent = accent,
-                                onClick = {
-                                    expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
-                                }
-                            )
-                            if (index < filteredFaqs.lastIndex) {
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                            }
-                        }
+                    filteredFaqs.forEach { item ->
+                        SinglePageHelpItem(item = item, accent = accent)
                     }
                 }
             }
@@ -485,17 +459,13 @@ private fun SectionLabel(title: String, count: Int, accent: androidx.compose.ui.
 }
 
 @Composable
-private fun ExpandableHelpRow(
+private fun SinglePageHelpItem(
     item: HelpExpandableItem,
-    expanded: Boolean,
-    accent: androidx.compose.ui.graphics.Color,
-    onClick: () -> Unit
+    accent: androidx.compose.ui.graphics.Color
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -504,39 +474,31 @@ private fun ExpandableHelpRow(
             if (item.icon != null) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
-                        .background(accent.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                        .size(32.dp)
+                        .background(Color(0xFFF1F5F9), androidx.compose.foundation.shape.CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(item.icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+                    Icon(item.icon, contentDescription = null, tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
             }
             Text(
                 text = item.title,
                 style = AppTypography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = WorkerColors.TextPrimary,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A),
                 modifier = Modifier.weight(1f)
             )
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                tint = WorkerColors.IconSecondary
-            )
         }
-
-        if (expanded) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = item.content,
-                style = AppTypography.bodyMedium,
-                color = WorkerColors.TextSecondary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = if (item.icon != null) 46.dp else 0.dp)
-            )
-        }
+        Text(
+            text = item.content,
+            style = AppTypography.bodyMedium,
+            color = Color(0xFF475569),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = if (item.icon != null) 42.dp else 0.dp),
+            lineHeight = 22.sp
+        )
     }
 }
 

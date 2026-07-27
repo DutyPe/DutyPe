@@ -373,18 +373,7 @@ fun EmployerHomeScreen(
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
     val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-    val statusBarColorToken = EmployerColors.StatusBarColor
-    val employerStatusBarColor = remember(isDark, dynamicFeatures.employerPrimaryColor, statusBarColorToken) {
-        if (isDark) {
-            statusBarColorToken
-        } else {
-            runCatching {
-                Color(android.graphics.Color.parseColor(dynamicFeatures.employerPrimaryColor))
-            }.getOrElse {
-                statusBarColorToken
-            }
-        }
-    }
+    val employerStatusBarColor = Color(0xFFEFF6FF)
     LaunchedEffect(employerStatusBarColor) {
         onStatusBarColorChange(employerStatusBarColor)
     }
@@ -417,9 +406,7 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background â€” every employer screen shares the same
-            // calm light-blue surface so the role identity stays consistent.
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(Color(0xFFEFF6FF))
     ) {
         EmployerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
@@ -431,16 +418,6 @@ fun EmployerHomeScreen(
         val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
         val isOnline by connectivityViewModel.isOnline.collectAsState()
         com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-        
-        WelcomeHeader(
-            companyName = companyName.ifEmpty { "" },
-            unreadCount = unreadNotificationCount,
-            headerLottieUrl = dynamicFeatures.headerLottieUrl,
-            employerPrimaryColorHex = dynamicFeatures.employerPrimaryColor,
-            onNotificationClick = {
-                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
-            }
-        )
         
         //  Birthday Banner - Shows if today is user's birthday
         if (showBirthdayBanner && birthdayInfo != null) {
@@ -493,6 +470,12 @@ fun EmployerHomeScreen(
                 guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                 onGuestWelcomeClick = {
                     rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
+                },
+                companyName = companyName.ifEmpty { "" },
+                unreadCount = unreadNotificationCount,
+                headerLottieUrl = dynamicFeatures.headerLottieUrl,
+                onNotificationClick = {
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
                 }
             )
         }
@@ -591,6 +574,10 @@ fun DashboardContent(
     guestWelcomeMessage: String = "",
     guestWelcomeButtonText: String = "",
     onGuestWelcomeClick: () -> Unit = {},
+    companyName: String = "",
+    unreadCount: Int = 0,
+    headerLottieUrl: String = "",
+    onNotificationClick: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -608,7 +595,7 @@ fun DashboardContent(
         ScrollAwareLazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                top = 16.dp,
+                top = 0.dp,
                 start = 16.dp,
                 end = 16.dp,
                 bottom = 80.dp
@@ -616,6 +603,14 @@ fun DashboardContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            item {
+                WelcomeHeader(
+                    companyName = companyName.ifEmpty { "" },
+                    unreadCount = unreadCount,
+                    headerLottieUrl = headerLottieUrl,
+                    onNotificationClick = onNotificationClick
+                )
+            }
             if (showGuestWelcomeCard) {
                 item {
                     GuestWelcomeBonusCard(
@@ -1523,31 +1518,13 @@ fun WelcomeHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        headerColor,
-                        Color(0xFF0F172A)
-                    )
-                )
-            )
+            .background(Color(0xFFEFF6FF))
     ) {
-        if (headerLottieUrl.isNotBlank() && composition != null) {
-            LottieAnimation(
-                composition = composition,
-                progress = { progress },
-                modifier = Modifier
-                    .matchParentSize()
-                    .alpha(0.35f),
-                contentScale = ContentScale.Crop
-            )
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1562,7 +1539,7 @@ fun WelcomeHeader(
                 style = AppTypography.displayTitle.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp,
-                    color = Color.White
+                    color = Color(0xFF0F172A)
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -1575,7 +1552,7 @@ fun WelcomeHeader(
                     Icon(
                         imageVector = Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
-                        tint = Color.White,
+                        tint = Color(0xFF0F172A),
                         modifier = Modifier.size(24.dp)
                     )
                 }

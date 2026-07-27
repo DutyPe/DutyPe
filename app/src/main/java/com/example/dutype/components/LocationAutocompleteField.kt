@@ -132,7 +132,11 @@ fun LocationAutocompleteField(
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 200.dp)
                 ) {
-                    items(placeSuggestions) { suggestion ->
+                    items(
+                        items = placeSuggestions,
+                        key = { suggestion -> suggestion.placeId.ifBlank { suggestion.description } },
+                        contentType = { "location_suggestion" }
+                    ) { suggestion ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

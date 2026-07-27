@@ -159,6 +159,11 @@ class GuestEngagementWorker @AssistedInject constructor(
             )
                 .setInitialDelay(2, TimeUnit.HOURS)
                 .setConstraints(constraints)
+                .setBackoffCriteria(
+                    androidx.work.BackoffPolicy.EXPONENTIAL,
+                    15,
+                    TimeUnit.MINUTES
+                )
                 .addTag(WORK_NAME_RECURRING)
                 .build()
 
@@ -178,6 +183,11 @@ class GuestEngagementWorker @AssistedInject constructor(
             val shortRequest = OneTimeWorkRequestBuilder<GuestEngagementWorker>()
                 .setInitialDelay(BACKGROUND_DELAY_MINUTES, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setBackoffCriteria(
+                    androidx.work.BackoffPolicy.EXPONENTIAL,
+                    5,
+                    TimeUnit.MINUTES
+                )
                 .addTag(WORK_NAME_BACKGROUND)
                 .build()
 

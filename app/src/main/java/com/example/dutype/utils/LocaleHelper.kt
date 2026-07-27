@@ -27,16 +27,14 @@ object LocaleHelper {
     // Supported languages
     const val LANGUAGE_ENGLISH = "en"
     const val LANGUAGE_TELUGU = "te"
-    // Legacy stored value normalized to English on read/write
-    private const val LEGACY_LANGUAGE_HINDI = "hi"
+    const val LANGUAGE_HINDI = "hi"
     
     /**
      * Get the currently selected language
      */
     fun getLanguage(context: Context): String {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val selected = prefs.getString(KEY_LANGUAGE, LANGUAGE_ENGLISH) ?: LANGUAGE_ENGLISH
-        return if (selected == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
+        return prefs.getString(KEY_LANGUAGE, LANGUAGE_ENGLISH) ?: LANGUAGE_ENGLISH
     }
     
     /**
@@ -49,12 +47,10 @@ object LocaleHelper {
      */
     fun saveLanguage(context: Context, language: String) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val normalized = if (language == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else language
         val previous = prefs.getString(KEY_LANGUAGE, null)
-            ?.let { if (it == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else it }
-        prefs.edit().putString(KEY_LANGUAGE, normalized).apply()
+        prefs.edit().putString(KEY_LANGUAGE, language).apply()
 
-        if (previous == normalized) return
+        if (previous == language) return
 
         // Best-effort sync to Firestore so cloud functions can read user_tokens/{uid}.language.
         // Silent failure is acceptable — local SharedPreferences remains the source of truth
@@ -66,7 +62,7 @@ object LocaleHelper {
                     .document(uid)
                     .set(
                         mapOf(
-                            "language" to normalized,
+                            "language" to language,
                             "platform" to "android",
                             "updatedAt" to Timestamp.now()
                         ),
@@ -76,7 +72,7 @@ object LocaleHelper {
         }
 
         // Resubscribe FCM topics to the new language so admin broadcasts to e.g.
-        // workers_te / employers_te / all_users_te / app_updates_te are delivered.
+        // workers_hi / employers_hi / all_users_hi / app_updates_hi are delivered.
         runCatching {
             val messaging = FirebaseMessaging.getInstance()
             if (previous != null) {
@@ -85,7 +81,7 @@ object LocaleHelper {
                 }
             }
             FCM_BASE_TOPICS.forEach { base ->
-                messaging.subscribeToTopic("${base}_$normalized")
+                messaging.subscribeToTopic("${base}_$language")
             }
         }
     }
@@ -101,21 +97,28 @@ object LocaleHelper {
      * Call this in Application.attachBaseContext() and Activity.attachBaseContext()
      */
     fun setLocale(context: Context, language: String? = null): Context {
-        val selected = language ?: getLanguage(context)
-        val lang = if (selected == LEGACY_LANGUAGE_HINDI) LANGUAGE_ENGLISH else selected
+        val lang = language ?: getLanguage(context)
         val locale = Locale(lang)
         Locale.setDefault(locale)
         
         val config = Configuration(context.resources.configuration)
-        
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             config.setLocales(LocaleList(locale))
-            context.createConfigurationContext(config)
         } else {
             @Suppress("DEPRECATION")
             config.locale = locale
+        }
+
+        @Suppress("DEPRECATION")
+        context.resources.updateConfiguration(config, context.resources.displayMetrics)
+        runCatching {
             @Suppress("DEPRECATION")
-            context.resources.updateConfiguration(config, context.resources.displayMetrics)
+            context.applicationContext?.resources?.updateConfiguration(config, context.applicationContext.resources.displayMetrics)
+        }
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            context.createConfigurationContext(config)
+        } else {
             context
         }
     }

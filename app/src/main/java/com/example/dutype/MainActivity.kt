@@ -154,19 +154,29 @@ class MainActivity : ComponentActivity() {
         //    catastrophic Compose failure still releases the splash.
         val splashScreen = installSplashScreen()
 
-        // `@Volatile` is unnecessary here — the lambda passed to
-        // setKeepOnScreenCondition is invoked on the main thread, same
-        // thread that mutates the flag.
         var keepSplashOnScreen = true
         var startupOverlayCommitted = false
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen && !startupOverlayCommitted }
 
-        // Safety cap: keep the system splash long enough for the remote
-        // launch config to resolve on slower networks.
+        // Fast-path: Attach OnPreDrawListener to content view to dismiss splash
+        // on the EXACT millisecond the first frame of Compose is ready to draw (~50-100ms).
+        val contentView = findViewById<android.view.View>(android.R.id.content)
+        contentView?.viewTreeObserver?.addOnPreDrawListener(
+            object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    contentView.viewTreeObserver.removeOnPreDrawListener(this)
+                    keepSplashOnScreen = false
+                    startupOverlayCommitted = true
+                    return true
+                }
+            }
+        )
+
+        // Ultra-short safety fallback (150ms cap instead of 500ms)
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
             startupOverlayCommitted = true
-        }, 2000L)
+        }, 150L)
         
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
@@ -312,16 +322,12 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(dynamicFeatures) {
                         if (dynamicFeatures.launchPromoEnabled && dynamicFeatures.launchPromoBannerUrl.isNotBlank()) {
                             showLaunchPromo = true
-                            launchExperienceResolved = true
                         }
+                        launchExperienceResolved = true
                     }
 
-                    LaunchedEffect(Unit) {
-                        // Wait up to 500ms for the dynamic features config to load the promo banner.
-                        // If it takes longer, we proceed without the banner to ensure a fast launch.
-                        delay(500L)
-                        if (!launchExperienceResolved) {
-                            showLaunchPromo = false
+                    LaunchedEffect(mainNavReady) {
+                        if (mainNavReady) {
                             launchExperienceResolved = true
                         }
                     }

@@ -272,7 +272,11 @@ fun AllJobsScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 12.dp)
         ) {
-            items(categoryTabs) { (label, emoji) ->
+            items(
+                items = categoryTabs,
+                key = { (label, _) -> "cat_tab_$label" },
+                contentType = { "category_chip" }
+            ) { (label, emoji) ->
                 val isSelected = selectedChip == label || 
                                  (selectedChip == "Any" && label == "All Jobs") ||
                                  (selectedChip == "All" && label == "All Jobs")
@@ -424,7 +428,11 @@ private fun CategoryQuickFilterSection(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(categories) { category ->
+            items(
+                items = categories,
+                key = { cat -> "cat_$cat" },
+                contentType = { "category_filter_chip" }
+            ) { category ->
                 val isSelected = selectedCategory.equals(category, ignoreCase = true)
                 CategoryPill(
                     label = category,
@@ -658,7 +666,8 @@ private fun JobsList(
         ) {
             items(
                 items = jobs,
-                key = { job -> "alljobs_${job.id}" } // CRITICAL FIX: Add context prefix
+                key = { job -> "alljobs_${job.id}" },
+                contentType = { "job_card" }
             ) { job ->
                 JobCard(
                     job = job,

@@ -282,6 +282,7 @@ class UserMetadata @Inject constructor(
                 Timber.d("📊 New user - using Auth phone: $authPhoneNumber")
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Timber.e(e, "📊 Failed to load user stats")
             // Even on error, try to get phone from Firebase Auth
             val authPhoneNumber = auth.currentUser?.phoneNumber ?: ""
@@ -409,6 +410,7 @@ class UserMetadata @Inject constructor(
                 }
             )
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Timber.e(e, "📊 Failed to load employer stats")
         }
     }

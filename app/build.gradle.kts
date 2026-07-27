@@ -46,14 +46,14 @@ if (localPropertiesFile.exists()) {
 
 android {
 	namespace = "com.dutype.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
 		applicationId = "com.dutype.app"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 786
-        versionName = "3.0.4"
+        targetSdk = 36
+        versionCode = 790
+        versionName = "3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -345,6 +345,11 @@ tasks.configureEach {
     }
 }
 
+// Exclude legacy deprecated firebase-iid module globally to prevent AbstractMethodError in FirebaseInitProvider
+configurations.all {
+    exclude(group = "com.google.firebase", module = "firebase-iid")
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -407,7 +412,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     
     implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.firebase:geofire-android-common:3.2.0")
+    implementation("com.firebase:geofire-android-common:3.2.0") {
+        exclude(group = "com.google.firebase", module = "firebase-iid")
+    }
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-appcheck")
@@ -417,6 +424,7 @@ dependencies {
     
     // Google Play Integrity API
     implementation("com.google.android.play:integrity:1.6.0")
+
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
@@ -485,3 +493,6 @@ dependencies {
 // upload the mapping manually afterwards with:
 //   ./gradlew :app:uploadCrashlyticsMappingFileRelease
 // or run the build from a CI runner with unrestricted DNS.
+configurations.all {
+    exclude(group = "com.google.firebase", module = "firebase-iid")
+}

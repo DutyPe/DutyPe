@@ -186,7 +186,11 @@ fun WorkerHistoryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(filteredApplications) { application ->
+                        items(
+                            items = filteredApplications,
+                            key = { application -> "app_hist_${application.id}" },
+                            contentType = { "history_application_card" }
+                        ) { application ->
                             HistoryApplicationCard(
                                 application = application,
                                 onClick = {
@@ -228,7 +232,8 @@ private fun TimelineView(
             // Timeline items for this month
             items(
                 items = applications,
-                key = { it.id }
+                key = { application -> "app_tl_${application.id}" },
+                contentType = { "timeline_application_card" }
             ) { application ->
                 val isLastInMonth = applications.last() == application
                 TimelineJobCard(

@@ -39,14 +39,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -96,6 +99,7 @@ fun SelectRoleScreen(
     var isVisible by remember { mutableStateOf(false) }
     var hasNotificationPermission by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
+    var showLanguageBottomSheet by remember { mutableStateOf(false) }
 
     // Check current permission status (no location fetch on startup for fast loading)
     LaunchedEffect(Unit) {
@@ -221,31 +225,76 @@ fun SelectRoleScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFFFFF))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFFFFFF),
-                            Color(0xFFFAFAFA),
-                            Color(0xFFF4F4F6)
-                        )
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFEFF6FF),
+                        Color(0xFFDBEAFE),
+                        Color(0xFFF8FAFC),
+                        Color(0xFFFFFFFF)
                     )
                 )
-        )
+            )
+    ) {
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 22.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Spacer(modifier = Modifier.height(34.dp))
+            // Top Language Selector Chip Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
+                    com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+                    "hi" -> "హిन्दी"
+                    else -> "English"
+                }
+
+                Surface(
+                    onClick = { showLanguageBottomSheet = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = activeLangName,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A)
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             AnimatedVisibility(
                 visible = isVisible,
@@ -279,7 +328,7 @@ fun SelectRoleScreen(
                         icon = Icons.Default.WorkOutline,
                         title = stringResource(R.string.worker),
                         subtitle = stringResource(R.string.find_jobs_earn),
-                        description = "Explore daily jobs and grow your income",
+                        description = stringResource(R.string.worker_card_desc),
                         primaryColor = Color(0xFF0F0F0F),
                         containerColor = Color(0xFFF1F1F4),
                         delay = 50,
@@ -300,7 +349,7 @@ fun SelectRoleScreen(
                         icon = Icons.Default.Business,
                         title = stringResource(R.string.employer),
                         subtitle = stringResource(R.string.hire_skilled_workers),
-                        description = "Find reliable workers for your business",
+                        description = stringResource(R.string.employer_card_desc),
                         primaryColor = Color(0xFF0F0F0F),
                         containerColor = Color(0xFFF1F1F4),
                         delay = 150,
@@ -320,6 +369,12 @@ fun SelectRoleScreen(
                     Spacer(modifier = Modifier.height(14.dp))
                 }
             }
+        }
+
+        if (showLanguageBottomSheet) {
+            com.example.dutype.components.LanguageSelectionBottomSheet(
+                onDismiss = { showLanguageBottomSheet = false }
+            )
         }
     }
     }
@@ -488,15 +543,16 @@ private fun RoleHero() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 40.dp)
+            .padding(top = 40.dp),
+        horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = "How can we help\nyou today?",
+            text = stringResource(R.string.how_can_we_help_today),
             style = AppTypography.displayTitle.copy(
                 fontSize = 32.sp,
                 lineHeight = 38.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F0F0F)
+                color = Color(0xFF0F172A)
             )
         )
     }
@@ -668,7 +724,7 @@ private fun SafeSecurePill() {
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = "Safe • Secure • Trusted by 1L+ users",
+            text = stringResource(R.string.safe_secure_trusted),
             style = AppTypography.bodyMedium.copy(
                 color = Color(0xFF6B7280),
                 fontWeight = FontWeight.Medium

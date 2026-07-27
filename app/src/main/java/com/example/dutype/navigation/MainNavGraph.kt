@@ -117,35 +117,30 @@ fun MainNavGraph(
         }
     }
     
-    // State management for determining start destination.
-    //
-    // P1-7: Seed `startDestination` from a synchronous on-disk cache so the
-    // NavHost is built with the correct route on the very first frame after a
-    // cold start. The async resolver below still runs to reconcile against
-    // DataStore + Firestore and corrects the route if reality differs.
-    //
-    // PERF: Ignore auth-gated cached routes (worker_home / employer_home) when
-    // FirebaseAuth has no current user. Otherwise a previously signed-in launch
-    // poisons the cache, the NavHost renders worker_home, kicks off Firestore +
-    // announcement queries, then re-renders to select_role — causing a frame
-    // skip and a wasted Firestore read on every guest cold start.
-    val cachedStartDestination = remember {
-        val cached = StartDestinationCache.read(context)
-        val isAuthGated = cached == Routes.WORKER_HOME || cached == Routes.EMPLOYER_HOME
-        if (isAuthGated && com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
-            null
-        } else {
-            cached
+    val startupViewModel: com.example.dutype.viewmodels.AppStartupViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val startupState by startupViewModel.startupState.collectAsState()
+    val isLoading = startupState is com.example.dutype.viewmodels.StartupState.Loading
+
+    var startDestination by remember { mutableStateOf(Routes.ONBOARDING) }
+    var navigationDetermined by remember { mutableStateOf(false) }
+
+    LaunchedEffect(startupState) {
+        when (val state = startupState) {
+            is com.example.dutype.viewmodels.StartupState.Resolved -> {
+                startDestination = state.startDestination
+                navigationDetermined = true
+                runCatching { onReady() }
+                Timber.d("🚀 MainNavGraph - AppStartupViewModel resolved startDestination: ${state.startDestination}")
+            }
+            com.example.dutype.viewmodels.StartupState.Loading -> {
+                // Keep loading until resolved
+            }
         }
     }
-    var isLoading by remember { mutableStateOf(cachedStartDestination == null) }
-    var startDestination by remember {
-        mutableStateOf(cachedStartDestination ?: Routes.ONBOARDING)
-    }
+
     var pendingNotificationRouteTelemetry by remember {
         mutableStateOf(notificationIntent?.getBooleanExtra("from_notification", false) == true)
     }
-    var navigationDetermined by remember { mutableStateOf(cachedStartDestination != null) }
 
     suspend fun logPendingNotificationDestinationOpened(source: String, deepLink: String? = null) {
         if (!pendingNotificationRouteTelemetry) return
@@ -167,205 +162,14 @@ fun MainNavGraph(
             }
         }.onFailure { Timber.w(it, "Failed to log notification destination telemetry") }
     }
-
-    // We no longer blindly dismiss the splash screen here. We wait until
-    // navigationDetermined is true to prevent a blank black screen.
-    // The fast-path below ensures this still happens on frame 1 for returning users.
-    LaunchedEffect(Unit) {
-        try {
-            Timber.d("🚀 MainNavGraph - Starting navigation logic...")
-            
-            // Check if onboarding has been completed
-            val hasCompletedOnboarding = profileCompletionViewModel.hasOnboardingBeenCompleted()
-            Timber.d("🚀 MainNavGraph - hasCompletedOnboarding: $hasCompletedOnboarding")
-            
-            // Check if user is authenticated
-            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            Timber.d("🚀 MainNavGraph - currentUser: ${currentUser?.uid}")
-            
-            // Determine start destination based on user state
-            startDestination = when {
-                !hasCompletedOnboarding -> {
-                    Timber.d("🚀 MainNavGraph - Onboarding not completed, navigating to ONBOARDING")
-                    Routes.ONBOARDING
-                }
-                currentUser == null -> {
-                    Timber.d("🚀 MainNavGraph - No user authenticated, navigating to SELECT_ROLE")
-                    Routes.SELECT_ROLE
-                }
-                else -> {
-                    // User is authenticated, check their role and profile completion
-                    Timber.d("🚀 MainNavGraph - User authenticated, checking role from DataStore...")
-                    
-                    val dataStoreRole = profileCompletionViewModel.getUserRole()
-                    if (dataStoreRole != null && profileCompletionViewModel.isProfileComplete(dataStoreRole)) {
-                        // Fast path: DataStore says everything is complete. Skip Firestore!
-                        Timber.d("🚀 MainNavGraph - ✅ Fast path: DataStore profile complete, skipping Firestore")
-                        if (dataStoreRole == com.example.dutype.models.UserRole.WORKER) {
-                            Routes.WORKER_HOME
-                        } else {
-                            Routes.EMPLOYER_HOME
-                        }
-                    } else {
-                        // Slow path: DataStore is missing data or profile is incomplete.
-                        val db = com.example.dutype.di.firestoreFromHilt(context)
-                        val normalizedPhone = currentUser.phoneNumber
-                            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
-                            .orEmpty()
-                        val phoneRoleDoc = try {
-                        kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                            normalizedPhone.takeIf { it.isNotBlank() }?.let {
-                                db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
-                                    .document(it)
-                                    .get()
-                                    .await()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, " MainNavGraph - Error reading phoneRoles doc")
-                        null
-                    }
-
-                    val firestoreRoleStr = phoneRoleDoc?.getString("role")
-
-                    val profileDocExists = try {
-                        val result = kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                            val profileCollection = if (firestoreRoleStr?.uppercase() == "EMPLOYER") {
-                                com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES
-                            } else {
-                                com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES
-                            }
-                            db.collection(profileCollection)
-                                .document(currentUser.uid)
-                                .get()
-                                .await()
-                                .exists()
-                        }
-                        // Fallback to true if request times out to trust local cache offline
-                        result ?: true
-                    } catch (e: Exception) {
-                        Timber.e(e, "🚀 MainNavGraph - Error reading role profile doc, fallback to true (offline-first)")
-                        true // Fallback to true under network errors/offline
-                    }
-
-                    // Single-role architecture: trust the Firestore document as the
-                    // source of truth for the user's role. Falls back to DataStore for
-                    // pre-network UX, but Firestore wins on conflict.
-                    var userRole: com.example.dutype.models.UserRole? = null
-                    if (firestoreRoleStr != null) {
-                        userRole = runCatching {
-                            com.example.dutype.models.UserRole.valueOf(firestoreRoleStr.uppercase())
-                        }.getOrElse {
-                            Timber.e(it, "🚀 MainNavGraph - Invalid role in Firestore: $firestoreRoleStr")
-                            null
-                        }
-                        // Mirror to DataStore so pre-network UX is correct on next launch.
-                        if (userRole != null) {
-                            try {
-                                profileCompletionViewModel.updateUserRole(userRole)
-                            } catch (e: Exception) {
-                                Timber.w(e, "🚀 MainNavGraph - Failed to sync role to DataStore")
-                            }
-                        }
-                    }
-                    if (userRole == null) {
-                        userRole = profileCompletionViewModel.getUserRole()
-                        Timber.d("🚀 MainNavGraph - Falling back to DataStore userRole: $userRole")
-                    }
-                    
-                    if (userRole != null) {
-                        val localProfileComplete = profileDocExists &&
-                            profileCompletionViewModel.isProfileComplete(userRole)
-
-                        val firestoreProfileComplete = if (!localProfileComplete) {
-                            runCatching {
-                                profileCompletionViewModel.checkExistingProfileHighLevel(
-                                    email = currentUser.email ?: "",
-                                    role = userRole
-                                )
-                            }.getOrElse {
-                                Timber.e(it, "🚀 MainNavGraph - Firestore profile completion fallback failed")
-                                false
-                            }
-                        } else {
-                            true
-                        }
-
-                        val isProfileComplete = localProfileComplete || firestoreProfileComplete
-
-                        if (isProfileComplete && !localProfileComplete) {
-                            runCatching {
-                                profileCompletionViewModel.markProfileComplete(userRole)
-                                profileCompletionViewModel.markProfileSetupAsShown(userRole)
-                                Timber.d("🚀 MainNavGraph - Synced local profile completion from Firestore for $userRole")
-                            }.onFailure {
-                                Timber.e(it, "🚀 MainNavGraph - Failed syncing local profile completion state")
-                            }
-                        }
-
-                        Timber.d("🚀 MainNavGraph - Profile complete for $userRole: $isProfileComplete (local=$localProfileComplete, firestore=$firestoreProfileComplete)")
-                        
-                        when {
-                            isProfileComplete && userRole == com.example.dutype.models.UserRole.WORKER -> {
-                                Timber.d("🚀 MainNavGraph - ✅ Worker profile complete, navigating directly to WORKER_HOME")
-                                Routes.WORKER_HOME
-                            }
-                            isProfileComplete && userRole == com.example.dutype.models.UserRole.EMPLOYER -> {
-                                Timber.d("🚀 MainNavGraph - ✅ Employer profile complete, navigating to EMPLOYER_HOME")
-                                Routes.EMPLOYER_HOME
-                            }
-                            userRole == com.example.dutype.models.UserRole.WORKER -> {
-                                Timber.d("🚀 MainNavGraph - Profile incomplete, navigating to PROFILE_SETUP")
-                                Routes.PROFILE_SETUP
-                            }
-                            userRole == com.example.dutype.models.UserRole.EMPLOYER -> {
-                                Timber.d("🚀 MainNavGraph - Profile incomplete, navigating to EMPLOYER_PROFILE_SETUP")
-                                Routes.EMPLOYER_PROFILE_SETUP
-                            }
-                            else -> {
-                                Timber.w("🚀 MainNavGraph - Unknown role state, navigating to SELECT_ROLE")
-                                Routes.SELECT_ROLE
-                            }
-                        }
-                    } else {
-                        Timber.w("🚀 MainNavGraph - Unable to determine role even from fallback, navigating to SELECT_ROLE")
-                        Routes.SELECT_ROLE
-                    }
-                }
-            }
-        }
-            
-            Timber.d("🚀 MainNavGraph - Final startDestination: $startDestination")
-
-            // P1-7: persist the resolved route so the next cold start can
-            // skip the loading state and draw the right screen instantly.
-            runCatching { StartDestinationCache.save(context, startDestination) }
-
-            // Set states immediately for instant navigation
-            isLoading = false
-            navigationDetermined = true
-            // Signal MainActivity to dismiss the system splash — nav is ready.
-            runCatching { onReady() }
-            Timber.d("🚀 MainNavGraph - Navigation completed, startDestination: $startDestination")
-            
-        } catch (e: Exception) {
-            Timber.e(e, "🚀 MainNavGraph - Error determining start destination")
-            // Fallback to onboarding
-            startDestination = Routes.ONBOARDING
-            isLoading = false
-            navigationDetermined = true
-            runCatching { onReady() }
-            Timber.d("🚀 MainNavGraph - Error fallback - startDestination: $startDestination")
-        }
-    }
     
     // Safety timeout to ensure navigationDetermined is always set.
-    // Bug #4 fix: reduced from 1500ms → 800ms. The splash is already
+    // Bug #4 fix: reduced from 800ms → 600ms. The splash is already
     // dismissed on the first frame (see onReady() call above), so this
     // timeout only governs how long the ONBOARDING fallback stays on
     // screen before we accept that Firestore/DataStore is truly stuck.
     LaunchedEffect(Unit) {
-        delay(800)
+        delay(600)
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true

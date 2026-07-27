@@ -1,11 +1,9 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,12 +15,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.dutype.components.AboutBullet
+import com.example.dutype.components.AboutDutyPeOverview
 import com.example.dutype.components.AboutFooter
 import com.example.dutype.components.AboutHero
 import com.example.dutype.components.AboutParagraph
 import com.example.dutype.components.AboutSectionCard
 import com.example.dutype.components.CommonHeader
-import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.appVersionName
 import androidx.compose.ui.res.stringResource
 import com.dutype.app.R
@@ -36,38 +34,37 @@ fun WorkerAboutScreen(
         onStatusBarColorChange(Color.White)
     }
 
-    val accent = WorkerColors.Primary
     val appVersion = LocalContext.current.appVersionName()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(Color.White)
     ) {
         CommonHeader(
             title = stringResource(R.string.about_us),
             navController = navController,
-            backgroundColor = WorkerColors.CardBackground
+            backgroundColor = Color.White
         )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             AboutHero(
                 title = stringResource(R.string.welcome_to_dutype),
                 subtitle = stringResource(R.string.about_worker_subtitle),
-                accentColor = accent,
-                badgeEmoji = "\uD83D\uDC4B"
+                badgeEmoji = "👋"
             )
+
+            AboutDutyPeOverview()
 
             AboutSectionCard(
                 title = stringResource(R.string.our_mission),
-                accentColor = WorkerColors.Success,
-                icon = "\uD83C\uDFAF"
+                icon = "🎯"
             ) {
                 AboutParagraph(
                     text = stringResource(R.string.about_worker_mission)
@@ -76,8 +73,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_vision),
-                accentColor = WorkerColors.Warning,
-                icon = "\uD83D\uDD2D"
+                icon = "🔭"
             ) {
                 AboutParagraph(
                     text = stringResource(R.string.about_worker_vision)
@@ -86,47 +82,17 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.key_features),
-                accentColor = WorkerColors.Primary,
-                icon = "\u2728"
+                icon = "✨"
             ) {
-                AboutBullet(stringResource(R.string.about_feat_quick_apply), accent)
-                AboutBullet(stringResource(R.string.about_feat_jobs_near), accent)
-                AboutBullet(stringResource(R.string.about_feat_realtime_notif), accent)
-                AboutBullet(stringResource(R.string.about_feat_save_jobs), accent)
-                AboutBullet(stringResource(R.string.about_feat_track_apps), accent)
-                AboutBullet(stringResource(R.string.about_feat_build_profile), accent)
+                AboutBullet(stringResource(R.string.about_feat_quick_apply))
+                AboutBullet(stringResource(R.string.about_feat_jobs_near))
+                AboutBullet(stringResource(R.string.about_feat_realtime_notif))
+                AboutBullet(stringResource(R.string.about_feat_save_jobs))
+                AboutBullet(stringResource(R.string.about_feat_track_apps))
+                AboutBullet(stringResource(R.string.about_feat_build_profile))
             }
-
-            AboutSectionCard(
-                title = stringResource(R.string.job_categories),
-                accentColor = WorkerColors.Error,
-                icon = "\uD83D\uDEE0\uFE0F"
-            ) {
-                AboutBullet(stringResource(R.string.about_cat_delivery), WorkerColors.Error)
-                AboutBullet(stringResource(R.string.about_cat_food), WorkerColors.Error)
-                AboutBullet(stringResource(R.string.about_cat_housekeeping), WorkerColors.Error)
-                AboutBullet(stringResource(R.string.about_cat_shop), WorkerColors.Error)
-                AboutBullet(stringResource(R.string.about_cat_childcare), WorkerColors.Error)
-                AboutBullet(stringResource(R.string.about_cat_maintenance), WorkerColors.Error)
-            }
-
-            AboutSectionCard(
-                title = stringResource(R.string.why_choose_dutype),
-                accentColor = Color(0xFF8B5CF6),
-                icon = "\uD83D\uDC8E"
-            ) {
-                AboutBullet(stringResource(R.string.about_why_no_resume), Color(0xFF8B5CF6))
-                AboutBullet(stringResource(R.string.about_why_verified_employers), Color(0xFF8B5CF6))
-                AboutBullet(stringResource(R.string.about_why_transparent_pay), Color(0xFF8B5CF6))
-                AboutBullet(stringResource(R.string.about_why_flexible_work), Color(0xFF8B5CF6))
-                AboutBullet(stringResource(R.string.about_why_safe_platform), Color(0xFF8B5CF6))
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             AboutFooter(version = appVersion)
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

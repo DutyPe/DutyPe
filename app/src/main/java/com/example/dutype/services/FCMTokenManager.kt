@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -38,6 +39,42 @@ class FCMTokenManager @Inject constructor(
         const val TOPIC_EMPLOYERS = "employers"
         const val TOPIC_APP_UPDATES = "app_updates"
         const val TOPIC_PROMOTIONS = "promotions"
+
+        private const val MAX_RETRIES = 3
+        // Backoff delays in ms: attempt 1 → 1 s, attempt 2 → 2 s, attempt 3 → 4 s
+        private val BACKOFF_MS = longArrayOf(1_000L, 2_000L, 4_000L)
+    }
+
+    /**
+     * Retry a suspend block up to [MAX_RETRIES] times with exponential backoff.
+     * Non-retryable Firestore errors (PERMISSION_DENIED, NOT_FOUND) propagate immediately.
+     */
+    private suspend fun <T> retryWithBackoff(
+        tag: String,
+        block: suspend () -> T
+    ): T {
+        var lastException: Exception? = null
+        repeat(MAX_RETRIES) { attempt ->
+            try {
+                return block()
+            } catch (e: FirebaseFirestoreException) {
+                // Non-retryable: caller's security rules or missing doc — bail immediately.
+                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                    e.code == FirebaseFirestoreException.Code.NOT_FOUND) {
+                    Timber.w("FCMTokenManager [$tag] non-retryable Firestore error (${e.code}), skipping retry")
+                    throw e
+                }
+                lastException = e
+                Timber.w("FCMTokenManager [$tag] attempt ${attempt + 1}/$MAX_RETRIES failed: ${e.message}")
+            } catch (e: Exception) {
+                lastException = e
+                Timber.w("FCMTokenManager [$tag] attempt ${attempt + 1}/$MAX_RETRIES failed: ${e.message}")
+            }
+            if (attempt < MAX_RETRIES - 1) {
+                delay(BACKOFF_MS[attempt])
+            }
+        }
+        throw lastException ?: Exception("FCMTokenManager [$tag] exhausted $MAX_RETRIES retries")
     }
     
     /**
@@ -51,21 +88,27 @@ class FCMTokenManager @Inject constructor(
                 Timber.w("FCMTokenManager: No authenticated user, cannot register token")
                 return Result.failure(Exception("User not authenticated"))
             }
-            
-            val token = FirebaseMessaging.getInstance().token.await()
+
+            // P0-B: Retry FCM token fetch + Firestore save with exponential backoff.
+            // First-install on flaky networks frequently fails here without retries.
+            val token = retryWithBackoff("getToken") {
+                FirebaseMessaging.getInstance().token.await()
+            }
             Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
-            
-            saveTokenToFirestore(userId, token)
-            
+
+            retryWithBackoff("saveToken") {
+                saveTokenToFirestore(userId, token)
+            }
+
             // Subscribe to all_users topic by default (legacy + language-specific).
             subscribeToTopic(TOPIC_ALL_USERS)
             subscribeToLanguageTopic(TOPIC_ALL_USERS)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
             com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
-            
+
             Result.success(token)
         } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error registering FCM token")
+            Timber.e(e, "FCMTokenManager: Failed to register FCM token after retries")
             Result.failure(e)
         }
     }
@@ -81,21 +124,25 @@ class FCMTokenManager @Inject constructor(
                 Timber.w("FCMTokenManager: No authenticated user, cannot register token")
                 return Result.failure(Exception("User not authenticated"))
             }
-            
-            val token = FirebaseMessaging.getInstance().token.await()
+
+            // P0-B: Same exponential backoff as registerToken().
+            val token = retryWithBackoff("getToken[role=$role]") {
+                FirebaseMessaging.getInstance().token.await()
+            }
             Timber.d("FCMTokenManager: Got FCM token: ${token.take(20)}...")
-            
-            // Save token with role info
-            saveTokenToFirestoreWithRole(userId, token, role)
-            
+
+            retryWithBackoff("saveTokenWithRole[role=$role]") {
+                saveTokenToFirestoreWithRole(userId, token, role)
+            }
+
             // Subscribe to role-based topics
             subscribeToRoleTopics(role)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
             com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
-            
+
             Result.success(token)
         } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error registering FCM token with role")
+            Timber.e(e, "FCMTokenManager: Failed to register FCM token with role after retries")
             Result.failure(e)
         }
     }

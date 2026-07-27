@@ -349,7 +349,8 @@ fun EmployerHistoryScreen(
                     ) {
                         items(
                             items = filteredJobs,
-                            key = { job -> "emphistory_${job.id}" } // CRITICAL FIX: Unique key to prevent LazyColumn crashes
+                            key = { job -> "emphistory_${job.id}" },
+                            contentType = { "employer_history_card" }
                         ) { job ->
                             HistoryJobCard(
                                 job = job,
@@ -390,7 +391,8 @@ private fun TimelineView(
             // Timeline items for this month
             items(
                 items = jobs,
-                key = { it.id }
+                key = { job -> "emptimeline_${job.id}" },
+                contentType = { "employer_timeline_card" }
             ) { job ->
                 val isLastInMonth = jobs.last() == job
                 TimelineJobCard(

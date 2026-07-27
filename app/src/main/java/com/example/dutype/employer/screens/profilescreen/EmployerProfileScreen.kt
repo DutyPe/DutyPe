@@ -16,10 +16,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -97,6 +100,7 @@ fun EmployerProfileScreen(
     var companyPhone by remember { mutableStateOf("") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showAccountDeletionDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
     // var showThemeBottomSheet by remember { mutableStateOf(false) }
@@ -614,6 +618,26 @@ fun EmployerProfileScreen(
                                     ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
                             }
                         )
+
+                        EmployerMenuDivider()
+
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Security,
+                            title = "Privacy Policy",
+                            onClick = { 
+                                rootNavController.navigate(Routes.PRIVACY_POLICY) 
+                            }
+                        )
+
+                        EmployerMenuDivider()
+
+                        ProfileMenuItem(
+                            icon = Icons.Outlined.Description,
+                            title = "Terms of Service",
+                            onClick = { 
+                                rootNavController.navigate(Routes.TERMS_OF_SERVICE) 
+                            }
+                        )
                         
                         if (currentUserId.isNotEmpty()) {
                             // Logout moved below
@@ -649,6 +673,13 @@ fun EmployerProfileScreen(
                                 icon = Icons.AutoMirrored.Outlined.ExitToApp,
                                 title = stringResource(R.string.log_out),
                                 onClick = { showLogoutDialog = true },
+                                isDestructive = false
+                            )
+                            HorizontalDivider(color = EmployerColors.Border, thickness = 1.dp)
+                            ProfileMenuItem(
+                                icon = Icons.Default.DeleteForever,
+                                title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఖాతా శాశ్వతంగా తొలగించు" else "Delete Account & Data",
+                                onClick = { showAccountDeletionDialog = true },
                                 isDestructive = true
                             )
                         }
@@ -668,6 +699,18 @@ fun EmployerProfileScreen(
         ProfessionalLogoutDialog(
             isVisible = showLogoutDialog,
             onDismiss = { showLogoutDialog = false },
+            navController = rootNavController,
+            userRole = "Employer",
+            authManager = authManager,
+            profileCompletionViewModel = profileCompletionViewModel,
+            scope = scope
+        )
+    }
+
+    if (showAccountDeletionDialog) {
+        com.example.dutype.components.AccountDeletionDialog(
+            isVisible = showAccountDeletionDialog,
+            onDismiss = { showAccountDeletionDialog = false },
             navController = rootNavController,
             userRole = "Employer",
             authManager = authManager,

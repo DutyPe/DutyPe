@@ -63,6 +63,7 @@ function generateJobLandingPage(job, jobId) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
     
     <!-- Clean WhatsApp Preview - Custom site name -->
     <meta property="og:type" content="article">

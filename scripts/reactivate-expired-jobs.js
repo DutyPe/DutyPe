@@ -1,138 +1,141 @@
 /**
- * Reactivate Expired Jobs
- * 
- * This script finds all expired jobs and extends their expiry date
- * by 30 days from now, making them visible again.
+ * Reactivate inactive/expired job postings.
+ *
+ * Usage:
+ *   node scripts/reactivate-expired-jobs.js --dry-run
+ *   node scripts/reactivate-expired-jobs.js
+ *
+ * By default, this reopens only jobs that are inactive because they are
+ * expired/paused/inactive or have a past expiresAt. It intentionally skips
+ * closed, filled, and deleted jobs.
  */
-
 const admin = require('firebase-admin');
-const fs = require('fs');
-const path = require('path');
+const { loadServiceAccount } = require('./lib/firebase-admin-service-account');
 
-// Check if service account key exists
-const possibleKeyFiles = [
-  'serviceAccountKey.json',
-  'dutype-860ac-firebase-adminsdk.json'
-];
+const args = process.argv.slice(2);
+const DRY_RUN = args.includes('--dry-run');
+const LIMIT_ARG = args.find((a) => a.startsWith('--limit='));
+const LIMIT = LIMIT_ARG ? parseInt(LIMIT_ARG.split('=')[1], 10) : 0;
 
-let serviceAccountPath = null;
-for (const filename of possibleKeyFiles) {
-  const testPath = path.join(__dirname, filename);
-  if (fs.existsSync(testPath)) {
-    serviceAccountPath = testPath;
-    console.log(`✅ Found service account key: ${filename}`);
-    break;
+const JOBS_COLLECTION = 'jobmetadata';
+const JOB_DETAILS_COLLECTION = 'job_details';
+const PAGE_SIZE = 200;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function toMillis(value) {
+  if (!value) return 0;
+  if (value instanceof admin.firestore.Timestamp) return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') {
+    if (value <= 0) return 0;
+    if (value < 100_000_000_000) return value * 1000;
+    if (value > 9_999_999_999_999) return Math.floor(value / 1000);
+    return value;
   }
+  return 0;
 }
 
-if (!serviceAccountPath) {
-  console.error('❌ Service account key not found!');
-  process.exit(1);
+function shouldReactivate(card, details, now) {
+  const status = String(card.status || details.status || '').trim().toLowerCase();
+  if (['closed', 'filled', 'deleted'].includes(status)) return false;
+  if (['expired', 'paused', 'inactive'].includes(status)) return true;
+
+  const expiresAt = toMillis(details.expiresAt) || toMillis(card.expiresAt);
+  return expiresAt > 0 && expiresAt <= now;
 }
 
-const serviceAccount = require(serviceAccountPath);
+async function main() {
+  const sa = loadServiceAccount();
+  if (!admin.apps.length) {
+    admin.initializeApp({ credential: admin.credential.cert(sa) });
+  }
+  const db = admin.firestore();
+  const now = Date.now();
+  const newExpiry = admin.firestore.Timestamp.fromMillis(now + THIRTY_DAYS_MS);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+  console.log(
+    `Reactivate expired jobs: ${DRY_RUN ? 'DRY RUN' : 'LIVE'}${LIMIT ? `, limit=${LIMIT}` : ''}`
+  );
 
-const db = admin.firestore();
+  let processed = 0;
+  let wouldUpdate = 0;
+  let updated = 0;
+  let skipped = 0;
+  let lastDoc = null;
 
-async function reactivateExpiredJobs() {
-  console.log('🔄 ========== REACTIVATING EXPIRED JOBS ==========\n');
-  
-  try {
-    // Get ALL jobs
-    const jobsSnapshot = await db.collection('jobs').get();
-    const now = Date.now();
-    const thirtyDaysFromNow = now + (30 * 24 * 60 * 60 * 1000); // 30 days in milliseconds
-    
-    console.log(`📊 Total jobs in database: ${jobsSnapshot.size}\n`);
-    
-    // Find expired jobs
-    const expiredJobs = [];
-    
-    jobsSnapshot.forEach(doc => {
-      const job = doc.data();
-      const expiresAt = job.expiresAt || 0;
-      const isExpired = expiresAt > 0 && expiresAt < now;
-      
-      if (isExpired) {
-        expiredJobs.push({
-          id: doc.id,
-          title: job.title,
-          category: job.category,
-          location: job.location,
-          oldExpiresAt: expiresAt,
-          daysAgo: Math.floor((now - expiresAt) / (1000 * 60 * 60 * 24))
-        });
-      }
-    });
-    
-    console.log(`⏱️  Found ${expiredJobs.length} expired jobs\n`);
-    
-    if (expiredJobs.length === 0) {
-      console.log('✅ No expired jobs to reactivate!');
-      process.exit(0);
-    }
-    
-    // Show expired jobs
-    console.log('📋 Expired jobs to reactivate:');
-    console.log('─'.repeat(60));
-    expiredJobs.forEach((job, index) => {
-      console.log(`${index + 1}. ${job.title}`);
-      console.log(`   Category: ${job.category} | Location: ${job.location}`);
-      console.log(`   Expired: ${new Date(job.oldExpiresAt).toLocaleString()} (${job.daysAgo} days ago)`);
-    });
-    console.log('─'.repeat(60));
-    console.log('');
-    
-    // Reactivate jobs
-    console.log(`🔄 Reactivating ${expiredJobs.length} jobs...\n`);
-    
-    const batch = db.batch();
+  while (true) {
+    let query = db.collection(JOBS_COLLECTION).orderBy('__name__').limit(PAGE_SIZE);
+    if (lastDoc) query = query.startAfter(lastDoc);
+
+    const snapshot = await query.get();
+    if (snapshot.empty) break;
+    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+    let batch = db.batch();
     let batchCount = 0;
-    
-    for (const job of expiredJobs) {
-      const jobRef = db.collection('jobs').doc(job.id);
-      
-      // Extend expiry by 30 days from now
-      batch.update(jobRef, {
-        expiresAt: thirtyDaysFromNow,
+
+    for (const doc of snapshot.docs) {
+      if (LIMIT && processed >= LIMIT) break;
+      processed += 1;
+
+      const card = doc.data() || {};
+      const detailsRef = db.collection(JOB_DETAILS_COLLECTION).doc(doc.id);
+      const detailsSnap = await detailsRef.get();
+      const details = detailsSnap.exists ? detailsSnap.data() || {} : {};
+
+      if (!shouldReactivate(card, details, now)) {
+        skipped += 1;
+        continue;
+      }
+
+      wouldUpdate += 1;
+      const cardUpdate = {
+        status: 'open',
+        expiresAt: newExpiry,
         isActive: true,
-        isFilled: false
-      });
-      
-      batchCount++;
-      console.log(`✅ Reactivated: ${job.title}`);
-      console.log(`   New expiry: ${new Date(thirtyDaysFromNow).toLocaleString()} (30 days from now)`);
-      
-      // Commit batch every 500 updates
-      if (batchCount >= 500) {
+        isFilled: false,
+      };
+      const detailsUpdate = {
+        status: 'open',
+        expiresAt: newExpiry,
+        isActive: true,
+        isFilled: false,
+      };
+
+      console.log(
+        `${DRY_RUN ? 'Would update' : 'Updating'} ${doc.id}: ` +
+          `status=${card.status || details.status || '(blank)'}, ` +
+          `expiresAt=${toMillis(details.expiresAt) || toMillis(card.expiresAt) || '(none)'}`
+      );
+
+      if (!DRY_RUN) {
+        batch.set(doc.ref, cardUpdate, { merge: true });
+        batch.set(detailsRef, detailsUpdate, { merge: true });
+        batchCount += 2;
+        updated += 1;
+      }
+
+      if (batchCount >= 400) {
         await batch.commit();
-        console.log(`\n✅ Committed batch of ${batchCount} updates\n`);
+        batch = db.batch();
         batchCount = 0;
       }
     }
-    
-    // Commit remaining
-    if (batchCount > 0) {
+
+    if (!DRY_RUN && batchCount > 0) {
       await batch.commit();
-      console.log(`\n✅ Committed final batch of ${batchCount} updates\n`);
     }
-    
-    console.log('\n' + '='.repeat(60));
-    console.log(`✅ Successfully reactivated ${expiredJobs.length} jobs!`);
-    console.log(`📅 All jobs now expire on: ${new Date(thirtyDaysFromNow).toLocaleDateString()}`);
-    console.log('='.repeat(60) + '\n');
-    
-  } catch (error) {
-    console.error('❌ Error reactivating jobs:', error);
-    process.exit(1);
+    if (LIMIT && processed >= LIMIT) break;
   }
-  
-  process.exit(0);
+
+  console.log('Done.');
+  console.log(`Processed: ${processed}`);
+  console.log(`Skipped: ${skipped}`);
+  console.log(`${DRY_RUN ? 'Would update' : 'Updated'}: ${DRY_RUN ? wouldUpdate : updated}`);
+  console.log(`New expiry: ${new Date(now + THIRTY_DAYS_MS).toISOString()}`);
 }
 
-// Run the script
-reactivateExpiredJobs();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

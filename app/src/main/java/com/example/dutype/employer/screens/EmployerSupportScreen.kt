@@ -251,80 +251,86 @@ fun EmployerSupportScreen(
                 it.question.lowercase().contains(q) || it.answer.lowercase().contains(q)
             }
 
-            // User Guide Section
+            // Employer Guide (Single Page Layout - No Accordion)
             if (filteredGuides.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.employer_user_guide_header),
-                style = AppTypography.sectionHeader.copy(
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    filteredGuides.forEachIndexed { index, guide ->
-                        GuideItemCard(
-                            guide = guide,
-                            isExpanded = expandedGuideIndex == index,
-                            onClick = {
-                                expandedGuideIndex = if (expandedGuideIndex == index) -1 else index
-                            }
-                        )
-                        if (index < filteredGuides.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                color = EmployerColors.Border
+                Text(
+                    text = stringResource(R.string.employer_user_guide_header),
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    filteredGuides.forEach { guide ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = guide.title,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                            )
+                            Text(
+                                text = guide.content,
+                                style = AppTypography.bodyMedium.copy(
+                                    color = Color(0xFF475569),
+                                    lineHeight = 22.sp
+                                )
                             )
                         }
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(24.dp))
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
-            }
-            
-            // FAQ Section
+            // FAQ Section (Single Page Layout - No Accordion)
             if (filteredFaqs.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.employer_faq_header),
-                style = AppTypography.sectionHeader.copy(
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    filteredFaqs.forEachIndexed { index, faq ->
-                        FaqItemCard(
-                            faq = faq,
-                            isExpanded = expandedFaqIndex == index,
-                            onClick = {
-                                expandedFaqIndex = if (expandedFaqIndex == index) -1 else index
-                            }
-                        )
-                        if (index < filteredFaqs.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                                color = EmployerColors.Border
+                Text(
+                    text = stringResource(R.string.employer_faq_header),
+                    style = AppTypography.sectionHeader.copy(
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    filteredFaqs.forEach { faq ->
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = faq.question,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                            )
+                            Text(
+                                text = faq.answer,
+                                style = AppTypography.bodyMedium.copy(
+                                    color = Color(0xFF475569),
+                                    lineHeight = 22.sp
+                                )
                             )
                         }
                     }
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
+                
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             if (filteredGuides.isEmpty() && filteredFaqs.isEmpty()) {

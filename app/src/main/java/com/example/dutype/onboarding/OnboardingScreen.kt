@@ -1,807 +1,484 @@
 package com.example.dutype.onboarding
 
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.theme.*
-import com.example.dutype.utils.LocaleHelper
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import kotlin.math.absoluteValue
 
-private val PrimaryOrange = Color(0xFF111827)
-private val PrimaryDark = Color(0xFF111827)
-private val GlassTextPrimary = Color(0xFF0F172A)
-private val GlassTextSecondary = Color(0xFF64748B)
+// =============================================================================
+// Onboarding Data Models (Immutable)
+// =============================================================================
 
+@Immutable
 data class OnboardingPageData(
-    val icon: ImageVector,
-    val titleRes: Int,
-    val descriptionRes: Int,
-    val accentStart: Color,
-    val accentEnd: Color
+    @DrawableRes val imageRes: Int,
+    @StringRes val titleRes: Int,
+    @StringRes val descriptionRes: Int
 )
 
-val onboardingPagesData = listOf(
+val onboardingPages = listOf(
     OnboardingPageData(
-        icon = Icons.Filled.Bolt,
+        imageRes = R.drawable.onboarding1,
         titleRes = R.string.onboarding_title_1,
-        descriptionRes = R.string.onboarding_desc_1,
-        accentStart = Color(0xFFF59E0B),
-        accentEnd = Color(0xFFEF4444)
+        descriptionRes = R.string.onboarding_desc_1
     ),
     OnboardingPageData(
-        icon = Icons.Filled.VerifiedUser,
+        imageRes = R.drawable.onboarding2,
         titleRes = R.string.onboarding_title_2,
-        descriptionRes = R.string.onboarding_desc_2,
-        accentStart = Color(0xFF2563EB),
-        accentEnd = Color(0xFF7C3AED)
+        descriptionRes = R.string.onboarding_desc_2
     ),
     OnboardingPageData(
-        icon = Icons.Filled.LocationOn,
+        imageRes = R.drawable.onboarding3,
         titleRes = R.string.onboarding_title_3,
-        descriptionRes = R.string.onboarding_desc_3,
-        accentStart = Color(0xFF059669),
-        accentEnd = Color(0xFF0EA5E9)
+        descriptionRes = R.string.onboarding_desc_3
+    ),
+    OnboardingPageData(
+        imageRes = R.drawable.onboarding4,
+        titleRes = R.string.onboarding_title_4,
+        descriptionRes = R.string.onboarding_desc_4
     )
 )
 
-@Composable
-fun OnboardingScreen(navController: NavController) {
-    com.example.dutype.ui.theme.ForceLightTheme {
-    val context = LocalContext.current
-    var showLanguageSelection by remember { mutableStateOf(!hasLanguageBeenSelected(context)) }
-    
-    if (showLanguageSelection) {
-        FirstTimeLanguageSelection(
-            selectedLanguage = LocaleHelper.getLanguage(context),
-            onLanguageSelected = { lang ->
-                // Persist + propagate locale to all activities. setLocale alone
-                // only mutates the local Context — it does not survive activity
-                // recreation, so subsequent onboarding/role-select screens render
-                // in the previous language. Persist via saveLanguage and recreate
-                // the host activity so AppCompat re-wraps every Composable.
-                LocaleHelper.saveLanguage(context, lang)
-                LocaleHelper.setLocale(context, lang)
-                markLanguageAsSelected(context)
-                showLanguageSelection = false
-                (context as? android.app.Activity)?.recreate()
-            }
-        )
-    } else {
-        OnboardingContent(navController = navController)
-    }
-    }
-}
+// =============================================================================
+// Main Onboarding Screen
+// =============================================================================
 
 @Composable
-private fun FirstTimeLanguageSelection(
-    selectedLanguage: String,
-    onLanguageSelected: (String) -> Unit
+fun OnboardingScreen(
+    navController: NavController,
+    viewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
-    val effectiveInitialLanguage = if (selectedLanguage == "hi") {
-        LocaleHelper.LANGUAGE_ENGLISH
-    } else {
-        selectedLanguage
-    }
-    var currentSelection by remember { mutableStateOf(effectiveInitialLanguage) }
-
-    val isTeluguSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU
-
-    val title = if (isTeluguSelected) "మీ భాషను ఎంచుకోండి" else "Choose Your Language"
-    val continueText = if (isTeluguSelected) "కొనసాగించు" else "Continue"
-    val changeAnytimeText = if (isTeluguSelected) {
-        "తర్వాత Settings లో కూడా భాషను మార్చవచ్చు"
-    } else {
-        "You can change this later from Settings"
-    }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFFFFAEF),
-                        Color(0xFFF8FAFC),
-                        Color(0xFFEFF6FF)
-                    )
-                )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 22.dp, vertical = 20.dp)
-        ) {
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = title,
-                style = AppTypography.displayTitle.copy(
-                    color = GlassTextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Start
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SimpleLanguageCard(
-                    scriptChar = "A",
-                    nativeName = "English",
-                    supportingText = "Simple and familiar across the app",
-                    isSelected = currentSelection == LocaleHelper.LANGUAGE_ENGLISH,
-                    onClick = { currentSelection = LocaleHelper.LANGUAGE_ENGLISH },
-                    iconBrush = Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF0EA5E9))),
-                    accentTint = Color(0xFF2563EB)
-                )
-
-                SimpleLanguageCard(
-                    scriptChar = "అ",
-                    nativeName = "తెలుగు",
-                    supportingText = "తెలుగులో జాబ్స్, సూచనలు, బటన్స్",
-                    isSelected = currentSelection == LocaleHelper.LANGUAGE_TELUGU,
-                    onClick = { currentSelection = LocaleHelper.LANGUAGE_TELUGU },
-                    iconBrush = Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFDC2626))),
-                    accentTint = Color(0xFFD97706)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { onLanguageSelected(currentSelection) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0F172A),
-                    contentColor = Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
-            ) {
-                Text(
-                    text = continueText,
-                    style = AppTypography.buttonLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = changeAnytimeText,
-                style = AppTypography.caption.copy(
-                    color = Color(0xFF64748B),
-                    textAlign = TextAlign.Center
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun LanguageSelectionBackdrop() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFFFBEB),
-                            Color(0xFFEFF6FF),
-                            Color(0xFFF8FAFC)
-                        )
-                    )
-                )
-        )
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFF59E0B).copy(alpha = 0.14f),
-                        Color.Transparent
-                    )
-                ),
-                center = Offset(x = size.width * 0.1f, y = size.height * 0.1f),
-                radius = size.width * 0.44f
-            )
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF60A5FA).copy(alpha = 0.16f),
-                        Color.Transparent
-                    )
-                ),
-                center = Offset(x = size.width * 0.88f, y = size.height * 0.18f),
-                radius = size.width * 0.38f
-            )
-        }
-    }
-}
-
-@Composable
-private fun LanguageScreenDecor(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .size(width = 172.dp, height = 172.dp)
-                .offset(x = 176.dp, y = 128.dp)
-                .graphicsLayer {
-                    rotationZ = 18f
-                    alpha = 0.26f
-                }
-                .clip(RoundedCornerShape(42.dp))
-                .background(Color.White.copy(alpha = 0.55f))
-        )
-
-        Box(
-            modifier = Modifier
-                .size(width = 126.dp, height = 88.dp)
-                .offset(x = (-24).dp, y = 478.dp)
-                .clip(RoundedCornerShape(30.dp))
-                .background(Color(0xFFFFEDD5).copy(alpha = 0.7f))
-                .border(1.dp, Color.White.copy(alpha = 0.65f), RoundedCornerShape(30.dp))
-        )
-
-        Box(
-            modifier = Modifier
-                .size(210.dp)
-                .offset(x = (-62).dp, y = 612.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFA78BFA).copy(alpha = 0.1f))
-                .blur(24.dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .size(width = 188.dp, height = 116.dp)
-                .offset(x = 104.dp, y = 554.dp)
-                .clip(RoundedCornerShape(56.dp))
-                .background(Color(0xFF93C5FD).copy(alpha = 0.12f))
-                .blur(30.dp)
-        )
-    }
-}
-
-/**
- * Batch-n #3: Clean, flat language card. White surface, soft border,
- * one accent line + check chip when selected. No glassy gradients,
- * halos, or blurs — reads as a professional choice tile.
- */
-@Composable
-private fun SimpleLanguageCard(
-    scriptChar: String,
-    nativeName: String,
-    supportingText: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    iconBrush: Brush,
-    accentTint: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) accentTint else Color(0xFFE2E8F0),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) accentTint.copy(alpha = 0.08f) else com.example.dutype.ui.theme.WorkerColors.CardBackground
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(iconBrush),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = scriptChar,
-                    style = AppTypography.pageTitle.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = nativeName,
-                    style = AppTypography.cardTitle.copy(
-                        color = Color(0xFF0F172A),
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = supportingText,
-                    style = AppTypography.bodySmall.copy(
-                        color = Color(0xFF64748B),
-                        lineHeight = 18.sp
-                    )
-                )
-            }
-
-            if (isSelected) {
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(accentTint),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// Helper functions for tracking if language has been selected
-private const val PREF_LANGUAGE_SELECTED = "language_selected_first_time"
-
-private fun hasLanguageBeenSelected(context: android.content.Context): Boolean {
-    val prefs = context.getSharedPreferences("dutype_language_prefs", android.content.Context.MODE_PRIVATE)
-    return prefs.getBoolean(PREF_LANGUAGE_SELECTED, false)
-}
-
-private fun markLanguageAsSelected(context: android.content.Context) {
-    val prefs = context.getSharedPreferences("dutype_language_prefs", android.content.Context.MODE_PRIVATE)
-    prefs.edit().putBoolean(PREF_LANGUAGE_SELECTED, true).apply()
-}
-
-@Composable
-private fun OnboardingContent(navController: NavController) {
-    val pagerState = rememberPagerState(pageCount = { onboardingPagesData.size })
+    val pagerState = rememberPagerState(pageCount = { onboardingPages.size })
     val coroutineScope = rememberCoroutineScope()
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    
-    // Helper function to mark onboarding complete and navigate
-    fun completeOnboardingAndNavigate() {
+
+    val isLastPage by remember {
+        derivedStateOf { pagerState.currentPage == onboardingPages.lastIndex }
+    }
+
+    fun completeAndNavigate() {
         coroutineScope.launch {
-            Timber.d("🎯 OnboardingScreen - Marking onboarding as completed")
-            profileCompletionViewModel.markOnboardingCompleted()
-            profileCompletionViewModel.markAppAsOpened()
+            Timber.d("🎯 OnboardingScreen - Completing onboarding flow")
+            viewModel.markOnboardingCompleted()
+            viewModel.markAppAsOpened()
             navController.navigate(Routes.SELECT_ROLE) {
                 popUpTo(Routes.ONBOARDING) { inclusive = true }
             }
         }
     }
-    
-    val pageFactor by remember(pagerState.currentPage, pagerState.currentPageOffsetFraction) {
-        mutableStateOf(pagerState.currentPage + pagerState.currentPageOffsetFraction)
-    }
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        OnboardingBackdrop(pageFactor = pageFactor)
-        
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.White,
+        contentWindowInsets = WindowInsets.systemBars
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+                .padding(paddingValues)
         ) {
-            // Top bar with Skip
-            TopBar(
+            // Top Bar with Skip Button
+            OnboardingHeader(
+                isLastPage = isLastPage,
+                onSkipClick = { completeAndNavigate() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Pager takes the remaining height
+            // Pager Section (Occupies ~55-60% height for illustration + text)
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
+                    .fillMaxWidth()
                     .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 24.dp)
-            ) { page ->
-                val pageOffset = (
-                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                )
-                val pageData = onboardingPagesData[page]
-                
-                OnboardingPage(
-                    icon = pageData.icon,
-                    accentStart = pageData.accentStart,
-                    accentEnd = pageData.accentEnd,
-                    title = stringResource(pageData.titleRes),
-                    description = stringResource(pageData.descriptionRes),
-                    pageIndex = page,
-                    pageOffset = pageOffset
+            ) { pageIndex ->
+                val pageData = onboardingPages[pageIndex]
+
+                // Page offset calculation for subtle scale & fade transition
+                val pageOffset = ((pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction).absoluteValue
+                val imageScale = 1f - (pageOffset * 0.05f).coerceIn(0f, 0.05f)
+                val imageAlpha = 1f - (pageOffset * 0.3f).coerceIn(0f, 0.3f)
+
+                OnboardingPageContent(
+                    pageData = pageData,
+                    imageScale = imageScale,
+                    imageAlpha = imageAlpha,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
 
-            // Bottom controls
-            BottomControls(
-                pagerState = pagerState,
-                onSkip = {
-                    Timber.d("🎯 OnboardingScreen - Skip clicked")
-                    completeOnboardingAndNavigate()
-                },
-                onNext = {
-                    if (pagerState.currentPage == onboardingPagesData.lastIndex) {
-                        Timber.d("🎯 OnboardingScreen - Completed! Navigating to SELECT_ROLE")
-                        completeOnboardingAndNavigate()
+            // Footer Controls (Indicators + Navigation Button)
+            OnboardingFooter(
+                pageCount = onboardingPages.size,
+                currentPage = pagerState.currentPage,
+                isLastPage = isLastPage,
+                onNextClick = {
+                    if (isLastPage) {
+                        completeAndNavigate()
                     } else {
-                        Timber.d("🎯 OnboardingScreen - Moving to page ${pagerState.currentPage + 1}")
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(pagerState.currentPage + 1)
                         }
                     }
-                }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp)
             )
         }
     }
 }
 
-// Helper function for lerp animation
-fun lerp(start: Float, stop: Float, fraction: Float): Float {
-    return (1 - fraction) * start + fraction * stop
-}
+// =============================================================================
+// Header Component (Top Right Skip Button)
+// =============================================================================
 
 @Composable
-private fun TopBar(
+private fun OnboardingHeader(
+    isLastPage: Boolean,
+    onSkipClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var showLanguageBottomSheet by remember { mutableStateOf(false) }
+
+    val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
+        else -> "English"
+    }
+
+    Row(
+        modifier = modifier.height(48.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Top Left Language Selector Chip (matching SelectRoleScreen)
+        Surface(
+            onClick = { showLanguageBottomSheet = true },
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Translate,
+                    contentDescription = null,
+                    tint = Color(0xFF2563EB),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = activeLangName,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF0F172A)
+                    )
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color(0xFF475569),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        // Top Right Skip Button
+        AnimatedVisibility(
+            visible = !isLastPage,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            TextButton(
+                onClick = onSkipClick,
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.onboarding_skip),
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
+    }
+
+    if (showLanguageBottomSheet) {
+        com.example.dutype.components.LanguageSelectionBottomSheet(
+            onDismiss = { showLanguageBottomSheet = false }
+        )
+    }
+}
+
+// =============================================================================
+// Page Content Component (55-60% Image Height + M3 Typography Text)
+// =============================================================================
+
+@Composable
+private fun OnboardingPageContent(
+    pageData: OnboardingPageData,
+    imageScale: Float,
+    imageAlpha: Float,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        // Image Container (Full width without heavy side padding so illustration is larger and clear)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+                .weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = pageData.imageRes),
+                contentDescription = stringResource(id = pageData.titleRes),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = imageScale
+                        scaleY = imageScale
+                        alpha = imageAlpha
+                    }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Text Section (Positioned higher up, directly under image with clean 24.dp side margins)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(id = pageData.titleRes),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp,
+                    lineHeight = 36.sp
+                ),
+                color = Color(0xFF0F172A),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = stringResource(id = pageData.descriptionRes),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    lineHeight = 24.sp,
+                    fontSize = 16.sp
+                ),
+                color = Color(0xFF475569),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+    }
+}
+
+// =============================================================================
+// Footer Component (Animated Pill Indicators + Action Buttons)
+// =============================================================================
+
+@Composable
+private fun OnboardingFooter(
+    pageCount: Int,
+    currentPage: Int,
+    isLastPage: Boolean,
+    onNextClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(modifier = Modifier.height(1.dp))
-    }
-}
-
-@Composable
-private fun OnboardingPage(
-    icon: ImageVector,
-    accentStart: Color,
-    accentEnd: Color,
-    title: String,
-    description: String,
-    pageIndex: Int,
-    pageOffset: Float,
-    modifier: Modifier = Modifier
-) {
-    val absOffset = pageOffset.absoluteValue
-    
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                // Fade out pages as they leave
-                alpha = lerp(
-                    start = 0.5f,
-                    stop = 1f,
-                    fraction = 1f - absOffset.coerceIn(0f, 1f)
-                )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Spacer(modifier = Modifier.weight(0.4f))
-
-        // Hero gradient block — replaces the static illustration. Pure
-        // Compose so it renders crisp at any density and stays visually
-        // role-neutral (suitable for both worker and employer flows).
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.78f)
-                .aspectRatio(1f)
-                .graphicsLayer {
-                    translationX = pageOffset * 80f
-                    val scale = 1f - (absOffset * 0.08f)
-                    scaleX = scale
-                    scaleY = scale
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // Outer soft halo
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                accentStart.copy(alpha = 0.16f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-
-            // Mid ring
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(0.78f)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.6f))
-                    .border(
-                        width = 1.dp,
-                        color = Color.White,
-                        shape = CircleShape
-                    )
-                    .shadow(
-                        elevation = 14.dp,
-                        shape = CircleShape,
-                        ambientColor = accentStart.copy(alpha = 0.18f),
-                        spotColor = accentEnd.copy(alpha = 0.18f)
-                    )
-            )
-
-            // Inner gradient disc
-            Box(
-                modifier = Modifier
-                    .fillMaxSize(0.56f)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(accentStart, accentEnd)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = Color.White,
-                    modifier = Modifier.fillMaxSize(0.5f)
-                )
-            }
-
-            // Decorative pill — top-right
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-12).dp, y = 24.dp)
-                    .size(width = 56.dp, height = 18.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
-                    .shadow(2.dp, RoundedCornerShape(999.dp))
-            )
-
-            // Decorative dot — bottom-left
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = 18.dp, y = (-22).dp)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(accentEnd.copy(alpha = 0.85f))
-                    .shadow(4.dp, CircleShape)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Text Content with different parallax
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .graphicsLayer {
-                    translationX = pageOffset * 50f
-                    alpha = 1f - (absOffset * 1.5f).coerceIn(0f, 1f)
-                }
-        ) {
-            // Bug #7 fix: Step badge ("01", "02", "03") removed per product
-            // request — the page indicator dots at the bottom already convey
-            // progress, so the duplicated number chip was visual noise.
-
-            Text(
-                text = title,
-                style = AppTypography.displayTitle.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = GlassTextPrimary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 30.sp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = description,
-                style = AppTypography.bodyLarge.copy(
-                    color = GlassTextSecondary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 24.sp
-                )
-            )
-        }
-
-        Spacer(modifier = Modifier.weight(0.6f))
-    }
-}
-
-@Composable
-fun OnboardingBackdrop(pageFactor: Float) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        drawRect(color = Color(0xFFF8FAFC))
-    }
-}
-
-@Composable
-private fun BottomControls(
-    pagerState: androidx.compose.foundation.pager.PagerState,
-    onSkip: () -> Unit,
-    onNext: () -> Unit
-) {
-    val isLastPage = pagerState.currentPage == pagerState.pageCount - 1
-    val isTelugu = LocaleHelper.getLanguage(LocalContext.current) == LocaleHelper.LANGUAGE_TELUGU
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(
-            onClick = onSkip,
-            modifier = Modifier.height(48.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.skip),
-                style = AppTypography.buttonMedium.copy(
-                    color = GlassTextPrimary,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // Page Indicators
+        // Animated Pill Indicators
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(pagerState.pageCount) { index ->
-                val isSelected = pagerState.currentPage == index
-                val width by animateDpAsState(
-                    targetValue = if (isSelected) 24.dp else 8.dp,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "dot_width"
+            repeat(pageCount) { index ->
+                val isSelected = index == currentPage
+                val targetWidth = if (isSelected) 24.dp else 8.dp
+                val targetColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                }
+
+                val animatedWidth by animateDpAsState(
+                    targetValue = targetWidth,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "indicatorWidth"
                 )
-                
+                val animatedColor by animateColorAsState(
+                    targetValue = targetColor,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "indicatorColor"
+                )
+
                 Box(
                     modifier = Modifier
                         .height(8.dp)
-                        .width(width)
+                        .width(animatedWidth)
                         .clip(CircleShape)
-                        .background(
-                            if (isSelected) Color(0xFF111827) else Color(0xFFE2E8F0)
-                        )
+                        .background(animatedColor)
                 )
             }
         }
 
-        // Next/Get Started Button with pulsing effect
-        Button(
-            onClick = onNext,
-            modifier = Modifier
-                .height(56.dp)
-                .width(56.dp),
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111827)),
-            border = BorderStroke(1.dp, Color(0xFF111827)),
-            contentPadding = PaddingValues(0.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF111827), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = if (isLastPage) {
-                        if (isTelugu) "పూర్తి" else "Finish"
-                    } else {
-                        if (isTelugu) "తదుపరి" else "Next"
-                    },
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+        // Action Button (Next Floating Icon Button vs Get Started Button)
+        androidx.compose.animation.AnimatedContent(
+            targetState = isLastPage,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.92f))
+                    .togetherWith(fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.92f))
+            },
+            label = "onboardingButtonTransition"
+        ) { targetIsLastPage ->
+            if (targetIsLastPage) {
+                Button(
+                    onClick = onNextClick,
+                    modifier = Modifier
+                        .height(45.0.dp)
+                        .padding(start = 16.dp),
+                    shape = RoundedCornerShape(23.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.onboarding_get_started),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(horizontal = 13.dp)
+                    )
+                }
+            } else {
+                FilledIconButton(
+                    onClick = onNextClick,
+                    modifier = Modifier.size(45.0.dp),
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = stringResource(R.string.onboarding_next),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+// =============================================================================
+// Previews
+// =============================================================================
+
+@Preview(name = "Light Theme", showBackground = true)
 @Composable
-fun OnboardingScreenPreview() {
-    OnboardingScreen(navController = rememberNavController())
+private fun OnboardingPreviewLight() {
+    MaterialTheme {
+        Surface {
+            OnboardingScreen(navController = rememberNavController())
+        }
+    }
 }

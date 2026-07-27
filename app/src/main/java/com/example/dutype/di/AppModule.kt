@@ -597,12 +597,33 @@ object AppModule {
     fun provideImageLoader(
         @ApplicationContext context: Context
     ): ImageLoader {
+        // P1 COIL MEMORY CACHE TUNING
+        // Low-end / Android-Go devices (≤ 3 GB RAM) are OOM-prone under the
+        // default 25% cap.  We detect them via ActivityManager and hard-cap the
+        // memory cache at 32 MB so image loading never starves the rest of the app.
+        // On normal devices (> 3 GB) we stay at the LinkedIn-standard 25%.
+        val activityManager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE)
+            as android.app.ActivityManager
+        val memoryInfo = android.app.ActivityManager.MemoryInfo().also { activityManager.getMemoryInfo(it) }
+        val totalRamMb = memoryInfo.totalMem / (1024L * 1024L)
+        val isLowRam = activityManager.isLowRamDevice || totalRamMb <= 3072L
+
+        val memoryCache = if (isLowRam) {
+            // Hard cap at 32 MB on low-RAM devices to avoid OOM
+            MemoryCache.Builder(context)
+                .maxSizeBytes(32 * 1024 * 1024) // 32 MB
+                .build()
+        } else {
+            // Standard 25% on normal devices (LinkedIn / Airbnb pattern)
+            MemoryCache.Builder(context)
+                .maxSizePercent(0.25)
+                .build()
+        }
+
+        Timber.d("Coil ImageLoader: RAM=${totalRamMb}MB, isLowRam=$isLowRam, cacheSize=${if (isLowRam) "32MB cap" else "25%"}")
+
         return ImageLoader.Builder(context)
-            .memoryCache {
-                MemoryCache.Builder(context)
-                    .maxSizePercent(0.25) // Use 25% of available memory (LinkedIn standard)
-                    .build()
-            }
+            .memoryCache { memoryCache }
             .diskCache {
                 DiskCache.Builder()
                     .directory(context.cacheDir.resolve("image_cache"))
@@ -611,7 +632,7 @@ object AppModule {
             }
             .crossfade(300) // Smooth fade-in (Meta standard)
             .respectCacheHeaders(false) // Ignore server cache headers for better offline support
-            .allowHardware(true) // Use GPU for decoding (faster)
+            .allowHardware(!isLowRam) // Disable GPU decoding on low-RAM to save VRAM
             .build()
     }
 
@@ -625,6 +646,8 @@ object AppModule {
     fun provideRequestDeduplicator(): RequestDeduplicator {
         return RequestDeduplicator()
     }
+
+
 
     // ==========================================
     // METADATA SERVICES (with Firestore injection)

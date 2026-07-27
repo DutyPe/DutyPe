@@ -1329,8 +1329,8 @@ fun PostJobScreen(
                         // a tall empty band at the top.
                     }
 
-                    // Group 1: Job Details (title, work type, description, image) � STEP 0
-                    item {
+                    // Group 1: Job Details (title, work type, description, image) — STEP 0
+                    item(key = "post_job_group_1", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 1,
                             title = stringResource(R.string.tell_us_about_role),
@@ -1442,8 +1442,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 2: Pay & Location � STEP 1
-                    item {
+                    // Group 2: Pay & Location — STEP 1
+                    item(key = "post_job_group_2", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 2,
                             title = stringResource(R.string.pay_where_work),
@@ -1463,31 +1463,31 @@ fun PostJobScreen(
                                         isLoadingLocation = isLoadingLocation,
                                         locationError = locationError,
                                         onLocationButtonClick = {
-                                            Timber.d("� LOCATION BUTTON: Clicked - checking permission...")
+                                            Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
                                             if (locationService.hasLocationPermission()) {
-                                                Timber.d("� LOCATION BUTTON: Permission granted, fetching fast-first location...")
+                                                Timber.d("📍 LOCATION BUTTON: Permission granted, fetching fast-first location...")
                                                 isLoadingLocation = true
                                                 locationError = null
                                                 scope.launch {
                                                     try {
                                                         fetchWorkLocationFast()
-                                                        Timber.d("� LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
+                                                        Timber.d("📍 LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
                                                     } catch (e: Exception) {
-                                                        Timber.e(e, "� LOCATION BUTTON: Error getting location")
+                                                        Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
                                                         locationError = context.getString(R.string.error_getting_location)
                                                     } finally {
                                                         isLoadingLocation = false
                                                     }
                                                 }
                                             } else {
-                                                Timber.d("� LOCATION BUTTON: Requesting permission...")
+                                                Timber.d("📍 LOCATION BUTTON: Requesting permission...")
                                                 locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                                             }
                                         },
                                         onLocationSelected = { lat, lon ->
                                             locationLatitude = lat
                                             locationLongitude = lon
-                                            Timber.d("� LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
+                                            Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
                                         },
                                         locationLatitude = locationLatitude,
                                         locationLongitude = locationLongitude,
@@ -1540,8 +1540,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Group 3: People, Schedule & Perks � STEP 2
-                    item {
+                    // Group 3: People, Schedule & Perks — STEP 2
+                    item(key = "post_job_group_3", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 3,
                             title = stringResource(R.string.who_you_want_extras),
@@ -1594,8 +1594,8 @@ fun PostJobScreen(
                         }
                     }
 
-                    // Standalone: Contact details � STEP 2
-                    item {
+                    // Standalone: Contact details — STEP 2
+                    item(key = "post_job_contact_group", contentType = "form_group") {
                         ContactSection(
                             contactNumber = contactNumber,
                             onContactNumberChange = { contactNumber = it },

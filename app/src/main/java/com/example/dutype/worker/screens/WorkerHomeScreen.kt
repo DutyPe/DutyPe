@@ -112,9 +112,11 @@ import com.example.dutype.ui.theme.IconSizes
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.utils.GeoUtils
+import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.appVersionInfo
+import com.example.dutype.ui.theme.PrimaryBlue
 import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.EarningsViewModel
@@ -230,6 +232,9 @@ fun WorkerHomeScreen(
     var isFetchingSheetLocation by remember { mutableStateOf(false) }
     var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
     var showNoUrgentJobsToastAfterSwitchOn by remember { mutableStateOf(false) }
+    // P1 PLAY STORE COMPLIANCE: Show mandatory in-app disclosure before the
+    // system location permission dialog (required by Google Play policy §4.1).
+    var showLocationDisclosureDialog by remember { mutableStateOf(false) }
     val locationPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     suspend fun saveWorkerHomeLocation(locationData: LocationData, manual: Boolean) {
@@ -952,13 +957,10 @@ fun WorkerHomeScreen(
                     if (locationService.hasLocationPermission()) {
                         scope.launch { fetchCurrentLocationFromSheet() }
                     } else {
+                        // P1: Show disclosure first; launcher fires inside the dialog's
+                        // confirm callback so the system prompt only appears after consent.
                         shouldFetchCurrentLocationAfterPermission = true
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
+                        showLocationDisclosureDialog = true
                     }
                 },
                 onLocationSelected = { selectedAddress, latitude, longitude ->
@@ -986,6 +988,74 @@ fun WorkerHomeScreen(
             },
             userRole = "worker"
         )
+
+        // P1 PLAY STORE COMPLIANCE — Location Disclosure Dialog
+        // Google Play requires a prominent in-app disclosure before requesting
+        // location permission if the feature involves background or precise location.
+        // This dialog appears BEFORE the system permission prompt.
+        if (showLocationDisclosureDialog) {
+            val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    showLocationDisclosureDialog = false
+                    shouldFetchCurrentLocationAfterPermission = false
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = if (isTelugu) "మీ లొకేషన్ అనుమతి" else "Location Permission",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                text = {
+                    Text(
+                        text = if (isTelugu)
+                            "DutyPe మీకు దగ్గరలో ఉన్న ఉద్యోగాలను చూపించడానికి మీ ఖచ్చితమైన స్థానాన్ని ఉపయోగిస్తుంది. ఈ సమాచారం మీకు సంబంధించిన ఉద్యోగ ఫలితాలు అందించడానికి మాత్రమే ఉపయోగించబడుతుంది."
+                        else
+                            "DutyPe uses your precise location to show nearby jobs and calculate distances. Your location is only used to deliver relevant job results near you and is never shared with employers without your consent.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showLocationDisclosureDialog = false
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                    ) {
+                        Text(
+                            text = if (isTelugu) "అనుమతించు" else "Allow",
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showLocationDisclosureDialog = false
+                            shouldFetchCurrentLocationAfterPermission = false
+                        }
+                    ) {
+                        Text(text = if (isTelugu) "వద్దు" else "Not Now")
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = Color.White
+            )
+        }
 
         if (!showNotificationBottomSheet && !showLocationPickerSheet) {
             AppUpdatePrompt(

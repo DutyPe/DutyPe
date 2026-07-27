@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
@@ -141,6 +142,7 @@ fun WorkerProfileScreen(
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showAccountDeletionDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
     // var showThemeBottomSheet by remember { mutableStateOf(false) }
@@ -821,9 +823,26 @@ fun WorkerProfileScreen(
                         title = stringResource(R.string.about_us),
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
-                    
+
                     MenuDivider()
-                    
+
+                    // Privacy Policy
+                    MeeshoMenuItem(
+                        icon = Icons.Outlined.Security,
+                        title = "Privacy Policy",
+                        onClick = { rootNavController.navigate(Routes.PRIVACY_POLICY) }
+                    )
+
+                    MenuDivider()
+
+                    // Terms of Service
+                    MeeshoMenuItem(
+                        icon = Icons.Outlined.Description,
+                        title = "Terms of Service",
+                        onClick = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) }
+                    )
+
+                    MenuDivider()
                 }
             }
         }
@@ -835,7 +854,7 @@ fun WorkerProfileScreen(
         }
         */
         
-        // Logout - Simple menu item below Follow Us
+        // Logout & Delete Account Menu Card
         item {
             if (currentUserId.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -850,12 +869,21 @@ fun WorkerProfileScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     shape = RoundedCornerShape(0.dp)
                 ) {
-                    MeeshoMenuItem(
-                        icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                        title = stringResource(R.string.log_out),
-                        isDestructive = true,
-                        onClick = { showLogoutDialog = true }
-                    )
+                    Column {
+                        MeeshoMenuItem(
+                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
+                            title = stringResource(R.string.log_out),
+                            isDestructive = false,
+                            onClick = { showLogoutDialog = true }
+                        )
+                        MenuDivider()
+                        MeeshoMenuItem(
+                            icon = Icons.Default.DeleteForever,
+                            title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఖాతా శాశ్వతంగా తొలగించు" else "Delete Account & Data",
+                            isDestructive = true,
+                            onClick = { showAccountDeletionDialog = true }
+                        )
+                    }
                 }
             }
         }
@@ -939,6 +967,18 @@ fun WorkerProfileScreen(
         ProfessionalLogoutDialog(
             isVisible = showLogoutDialog,
             onDismiss = { showLogoutDialog = false },
+            navController = rootNavController,
+            userRole = "Worker",
+            authManager = authManager,
+            profileCompletionViewModel = profileCompletionViewModel,
+            scope = scope
+        )
+    }
+
+    if (showAccountDeletionDialog) {
+        com.example.dutype.components.AccountDeletionDialog(
+            isVisible = showAccountDeletionDialog,
+            onDismiss = { showAccountDeletionDialog = false },
             navController = rootNavController,
             userRole = "Worker",
             authManager = authManager,
