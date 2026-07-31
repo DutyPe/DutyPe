@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
@@ -26,7 +28,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class DutyPeApplication : Application(), Configuration.Provider {
+class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFactory {
 
     companion object {
         // Keep StrictMode opt-in to avoid vendor ROM noise drowning real app errors in Logcat.
@@ -98,6 +100,18 @@ class DutyPeApplication : Application(), Configuration.Provider {
     
     @Inject
     lateinit var anrHandler: com.example.dutype.performance.ANRHandler
+
+    /**
+     * Coil resolves its singleton loader through this factory. Without it every
+     * `AsyncImage` fell back to Coil's default loader, so the tuned low-RAM memory cap
+     * and bounded disk cache in [com.example.dutype.di.AppModule.provideImageLoader]
+     * were never applied. `Lazy` keeps construction off the cold-start path.
+     */
+    @Inject
+    lateinit var imageLoaderProvider: dagger.Lazy<ImageLoader>
+
+    override fun newImageLoader(): ImageLoader = imageLoaderProvider.get()
+
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
     

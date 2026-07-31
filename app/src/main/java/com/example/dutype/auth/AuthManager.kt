@@ -126,6 +126,11 @@ class AuthManager @Inject constructor(
         
         // Sign out from Firebase
         firebaseAuth.signOut()
+
+        // Lives in its own SharedPreferences file, so prefs.clear() above misses it.
+        // A stale entry makes the next cold start open an authenticated route while signed out.
+        runCatching { com.example.dutype.navigation.StartDestinationCache.clear(context) }
+            .onFailure { Timber.w(it, "AuthManager - Failed to clear start destination cache") }
         
         // Clear all state managers and remove FCM token
         scope.launch {

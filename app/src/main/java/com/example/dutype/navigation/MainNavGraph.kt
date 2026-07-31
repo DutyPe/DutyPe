@@ -563,7 +563,9 @@ fun MainNavGraph(
             route = Routes.EMPLOYER_APPLICATIONS_JOB,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            // A blank arg must degrade to the "all applications" screen; passing "" through
+            // made the Hiring Room query Firestore/callables with an empty id and render empty.
+            val jobId = backStackEntry.arguments?.getString("jobId")?.takeIf { it.isNotBlank() }
             EmployerApplicationManagementScreen(
                 jobId = jobId,
                 onApplicationClick = { application ->

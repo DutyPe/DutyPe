@@ -38,7 +38,12 @@ class AppStartupViewModel @Inject constructor(
 
     private val initialCachedDestination: String? by lazy {
         val cached = StartDestinationCache.read(context)
-        val isAuthGated = cached == Routes.WORKER_HOME || cached == Routes.EMPLOYER_HOME
+        // Profile-setup routes need a signed-in uid just as much as the home routes do.
+        // Omitting them let a logged-out cold start open mandatory setup with no user.
+        val isAuthGated = cached == Routes.WORKER_HOME ||
+            cached == Routes.EMPLOYER_HOME ||
+            cached == Routes.PROFILE_SETUP ||
+            cached == Routes.EMPLOYER_PROFILE_SETUP
         if (isAuthGated && FirebaseAuth.getInstance().currentUser == null) {
             null
         } else {

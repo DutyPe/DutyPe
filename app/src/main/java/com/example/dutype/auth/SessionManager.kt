@@ -7,16 +7,18 @@ import com.google.firebase.auth.FirebaseUser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -44,6 +46,8 @@ class SessionManager @Inject constructor(
     
     private val _sessionState = MutableStateFlow<SessionState>(SessionState.Unknown)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
+
+    private var tokenRefreshJob: Job? = null
     
     companion object {
         private const val KEY_SESSION_ID = "session_id"
@@ -53,7 +57,7 @@ class SessionManager @Inject constructor(
         private const val KEY_TOKEN_REFRESH_TIME = "token_refresh_time"
         
         // Session timeout: 7 days of inactivity
-        private val SESSION_TIMEOUT = 7.hours.inWholeMilliseconds
+        private val SESSION_TIMEOUT = 7.days.inWholeMilliseconds
         
         // Token refresh interval: 55 minutes (Firebase tokens expire after 1 hour)
         private val TOKEN_REFRESH_INTERVAL = 55.minutes.inWholeMilliseconds
@@ -194,8 +198,12 @@ class SessionManager @Inject constructor(
      * Schedule automatic token refresh
      */
     private fun scheduleTokenRefresh() {
-        scope.launch {
-            while (_sessionState.value is SessionState.Active) {
+        // Each startSession() previously spawned another endless loop on the singleton
+        // scope, and the old `while (state is Active)` guard also silently killed refresh
+        // once the session went Inactive. Keep exactly one loop, tied to sign-in state.
+        tokenRefreshJob?.cancel()
+        tokenRefreshJob = scope.launch {
+            while (isActive && firebaseAuth.currentUser != null) {
                 kotlinx.coroutines.delay(TOKEN_REFRESH_INTERVAL)
                 refreshToken()
             }
@@ -208,6 +216,8 @@ class SessionManager @Inject constructor(
     suspend fun endSession() {
         val sessionId = prefs.getString(KEY_SESSION_ID, null)
         
+        tokenRefreshJob?.cancel()
+        tokenRefreshJob = null
         prefs.edit().clear().apply()
         _sessionState.value = SessionState.Ended
         
