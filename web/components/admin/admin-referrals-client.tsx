@@ -267,7 +267,7 @@ export function AdminReferralsClient() {
             <span className="tag">User lookup</span>
             <h2>Check user referral data</h2>
           </div>
-          <p>Enter a referral code, phone number, or uid to inspect that user's referral wallet, history, withdrawals, and audit records.</p>
+          <p>Enter a referral code, phone number, or uid to inspect that user&apos;s referral wallet, history, withdrawals, and audit records.</p>
         </div>
 
         <div className="admin-tool-form card">

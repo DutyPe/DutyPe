@@ -177,7 +177,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
             </h2>
           </div>
           <p>
-            {visibleFields.length} visible fields detected. Open a row's Firebase JSON to inspect
+            {visibleFields.length} visible fields detected. Open a row&apos;s Firebase JSON to inspect
             the returned document data.
           </p>
         </div>
