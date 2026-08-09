@@ -192,18 +192,26 @@ function flattenFiles(
   );
 }
 
+// Content is read-only at runtime, and generateStaticParams/generateMetadata/Page
+// each resolve docs during the same build; without this every lookup re-read all
+// 76 files from disk.
+let docCache: MarketingDoc[] | null = null;
+let docIndex: Map<string, MarketingDoc> | null = null;
+
 export function getAllMarketingDocs(): MarketingDoc[] {
-  return flattenFiles(getMarketingTreeWithContent()).map((file) => ({
-    slug: toDocSlug(file.slug),
-    title: file.name.replace(/\.(md|csv)$/i, ""),
-    ext: file.ext,
-    content: file.content,
-  }));
+  if (!docCache) {
+    docCache = flattenFiles(getMarketingTreeWithContent()).map((file) => ({
+      slug: toDocSlug(file.slug),
+      title: file.name.replace(/\.(md|csv)$/i, ""),
+      ext: file.ext,
+      content: file.content,
+    }));
+    docIndex = new Map(docCache.map((doc) => [doc.slug.join("/"), doc]));
+  }
+  return docCache;
 }
 
 export function findMarketingDoc(slug: string[]): MarketingDoc | null {
-  const target = slug.join("/").toLowerCase();
-  return (
-    getAllMarketingDocs().find((doc) => doc.slug.join("/") === target) ?? null
-  );
+  getAllMarketingDocs();
+  return docIndex?.get(slug.join("/").toLowerCase()) ?? null;
 }
