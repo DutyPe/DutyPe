@@ -227,6 +227,34 @@ private fun RegisterContent(
     }
 
     if (otpState.otpSent) {
+        // ── Enterprise SMS Auto-Retrieval ────────────────────────────────────
+        DisposableEffect(Unit) {
+            val helper = SmsAutoRetrieverHelper(
+                context = context,
+                onOtpRetrieved = { code ->
+                    otpViewModel.onSmsAutoRetrieved(code, context)
+                },
+                onError = { _ ->
+                    otpViewModel.onSmsRetrieverStopped()
+                }
+            )
+            helper.startListening()
+            otpViewModel.onSmsRetrieverStarted()
+            onDispose {
+                helper.unregisterReceiver()
+                otpViewModel.onSmsRetrieverStopped()
+            }
+        }
+
+        // Auto-fill OTP field when Play Services delivers the code
+        LaunchedEffect(otpState.autoRetrievedOtp) {
+            val autoCode = otpState.autoRetrievedOtp
+            if (!autoCode.isNullOrBlank() && autoCode.length == 6) {
+                otpValue = autoCode
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -245,6 +273,9 @@ private fun RegisterContent(
                 onOtpChange = { newValue ->
                     if (newValue.all { it.isDigit() } && newValue.length <= 6) {
                         otpValue = newValue
+                        if (newValue.length == 6 && !otpState.isLoading && !otpState.otpVerified) {
+                            otpViewModel.verifyOtp(newValue, context)
+                        }
                     }
                 },
                 phoneNumber = phoneNumber,
@@ -258,6 +289,7 @@ private fun RegisterContent(
                 resendCooldownSeconds = resendCooldown
             )
         }
+
     } else {
         // Clean, Seamless Single-Page Design (White background, no elevated card container)
         Box(
@@ -1345,6 +1377,18 @@ private fun RegisterOtpSection(
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
 
+    // Pulsing alpha for the "Reading SMS" indicator
+    val infiniteTransition = rememberInfiniteTransition(label = "sms_pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1392,6 +1436,8 @@ private fun RegisterOtpSection(
         )
 
         Spacer(modifier = Modifier.height(23.dp))
+
+
 
         // OTP Input Boxes
         AuthOtpBoxes(otpValue = otpValue, onOtpChange = onOtpChange, digitCount = 6)

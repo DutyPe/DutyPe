@@ -108,7 +108,7 @@ object GeoUtils {
      * 
      * @return Distance in kilometers
      */
-    private fun calculateHaversineDistance(
+    fun calculateHaversineDistance(
         lat1: Double, lon1: Double,
         lat2: Double, lon2: Double
     ): Double {

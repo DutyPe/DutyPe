@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 804
-        versionName = "3.9"
+        versionCode = 806
+        versionName = "4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -368,9 +368,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     
     implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.firebase:geofire-android-common:3.2.0") {
-        exclude(group = "com.google.firebase", module = "firebase-iid")
-    }
+    implementation("com.firebase:geofire-android-common:3.2.0")
+    implementation("com.google.firebase:firebase-iid:21.1.0")
+    implementation("com.google.firebase:firebase-iid-interop:17.1.0")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-appcheck")

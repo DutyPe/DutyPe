@@ -301,12 +301,14 @@ class FCMTokenManager @Inject constructor(
      * Subscribe to topic for broadcast notifications
      */
     fun subscribeToTopic(topic: String) {
-        FirebaseMessaging.getInstance().subscribeToTopic(topic)
+        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%#]"), "_")
+        if (sanitizedTopic.isBlank()) return
+        FirebaseMessaging.getInstance().subscribeToTopic(sanitizedTopic)
             .addOnSuccessListener {
-                Timber.i("FCMTokenManager: Subscribed to topic: $topic")
+                Timber.i("FCMTokenManager: Subscribed to topic: $sanitizedTopic")
             }
             .addOnFailureListener { e ->
-                Timber.e(e, "FCMTokenManager: Failed to subscribe to topic: $topic")
+                Timber.e(e, "FCMTokenManager: Failed to subscribe to topic: $sanitizedTopic")
             }
     }
     
@@ -314,12 +316,14 @@ class FCMTokenManager @Inject constructor(
      * Unsubscribe from topic
      */
     fun unsubscribeFromTopic(topic: String) {
-        FirebaseMessaging.getInstance().unsubscribeFromTopic(topic)
+        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%#]"), "_")
+        if (sanitizedTopic.isBlank()) return
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(sanitizedTopic)
             .addOnSuccessListener {
-                Timber.i("FCMTokenManager: Unsubscribed from topic: $topic")
+                Timber.i("FCMTokenManager: Unsubscribed from topic: $sanitizedTopic")
             }
             .addOnFailureListener { e ->
-                Timber.e(e, "FCMTokenManager: Failed to unsubscribe from topic: $topic")
+                Timber.e(e, "FCMTokenManager: Failed to unsubscribe from topic: $sanitizedTopic")
             }
     }
 }

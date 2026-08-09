@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import android.net.Uri
 import android.widget.Toast
@@ -191,6 +191,7 @@ fun EmployerCompanyDetailsScreen(
                 employerRating = (employerDoc.getDouble("rating") ?: 0.0).toFloat()
                 employerTotalRatings = (employerDoc.getLong("totalRatings") ?: 0L).toInt()
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Timber.e(e, "Error loading employer rating summary")
             }
         }

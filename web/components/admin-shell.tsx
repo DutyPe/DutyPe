@@ -26,6 +26,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     label: "People",
     links: [
       { href: "/admin/users", label: "Users", icon: "US", summary: "Accounts, roles, and activity." },
+      { href: "/admin/whatsapp-groups", label: "WhatsApp Broadcasts", icon: "WA", summary: "Export & copy Worker/Employer contacts for WhatsApp emergency broadcast groups." },
       { href: "/admin/phone-roles", label: "Phone Roles", icon: "PH", summary: "Exact phoneRoles collection records." },
       { href: "/admin/delete-user-by-phone", label: "Delete by Phone", icon: "DL", summary: "Emergency cleanup - delete all user data by phone." },
       { href: "/admin/worker-profiles", label: "Worker Profiles", icon: "WK", summary: "Worker profile collection review." },

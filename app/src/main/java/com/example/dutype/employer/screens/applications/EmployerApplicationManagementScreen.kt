@@ -7,7 +7,9 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -108,18 +110,41 @@ fun EmployerApplicationManagementScreen(
     var showCloseJobDialog by remember { mutableStateOf(false) }
     var isClosingJob by remember { mutableStateOf(false) }
     
+    val isJobFilled = remember(currentJob, uiState.applications, isJobClosedOverride) {
+        isJobClosedOverride ||
+        currentJob?.status?.equals("filled", ignoreCase = true) == true ||
+        currentJob?.status?.equals("closed", ignoreCase = true) == true ||
+        currentJob?.status?.equals("completed", ignoreCase = true) == true ||
+        uiState.applications.any { it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.FILLED }
+    }
+
+    val hiredApplications = remember(uiState.applications) {
+        uiState.applications.filter {
+            it.status == ApplicationStatus.HIRED ||
+            it.status == ApplicationStatus.COMPLETED ||
+            it.status == ApplicationStatus.FILLED
+        }
+    }
+
     LaunchedEffect(jobId) {
         if (jobId == null) {
             currentJob = null
             isJobClosedOverride = false
             viewModel.loadEmployerApplications()
         } else {
-            viewModel.loadMatchedWorkers(jobId)
             viewModel.loadJobApplications(jobId)
             jobViewModel.getJobById(jobId) { job ->
                 currentJob = job
-                isJobClosedOverride = job?.status?.equals("closed", ignoreCase = true) == true
+                val statusStr = job?.status.orEmpty().lowercase(Locale.ROOT)
+                val isFilledStatus = statusStr == "filled" || statusStr == "closed" || statusStr == "completed"
+                isJobClosedOverride = isFilledStatus
             }
+        }
+    }
+
+    LaunchedEffect(jobId, isJobFilled, currentJob) {
+        if (jobId != null && currentJob != null && !isJobFilled) {
+            viewModel.loadMatchedWorkers(jobId)
         }
     }
 
@@ -300,7 +325,7 @@ fun EmployerApplicationManagementScreen(
 
         }
 
-        if (jobId != null) {
+        if (jobId != null && isJobLive) {
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
@@ -308,7 +333,10 @@ fun EmployerApplicationManagementScreen(
             ) {
                 Tab(
                     selected = selectedTabIndex == 0,
-                    onClick = { selectedTabIndex = 0 },
+                    onClick = {
+                        selectedTabIndex = 0
+                        viewModel.loadMatchedWorkers(jobId, force = true)
+                    },
                     text = { Text(stringResource(R.string.hiring_room_best_matches)) },
                     icon = { Icon(Icons.Default.Verified, contentDescription = null) }
                 )
@@ -321,7 +349,38 @@ fun EmployerApplicationManagementScreen(
             }
         }
 
-        if (jobId != null && selectedTabIndex == 0) {
+        if (jobId != null && isJobFilled) {
+            JobFilledCandidatesContent(
+                hiredApplications = hiredApplications,
+                onApplicationClick = onApplicationClick,
+                onUnlockContact = { application ->
+                    viewModel.unlockContact(
+                        applicationId = application.id,
+                        onSuccess = {
+                            Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
+                            val activity = context as? Activity
+                            if (activity != null) {
+                                reviewTriggerService.onEmployerContactUnlocked(activity)
+                            }
+                        },
+                        onPaymentRequired = {
+                            showUnlockDialog = true
+                            pendingUnlockApplication = application
+                        }
+                    )
+                },
+                isContactUnlocked = { id, idx -> viewModel.isContactUnlocked(id, idx) },
+                ratedApplicationIds = ratedApplicationIds,
+                onStatusUpdate = { app, status, notes ->
+                    viewModel.updateApplicationStatus(app.id, status, notes)
+                },
+                onShowRatingSheet = { application ->
+                    pendingRatingApplication = application
+                    showRatingSheet = true
+                },
+                modifier = Modifier.weight(1f)
+            )
+        } else if (jobId != null && selectedTabIndex == 0 && isJobLive) {
             MatchedWorkersContent(
                 state = matchedWorkersState,
                 isJobLive = isJobLive,
@@ -2044,3 +2103,378 @@ private fun NeedSubscriptionDialog(
         shape = RoundedCornerShape(24.dp)
     )
 }
+
+@Composable
+private fun JobFilledCandidatesContent(
+    hiredApplications: List<JobApplication>,
+    onApplicationClick: (JobApplication) -> Unit,
+    onUnlockContact: (JobApplication) -> Unit,
+    isContactUnlocked: (String, Int) -> Boolean,
+    ratedApplicationIds: Set<String>,
+    onStatusUpdate: (JobApplication, ApplicationStatus, String?) -> Unit,
+    onShowRatingSheet: (JobApplication) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val displayList = hiredApplications
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+            border = BorderStroke(1.5.dp, Color(0xFFA7F3D0)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(0xFFD1FAE5), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF059669),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "Job Position Filled",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF065F46)
+                        )
+                    )
+                    Text(
+                        text = if (hiredApplications.isNotEmpty()) 
+                            "Showing selected hired candidate(s) for this position."
+                        else 
+                            "Hiring completed for this job position.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF047857)
+                        )
+                    )
+                }
+            }
+        }
+
+        if (displayList.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No hired workers selected yet for this filled job.",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary),
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                itemsIndexed(displayList) { index, application ->
+                    val unlocked = isContactUnlocked(application.id, index)
+                    SelectedWorkerCard(
+                        application = application,
+                        applicationIndex = index,
+                        isContactUnlocked = unlocked,
+                        hasAlreadyRated = application.id in ratedApplicationIds,
+                        onClick = { onApplicationClick(application) },
+                        onUnlockContact = { onUnlockContact(application) },
+                        onStatusUpdate = { status, notes -> onStatusUpdate(application, status, notes) },
+                        onRateWorker = { onShowRatingSheet(application) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedWorkerCard(
+    application: JobApplication,
+    applicationIndex: Int,
+    isContactUnlocked: Boolean,
+    hasAlreadyRated: Boolean,
+    onClick: () -> Unit,
+    onUnlockContact: () -> Unit,
+    onStatusUpdate: (ApplicationStatus, String?) -> Unit,
+    onRateWorker: () -> Unit
+) {
+    val workerPhone = application.workerPhone.orEmpty().trim()
+    val workerEmail = application.workerEmail.orEmpty()
+    val context = LocalContext.current
+    val canMarkWorkDone = application.status == ApplicationStatus.HIRED
+    val canRateCompletedWork = application.status == ApplicationStatus.COMPLETED
+    val canCallWorker = workerPhone.isNotBlank() &&
+            application.status != ApplicationStatus.REJECTED &&
+            application.status != ApplicationStatus.WITHDRAWN
+            
+    val displayName = application.workerName.ifBlank { "Unknown Worker" }
+    val initials = if (displayName != "Unknown Worker") {
+        displayName.split(" ")
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+            .joinToString("")
+            .ifEmpty { displayName.take(1).uppercase() }
+    } else "?"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
+        border = BorderStroke(1.5.dp, EmployerColors.Success),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = EmployerColors.SuccessLight,
+                    border = BorderStroke(1.dp, EmployerColors.Success)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = EmployerColors.Success,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "SELECTED WORKER",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = EmployerColors.Success,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+                
+                ApplicationStatusBadge(status = application.status)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(EmployerColors.SuccessLight, CircleShape)
+                        .border(1.5.dp, EmployerColors.Success, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!application.workerProfileImageUrl.isNullOrBlank()) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = application.workerProfileImageUrl,
+                            contentDescription = "Worker Profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = EmployerColors.Success
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = displayName,
+                        style = AppTypography.cardTitle.copy(
+                            color = EmployerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    if (workerEmail.isNotBlank() && isContactUnlocked) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = workerEmail,
+                            style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = EmployerColors.TextTertiary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            text = "Hired on ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
+                            style = AppTypography.caption.copy(color = EmployerColors.TextTertiary, fontSize = 11.sp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (!isContactUnlocked) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = EmployerColors.WarningLight),
+                    border = BorderStroke(1.dp, EmployerColors.Warning)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = EmployerColors.Warning,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Contact details are locked.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        
+                        TextButton(
+                            onClick = onUnlockContact,
+                            colors = ButtonDefaults.textButtonColors(contentColor = EmployerColors.Warning)
+                        ) {
+                            Text("Unlock", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else if (canCallWorker) {
+                Button(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$workerPhone")))
+                        }.onFailure {
+                            Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Call,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Call Hired Worker", style = AppTypography.labelLarge, color = Color.White)
+                }
+            }
+
+            if (canMarkWorkDone || canRateCompletedWork) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (hasAlreadyRated) EmployerColors.SuccessLight else EmployerColors.WarningLight,
+                    border = BorderStroke(1.dp, if (hasAlreadyRated) EmployerColors.Success else EmployerColors.Warning)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (canMarkWorkDone) {
+                                "Did the worker finish the job?"
+                            } else if (hasAlreadyRated) {
+                                "Rating & feedback submitted successfully!"
+                            } else {
+                                "Help others by rating this worker's service"
+                            },
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (hasAlreadyRated) EmployerColors.Success else EmployerColors.Warning
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        Button(
+                            onClick = onRateWorker,
+                            enabled = canMarkWorkDone || !hasAlreadyRated,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (canMarkWorkDone) EmployerColors.Success else EmployerColors.Warning,
+                                disabledContainerColor = EmployerColors.SuccessLight
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (canMarkWorkDone) Icons.Default.CheckCircle else Icons.Default.Star,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Feedback Submitted" else "Rate & Review",
+                                style = AppTypography.labelLarge,
+                                color = if (hasAlreadyRated) EmployerColors.Success else Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

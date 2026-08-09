@@ -63,6 +63,11 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
 
 private val BrandBluePrimary = Color(0xFF2563EB)
 private val BrandBlueLight = Color(0xFFEFF6FF)
@@ -190,6 +195,37 @@ private fun OtpLoginScreen(
     }
 
     if (otpState.otpSent) {
+        // ── Enterprise SMS Auto-Retrieval ────────────────────────────────────
+        // Start listening for incoming SMS the moment the OTP screen shows.
+        // DisposableEffect guarantees cleanup on back-press / recomposition.
+        DisposableEffect(Unit) {
+            val helper = SmsAutoRetrieverHelper(
+                context = context,
+                onOtpRetrieved = { code ->
+                    otpViewModel.onSmsAutoRetrieved(code, context)
+                },
+                onError = { _ ->
+                    otpViewModel.onSmsRetrieverStopped()
+                }
+            )
+            helper.startListening()
+            otpViewModel.onSmsRetrieverStarted()
+            onDispose {
+                helper.unregisterReceiver()
+                otpViewModel.onSmsRetrieverStopped()
+            }
+        }
+
+        // Auto-fill OTP field when Play Services delivers the code
+        LaunchedEffect(otpState.autoRetrievedOtp) {
+            val autoCode = otpState.autoRetrievedOtp
+            if (!autoCode.isNullOrBlank() && autoCode.length == 6) {
+                otpValue = autoCode   // fill the UI boxes
+                // verifyOtp is already called by onSmsAutoRetrieved; no double-call needed
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         // Full screen OTP entry
         Box(
             modifier = Modifier
@@ -205,6 +241,9 @@ private fun OtpLoginScreen(
                 onOtpChange = { newValue ->
                     if (newValue.all { it.isDigit() } && newValue.length <= 6) {
                         otpValue = newValue
+                        if (newValue.length == 6 && !otpState.isLoading && !otpState.otpVerified) {
+                            otpViewModel.verifyOtp(newValue, context)
+                        }
                     }
                 },
                 phoneNumber = phoneNumber,
@@ -559,6 +598,18 @@ private fun OtpInputSection(
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
 
+    // Pulsing alpha for the "Reading SMS" indicator
+    val infiniteTransition = rememberInfiniteTransition(label = "sms_pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
@@ -603,6 +654,9 @@ private fun OtpInputSection(
         )
 
         Spacer(modifier = Modifier.height(28.dp))
+
+
+        // ────────────────────────────────────────────────────────────────────
 
         // Clean 6-Digit OTP Box Layout
         AuthOtpBoxes(

@@ -218,19 +218,12 @@ fun EmployerProfileScreen(
                         IconButton(onClick = { showLanguageBottomSheet = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else stringResource(R.string.language),
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        // IconButton(onClick = { showThemeBottomSheet = true }) {
-                        //     Icon(
-                        //         imageVector = Icons.Default.DarkMode,
-                        //         contentDescription = stringResource(R.string.appearance),
-                        //         tint = WorkerColors.IconPrimary,
-                        //         modifier = Modifier.size(24.dp)
-                        //     )
                         // }
 
                         // WhatsApp Support Button - Icon only with WhatsApp green color
@@ -447,6 +440,14 @@ fun EmployerProfileScreen(
                         }
                     }
                 }
+            }
+
+            // Official WhatsApp Community Card
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                com.example.dutype.components.DutyPeWhatsAppCommunityCard(
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
 
 

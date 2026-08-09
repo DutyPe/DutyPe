@@ -126,6 +126,9 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     override fun onCreate() {
         super.onCreate()
         
+        // Register lifecycle callbacks for app-wide background tracking
+        registerActivityLifecycleCallbacks(com.example.dutype.utils.AppLifecycleTracker.activityLifecycleCallbacks)
+        
         // Initialize Timber first for logging
         initializeTimber()
 
@@ -163,9 +166,10 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         // Diagnostic log: deferred off the startup critical path.
         applicationScope.launch { logFirebaseBinding() }
         
-        // PERFORMANCE: Defer notification channels to background
+        // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
+            com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
         }
         
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling

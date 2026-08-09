@@ -530,7 +530,14 @@ fun LoginBottomSheet(
                     val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
                     OtpInputContent(
                         otpValue = otpValue,
-                        onOtpChange = { otpValue = it },
+                        onOtpChange = { newValue ->
+                            if (newValue.all { it.isDigit() } && newValue.length <= 6) {
+                                otpValue = newValue
+                                if (newValue.length == 6 && !otpState.isLoading && !otpState.otpVerified) {
+                                    otpViewModel.verifyOtp(newValue, context)
+                                }
+                            }
+                        },
                         phoneNumber = phoneNumber,
                         otpState = otpState,
                         onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },

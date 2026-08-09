@@ -686,6 +686,14 @@ fun WorkerProfileScreen(
             }
         }
         
+        // Official WhatsApp Community Card
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            com.example.dutype.components.DutyPeWhatsAppCommunityCard(
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+        
         // My Activity Section
         item {
             Spacer(modifier = Modifier.height(8.dp))

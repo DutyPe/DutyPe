@@ -136,7 +136,22 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(LocaleHelper.setLocale(newBase))
     }
     
+    private fun sanitizeLaunchIntent(launchIntent: Intent?): Boolean {
+        if (launchIntent == null) return false
+        // Detect duplicate Activity instance launched directly from Google Play Store installer button
+        if (!isTaskRoot && launchIntent.hasCategory(Intent.CATEGORY_LAUNCHER) && Intent.ACTION_MAIN == launchIntent.action) {
+            Timber.w("MainActivity - Duplicate activity instance launched from Play Store installer; terminating duplicate task.")
+            return true
+        }
+        return false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (sanitizeLaunchIntent(intent)) {
+            super.onCreate(savedInstanceState)
+            finish()
+            return
+        }
         // P2-7: start cold-start trace before any other work in onCreate.
         // MODERN SPLASH SCREEN API (Android 12+)
         // CRITICAL: Must be called BEFORE super.onCreate()
@@ -634,8 +649,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        Timber.d("📱 MainActivity.onStop() - App in background, applying pending launcher icon switch")
-        com.example.dutype.utils.DynamicIconManager.applyPendingIconSwitch(this)
+        Timber.d("📱 MainActivity.onStop() - App in background check")
+        if (!com.example.dutype.utils.AppLifecycleTracker.isAppInForeground()) {
+            val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
+            if (isUserLoggedIn) {
+                Timber.d("📱 MainActivity.onStop() - App is ACTUALLY in background and user is logged in, applying launcher icon switch")
+                com.example.dutype.utils.DynamicIconManager.applyPendingIconSwitch(this)
+            } else {
+                Timber.d("📱 MainActivity.onStop() - App is in background but user is NOT logged in (auth flow safety), skipping icon switch")
+            }
+        } else {
+            Timber.d("📱 MainActivity.onStop() - App still in foreground (active activity present), skipping icon switch")
+        }
     }
     
     override fun onDestroy() {

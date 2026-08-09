@@ -157,4 +157,9 @@
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }
 -dontwarn androidx.work.impl.**
+# Firebase IID / Interop
+-keep class com.google.firebase.iid.** { *; }
+-keep interface com.google.firebase.iid.** { *; }
+-keepclassmembers class com.google.firebase.iid.** { *; }
+-keepclassmembers interface com.google.firebase.iid.** { *; }
 -dontwarn com.google.firebase.iid.**

@@ -4,6 +4,12 @@
     <!-- Essential Network Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Package Visibility Queries for Google Play Services & Play Store (Android 11+) -->
+    <queries>
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.android.vending" />
+    </queries>
     
     <!-- Location Permissions - Runtime request with clear explanation -->
     <!-- Used for: Showing nearby jobs, calculating distance to workplace -->
@@ -42,6 +48,19 @@
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
+
+        <!-- Force-register Firebase Instance ID Registrar for Component Discovery -->
+        <service
+            android:name="com.google.firebase.components.ComponentDiscoveryService"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
+                android:value="com.google.firebase.components.ComponentRegistrar" />
+            <meta-data
+                android:name="com.google.firebase.components:com.google.firebase.iid.Registrar"
+                android:value="com.google.firebase.components.ComponentRegistrar" />
+        </service>
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
