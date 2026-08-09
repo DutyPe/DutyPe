@@ -163,3 +163,47 @@ function loadDir(absDir: string, slugPrefix: string[]): MarketingLoadedNode[] {
 export function getMarketingTreeWithContent(): MarketingLoadedNode[] {
   return loadDir(MARKETING_CONTENT_ROOT, []);
 }
+
+/**
+ * URL slug for a content file. Must stay byte-compatible with the routes that
+ * previously existed as hand-written pages, e.g. `growth/assets/README.md`
+ * -> `growth/assets/readme` and `pamphlet_telugu.md` -> `pamphlet-telugu`.
+ */
+export function toDocSlug(fileSlug: string[]): string[] {
+  return fileSlug.map((segment, index) => {
+    const isLast = index === fileSlug.length - 1;
+    const base = isLast ? segment.replace(/\.(md|csv)$/i, "") : segment;
+    return base.toLowerCase().replace(/_/g, "-");
+  });
+}
+
+export type MarketingDoc = {
+  slug: string[];
+  title: string;
+  ext: string;
+  content: string;
+};
+
+function flattenFiles(
+  nodes: MarketingLoadedNode[]
+): Extract<MarketingLoadedNode, { kind: "file" }>[] {
+  return nodes.flatMap((node) =>
+    node.kind === "file" ? [node] : flattenFiles(node.children)
+  );
+}
+
+export function getAllMarketingDocs(): MarketingDoc[] {
+  return flattenFiles(getMarketingTreeWithContent()).map((file) => ({
+    slug: toDocSlug(file.slug),
+    title: file.name.replace(/\.(md|csv)$/i, ""),
+    ext: file.ext,
+    content: file.content,
+  }));
+}
+
+export function findMarketingDoc(slug: string[]): MarketingDoc | null {
+  const target = slug.join("/").toLowerCase();
+  return (
+    getAllMarketingDocs().find((doc) => doc.slug.join("/") === target) ?? null
+  );
+}
