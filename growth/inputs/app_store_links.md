@@ -5,7 +5,7 @@
 - Website: https://dutype.in
 - Support email: dutypein@gmail.com
 - Feedback email: dutypefeedback@gmail.com
-- WhatsApp support: https://wa.me/919121706236
+- WhatsApp support: https://wa.me/918500717800
 - Legal entity: KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
 
 ## Not live yet

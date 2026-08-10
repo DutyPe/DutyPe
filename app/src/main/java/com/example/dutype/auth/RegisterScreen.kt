@@ -320,7 +320,7 @@ private fun RegisterContent(
                         // WhatsApp Help Button
                         Surface(
                             onClick = {
-                                val whatsappUrl = "https://wa.me/919121706236?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
+                                val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
                                 try {
                                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                         data = android.net.Uri.parse(whatsappUrl)

@@ -99,7 +99,7 @@ Q: How do I know the employer is real? — Every employer signs in with phone OT
 Q: How fast will I get a job? — Median first-application time in active pincodes is 6 hours.
 
 SUPPORT
-WhatsApp: 91-9121706236
+WhatsApp: 91-8500717800
 Email: dutypein@gmail.com
 
 KGPV INNOVATION SOLUTIONS PRIVATE LIMITED
