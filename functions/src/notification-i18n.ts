@@ -17,8 +17,8 @@
  */
 import * as admin from "firebase-admin";
 
-export type SupportedLocale = "en" | "te";
-export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "te"];
+export type SupportedLocale = "en" | "te" | "hi";
+export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "te", "hi"];
 export const DEFAULT_LOCALE: SupportedLocale = "en";
 
 interface LocalizedString {
@@ -26,7 +26,12 @@ interface LocalizedString {
   body: string;
 }
 
-type Translations = Record<string, Record<SupportedLocale, LocalizedString>>;
+// English is mandatory; other locales are optional so a template can be
+// translated incrementally. pickLocalized falls back to English per template.
+type Translations = Record<
+  string,
+  { en: LocalizedString } & Partial<Record<SupportedLocale, LocalizedString>>
+>;
 
 export const NOTIFICATION_TEMPLATES: Translations = {
   // ── application status ────────────────────────────────────────────
@@ -40,6 +45,10 @@ export const NOTIFICATION_TEMPLATES: Translations = {
     te: {
       title: "హాయ్ {recipient}, మీరు ఎంపికయ్యారు! 🎉",
       body: "ఒక యజమాని మీ దరఖాస్తును అంగీకరించారు.",
+    },
+    hi: {
+      title: "नमस्ते {recipient}, आपको नौकरी मिल गई! 🎉",
+      body: "एक नियोक्ता ने आपका आवेदन स्वीकार कर लिया है।",
     },
   },
   APPLICATION_SHORTLISTED: {
@@ -397,6 +406,7 @@ export const SE_GUEST_POOL: Array<{ id: keyof typeof NOTIFICATION_TEMPLATES; tim
 export function normalizeLocale(value: unknown): SupportedLocale {
   const raw = String(value ?? "").trim().toLowerCase();
   if (raw === "te") return "te";
+  if (raw === "hi") return "hi";
   return DEFAULT_LOCALE;
 }
 
