@@ -1,0 +1,9 @@
+report_non_payment_title	Report non-payment
+report_non_payment_help	Use this only if you finished the work and the employer has not paid you. Our team will contact the employer.
+report_non_payment_amount_label	Amount you are owed
+report_non_payment_amount_hint	e.g. 800
+report_non_payment_work_date	Work date: %1$s
+report_non_payment_details_label	What happened? (optional)
+report_non_payment_details_hint	Worked full day, employer stopped answering calls
+report_non_payment_submit	Report
+report_non_payment_action	Not paid for this job?

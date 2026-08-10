@@ -1050,7 +1050,7 @@ const AUTO_HIDE_THRESHOLD = 3;
 exports.processJobReport = functions.firestore
     .document("job_reports/{reportId}")
     .onCreate(async (snapshot, context) => {
-    var _a, _b;
+    var _a, _b, _c;
     const report = snapshot.data();
     const reportId = context.params.reportId;
     const jobId = report.jobId;
@@ -1155,6 +1155,9 @@ exports.processJobReport = functions.firestore
             }, { merge: true });
         }
         functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
+        if (report.reportType === "NON_PAYMENT") {
+            await recordNonPaymentClaim(reportId, report, (_c = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _c !== void 0 ? _c : "");
+        }
         return { success: true, reportCount: currentReportCount };
     }
     catch (error) {
@@ -1162,6 +1165,51 @@ exports.processJobReport = functions.firestore
         return null;
     }
 });
+/**
+ * Non-payment claims are about a finished work relationship, not a bad listing, so
+ * they are aggregated against the employer where support and workers can see them.
+ */
+async function recordNonPaymentClaim(reportId, report, jobTitle) {
+    const employerId = typeof report.employerId === "string" ? report.employerId : "";
+    if (!employerId) {
+        functions.logger.warn(`Non-payment report ${reportId} has no employerId, skipping aggregation`);
+        return;
+    }
+    const amountOwed = typeof report.amountOwed === "number" && Number.isFinite(report.amountOwed)
+        ? report.amountOwed
+        : 0;
+    const claims = await db.collection("job_reports")
+        .where("employerId", "==", employerId)
+        .where("reportType", "==", "NON_PAYMENT")
+        .get();
+    const openClaims = claims.docs.filter((doc) => doc.get("status") === "PENDING").length;
+    const totalClaimed = claims.docs.reduce((sum, doc) => {
+        const value = doc.get("amountOwed");
+        return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+    }, 0);
+    await db.collection("employer_trust").doc(employerId).set({
+        employerId,
+        nonPaymentClaims: claims.size,
+        nonPaymentClaimsOpen: openClaims,
+        nonPaymentAmountClaimed: totalClaimed,
+        lastNonPaymentClaimAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    const locale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
+    const recipient = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
+    await db.collection("notifications").add({
+        recipientId: employerId,
+        title: (0, notification_i18n_1.tTitle)("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+        message: (0, notification_i18n_1.tBody)("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+        type: "NON_PAYMENT_REPORTED",
+        data: {
+            jobId: typeof report.jobId === "string" ? report.jobId : "",
+            amountOwed,
+        },
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    functions.logger.warn(`💰 NON-PAYMENT: employer ${employerId} now has ${openClaims} open claim(s), Rs.${totalClaimed} claimed`);
+}
 /**
  * Get report statistics for admin dashboard
  */

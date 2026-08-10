@@ -1666,4 +1666,13 @@
     <string name="auto_by_submitting_you_agree_to_share_your_prof">भेजने पर, आप अपनी प्रोफ़ाइल जानकारी नियोक्ता के साथ साझा करने से सहमत होते हैं।</string>
     <string name="auto_we_re_making_dutype_even_better_for_you_pl">हम आपके लिए DutyPe को और बेहतर बना रहे हैं। कृपया कुछ मिनट बाद देखें।</string>
     <string name="auto_a_new_version_of_dutype_is_available_with">DutyPe का नया संस्करण ज़रूरी अपडेट के साथ उपलब्ध है। जारी रखने के लिए कृपया अपडेट करें।</string>
+    <string name="report_non_payment_title">भुगतान न मिलने की शिकायत</string>
+    <string name="report_non_payment_help">इसका इस्तेमाल तभी करें जब आपने काम पूरा किया हो और नियोक्ता ने भुगतान न किया हो। हमारी टीम नियोक्ता से संपर्क करेगी।</string>
+    <string name="report_non_payment_amount_label">आपको कितनी राशि मिलनी है</string>
+    <string name="report_non_payment_amount_hint">जैसे 800</string>
+    <string name="report_non_payment_work_date">काम की तारीख: %1$s</string>
+    <string name="report_non_payment_details_label">क्या हुआ? (वैकल्पिक)</string>
+    <string name="report_non_payment_details_hint">पूरा दिन काम किया, नियोक्ता ने कॉल उठाना बंद कर दिया</string>
+    <string name="report_non_payment_submit">शिकायत करें</string>
+    <string name="report_non_payment_action">इस नौकरी का भुगतान नहीं मिला?</string>
 </resources>

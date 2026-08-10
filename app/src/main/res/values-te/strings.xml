@@ -1666,4 +1666,13 @@
     <string name="auto_a_new_version_of_dutype_is_available_with">ముఖ్యమైన అప్‌డేట్‌లతో DutyPe కొత్త వెర్షన్ అందుబాటులో ఉంది. కొనసాగించడానికి దయచేసి అప్‌డేట్ చేయండి.</string>
     <string name="auto_dutype_is_india_s_premier_instant_workforc">స్థానిక వ్యాపారాలు, గృహాలను (యజమానులు) ధృవీకరించిన దినసరి కూలీలు, నైపుణ్యం గల నిపుణులతో (కార్మికులు) నేరుగా కలిపే భారతదేశపు అగ్రగామి తక్షణ వర్క్‌ఫోర్స్ ప్లాట్‌ఫామ్ DutyPe. మేము మధ్యవర్తుల కమీషన్లను తొలగించి, ఫోన్ ఆధారిత నేరుగా నియామకాన్ని అందించి, పారదర్శకమైన, న్యాయమైన, తక్షణ ఉపాధి అవకాశాల కోసం GPS లొకేషన్ ఆవిష్కరణను అందిస్తాం.</string>
     <string name="refer_earn_more_to_withdraw">విత్‌డ్రా అన్‌లాక్ చేయడానికి మరో ₹%1$s సంపాదించండి (కనీసం ₹%2$s)</string>
+    <string name="report_non_payment_title">చెల్లింపు అందలేదని నివేదించండి</string>
+    <string name="report_non_payment_help">మీరు పని పూర్తి చేసి, యజమాని చెల్లించనప్పుడు మాత్రమే దీన్ని వాడండి. మా బృందం యజమానిని సంప్రదిస్తుంది.</string>
+    <string name="report_non_payment_amount_label">మీకు రావలసిన మొత్తం</string>
+    <string name="report_non_payment_amount_hint">ఉదా. 800</string>
+    <string name="report_non_payment_work_date">పని తేదీ: %1$s</string>
+    <string name="report_non_payment_details_label">ఏమి జరిగింది? (ఐచ్ఛికం)</string>
+    <string name="report_non_payment_details_hint">పూర్తి రోజు పని చేశాను, యజమాని కాల్స్ ఎత్తడం మానేశారు</string>
+    <string name="report_non_payment_submit">నివేదించండి</string>
+    <string name="report_non_payment_action">ఈ ఉద్యోగానికి చెల్లింపు అందలేదా?</string>
 </resources>

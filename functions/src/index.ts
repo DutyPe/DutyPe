@@ -1338,6 +1338,11 @@ export const processJobReport = functions.firestore
       }
 
       functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
+
+      if (report.reportType === "NON_PAYMENT") {
+        await recordNonPaymentClaim(reportId, report, jobData?.title ?? "");
+      }
+
       return { success: true, reportCount: currentReportCount };
 
     } catch (error) {
@@ -1345,6 +1350,64 @@ export const processJobReport = functions.firestore
       return null;
     }
   });
+
+/**
+ * Non-payment claims are about a finished work relationship, not a bad listing, so
+ * they are aggregated against the employer where support and workers can see them.
+ */
+async function recordNonPaymentClaim(
+  reportId: string,
+  report: admin.firestore.DocumentData,
+  jobTitle: string
+): Promise<void> {
+  const employerId = typeof report.employerId === "string" ? report.employerId : "";
+  if (!employerId) {
+    functions.logger.warn(`Non-payment report ${reportId} has no employerId, skipping aggregation`);
+    return;
+  }
+
+  const amountOwed = typeof report.amountOwed === "number" && Number.isFinite(report.amountOwed)
+    ? report.amountOwed
+    : 0;
+
+  const claims = await db.collection("job_reports")
+    .where("employerId", "==", employerId)
+    .where("reportType", "==", "NON_PAYMENT")
+    .get();
+
+  const openClaims = claims.docs.filter((doc) => doc.get("status") === "PENDING").length;
+  const totalClaimed = claims.docs.reduce((sum, doc) => {
+    const value = doc.get("amountOwed");
+    return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  }, 0);
+
+  await db.collection("employer_trust").doc(employerId).set({
+    employerId,
+    nonPaymentClaims: claims.size,
+    nonPaymentClaimsOpen: openClaims,
+    nonPaymentAmountClaimed: totalClaimed,
+    lastNonPaymentClaimAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  const locale = await getUserLanguage(db, employerId);
+  const recipient = await getUserDisplayName(db, employerId);
+  await db.collection("notifications").add({
+    recipientId: employerId,
+    title: tTitle("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+    message: tBody("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+    type: "NON_PAYMENT_REPORTED",
+    data: {
+      jobId: typeof report.jobId === "string" ? report.jobId : "",
+      amountOwed,
+    },
+    isRead: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  functions.logger.warn(
+    `💰 NON-PAYMENT: employer ${employerId} now has ${openClaims} open claim(s), Rs.${totalClaimed} claimed`
+  );
+}
 
 /**
  * Get report statistics for admin dashboard

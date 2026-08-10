@@ -1,0 +1,9 @@
+report_non_payment_title	भुगतान न मिलने की शिकायत
+report_non_payment_help	इसका इस्तेमाल तभी करें जब आपने काम पूरा किया हो और नियोक्ता ने भुगतान न किया हो। हमारी टीम नियोक्ता से संपर्क करेगी।
+report_non_payment_amount_label	आपको कितनी राशि मिलनी है
+report_non_payment_amount_hint	जैसे 800
+report_non_payment_work_date	काम की तारीख: %1$s
+report_non_payment_details_label	क्या हुआ? (वैकल्पिक)
+report_non_payment_details_hint	पूरा दिन काम किया, नियोक्ता ने कॉल उठाना बंद कर दिया
+report_non_payment_submit	शिकायत करें
+report_non_payment_action	इस नौकरी का भुगतान नहीं मिला?

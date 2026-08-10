@@ -466,6 +466,20 @@ export const NOTIFICATION_TEMPLATES: Translations = {
       body: "सामुदायिक रिपोर्ट के कारण आपकी नौकरी \"{title}\" छिपा दी गई है।",
     },
   },
+  NON_PAYMENT_REPORTED: {
+    en: {
+      title: "Hi {recipient}, a payment complaint was raised",
+      body: "A worker reported not being paid for \"{title}\". Please settle it or reply to support.",
+    },
+    te: {
+      title: "హాయ్ {recipient}, చెల్లింపు ఫిర్యాదు వచ్చింది",
+      body: "\"{title}\" కోసం చెల్లింపు అందలేదని ఒక కార్మికుడు నివేదించారు. దయచేసి చెల్లించండి లేదా సపోర్ట్‌కు సమాధానం ఇవ్వండి.",
+    },
+    hi: {
+      title: "नमस्ते {recipient}, भुगतान की शिकायत मिली है",
+      body: "एक कर्मचारी ने \"{title}\" के लिए भुगतान न मिलने की शिकायत की है। कृपया भुगतान करें या सहायता को जवाब दें।",
+    },
+  },
 };
 
 /** Maps a worker smart-engagement scheduled-template index → template id. */

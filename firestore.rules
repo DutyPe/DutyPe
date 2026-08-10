@@ -991,6 +991,22 @@ service cloud.firestore {
         return reportId.matches('^' + request.auth.uid + '_.+$');
       }
 
+      // Non-payment claims carry money fields and require proof the caller applied.
+      function nonPaymentClaimValid() {
+        return request.resource.data.reportType != 'NON_PAYMENT' || (
+          request.resource.data.keys().hasAll(['employerId', 'amountOwed', 'workedOn']) &&
+          request.resource.data.employerId is string &&
+          request.resource.data.employerId.size() > 0 &&
+          request.resource.data.employerId != request.auth.uid &&
+          request.resource.data.amountOwed is number &&
+          request.resource.data.amountOwed > 0 &&
+          request.resource.data.amountOwed <= 1000000 &&
+          request.resource.data.workedOn is timestamp &&
+          request.resource.data.workedOn <= request.time &&
+          exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.auth.uid))
+        );
+      }
+
       allow get: if isSignedIn() &&
         (
           (resource != null && resource.data.reporterId == request.auth.uid) ||
@@ -1000,7 +1016,8 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status'
+          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status',
+          'employerId', 'amountOwed', 'workedOn'
         ]) &&
         request.resource.data.keys().hasAll([
           'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status'
@@ -1008,14 +1025,23 @@ service cloud.firestore {
         reportId == (request.auth.uid + '_' + request.resource.data.jobId) &&
         request.resource.data.jobId is string &&
         request.resource.data.reporterId == request.auth.uid &&
-        request.resource.data.reportType in ['SCAM', 'FAKE', 'INAPPROPRIATE', 'DUPLICATE', 'MISLEADING', 'HARASSMENT', 'SPAM', 'OTHER'] &&
+        request.resource.data.reportType in ['SCAM', 'FAKE', 'INAPPROPRIATE', 'DUPLICATE', 'MISLEADING', 'HARASSMENT', 'SPAM', 'NON_PAYMENT', 'OTHER'] &&
         request.resource.data.description is string &&
         request.resource.data.description.size() >= 1 && request.resource.data.description.size() <= 1000 &&
         request.resource.data.createdAt is timestamp &&
         request.resource.data.status == 'PENDING' &&
+        nonPaymentClaimValid() &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
 
       allow update, delete: if false;
+    }
+
+    // ── employer_trust ────────────────────────────────────────────────
+    // Written only by Cloud Functions. Readable so workers can see an employer's
+    // non-payment history before accepting work.
+    match /employer_trust/{employerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // ── job_call_sessions ────────────────────────────────────────────

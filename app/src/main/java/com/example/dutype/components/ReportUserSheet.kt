@@ -193,7 +193,7 @@ fun ReportUserSheet(
                         .heightIn(max = 200.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(ReportType.entries) { type ->
+                    items(ReportType.entries.filter { it != ReportType.NON_PAYMENT }) { type ->
                         ImprovedReportTypeOption(
                             type = type,
                             isSelected = selectedType == type,
@@ -351,6 +351,7 @@ private fun ImprovedReportTypeOption(
     val icon = when (type) {
         ReportType.SCAM -> Icons.Default.Warning
         ReportType.FAKE -> Icons.Default.Block
+        ReportType.NON_PAYMENT -> Icons.Default.MoneyOff
         ReportType.INAPPROPRIATE -> Icons.Default.RemoveCircle
         ReportType.DUPLICATE -> Icons.Default.ContentCopy
         ReportType.MISLEADING -> Icons.Default.Info
@@ -362,6 +363,7 @@ private fun ImprovedReportTypeOption(
     val iconColor = when (type) {
         ReportType.SCAM -> WorkerColors.Error
         ReportType.FAKE -> WorkerColors.Warning
+        ReportType.NON_PAYMENT -> WorkerColors.Error
         ReportType.INAPPROPRIATE -> WorkerColors.Error
         ReportType.DUPLICATE -> WorkerColors.TextSecondary
         ReportType.MISLEADING -> WorkerColors.Info

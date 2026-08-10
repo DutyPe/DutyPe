@@ -167,6 +167,14 @@
       ]
     },
     {
+      "collectionGroup": "job_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employerId", "order": "ASCENDING" },
+        { "fieldPath": "reportType", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "worker_job_requests",
       "queryScope": "COLLECTION",
       "fields": [

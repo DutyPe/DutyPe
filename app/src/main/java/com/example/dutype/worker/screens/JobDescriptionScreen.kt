@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -193,6 +194,7 @@ fun JobDescriptionScreen(
 
     // Report state
     var showReportSheet by remember { mutableStateOf(false) }
+    var showNonPaymentSheet by remember { mutableStateOf(false) }
 
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
@@ -502,6 +504,8 @@ fun JobDescriptionScreen(
                             }
                         },
                         onReportClick = { showReportSheet = true },
+                        onReportNonPaymentClick = { showNonPaymentSheet = true },
+                        hasApplied = hasApplied,
                         onJobClick = { clickedJobId ->
                             navController.navigate(Routes.jobDetailRoute(clickedJobId))
                         },
@@ -572,6 +576,24 @@ fun JobDescriptionScreen(
             onDismiss = { showReportSheet = false },
             onReport = { reportType, description ->
                 reportingService.reportJob(jobId, reportType, description)
+            }
+        )
+    }
+
+    // Non-payment claim needs an amount and work date, so it has its own sheet.
+    if (showNonPaymentSheet && job != null) {
+        com.example.dutype.components.ReportNonPaymentSheet(
+            jobTitle = job!!.title,
+            companyName = job!!.companyName,
+            onDismiss = { showNonPaymentSheet = false },
+            onReport = { amount, workedOn, description ->
+                reportingService.reportNonPayment(
+                    jobId = jobId,
+                    employerId = job!!.employerId,
+                    amountOwed = amount,
+                    workedOn = workedOn,
+                    description = description
+                )
             }
         )
     }
@@ -1036,6 +1058,8 @@ private fun JobDetailsContent(
     savedJobIds: Set<String> = emptySet(),
     onSimilarJobSaveToggle: (String, Boolean) -> Unit = { _, _ -> },
     onReportClick: () -> Unit = {},
+    onReportNonPaymentClick: () -> Unit = {},
+    hasApplied: Boolean = false,
     onJobClick: (String) -> Unit = {},
     inlineActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
@@ -1364,6 +1388,32 @@ private fun JobDetailsContent(
                     ) {
                         Text(stringResource(R.string.report), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.Error))
                     }
+                }
+            }
+        }
+
+        // Only shown to workers who applied; the server rejects claims from anyone else.
+        if (hasApplied) {
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+            item {
+                TextButton(
+                    onClick = onReportNonPaymentClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.MoneyOff,
+                        contentDescription = null,
+                        tint = WorkerColors.Error,
+                        modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.report_non_payment_action),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = WorkerColors.Error
+                        )
+                    )
                 }
             }
         }

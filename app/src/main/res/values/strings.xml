@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DutyPe</string>
     <string name="default_web_client_id" translatable="false">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
@@ -1703,4 +1703,13 @@
     <string name="auto_update_required">Update Required</string>
     <string name="auto_a_new_version_of_dutype_is_available_with">A new version of DutyPe is available with important updates. Please update to continue.</string>
     <string name="auto_update_now">Update Now</string>
+    <string name="report_non_payment_title">Report non-payment</string>
+    <string name="report_non_payment_help">Use this only if you finished the work and the employer has not paid you. Our team will contact the employer.</string>
+    <string name="report_non_payment_amount_label">Amount you are owed</string>
+    <string name="report_non_payment_amount_hint">e.g. 800</string>
+    <string name="report_non_payment_work_date">Work date: %1$s</string>
+    <string name="report_non_payment_details_label">What happened? (optional)</string>
+    <string name="report_non_payment_details_hint">Worked full day, employer stopped answering calls</string>
+    <string name="report_non_payment_submit">Report</string>
+    <string name="report_non_payment_action">Not paid for this job?</string>
 </resources>

@@ -36,6 +36,7 @@ import javax.inject.Singleton
 enum class ReportType(val displayName: String, val description: String) {
     SCAM("Scam/Fraud", "This job is asking for money or seems fraudulent"),
     FAKE("Fake Job", "This job or company doesn't exist"),
+    NON_PAYMENT("Not Paid", "I did the work but the employer has not paid me"),
     INAPPROPRIATE("Inappropriate", "Contains offensive or inappropriate content"),
     DUPLICATE("Duplicate", "Same job posted multiple times"),
     MISLEADING("Misleading Info", "Salary, location, or details are incorrect"),
@@ -75,6 +76,7 @@ class ReportingService @Inject constructor(
         const val JOBS_COLLECTION = FirestoreCollections.JOBS
         const val AUTO_HIDE_THRESHOLD = 3 // 3 reports = auto-hide
         const val REPORT_COOLDOWN_HOURS = 24 // Can't report same job twice in 24 hours
+        const val MAX_CLAIM_AMOUNT = 1_000_000.0 // Mirrors the Firestore rule ceiling
     }
     
     /**
@@ -147,6 +149,90 @@ class ReportingService @Inject constructor(
         }
     }
     
+    /**
+     * Report an employer for not paying after completed work.
+     *
+     * Uses the same one-report-per-(user, job) document as [reportJob] so the existing
+     * moderation pipeline picks it up, but carries the amount and work date so support
+     * has something concrete to act on.
+     */
+    suspend fun reportNonPayment(
+        jobId: String,
+        employerId: String,
+        amountOwed: Double,
+        workedOn: Timestamp,
+        description: String = ""
+    ): Result<ReportResult> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+
+            val userId = currentUser.uid
+
+            if (employerId.isBlank() || employerId == userId) {
+                return Result.failure(Exception("Invalid employer for this report"))
+            }
+            if (amountOwed <= 0.0 || amountOwed > MAX_CLAIM_AMOUNT) {
+                return Result.failure(Exception("Enter the amount you are owed"))
+            }
+            if (workedOn.toDate().time > System.currentTimeMillis()) {
+                return Result.failure(Exception("Work date cannot be in the future"))
+            }
+
+            SecureLogger.d("ReportingService", "Reporting non-payment",
+                "jobId" to jobId,
+                "reporterId" to userId
+            )
+
+            val reportRef = firestore.collection(REPORTS_COLLECTION)
+                .document(buildReportId(userId, jobId))
+
+            if (reportRef.get().await().exists()) {
+                return Result.success(
+                    ReportResult(
+                        success = false,
+                        message = "You have already reported this job.",
+                        totalReports = 0,
+                        jobHidden = false
+                    )
+                )
+            }
+
+            val reportData = mapOf(
+                "jobId" to jobId,
+                "reporterId" to userId,
+                "reportType" to ReportType.NON_PAYMENT.name,
+                "description" to description.trim().ifBlank { ReportType.NON_PAYMENT.description },
+                "createdAt" to Timestamp.now(),
+                "status" to "PENDING",
+                "employerId" to employerId,
+                "amountOwed" to amountOwed,
+                "workedOn" to workedOn
+            )
+
+            reportRef.set(reportData).await()
+
+            Result.success(
+                ReportResult(
+                    success = true,
+                    message = "Thank you. Our team will look into this payment.",
+                    totalReports = 0,
+                    jobHidden = false
+                )
+            )
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                Timber.e(e, "Failed to report non-payment: permission denied")
+                return Result.failure(Exception("You can only report non-payment for a job you applied to."))
+            }
+            Timber.e(e, "Failed to report non-payment")
+            Result.failure(e)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to report non-payment")
+            Result.failure(e)
+        }
+    }
+
     /**
      * Check if user already reported this job
      */
