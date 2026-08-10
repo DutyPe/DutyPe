@@ -1434,4 +1434,36 @@
     <string name="policy_privacy_s5_content">ఉద్యోగం ఎంత దూరంలో ఉందో లెక్కించడానికి మాత్రమే లొకేషన్ ఉపయోగించబడుతుంది. వినియోగదారులు ఎప్పుడైనా సెట్టింగ్‌లలో లొకేషన్ అనుమతులను మార్చవచ్చు.</string>
     <string name="policy_privacy_s6_title">ఖాతా తొలగింపు హక్కులు</string>
     <string name="policy_privacy_s6_content">DPDP చట్టం ప్రకారం, యాప్ ప్రొఫైల్ సెట్టింగ్‌ల ద్వారా లేదా dutypein@gmail.com కు ఇమెయిల్ చేయడం ద్వారా ఎప్పుడైనా మీ ఖాతాను మరియు డేటాను తొలగించమని కోరే హక్కు మీకు ఉంది.</string>
+    <!-- Added to close the gap against values/strings.xml. Machine-assisted:
+         needs native Telugu review before release, per the growth playbook. -->
+    <string name="search_jobs_skills">ఉద్యోగాలు, నైపుణ్యాలు వెతకండి...</string>
+    <string name="todays_earnings_label">ఈరోజు సంపాదన</string>
+    <string name="jobs_done_count">%1$d ఉద్యోగాలు పూర్తి</string>
+    <string name="reviews_count">%1$d సమీక్షలు</string>
+    <string name="you_are_online">మీరు ఆన్‌లైన్‌లో ఉన్నారు</string>
+    <string name="you_are_offline">మీరు ఆఫ్‌లైన్‌లో ఉన్నారు</string>
+    <string name="go_online">ఆన్‌లైన్‌కి వెళ్లండి</string>
+    <string name="go_offline">ఆఫ్‌లైన్‌కి వెళ్లండి</string>
+    <string name="nearby_jobs_instantly">సమీపంలోని ఉద్యోగాలు వెంటనే వస్తాయి</string>
+    <string name="turn_on_to_get_jobs">కొత్త ఉద్యోగాల కోసం ఆన్‌లైన్‌కి మారండి</string>
+    <string name="go_online_accept_jobs">ఉద్యోగాలు స్వీకరించడానికి ఆన్‌లైన్‌కి వెళ్లండి</string>
+    <string name="invite_now">ఇప్పుడే ఆహ్వానించండి</string>
+    <string name="refer_invite_subtitle">స్నేహితులను ఆహ్వానించి నగదు సంపాదించండి</string>
+    <string name="refer_earn_amount">రిఫర్ చేసి ₹%1$d సంపాదించండి</string>
+    <string name="contact_support_whatsapp">వాట్సాప్‌లో సపోర్ట్‌ను సంప్రదించండి</string>
+    <string name="refer_milestone_item">%1$d రిఫరల్స్: ₹%2$d మైలురాయి బోనస్</string>
+    <string name="refer_complete_profile_to_withdraw">సంపాదనను విత్‌డ్రా చేయడానికి ముందు మీ ప్రొఫైల్‌ను పూర్తిగా నింపండి</string>
+    <string name="refer_withdraw_full_balance_note">మీరు అందుబాటులో ఉన్న మొత్తం బ్యాలెన్స్‌ను విత్‌డ్రా చేస్తారు మరియు వాలెట్ ₹0కి రీసెట్ అవుతుంది.</string>
+    <string name="withdrawal_history">విత్‌డ్రా చరిత్ర</string>
+    <string name="who_referred_you">మిమ్మల్ని ఎవరు రిఫర్ చేశారు</string>
+    <string name="referred_by_unknown">రిఫరల్ మూలం అందుబాటులో లేదు</string>
+    <string name="no_withdrawals_yet">ఇంకా విత్‌డ్రాలు లేవు</string>
+    <string name="post_job_pick_quick_title">సాధారణ టైటిల్‌ను ఎంచుకోండి లేదా మీ స్వంతం టైప్ చేయండి</string>
+    <string name="post_normal_job_subtitle">దీర్ఘకాలిక ఉద్యోగం కోసం</string>
+    <string name="urgent_and_normal_jobs_posted">పోస్ట్ చేసిన ఉద్యోగాలు</string>
+    <string name="action_due">చర్య అవసరం</string>
+    <string name="instant_match">🔥 తక్షణ మ్యాచ్</string>
+    <string name="urgent_need_desc">గంట/రోజు పనుల కోసం సమీపంలోని వర్కర్లను వెంటనే నియమించుకోండి.</string>
+    <string name="standard_job_tag">📄 స్టాండర్డ్</string>
+    <string name="standard_job_desc">ఫుల్-టైమ్/పార్ట్-టైమ్ ఉద్యోగాల కోసం వివరణాత్మక ఖాళీలను సృష్టించండి.</string>
 </resources>

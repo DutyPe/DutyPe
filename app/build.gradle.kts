@@ -58,9 +58,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Release-size guardrail: DutyPe ships English + Telugu only. Filtering
-        // split churn small for tiny Play hotfixes.
-        resourceConfigurations += listOf("en", "te")
+        // Locales shipped in the bundle. Anything omitted here is stripped at build
+        // time, so values-<lang> is silently dropped no matter what the UI offers.
+        resourceConfigurations += listOf("en", "te", "hi")
         
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")

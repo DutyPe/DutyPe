@@ -12,10 +12,13 @@ import java.util.Locale
 
 /**
  * LocaleHelper - Language Selector Utility
- * 
- * Supports Telugu (te) and English (en) languages.
+ *
+ * Supports English (en), Telugu (te) and Hindi (hi).
  * Persists language preference and applies it app-wide.
- * 
+ *
+ * Any language added here must also be listed in `resourceConfigurations`
+ * in app/build.gradle.kts, or its resources are stripped from the build.
+ *
  * @author DutyPe Engineering Team
  * @since 2.2.0
  */
@@ -151,6 +154,13 @@ object LocaleHelper {
     fun isTelugu(context: Context): Boolean {
         return getLanguage(context) == LANGUAGE_TELUGU
     }
+
+    /**
+     * Check if current language is Hindi
+     */
+    fun isHindi(context: Context): Boolean {
+        return getLanguage(context) == LANGUAGE_HINDI
+    }
     
     /**
      * Check if current language is English
@@ -165,6 +175,7 @@ object LocaleHelper {
     fun getLanguageDisplayName(languageCode: String): String {
         return when (languageCode) {
             LANGUAGE_TELUGU -> "తెలుగు"
+            LANGUAGE_HINDI -> "हिन्दी"
             LANGUAGE_ENGLISH -> "English"
             else -> "English"
         }
@@ -176,6 +187,7 @@ object LocaleHelper {
     fun getLanguageEnglishName(languageCode: String): String {
         return when (languageCode) {
             LANGUAGE_TELUGU -> "Telugu"
+            LANGUAGE_HINDI -> "Hindi"
             LANGUAGE_ENGLISH -> "English"
             else -> "English"
         }
@@ -187,6 +199,7 @@ object LocaleHelper {
     fun getLanguageEmoji(languageCode: String): String {
         return when (languageCode) {
             LANGUAGE_TELUGU -> "🇮🇳"
+            LANGUAGE_HINDI -> "🇮🇳"
             LANGUAGE_ENGLISH -> "🇬🇧"
             else -> "🇬🇧"
         }
@@ -198,6 +211,7 @@ object LocaleHelper {
     fun getSupportedLanguages(): List<Pair<String, String>> {
         return listOf(
             LANGUAGE_ENGLISH to "English",
+            LANGUAGE_HINDI to "हिन्दी (Hindi)",
             LANGUAGE_TELUGU to "తెలుగు (Telugu)"
         )
     }
