@@ -194,3 +194,156 @@
     transform: none;
   }
 }
+
+/* ==========================================================================
+   Noir hero — black-based, 3D stage behind server-rendered copy.
+   ========================================================================== */
+
+.hero-noir {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 90% at 12% 0%, #16233f 0%, transparent 58%),
+    radial-gradient(90% 80% at 88% 12%, #2a1b06 0%, transparent 55%),
+    #05070d;
+  color: #f8fafc;
+  overflow: hidden;
+  border-radius: 26px;
+  padding-block: clamp(48px, 7vw, 96px);
+}
+
+.hero-noir::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(75% 60% at 50% 40%, #000 0%, transparent 78%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-noir-grid {
+  position: relative;
+  z-index: 2;
+}
+
+.hero3d-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero3d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Shown until (or instead of) the 3D scene, so the area is never empty. */
+.hero3d-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(38% 38% at 72% 42%, rgba(37, 99, 235, 0.4), transparent 70%),
+    radial-gradient(26% 26% at 60% 66%, rgba(245, 158, 11, 0.26), transparent 72%);
+  filter: blur(18px);
+}
+
+.hero-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f8fafc;
+}
+
+.hero-brand-mark img {
+  border-radius: 10px;
+}
+
+.hero-noir .headline {
+  color: #ffffff;
+  text-shadow: 0 2px 40px rgba(37, 99, 235, 0.28);
+}
+
+.hero-noir .lede,
+.hero-noir .hero-note,
+.hero-noir .hero-proof-card p {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.hero-noir .eyebrow,
+.hero-noir .pill {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+.hero-noir .hero-proof-card,
+.hero-noir .hero-search {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  color: #e2e8f0;
+}
+
+.hero-noir .hero-proof-card strong,
+.hero-noir .card-kicker {
+  color: #f8fafc;
+}
+
+.hero-noir .hero-search input {
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #f8fafc;
+}
+
+.hero-noir .hero-search input::placeholder {
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.hero-noir .hero-search label span {
+  color: rgba(203, 213, 225, 0.85);
+}
+
+.hero-noir .button {
+  background: linear-gradient(120deg, #2563eb, #1d4ed8);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  color: #ffffff;
+  box-shadow: 0 14px 34px -16px rgba(37, 99, 235, 0.9);
+}
+
+.hero-noir .button.ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+.hero-noir .dp-gradient-text {
+  background: linear-gradient(96deg, #ffffff, #60a5fa 52%, #fbbf24);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (max-width: 900px) {
+  .hero3d-stage {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero3d-stage {
+    display: none;
+  }
+}

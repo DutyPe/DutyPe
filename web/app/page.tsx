@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { AppLaunchCard } from "@/components/public/app-launch-card";
 import { HeroSignalDeck } from "@/components/public/hero-signal-deck";
 import { HomeImmersiveLayer } from "@/components/public/home-immersive-layer";
+import { Hero3D } from "@/components/public/hero-3d";
 import { MotionLayer } from "@/components/public/motion-layer";
 import { HomeInteractiveSuite } from "@/components/public/home-interactive-suite";
 import { WorkCaseDeck } from "@/components/public/work-case-deck";
@@ -241,10 +243,21 @@ export default function HomePage() {
         <HomeImmersiveLayer />
         <MotionLayer />
 
-      <section className="hero hero-home">
-        <div className="hero-grid hero-home-grid">
+      <section className="hero hero-home hero-noir">
+        <Hero3D />
+        <div className="hero-grid hero-home-grid hero-noir-grid">
           <div className="hero-copy">
             <div className="eyebrow-group">
+              <span className="hero-brand-mark">
+                <Image
+                  src="/icon.webp"
+                  alt="DutyPe"
+                  width={40}
+                  height={40}
+                  priority
+                />
+                <span>DutyPe</span>
+              </span>
               <span className="eyebrow">🇮🇳 Made in India</span>
               <span className="hero-note">Local job discovery and hiring for India</span>
             </div>
