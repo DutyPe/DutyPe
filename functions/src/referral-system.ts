@@ -36,6 +36,20 @@ import * as admin from "firebase-admin";
 import { validateString, validateNumber, validateUserId, validateEnum, assertAppCheck } from "./validation";
 import { getReferralConfig, ReferralConfig } from "./app-config";
 import { getUserLanguage, tTitle, tBody } from "./notification-i18n";
+import {
+  calculateTier,
+  canWithdraw,
+  evaluateWithdrawal,
+  generateIdempotencyKey,
+  getBooleanValue,
+  getConfiguredMilestoneBonus,
+  getNumberValue,
+  getStringValue,
+  normalizeReferralCodeInput,
+  scoreReferralFraud,
+  timestampToMillis,
+  welcomeBonusAmountForRole as welcomeBonusForRole,
+} from "./referral-rules";
 
 const db = admin.firestore();
 
@@ -128,77 +142,17 @@ type ReferralFraudResult = {
 /**
  * Calculate tier based on successful referrals
  */
-function calculateTier(successfulReferrals: number): string {
-  if (successfulReferrals >= 100) return "ELITE";
-  if (successfulReferrals >= 50) return "DIAMOND";
-  if (successfulReferrals >= 25) return "PLATINUM";
-  if (successfulReferrals >= 10) return "GOLD";
-  if (successfulReferrals >= 5) return "SILVER";
-  return "BRONZE";
-}
 
 /**
  * Check if user can withdraw based on available balance
  */
-function canWithdraw(availableBalance: number, minWithdrawal: number): boolean {
-  return availableBalance >= minWithdrawal;
-}
 
 /**
  * Get milestone bonus if applicable
  */
-function getMilestoneBonus(newCount: number): number {
-  return REFERRAL_CONFIG.MILESTONES[newCount] || 0;
-}
-
-function getConfiguredMilestoneBonus(newCount: number, milestones: Record<string, number>): number {
-  const configured = Number(milestones[String(newCount)] ?? (milestones as any)[newCount]);
-  return Number.isFinite(configured) && configured >= 0 ? configured : getMilestoneBonus(newCount);
-}
-
-/**
- * Generate idempotency key for referral
- */
-function generateIdempotencyKey(referrerUserId: string, referredUserId: string): string {
-  return `${referrerUserId}_${referredUserId}`;
-}
-
-function normalizeReferralCodeInput(code: string): string {
-  return (code || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-}
-
-function getNumberValue(value: any, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function getBooleanValue(value: any, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function getStringValue(value: any, fallback = ""): string {
-  return typeof value === "string" && value.trim() ? value : fallback;
-}
-
-function timestampToMillis(value: any): number {
-  if (!value) return 0;
-  if (typeof value?.toMillis === "function") {
-    return value.toMillis();
-  }
-  if (value instanceof Date) {
-    return value.getTime();
-  }
-  if (typeof value === "number") {
-    return value < 100_000_000_000 ? value * 1000 : value;
-  }
-  return 0;
-}
 
 function welcomeBonusAmountForRole(config: ReferralConfig, role: string): number {
-  const normalizedRole = getStringValue(role, "WORKER").toUpperCase();
-  if (normalizedRole === "EMPLOYER") {
-    return 0; // Forced 0 to remove employer signup bonus
-  }
-  return Math.max(0, config.signupBonus);
+  return welcomeBonusForRole(config.signupBonus, role);
 }
 
 async function creditWelcomeBonusForNewProfile(
@@ -608,26 +562,11 @@ async function evaluateReferralFraud(params: {
   ipAddress?: string | null;
 }): Promise<ReferralFraudResult> {
   const { referrerUserId, deviceFingerprint, ipAddress } = params;
-  let fraudScore = 0;
-  const signals: string[] = [];
   const now = Date.now();
   const oneDayAgo = new Date(now - ONE_DAY_MS);
   const oneHourAgo = new Date(now - ONE_HOUR_MS);
 
-  const toMillis = (value: any): number => {
-    if (!value) return 0;
-    if (typeof value?.toMillis === "function") {
-      return value.toMillis();
-    }
-    if (value instanceof Date) {
-      return value.getTime();
-    }
-    if (typeof value === "number") {
-      // Normalize seconds epoch to ms when needed.
-      return value < 100_000_000_000 ? value * 1000 : value;
-    }
-    return 0;
-  };
+  const toMillis = timestampToMillis;
 
   // Avoid composite-index dependency on (referrerId, createdAt) by filtering in memory.
   const recentReferralsRaw = await db.collection("referrals")
@@ -640,11 +579,7 @@ async function evaluateReferralFraud(params: {
     return createdAtMillis > oneHourAgo.getTime();
   }).length;
 
-  if (referralsInLastHour > 10) {
-    fraudScore += 40;
-    signals.push("HIGH_VELOCITY");
-  }
-
+  let sameDeviceReferralsCount = 0;
   if (deviceFingerprint) {
     // Avoid composite-index dependency on (deviceFingerprint, createdAt).
     const sameDeviceReferralsRaw = await db.collection("referrals")
@@ -652,73 +587,38 @@ async function evaluateReferralFraud(params: {
       .limit(250)
       .get();
 
-    const sameDeviceReferralsCount = sameDeviceReferralsRaw.docs.filter((doc) => {
+    sameDeviceReferralsCount = sameDeviceReferralsRaw.docs.filter((doc) => {
       const createdAtMillis = toMillis(doc.data().createdAt);
       return createdAtMillis > oneDayAgo.getTime();
     }).length;
-
-    if (sameDeviceReferralsCount > 2) {
-      fraudScore += 50;
-      signals.push("SAME_DEVICE_MULTIPLE_REFERRALS");
-    }
   }
 
-  if (ipAddress && ipAddress !== "unknown") {
+  const hasIpAddress = Boolean(ipAddress && ipAddress !== "unknown");
+  let sameIpReferralsCount = 0;
+  if (hasIpAddress) {
     // Avoid composite-index dependency on (ipAddress, createdAt).
     const sameIpReferralsRaw = await db.collection("referrals")
       .where("ipAddress", "==", ipAddress)
       .limit(250)
       .get();
 
-    const sameIpReferralsCount = sameIpReferralsRaw.docs.filter((doc) => {
+    sameIpReferralsCount = sameIpReferralsRaw.docs.filter((doc) => {
       const createdAtMillis = toMillis(doc.data().createdAt);
       return createdAtMillis > oneDayAgo.getTime();
     }).length;
-
-    if (sameIpReferralsCount >= REFERRAL_CONFIG.SAME_IP_MAX_REFERRALS) {
-      return {
-        allowed: false,
-        fraudScore,
-        signals: [...signals, "SAME_IP_LIMIT"],
-        needsReview: false,
-        rejectionReason: "SAME_IP_LIMIT",
-        errorMessage: "Too many referrals from this network"
-      };
-    }
-
-    if (sameIpReferralsCount > 2) {
-      fraudScore += 30;
-      signals.push("SAME_IP_MULTIPLE_REFERRALS");
-    }
   }
 
   const referrerStatsDoc = await db.collection("referral_stats").doc(referrerUserId).get();
   const referrerStats = referrerStatsDoc.data() || {};
-  const totalReferrals = getNumberValue(referrerStats.totalReferrals);
-  const rejectedReferrals = getNumberValue(referrerStats.rejectedReferrals);
 
-  if (totalReferrals > 10 && rejectedReferrals / totalReferrals > 0.3) {
-    fraudScore += 25;
-    signals.push("HIGH_REJECTION_RATE");
-  }
-
-  if (fraudScore >= 70) {
-    return {
-      allowed: false,
-      fraudScore,
-      signals,
-      needsReview: false,
-      rejectionReason: signals.join(", "),
-      errorMessage: "Referral could not be processed"
-    };
-  }
-
-  return {
-    allowed: true,
-    fraudScore,
-    signals,
-    needsReview: fraudScore >= 40
-  };
+  return scoreReferralFraud({
+    referralsInLastHour,
+    sameDeviceReferralsToday: sameDeviceReferralsCount,
+    sameIpReferralsToday: sameIpReferralsCount,
+    hasIpAddress,
+    totalReferrals: getNumberValue(referrerStats.totalReferrals),
+    rejectedReferrals: getNumberValue(referrerStats.rejectedReferrals),
+  });
 }
 
 
@@ -1327,19 +1227,6 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       const availableBalance = getNumberValue(stats.availableBalance);
       const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(availableBalance, minWithdrawal));
 
-      if (!canUserWithdraw) {
-        return { success: false as const, error: "You need at least Rs." + minWithdrawal + " available to withdraw" };
-      }
-      if (amount < minWithdrawal) {
-        return { success: false as const, error: "Minimum withdrawal is Rs." + minWithdrawal };
-      }
-      if (amount > availableBalance) {
-        return { success: false as const, error: "Insufficient balance. Available: Rs." + availableBalance };
-      }
-      if (Math.abs(amount - availableBalance) > 0.01) {
-        return { success: false as const, error: "Withdraw the full available balance to empty your wallet" };
-      }
-
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayWithdrawals = await tx.get(
@@ -1348,15 +1235,21 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       const todayTotal = todayWithdrawals.docs.reduce(
         (sum, doc) => sum + getNumberValue(doc.data().amount), 0
       );
-      if (todayTotal + amount > cfg.maxWithdrawalPerDay) {
-        return { success: false as const, error: "Daily limit is Rs." + cfg.maxWithdrawalPerDay };
-      }
 
-      if (paymentMethod === "UPI" && !upiId) {
-        return { success: false as const, error: "UPI ID is required" };
-      }
-      if (paymentMethod === "BANK_TRANSFER" && (!bankDetails?.accountNumber || !bankDetails?.ifscCode)) {
-        return { success: false as const, error: "Bank account details are required" };
+      const decision = evaluateWithdrawal({
+        amount,
+        availableBalance,
+        minWithdrawal,
+        maxWithdrawalPerDay: cfg.maxWithdrawalPerDay,
+        alreadyWithdrawnToday: todayTotal,
+        canWithdrawFlag: canUserWithdraw,
+        paymentMethod,
+        upiId,
+        bankDetails,
+      });
+
+      if (!decision.ok) {
+        return { success: false as const, error: decision.error };
       }
 
       const userRole = getStringValue(stats.userRole, "WORKER");
