@@ -1712,6 +1712,4 @@
     <string name="report_non_payment_details_hint">Worked full day, employer stopped answering calls</string>
     <string name="report_non_payment_submit">Report</string>
     <string name="report_non_payment_action">Not paid for this job?</string>
-    <string name="confirm_work_done">Confirm work done</string>
-    <string name="work_marked_done_waiting">Waiting for employer to confirm</string>
 </resources>

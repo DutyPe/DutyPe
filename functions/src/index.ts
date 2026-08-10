@@ -871,6 +871,14 @@ export const syncInstantResponseMetrics = functions.firestore
       tx.set(requestRef, updates, { merge: true });
     });
 
+    // Marks the clock start for the 3-hour instant auto-completion sweep.
+    if (afterStatus === "accepted" && !after.acceptedAt) {
+      await change.after.ref.set(
+        { acceptedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
     if (!before && ["applied", "interested", "called"].includes(afterStatus)) {
       await db.collection("notifications").doc(`instant_response_${responseId}`).set({
         recipientId: employerId,
@@ -1524,7 +1532,10 @@ export * from "./job-expiry";
 // EXPORT NOTIFICATION FAN-OUT
 // ============================================
 export * from "./notification-fanout";
-
+// ============================================
+// EXPORT AUTO-COMPLETION SWEEP
+// ============================================
+export * from "./auto-complete";
 // ============================================
 // EXPORT APP CONFIG (admin-editable referral rewards)
 // ============================================

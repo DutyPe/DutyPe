@@ -1116,11 +1116,9 @@ private fun ActionButtonsCard(
             }
         }
 
-        // Shown once the candidate is hired so the employer can close the contract and the
-        // worker's earnings move from pending → paid on the Earnings tab. After the worker
-        // marks the work done this becomes an explicit confirmation of their claim.
-        if (application?.status == ApplicationStatus.HIRED ||
-            application?.status == ApplicationStatus.WORK_SUBMITTED) {
+        // Shown once the candidate is hired so the employer can close the contract early.
+        // If they never do, the job auto-completes server-side a few hours after hiring.
+        if (application?.status == ApplicationStatus.HIRED) {
             Button(
                 onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
                 modifier = Modifier.fillMaxWidth(),
@@ -1131,16 +1129,7 @@ private fun ActionButtonsCard(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    stringResource(
-                        if (application?.status == ApplicationStatus.WORK_SUBMITTED) {
-                            R.string.confirm_work_done
-                        } else {
-                            R.string.mark_work_done
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text(stringResource(R.string.mark_work_done), style = MaterialTheme.typography.bodyMedium)
             }
         }
 

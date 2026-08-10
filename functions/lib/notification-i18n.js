@@ -443,18 +443,18 @@ exports.NOTIFICATION_TEMPLATES = {
             body: "एक कर्मचारी ने \"{title}\" के लिए भुगतान न मिलने की शिकायत की है। कृपया भुगतान करें या सहायता को जवाब दें।",
         },
     },
-    WORK_SUBMITTED_CONFIRM: {
+    WORK_AUTO_COMPLETED: {
         en: {
-            title: "Hi {recipient}, please confirm the work",
-            body: "{worker} marked the work as done. Confirm it so they can be rated and paid.",
+            title: "Hi {recipient}, \"{title}\" is marked complete",
+            body: "This job was closed automatically. If something went wrong, report it from the job.",
         },
         te: {
-            title: "హాయ్ {recipient}, దయచేసి పనిని నిర్ధారించండి",
-            body: "{worker} పని పూర్తయినట్లు గుర్తించారు. రేటింగ్, చెల్లింపు కోసం దయచేసి నిర్ధారించండి.",
+            title: "హాయ్ {recipient}, \"{title}\" పూర్తయినట్లు గుర్తించబడింది",
+            body: "ఈ ఉద్యోగం ఆటోమేటిక్‌గా ముగించబడింది. ఏదైనా సమస్య ఉంటే ఉద్యోగం నుండి నివేదించండి.",
         },
         hi: {
-            title: "नमस्ते {recipient}, कृपया काम की पुष्टि करें",
-            body: "{worker} ने काम पूरा होने का निशान लगाया है। रेटिंग और भुगतान के लिए कृपया पुष्टि करें।",
+            title: "नमस्ते {recipient}, \"{title}\" पूरा चिह्नित हो गया",
+            body: "यह नौकरी अपने आप बंद कर दी गई। कुछ गड़बड़ हुई हो तो नौकरी से शिकायत करें।",
         },
     },
 };

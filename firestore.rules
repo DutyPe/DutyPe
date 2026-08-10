@@ -561,33 +561,24 @@ service cloud.firestore {
 
 
       // STATE MACHINE: only status (and its evidence timestamps) can change.
-      //   applied        → shortlisted | rejected | hired   (employer)
-      //   applied        → rejected (worker withdraw)
-      //   shortlisted    → rejected | hired                  (employer)
-      //   shortlisted    → rejected (worker withdraw)
-      //   hired          → work_submitted                    (worker says the work is done)
-      //   work_submitted → completed                         (employer confirms)
-      //   work_submitted → hired                             (employer disputes, worker can resubmit)
-      //   hired          → completed                         (employer, direct close)
-      //   completed      → (terminal, immutable)
-      //   rejected       → (terminal, immutable)
+      //   applied      → shortlisted | rejected | hired   (employer)
+      //   applied      → rejected (worker withdraw)
+      //   shortlisted  → rejected | hired                  (employer)
+      //   shortlisted  → rejected (worker withdraw)
+      //   hired        → completed                          (employer, or auto-completed
+      //                                                      server-side 6h after hiring)
+      //   completed    → (terminal, immutable)
+      //   rejected     → (terminal, immutable)
       // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
       allow update: if isSignedIn() &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'workSubmittedAt', 'completedAt']) &&
-        resource.data.status in ['applied', 'shortlisted', 'hired', 'work_submitted'] &&
+          .hasOnly(['status', 'completedAt']) &&
+        resource.data.status in ['applied', 'shortlisted', 'hired'] &&
         (
           (
             resource.data.workerId == request.auth.uid &&
             request.resource.data.status == 'withdrawn' &&
             resource.data.status in ['applied', 'shortlisted']
-          ) ||
-          (
-            // The worker can only ever claim the work is done, never that it is settled.
-            resource.data.workerId == request.auth.uid &&
-            resource.data.status == 'hired' &&
-            request.resource.data.status == 'work_submitted' &&
-            request.resource.data.workSubmittedAt == request.time
           ) ||
           (
             resource.data.employerId == request.auth.uid &&
@@ -598,10 +589,8 @@ service cloud.firestore {
                   request.resource.data.status == 'rejected') ||
               (resource.data.status in ['applied', 'shortlisted'] &&
                   request.resource.data.status == 'hired') ||
-              (resource.data.status in ['hired', 'work_submitted'] &&
-                  request.resource.data.status == 'completed') ||
-              (resource.data.status == 'work_submitted' &&
-                  request.resource.data.status == 'hired')
+              (resource.data.status == 'hired' &&
+                  request.resource.data.status == 'completed')
             )
           )
         );

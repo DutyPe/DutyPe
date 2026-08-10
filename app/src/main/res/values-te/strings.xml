@@ -1675,6 +1675,4 @@
     <string name="report_non_payment_details_hint">పూర్తి రోజు పని చేశాను, యజమాని కాల్స్ ఎత్తడం మానేశారు</string>
     <string name="report_non_payment_submit">నివేదించండి</string>
     <string name="report_non_payment_action">ఈ ఉద్యోగానికి చెల్లింపు అందలేదా?</string>
-    <string name="confirm_work_done">పని పూర్తయినట్లు నిర్ధారించండి</string>
-    <string name="work_marked_done_waiting">యజమాని నిర్ధారణ కోసం వేచి ఉంది</string>
 </resources>

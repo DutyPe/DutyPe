@@ -175,6 +175,22 @@
       ]
     },
     {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "hiredAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "instant_responses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "acceptedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "worker_job_requests",
       "queryScope": "COLLECTION",
       "fields": [
