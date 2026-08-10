@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 import { SITE_URL, cityLandingTargets, coreSeoKeywords, siteMeta } from "@/lib/public-site";
 
 import "./globals.css";
+import "./immersive.css";
 
 const bodyFont = IBM_Plex_Sans({
   subsets: ["latin"],

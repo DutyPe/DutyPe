@@ -1,87 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
-function getScrollProgress() {
-  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-  if (maxScroll <= 0) {
-    return 0;
-  }
-
-  return Math.min(1, Math.max(0, window.scrollY / maxScroll));
-}
-
+/**
+ * Writes scroll/pointer state straight to CSS custom properties inside a rAF.
+ * Deliberately holds no React state: the previous version called setState on
+ * every pointermove and scroll event, re-rendering the tree ~100x/sec.
+ */
 export function HomeImmersiveLayer() {
-  const [progress, setProgress] = useState(0);
-  const [isFinePointer, setIsFinePointer] = useState(false);
-  const [cursorVisible, setCursorVisible] = useState(false);
-  const [cursorX, setCursorX] = useState(0);
-  const [cursorY, setCursorY] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const frame = useRef(0);
+  const target = useRef({ x: 0, y: 0, progress: 0, visible: 0 });
 
   useEffect(() => {
-    const media = window.matchMedia("(pointer: fine)");
+    const root = rootRef.current;
+    const bar = progressRef.current;
+    if (!root || !bar) return;
 
-    const updatePointerMode = () => {
-      setIsFinePointer(media.matches);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointer = window.matchMedia("(pointer: fine)");
+
+    const readProgress = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      return max <= 0 ? 0 : Math.min(1, Math.max(0, window.scrollY / max));
     };
 
-    updatePointerMode();
-    media.addEventListener("change", updatePointerMode);
+    const paint = () => {
+      frame.current = 0;
+      const { x, y, progress, visible } = target.current;
+      bar.style.transform = `scaleX(${progress})`;
+      root.style.setProperty("--cursor-x", `${x}px`);
+      root.style.setProperty("--cursor-y", `${y}px`);
+      root.style.setProperty("--cursor-visible", `${visible}`);
+    };
 
-    return () => media.removeEventListener("change", updatePointerMode);
-  }, []);
+    const schedule = () => {
+      if (frame.current) return;
+      frame.current = requestAnimationFrame(paint);
+    };
 
-  useEffect(() => {
-    const updateProgress = () => setProgress(getScrollProgress());
+    const onScroll = () => {
+      target.current.progress = readProgress();
+      schedule();
+    };
 
-    updateProgress();
-    window.addEventListener("scroll", updateProgress, { passive: true });
-    window.addEventListener("resize", updateProgress);
+    const onPointerMove = (event: PointerEvent) => {
+      if (!finePointer.matches || reduceMotion.matches) return;
+      target.current.x = event.clientX;
+      target.current.y = event.clientY;
+      target.current.visible = 1;
+      schedule();
+    };
+
+    const onPointerLeave = () => {
+      target.current.visible = 0;
+      schedule();
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerleave", onPointerLeave);
 
     return () => {
-      window.removeEventListener("scroll", updateProgress);
-      window.removeEventListener("resize", updateProgress);
+      if (frame.current) cancelAnimationFrame(frame.current);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerleave", onPointerLeave);
     };
   }, []);
-
-  useEffect(() => {
-    if (!isFinePointer) {
-      setCursorVisible(false);
-      return;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      setCursorX(event.clientX);
-      setCursorY(event.clientY);
-      setCursorVisible(true);
-    };
-
-    const handlePointerLeave = () => setCursorVisible(false);
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    window.addEventListener("pointerleave", handlePointerLeave);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerleave", handlePointerLeave);
-    };
-  }, [isFinePointer]);
 
   return (
-    <div className="home-immersive-layer" aria-hidden="true">
-      <div className="home-scroll-progress" style={{ transform: `scaleX(${progress})` }} />
-      {isFinePointer ? (
-        <>
-          <div
-            className={`home-cursor-halo${cursorVisible ? " is-visible" : ""}`}
-            style={{ left: cursorX, top: cursorY }}
-          />
-          <div
-            className={`home-cursor-dot${cursorVisible ? " is-visible" : ""}`}
-            style={{ left: cursorX, top: cursorY }}
-          />
-        </>
-      ) : null}
+    <div ref={rootRef} className="home-immersive-layer" aria-hidden="true">
+      <div ref={progressRef} className="home-scroll-progress" />
+      <div className="home-cursor-halo" />
+      <div className="home-cursor-dot" />
+      <div className="home-aurora" />
     </div>
   );
 }

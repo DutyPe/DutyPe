@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppLaunchCard } from "@/components/public/app-launch-card";
 import { HeroSignalDeck } from "@/components/public/hero-signal-deck";
 import { HomeImmersiveLayer } from "@/components/public/home-immersive-layer";
+import { MotionLayer } from "@/components/public/motion-layer";
 import { HomeInteractiveSuite } from "@/components/public/home-interactive-suite";
 import { WorkCaseDeck } from "@/components/public/work-case-deck";
 import { SiteShell } from "@/components/site-shell";
@@ -238,6 +239,7 @@ export default function HomePage() {
 
       <div className="home-interactive-experience">
         <HomeImmersiveLayer />
+        <MotionLayer />
 
       <section className="hero hero-home">
         <div className="hero-grid hero-home-grid">
@@ -247,7 +249,9 @@ export default function HomePage() {
               <span className="hero-note">Local job discovery and hiring for India</span>
             </div>
 
-            <h1 className="headline">Find Local Jobs Near You</h1>
+            <h1 className="headline">
+              Find <span className="dp-gradient-text">Local Jobs</span> Near You
+            </h1>
 
             <p className="lede">
               DutyPe helps workers discover verified nearby jobs and helps employers hire
@@ -290,12 +294,12 @@ export default function HomePage() {
             </div>
 
             <div className="hero-proof-grid">
-              <article className="hero-proof-card">
+              <article className="hero-proof-card dp-glass dp-lift" data-reveal data-tilt>
                 <span className="card-kicker">Search intent</span>
                 <strong>Built around jobs near me</strong>
                 <p>Category and city landing pages make it easier for workers to discover relevant openings fast.</p>
               </article>
-              <article className="hero-proof-card">
+              <article className="hero-proof-card dp-glass dp-lift" data-reveal data-tilt>
                 <span className="card-kicker">Trust layer</span>
                 <strong>Clear policies and direct contact</strong>
                 <p>Safety, privacy, and support routes stay visible so the website feels legitimate and useful before app install.</p>

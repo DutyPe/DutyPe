@@ -1,0 +1,196 @@
+/* ==========================================================================
+   Immersive layer — depth, motion and glass.
+   Loaded after globals.css so it wins on equal specificity.
+   Everything here is GPU-composited (transform/opacity only) and disabled
+   under prefers-reduced-motion. No WebGL: the audience is budget Android.
+   ========================================================================== */
+
+:root {
+  --dp-blue: #2563eb;
+  --dp-navy: #0f172a;
+  --dp-amber: #f59e0b;
+  --dp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dp-glass: rgba(255, 255, 255, 0.72);
+  --dp-glass-line: rgba(148, 163, 184, 0.28);
+}
+
+/* ---------- Ambient aurora ---------- */
+
+.home-aurora {
+  position: fixed;
+  inset: -20vmax 0 auto -20vmax;
+  width: 70vmax;
+  height: 70vmax;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(37, 99, 235, 0.16), transparent 62%),
+    radial-gradient(circle at 70% 60%, rgba(245, 158, 11, 0.12), transparent 58%);
+  filter: blur(28px);
+  animation: dp-aurora-drift 24s var(--dp-ease) infinite alternate;
+  will-change: transform;
+}
+
+@keyframes dp-aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(18vmax, 10vmax, 0) scale(1.18);
+  }
+}
+
+/* ---------- Cursor (fine pointers only, driven by CSS vars) ---------- */
+
+.home-cursor-halo,
+.home-cursor-dot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: var(--cursor-visible, 0);
+  transform: translate3d(
+    calc(var(--cursor-x, 0px) - 50%),
+    calc(var(--cursor-y, 0px) - 50%),
+    0
+  );
+  transition: opacity 240ms var(--dp-ease);
+  will-change: transform, opacity;
+}
+
+.home-cursor-halo {
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.14), transparent 68%);
+}
+
+.home-cursor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dp-blue);
+}
+
+@media (pointer: coarse) {
+  .home-cursor-halo,
+  .home-cursor-dot {
+    display: none;
+  }
+}
+
+/* ---------- Scroll reveal ----------
+   Hiding only applies once MotionLayer sets .dp-motion-ready on <html>, so a
+   JS failure or a no-JS crawler never sees blank sections. */
+
+.dp-motion-ready [data-reveal],
+.dp-motion-ready .home-interactive-experience .section {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 720ms var(--dp-ease),
+    transform 720ms var(--dp-ease);
+  transition-delay: calc(var(--reveal-index, 0) * 70ms);
+  will-change: transform, opacity;
+}
+
+.dp-motion-ready [data-reveal].is-revealed,
+.dp-motion-ready .home-interactive-experience .section.is-revealed {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* ---------- 3D tilt cards ---------- */
+
+[data-tilt] {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg)) translateZ(0);
+  transform-style: preserve-3d;
+  transition: transform 420ms var(--dp-ease), box-shadow 420ms var(--dp-ease);
+  will-change: transform;
+}
+
+[data-tilt]:hover {
+  box-shadow:
+    0 22px 48px -18px rgba(15, 23, 42, 0.34),
+    0 0 0 1px var(--dp-glass-line);
+}
+
+/* ---------- Glass surface ---------- */
+
+.dp-glass {
+  position: relative;
+  background: var(--dp-glass);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid var(--dp-glass-line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* Sheen sweep on hover. Pure transform, no repaint of the card body. */
+.dp-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 62%
+  );
+  transform: translate3d(-120%, 0, 0);
+  transition: transform 900ms var(--dp-ease);
+  pointer-events: none;
+}
+
+.dp-glass:hover::after {
+  transform: translate3d(120%, 0, 0);
+}
+
+/* ---------- Gradient headline ---------- */
+
+.dp-gradient-text {
+  background: linear-gradient(96deg, var(--dp-navy), var(--dp-blue) 58%, var(--dp-amber));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Depth lift for existing cards ---------- */
+
+.dp-lift {
+  transition: transform 420ms var(--dp-ease), box-shadow 420ms var(--dp-ease);
+  will-change: transform;
+}
+
+.dp-lift:hover {
+  transform: translate3d(0, -6px, 0);
+  box-shadow: 0 26px 52px -22px rgba(15, 23, 42, 0.38);
+}
+
+/* ---------- Accessibility / low-power fallback ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .home-aurora {
+    animation: none;
+  }
+
+  .dp-motion-ready [data-reveal],
+  .dp-motion-ready [data-reveal].is-revealed,
+  .dp-motion-ready .home-interactive-experience .section,
+  .dp-motion-ready .home-interactive-experience .section.is-revealed {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  [data-tilt],
+  .dp-lift,
+  .dp-glass::after {
+    transition: none;
+    transform: none;
+  }
+}
