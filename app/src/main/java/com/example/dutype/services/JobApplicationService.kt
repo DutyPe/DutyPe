@@ -13,6 +13,7 @@ import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.utils.NetworkUtils
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.utils.RetryUtils
@@ -992,6 +993,49 @@ class JobApplicationService @Inject constructor(
         }
     }
     
+    /**
+     * Worker marks a hired job as finished. The employer still has to confirm before it
+     * counts as completed, which is what gives a disputed job a dated record on both sides.
+     */
+    suspend fun submitWorkDone(applicationId: String, workerId: String): Result<JobApplication> {
+        return try {
+            RetryUtils.retryWithBackoffResult {
+                val docRef = firestore.collection(applicationsCollection).document(applicationId)
+                val doc = docRef.get().await()
+
+                if (!doc.exists()) {
+                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
+                }
+
+                val currentApplication = doc.toJobApplicationOrNull()
+                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
+
+                if (currentApplication.workerId != workerId) {
+                    return@retryWithBackoffResult Result.failure(Exception("You can only update your own application"))
+                }
+                if (currentApplication.status != ApplicationStatus.HIRED) {
+                    return@retryWithBackoffResult Result.failure(Exception("Only a hired job can be marked done"))
+                }
+
+                docRef.update(
+                    mapOf(
+                        "status" to ApplicationStatus.WORK_SUBMITTED.toFirestoreValue(),
+                        "workSubmittedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+
+                val updatedApplication = currentApplication.copy(status = ApplicationStatus.WORK_SUBMITTED)
+                applicationDao.insertApplication(
+                    ApplicationEntity.fromJobApplication(updatedApplication.withCanonicalId(currentApplication.id))
+                )
+
+                Result.success(updatedApplication)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Withdraw an application - Worker can withdraw pending/under review applications
      */

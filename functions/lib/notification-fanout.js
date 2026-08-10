@@ -45,7 +45,7 @@ async function createNotification(n) {
 exports.onApplicationStatusChanged = functions.firestore
     .document("applications/{applicationId}")
     .onUpdate(async (change) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const before = change.before.data() || {};
     const after = change.after.data() || {};
     const prev = String((_a = before.status) !== null && _a !== void 0 ? _a : "");
@@ -58,6 +58,32 @@ exports.onApplicationStatusChanged = functions.firestore
     const jobId = String((_d = after.jobId) !== null && _d !== void 0 ? _d : "");
     if (!workerId)
         return null;
+    // The worker triggered this one, so the employer is the side that needs to act.
+    if (nextStatus === "work_submitted") {
+        const employerId = String((_e = after.employerId) !== null && _e !== void 0 ? _e : "");
+        if (!employerId)
+            return null;
+        const employerLocale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
+        const employerName = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
+        const workerName = await (0, notification_i18n_1.getUserDisplayName)(db, workerId);
+        await createNotification({
+            id: `app_status_${change.after.id}_work_submitted`,
+            recipientId: employerId,
+            targetRole: "EMPLOYER",
+            title: (0, notification_i18n_1.tTitle)("WORK_SUBMITTED_CONFIRM", employerLocale, { recipient: employerName, worker: workerName }),
+            body: (0, notification_i18n_1.tBody)("WORK_SUBMITTED_CONFIRM", employerLocale, { recipient: employerName, worker: workerName }),
+            type: "APPLICATION_STATUS",
+            data: {
+                type: "APPLICATION_STATUS",
+                jobId,
+                applicationId: change.after.id,
+                status: nextStatus,
+                deepLink: `dutype://employer/applications/${change.after.id}`,
+            },
+            locale: employerLocale,
+        });
+        return null;
+    }
     const locale = await (0, notification_i18n_1.getUserLanguage)(db, workerId);
     const recipient = await (0, notification_i18n_1.getUserDisplayName)(db, workerId);
     const templateId = nextStatus === "hired" ? "APPLICATION_HIRED" :

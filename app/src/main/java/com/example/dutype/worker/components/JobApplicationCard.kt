@@ -86,6 +86,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
     return when (status) {
         ApplicationStatus.APPLIED -> "Applied"
         ApplicationStatus.HIRED -> "Hired"
+        ApplicationStatus.WORK_SUBMITTED -> "Awaiting confirmation"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
@@ -116,6 +117,7 @@ fun JobApplicationCard(
     onCardClick: (JobApplication) -> Unit,
     onWithdrawClick: ((JobApplication) -> Unit)? = null,
     onRateClick: ((JobApplication) -> Unit)? = null,
+    onMarkWorkDoneClick: ((JobApplication) -> Unit)? = null,
     hasAlreadyRated: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -393,6 +395,26 @@ fun JobApplicationCard(
                                 style = AppTypography.buttonSmall.copy(
                                     color = WorkerColors.Error
                                 )
+                            )
+                        }
+                    }
+
+                    // Lets the worker put their side of the record down first; the
+                    // employer still has to confirm before the job counts as completed.
+                    if (application.status == ApplicationStatus.HIRED && onMarkWorkDoneClick != null) {
+                        Button(
+                            onClick = { onMarkWorkDoneClick(application) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WorkerColors.Primary
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.mark_work_done),
+                                style = AppTypography.buttonSmall.copy(color = Color.White)
                             )
                         }
                     }

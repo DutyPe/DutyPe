@@ -468,6 +468,34 @@ class SmartJobApplicationViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Worker marks hired work as finished. Stays pending until the employer confirms.
+     */
+    fun markWorkDone(applicationId: String, onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
+                onResult(false, "User not authenticated")
+                return@launch
+            }
+
+            jobApplicationService.submitWorkDone(applicationId, currentUser.uid)
+                .onSuccess { updated ->
+                    val updatedApplications = _legacyUiState.value.applications.map {
+                        if (it.id == applicationId) it.copy(status = updated.status) else it
+                    }
+                    _legacyUiState.value = _legacyUiState.value.copy(applications = updatedApplications)
+                    _uiState.value = _uiState.value.copy(applications = updatedApplications)
+                    applicationStateManager.updateApplications(updatedApplications)
+                    loadApplicationStats()
+                    onResult(true, null)
+                }
+                .onFailure { exception ->
+                    onResult(false, exception.message ?: "Could not mark work done")
+                }
+        }
+    }
+
     // =============================================================================
     // STATISTICS & VACANCY STATUS
     // =============================================================================

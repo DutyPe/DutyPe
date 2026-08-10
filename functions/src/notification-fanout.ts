@@ -73,6 +73,32 @@ export const onApplicationStatusChanged = functions.firestore
     const jobId = String(after.jobId ?? "");
     if (!workerId) return null;
 
+    // The worker triggered this one, so the employer is the side that needs to act.
+    if (nextStatus === "work_submitted") {
+      const employerId = String(after.employerId ?? "");
+      if (!employerId) return null;
+      const employerLocale = await getUserLanguage(db, employerId);
+      const employerName = await getUserDisplayName(db, employerId);
+      const workerName = await getUserDisplayName(db, workerId);
+      await createNotification({
+        id: `app_status_${change.after.id}_work_submitted`,
+        recipientId: employerId,
+        targetRole: "EMPLOYER",
+        title: tTitle("WORK_SUBMITTED_CONFIRM", employerLocale, { recipient: employerName, worker: workerName }),
+        body: tBody("WORK_SUBMITTED_CONFIRM", employerLocale, { recipient: employerName, worker: workerName }),
+        type: "APPLICATION_STATUS",
+        data: {
+          type: "APPLICATION_STATUS",
+          jobId,
+          applicationId: change.after.id,
+          status: nextStatus,
+          deepLink: `dutype://employer/applications/${change.after.id}`,
+        },
+        locale: employerLocale,
+      });
+      return null;
+    }
+
     const locale = await getUserLanguage(db, workerId);
     const recipient = await getUserDisplayName(db, workerId);
 

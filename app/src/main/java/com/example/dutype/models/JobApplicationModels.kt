@@ -72,17 +72,19 @@ data class JobApplication(
 
 /**
  * Simplified state machine for hyper-local hiring:
- *   APPLIED     -> worker submitted, awaiting employer review
- *   REJECTED    -> rejected (employer) or withdrawn (worker)
- *   WITHDRAWN   -> worker withdrew application
- *   HIRED       -> worker hired, work underway
- *   COMPLETED   -> employer marked work done
+ *   APPLIED        -> worker submitted, awaiting employer review
+ *   REJECTED       -> rejected (employer) or withdrawn (worker)
+ *   WITHDRAWN      -> worker withdrew application
+ *   HIRED          -> worker hired, work underway
+ *   WORK_SUBMITTED -> worker says the work is done, awaiting employer confirmation
+ *   COMPLETED      -> employer confirmed work done
  */
 enum class ApplicationStatus {
     APPLIED,
     REJECTED,
     WITHDRAWN,
     HIRED,
+    WORK_SUBMITTED,
     COMPLETED,
     DELETED,
     FILLED;
@@ -92,6 +94,7 @@ enum class ApplicationStatus {
         REJECTED -> "rejected"
         WITHDRAWN -> "withdrawn"
         HIRED -> "hired"
+        WORK_SUBMITTED -> "work_submitted"
         COMPLETED -> "completed"
         DELETED -> "deleted"
         FILLED -> "filled"
@@ -101,6 +104,7 @@ enum class ApplicationStatus {
         fun fromFirestoreValue(value: String): ApplicationStatus = when (value.lowercase().trim()) {
             "applied", "pending", "viewed", "seen", "under_review", "shortlisted" -> APPLIED // Legacy mapping back to APPLIED
             "accepted", "hired", "in_progress" -> HIRED
+            "work_submitted" -> WORK_SUBMITTED
             "completed" -> COMPLETED
             "rejected" -> REJECTED
             "withdrawn" -> WITHDRAWN
@@ -115,6 +119,7 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.APPLIED -> "Applied"
     ApplicationStatus.WITHDRAWN -> "Withdrawn"
     ApplicationStatus.HIRED -> "Hired"
+    ApplicationStatus.WORK_SUBMITTED -> "Awaiting confirmation"
     ApplicationStatus.COMPLETED -> "Completed"
     ApplicationStatus.REJECTED -> "Rejected"
     ApplicationStatus.DELETED -> "Job Removed"
@@ -124,6 +129,7 @@ fun ApplicationStatus.getDisplayName(): String = when (this) {
 fun ApplicationStatus.getStatusColor(): Color = when (this) {
     ApplicationStatus.APPLIED -> Color(0xFFFFA500)
     ApplicationStatus.HIRED -> Color(0xFF4CAF50)
+    ApplicationStatus.WORK_SUBMITTED -> Color(0xFF0EA5E9)
     ApplicationStatus.COMPLETED -> Color(0xFF1F8B4C)
     ApplicationStatus.REJECTED -> Color(0xFFF44336)
     ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280)

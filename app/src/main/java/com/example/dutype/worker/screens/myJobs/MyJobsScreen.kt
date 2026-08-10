@@ -406,6 +406,13 @@ fun MyJobsScreen(
                                                 applicationToRate = app
                                                 showRatingSheet = true
                                             },
+                                            onMarkWorkDoneClick = { app ->
+                                                jobApplicationViewModel.markWorkDone(app.id) { success, error ->
+                                                    if (!success) {
+                                                        Timber.e("Failed to mark work done: $error")
+                                                    }
+                                                }
+                                            },
                                             hasAlreadyRated = application.id in ratedApplicationIds
                                         )
                                     }

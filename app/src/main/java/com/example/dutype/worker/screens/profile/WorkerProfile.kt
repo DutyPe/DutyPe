@@ -255,7 +255,7 @@ fun WorkerProfileScreen(
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i(" WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
+                                    Timber.i(" WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
                                     android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
@@ -379,7 +379,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                // Solid role background â€” no gradient.
+                // Solid role background — no gradient.
                 .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
@@ -404,7 +404,7 @@ fun WorkerProfileScreen(
                         IconButton(onClick = { showLanguageBottomSheet = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else "Change Language",
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
                             )

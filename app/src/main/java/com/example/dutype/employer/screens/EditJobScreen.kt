@@ -377,7 +377,7 @@ fun EditJobScreen(
                             navController.popBackStack()
                         } else {
                             // Handle error - could show a toast or error message
-                            Timber.e("âŒ Failed to update job: $error")
+                            Timber.e("❌ Failed to update job: $error")
                         }
                     }
                 }
@@ -393,7 +393,7 @@ fun EditJobScreen(
                     navController.popBackStack()
                 } else {
                     // Handle error - could show a toast or error message
-                    Timber.e("âŒ Failed to delete job: $error")
+                    Timber.e("❌ Failed to delete job: $error")
                 }
             }
         }

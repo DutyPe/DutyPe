@@ -1412,7 +1412,7 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background â€” the shimmer skeleton sits on the same
+            // Solid role background — the shimmer skeleton sits on the same
             // surface as the rest of the employer flow.
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
@@ -1754,7 +1754,7 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.addressText.ifBlank { job.location },
-                        // Bug #6 fix: salary is now a free-form String â€”
+                        // Bug #6 fix: salary is now a free-form String —
                         // pass it through verbatim so "Negotiable",
                         // ranges, and "+" suffixes survive the round-trip.
                         payAmount = job.salary,

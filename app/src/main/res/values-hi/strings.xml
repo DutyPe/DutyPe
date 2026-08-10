@@ -1675,4 +1675,6 @@
     <string name="report_non_payment_details_hint">पूरा दिन काम किया, नियोक्ता ने कॉल उठाना बंद कर दिया</string>
     <string name="report_non_payment_submit">शिकायत करें</string>
     <string name="report_non_payment_action">इस नौकरी का भुगतान नहीं मिला?</string>
+    <string name="confirm_work_done">काम पूरा होने की पुष्टि करें</string>
+    <string name="work_marked_done_waiting">नियोक्ता की पुष्टि का इंतज़ार है</string>
 </resources>

@@ -430,8 +430,7 @@ exports.NOTIFICATION_TEMPLATES = {
             body: "सामुदायिक रिपोर्ट के कारण आपकी नौकरी \"{title}\" छिपा दी गई है।",
         },
     },
-    NON_PAYMENT_REPORTED: {
-        en: {
+    NON_PAYMENT_REPORTED: { en: {
             title: "Hi {recipient}, a payment complaint was raised",
             body: "A worker reported not being paid for \"{title}\". Please settle it or reply to support.",
         },
@@ -442,6 +441,20 @@ exports.NOTIFICATION_TEMPLATES = {
         hi: {
             title: "नमस्ते {recipient}, भुगतान की शिकायत मिली है",
             body: "एक कर्मचारी ने \"{title}\" के लिए भुगतान न मिलने की शिकायत की है। कृपया भुगतान करें या सहायता को जवाब दें।",
+        },
+    },
+    WORK_SUBMITTED_CONFIRM: {
+        en: {
+            title: "Hi {recipient}, please confirm the work",
+            body: "{worker} marked the work as done. Confirm it so they can be rated and paid.",
+        },
+        te: {
+            title: "హాయ్ {recipient}, దయచేసి పనిని నిర్ధారించండి",
+            body: "{worker} పని పూర్తయినట్లు గుర్తించారు. రేటింగ్, చెల్లింపు కోసం దయచేసి నిర్ధారించండి.",
+        },
+        hi: {
+            title: "नमस्ते {recipient}, कृपया काम की पुष्टि करें",
+            body: "{worker} ने काम पूरा होने का निशान लगाया है। रेटिंग और भुगतान के लिए कृपया पुष्टि करें।",
         },
     },
 };

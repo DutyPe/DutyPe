@@ -49,7 +49,7 @@ import androidx.compose.ui.res.stringResource
  * Employer Company Details screen.
  *
  * Refactored Apr 2026 to mirror the structure and polish of
- * WorkerProfileDetailsScreen â€” same Surface-based custom top bar,
+ * WorkerProfileDetailsScreen — same Surface-based custom top bar,
  * staggered AnimatedVisibility entrance, LazyColumn body, view/edit
  * mode separation, sticky bottom Save/Cancel bar, and EmployerColors
  * theming throughout.
@@ -66,12 +66,12 @@ fun EmployerCompanyDetailsScreen(
     // Identity
     var currentUserId by remember { mutableStateOf("") }
 
-    // Form state â€” basic info
+    // Form state — basic info
     var companyName by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
 
-    // Form state â€” company details
+    // Form state — company details
     var industry by remember { mutableStateOf("") }
 
     // Profile image
@@ -574,7 +574,7 @@ private fun RatingsCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (totalRatings > 0) {
-                        "â˜… ${"%.1f".format(rating)}  â€¢  $totalRatings review${if (totalRatings != 1) "s" else ""}"
+                        "★ ${"%.1f".format(rating)}  •  $totalRatings review${if (totalRatings != 1) "s" else ""}"
                     } else {
                         "No ratings yet"
                     },

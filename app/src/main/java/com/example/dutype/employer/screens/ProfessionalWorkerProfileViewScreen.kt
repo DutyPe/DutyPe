@@ -1116,10 +1116,11 @@ private fun ActionButtonsCard(
             }
         }
 
-        // Bug #15 fix: show "Mark Work Done" only after the candidate is
-        // hired so the employer can complete the contract and the
-        // worker's earnings move from pending â†’ paid on the Earnings tab.
-        if (application?.status == ApplicationStatus.HIRED) {
+        // Shown once the candidate is hired so the employer can close the contract and the
+        // worker's earnings move from pending → paid on the Earnings tab. After the worker
+        // marks the work done this becomes an explicit confirmation of their claim.
+        if (application?.status == ApplicationStatus.HIRED ||
+            application?.status == ApplicationStatus.WORK_SUBMITTED) {
             Button(
                 onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
                 modifier = Modifier.fillMaxWidth(),
@@ -1130,7 +1131,16 @@ private fun ActionButtonsCard(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.mark_work_done), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(
+                        if (application?.status == ApplicationStatus.WORK_SUBMITTED) {
+                            R.string.confirm_work_done
+                        } else {
+                            R.string.mark_work_done
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
 

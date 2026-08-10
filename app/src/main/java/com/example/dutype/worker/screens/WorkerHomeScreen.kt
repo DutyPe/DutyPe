@@ -358,7 +358,7 @@ fun WorkerHomeScreen(
                 
                 locationRepository.refresh { locationData ->
                     if (locationData != null) {
-                        Timber.d(" âš¡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
+                        Timber.d(" ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
                         
                         // Location already saved by getLocationFast()
                         locationPreferences.setPermissionGranted(true)
