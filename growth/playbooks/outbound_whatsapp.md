@@ -4,7 +4,7 @@
 
 ## Decision
 
-Do **not** build an auto-sender from the personal WhatsApp number `9121706236`.
+Do **not** build an auto-sender from the personal WhatsApp number `8500717800`.
 
 Also do **not** rotate wording just to avoid WhatsApp spam detection. That is the wrong goal. The right goal is to message only people who have a reasonable reason to hear from DutyPe, keep the message clear, and give them an easy way to say no.
 
@@ -22,7 +22,7 @@ The safe feature to build is a **WhatsApp outreach assistant**, not a WhatsApp b
 
 ### 1. Best first step: manual founder outreach
 
-Use `9121706236` only for manual founder-led outreach to people who are known, referred, recently contacted, or clearly relevant from a legitimate public/business source.
+Use `8500717800` only for manual founder-led outreach to people who are known, referred, recently contacted, or clearly relevant from a legitimate public/business source.
 
 This is best for the first 50-100 people because replies teach what workers and employers actually understand.
 
@@ -65,7 +65,7 @@ Required columns:
 
 | Column | Meaning |
 |---|---|
-| `phone` | WhatsApp number, preferably E.164 format like `+919121706236` |
+| `phone` | WhatsApp number, preferably E.164 format like `+918500717800` |
 | `name` | Person or business name if known |
 | `role` | `worker`, `employer`, `rwa`, `ngo`, `unknown` |
 | `city` | City/locality |
@@ -105,7 +105,7 @@ If 2 people ignore and 1 person complains in the first 10, stop and rewrite the 
 
 ## Daily Limits
 
-For `9121706236` personal WhatsApp:
+For `8500717800` personal WhatsApp:
 
 - Day 1-7: max **10-15 manual messages/day**.
 - After that: max **20/day** if replies are healthy.
@@ -224,4 +224,4 @@ Scale only if:
 
 ## Final Recommendation
 
-Do the first batch manually from `9121706236` with 10 known/referred/public-business contacts. Use the CSV only to prepare and track the queue. Do not build an auto-sender. If the first 50 manual messages produce real replies, move outreach to a separate WhatsApp Business number before increasing volume.
+Do the first batch manually from `8500717800` with 10 known/referred/public-business contacts. Use the CSV only to prepare and track the queue. Do not build an auto-sender. If the first 50 manual messages produce real replies, move outreach to a separate WhatsApp Business number before increasing volume.

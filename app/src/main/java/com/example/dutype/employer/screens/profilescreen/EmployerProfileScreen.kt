@@ -228,7 +228,7 @@ fun EmployerProfileScreen(
 
                         // WhatsApp Support Button - Icon only with WhatsApp green color
                         IconButton(onClick = {
-                            val whatsappNumber = "919121706236" // DutyPe support number
+                            val whatsappNumber = "918500717800" // DutyPe support number
                             val message = "Hello DutyPe Team! I am an employer on DutyPe and I need help with the app."
                             val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
                             val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"

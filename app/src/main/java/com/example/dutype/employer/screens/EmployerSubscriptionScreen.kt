@@ -586,7 +586,7 @@ fun EmployerSubscriptionScreen(
                     }
                     OutlinedButton(
                         onClick = {
-                            val phoneNumber = "919121706236"
+                            val phoneNumber = "918500717800"
                             val message = "Hi DutyPe Team, please verify my purchased subscription plan. UTR: $utrNumber"
                             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                 data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${android.net.Uri.encode(message)}")

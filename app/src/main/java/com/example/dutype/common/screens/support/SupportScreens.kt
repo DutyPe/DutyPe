@@ -301,7 +301,7 @@ fun HelpMainScreen(
                     tint = WorkerColors.Success
                 ) {
                     val msg = context.getString(R.string.whatsapp_worker_message)
-                    val url = "https://wa.me/919121706236?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
+                    val url = "https://wa.me/918500717800?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
                 QuickActionTile(
