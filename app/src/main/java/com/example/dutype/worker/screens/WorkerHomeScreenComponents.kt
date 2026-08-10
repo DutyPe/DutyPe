@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import android.Manifest
@@ -219,7 +219,7 @@ private val WorkerAppliedAllHumorMessages = listOf(
 )
 
 private val WorkerEmptyEmojiCast = listOf(
-    "\uD83E\uDD14",  // thinking â€” "hmm where are the jobs"
+    "\uD83E\uDD14",  // thinking — "hmm where are the jobs"
     "\uD83D\uDD0D",  // searching
     "\uD83D\uDE34",  // sleepy area
     "\uD83E\uDD37",  // shrug
@@ -397,7 +397,7 @@ private fun JobHuntingIllustration(
             }
         }
 
-        // The emoji â€” cycles through a cast, bobs and tilts subtly
+        // The emoji — cycles through a cast, bobs and tilts subtly
         AnimatedContent(
             targetState = currentEmoji,
             transitionSpec = {
@@ -1171,11 +1171,11 @@ private fun InstantRequestCard(
                             text = buildString {
                                 request.distanceKm?.let { append("%.1f km".format(it)) }
                                 if (request.budgetText.isNotBlank()) {
-                                    if (isNotEmpty()) append(" â€¢ ")
+                                    if (isNotEmpty()) append(" • ")
                                     append(request.budgetText)
                                 }
                                 if (request.workersNeeded > 1) {
-                                    if (isNotEmpty()) append(" â€¢ ")
+                                    if (isNotEmpty()) append(" • ")
                                     append(workersNeededLabel)
                                 }
                                 if (isEmpty()) append(request.category)
@@ -1410,11 +1410,11 @@ private fun WorkerJobRequestCard(
                         text = buildString {
                             if (request.salary.isNotBlank()) append(request.salary)
                             if (request.salaryType.isNotBlank()) {
-                                if (isNotEmpty()) append(" â€¢ ")
+                                if (isNotEmpty()) append(" • ")
                                 append(request.salaryType.lowercase().replaceFirstChar { it.titlecase() })
                             }
                             if (request.distanceKm != null) {
-                                if (isNotEmpty()) append(" â€¢ ")
+                                if (isNotEmpty()) append(" • ")
                                 append("%.1f km".format(request.distanceKm))
                             }
                             if (isEmpty()) append("Tap to view job")
@@ -1616,16 +1616,16 @@ fun BrowseCategoriesSection(
         CategoryItem("Security", "\uD83D\uDC82"),
         CategoryItem("Electrician", "\uD83D\uDCA1"),
         CategoryItem("Plumber", "\uD83D\uDD27"),
-        CategoryItem("Sales", "ðŸ›ï¸"),
-        CategoryItem("Telecaller", "ðŸ“ž"),
-        CategoryItem("Teacher", "ðŸ“š"),
-        CategoryItem("Office Staff", "ðŸ—‚ï¸"),
-        CategoryItem("Customer Support", "ðŸŽ§"),
-        CategoryItem("Field Work", "ðŸ§­"),
-        CategoryItem("Finance", "ðŸ¦"),
-        CategoryItem("Data Entry", "âŒ¨ï¸"),
-        CategoryItem("Healthcare", "âš•ï¸"),
-        CategoryItem("Beautician", "ðŸ’‡")
+        CategoryItem("Sales", "🛍️"),
+        CategoryItem("Telecaller", "📞"),
+        CategoryItem("Teacher", "📚"),
+        CategoryItem("Office Staff", "🗂️"),
+        CategoryItem("Customer Support", "🎧"),
+        CategoryItem("Field Work", "🧭"),
+        CategoryItem("Finance", "🏦"),
+        CategoryItem("Data Entry", "⌨️"),
+        CategoryItem("Healthcare", "⚕️"),
+        CategoryItem("Beautician", "💇")
     )
     
     Column(
@@ -1893,18 +1893,18 @@ internal fun DynamicHeader(
     )
     val categoryTabs = remember {
         listOf(
-            "All" to "ðŸ“‹",
-            "Cook" to "ðŸ‘¨â€ðŸ³",
-            "Maid" to "ðŸ§¹",
-            "Driver" to "ðŸš—",
-            "Delivery" to "ðŸ“¦",
-            "Security" to "ðŸ›¡ï¸",
-            "Electrician" to "ðŸ’¡",
-            "Plumber" to "ðŸ”§",
-            "Shop Helper" to "ðŸª",
-            "Office Staff" to "ðŸ—‚ï¸",
-            "Teacher" to "ðŸ“š",
-            "Telecaller" to "ðŸ“ž"
+            "All" to "📋",
+            "Cook" to "👨‍🍳",
+            "Maid" to "🧹",
+            "Driver" to "🚗",
+            "Delivery" to "📦",
+            "Security" to "🛡️",
+            "Electrician" to "💡",
+            "Plumber" to "🔧",
+            "Shop Helper" to "🏪",
+            "Office Staff" to "🗂️",
+            "Teacher" to "📚",
+            "Telecaller" to "📞"
         )
     }
     var selectedCategory by remember { mutableStateOf("All") }
@@ -1951,7 +1951,7 @@ internal fun DynamicHeader(
                 .fillMaxWidth()
                 .animateContentSize()
         ) {
-            // Status bar spacer â€” makes the Box (and Lottie) tall enough to fill behind the system bar
+            // Status bar spacer — makes the Box (and Lottie) tall enough to fill behind the system bar
             Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
             // Top bar row: DutyPe brand + location | Availability switch + Notifications
             Row(
@@ -2076,7 +2076,7 @@ internal fun DynamicHeader(
             // Spacer to separate top bar and category rail
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Category rail â€” scrollable horizontal tabs
+            // Category rail — scrollable horizontal tabs
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2279,7 +2279,7 @@ private fun WorkerStatCard(
 }
 
 private fun formatRupeeCompact(amount: Double): String {
-    return "â‚¹${String.format("%.0f", amount.coerceAtLeast(0.0))}"
+    return "₹${String.format("%.0f", amount.coerceAtLeast(0.0))}"
 }
 
 

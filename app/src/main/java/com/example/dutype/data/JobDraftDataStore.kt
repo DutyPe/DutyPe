@@ -134,9 +134,9 @@ class JobDraftDataStore @Inject constructor(
     /**
      * Get saved draft for employer.
      *
-     * Bug #4 fix: Drafts are now device-scoped â€” we no longer block restore
+     * Bug #4 fix: Drafts are now device-scoped — we no longer block restore
      * when the saved employerId differs (or is blank for a guest save). The
-     * common scenario is: guest fills the form â†’ navigates to register â†’
+     * common scenario is: guest fills the form → navigates to register →
      * comes back with a freshly-minted uid. Old behaviour saw `savedEmployerId =
      * "GUEST"` vs the new uid and threw the draft away. We still respect TTL.
      */

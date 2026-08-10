@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.components
+package com.example.dutype.worker.components
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -98,7 +98,7 @@ fun ProfileCompletionPrompt(
                             )
                         )
                         Text(
-                            text = "$completionPercentage% complete â€¢ ${missingFields.size} fields missing",
+                            text = "$completionPercentage% complete • ${missingFields.size} fields missing",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = WorkerColors.Warning.copy(alpha = 0.8f)
                             )

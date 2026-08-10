@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.net.Uri
@@ -49,7 +49,7 @@ import androidx.compose.ui.res.stringResource
  * Employer Company Details screen.
  *
  * Refactored Apr 2026 to mirror the structure and polish of
- * WorkerProfileDetailsScreen Ã¢â‚¬â€ same Surface-based custom top bar,
+ * WorkerProfileDetailsScreen â€” same Surface-based custom top bar,
  * staggered AnimatedVisibility entrance, LazyColumn body, view/edit
  * mode separation, sticky bottom Save/Cancel bar, and EmployerColors
  * theming throughout.
@@ -66,12 +66,12 @@ fun EmployerCompanyDetailsScreen(
     // Identity
     var currentUserId by remember { mutableStateOf("") }
 
-    // Form state Ã¢â‚¬â€ basic info
+    // Form state â€” basic info
     var companyName by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
 
-    // Form state Ã¢â‚¬â€ company details
+    // Form state â€” company details
     var industry by remember { mutableStateOf("") }
 
     // Profile image
@@ -574,7 +574,7 @@ private fun RatingsCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (totalRatings > 0) {
-                        "Ã¢Ëœâ€¦ ${"%.1f".format(rating)}  Ã¢â‚¬Â¢  $totalRatings review${if (totalRatings != 1) "s" else ""}"
+                        "â˜… ${"%.1f".format(rating)}  â€¢  $totalRatings review${if (totalRatings != 1) "s" else ""}"
                     } else {
                         "No ratings yet"
                     },
@@ -771,7 +771,7 @@ private fun CompanyTextField(
     }
 
     // Re-prompt the OS location permission on every tap if it hasn't been granted
-    // yet â€” including recoveries from a previous denial.
+    // yet — including recoveries from a previous denial.
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->

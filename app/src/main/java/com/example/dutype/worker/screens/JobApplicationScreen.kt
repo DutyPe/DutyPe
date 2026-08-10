@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import android.content.Intent
@@ -410,7 +410,7 @@ private fun WorkerWorkTipsSection() {
 
 /**
  * Batch-m fix: route the worker home navigation through the
- * WorkerNavGraph's actual start destination ("home" â€” see
+ * WorkerNavGraph's actual start destination ("home" — see
  * `WorkerBottomRoutes.HOME`). The earlier code popped to
  * `Routes.WORKER_HOME` ("worker_home") which is a top-level role-graph
  * route NOT registered inside WorkerNavGraph, so the popBackStack call
@@ -628,7 +628,7 @@ private fun JobSummaryCard(job: JobListing) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Location (from job_details.addressText â€” runtime only)
+                // Location (from job_details.addressText — runtime only)
                 if (job.addressText.isNotEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -650,7 +650,7 @@ private fun JobSummaryCard(job: JobListing) {
                     }
                 }
                 
-                // Pay â€” Bug #6: salary is a String now.
+                // Pay — Bug #6: salary is a String now.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val salaryStr = job.salary.ifBlank { "Negotiable" }
                     val period = when (job.salaryType.uppercase()) {
@@ -659,7 +659,7 @@ private fun JobSummaryCard(job: JobListing) {
                         else -> "day"
                     }
                     Text(
-                        text = "â‚¹$salaryStr",
+                        text = "₹$salaryStr",
                         style = AppTypography.labelMedium.copy(
                             color = WorkerColors.Success,
                             fontWeight = FontWeight.Bold

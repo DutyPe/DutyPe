@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -67,12 +67,12 @@ fun EmployerNotificationScreen(
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
     // If the user previously denied POST_NOTIFICATIONS, opening this screen is a
-    // strong signal they want notifications â€” re-prompt the system dialog.
+    // strong signal they want notifications — re-prompt the system dialog.
     val context = LocalContext.current
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
-        Timber.d("ðŸ”” EmployerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
+        Timber.d("🔔 EmployerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
     }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -87,15 +87,15 @@ fun EmployerNotificationScreen(
     }
 
     LaunchedEffect(uiState) {
-        Timber.d("ðŸ”” EmployerNotificationScreen - UI State updated:")
-        Timber.d("ðŸ”” EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
+        Timber.d("🔔 EmployerNotificationScreen - UI State updated:")
+        Timber.d("🔔 EmployerNotificationScreen - Notifications count: ${uiState.notifications.size}")
     }
 
-    // This screen is hardcoded to the EMPLOYER role via EmployerNotificationViewModel â€”
+    // This screen is hardcoded to the EMPLOYER role via EmployerNotificationViewModel —
     // single-role accounts mean we just load once on enter and again when the dialog closes.
     LaunchedEffect(dialogData == null) {
         if (dialogData == null) {
-            Timber.d("ðŸ”” EmployerNotificationScreen - Loading employer notifications")
+            Timber.d("🔔 EmployerNotificationScreen - Loading employer notifications")
             viewModel.loadNotifications()
         }
     }

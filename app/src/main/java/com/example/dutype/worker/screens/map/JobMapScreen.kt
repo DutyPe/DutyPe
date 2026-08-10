@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens.map
+package com.example.dutype.worker.screens.map
 
 import com.dutype.app.R
 import android.Manifest
@@ -131,10 +131,10 @@ fun JobMapScreen(
                 if (location != null) {
                     userLatitude = location.latitude
                     userLongitude = location.longitude
-                    Timber.d("ðŸ“ Map: User location set to ${location.latitude}, ${location.longitude}")
+                    Timber.d("📍 Map: User location set to ${location.latitude}, ${location.longitude}")
                 }
             } catch (e: Exception) {
-                Timber.e(e, "ðŸ“ Map: Error getting location")
+                Timber.e(e, "📍 Map: Error getting location")
             } finally {
                 isLoadingLocation = false
             }
@@ -202,7 +202,7 @@ fun JobMapScreen(
             onMarkerClick = { job -> selectedJob = job },
             onMapReady = {
                 isMapReady = true
-                Timber.d("ðŸ“ Map: Google Maps ready")
+                Timber.d("📍 Map: Google Maps ready")
             }
         )
 
@@ -662,7 +662,7 @@ private fun EnhancedJobMapCard(
             "MONTHLY" -> perMonth
             else -> perDay
         }
-        if (amount.equals("Negotiable", ignoreCase = true)) amount else "â‚¹$amount$period"
+        if (amount.equals("Negotiable", ignoreCase = true)) amount else "₹$amount$period"
     }
     
     Card(
@@ -745,7 +745,7 @@ private fun EnhancedJobMapCard(
             ) {
                 // Pay
                 InfoChip(
-                    icon = "ðŸ’°",
+                    icon = "💰",
                     text = salaryDisplay,
                     backgroundColor = WorkerColors.SuccessLight,
                     textColor = WorkerColors.Success
@@ -754,7 +754,7 @@ private fun EnhancedJobMapCard(
                 // Distance
                 job.distance?.let { dist ->
                     InfoChip(
-                        icon = if (dist < 1) "ðŸš¶" else "ðŸ“",
+                        icon = if (dist < 1) "🚶" else "📍",
                         text = if (dist < 1) stringResource(R.string.map_meters_away, (dist * 1000).toInt()) else stringResource(R.string.map_km_away, "%.1f".format(dist)),
                         backgroundColor = Color(0xFFF0F9FF),
                         textColor = Color(0xFF0369A1)
@@ -764,7 +764,7 @@ private fun EnhancedJobMapCard(
                 // Job type
                 if (job.jobType.isNotEmpty()) {
                     InfoChip(
-                        icon = "ðŸ“…",
+                        icon = "📅",
                         text = job.jobType,
                         backgroundColor = WorkerColors.WarningLight,
                         textColor = Color(0xFF92400E)

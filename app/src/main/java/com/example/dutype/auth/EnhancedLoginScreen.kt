@@ -1,4 +1,4 @@
-﻿package com.example.dutype.auth
+package com.example.dutype.auth
 
 import com.dutype.app.R
 import android.app.Activity
@@ -138,7 +138,7 @@ private fun OtpLoginScreen(
 
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
-            Timber.d("ðŸ“± OTP VERIFICATION SUCCESS - Starting user check flow")
+            Timber.d("📱 OTP VERIFICATION SUCCESS - Starting user check flow")
 
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
@@ -167,13 +167,13 @@ private fun OtpLoginScreen(
                                 val existingRole = msg.substringAfter(":").lowercase()
                                 val existingRoleLabel = if (existingRole == "employer") "employer" else "worker"
                                 if (isTelugu)
-                                    "à°ˆ à°¨à°‚à°¬à°°à± ${existingRoleLabel}à°—à°¾ à°¨à°®à±‹à°¦à±ˆà°‚à°¦à°¿. à°¦à°¯à°šà±‡à°¸à°¿ ${existingRoleLabel}à°—à°¾ à°²à°¾à°—à°¿à°¨à± à°…à°µà±à°µà°‚à°¡à°¿."
+                                    "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
                                 else
                                     "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
                             } else if (msg == "account-not-found") {
-                                if (isTelugu) "à°ˆ à°¨à°‚à°¬à°°à±â€Œà°•à± à°¸à°‚à°¬à°‚à°§à°¿à°‚à°šà°¿à°¨ à°–à°¾à°¤à°¾ à°•à°¨à°¬à°¡à°²à±‡à°¦à±. à°¦à°¯à°šà±‡à°¸à°¿ à°®à±à°‚à°¦à±à°—à°¾ à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿." else "No account found with this number. Please Register first."
+                                if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first."
                             } else {
-                                error.message ?: if (isTelugu) "à°®à±€ à°–à°¾à°¤à°¾à°¨à± à°²à±‹à°¡à± à°šà±‡à°¯à°²à±‡à°•à°ªà±‹à°¯à°¾à°‚. à°¦à°¯à°šà±‡à°¸à°¿ à°®à°³à±à°²à±€ à°ªà±à°°à°¯à°¤à±à°¨à°¿à°‚à°šà°‚à°¡à°¿." else "Could not load your account. Please try again."
+                                error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again."
                             }
                             Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
                         }
@@ -186,7 +186,7 @@ private fun OtpLoginScreen(
                     }
                 }
             } catch (e: Exception) {
-                Timber.e(e, "ðŸ“± Error checking profile")
+                Timber.e(e, "📱 Error checking profile")
                 navigateToProfileSetup(role, navController)
             }
 
@@ -195,7 +195,7 @@ private fun OtpLoginScreen(
     }
 
     if (otpState.otpSent) {
-        // â”€â”€ Enterprise SMS Auto-Retrieval â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Enterprise SMS Auto-Retrieval ────────────────────────────────────
         // Start listening for incoming SMS the moment the OTP screen shows.
         // DisposableEffect guarantees cleanup on back-press / recomposition.
         DisposableEffect(Unit) {
@@ -224,7 +224,7 @@ private fun OtpLoginScreen(
                 // verifyOtp is already called by onSmsAutoRetrieved; no double-call needed
             }
         }
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ────────────────────────────────────────────────────────────────────
 
         // Full screen OTP entry
         Box(
@@ -488,7 +488,7 @@ private fun OtpLoginScreen(
                                 )
                                 if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.NOT_EXISTS) {
                                     isCheckingPhone = false
-                                    Toast.makeText(context, if (isTelugu) "à°ˆ à°¨à°‚à°¬à°°à±â€Œà°•à± à°–à°¾à°¤à°¾ à°²à±‡à°¦à±. à°¦à°¯à°šà±‡à°¸à°¿ à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿." else "No account found with this number. Please Register first.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, if (isTelugu) "ఈ నంబర్‌కు ఖాతా లేదు. దయచేసి నమోదు చేయండి." else "No account found with this number. Please Register first.", Toast.LENGTH_LONG).show()
                                     return@launch
                                 }
                                 isCheckingPhone = false
@@ -656,7 +656,7 @@ private fun OtpInputSection(
         Spacer(modifier = Modifier.height(28.dp))
 
 
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ────────────────────────────────────────────────────────────────────
 
         // Clean 6-Digit OTP Box Layout
         AuthOtpBoxes(

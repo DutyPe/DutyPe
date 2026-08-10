@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -227,11 +227,11 @@ fun FeedbackBottomSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = when (selectedRating) {
-                                1 -> "Poor ðŸ˜ž"
-                                2 -> "Fair ðŸ˜"
-                                3 -> "Good ðŸ™‚"
-                                4 -> "Very Good ðŸ˜Š"
-                                5 -> "Excellent! ðŸ¤©"
+                                1 -> "Poor 😞"
+                                2 -> "Fair 😐"
+                                3 -> "Good 🙂"
+                                4 -> "Very Good 😊"
+                                5 -> "Excellent! 🤩"
                                 else -> ""
                             },
                             style = MaterialTheme.typography.bodyMedium.copy(

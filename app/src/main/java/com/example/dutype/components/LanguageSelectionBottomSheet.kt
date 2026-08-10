@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -50,12 +50,12 @@ private val languages = listOf(
     LanguageItem(
         code = "hi",
         name = "Hindi",
-        nativeName = "à¤¹à¤¿à¤¨à¥à¤¦à¥€"
+        nativeName = "हिन्दी"
     ),
     LanguageItem(
         code = LocaleHelper.LANGUAGE_TELUGU,
         name = "Telugu",
-        nativeName = "à°¤à±†à°²à±à°—à±"
+        nativeName = "తెలుగు"
     )
 )
 

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.foundation.Image
@@ -47,15 +47,15 @@ private val Ink900 = Color(0xFF0F172A)
 private val Ink600 = Color(0xFF475569)
 
 private fun aboutIconFor(symbol: String): ImageVector = when (symbol) {
-    "ðŸ’°" -> Icons.Default.Payments
-    "â¤ï¸" -> Icons.Default.Favorite
-    "ðŸš€" -> Icons.Default.TrendingUp
-    "ðŸ›¡ï¸", "ðŸ”’" -> Icons.Default.Security
-    "ðŸ‘¥", "ðŸ¤" -> Icons.Default.Groups
-    "ðŸ¢" -> Icons.Default.Business
-    "ðŸŽ¯" -> Icons.Default.Flag
-    "ðŸ’¡" -> Icons.Default.Lightbulb
-    "âœ…" -> Icons.Default.CheckCircle
+    "💰" -> Icons.Default.Payments
+    "❤️" -> Icons.Default.Favorite
+    "🚀" -> Icons.Default.TrendingUp
+    "🛡️", "🔒" -> Icons.Default.Security
+    "👥", "🤝" -> Icons.Default.Groups
+    "🏢" -> Icons.Default.Business
+    "🎯" -> Icons.Default.Flag
+    "💡" -> Icons.Default.Lightbulb
+    "✅" -> Icons.Default.CheckCircle
     else -> Icons.Default.Info
 }
 
@@ -67,7 +67,7 @@ fun AboutHero(
     title: String,
     subtitle: String,
     accentColor: Color = Ink900,
-    badgeEmoji: String = "ðŸ‘‹"
+    badgeEmoji: String = "👋"
 ) {
     Row(
         modifier = Modifier
@@ -192,7 +192,7 @@ fun AboutSectionCard(
 }
 
 /**
- * A bullet row â€” uniform black bullet point (`â€¢`), no colorful dots.
+ * A bullet row — uniform black bullet point (`•`), no colorful dots.
  */
 @Composable
 fun AboutBullet(text: String, accentColor: Color = Ink900) {
@@ -203,7 +203,7 @@ fun AboutBullet(text: String, accentColor: Color = Ink900) {
         verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = "â€¢",
+            text = "•",
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Ink900

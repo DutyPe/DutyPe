@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.components
+package com.example.dutype.employer.components
 
 import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
@@ -319,7 +319,7 @@ private fun JobCardFooter(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Per-user request (Apr 2026): the "ðŸ‘¥ N applications" stat
+            // Per-user request (Apr 2026): the "👥 N applications" stat
             // chip is removed from this row. The full applications count
             // is already shown when the employer taps the card.
 

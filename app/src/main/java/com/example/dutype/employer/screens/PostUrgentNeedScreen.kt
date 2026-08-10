@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.Manifest
@@ -448,7 +448,7 @@ internal fun PostUrgentNeedContent(
                     OutlinedTextField(
                         value = perPersonPaymentText,
                         onValueChange = { value -> perPersonPaymentText = value.filter { it.isDigit() } },
-                        label = { Text("â‚¹ per person") },
+                        label = { Text("₹ per person") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -467,7 +467,7 @@ internal fun PostUrgentNeedContent(
                     ) {
                         Text("Total Amount", style = MaterialTheme.typography.bodySmall, color = EmployerColors.TextSecondary)
                         Text(
-                            text = "â‚¹${total.toInt()}",
+                            text = "₹${total.toInt()}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = EmployerColors.TextPrimary
@@ -576,7 +576,7 @@ internal fun PostUrgentNeedContent(
                             needType = if (urgencyType == "custom" || urgencyType == "tomorrow") "scheduled" else "urgent_now",
                             urgencyType = urgencyType,
                             contactNumber = contactNumber,
-                            budgetText = "â‚¹${pp.toInt()} per person",
+                            budgetText = "₹${pp.toInt()} per person",
                             perPersonPayment = pp,
                             totalPayment = total,
                             durationText = selectedDuration,

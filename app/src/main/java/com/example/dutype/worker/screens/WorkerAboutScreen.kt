@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -57,14 +57,14 @@ fun WorkerAboutScreen(
             AboutHero(
                 title = stringResource(R.string.welcome_to_dutype),
                 subtitle = stringResource(R.string.about_worker_subtitle),
-                badgeEmoji = "ðŸ‘‹"
+                badgeEmoji = "👋"
             )
 
             AboutDutyPeOverview()
 
             AboutSectionCard(
                 title = stringResource(R.string.our_mission),
-                icon = "ðŸŽ¯"
+                icon = "🎯"
             ) {
                 AboutParagraph(
                     text = stringResource(R.string.about_worker_mission)
@@ -73,7 +73,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.our_vision),
-                icon = "ðŸ”­"
+                icon = "🔭"
             ) {
                 AboutParagraph(
                     text = stringResource(R.string.about_worker_vision)
@@ -82,7 +82,7 @@ fun WorkerAboutScreen(
 
             AboutSectionCard(
                 title = stringResource(R.string.key_features),
-                icon = "âœ¨"
+                icon = "✨"
             ) {
                 AboutBullet(stringResource(R.string.about_feat_quick_apply))
                 AboutBullet(stringResource(R.string.about_feat_jobs_near))

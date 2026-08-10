@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens.applications
+package com.example.dutype.employer.screens.applications
 
 import com.dutype.app.R
 import android.app.Activity
@@ -92,7 +92,7 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // Batch-p #7: filter chips at top â€” Total / Applied / Shortlisted /
+    // Batch-p #7: filter chips at top — Total / Applied / Shortlisted /
     // Hired. Selecting one filters the application list locally so the
     // counts in the header stay accurate while the user drills in.
     var statusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -430,7 +430,7 @@ fun EmployerApplicationManagementScreen(
             FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
         }
         
-        // Stats Summary Card â€” click any item to filter the list
+        // Stats Summary Card — click any item to filter the list
         ApplicationStatsSummary(
             stats = stats,
             selectedFilter = statusFilter,
@@ -1092,7 +1092,7 @@ private fun MatchedWorkerCard(
 
             if (worker.matchReasons.isNotEmpty()) {
                 Text(
-                    text = worker.matchReasons.joinToString(" â€¢ "),
+                    text = worker.matchReasons.joinToString(" • "),
                     style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -2020,7 +2020,7 @@ private fun FreeContactsBanner(freeRemaining: Int) {
                 modifier = Modifier.size(20.dp)
             )
             Text(
-                text = "ðŸŽ $freeRemaining free contact unlocks remaining",
+                text = "🎁 $freeRemaining free contact unlocks remaining",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = EmployerColors.Success,
                     fontWeight = FontWeight.Medium

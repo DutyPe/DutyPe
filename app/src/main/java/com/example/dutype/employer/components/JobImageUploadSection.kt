@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.components
+package com.example.dutype.employer.components
 
 import com.dutype.app.R
 import android.Manifest
@@ -94,7 +94,7 @@ fun JobImageUploadSection(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            Timber.d("ðŸ“¸ JOB IMAGE: Gallery image selected: $it")
+            Timber.d("📸 JOB IMAGE: Gallery image selected: $it")
             onImageSelected(it)
         }
     }
@@ -104,10 +104,10 @@ fun JobImageUploadSection(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && tempImageUri != null) {
-            Timber.d("ðŸ“¸ JOB IMAGE: Camera image captured: $tempImageUri")
+            Timber.d("📸 JOB IMAGE: Camera image captured: $tempImageUri")
             onImageSelected(tempImageUri!!)
         } else {
-            Timber.w("ðŸ“¸ JOB IMAGE: Camera capture failed or cancelled")
+            Timber.w("📸 JOB IMAGE: Camera capture failed or cancelled")
         }
     }
     
@@ -120,7 +120,7 @@ fun JobImageUploadSection(
             tempImageUri = createImageFile()
             tempImageUri?.let { cameraLauncher.launch(it) }
         } else {
-            Timber.w("ðŸ“¸ JOB IMAGE: Camera permission denied")
+            Timber.w("📸 JOB IMAGE: Camera permission denied")
         }
     }
     

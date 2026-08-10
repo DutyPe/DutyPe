@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -337,7 +337,7 @@ fun WorkerReferEarnScreen(
                         }
                     }
                     
-                    // Withdraw Button ï¿½ always visible once data is loaded
+                    // Withdraw Button � always visible once data is loaded
                     item {
                         val balance = uiState.stats?.availableBalance ?: 0.0
                         val minWithdrawal = referralConfig.minWithdrawal

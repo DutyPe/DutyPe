@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.content.Intent
@@ -576,7 +576,7 @@ private fun TimelineJobCard(
                 ) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = "â‚¹${job.salary.ifBlank { "-" }}",
+                        text = "₹${job.salary.ifBlank { "-" }}",
                         backgroundColor = EmployerColors.SuccessLight,
                         iconColor = EmployerColors.Success
                     )
@@ -776,7 +776,7 @@ private fun HistoryJobCard(
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
-                    text = "â‚¹${job.salary.ifBlank { "-" }}",
+                    text = "₹${job.salary.ifBlank { "-" }}",
                     backgroundColor = EmployerColors.SuccessLight,
                     iconColor = EmployerColors.Success
                 )

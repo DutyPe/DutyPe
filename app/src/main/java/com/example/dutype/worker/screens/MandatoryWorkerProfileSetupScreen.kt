@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import android.app.Activity
@@ -182,12 +182,12 @@ fun MandatoryWorkerProfileSetupScreen(
                 // Check if user has already used a referral code
                 hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
                 showReferralSection = !hasAlreadyUsedReferral
-                Timber.d("ðŸŽ REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
+                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
                 
                 // Load full profile data for prefilling (all fields needed for form)
                 val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
                 existingDataResult.onSuccess { existingData ->
-                    Timber.d("ðŸ“¦ PREFILL: Loading existing worker profile data (lightweight)")
+                    Timber.d("📦 PREFILL: Loading existing worker profile data (lightweight)")
                     
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedFullName = existingData["fullName"] as? String
@@ -198,7 +198,7 @@ fun MandatoryWorkerProfileSetupScreen(
                     val savedExperience = existingData["experience"] as? String
                     val savedEducationQualification = existingData["educationQualification"] as? String
                     val savedBio = existingData["bio"] as? String
-                    // skills from worker_profiles (List<String>) â€” joined for display in skills field
+                    // skills from worker_profiles (List<String>) — joined for display in skills field
                     val savedSkills = when (val rawSkills = existingData["skills"]) {
                         is List<*> -> rawSkills.filterIsInstance<String>()
                         is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
@@ -211,12 +211,12 @@ fun MandatoryWorkerProfileSetupScreen(
                     // Apply prefilled values (only if current field is empty)
                     if (fullName.isBlank() && !savedFullName.isNullOrBlank()) {
                         fullName = savedFullName
-                        Timber.d("ðŸ“¦ PREFILL: fullName = $fullName")
+                        Timber.d("📦 PREFILL: fullName = $fullName")
                     }
                     if (phoneNumber.isBlank() && !savedPhone.isNullOrBlank()) {
                         // Clean phone number (remove country code if present)
                         phoneNumber = savedPhone.replace("+91", "").trim()
-                        Timber.d("ðŸ“¦ PREFILL: phoneNumber = $phoneNumber")
+                        Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
                     }
                     if (email.isBlank() && !savedEmail.isNullOrBlank()) {
                         email = savedEmail
@@ -225,19 +225,19 @@ fun MandatoryWorkerProfileSetupScreen(
                     }
                     if (skills.isBlank() && savedSkills.isNotEmpty()) {
                         skills = savedSkills.joinToString(", ")
-                        Timber.d("ðŸ“¦ PREFILL: skills from jobTypes = $skills")
+                        Timber.d("📦 PREFILL: skills from jobTypes = $skills")
                     }
                     if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
                         dateOfBirth = savedDateOfBirth
-                        Timber.d("ðŸ“¦ PREFILL: dateOfBirth = $dateOfBirth")
+                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
                     }
                     if (gender.isBlank() && !savedGender.isNullOrBlank()) {
                         gender = savedGender
-                        Timber.d("ðŸ“¦ PREFILL: gender = $gender")
+                        Timber.d("📦 PREFILL: gender = $gender")
                     }
                     if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
                         experience = savedExperience
-                        Timber.d("ðŸ“¦ PREFILL: experience restored")
+                        Timber.d("📦 PREFILL: experience restored")
                     }
                     if (educationQualification.isBlank() && !savedEducationQualification.isNullOrBlank()) {
                         educationQualification = savedEducationQualification
@@ -249,11 +249,11 @@ fun MandatoryWorkerProfileSetupScreen(
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
-                        Timber.d("ðŸ“¦ PREFILL: profileImageUrl exists")
+                        Timber.d("📦 PREFILL: profileImageUrl exists")
                     }
                     if (aadhaarNumber.isBlank() && !savedAadhaarNumber.isNullOrBlank()) {
                         aadhaarNumber = savedAadhaarNumber
-                        Timber.d("ðŸ“¦ PREFILL: aadhaarNumber = ****${savedAadhaarNumber.takeLast(4)}")
+                        Timber.d("📦 PREFILL: aadhaarNumber = ****${savedAadhaarNumber.takeLast(4)}")
                     }
                     if (aadhaarPhotoUrl.isNullOrBlank() && !savedAadhaarPhotoUrl.isNullOrBlank()) {
                         aadhaarPhotoUrl = savedAadhaarPhotoUrl
@@ -270,14 +270,14 @@ fun MandatoryWorkerProfileSetupScreen(
                         if (googleEmail != null) {
                             email = googleEmail
                             isEmailLoaded = true
-                            Timber.d("ðŸ“¦ PREFILL: email from Google = $email")
+                            Timber.d("📦 PREFILL: email from Google = $email")
                         }
                     }
                     if (fullName.isBlank()) {
                         val googleName = profileCompletionViewModel.getUserName()
                         if (googleName != null) {
                             fullName = googleName
-                            Timber.d("ðŸ“¦ PREFILL: fullName from Google = $fullName")
+                            Timber.d("📦 PREFILL: fullName from Google = $fullName")
                         }
                     }
                 }
@@ -288,7 +288,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         val otpPhone = profileCompletionViewModel.getPhoneNumber()
                         if (otpPhone != null) {
                             phoneNumber = otpPhone.replace("+91", "").trim()
-                            Timber.d("ðŸ“¦ PREFILL: phoneNumber from OTP = $phoneNumber")
+                            Timber.d("📦 PREFILL: phoneNumber from OTP = $phoneNumber")
                         }
                     }
                     // Reuse the name captured in the registration bottom-sheet so users
@@ -297,7 +297,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         val cachedName = profileCompletionViewModel.getUserName()
                         if (!cachedName.isNullOrBlank()) {
                             fullName = cachedName
-                            Timber.d("ðŸ“¦ PREFILL: fullName from registration cache = $fullName")
+                            Timber.d("📦 PREFILL: fullName from registration cache = $fullName")
                         }
                     }
                 }
@@ -308,9 +308,9 @@ fun MandatoryWorkerProfileSetupScreen(
                 }
             }
             
-            Timber.d("ðŸ“¦ PREFILL: Final values - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
+            Timber.d("📦 PREFILL: Final values - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
         } catch (e: Exception) {
-            Timber.e(e, "ðŸ“¦ PREFILL: Error loading existing profile data")
+            Timber.e(e, "📦 PREFILL: Error loading existing profile data")
         } finally {
             isLoadingExistingData = false
         }
@@ -601,7 +601,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                                     }
                                                                     referralValidationResult = ReferralValidationResult(
                                                                         isValid = true,
-                                                                        message = "Valid code from $roleDisplay! You'll both earn â‚¹25.",
+                                                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
                                                                         referrerName = referrerInfo.first
                                                                     )
                                                                 } else {
@@ -772,7 +772,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 } else {
                                     // Prevent double-execution
                                     if (isCompletionInProgress) {
-                                        Timber.w("ðŸ“ Profile completion already in progress, ignoring duplicate call")
+                                        Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
                                         return@Button
                                     }
                                     
@@ -805,16 +805,16 @@ fun MandatoryWorkerProfileSetupScreen(
                                                             onSuccess = { url ->
                                                                 uploadedSelfieUrl = url
                                                                 selfieUrl = url
-                                                                Timber.d("ðŸ“¸ Worker selfie uploaded: $url")
+                                                                Timber.d("📸 Worker selfie uploaded: $url")
                                                             },
                                                             onFailure = { e ->
-                                                                Timber.e(e, "ðŸ“¸ Failed to upload worker selfie")
+                                                                Timber.e(e, "📸 Failed to upload worker selfie")
                                                                 // Show error but continue - selfie upload is not blocking
                                                                 selfieError = "Photo upload failed. Your profile will be saved without photo."
                                                             }
                                                         )
                                                     } catch (e: Exception) {
-                                                        Timber.e(e, "ðŸ“¸ Exception during selfie upload")
+                                                        Timber.e(e, "📸 Exception during selfie upload")
                                                         selfieError = "Photo upload failed. Your profile will be saved without photo."
                                                     } finally {
                                                         isUploadingSelfie = false
@@ -834,16 +834,16 @@ fun MandatoryWorkerProfileSetupScreen(
                                                             onSuccess = { url ->
                                                                 uploadedAadhaarPhotoUrl = url
                                                                 aadhaarPhotoUrl = url
-                                                                Timber.d("ðŸ“¸ Worker Aadhaar photo uploaded: $url")
+                                                                Timber.d("📸 Worker Aadhaar photo uploaded: $url")
                                                             },
                                                             onFailure = { e ->
-                                                                Timber.e(e, "ðŸ“¸ Failed to upload worker Aadhaar photo")
+                                                                Timber.e(e, "📸 Failed to upload worker Aadhaar photo")
                                                                 errorMessage = "Aadhaar photo upload failed. Please try again."
                                                                 throw Exception("Aadhaar photo upload failed")
                                                             }
                                                         )
                                                     } catch (e: Exception) {
-                                                        Timber.e(e, "ðŸ“¸ Exception during Aadhaar photo upload")
+                                                        Timber.e(e, "📸 Exception during Aadhaar photo upload")
                                                         errorMessage = "Aadhaar photo upload failed. Please try again."
                                                         throw e
                                                     }
@@ -910,7 +910,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                         ).show()
                                                     } else {
                                                         Timber.w(
-                                                            "ðŸŽ REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                                                            "🎁 REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
                                                         )
                                                     }
                                                 }
@@ -941,16 +941,16 @@ fun MandatoryWorkerProfileSetupScreen(
                                                             userId = notificationUser.uid,
                                                             userRole = "WORKER"
                                                         ).onSuccess {
-                                                            Timber.d("ðŸ“¬ Profile completion notification sent for worker (first time)")
+                                                            Timber.d("📬 Profile completion notification sent for worker (first time)")
                                                         }.onFailure { error ->
-                                                            Timber.e(error, "ðŸ“¬ Worker profile completion notification failed")
+                                                            Timber.e(error, "📬 Worker profile completion notification failed")
                                                         }
                                                         
                                                         // Register FCM token with role for push notifications
                                                         fcmTokenManager.registerTokenWithRole("WORKER")
-                                                        Timber.d("ðŸ“¬ FCM token registered with WORKER role")
+                                                        Timber.d("📬 FCM token registered with WORKER role")
                                                     } catch (e: Exception) {
-                                                        Timber.e(e, "ðŸ“¬ Failed to send profile completion notification or register FCM")
+                                                        Timber.e(e, "📬 Failed to send profile completion notification or register FCM")
                                                     }
                                                 }
 
@@ -959,7 +959,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     reviewTriggerService.onWorkerProfileCompleted(activity)
                                                 }
                                             } else {
-                                                Timber.d("ðŸ“¬ Profile already complete - skipping notification (this is a profile update)")
+                                                Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
                                             }
                                             
                                             // Navigate to return route (job application) or location fetching screen
@@ -1383,7 +1383,7 @@ private fun AdditionalDetailsStep(
                 suspend fun fetchAddressFast() {
                     val cachedLocation = locationPreferences.getSavedLocationIfFresh(10 * 60 * 1000L)
                     if (cachedLocation != null) {
-                        Timber.d("ðŸ“ Fetch button - Using recent cached location immediately")
+                        Timber.d("📍 Fetch button - Using recent cached location immediately")
                         onAddressChange(cachedLocation.getFullAddress())
                         locationPreferences.setPermissionGranted(true)
                     }
@@ -1395,12 +1395,12 @@ private fun AdditionalDetailsStep(
 
                     val finalLocation = refinedLocation ?: cachedLocation
                     if (finalLocation != null) {
-                        Timber.d("ðŸ“ Fetch button - Location resolved: ${finalLocation.getFullAddress()}")
+                        Timber.d("📍 Fetch button - Location resolved: ${finalLocation.getFullAddress()}")
                         onAddressChange(finalLocation.getFullAddress())
                         locationPreferences.saveLocation(finalLocation)
                         locationPreferences.setPermissionGranted(true)
                     } else {
-                        Timber.w("ðŸ“ Fetch button - Could not resolve location")
+                        Timber.w("📍 Fetch button - Could not resolve location")
                         fetchError = "Could not get location quickly. Please try again."
                         android.widget.Toast.makeText(
                             context,
@@ -1417,7 +1417,7 @@ private fun AdditionalDetailsStep(
                     val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                             permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
                     
-                    Timber.d("ðŸ“ Fetch button - Location permission result: $granted")
+                    Timber.d("📍 Fetch button - Location permission result: $granted")
                     
                     if (granted) {
                         // Permission granted, now fetch location with fast-first strategy.
@@ -1427,7 +1427,7 @@ private fun AdditionalDetailsStep(
                             try {
                                 fetchAddressFast()
                             } catch (e: Exception) {
-                                Timber.e(e, "ðŸ“ Fetch button - Error fetching location")
+                                Timber.e(e, "📍 Fetch button - Error fetching location")
                                 fetchError = "Error fetching location"
                                 android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
                             } finally {
@@ -1435,7 +1435,7 @@ private fun AdditionalDetailsStep(
                             }
                         }
                     } else {
-                        Timber.w("ðŸ“ Fetch button - Location permission denied")
+                        Timber.w("📍 Fetch button - Location permission denied")
                         android.widget.Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), android.widget.Toast.LENGTH_SHORT).show()
                         isFetchingLocation = false
                     }
@@ -1443,17 +1443,17 @@ private fun AdditionalDetailsStep(
                 
                 Button(
                     onClick = {
-                        Timber.d("ðŸ“ Fetch button clicked")
+                        Timber.d("📍 Fetch button clicked")
                         fetchError = null
                         
                         if (locationService.hasLocationPermission()) {
-                            Timber.d("ðŸ“ Fetch button - Has permission, fetching fast-first location...")
+                            Timber.d("📍 Fetch button - Has permission, fetching fast-first location...")
                             coroutineScope.launch {
                                 isFetchingLocation = true
                                 try {
                                     fetchAddressFast()
                                 } catch (e: Exception) {
-                                    Timber.e(e, "ðŸ“ Fetch button - Error fetching location")
+                                    Timber.e(e, "📍 Fetch button - Error fetching location")
                                     fetchError = "Error fetching location"
                                     android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
                                 } finally {
@@ -1461,7 +1461,7 @@ private fun AdditionalDetailsStep(
                                 }
                             }
                         } else {
-                            Timber.d("ðŸ“ Fetch button - No permission, requesting...")
+                            Timber.d("📍 Fetch button - No permission, requesting...")
                             // Request location permission
                             locationPermissionLauncher.launch(
                                 arrayOf(

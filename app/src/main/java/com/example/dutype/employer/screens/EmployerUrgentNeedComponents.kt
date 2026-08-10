@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -412,7 +412,7 @@ private fun EmployerUrgentNeedCard(
                         UrgentStatusBadge(request.status)
                     }
                     Text(
-                        text = "${request.category} â€¢ ${needTypeLabel(request.needType)} â€¢ ${DateTimeUtils.formatRelativeTime(request.createdAt)}",
+                        text = "${request.category} • ${needTypeLabel(request.needType)} • ${DateTimeUtils.formatRelativeTime(request.createdAt)}",
                         style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

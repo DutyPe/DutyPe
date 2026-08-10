@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.components
+package com.example.dutype.worker.components
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -73,10 +73,10 @@ import androidx.compose.ui.res.stringResource
 // Helper functions for status display
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.APPLIED -> "â³"
-        ApplicationStatus.HIRED -> "ðŸŽ‰"
-        ApplicationStatus.COMPLETED -> "âœ…"
-        ApplicationStatus.REJECTED -> "âŒ"
+        ApplicationStatus.APPLIED -> "⏳"
+        ApplicationStatus.HIRED -> "🎉"
+        ApplicationStatus.COMPLETED -> "✅"
+        ApplicationStatus.REJECTED -> "❌"
         ApplicationStatus.WITHDRAWN -> ""
         else -> ""
     }
@@ -128,7 +128,7 @@ fun JobApplicationCard(
     // can dial the employer directly to push their candidacy. Hidden once the
     // application is rejected or already completed (terminal states).
     // Batch-n #4: show the Call button even if `employerPhone` snapshot is
-    // missing on legacy applications â€” when tapped without a number we
+    // missing on legacy applications — when tapped without a number we
     // open the job detail screen so the worker can still find the contact
     // there. Previously the button was hidden whenever the phone was
     // blank, which silently dropped the primary CTA on most older rows.
@@ -234,7 +234,7 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Quick-call hint banner â€” nudges the worker that calling is
+                // Quick-call hint banner — nudges the worker that calling is
                 // the fastest way to land the job. Only shown when the
                 // application is in an active funnel stage and the employer
                 // shared a phone number on the job post.

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.components
+package com.example.dutype.worker.components
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -164,7 +164,7 @@ fun JobCard(
 }
 
 /**
- * Internal JobCard implementation â€” uses only schema fields.
+ * Internal JobCard implementation — uses only schema fields.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -235,7 +235,7 @@ private fun JobCardInternal(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        // Solid surface for the job icon â€” no gradient.
+                        // Solid surface for the job icon — no gradient.
                         .background(
                             color = com.example.dutype.ui.theme.WorkerColors.CardBackground,
                             shape = CircleShape
@@ -321,7 +321,7 @@ private fun JobCardInternal(
                     )
                 } else {
                     Text(
-                        text = "â‚¹${payDisplay.substringBefore("/")}",
+                        text = "₹${payDisplay.substringBefore("/")}",
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = WorkerColors.TextPrimary,
                             fontWeight = FontWeight.Bold,
@@ -485,7 +485,7 @@ private enum class ChipType {
 }
 
 // =============================================================================
-// HELPER FUNCTIONS â€” schema-only, no legacy fields
+// HELPER FUNCTIONS — schema-only, no legacy fields
 // =============================================================================
 
 /**
@@ -551,76 +551,76 @@ private fun getJobEmoji(jobTitle: String): String {
     val t = jobTitle.lowercase()
     return when {
         // Food & hospitality
-        t.contains("chef") || t.contains("cook") || t.contains("kitchen") || t.contains("tandoor") || t.contains("biryani") -> "ðŸ‘¨â€ðŸ³"
-        t.contains("baker") || t.contains("bakery") || t.contains("pastry") -> "ðŸ§"
-        t.contains("barista") || t.contains("coffee") || t.contains("cafe") -> "â˜•"
-        t.contains("bartender") || t.contains("bar tender") -> "ðŸ¸"
-        t.contains("waiter") || t.contains("waitress") || t.contains("server") || t.contains("steward") || t.contains("restaurant") -> "ðŸ½ï¸"
-        t.contains("catering") || t.contains("event") -> "ðŸŽ‰"
+        t.contains("chef") || t.contains("cook") || t.contains("kitchen") || t.contains("tandoor") || t.contains("biryani") -> "👨‍🍳"
+        t.contains("baker") || t.contains("bakery") || t.contains("pastry") -> "🧁"
+        t.contains("barista") || t.contains("coffee") || t.contains("cafe") -> "☕"
+        t.contains("bartender") || t.contains("bar tender") -> "🍸"
+        t.contains("waiter") || t.contains("waitress") || t.contains("server") || t.contains("steward") || t.contains("restaurant") -> "🍽️"
+        t.contains("catering") || t.contains("event") -> "🎉"
 
         // Driving & delivery
-        t.contains("delivery") || t.contains("courier") || t.contains("rider") || t.contains("swiggy") || t.contains("zomato") || t.contains("dunzo") || t.contains("parcel") -> "ðŸ“¦"
-        t.contains("truck") || t.contains("lorry") -> "ðŸš›"
-        t.contains("auto driver") || t.contains("auto-rickshaw") || t.contains("rickshaw") -> "ðŸ›µ"
-        t.contains("bike") || t.contains("two wheeler") || t.contains("two-wheeler") || t.contains("scooter") -> "ðŸï¸"
-        t.contains("driver") || t.contains("chauffeur") || t.contains("uber") || t.contains("ola") || t.contains("cab") || t.contains("taxi") || t.contains("driving") -> "ðŸš—"
+        t.contains("delivery") || t.contains("courier") || t.contains("rider") || t.contains("swiggy") || t.contains("zomato") || t.contains("dunzo") || t.contains("parcel") -> "📦"
+        t.contains("truck") || t.contains("lorry") -> "🚛"
+        t.contains("auto driver") || t.contains("auto-rickshaw") || t.contains("rickshaw") -> "🛵"
+        t.contains("bike") || t.contains("two wheeler") || t.contains("two-wheeler") || t.contains("scooter") -> "🏍️"
+        t.contains("driver") || t.contains("chauffeur") || t.contains("uber") || t.contains("ola") || t.contains("cab") || t.contains("taxi") || t.contains("driving") -> "🚗"
 
         // Home help / personal services
-        t.contains("nanny") || t.contains("babysit") || t.contains("ayah") -> "ðŸ‘¶"
-        t.contains("care taker") || t.contains("caretaker") || t.contains("caregiver") || t.contains("elder care") || t.contains("old age") -> "ðŸ§‘â€ðŸ¦½"
-        t.contains("maid") || t.contains("house help") || t.contains("housekeep") || t.contains("cleaner") || t.contains("cleaning") || t.contains("janitor") || t.contains("sweeper") -> "ðŸ§¹"
-        t.contains("laundry") || t.contains("dhobi") || t.contains("ironing") -> "ðŸ§º"
-        t.contains("beauty") || t.contains("salon") || t.contains("parlour") || t.contains("parlor") || t.contains("makeup") -> "ðŸ’‡"
-        t.contains("barber") || t.contains("hair") -> "ðŸ’‡â€â™‚ï¸"
-        t.contains("tailor") || t.contains("sewing") || t.contains("stitch") -> "ðŸ§µ"
+        t.contains("nanny") || t.contains("babysit") || t.contains("ayah") -> "👶"
+        t.contains("care taker") || t.contains("caretaker") || t.contains("caregiver") || t.contains("elder care") || t.contains("old age") -> "🧑‍🦽"
+        t.contains("maid") || t.contains("house help") || t.contains("housekeep") || t.contains("cleaner") || t.contains("cleaning") || t.contains("janitor") || t.contains("sweeper") -> "🧹"
+        t.contains("laundry") || t.contains("dhobi") || t.contains("ironing") -> "🧺"
+        t.contains("beauty") || t.contains("salon") || t.contains("parlour") || t.contains("parlor") || t.contains("makeup") -> "💇"
+        t.contains("barber") || t.contains("hair") -> "💇‍♂️"
+        t.contains("tailor") || t.contains("sewing") || t.contains("stitch") -> "🧵"
 
         // Trades / construction
-        t.contains("electrician") || t.contains("electric") || t.contains("wiring") -> "âš¡"
-        t.contains("plumber") || t.contains("plumbing") || t.contains("pipe") -> "ðŸ”§"
-        t.contains("carpenter") || t.contains("woodwork") || t.contains("furniture") -> "ðŸªš"
-        t.contains("painter") || t.contains("painting") -> "ðŸŽ¨"
-        t.contains("mason") || t.contains("construction") || t.contains("building") -> "ðŸ—ï¸"
-        t.contains("welder") || t.contains("welding") -> "ðŸ”¥"
-        t.contains("mechanic") || t.contains("garage") || t.contains("workshop") -> "ðŸ”©"
-        t.contains("ac ") || t.contains("a.c.") || t.contains("hvac") -> "â„ï¸"
-        t.contains("technician") || t.contains("techincian") || t.contains("techinitcina") || t.contains("repair") -> "ðŸ› ï¸"
+        t.contains("electrician") || t.contains("electric") || t.contains("wiring") -> "⚡"
+        t.contains("plumber") || t.contains("plumbing") || t.contains("pipe") -> "🔧"
+        t.contains("carpenter") || t.contains("woodwork") || t.contains("furniture") -> "🪚"
+        t.contains("painter") || t.contains("painting") -> "🎨"
+        t.contains("mason") || t.contains("construction") || t.contains("building") -> "🏗️"
+        t.contains("welder") || t.contains("welding") -> "🔥"
+        t.contains("mechanic") || t.contains("garage") || t.contains("workshop") -> "🔩"
+        t.contains("ac ") || t.contains("a.c.") || t.contains("hvac") -> "❄️"
+        t.contains("technician") || t.contains("techincian") || t.contains("techinitcina") || t.contains("repair") -> "🛠️"
 
         // Outdoor / agri
-        t.contains("gardener") || t.contains("garden") || t.contains("landscap") || t.contains("horticult") -> "ðŸŒ±"
-        t.contains("farm") || t.contains("agri") || t.contains("dairy") -> "ðŸŒ¾"
+        t.contains("gardener") || t.contains("garden") || t.contains("landscap") || t.contains("horticult") -> "🌱"
+        t.contains("farm") || t.contains("agri") || t.contains("dairy") -> "🌾"
 
         // Security / logistics
-        t.contains("security") || t.contains("guard") || t.contains("watchman") || t.contains("bouncer") -> "ðŸ›¡ï¸"
-        t.contains("warehouse") || t.contains("godown") || t.contains("inventory") || t.contains("loader") || t.contains("packer") || t.contains("packing") -> "ðŸ“¦"
+        t.contains("security") || t.contains("guard") || t.contains("watchman") || t.contains("bouncer") -> "🛡️"
+        t.contains("warehouse") || t.contains("godown") || t.contains("inventory") || t.contains("loader") || t.contains("packer") || t.contains("packing") -> "📦"
 
         // Office / front-of-house
-        t.contains("receptionist") || t.contains("front desk") || t.contains("front-desk") -> "ðŸ’¼"
-        t.contains("office boy") || t.contains("office assistant") || t.contains("peon") -> "ðŸ—‚ï¸"
-        t.contains("data entry") || t.contains("typing") || t.contains("computer operator") -> "âŒ¨ï¸"
-        t.contains("telecaller") || t.contains("tele caller") || t.contains("call center") || t.contains("callcenter") || t.contains("bpo") || t.contains("customer support") || t.contains("customer service") -> "â˜Žï¸"
-        t.contains("cashier") || t.contains("billing") -> "ðŸ’µ"
-        t.contains("accountant") || t.contains("accounts") || t.contains("bookkeep") || t.contains("tally") -> "ðŸ§®"
-        t.contains("hr ") || t.contains("recruit") || t.contains("talent") -> "ðŸ¤"
+        t.contains("receptionist") || t.contains("front desk") || t.contains("front-desk") -> "💼"
+        t.contains("office boy") || t.contains("office assistant") || t.contains("peon") -> "🗂️"
+        t.contains("data entry") || t.contains("typing") || t.contains("computer operator") -> "⌨️"
+        t.contains("telecaller") || t.contains("tele caller") || t.contains("call center") || t.contains("callcenter") || t.contains("bpo") || t.contains("customer support") || t.contains("customer service") -> "☎️"
+        t.contains("cashier") || t.contains("billing") -> "💵"
+        t.contains("accountant") || t.contains("accounts") || t.contains("bookkeep") || t.contains("tally") -> "🧮"
+        t.contains("hr ") || t.contains("recruit") || t.contains("talent") -> "🤝"
 
         // Sales / retail
-        t.contains("sales executive") || t.contains("sales exec") || t.contains("sales exacurtin") -> "ðŸ’¼"
-        t.contains("field sales") || t.contains("sales") || t.contains("salesman") || t.contains("marketing") -> "ðŸ“Š"
-        t.contains("retail") || t.contains("shop") || t.contains("store") || t.contains("showroom") -> "ðŸª"
+        t.contains("sales executive") || t.contains("sales exec") || t.contains("sales exacurtin") -> "💼"
+        t.contains("field sales") || t.contains("sales") || t.contains("salesman") || t.contains("marketing") -> "📊"
+        t.contains("retail") || t.contains("shop") || t.contains("store") || t.contains("showroom") -> "🏪"
 
         // Education / care
-        t.contains("teacher") || t.contains("teach") || t.contains("tutor") || t.contains("trainer") || t.contains("faculty") || t.contains("educator") || t.contains("education") -> "ðŸ‘©â€ðŸ«"
-        t.contains("nurse") || t.contains("medical") || t.contains("hospital") || t.contains("clinic") || t.contains("healthcare") || t.contains("health care") -> "ðŸ‘©â€âš•ï¸"
-        t.contains("pharmacist") || t.contains("pharmacy") -> "ðŸ’Š"
-        t.contains("doctor") -> "ðŸ©º"
+        t.contains("teacher") || t.contains("teach") || t.contains("tutor") || t.contains("trainer") || t.contains("faculty") || t.contains("educator") || t.contains("education") -> "👩‍🏫"
+        t.contains("nurse") || t.contains("medical") || t.contains("hospital") || t.contains("clinic") || t.contains("healthcare") || t.contains("health care") -> "👩‍⚕️"
+        t.contains("pharmacist") || t.contains("pharmacy") -> "💊"
+        t.contains("doctor") -> "🩺"
 
         // Tech
-        t.contains("developer") || t.contains("software") || t.contains("engineer") || t.contains("programmer") || t.contains("coder") -> "ðŸ’»"
-        t.contains("designer") || t.contains("graphic") -> "ðŸŽ¨"
+        t.contains("developer") || t.contains("software") || t.contains("engineer") || t.contains("programmer") || t.contains("coder") -> "💻"
+        t.contains("designer") || t.contains("graphic") -> "🎨"
 
         // Misc labour / generic
-        t.contains("helper") || t.contains("assistant") || t.contains("labour") || t.contains("labor") || t.contains("worker") -> "ðŸ’ª"
+        t.contains("helper") || t.contains("assistant") || t.contains("labour") || t.contains("labor") || t.contains("worker") -> "💪"
 
-        else -> "ðŸ’¼"
+        else -> "💼"
     }
 }
 
@@ -650,7 +650,7 @@ private fun JobImageOrAnimation(
     companyName: String,
     modifier: Modifier = Modifier
 ) {
-    // Priority 1: Show employer uploaded image if available â€” fits inside the
+    // Priority 1: Show employer uploaded image if available — fits inside the
     // caller's modifier (44dp circular avatar) instead of forcing 180dp height.
     if (!jobImageUrl.isNullOrBlank()) {
         OptimizedJobImage(

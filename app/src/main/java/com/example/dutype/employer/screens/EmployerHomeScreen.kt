@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.animation.core.*
@@ -530,7 +530,7 @@ fun EmployerHomeScreen(
             )
         }
 
-        // Welcome celebration overlay â€” shown once after new employer completes profile
+        // Welcome celebration overlay — shown once after new employer completes profile
         // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
         // WelcomeCelebrationOverlay(
         //     visible = showCelebration,
@@ -1029,14 +1029,14 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Invite & Earn â‚¹$inviteEarnAmount",
+                    text = "Invite & Earn ₹$inviteEarnAmount",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = EmployerColors.Success,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
-                    text = "Invite other employers and earn â‚¹$inviteEarnAmount when they post their first job.",
+                    text = "Invite other employers and earn ₹$inviteEarnAmount when they post their first job.",
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Success)
                 )
             }
@@ -1412,7 +1412,7 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background Ã¢â‚¬â€ the shimmer skeleton sits on the same
+            // Solid role background â€” the shimmer skeleton sits on the same
             // surface as the rest of the employer flow.
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
@@ -1754,7 +1754,7 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.addressText.ifBlank { job.location },
-                        // Bug #6 fix: salary is now a free-form String Ã¢â‚¬â€
+                        // Bug #6 fix: salary is now a free-form String â€”
                         // pass it through verbatim so "Negotiable",
                         // ranges, and "+" suffixes survive the round-trip.
                         payAmount = job.salary,

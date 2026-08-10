@@ -1,4 +1,4 @@
-﻿package com.example.dutype.services
+package com.example.dutype.services
 
 import com.dutype.app.R
 import android.content.Context
@@ -32,8 +32,8 @@ class SmartNotificationManager @Inject constructor(
     suspend fun notifyProfileMilestone(userId: String, completionPercentage: Int): Result<Unit> {
         return try {
             val title = when (completionPercentage) {
-                75 -> "Almost Done! ðŸš€"
-                100 -> "Profile Complete! ðŸŽ‰"
+                75 -> "Almost Done! 🚀"
+                100 -> "Profile Complete! 🎉"
                 else -> return Result.success(Unit) // Only 75% and 100%
             }
             

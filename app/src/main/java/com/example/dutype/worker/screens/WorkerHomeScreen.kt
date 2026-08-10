@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import android.Manifest
@@ -222,7 +222,7 @@ fun WorkerHomeScreen(
     var isLocationLoading by remember { mutableStateOf(false) }
     
     // P1-2: Removed dead `permissionsRequested`, `isFirstTimeUser`, `bottomSheetsShownInSession`,
-    // and `hasNotificationPermission` flags â€” each was assigned an initial value but never read.
+    // and `hasNotificationPermission` flags — each was assigned an initial value but never read.
 
     // Bottom sheet state - declare before permission launchers
     var showNotificationBottomSheet by remember { mutableStateOf(false) }
@@ -233,7 +233,7 @@ fun WorkerHomeScreen(
     var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
     var showNoUrgentJobsToastAfterSwitchOn by remember { mutableStateOf(false) }
     // P1 PLAY STORE COMPLIANCE: Show mandatory in-app disclosure before the
-    // system location permission dialog (required by Google Play policy Â§4.1).
+    // system location permission dialog (required by Google Play policy §4.1).
     var showLocationDisclosureDialog by remember { mutableStateOf(false) }
     val locationPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -328,7 +328,7 @@ fun WorkerHomeScreen(
         // (No bottom sheet logic here for first-time users)
     }
     
-    // P1-2: Removed `voiceSearchLauncher` â€” only consumer was the commented-out Voice Search FAB block
+    // P1-2: Removed `voiceSearchLauncher` — only consumer was the commented-out Voice Search FAB block
     // (also removed below). Restore both together if voice search is reintroduced.
 
     // Track if location fetch is in progress to prevent duplicate calls
@@ -341,7 +341,7 @@ fun WorkerHomeScreen(
             try {
                 val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
                 if (freshCachedLocation != null) {
-                    Timber.d("Â Using fresh cached location, skipping new GPS fetch")
+                    Timber.d(" Using fresh cached location, skipping new GPS fetch")
                     jobViewModel.setUserLocation(
                         freshCachedLocation.latitude,
                         freshCachedLocation.longitude,
@@ -354,11 +354,11 @@ fun WorkerHomeScreen(
                 //  UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
                 // This provides immediate results while improving accuracy.
                 // Uses LocationRepository so concurrent screens share a single GPS request.
-                Timber.d("Â Starting FAST location fetch (Uber/Swiggy strategy)...")
+                Timber.d(" Starting FAST location fetch (Uber/Swiggy strategy)...")
                 
                 locationRepository.refresh { locationData ->
                     if (locationData != null) {
-                        Timber.d("Â Ã¢Å¡Â¡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
+                        Timber.d(" âš¡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
                         
                         // Location already saved by getLocationFast()
                         locationPreferences.setPermissionGranted(true)
@@ -383,7 +383,7 @@ fun WorkerHomeScreen(
                                         ),
                                         com.google.firebase.firestore.SetOptions.merge()
                                     ).await()
-                                    Timber.d("Â Location synced to Firestore")
+                                    Timber.d(" Location synced to Firestore")
                                 } catch (e: Exception) {
                                     Timber.e(e, "Failed to sync location to Firestore")
                                 }
@@ -400,7 +400,7 @@ fun WorkerHomeScreen(
                             
                             // FORCE UI REFRESH: Trigger recomposition by updating a state
                             // This ensures the location text updates immediately
-                            Timber.d("Â FORCING UI REFRESH after location update")
+                            Timber.d(" FORCING UI REFRESH after location update")
                         }
                     }
                 }
@@ -480,7 +480,7 @@ fun WorkerHomeScreen(
     LaunchedEffect(currentLocation) {
         val loc = currentLocation
         if (loc != null && (loc.latitude != 0.0 || loc.longitude != 0.0)) {
-            Timber.d("Â Location StateFlow updated: ${loc.getShortAddress()} - updating ViewModel")
+            Timber.d(" Location StateFlow updated: ${loc.getShortAddress()} - updating ViewModel")
             jobViewModel.setUserLocation(loc.latitude, loc.longitude, immediate = true)
         }
     }
@@ -609,7 +609,7 @@ fun WorkerHomeScreen(
     // invoked) and were never called from WorkerHomeScreen.
 
     // P1-2: Removed unused `tabTitles`, `tabIcons`, the duplicate `coroutineScope`, and `pagerState`.
-    // The screen no longer renders an Accompanist HorizontalPager â€” these declarations were leftover
+    // The screen no longer renders an Accompanist HorizontalPager — these declarations were leftover
     // from a previous tab-based layout. Status-bar color is now driven by the single LaunchedEffect below.
     val pullToRefreshState = rememberPullToRefreshState()
     
@@ -672,7 +672,7 @@ fun WorkerHomeScreen(
         jobViewModel.loadJobsSummaryForHome()
     }
 
-    // Solid role background â€” every worker screen shares the same clean
+    // Solid role background — every worker screen shares the same clean
     // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
@@ -989,7 +989,7 @@ fun WorkerHomeScreen(
             userRole = "worker"
         )
 
-        // P1 PLAY STORE COMPLIANCE â€” Location Disclosure Dialog
+        // P1 PLAY STORE COMPLIANCE — Location Disclosure Dialog
         // Google Play requires a prominent in-app disclosure before requesting
         // location permission if the feature involves background or precise location.
         // This dialog appears BEFORE the system permission prompt.
@@ -1010,14 +1010,14 @@ fun WorkerHomeScreen(
                 },
                 title = {
                     Text(
-                        text = if (isTelugu) "à°®à±€ à°²à±Šà°•à±‡à°·à°¨à± à°…à°¨à±à°®à°¤à°¿" else "Location Permission",
+                        text = if (isTelugu) "మీ లొకేషన్ అనుమతి" else "Location Permission",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 text = {
                     Text(
                         text = if (isTelugu)
-                            "DutyPe à°®à±€à°•à± à°¦à°—à±à°—à°°à°²à±‹ à°‰à°¨à±à°¨ à°‰à°¦à±à°¯à±‹à°—à°¾à°²à°¨à± à°šà±‚à°ªà°¿à°‚à°šà°¡à°¾à°¨à°¿à°•à°¿ à°®à±€ à°–à°šà±à°šà°¿à°¤à°®à±ˆà°¨ à°¸à±à°¥à°¾à°¨à°¾à°¨à±à°¨à°¿ à°‰à°ªà°¯à±‹à°—à°¿à°¸à±à°¤à±à°‚à°¦à°¿. à°ˆ à°¸à°®à°¾à°šà°¾à°°à°‚ à°®à±€à°•à± à°¸à°‚à°¬à°‚à°§à°¿à°‚à°šà°¿à°¨ à°‰à°¦à±à°¯à±‹à°— à°«à°²à°¿à°¤à°¾à°²à± à°…à°‚à°¦à°¿à°‚à°šà°¡à°¾à°¨à°¿à°•à°¿ à°®à°¾à°¤à±à°°à°®à±‡ à°‰à°ªà°¯à±‹à°—à°¿à°‚à°šà°¬à°¡à±à°¤à±à°‚à°¦à°¿."
+                            "DutyPe మీకు దగ్గరలో ఉన్న ఉద్యోగాలను చూపించడానికి మీ ఖచ్చితమైన స్థానాన్ని ఉపయోగిస్తుంది. ఈ సమాచారం మీకు సంబంధించిన ఉద్యోగ ఫలితాలు అందించడానికి మాత్రమే ఉపయోగించబడుతుంది."
                         else
                             "DutyPe uses your precise location to show nearby jobs and calculate distances. Your location is only used to deliver relevant job results near you and is never shared with employers without your consent.",
                         style = MaterialTheme.typography.bodyMedium
@@ -1036,7 +1036,7 @@ fun WorkerHomeScreen(
                         }
                     ) {
                         Text(
-                            text = if (isTelugu) "à°…à°¨à±à°®à°¤à°¿à°‚à°šà±" else "Allow",
+                            text = if (isTelugu) "అనుమతించు" else "Allow",
                             color = PrimaryBlue,
                             fontWeight = FontWeight.Bold
                         )
@@ -1049,7 +1049,7 @@ fun WorkerHomeScreen(
                             shouldFetchCurrentLocationAfterPermission = false
                         }
                     ) {
-                        Text(text = if (isTelugu) "à°µà°¦à±à°¦à±" else "Not Now")
+                        Text(text = if (isTelugu) "వద్దు" else "Not Now")
                     }
                 },
                 shape = RoundedCornerShape(16.dp),
@@ -1065,7 +1065,7 @@ fun WorkerHomeScreen(
             )
         }
 
-        // Welcome celebration overlay â€” shown once after new user completes profile
+        // Welcome celebration overlay — shown once after new user completes profile
         // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
         // WelcomeCelebrationOverlay(
         //     visible = showCelebration,

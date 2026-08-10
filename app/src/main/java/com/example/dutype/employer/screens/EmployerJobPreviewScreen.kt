@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.net.Uri
@@ -231,7 +231,7 @@ fun EmployerJobPreviewScreen(
             }
         }
 
-        // Sticky bottom Edit bar â€” direct child of outer Box so we can align.
+        // Sticky bottom Edit bar — direct child of outer Box so we can align.
         if (!isLoading && job != null) {
             val j = job!!
             val currentStatus = j.status.lowercase()
@@ -266,7 +266,7 @@ fun EmployerJobPreviewScreen(
                             result.onSuccess {
                                 val newStatus = if (isPaused) "open" else "paused"
                                 job = j.copy(status = newStatus)
-                                val msg = if (isPaused) "Job resumed â€” visible to workers" else "Job paused â€” hidden from workers"
+                                val msg = if (isPaused) "Job resumed — visible to workers" else "Job paused — hidden from workers"
                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }.onFailure { e ->
                                 Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -550,15 +550,15 @@ private fun DetailsCard(job: JobListing) {
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider(color = Color(0xFFEDF2F7))
 
-                    InfoRow("Work type", job.jobType.ifBlank { "â€”" })
-                    InfoRow("Salary", job.salary.ifBlank { "â€”" })
+                    InfoRow("Work type", job.jobType.ifBlank { "—" })
+                    InfoRow("Salary", job.salary.ifBlank { "—" })
                     if (job.salaryType.isNotBlank()) {
                         InfoRow("Pay type", job.salaryType.lowercase().replaceFirstChar { it.titlecase() })
                     }
                     InfoRow("Vacancies", job.vacancies.toString())
-                    InfoRow("Shift", job.shiftTiming.ifBlank { "â€”" })
+                    InfoRow("Shift", job.shiftTiming.ifBlank { "—" })
                     InfoRow("Gender", job.gender.ifBlank { "Any" })
-                    InfoRow("Experience", job.experienceRequired.ifBlank { "â€”" })
+                    InfoRow("Experience", job.experienceRequired.ifBlank { "—" })
                     if (job.contactNumber.isNotBlank()) {
                         InfoRow("Contact", job.contactNumber)
                     }
@@ -668,7 +668,7 @@ private fun StickyEditBar(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = if (isPaused) "â–¶ Resume Job" else "â¸ Pause Job",
+                                    text = if (isPaused) "▶ Resume Job" else "⏸ Pause Job",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -761,6 +761,6 @@ private fun StickyEditBar(
 }
 
 private fun formatDate(epochMillis: Long): String {
-    if (epochMillis <= 0L) return "â€”"
+    if (epochMillis <= 0L) return "—"
     return SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMillis))
 }

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens.map
+package com.example.dutype.worker.screens.map
 
 import com.dutype.app.R
 import android.graphics.Bitmap
@@ -248,7 +248,7 @@ fun EnhancedGoogleMapView(
         properties = mapProperties,
         uiSettings = mapUiSettings,
         onMapLoaded = {
-            Timber.d("ðŸ“ EnhancedGoogleMap: Map loaded with ${jobs.size} jobs")
+            Timber.d("📍 EnhancedGoogleMap: Map loaded with ${jobs.size} jobs")
             onMapReady()
         }
     ) {

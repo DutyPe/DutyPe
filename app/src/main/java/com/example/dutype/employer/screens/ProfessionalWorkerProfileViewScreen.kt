@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -410,7 +410,7 @@ fun ProfessionalWorkerProfileViewScreen(
                     }
 
                     // Apr 2026: removed the redundant "Additional Information"
-                    // card â€” languages now live inside Personal Information.
+                    // card — languages now live inside Personal Information.
 
                     // Apr 2026: action buttons moved out of the scrolling
                     // list and pinned to the bottom of the screen instead
@@ -1118,7 +1118,7 @@ private fun ActionButtonsCard(
 
         // Bug #15 fix: show "Mark Work Done" only after the candidate is
         // hired so the employer can complete the contract and the
-        // worker's earnings move from pending Ã¢â€ â€™ paid on the Earnings tab.
+        // worker's earnings move from pending â†’ paid on the Earnings tab.
         if (application?.status == ApplicationStatus.HIRED) {
             Button(
                 onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens.settings
+package com.example.dutype.employer.screens.settings
 
 import com.dutype.app.R
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -144,7 +144,7 @@ fun EmployerAddressManagementScreen(
                         searchQuery = locationInfo.getFullAddress()
                         locationLatitude = locationInfo.latitude
                         locationLongitude = locationInfo.longitude
-                        timber.log.Timber.d("ðŸ“ AddressManagement: Got location - lat: $locationLatitude, lon: $locationLongitude")
+                        timber.log.Timber.d("📍 AddressManagement: Got location - lat: $locationLatitude, lon: $locationLongitude")
                     } else {
                         locationError = "Unable to get current location"
                     }
@@ -225,7 +225,7 @@ fun EmployerAddressManagementScreen(
                                 fullAddress = selectedAddress
                                 locationLatitude = latitude
                                 locationLongitude = longitude
-                                timber.log.Timber.d("ðŸ“ Selected place: $selectedAddress")
+                                timber.log.Timber.d("📍 Selected place: $selectedAddress")
                             },
                             locationService = locationService,
                             label = stringResource(R.string.search_or_enter_address),
@@ -281,14 +281,14 @@ fun EmployerAddressManagementScreen(
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
 
-                                    timber.log.Timber.d("ðŸ“ AddressManagement: Address saved successfully")
+                                    timber.log.Timber.d("📍 AddressManagement: Address saved successfully")
                                 }.onFailure { error ->
                                     android.widget.Toast.makeText(
                                         context,
                                         "Failed to save address: ${error.message}",
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
-                                    timber.log.Timber.e(error, "âŒ AddressManagement: Failed to save address")
+                                    timber.log.Timber.e(error, "❌ AddressManagement: Failed to save address")
                                 }
                                 isAddingAddress = false
                             }

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.common.screens
+package com.example.dutype.common.screens
 
 import com.dutype.app.R
 import android.Manifest
@@ -112,7 +112,7 @@ fun SelectRoleScreen(
         hasLocationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-        Timber.d("ðŸ“ SelectRoleScreen - Initial permission check: notification=$hasNotificationPermission, location=$hasLocationPermission")
+        Timber.d("📍 SelectRoleScreen - Initial permission check: notification=$hasNotificationPermission, location=$hasLocationPermission")
         // Location will be fetched when user navigates to a screen that needs it (e.g., WorkerHomeScreen)
     }
 
@@ -122,13 +122,13 @@ fun SelectRoleScreen(
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        Timber.d("ðŸ“ SelectRoleScreen - Location permission result: $hasLocationPermission")
+        Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
 
         // CRITICAL FIX: If permission granted, fetch location immediately using lite speed
         if (hasLocationPermission) {
             val locationPreferences = LocationPreferences(context)
             locationPreferences.setPermissionGranted(true)
-            Timber.d("ðŸ“ SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
+            Timber.d("📍 SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
 
             // Fetch location immediately in background (LIGHT SPEED - highest priority)
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -137,7 +137,7 @@ fun SelectRoleScreen(
                     // Use getLocationFast for immediate fetch with high priority
                     locationService.getLocationFast(locationPreferences) { locationInfo ->
                         if (locationInfo != null) {
-                            Timber.d("ðŸ“ SelectRoleScreen - âš¡ LIGHT SPEED location fetched: ${locationInfo.getFullAddress()}")
+                            Timber.d("📍 SelectRoleScreen - ⚡ LIGHT SPEED location fetched: ${locationInfo.getFullAddress()}")
                             // Convert LocationInfo to LocationData for saving
                             val locationData = LocationData(
                                 latitude = locationInfo.latitude,
@@ -153,14 +153,14 @@ fun SelectRoleScreen(
                             // Save to preferences immediately so WorkerHomeScreen can use it
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 locationPreferences.saveLocation(locationData)
-                                Timber.d("ðŸ“ SelectRoleScreen - âœ… Location saved to preferences, WorkerHomeScreen will show it immediately")
+                                Timber.d("📍 SelectRoleScreen - ✅ Location saved to preferences, WorkerHomeScreen will show it immediately")
                             }
                         } else {
-                            Timber.w("ðŸ“ SelectRoleScreen - Location fetch returned null")
+                            Timber.w("📍 SelectRoleScreen - Location fetch returned null")
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "ðŸ“ SelectRoleScreen - Error fetching location at light speed")
+                    Timber.e(e, "📍 SelectRoleScreen - Error fetching location at light speed")
                 }
             }
         }
@@ -173,11 +173,11 @@ fun SelectRoleScreen(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasNotificationPermission = isGranted
-        Timber.d("ðŸ”” SelectRoleScreen - Notification permission result: $isGranted")
+        Timber.d("🔔 SelectRoleScreen - Notification permission result: $isGranted")
 
         // After notification permission, request location permission (no toast)
         if (!hasLocationPermission) {
-            Timber.d("ðŸ“ SelectRoleScreen - Requesting location permission...")
+            Timber.d("📍 SelectRoleScreen - Requesting location permission...")
             locationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -195,16 +195,16 @@ fun SelectRoleScreen(
         val permissionsAskedBefore = sharedPrefs.getBoolean("permissions_asked_on_role_screen", false)
 
         if (!permissionsAskedBefore) {
-            Timber.d("ðŸ”” SelectRoleScreen - First time on role screen, requesting permissions...")
+            Timber.d("🔔 SelectRoleScreen - First time on role screen, requesting permissions...")
             sharedPrefs.edit().putBoolean("permissions_asked_on_role_screen", true).apply()
 
             // Request notification permission first (Android 13+)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-                Timber.d("ðŸ”” SelectRoleScreen - Requesting notification permission...")
+                Timber.d("🔔 SelectRoleScreen - Requesting notification permission...")
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else if (!hasLocationPermission) {
                 // Skip notification, go straight to location
-                Timber.d("ðŸ“ SelectRoleScreen - Requesting location permission...")
+                Timber.d("📍 SelectRoleScreen - Requesting location permission...")
                 locationPermissionLauncher.launch(
                     arrayOf(
                         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -217,7 +217,7 @@ fun SelectRoleScreen(
             }
         } else {
             // Permissions already asked before, just show the UI
-            Timber.d("ðŸ“ SelectRoleScreen - Permissions already asked, showing UI")
+            Timber.d("📍 SelectRoleScreen - Permissions already asked, showing UI")
             isVisible = true
         }
     }
@@ -254,8 +254,8 @@ fun SelectRoleScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
-                    com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "à°¤à±†à°²à±à°—à±"
-                    "hi" -> "à°¹à°¿à¤¨à¥à¤¦à¥€"
+                    com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+                    "hi" -> "హిन्दी"
                     else -> "English"
                 }
 
@@ -333,7 +333,7 @@ fun SelectRoleScreen(
                         containerColor = Color(0xFFF1F1F4),
                         delay = 50,
                         onClick = {
-                            Timber.d("ðŸ” Worker role selected")
+                            Timber.d("🔍 Worker role selected")
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("WORKER")
                             } else {
@@ -354,7 +354,7 @@ fun SelectRoleScreen(
                         containerColor = Color(0xFFF1F1F4),
                         delay = 150,
                         onClick = {
-                            Timber.d("ðŸ” Employer role selected")
+                            Timber.d("🔍 Employer role selected")
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("EMPLOYER")
                             } else {

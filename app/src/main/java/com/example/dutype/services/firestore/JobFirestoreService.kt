@@ -466,7 +466,7 @@ class JobFirestoreService @Inject constructor(
 
             Result.success(jobRef.id)
         } catch (e: Exception) {
-            Timber.e(e, " FIRESTORE DEBUG: âŒ Failed to save job to Firestore")
+            Timber.e(e, " FIRESTORE DEBUG: ❌ Failed to save job to Firestore")
             Result.failure(e)
         }
     }
@@ -556,9 +556,9 @@ class JobFirestoreService @Inject constructor(
                 com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
             
             if (hasValidLocation) {
-                Timber.d(" âœ… Valid user location detected: ($userLatitude, $userLongitude) - Client-side distance sorting will be applied")
+                Timber.d(" ✅ Valid user location detected: ($userLatitude, $userLongitude) - Client-side distance sorting will be applied")
             } else {
-                Timber.d(" âš ï¸ No user location - fetching all jobs (no distance sorting)")
+                Timber.d(" ⚠️ No user location - fetching all jobs (no distance sorting)")
             }
             
             // Strict schema: query by category + createdAt.
@@ -591,7 +591,7 @@ class JobFirestoreService @Inject constructor(
             // TODO: Implement GeoFire-style multi-cell query for server-side geo restriction
             // when the job count grows beyond ~50K documents.
             if (hasValidLocation) {
-                Timber.d(" âœ… Valid user location - distance sorting will be applied client-side")
+                Timber.d(" ✅ Valid user location - distance sorting will be applied client-side")
             }
             
             // Order by createdAt for pagination
@@ -673,7 +673,7 @@ class JobFirestoreService @Inject constructor(
                     Timber.d("   - ${job["title"]}: category='${job["category"]}', jobType='${job["jobType"]}'")
                 }
             } else {
-                Timber.w(" âš ï¸ NO JOBS RETURNED after filtering!")
+                Timber.w(" ⚠️ NO JOBS RETURNED after filtering!")
                 Timber.w(" Possible reasons:")
                 Timber.w("   1. No jobs with status=open")
                 Timber.w("   2. category field missing/mismatched")
@@ -683,16 +683,16 @@ class JobFirestoreService @Inject constructor(
             Timber.d(" ========== QUERY COMPLETE ==========")
             Result.success(jobs)
         } catch (e: Exception) {
-            Timber.e(e, "âŒ ========== FIRESTORE QUERY ERROR ==========")
-            Timber.e("âŒ Failed to fetch job summaries")
-            Timber.e("âŒ Error: ${e.message}")
-            Timber.e("âŒ ==========================================")
+            Timber.e(e, "❌ ========== FIRESTORE QUERY ERROR ==========")
+            Timber.e("❌ Failed to fetch job summaries")
+            Timber.e("❌ Error: ${e.message}")
+            Timber.e("❌ ==========================================")
             Result.failure(e)
         }
     }
 
     /**
-     * Get jobs posted by a specific employer â€” P0 FIX: Added limit + server-side sort
+     * Get jobs posted by a specific employer — P0 FIX: Added limit + server-side sort
      */
     suspend fun getJobsByEmployer(employerId: String): Result<List<Map<String, Any>>> {
         return try {
@@ -1194,10 +1194,10 @@ class JobFirestoreService @Inject constructor(
             .take(limit.toInt())
             .map { it.apply { remove("_score"); remove("_time") } }
             
-            Timber.d("âœ… Found ${results.size} jobs")
+            Timber.d("✅ Found ${results.size} jobs")
             Result.success(results)
         } catch (e: Exception) {
-            Timber.e(e, "âŒ Search failed")
+            Timber.e(e, "❌ Search failed")
             Result.failure(e)
         }
     }
@@ -1256,13 +1256,13 @@ class JobFirestoreService @Inject constructor(
     }
     
     /**
-     * P0 FIX COMPLETED âœ…: Server-side filtering for jobs
+     * P0 FIX COMPLETED ✅: Server-side filtering for jobs
      * 
      * ENTERPRISE STANDARD (Google Firestore Best Practices 2024):
-     * - âœ… Server-side filtering reduces data transfer by 80-90%
-     * - âœ… Composite indexes for multi-field queries
-     * - âœ… DocumentSnapshot cursor-based pagination for O(1) page loads
-     * - âœ… Client-side filtering only for complex logic (distance)
+     * - ✅ Server-side filtering reduces data transfer by 80-90%
+     * - ✅ Composite indexes for multi-field queries
+     * - ✅ DocumentSnapshot cursor-based pagination for O(1) page loads
+     * - ✅ Client-side filtering only for complex logic (distance)
      * 
      * Research Sources:
      * - Google Cloud Firestore: "Optimize queries with range and inequality filters"
@@ -1302,7 +1302,7 @@ class JobFirestoreService @Inject constructor(
             // Apply category filter (most selective first)
             if (!category.isNullOrBlank() && category.uppercase() != "ALL") {
                 query = query.whereEqualTo("category", category.uppercase())
-                Timber.d(" âœ… Category filter: $category")
+                Timber.d(" ✅ Category filter: $category")
             }
             
             // Apply pay type filter
@@ -1313,7 +1313,7 @@ class JobFirestoreService @Inject constructor(
             // Apply job type filter
             if (!jobType.isNullOrBlank()) {
                 Timber.d("Client-side job type filter will use derived job type: $jobType")
-                Timber.d(" âœ… JobType filter: $jobType")
+                Timber.d(" ✅ JobType filter: $jobType")
             }
             
             // Order by createdAt for pagination
@@ -1386,7 +1386,7 @@ class JobFirestoreService @Inject constructor(
             
             Result.success(jobs)
         } catch (e: Exception) {
-            Timber.e(e, "âŒ Server-side filtering failed")
+            Timber.e(e, "❌ Server-side filtering failed")
             Result.failure(e)
         }
     }
@@ -1511,7 +1511,7 @@ class JobFirestoreService @Inject constructor(
             Result.success(nearby)
 
         } catch (e: Exception) {
-            Timber.e(e, "âŒ getNearbyJobsSummary failed")
+            Timber.e(e, "❌ getNearbyJobsSummary failed")
             Result.failure(e)
         }
     }
@@ -1541,7 +1541,7 @@ class JobFirestoreService @Inject constructor(
                 Pair(doc.id, data)
             }
         } catch (e: Exception) {
-            Timber.e(e, "âŒ Cell query failed: start=$startHash end=$endHash")
+            Timber.e(e, "❌ Cell query failed: start=$startHash end=$endHash")
             emptyList()
         }
     }

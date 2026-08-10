@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
@@ -76,18 +76,18 @@ fun CategoriesScreen(
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         
-        // ðŸš€ FAST LOADING: Use cached location, load jobs immediately
+        // 🚀 FAST LOADING: Use cached location, load jobs immediately
         val savedLocation = viewModel.locationPreferences.getSavedLocationIfFresh()
         if (savedLocation != null) {
-            Timber.d("ðŸ“ CategoriesScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
+            Timber.d("📍 CategoriesScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
             viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
         } else {
-            Timber.d("ðŸ“ CategoriesScreen: No cached location - jobs will load without distance")
+            Timber.d("📍 CategoriesScreen: No cached location - jobs will load without distance")
         }
         
         // Load jobs immediately (don't wait for location)
         val categoryToLoad = normalizedInitialCategory ?: "All"
-        Timber.d("ðŸ“¦ CategoriesScreen: Loading category: $categoryToLoad")
+        Timber.d("📦 CategoriesScreen: Loading category: $categoryToLoad")
         viewModel.loadJobsForCategory(categoryToLoad)
         initialLoadDone = true
 
@@ -98,26 +98,26 @@ fun CategoriesScreen(
                     if (!viewModel.locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
                         locationRepository.refresh { freshLocation ->
                             if (freshLocation != null) {
-                                Timber.d("ðŸ“ CategoriesScreen: Fresh location received - re-sorting jobs by distance")
+                                Timber.d("📍 CategoriesScreen: Fresh location received - re-sorting jobs by distance")
                                 viewModel.setUserLocation(freshLocation.latitude, freshLocation.longitude)
                             }
                         }
                     } else {
-                        Timber.d("ðŸ“ CategoriesScreen: Skipping GPS refresh - using fresh cached location")
+                        Timber.d("📍 CategoriesScreen: Skipping GPS refresh - using fresh cached location")
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "ðŸ“ CategoriesScreen: Failed to refresh location")
+                    Timber.e(e, "📍 CategoriesScreen: Failed to refresh location")
                 }
             }
         } else {
-            Timber.d("ðŸ“ CategoriesScreen: Manual location lock active - skipping background GPS refresh")
+            Timber.d("📍 CategoriesScreen: Manual location lock active - skipping background GPS refresh")
         }
     }
     
     // Load jobs when category changes (after initial load)
     LaunchedEffect(selectedCategory) {
         if (initialLoadDone) {
-            Timber.d("ðŸ“¦ CategoriesScreen: Category changed to: $selectedCategory")
+            Timber.d("📦 CategoriesScreen: Category changed to: $selectedCategory")
             viewModel.loadJobsForCategory(selectedCategory)
         }
     }
@@ -305,7 +305,7 @@ private fun JobsListSection(
             val nextLoadToken = "$selectedCategory:${jobs.size}"
             if (nextLoadToken != lastLoadTriggerToken) {
                 lastLoadTriggerToken = nextLoadToken
-                Timber.d("ðŸ“¦ Categories: user reached last visible job for '$selectedCategory', requesting next page (token=$nextLoadToken)")
+                Timber.d("📦 Categories: user reached last visible job for '$selectedCategory', requesting next page (token=$nextLoadToken)")
                 viewModel.loadMoreJobs()
             }
         }

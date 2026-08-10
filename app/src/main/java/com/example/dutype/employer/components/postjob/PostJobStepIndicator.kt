@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.components.postjob
+package com.example.dutype.employer.components.postjob
 
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
@@ -48,7 +48,7 @@ fun PostJobStepIndicator(
         "How workers can reach you",
         "Verify and publish your job"
     )
-    val stepIcons = listOf("ðŸ“", "ðŸ’°", "ðŸ“ž", "âœ…")
+    val stepIcons = listOf("📝", "💰", "📞", "✅")
     
     Column(
         modifier = modifier
@@ -71,7 +71,7 @@ fun PostJobStepIndicator(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = stepIcons.getOrElse(currentStep - 1) { "ðŸ“" },
+                    text = stepIcons.getOrElse(currentStep - 1) { "📝" },
                     fontSize = 24.sp
                 )
                 Column {

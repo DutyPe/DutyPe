@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.net.Uri
@@ -312,7 +312,7 @@ fun EmployerSubscriptionScreen(
                 }
 
                 Text(
-                    text = "Amount Payable: â‚¹${plan.price.toInt()}",
+                    text = "Amount Payable: ₹${plan.price.toInt()}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = Brand
@@ -857,7 +857,7 @@ private fun PlanCard(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "â‚¹${plan.price.toInt()}",
+                            text = "₹${plan.price.toInt()}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor
@@ -991,7 +991,7 @@ private fun TransactionCard(
                     fontFamily = MeeshoFontFamily
                 )
                 Text(
-                    text = "â‚¹${req.amount.toInt()}",
+                    text = "₹${req.amount.toInt()}",
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
                     color = Brand

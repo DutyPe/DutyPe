@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -41,18 +41,18 @@ fun NotificationPermissionBottomSheet(
             "Enable Notifications",
             "Stay updated with job applications, candidate responses, and important updates from your job postings.",
             listOf(
-                "ðŸ“‹" to "Application notifications",
-                "ðŸ‘¥" to "Candidate responses", 
-                "ðŸ“Š" to "Job posting updates"
+                "📋" to "Application notifications",
+                "👥" to "Candidate responses", 
+                "📊" to "Job posting updates"
             )
         )
         else -> Triple(
             "Enable Notifications", 
             "Stay updated with job alerts, application status updates, and new opportunities from employers.",
             listOf(
-                "ðŸ””" to "Job alerts",
-                "ðŸ“±" to "Application updates",
-                "ðŸ’¼" to "New opportunities"
+                "🔔" to "Job alerts",
+                "📱" to "Application updates",
+                "💼" to "New opportunities"
             )
         )
     }

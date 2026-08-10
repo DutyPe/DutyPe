@@ -1,4 +1,4 @@
-﻿package com.example.dutype
+package com.example.dutype
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
     /**
      * P2-7: Cold-start trace. Started as the very first work in [onCreate]; stopped when
      * Compose reports the main nav graph fully drawn. The Firebase plugin auto-instruments
-     * `_app_start` already, but that includes process bring-up before our code runs â€” this
+     * `_app_start` already, but that includes process bring-up before our code runs — this
      * trace captures everything from `super.onCreate` through the first usable frame, which
      * is the metric we actually optimize.
      */
@@ -118,17 +118,17 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         when (result.resultCode) {
             RESULT_OK -> {
-                Timber.i("âœ… Update accepted by user")
+                Timber.i("✅ Update accepted by user")
             }
             RESULT_CANCELED -> {
-                Timber.w("âš ï¸ Update canceled by user")
+                Timber.w("⚠️ Update canceled by user")
                 // P0 FIX: Use lifecycleScope instead of leaked CoroutineScope
                 lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     updateManager.trackUpdateDismissal()
                 }
             }
             else -> {
-                Timber.e("âŒ Update failed with result code: ${result.resultCode}")
+                Timber.e("❌ Update failed with result code: ${result.resultCode}")
             }
         }
     }
@@ -160,10 +160,10 @@ class MainActivity : ComponentActivity() {
         //
         // Best-practice pattern (Google developer docs, 2024-2026):
         // 1. Install the splash screen (theme-driven, so the system draws
-        //    it on process bring-up â€” no Compose work involved).
+        //    it on process bring-up — no Compose work involved).
         // 2. Gate dismissal on a cheap main-thread boolean read.
         // 3. Flip the boolean from a `ViewTreeObserver.OnPreDrawListener`
-        //    attached to the content view â€” this guarantees the splash
+        //    attached to the content view — this guarantees the splash
         //    drops on the exact frame the NavHost is ready to draw,
         //    preventing the "blank flash" that happens when you flip the
         //    flag from a `LaunchedEffect` (which runs one frame late).
@@ -205,7 +205,7 @@ class MainActivity : ComponentActivity() {
             Timber.plant(Timber.DebugTree())
         }
         
-        Timber.d("âœ… MainActivity.onCreate() - Activity created")
+        Timber.d("✅ MainActivity.onCreate() - Activity created")
         Timber.d("Package: ${packageName}")
         Timber.d("App version: ${appVersionName()}")
         Timber.d("Build variant: ${buildVariantName()}")
@@ -213,14 +213,14 @@ class MainActivity : ComponentActivity() {
         
         // Log notification intent if present
         if (launchIntent?.getBooleanExtra("from_notification", false) == true) {
-            Timber.i("ðŸ“± App opened from notification")
+            Timber.i("📱 App opened from notification")
             Timber.d("Notification type: ${launchIntent.getStringExtra("notification_type")}")
             Timber.d("Deep link: ${launchIntent.data}")
         }
 
         // Create NotificationPermissionManager before setContent
         notificationPermissionManager = NotificationPermissionManager(this)
-        Timber.d("âœ… NotificationPermissionManager initialized")
+        Timber.d("✅ NotificationPermissionManager initialized")
 
         // Dynamic Launcher Icon Updater (2026 Enterprise Feature)
         lifecycleScope.launch {
@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Guest engagement notifications.
-        // PERF: Run off the main thread â€” FirebaseAuth.currentUser triggers a token
+        // PERF: Run off the main thread — FirebaseAuth.currentUser triggers a token
         // store disk read, FirebaseMessaging.getInstance() does first-call I/O, and
         // subscribeToTopic queues to disk-backed Pending Topic Operations prefs.
         lifecycleScope.launch(Dispatchers.IO) {
@@ -261,14 +261,14 @@ class MainActivity : ComponentActivity() {
                 darkScrim = android.graphics.Color.TRANSPARENT
             )
         )
-        Timber.d("âœ… Edge-to-edge enabled with white status bar (Android 15+ compatible)")
+        Timber.d("✅ Edge-to-edge enabled with white status bar (Android 15+ compatible)")
 
         // Keep contrast icons in sync with a light system bar style.
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightNavigationBars = true // Dark icons on white background
             isAppearanceLightStatusBars = true // Dark icons on white status bar
         }
-        Timber.d("âœ… System bar icon appearance configured")
+        Timber.d("✅ System bar icon appearance configured")
 
         setContent {
             // SYSTEM SPLASH (Android 12+): Keep the platform splash visible until
@@ -364,7 +364,7 @@ class MainActivity : ComponentActivity() {
                     // (it rebinds window insets and runs decor-layout),
                     // and recalling it from a LaunchedEffect keyed on
                     // color triggers a full insets pass + relayout on
-                    // every screen navigation â€” visible jank on older
+                    // every screen navigation — visible jank on older
                     // devices.
                     //
                     // Instead, push the color to the window directly and
@@ -395,8 +395,8 @@ class MainActivity : ComponentActivity() {
                         // gate, every parent recomposition (e.g. statusBarColor change from
                         // navigation events) re-fires both Timber lines.
                         LaunchedEffect(Unit) {
-                            Timber.d("ðŸš€ Initializing MainNavGraph")
-                            Timber.d("ðŸ”— DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
+                            Timber.d("🚀 Initializing MainNavGraph")
+                            Timber.d("🔗 DEEP LINK: Startup handling delegated to MainNavGraph when NavHost is ready")
                         }
 
                         MainNavGraph(
@@ -457,7 +457,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         reportFullyDrawn()
                         // P2-7: stop the cold-start Perf trace at first usable frame.
-                        Timber.d("âœ… MainActivity - Report fully drawn")
+                        Timber.d("✅ MainActivity - Report fully drawn")
                     }
                 }
             }
@@ -477,21 +477,21 @@ class MainActivity : ComponentActivity() {
         cancelTappedSystemNotification(normalizedIntent)
         logNotificationTapTelemetry(source = "on_new_intent", sourceIntent = normalizedIntent)
 
-        Timber.i("ðŸ”— DEEP LINK: MainActivity.onNewIntent() - New intent received")
-        Timber.d("ðŸ”— DEEP LINK: Intent data = ${newIntent.data}")
-        Timber.d("ðŸ”— DEEP LINK: Intent action = ${newIntent.action}")
+        Timber.i("🔗 DEEP LINK: MainActivity.onNewIntent() - New intent received")
+        Timber.d("🔗 DEEP LINK: Intent data = ${newIntent.data}")
+        Timber.d("🔗 DEEP LINK: Intent action = ${newIntent.action}")
 
         // Log notification intent if present
         if (normalizedIntent.getBooleanExtra("from_notification", false)) {
-            Timber.i("ðŸ”— DEEP LINK: New intent from notification")
-            Timber.d("ðŸ”— DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
+            Timber.i("🔗 DEEP LINK: New intent from notification")
+            Timber.d("🔗 DEEP LINK: Notification type: ${newIntent.getStringExtra("notification_type")}")
         }
 
         // Dispatch deep links to the active navigation graph without recreating the activity.
         // This avoids a full UI rebuild while still handling notification taps reliably.
         val deepLinkUri = normalizedIntent.data
         if (deepLinkUri != null) {
-            Timber.i("ðŸ”— DEEP LINK: âœ… Deep link detected in onNewIntent: $deepLinkUri")
+            Timber.i("🔗 DEEP LINK: ✅ Deep link detected in onNewIntent: $deepLinkUri")
             // P2-4: Emit through DeepLinkBus instead of LocalBroadcastManager.
             // MainNavGraph collects this flow inside a LaunchedEffect.
             // FIXED: Use a non-blocking emit so the UI isn't delayed
@@ -500,7 +500,7 @@ class MainActivity : ComponentActivity() {
             }
             logNotificationTapTelemetry(source = "deeplink_dispatched", sourceIntent = normalizedIntent)
         } else {
-            Timber.w("ðŸ”— DEEP LINK: âš ï¸ No deep link URI found in intent")
+            Timber.w("🔗 DEEP LINK: ⚠️ No deep link URI found in intent")
         }
     }
 
@@ -587,12 +587,12 @@ class MainActivity : ComponentActivity() {
     
     override fun onStart() {
         super.onStart()
-        Timber.d("ðŸ“± MainActivity.onStart()")
+        Timber.d("📱 MainActivity.onStart()")
     }
     
     override fun onResume() {
         super.onResume()
-        Timber.d("ðŸ“± MainActivity.onResume()")
+        Timber.d("📱 MainActivity.onResume()")
 
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
@@ -611,32 +611,32 @@ class MainActivity : ComponentActivity() {
                 activity = this@MainActivity,
                 activityResultLauncher = updateResultLauncher,
                 onUpdateAvailable = { appUpdateInfo, updateType ->
-                    Timber.i("ðŸ”„ Update available - type: ${if (updateType == InAppUpdateManager.UPDATE_TYPE_IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
+                    Timber.i("🔄 Update available - type: ${if (updateType == InAppUpdateManager.UPDATE_TYPE_IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
                     
                     // Register listener for flexible updates to auto-complete when downloaded
                     if (updateType == InAppUpdateManager.UPDATE_TYPE_FLEXIBLE) {
                         updateManager.registerFlexibleUpdateListener(
                             onDownloaded = {
-                                Timber.i("âœ… Flexible update downloaded - completing update")
+                                Timber.i("✅ Flexible update downloaded - completing update")
                                 updateManager.completeFlexibleUpdate()
                             },
                             onFailed = { errorCode ->
-                                Timber.e("âŒ Flexible update failed: $errorCode")
+                                Timber.e("❌ Flexible update failed: $errorCode")
                             }
                         )
                     }
                 },
                 onNoUpdate = {
-                    Timber.d("âœ… App is up to date")
+                    Timber.d("✅ App is up to date")
                 },
                 onError = { exception ->
-                    Timber.w("âš ï¸ Update check failed (non-fatal): ${exception.message}")
+                    Timber.w("⚠️ Update check failed (non-fatal): ${exception.message}")
                 }
             )
             
             // Also check for pending flexible updates
             updateManager.checkForPendingUpdate {
-                Timber.i("â³ Pending update found - prompting user to install")
+                Timber.i("⏳ Pending update found - prompting user to install")
                 // Show snackbar or dialog to complete update
             }
         }
@@ -644,30 +644,30 @@ class MainActivity : ComponentActivity() {
     
     override fun onPause() {
         super.onPause()
-        Timber.d("ðŸ“± MainActivity.onPause()")
+        Timber.d("📱 MainActivity.onPause()")
         // Schedule background re-engagement check (worker itself skips guests).
         com.example.dutype.workers.GuestEngagementWorker.scheduleBackground(this)
     }
 
     override fun onStop() {
         super.onStop()
-        Timber.d("ðŸ“± MainActivity.onStop() - App in background check")
+        Timber.d("📱 MainActivity.onStop() - App in background check")
         if (!com.example.dutype.utils.AppLifecycleTracker.isAppInForeground()) {
             val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
             if (isUserLoggedIn) {
-                Timber.d("ðŸ“± MainActivity.onStop() - App is ACTUALLY in background and user is logged in, applying launcher icon switch")
+                Timber.d("📱 MainActivity.onStop() - App is ACTUALLY in background and user is logged in, applying launcher icon switch")
                 com.example.dutype.utils.DynamicIconManager.applyPendingIconSwitch(this)
             } else {
-                Timber.d("ðŸ“± MainActivity.onStop() - App is in background but user is NOT logged in (auth flow safety), skipping icon switch")
+                Timber.d("📱 MainActivity.onStop() - App is in background but user is NOT logged in (auth flow safety), skipping icon switch")
             }
         } else {
-            Timber.d("ðŸ“± MainActivity.onStop() - App still in foreground (active activity present), skipping icon switch")
+            Timber.d("📱 MainActivity.onStop() - App still in foreground (active activity present), skipping icon switch")
         }
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        Timber.d("ðŸ“± MainActivity.onDestroy()")
+        Timber.d("📱 MainActivity.onDestroy()")
     }
 }
 
@@ -688,7 +688,7 @@ private fun MaintenanceModeSheet() {
             modifier = Modifier.padding(32.dp)
         ) {
             Text(
-                text = "ðŸ”§",
+                text = "🔧",
                 fontSize = 64.sp
             )
             Text(
@@ -724,7 +724,7 @@ private fun ForceUpdateSheet(onUpdateClick: () -> Unit) {
             modifier = Modifier.padding(32.dp)
         ) {
             Text(
-                text = "â¬†ï¸",
+                text = "⬆️",
                 fontSize = 64.sp
             )
             Text(
