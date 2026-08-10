@@ -89,6 +89,7 @@ async function autoCompleteApplications(nowMs: number): Promise<number> {
 
   const batch = db.batch();
   const notifications: Array<{ workerId: string; jobId: string }> = [];
+  let silentCount = 0;
 
   for (const doc of snapshot.docs) {
     const data = doc.data();
@@ -106,13 +107,21 @@ async function autoCompleteApplications(nowMs: number): Promise<number> {
       autoCompleted: true,
     }, { merge: true });
 
+    // Backfilled records are closed without telling the worker: the job is months old
+    // and a notification about it would only be confusing.
+    if (data.autoCompleteSilent === true) {
+      silentCount++;
+      continue;
+    }
+
     notifications.push({
       workerId: String(data.workerId ?? ""),
       jobId: String(data.jobId ?? ""),
     });
   }
 
-  if (notifications.length === 0) return 0;
+  const total = notifications.length + silentCount;
+  if (total === 0) return 0;
   await batch.commit();
 
   for (const item of notifications) {
@@ -121,7 +130,7 @@ async function autoCompleteApplications(nowMs: number): Promise<number> {
     await notifyAutoCompleted(item.workerId, jobTitle, item.jobId);
   }
 
-  return notifications.length;
+  return total;
 }
 
 async function autoCompleteInstantResponses(nowMs: number): Promise<number> {

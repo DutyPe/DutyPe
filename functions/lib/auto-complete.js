@@ -76,6 +76,7 @@ async function autoCompleteApplications(nowMs) {
         return 0;
     const batch = db.batch();
     const notifications = [];
+    let silentCount = 0;
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const decision = (0, auto_complete_rules_1.shouldAutoComplete)({
@@ -91,12 +92,19 @@ async function autoCompleteApplications(nowMs) {
             completedAt: admin.firestore.FieldValue.serverTimestamp(),
             autoCompleted: true,
         }, { merge: true });
+        // Backfilled records are closed without telling the worker: the job is months old
+        // and a notification about it would only be confusing.
+        if (data.autoCompleteSilent === true) {
+            silentCount++;
+            continue;
+        }
         notifications.push({
             workerId: String((_b = data.workerId) !== null && _b !== void 0 ? _b : ""),
             jobId: String((_c = data.jobId) !== null && _c !== void 0 ? _c : ""),
         });
     }
-    if (notifications.length === 0)
+    const total = notifications.length + silentCount;
+    if (total === 0)
         return 0;
     await batch.commit();
     for (const item of notifications) {
@@ -104,7 +112,7 @@ async function autoCompleteApplications(nowMs) {
         const jobTitle = String((_d = jobSnap.get("title")) !== null && _d !== void 0 ? _d : "");
         await notifyAutoCompleted(item.workerId, jobTitle, item.jobId);
     }
-    return notifications.length;
+    return total;
 }
 async function autoCompleteInstantResponses(nowMs) {
     var _a;
