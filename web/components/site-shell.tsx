@@ -5,7 +5,15 @@ import { ReactNode } from "react";
 import { AdSenseBanner } from "@/components/public/adsense-banner";
 import { PLAY_STORE_URL, footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
-export function SiteShell({ children, plain = false }: { children: ReactNode; plain?: boolean }) {
+export function SiteShell({
+  children,
+  plain = false,
+  hideTopBar = false,
+}: {
+  children: ReactNode;
+  plain?: boolean;
+  hideTopBar?: boolean;
+}) {
   return (
     <div className={plain ? "page-shell page-shell-plain" : "page-shell"}>
       {!plain ? (
@@ -17,7 +25,8 @@ export function SiteShell({ children, plain = false }: { children: ReactNode; pl
       ) : null}
 
       <div className="page-wrap">
-        <header className="topbar">
+        <header className={hideTopBar ? "topbar topbar-slim" : "topbar"}>
+          {!hideTopBar ? (
           <div className="topbar-main">
             <Link href="/" className="brand" aria-label="DutyPe home">
               <Image
@@ -54,6 +63,7 @@ export function SiteShell({ children, plain = false }: { children: ReactNode; pl
               </a>
             </div>
           </div>
+          ) : null}
 
           <nav className="nav-links" aria-label="Primary">
             {primaryNav.map((link) => (

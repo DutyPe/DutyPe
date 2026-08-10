@@ -233,19 +233,19 @@ export default function HomePage() {
   };
 
   return (
-    <SiteShell>
+    <SiteShell hideTopBar>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
 
-      <div className="home-interactive-experience home-noir">
+      <div className="home-interactive-experience home-editorial">
         <HomeImmersiveLayer />
         <MotionLayer />
 
-      <section className="hero hero-home hero-noir">
+      <section className="hero hero-home hero-editorial">
         <Hero3D />
-        <div className="hero-grid hero-home-grid hero-noir-grid">
+        <div className="hero-grid hero-home-grid hero-editorial-grid">
           <div className="hero-copy">
             <div className="eyebrow-group">
               <span className="hero-brand-mark">
@@ -263,7 +263,7 @@ export default function HomePage() {
             </div>
 
             <h1 className="headline">
-              Find <span className="dp-gradient-text">Local Jobs</span> Near You
+              Find <span className="dp-accent-underline">Local Jobs</span> Near You
             </h1>
 
             <p className="lede">

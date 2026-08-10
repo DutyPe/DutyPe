@@ -1,0 +1,445 @@
+/* ==========================================================================
+   Editorial — warm paper, deep green, near-black type.
+   Built on the existing tokens (--bg #e8e6df, --brand #146b4f, --text #090909)
+   instead of overriding them, so contrast is correct by default.
+   ========================================================================== */
+
+.home-editorial {
+  --paper: #f4f2ec;
+  --paper-deep: #e8e6df;
+  --ink: #090909;
+  --ink-soft: #4a4a46;
+  --edge: rgba(9, 9, 9, 0.1);
+  --edge-strong: rgba(9, 9, 9, 0.18);
+  --green: #146b4f;
+  --green-deep: #0d4f3b;
+  --clay: #9a5b05;
+
+  position: relative;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Faint paper tooth so large flat areas do not look sterile. */
+.home-editorial::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at 18% 12%, rgba(20, 107, 79, 0.07), transparent 46%),
+    radial-gradient(circle at 84% 32%, rgba(154, 91, 5, 0.06), transparent 44%),
+    radial-gradient(circle at 30% 82%, rgba(20, 107, 79, 0.05), transparent 46%);
+}
+
+.home-editorial > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Rhythm ---------- */
+
+.home-editorial .section {
+  position: relative;
+  padding-block: clamp(60px, 7.5vw, 116px);
+}
+
+/* Alternating tint bands give the page a spine without hard borders. */
+.home-editorial .section:nth-of-type(even)::before {
+  content: "";
+  position: absolute;
+  inset-inline: -50vw;
+  inset-block: 0;
+  background: var(--paper-deep);
+  z-index: -1;
+}
+
+.home-editorial .section-header {
+  max-width: 62ch;
+}
+
+.home-editorial .section-header h2 {
+  color: var(--ink);
+  font-size: clamp(1.85rem, 3.6vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.home-editorial .section-header p,
+.home-editorial .section > p {
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.2vw, 1.12rem);
+  line-height: 1.65;
+  max-width: 60ch;
+}
+
+/* ---------- Eyebrow ---------- */
+
+.home-editorial .tag,
+.home-editorial .card-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green-deep);
+  background: transparent;
+  border: 0;
+  padding: 0 0 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.home-editorial .tag::before,
+.home-editorial .card-kicker::before {
+  content: "";
+  width: 20px;
+  height: 2px;
+  background: var(--green);
+  border-radius: 2px;
+}
+
+/* ---------- Paper cards ---------- */
+
+.home-editorial .card,
+.home-editorial .route-card,
+.home-editorial .spotlight-card,
+.home-editorial .stat-card,
+.home-editorial .mini-route-card,
+.home-editorial .detail-panel,
+.home-editorial .trust-panel,
+.home-editorial .faq-item,
+.home-editorial .faq-item-enhanced {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(9, 9, 9, 0.04);
+  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg));
+  transition:
+    transform 460ms var(--dp-ease),
+    box-shadow 460ms var(--dp-ease),
+    border-color 460ms var(--dp-ease);
+  will-change: transform;
+}
+
+/* Green rule that draws in on hover. */
+.home-editorial .card::after,
+.home-editorial .route-card::after,
+.home-editorial .spotlight-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--green), var(--clay));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 460ms var(--dp-ease);
+  border-radius: 0 0 16px 16px;
+}
+
+.home-editorial .card:hover,
+.home-editorial .route-card:hover,
+.home-editorial .spotlight-card:hover,
+.home-editorial .stat-card:hover,
+.home-editorial .mini-route-card:hover,
+.home-editorial .detail-panel:hover,
+.home-editorial .trust-panel:hover {
+  border-color: rgba(20, 107, 79, 0.36);
+  box-shadow:
+    0 20px 44px -22px rgba(9, 9, 9, 0.28),
+    0 2px 6px rgba(9, 9, 9, 0.05);
+}
+
+.home-editorial .card:hover::after,
+.home-editorial .route-card:hover::after,
+.home-editorial .spotlight-card:hover::after {
+  transform: scaleX(1);
+}
+
+.home-editorial .card h3,
+.home-editorial .route-card h3,
+.home-editorial .spotlight-card h3,
+.home-editorial .detail-panel h3,
+.home-editorial .trust-panel h3 {
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+
+.home-editorial .card p,
+.home-editorial .route-card p,
+.home-editorial .spotlight-card p,
+.home-editorial .detail-list span,
+.home-editorial .trust-list li,
+.home-editorial .mini-route-card span {
+  color: var(--ink-soft);
+}
+
+/* ---------- Stats ---------- */
+
+.home-editorial .stat-card {
+  padding: 26px 32px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.home-editorial .stat-card strong {
+  display: block;
+  font-size: clamp(2rem, 3.8vw, 3.1rem);
+  line-height: 1;
+  color: var(--green-deep);
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-editorial .stat-card span {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* ---------- Pills / links ---------- */
+
+.home-editorial .pill,
+.home-editorial .pill-link {
+  background: #ffffff;
+  border: 1px solid var(--edge);
+  color: var(--ink);
+  transition:
+    background 240ms var(--dp-ease),
+    border-color 240ms var(--dp-ease),
+    transform 240ms var(--dp-ease);
+}
+
+.home-editorial .pill-link:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+  transform: translate3d(0, -2px, 0);
+}
+
+.home-editorial .route-note,
+.home-editorial .route-note-link {
+  color: var(--green-deep);
+  font-weight: 650;
+}
+
+.home-editorial .route-card .card-kicker {
+  font-size: 1.35rem;
+  padding: 0 0 6px;
+  letter-spacing: 0;
+}
+
+.home-editorial .route-card .card-kicker::before {
+  display: none;
+}
+
+/* ---------- Panels ---------- */
+
+.home-editorial .detail-panel.tone-highlight {
+  background: linear-gradient(160deg, rgba(20, 107, 79, 0.09), #ffffff 58%);
+  border-color: rgba(20, 107, 79, 0.28);
+}
+
+.home-editorial .detail-list li,
+.home-editorial .trust-list li {
+  border-color: var(--edge);
+}
+
+/* ---------- Buttons ---------- */
+
+.home-editorial .button {
+  background: var(--green);
+  border: 1px solid var(--green);
+  color: #ffffff;
+  box-shadow: 0 10px 24px -14px rgba(20, 107, 79, 0.85);
+  transition: transform 240ms var(--dp-ease), box-shadow 240ms var(--dp-ease),
+    background 240ms var(--dp-ease);
+}
+
+.home-editorial .button:hover {
+  background: var(--green-deep);
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 16px 30px -14px rgba(20, 107, 79, 0.95);
+}
+
+.home-editorial .button.ghost {
+  background: transparent;
+  border-color: var(--edge-strong);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.home-editorial .button.ghost:hover {
+  background: #ffffff;
+  border-color: var(--green);
+  color: var(--green-deep);
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+
+.hero-editorial {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 26px;
+  background:
+    radial-gradient(90% 80% at 82% 18%, rgba(20, 107, 79, 0.14), transparent 60%),
+    radial-gradient(70% 70% at 12% 88%, rgba(154, 91, 5, 0.1), transparent 58%),
+    #ffffff;
+  border: 1px solid var(--edge);
+  padding-block: clamp(48px, 6.5vw, 92px);
+}
+
+.hero-editorial::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(9, 9, 9, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(9, 9, 9, 0.045) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(70% 60% at 50% 40%, #000, transparent 76%);
+}
+
+.hero-editorial-grid {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-editorial .headline {
+  color: var(--ink);
+  font-size: clamp(2.3rem, 5.4vw, 4.1rem);
+  line-height: 1.03;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.hero-editorial .lede {
+  color: var(--ink-soft);
+  font-size: clamp(1.02rem, 1.35vw, 1.2rem);
+  line-height: 1.62;
+  max-width: 56ch;
+}
+
+/* Underline the key phrase rather than gradient-filling it — reads as editorial. */
+.dp-accent-underline {
+  position: relative;
+  color: var(--green-deep);
+  white-space: nowrap;
+}
+
+.dp-accent-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.06em;
+  height: 0.16em;
+  background: rgba(20, 107, 79, 0.22);
+  border-radius: 3px;
+  z-index: -1;
+}
+
+.hero-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 5px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--edge);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.hero-brand-mark img {
+  border-radius: 9px;
+}
+
+.hero-editorial .hero-proof-card,
+.hero-editorial .hero-search {
+  background: #ffffff;
+  border: 1px solid var(--edge);
+  color: var(--ink);
+}
+
+.hero-editorial .hero-search input {
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  color: var(--ink);
+}
+
+.hero-editorial .hero-search input::placeholder {
+  color: rgba(9, 9, 9, 0.42);
+}
+
+/* ---------- 3D stage ---------- */
+
+.hero3d-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.hero3d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.hero3d-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(34% 34% at 74% 40%, rgba(20, 107, 79, 0.26), transparent 70%),
+    radial-gradient(24% 24% at 62% 66%, rgba(154, 91, 5, 0.18), transparent 72%);
+  filter: blur(16px);
+}
+
+/* ---------- Header logo ---------- */
+
+.brand-mark-logo {
+  border-radius: 10px;
+  object-fit: cover;
+  background: #000;
+}
+
+@media (max-width: 900px) {
+  .hero3d-stage {
+    opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero3d-stage {
+    display: none;
+  }
+
+  .home-editorial .card,
+  .home-editorial .route-card,
+  .home-editorial .spotlight-card,
+  .home-editorial .stat-card,
+  .home-editorial .mini-route-card,
+  .home-editorial .detail-panel,
+  .home-editorial .trust-panel {
+    transform: none;
+    transition: none;
+  }
+}

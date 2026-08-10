@@ -8,11 +8,11 @@ const REVEAL_SELECTOR = "[data-reveal], .home-interactive-experience .section";
 // the page picks up depth without 50 JSX edits.
 const TILT_SELECTOR = [
   "[data-tilt]",
-  ".home-noir .spotlight-card",
-  ".home-noir .card",
-  ".home-noir .route-card",
-  ".home-noir .stat-card",
-  ".home-noir .mini-route-card",
+  ".home-editorial .spotlight-card",
+  ".home-editorial .card",
+  ".home-editorial .route-card",
+  ".home-editorial .stat-card",
+  ".home-editorial .mini-route-card",
 ].join(", ");
 
 /**
