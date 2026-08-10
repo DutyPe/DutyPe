@@ -6,6 +6,7 @@ import { SITE_URL, cityLandingTargets, coreSeoKeywords, siteMeta } from "@/lib/p
 
 import "./globals.css";
 import "./immersive.css";
+import "./noir.css";
 
 const bodyFont = IBM_Plex_Sans({
   subsets: ["latin"],

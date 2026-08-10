@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode } from "react";
 
 import { AdSenseBanner } from "@/components/public/adsense-banner";
@@ -19,7 +20,14 @@ export function SiteShell({ children, plain = false }: { children: ReactNode; pl
         <header className="topbar">
           <div className="topbar-main">
             <Link href="/" className="brand" aria-label="DutyPe home">
-              <span className="brand-mark">DP</span>
+              <Image
+                src="/icon.webp"
+                alt=""
+                width={38}
+                height={38}
+                className="brand-mark brand-mark-logo"
+                priority
+              />
               <span>
                 <strong>{siteMeta.name}</strong>
                 <small>{siteMeta.strapline}</small>

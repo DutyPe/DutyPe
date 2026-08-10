@@ -4,6 +4,17 @@ import { useEffect } from "react";
 
 const REVEAL_SELECTOR = "[data-reveal], .home-interactive-experience .section";
 
+// Applied by selector rather than per-element attributes so every card grid on
+// the page picks up depth without 50 JSX edits.
+const TILT_SELECTOR = [
+  "[data-tilt]",
+  ".home-noir .spotlight-card",
+  ".home-noir .card",
+  ".home-noir .route-card",
+  ".home-noir .stat-card",
+  ".home-noir .mini-route-card",
+].join(", ");
+
 /**
  * Drives `[data-reveal]` and `[data-tilt]` without any animation library.
  * Reveal uses IntersectionObserver and unobserves after firing; tilt writes
@@ -44,7 +55,7 @@ export function MotionLayer() {
 
     const finePointer = window.matchMedia("(pointer: fine)");
     const tiltTargets = finePointer.matches
-      ? Array.from(document.querySelectorAll<HTMLElement>("[data-tilt]"))
+      ? Array.from(document.querySelectorAll<HTMLElement>(TILT_SELECTOR))
       : [];
     let frame = 0;
     let pending: { el: HTMLElement; x: number; y: number } | null = null;

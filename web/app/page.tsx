@@ -239,7 +239,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
 
-      <div className="home-interactive-experience">
+      <div className="home-interactive-experience home-noir">
         <HomeImmersiveLayer />
         <MotionLayer />
 

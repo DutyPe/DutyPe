@@ -1,0 +1,378 @@
+/* ==========================================================================
+   Noir homepage — full-page dark treatment, top to bottom.
+   Scoped under .home-noir so the rest of the site is untouched.
+   ========================================================================== */
+
+.home-noir {
+  --noir-bg: #05070d;
+  --noir-surface: rgba(15, 23, 42, 0.55);
+  --noir-line: rgba(148, 163, 184, 0.2);
+  --noir-text: #f8fafc;
+  --noir-muted: rgba(203, 213, 225, 0.78);
+  --noir-blue: #60a5fa;
+  --noir-amber: #fbbf24;
+
+  position: relative;
+  background: var(--noir-bg);
+  color: var(--noir-text);
+  isolation: isolate;
+}
+
+/* Ambient field behind the entire page, not just the hero. */
+.home-noir::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60% 34% at 12% 8%, rgba(37, 99, 235, 0.16), transparent 62%),
+    radial-gradient(48% 30% at 88% 30%, rgba(245, 158, 11, 0.1), transparent 60%),
+    radial-gradient(52% 32% at 20% 62%, rgba(37, 99, 235, 0.12), transparent 62%),
+    radial-gradient(46% 28% at 82% 88%, rgba(168, 85, 247, 0.1), transparent 62%);
+}
+
+.home-noir > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Sections ---------- */
+
+.home-noir .section {
+  position: relative;
+  padding-block: clamp(56px, 7vw, 104px);
+}
+
+/* Hairline divider between sections. */
+.home-noir .section + .section::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(148, 163, 184, 0.26) 22%,
+    rgba(148, 163, 184, 0.26) 78%,
+    transparent
+  );
+}
+
+.home-noir .section-header h2 {
+  color: var(--noir-text);
+  letter-spacing: -0.02em;
+}
+
+.home-noir .section-header p,
+.home-noir .section p,
+.home-noir .detail-list span,
+.home-noir .trust-list li,
+.home-noir .mini-route-card span {
+  color: var(--noir-muted);
+}
+
+.home-noir .section-header h3,
+.home-noir .card h3,
+.home-noir .route-card h3,
+.home-noir .spotlight-card h3,
+.home-noir .detail-panel h3,
+.home-noir .trust-panel h3,
+.home-noir .mini-route-card strong,
+.home-noir .detail-list strong,
+.home-noir .stat-card strong {
+  color: var(--noir-text);
+}
+
+/* ---------- Tag / kicker / pill ---------- */
+
+.home-noir .tag,
+.home-noir .card-kicker {
+  display: inline-flex;
+  align-items: center;
+  background: linear-gradient(
+    120deg,
+    rgba(37, 99, 235, 0.22),
+    rgba(245, 158, 11, 0.16)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.home-noir .pill,
+.home-noir .pill-link {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  transition: background 260ms var(--dp-ease), border-color 260ms var(--dp-ease),
+    transform 260ms var(--dp-ease);
+}
+
+.home-noir .pill-link:hover {
+  background: rgba(37, 99, 235, 0.24);
+  border-color: rgba(96, 165, 250, 0.6);
+  transform: translate3d(0, -2px, 0);
+}
+
+/* ---------- Cards: one shared surface ---------- */
+
+.home-noir .card,
+.home-noir .route-card,
+.home-noir .spotlight-card,
+.home-noir .stat-card,
+.home-noir .mini-route-card,
+.home-noir .detail-panel,
+.home-noir .trust-panel,
+.home-noir .faq-item,
+.home-noir .faq-item-enhanced {
+  position: relative;
+  background: var(--noir-surface);
+  border: 1px solid var(--noir-line);
+  border-radius: 18px;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  color: var(--noir-text);
+  overflow: hidden;
+  transform: perspective(1000px) rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg));
+  transition: transform 420ms var(--dp-ease), border-color 420ms var(--dp-ease),
+    box-shadow 420ms var(--dp-ease);
+  will-change: transform;
+}
+
+/* Top edge highlight — reads as a light source above the card. */
+.home-noir .card::before,
+.home-noir .route-card::before,
+.home-noir .spotlight-card::before,
+.home-noir .detail-panel::before,
+.home-noir .trust-panel::before {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(148, 197, 253, 0.7),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 420ms var(--dp-ease);
+}
+
+.home-noir .card:hover,
+.home-noir .route-card:hover,
+.home-noir .spotlight-card:hover,
+.home-noir .stat-card:hover,
+.home-noir .mini-route-card:hover,
+.home-noir .detail-panel:hover,
+.home-noir .trust-panel:hover {
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow:
+    0 26px 60px -28px rgba(37, 99, 235, 0.7),
+    0 0 0 1px rgba(96, 165, 250, 0.18);
+}
+
+.home-noir .card:hover::before,
+.home-noir .route-card:hover::before,
+.home-noir .spotlight-card:hover::before,
+.home-noir .detail-panel:hover::before,
+.home-noir .trust-panel:hover::before {
+  opacity: 1;
+}
+
+/* ---------- Stats ---------- */
+
+.home-noir .stat-card {
+  padding: 22px 30px;
+  text-align: center;
+}
+
+.home-noir .stat-card strong {
+  display: block;
+  font-size: clamp(1.9rem, 3.4vw, 2.9rem);
+  line-height: 1.05;
+  background: linear-gradient(120deg, #ffffff, var(--noir-blue) 58%, var(--noir-amber));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.home-noir .stat-card span {
+  color: var(--noir-muted);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+}
+
+/* ---------- Route / category cards ---------- */
+
+.home-noir .route-card .route-note,
+.home-noir .route-note-link {
+  color: var(--noir-blue);
+  font-weight: 600;
+}
+
+.home-noir .route-card .card-kicker {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  font-size: 1.15rem;
+  padding: 6px 10px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.home-noir .mini-route-card {
+  padding: 14px 16px;
+}
+
+/* ---------- Trust / detail panels ---------- */
+
+.home-noir .detail-panel.tone-highlight {
+  background: linear-gradient(
+    150deg,
+    rgba(37, 99, 235, 0.2),
+    rgba(15, 23, 42, 0.62) 55%
+  );
+  border-color: rgba(96, 165, 250, 0.34);
+}
+
+.home-noir .detail-list li,
+.home-noir .trust-list li {
+  border-color: var(--noir-line);
+}
+
+/* ---------- FAQ ---------- */
+
+.home-noir .faq-item summary,
+.home-noir .faq-item-enhanced summary {
+  color: var(--noir-text);
+  cursor: pointer;
+}
+
+.home-noir .faq-item[open],
+.home-noir .faq-item-enhanced[open] {
+  border-color: rgba(96, 165, 250, 0.42);
+}
+
+/* ---------- Links / buttons ---------- */
+
+.home-noir a:not(.button):not(.pill-link) {
+  color: var(--noir-blue);
+}
+
+.home-noir .button {
+  background: linear-gradient(120deg, #2563eb, #1d4ed8);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  color: #ffffff;
+  box-shadow: 0 14px 34px -16px rgba(37, 99, 235, 0.9);
+  transition: transform 260ms var(--dp-ease), box-shadow 260ms var(--dp-ease);
+}
+
+.home-noir .button:hover {
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 20px 42px -16px rgba(37, 99, 235, 1);
+}
+
+.home-noir .button.ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+/* ---------- Third-party-ish blocks that carry their own light styling ---------- */
+
+.home-noir .orb-stage,
+.home-noir .work-case-deck,
+.home-noir .home-interactive-suite,
+.home-noir .app-launch-card {
+  color: var(--noir-text);
+}
+
+.home-noir .app-launch-card {
+  background: var(--noir-surface);
+  border: 1px solid var(--noir-line);
+  border-radius: 18px;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-noir .card,
+  .home-noir .route-card,
+  .home-noir .spotlight-card,
+  .home-noir .stat-card,
+  .home-noir .mini-route-card,
+  .home-noir .detail-panel,
+  .home-noir .trust-panel {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ---------- Real logo in the header ---------- */
+
+.brand-mark-logo {
+  border-radius: 11px;
+  object-fit: cover;
+  background: #000;
+}
+
+/* ---------- Chrome follows the page into noir ----------
+   :has() lets the shared shell stay untouched; if a browser lacks support the
+   header simply keeps its light styling. */
+
+.page-shell:has(.home-noir) {
+  background: #05070d;
+}
+
+.page-shell:has(.home-noir) .topbar {
+  background: rgba(5, 7, 13, 0.72);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+.page-shell:has(.home-noir) .topbar a,
+.page-shell:has(.home-noir) .topbar strong,
+.page-shell:has(.home-noir) .brand strong {
+  color: #f8fafc;
+}
+
+.page-shell:has(.home-noir) .topbar small,
+.page-shell:has(.home-noir) .topbar-note,
+.page-shell:has(.home-noir) .topbar-search span {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.page-shell:has(.home-noir) .topbar-search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.page-shell:has(.home-noir) .page-footer,
+.page-shell:has(.home-noir) footer {
+  background: #05070d;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  color: rgba(203, 213, 225, 0.8);
+}
+
+.page-shell:has(.home-noir) footer a {
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.page-shell:has(.home-noir) footer a:hover {
+  color: #60a5fa;
+}
+
+.page-shell:has(.home-noir) .page-ambient {
+  opacity: 0.35;
+}
