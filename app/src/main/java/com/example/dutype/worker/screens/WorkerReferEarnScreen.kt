@@ -51,6 +51,7 @@ import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.ui.theme.IconSizes
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 @Composable
 fun WorkerReferEarnScreen(
@@ -799,7 +800,11 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                 Spacer(modifier = Modifier.height(8.dp))
                 val remaining = (minWithdrawal - availableBalance).coerceAtLeast(0.0)
                 Text(
-                    text = "Earn ?${String.format("%.0f", remaining)} more to unlock withdrawal (min ?${String.format("%.0f", minWithdrawal)})",
+                    text = stringResource(
+                        R.string.refer_earn_more_to_withdraw,
+                        String.format(Locale.getDefault(), "%.0f", remaining),
+                        String.format(Locale.getDefault(), "%.0f", minWithdrawal)
+                    ),
                     style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -932,48 +937,6 @@ private fun RewardRow(text: String) {
         )
         Spacer(Modifier.width(12.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-    }
-}
-
-@Composable
-private fun RewardsSection() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = stringResource(R.string.rewards_milestones),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
-            )
-            Spacer(Modifier.height(16.dp))
-
-            val rewards = listOf(
-                stringResource(R.string.refer_reward_per_referral),
-                stringResource(R.string.refer_reward_friend_bonus),
-                stringResource(R.string.refer_reward_5_worker),
-                stringResource(R.string.refer_reward_10_worker),
-                stringResource(R.string.refer_reward_15),
-                stringResource(R.string.refer_reward_25_worker),
-                stringResource(R.string.refer_reward_50),
-                stringResource(R.string.refer_reward_100)
-            )
-
-            rewards.forEach { text ->
-                Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = WorkerColors.TextPrimary
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                }
-            }
-        }
     }
 }
 

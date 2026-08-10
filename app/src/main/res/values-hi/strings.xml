@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <resources>
     <string name="app_name">DutyPe</string>
-    <string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
     <string name="loading">लोड हो रहा है...</string>
     <string name="error">त्रुटि</string>
     <string name="retry">पुनः प्रयास करें</string>
