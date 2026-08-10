@@ -986,7 +986,7 @@
     <string name="post_job_missing_fields">మిస్సింగ్: %1$s</string>
     <string name="post_job_image_uploaded">చిత్రం విజయవంతంగా అప్‌లోడ్ చేయబడింది!</string>
     <string name="post_job_image_upload_failed">చిత్రం అప్‌లోడ్ విఫలమైంది: %1$s</string>
-    <string name="post_job_schedule_urgency">పని షెడ్యూల్ &amp;amp; అర్జెన్సీ</string>
+    <string name="post_job_schedule_urgency">పని షెడ్యూల్ &amp; అర్జెన్సీ</string>
     <string name="post_job_worker_preview">కార్మికుడికి కనిపించే ప్రివ్యూ</string>
     <string name="post_job_ready_percent">%1$d%% సిద్ధం</string>
     <string name="post_job_launch_checklist">లాంచ్ చెక్‌లిస్ట్</string>
@@ -1004,7 +1004,7 @@
     <string name="post_job_requirements">ఉద్యోగ అవసరాలు</string>
     <string name="post_job_looking_for">మీరు ఎవరి కోసం చూస్తున్నారు?</string>
     <string name="post_job_gender_preference">లింగ ప్రాధాన్యత</string>
-    <string name="post_job_perks_benefits">పర్క్స్ &amp;amp; ప్రయోజనాలు</string>
+    <string name="post_job_perks_benefits">పర్క్స్ &amp; ప్రయోజనాలు</string>
     <string name="post_job_attract_candidates">మరిన్ని మంది అభ్యర్థులను ఆకర్షించండి</string>
     <string name="post_job_selected_count">%1$d ఎంచుకోబడ్డాయి</string>
     <string name="post_job_add_own_perk">మీ స్వంత పర్క్ చేర్చండి</string>

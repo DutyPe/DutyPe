@@ -1,0 +1,187 @@
+mark_work_done	काम पूरा चिह्नित करें
+main_office_branch_hint	जैसे, मुख्य ऑफ़िस, शाखा
+error_fetching_location	स्थान पाने में त्रुटि
+location_permission_fetch_address	पता पाने के लिए लोकेशन अनुमति ज़रूरी है
+add_your_qualification	अपनी योग्यता जोड़ें
+qualification_example_hint	जैसे बी.कॉम, नर्सिंग डिप्लोमा, ITI इलेक्ट्रीशियन
+worker_bio_hint	नियोक्ताओं को अपने काम के तरीके, अनुभव और भरोसे के बारे में बताएँ
+enter_number_positions	पदों की संख्या दर्ज करें
+error_getting_location	स्थान पाने में त्रुटि
+add_description_photo_optional	विवरण या फ़ोटो जोड़ें (वैकल्पिक)
+add_requirements_optional	आवश्यकताएँ जोड़ें (वैकल्पिक)
+publishing	प्रकाशित हो रहा है...
+education_required	आवश्यक शिक्षा
+publish_job	नौकरी प्रकाशित करें
+schedule	समय-सारणी
+add_own_experience	अपना अनुभव जोड़ें
+login_apply_job	इस नौकरी के लिए आवेदन करने हेतु लॉगिन करें
+login_save_job	इस नौकरी को सहेजने के लिए लॉगिन करें
+login_call_employer	नियोक्ता को कॉल करने के लिए लॉगिन करें
+please_login_continue	जारी रखने के लिए कृपया लॉगिन करें
+job_fresh_update_saved	धन्यवाद, आपके अपडेट से नौकरियाँ ताज़ा बनी रहती हैं।
+job_not_found	नौकरी नहीं मिली
+hired_status	चयनित!
+quick_call_update	त्वरित कॉल अपडेट
+quick_call_update_body	इससे हम भरी हुई नौकरियाँ जल्दी बंद कर पाते हैं
+did_speak_employer	क्या आपकी नियोक्ता से बात हुई?
+yes_spoke	हाँ, बात हुई
+no_answer	कोई जवाब नहीं
+job_still_available_question	क्या नौकरी अब भी उपलब्ध है?
+availability_still_available	अब भी उपलब्ध
+availability_job_filled	नौकरी भर गई
+availability_not_sure	पक्का नहीं
+save_feedback_failed	प्रतिक्रिया सहेजी नहीं जा सकी। फिर कोशिश करें।
+referral_code_format	कोड: %1$s
+unable_prepare_repost	दोबारा पोस्ट तैयार नहीं हो सकी
+add_work_location	कार्य स्थान जोड़ें
+unable_open_work_locations	कार्य स्थान नहीं खुल सके। कृपया फिर कोशिश करें।
+login_company_profile	अपनी कंपनी प्रोफ़ाइल देखने और संपादित करने के लिए लॉगिन करें
+login_job_posts	अपनी जॉब पोस्ट देखने के लिए लॉगिन करें
+login_manage_work_locations	कार्य स्थान प्रबंधित करने के लिए लॉगिन करें
+login_refer_earn	दोस्तों को रेफर करने और इनाम कमाने के लिए लॉगिन करें
+login_access_feature	इस सुविधा के लिए कृपया लॉगिन करें
+saved_work_locations	सहेजे गए कार्य स्थान
+work_location_required_error	कार्य स्थान ज़रूरी है
+work_location_required_label	कार्य स्थान *
+phone_number_required_error	फ़ोन नंबर ज़रूरी है
+valid_10_digit_phone_error	मान्य 10 अंकों का फ़ोन नंबर दर्ज करें
+company_name_required_error	कंपनी का नाम ज़रूरी है
+selected_worker	चुना गया कर्मचारी
+request_sent	अनुरोध भेजा गया
+not_available_for_job	इस नौकरी के लिए उपलब्ध नहीं
+available_now	अभी उपलब्ध
+invite_to_confirm	पुष्टि के लिए आमंत्रित करें
+requested	अनुरोध किया गया
+request	अनुरोध करें
+selected_keep_job_open	चुन लिया गया। अगर और कर्मचारी चाहिए तो नौकरी खुली रखें।
+selected_filled_job	इस भरी हुई नौकरी के लिए चुना गया।
+disabled_job_filled	बंद है क्योंकि यह नौकरी पहले ही भरी हुई चिह्नित है।
+please_select_rating	कृपया एक रेटिंग चुनें
+failed_submit_feedback_retry	प्रतिक्रिया भेजी नहीं जा सकी। कृपया फिर कोशिश करें।
+empty_search_subtitle	"%1$s" से मेल खाती कोई नौकरी नहीं\nदूसरे शब्द आज़माएँ या खोज हटाएँ।
+no_saved_item_type	कोई सहेजी गई %1$s नहीं
+save_item_type_later	बाद के लिए %1$s सहेजने हेतु बुकमार्क आइकन पर टैप करें।
+browse_item_type	%1$s देखें
+failed_share_job	नौकरी शेयर नहीं हो सकी
+share_job_content_description	नौकरी शेयर करें
+appearance	रंग-रूप
+appearance_subtitle	चुनें कि इस डिवाइस पर DutyPe कैसा दिखे
+system_default	सिस्टम डिफ़ॉल्ट
+theme_match_phone	अपने फ़ोन की सेटिंग जैसा
+light	हल्का
+theme_light_subtitle	चमकदार पृष्ठभूमि, गहरा टेक्स्ट
+dark	गहरा
+theme_dark_subtitle	आँखों के लिए आरामदायक, बैटरी बचाता है
+job_description_hint	ज़िम्मेदारियाँ, आवश्यकताएँ और आप क्या चाहते हैं यह बताएँ...
+change_photo	फ़ोटो बदलें
+job_link_clip_label	नौकरी लिंक
+pending_application_title	आवेदन अभी भी लंबित
+pending_application_message	%1$s के लिए आपका आवेदन अभी भी लंबित है। जल्दी अपडेट के लिए कृपया नियोक्ता को कॉल करें।
+referral_reward_earned_title	रेफरल इनाम मिला!
+referral_reward_earned_message	बधाई हो! आपने %2$d सफल रेफरल के लिए ₹%1$d कमाए!
+app_update_prompt_title	DutyPe अपडेट करें
+app_update_prompt_message	DutyPe का नया अपडेट उपलब्ध है। नवीनतम नौकरियाँ, सुधार और सुविधाएँ पाने के लिए अभी अपडेट करें।
+app_update_prompt_update	अपडेट करें
+app_update_prompt_later	बाद में
+app_update_open_failed	अपडेट पेज नहीं खुल सका। कृपया फिर कोशिश करें।
+guest_worker_welcome_title	एक सरप्राइज़\nसिर्फ़ आपके लिए!
+guest_worker_welcome_message	कुछ खास आपका इंतज़ार कर रहा है। अपना तोहफ़ा खोलकर देखें!
+guest_employer_welcome_title	एक सरप्राइज़\nसिर्फ़ आपके लिए!
+guest_employer_welcome_message_with_bonus	कुछ खास आपका इंतज़ार कर रहा है। अपना तोहफ़ा खोलकर देखें!
+guest_employer_welcome_message_posts	अपने व्यवसाय के लिए जॉब पोस्टिंग शुरू करने हेतु खाता बनाएँ।
+guest_employer_welcome_message_bonus	कुछ खास आपका इंतज़ार कर रहा है। अपना तोहफ़ा खोलकर देखें!
+guest_welcome_login_register	लॉगिन / रजिस्टर
+guest_welcome_claim_gift	मेरा सरप्राइज़ खोलें
+guest_welcome_limited_benefit	सिर्फ़ नए उपयोगकर्ताओं के लिए
+guest_welcome_new_account_trust	एक बार का\nसरप्राइज़
+guest_welcome_takes_30_seconds	सीमित समय का ऑफ़र
+guest_welcome_mystery_label	देखने के लिए खोलें
+guest_welcome_secret_value	खास तोहफ़ा
+guest_welcome_inside_badge	वाह!\nअंदर\nक्या है?
+guest_welcome_instant_credit	तुरंत क्रेडिट
+guest_welcome_after_signup	साइन अप के बाद
+guest_welcome_safe_title	100% सुरक्षित
+guest_welcome_safe_subtitle	और भरोसेमंद
+guest_welcome_only_for	सिर्फ़
+guest_welcome_new_users	नए उपयोगकर्ताओं के लिए
+referral_code_applied_success	रेफरल कोड सफलतापूर्वक लागू हो गया।
+welcome_scratch_ready_body	DutyPe में आपका स्वागत है।\nआपका खाता तैयार है।
+welcome_scratch_prompt	अपना सरप्राइज़ स्क्रैच करें
+welcome_scratch_bonus_title	आपको ₹%1$d स्वागत बोनस मिला
+welcome_scratch_bonus_generic	आपका स्वागत तोहफ़ा तैयार है
+welcome_scratch_wallet_hint	अपना वॉलेट देखें
+notif_app_status_applied_title	आवेदन भेजा गया
+notif_app_status_applied_msg	आपका आवेदन सफलतापूर्वक भेज दिया गया है
+notif_app_status_shortlisted_title	आवेदन समीक्षाधीन
+notif_app_status_shortlisted_msg	आपका आवेदन अब समीक्षाधीन है
+notif_app_status_hired_title	बधाई हो! आप चयनित हुए
+notif_app_status_hired_msg	बधाई हो! आपका आवेदन स्वीकार कर लिया गया है
+notif_app_status_rejected_title	आवेदन अपडेट
+notif_app_status_rejected_msg	आपके आवेदन पर अपडेट
+notif_new_application_title	नया आवेदन मिला
+notif_new_application_msg	एक कर्मचारी ने नया आवेदन भेजा है
+notif_application_withdrawn_title	आवेदन वापस लिया गया
+notif_application_withdrawn_msg	एक कर्मचारी ने अपना आवेदन वापस ले लिया है
+notif_job_posted_title	नौकरी सफलतापूर्वक पोस्ट हो गई! 🎉
+notif_job_posted_msg	आपकी नौकरी \'%1$s\' पोस्ट हो गई है और अब कर्मचारियों को दिख रही है
+notif_profile_complete_title	DutyPe में आपका स्वागत है! 🎉
+notif_profile_complete_employer_msg	नमस्ते %1$s! आपकी प्रोफ़ाइल पूरी हो गई है। नौकरियाँ पोस्ट करना शुरू करें और अपने व्यवसाय के लिए बेहतरीन कर्मचारी पाएँ।
+notif_profile_complete_worker_msg	नमस्ते %1$s! आपकी प्रोफ़ाइल पूरी हो गई है। नौकरियाँ देखना शुरू करें और अपने कौशल से मेल खाते अवसरों पर आवेदन करें।
+notif_worker_hired_title	बधाई हो! आप चयनित हुए! 🎉
+notif_worker_hired_msg	खुशखबरी! आपको \'%1$s\' के लिए चुन लिया गया है। अगले कदमों पर बात करने के लिए नियोक्ता से संपर्क करें।
+notif_employer_hired_title	कर्मचारी सफलतापूर्वक चयनित! ✅
+notif_employer_hired_msg	आपने \'%2$s\' के लिए %1$s को सफलतापूर्वक चुन लिया है। शुरुआत की तारीख तय करने के लिए उनसे संपर्क करें।
+quick_action_browse_jobs	नौकरियाँ देखें
+quick_action_browse_jobs_sub	नया काम खोजें
+quick_action_applied	आवेदन की गई नौकरियाँ
+quick_action_applied_sub	स्थिति देखें
+quick_action_earnings	कमाई
+quick_action_earnings_sub	भुगतान देखें
+quick_action_support	सहायता केंद्र
+quick_action_support_sub	मदद पाएँ
+sub_current_plan_pill	✓ मौजूदा
+sub_posts_left_expires	%1$d पोस्ट बाकी • %2$s को समाप्त
+sub_no_active_plan	कोई सक्रिय सदस्यता नहीं
+sub_choose_plan_desc	क्रेडिट पाने और नौकरियाँ पोस्ट करना शुरू करने के लिए नीचे से एक प्लान चुनें।
+sub_included_features	शामिल सुविधाएँ
+sub_per_month	/ महीना
+sub_renew_premium	प्रीमियम नवीनीकृत करें
+sub_renew_now	अभी नवीनीकृत करें
+sub_single_job_credit	1 जॉब पोस्ट क्रेडिट
+sub_single_instant_unlocks	0 तुरंत संपर्क अनलॉक (उम्मीदवारों के आवेदन का इंतज़ार करना होगा)
+sub_starter_job_credits	3 जॉब क्रेडिट
+sub_starter_instant_unlocks	5 तुरंत उम्मीदवार संपर्क अनलॉक
+sub_growth_job_credits	6 जॉब क्रेडिट (
+sub_growth_bonus	5 + 1 मुफ़्त जॉब पोस्ट शामिल
+sub_growth_instant_unlocks	15 तुरंत उम्मीदवार संपर्क अनलॉक
+sub_premium_job_credits	12 जॉब क्रेडिट (
+sub_premium_bonus	10 + 2 मुफ़्त जॉब पोस्ट शामिल
+sub_premium_instant_unlocks	40 तुरंत उम्मीदवार संपर्क अनलॉक
+sub_premium_ceo_support	CEO के साथ समर्पित सहायता और चैट सुविधा
+sub_dynamic_job_credits	%1$s जॉब क्रेडिट
+sub_dynamic_instant_unlocks	%1$s तुरंत संपर्क अनलॉक
+sub_30_days_validity	30 दिन की प्लान वैधता
+auto_dutype_is_india_s_premier_instant_workforc	DutyPe भारत का अग्रणी तत्काल वर्कफ़ोर्स प्लेटफ़ॉर्म है, जो स्थानीय व्यवसायों और घरों (नियोक्ताओं) को सत्यापित दिहाड़ी कर्मचारियों और कुशल पेशेवरों (कर्मचारियों) से सीधे जोड़ता है। हम बिचौलियों का कमीशन हटाते हैं, फ़ोन के ज़रिए सीधी भर्ती देते हैं, और पूरे भारत में पारदर्शी, निष्पक्ष और तत्काल काम के अवसरों के लिए GPS लोकेशन खोज उपलब्ध कराते हैं।
+auto_made_with	बना है 
+auto_in_bharat	 भारत में
+auto_use_a_referral_code_to_unlock_your_rs_20_s	अपना रु.20 साइन अप बोनस पाने के लिए रेफरल कोड इस्तेमाल करें
+auto_a_clear_job_photo_helps_workers_understand	साफ़ फ़ोटो से कर्मचारी जगह को समझ पाते हैं और ज़्यादा भरोसे के साथ आवेदन करते हैं।
+auto_enter_amount_range_10000_15000_or_text_bas	राशि, सीमा (10000-15000), या टेक्स्ट (अनुभव के आधार पर) दर्ज करें
+auto_new_matches_are_hidden_accepted_workers_wi	नए मैच छिपे हुए हैं। स्वीकृत कर्मचारी यहाँ दिखते रहेंगे।
+auto_you_need_an_active_subscription_to_view_wo	कर्मचारियों के संपर्क विवरण देखने के लिए सक्रिय सदस्यता ज़रूरी है। प्रीमियम सुविधाओं के लिए अभी सदस्यता लें।
+auto_no_hired_workers_selected_yet_for_this_fil	इस भरी हुई नौकरी के लिए अभी कोई कर्मचारी नहीं चुना गया।
+auto_choose_the_posting_format_that_fits_your_i	अपनी तत्काल स्टाफ़ ज़रूरत के अनुकूल पोस्टिंग प्रारूप चुनें।
+auto_complete_your_profile_to_access_all_featur	सभी सुविधाएँ पाने और बेहतर उम्मीदवार आकर्षित करने के लिए अपनी प्रोफ़ाइल पूरी करें
+auto_payments_are_non_refundable_verify_your_ut	भुगतान वापस नहीं होते। भेजने से पहले अपना UTR जाँच लें।
+auto_your_upi_reference_has_been_submitted_admi	आपका UPI रेफरेंस भेज दिया गया है। एडमिन इसे बैंक से जाँचकर 5-10 मिनट में आपका प्लान चालू कर देंगे।
+auto_app_version_1_0_5	ऐप संस्करण 1.0.5
+auto_you_ve_used_all_your_job_posts_get_a_subsc	आपकी सारी जॉब पोस्ट इस्तेमाल हो गईं। और नौकरियाँ पोस्ट करने और बेहतरीन उम्मीदवार तुरंत पाने के लिए सदस्यता लें।
+auto_this_job_was_filled_your_application_is_st	यह नौकरी भर गई। आपका आवेदन यहाँ सुरक्षित है।
+auto_call_employer_to_confirm_availability_and	उपलब्धता और अगले कदम पक्के करने के लिए नियोक्ता को कॉल करें।
+auto_employer_not_responding_try_one_call_then	नियोक्ता जवाब नहीं दे रहे? एक बार कॉल करें, फिर ऐसी ही सक्रिय नौकरियों पर आवेदन करते रहें।
+auto_active	सक्रिय: 
+auto_search_any_area_city_or_locality_to_see_th	वहाँ की सबसे पास की नौकरियाँ देखने के लिए कोई भी क्षेत्र, शहर या इलाका खोजें।
+auto_we_checked_10km_and_15km_around_your_locat	हमने आपके आसपास 10 किमी और 15 किमी तक देखा। और नौकरियाँ पाने के लिए कोई दूसरा क्षेत्र आज़माएँ।
+auto_by_submitting_you_agree_to_share_your_prof	भेजने पर, आप अपनी प्रोफ़ाइल जानकारी नियोक्ता के साथ साझा करने से सहमत होते हैं।
+auto_we_re_making_dutype_even_better_for_you_pl	हम आपके लिए DutyPe को और बेहतर बना रहे हैं। कृपया कुछ मिनट बाद देखें।
+auto_a_new_version_of_dutype_is_available_with	DutyPe का नया संस्करण ज़रूरी अपडेट के साथ उपलब्ध है। जारी रखने के लिए कृपया अपडेट करें।

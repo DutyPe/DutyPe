@@ -2,10 +2,17 @@
 param([string]$Locale = 'values-hi', [string]$Out = 'todo-hi.txt')
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '..\app\src\main\res'
+$utf8 = New-Object System.Text.UTF8Encoding($false)
 function Read-Map([string]$d) {
-    $xml = [xml](Get-Content (Join-Path $root "$d\strings.xml") -Raw)
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml([System.IO.File]::ReadAllText((Join-Path $root "$d\strings.xml"), $utf8))
     $m = [ordered]@{}
-    foreach ($s in $xml.resources.string) { if ($s.name) { $m[$s.name] = [string]$s.InnerText } }
+    $skip = @{}
+    foreach ($s in $doc.resources.string) {
+        if (-not $s.name) { continue }
+        if ($s.translatable -eq 'false') { $skip[$s.name] = $true; continue }
+        $m[$s.name] = [string]$s.InnerText
+    }
     return $m
 }
 $base = Read-Map 'values'

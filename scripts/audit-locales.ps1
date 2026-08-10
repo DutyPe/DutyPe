@@ -1,10 +1,18 @@
 # Audits string resource parity across en / hi / te.
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '..\app\src\main\res'
+# PowerShell 5.1 reads BOM-less UTF-8 as CP1252, so decode explicitly.
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+
+function Load-Xml([string]$dir) {
+    $path = Join-Path $root "$dir\strings.xml"
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml([System.IO.File]::ReadAllText($path, $utf8))
+    return $doc
+}
 
 function Read-Strings([string]$dir) {
-    $path = Join-Path $root "$dir\strings.xml"
-    $xml = [xml](Get-Content $path -Raw)
+    $xml = Load-Xml $dir
     $map = @{}
     foreach ($s in $xml.resources.string) {
         if ($s.name) { $map[$s.name] = [string]$s.InnerText }
@@ -17,7 +25,7 @@ $hi = Read-Strings 'values-hi'
 $te = Read-Strings 'values-te'
 
 # Keys marked translatable="false" are intentionally English-only.
-$baseXml = [xml](Get-Content (Join-Path $root 'values\strings.xml') -Raw)
+$baseXml = Load-Xml 'values'
 $noTranslate = @($baseXml.resources.string | Where-Object { $_.translatable -eq 'false' } | ForEach-Object { $_.name })
 
 $expected = @($base.Keys | Where-Object { $noTranslate -notcontains $_ })

@@ -1,0 +1,240 @@
+app_name	ड्यूटीपे
+bottom_nav_account	खाता
+contact_support_whatsapp	व्हाट्सएप पर सहायता से संपर्क करें
+select_your_location	अपना स्थान चुनें
+tap_to_get_location	स्थान पाने के लिए टैप करें
+recommended_jobs_near_you	आपके पास सुझाई गई नौकरियाँ
+jobs_for_you	आपके लिए नौकरियाँ
+jobs_fits_for_you	आपके अनुकूल नौकरियाँ
+view_all_jobs	सभी नौकरियाँ देखें
+browse_categories	श्रेणियाँ देखें
+jobs_coming_soon	नौकरियाँ जल्द आ रही हैं!
+jobs_coming_soon_message	हम आपके लिए बेहतरीन अवसर ला रहे हैं। जल्द ही दोबारा देखें!
+applied_to_all_jobs	आपने सभी नौकरियों के लिए आवेदन कर दिया है!
+applied_to_all_jobs_message	बहुत बढ़िया! नए अवसरों के लिए जल्द ही दोबारा देखें।
+applied_jobs	आवेदन की गई नौकरियाँ
+saved_jobs	सहेजी गई नौकरियाँ
+no_applications_yet	अभी कोई आवेदन नहीं
+apply_to_jobs_to_track	नौकरियों पर नज़र रखने के लिए आवेदन करें
+find_jobs	नौकरियाँ खोजें
+no_saved_jobs	कोई सहेजी गई नौकरी नहीं
+tap_bookmark_to_save	नौकरी सहेजने के लिए बुकमार्क आइकन पर टैप करें
+browse_jobs	नौकरियाँ देखें
+withdraw	निकालें
+withdraw_application_title	आवेदन वापस लें?
+withdraw_application_message	क्या आप वाकई अपना आवेदन वापस लेना चाहते हैं? यह क्रिया वापस नहीं की जा सकती।
+payment_protected	भुगतान सुरक्षित है
+distance_unavailable	दूरी उपलब्ध नहीं
+less_than_50m	50 मीटर से कम दूरी पर
+walkable	पैदल दूरी पर
+away	दूर
+landmark	लैंडमार्क
+under_review	समीक्षाधीन
+fetching_jobs	नौकरियाँ लाई जा रही हैं...
+loading_map	मानचित्र लोड हो रहा है...
+no_jobs_in_area	इस क्षेत्र में कोई नौकरी नहीं
+zoom_in_to_see_jobs	नौकरियाँ देखने के लिए ज़ूम करें
+account_settings	खाता सेटिंग्स
+app_settings	ऐप सेटिंग्स
+support	सहायता
+legal	कानूनी
+delete_account	खाता हटाएँ
+sign_out	साइन आउट
+are_you_sure_logout	क्या आप वाकई लॉगआउट करना चाहते हैं?
+dashboard	डैशबोर्ड
+manage_jobs	नौकरियाँ प्रबंधित करें
+applications_received	प्राप्त आवेदन
+new_applicants	नए आवेदक
+no_active_jobs	कोई सक्रिय नौकरी नहीं
+post_your_first_job	भर्ती शुरू करने के लिए अपनी पहली नौकरी पोस्ट करें
+dutype_promise	DutyPe का वादा
+your_safety_priority	आपकी सुरक्षा हमारी प्राथमिकता है
+trusted	भरोसेमंद
+free_100	100% मुफ़्त
+no_fees_ever	कभी कोई शुल्क नहीं
+verified_jobs	सत्यापित नौकरियाँ
+trusted_employers	भरोसेमंद नियोक्ता
+secure_pay	सुरक्षित भुगतान
+on_time_payments	समय पर भुगतान
+support_24_7	24/7 सहायता
+always_here_to_help	मदद के लिए हमेशा हाज़िर
+work_and_activity	काम और गतिविधि
+help_and_info	मदद और जानकारी
+track_income_payments	अपनी आय और भुगतान पर नज़र रखें
+chat_with_employers	नियोक्ताओं से चैट करें
+security_legal	सुरक्षा और कानूनी
+privacy_terms_security	गोपनीयता, शर्तें, सुरक्षा
+share_on_whatsapp_get_jobs	व्हाट्सएप पर शेयर करें और ज़्यादा नौकरियाँ पाएँ! 🚀
+refer	रेफर करें
+business_and_jobs	व्यवसाय और नौकरियाँ
+manage_your_plan	अपना प्लान प्रबंधित करें
+my_job_posts	मेरी जॉब पोस्ट
+work_locations	कार्य स्थान
+preferences_and_support	प्राथमिकताएँ और सहायता
+help_and_support	मदद और सामान्य प्रश्न
+more_settings	और सेटिंग्स
+your_company	आपकी कंपनी
+fetching_your_location	आपका स्थान पता किया जा रहा है...
+loading_nearby_jobs	आसपास की नौकरियाँ लोड हो रही हैं...
+jobs_within	नौकरियाँ, दायरा
+show_all_jobs	सभी नौकरियाँ दिखाएँ
+no_jobs_within_distance	%s के भीतर कोई नौकरी नहीं
+try_expanding_search	अपना खोज दायरा बढ़ाकर देखें
+you_are_here	आप यहाँ हैं
+jobs_near_you_map	आपके पास की नौकरियाँ
+filter_by_category	श्रेणी से फ़िल्टर करें
+vacancy	रिक्ति
+available	उपलब्ध
+urgent_hiring_today	अर्जेंट - आज ही भर्ती!
+search_jobs_companies	नौकरियाँ, कंपनियाँ, स्थान खोजें...
+no_results_found	कोई परिणाम नहीं मिला
+no_jobs_match	\"%s\" से मेल खाती कोई नौकरी नहीं
+no_saved_jobs_match	\"%s\" से मेल खाती कोई सहेजी गई नौकरी नहीं
+clear_all	सभी हटाएँ
+jobs_plural	नौकरियाँ
+saved_lowercase	सहेजी गईं
+profile_information	प्रोफ़ाइल जानकारी
+account_management	खाता प्रबंधन
+personal_information	व्यक्तिगत जानकारी
+tell_us_about_yourself	हमें अपने बारे में बताएँ
+additional_details	अतिरिक्त विवरण
+complete_profile_information	अपनी प्रोफ़ाइल जानकारी पूरी करें
+address_required	पता *
+date_of_birth_required	जन्म तिथि *
+professional_information	व्यावसायिक जानकारी
+share_skills_experience	अपने कौशल और अनुभव साझा करें
+skills_required	कौशल * (जो भी लागू हों सभी चुनें)
+experience_level_required	अनुभव स्तर *
+gender_required	लिंग *
+tap_photo_to_change	फ़ोटो बदलने के लिए टैप करें
+tell_us_about_company	हमें अपनी कंपनी के बारे में बताएँ
+your_profile_is_complete	आपकी प्रोफ़ाइल पूरी हो गई है!
+status_pending	लंबित
+status_accepted	स्वीकृत
+status_rejected	अस्वीकृत
+status_completed	पूर्ण
+status_in_progress	चल रहा है
+status_under_review	समीक्षाधीन
+status_hired	चयनित
+status_withdrawn	वापस लिया गया
+view_details	विवरण देखें
+rate_employer	नियोक्ता को रेटिंग दें
+start_work	काम शुरू करें
+already_rated	पहले ही रेटिंग दी गई
+call	कॉल करें
+company_information	कंपनी की जानकारी
+industry_required	उद्योग *
+complete	पूर्ण
+complete_your_profile	अपनी प्रोफ़ाइल पूरी करें
+fields_missing	फ़ील्ड बाकी हैं
+missing_fields	अधूरे फ़ील्ड
+just_now	अभी-अभी
+km_away_format	%.1f किमी दूर
+m_away_format	%d मीटर दूर
+negotiable	बातचीत योग्य
+logout_confirmation	क्या आप वाकई लॉगआउट करना चाहते हैं?
+job_safety_verified	सत्यापित सुरक्षित
+job_safety_looks_good	ठीक लगता है
+job_safety_caution	सावधानी से आगे बढ़ें
+job_safety_high_risk	उच्च जोखिम पाया गया
+job_safety_scam_alert	धोखाधड़ी चेतावनी!
+job_safety_ai_analysis	AI सुरक्षा विश्लेषण
+job_safety_learn_more	नौकरी सुरक्षा के बारे में और जानें →
+job_safety_risk_score	जोखिम स्कोर
+offline_message	आप ऑफ़लाइन हैं। अपना इंटरनेट कनेक्शन जाँचें।
+offline_message_compact	इंटरनेट कनेक्शन नहीं
+offline_message_inline	नवीनतम अपडेट देखने के लिए इंटरनेट से कनेक्ट करें
+connecting	कनेक्ट हो रहा है...
+connected	कनेक्ट हो गया
+reconnecting	फिर से कनेक्ट हो रहा है...
+change_language_title	भाषा बदलें
+change_language_message	नई भाषा लागू करने के लिए ऐप पुनः चालू होगा
+yes_change	हाँ, बदलें
+post_anyway	फिर भी पोस्ट करें
+edit_job_details	नौकरी का विवरण संपादित करें
+continue_anyway	फिर भी जारी रखें
+edit_pay_rate	वेतन दर संपादित करें
+complete_profile_button	प्रोफ़ाइल पूरी करें
+save_changes	बदलाव सहेजें
+save_location	स्थान सहेजें
+saved_count	सहेजे गए (%d)
+no_referrals_yet	अभी कोई रेफरल नहीं
+share_code_to_earn	कमाई शुरू करने के लिए अपना कोड शेयर करें
+share_code_employers	कमाई शुरू करने के लिए अपना कोड दूसरे नियोक्ताओं के साथ शेयर करें!
+withdraw_button	निकालें
+notes_optional	टिप्पणी (वैकल्पिक)
+edit_button	संपादित करें
+select_job_title	पद का नाम चुनें
+tap_to_select_job_title	पद का नाम चुनने के लिए टैप करें
+enter_job_title	पद का नाम दर्ज करें
+job_title_placeholder	जैसे, बरिस्ता, सैलून सहायक
+job_title_hint	अपने स्थानीय व्यवसाय के लिए एक स्पष्ट पद नाम दर्ज करें
+amount_rupees	राशि (₹)
+search_work_location	कार्य स्थान खोजें
+location_search_placeholder	खोजने के लिए टाइप करें (जैसे, कोरमंगला, बैंगलोर)
+valid_job_location_required	पोस्ट करने से पहले एक मान्य कार्य स्थान चुनें
+nearby_landmark_optional	पास का लैंडमार्क (वैकल्पिक)
+landmark_placeholder	जैसे, बड़े मंदिर के पास, मेट्रो स्टेशन के सामने
+post_a_job	नौकरी पोस्ट करें
+ai_protected_posting	AI-सुरक्षित पोस्टिंग
+notification_not_found	सूचना नहीं मिली
+go_back	वापस जाएँ
+delete_notification	सूचना हटाएँ
+opening_chat	चैट खोली जा रही है...
+failed_to_open_chat	चैट खोलने में विफल: %s
+employer_info_not_available	नियोक्ता की जानकारी उपलब्ध नहीं
+please_complete_profile_to_apply	आवेदन करने के लिए कृपया अपनी प्रोफ़ाइल पूरी करें
+contact_number_not_available	संपर्क नंबर उपलब्ध नहीं
+phone_number_not_available	फ़ोन नंबर उपलब्ध नहीं
+job_details_label	नौकरी का विवरण
+job_description_label	नौकरी का विवरण
+dont_pay_fee_for_jobs	नौकरी के लिए कोई शुल्क न दें
+report_suspicious_jobs	संदिग्ध नौकरियों की शिकायत DutyPe को करें
+oops_something_wrong	ओह! कुछ गड़बड़ हो गई
+try_again_button	फिर कोशिश करें
+something_went_wrong_error	कुछ गड़बड़ हो गई
+no_jobs_found_error	कोई नौकरी नहीं मिली
+view_all_jobs_button	सभी नौकरियाँ देखें
+filter_jobs	नौकरियाँ फ़िल्टर करें
+reset	रीसेट करें
+sort_by	इसके अनुसार क्रमबद्ध करें
+salary_range	वेतन सीमा
+maximum_distance	अधिकतम दूरी
+applicant_hired_successfully	आवेदक सफलतापूर्वक चयनित!
+later	बाद में
+retry_button	फिर कोशिश करें
+copy_code	कोड कॉपी करें
+share	शेयर करें
+total_referrals	कुल रेफरल
+successful	सफल
+withdraw_earnings	कमाई निकालें
+available_balance	उपलब्ध: ₹%d
+conversion_rate	रूपांतरण दर
+total_clicks	कुल क्लिक
+your_rank	आपकी रैंक
+projected_monthly	अनुमानित मासिक
+navigate	रास्ता दिखाएँ
+full_name_label	पूरा नाम
+email_address	ईमेल पता
+phone_number_label	फ़ोन नंबर
+address_label	पता
+date_of_birth_label	जन्म तिथि
+gender_label	लिंग
+generate_new_code	नया कोड बनाएँ
+done_button	हो गया
+dismiss	बंद करें
+role_worker	कर्मचारी
+role_employer	नियोक्ता
+view_analytics	विश्लेषण देखें
+full_name_required	पूरा नाम *
+enter_full_name	अपना पूरा नाम दर्ज करें
+email_address_verified	ईमेल पता (सत्यापित)
+email_address_optional	ईमेल पता (वैकल्पिक)
+enter_email	अपना ईमेल दर्ज करें
+phone_number_verified	फ़ोन नंबर (सत्यापित)
+phone_number_required	फ़ोन नंबर *
+enter_10_digit_phone	10 अंकों का फ़ोन नंबर दर्ज करें
+select_experience_level	अपना अनुभव स्तर चुनें
+company_name_required	कंपनी का नाम *
+enter_company_name	अपनी कंपनी का नाम दर्ज करें
+contact_phone_required	संपर्क फ़ोन *

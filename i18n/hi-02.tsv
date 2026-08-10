@@ -1,0 +1,250 @@
+enter_email_address	ईमेल पता दर्ज करें
+select_date_of_birth	अपनी जन्म तिथि चुनें
+copy_button	कॉपी करें
+share_button	शेयर करें
+code_copied	कोड कॉपी हो गया!
+your_referral_code	आपका रेफरल कोड
+share_code_friend_bonus	यह कोड शेयर करें → दोस्त को ₹25 बोनस मिलेगा!
+your_stats	आपके आँकड़े
+free_job_postings	मुफ़्त जॉब पोस्टिंग
+available_to_withdraw	निकालने के लिए उपलब्ध
+next_milestone	अगला पड़ाव
+how_it_works	यह कैसे काम करता है
+rewards_milestones	इनाम और पड़ाव
+how_to_redeem	कैसे भुनाएँ
+recent_referrals	हाल के रेफरल
+amount_rs	राशि (रु.)
+performance_analytics	प्रदर्शन विश्लेषण
+top_percentile	शीर्ष प्रतिशत
+top_performers	शीर्ष प्रदर्शक
+important_information	महत्वपूर्ण जानकारी
+terms_rbi_consent	भाग लेकर, आप हमारी शर्तों और RBI दिशानिर्देशों से सहमत होते हैं।
+email_support	ईमेल सहायता
+whatsapp_support	व्हाट्सएप सहायता
+whatsapp_support_subtitle	व्हाट्सएप पर हमें संदेश भेजें
+search_help_topics	सहायता विषय खोजें
+report_a_problem	समस्या की शिकायत करें
+report_submitted	शिकायत दर्ज हो गई
+report_submitted_thanks	शिकायत करने के लिए धन्यवाद। हम इसकी जाँच करेंगे।
+describe_issue_intro	आपको जो समस्या आ रही है उसे बताएँ, हम जाँच करेंगे।
+describe_problem	समस्या बताएँ
+submit_report	शिकायत भेजें
+tutorial	ट्यूटोरियल
+updating	अपडेट हो रहा है...
+update_job	नौकरी अपडेट करें
+amount	राशि
+describe_job_placeholder	काम की ज़िम्मेदारियाँ और आवश्यकताएँ बताएँ...
+contact_number_label	संपर्क नंबर
+your_name_optional	आपका नाम (वैकल्पिक)
+enter_your_name	अपना नाम दर्ज करें
+number_of_vacancies	रिक्तियों की संख्या
+delete_job	नौकरी हटाएँ
+delete_job_confirm	क्या आप वाकई यह जॉब पोस्टिंग हटाना चाहते हैं? यह क्रिया वापस नहीं की जा सकती।
+deleting	हटाया जा रहा है...
+delete	हटाएँ
+address_label_hint	लेबल (जैसे, ऑफ़िस, फ़ैक्ट्री, दुकान)
+enter_label	लेबल दर्ज करें
+pay_type	वेतन का प्रकार
+enter_job_type	काम का प्रकार दर्ज करें
+preview_button	पूर्वावलोकन
+post_job_button	नौकरी पोस्ट करें
+enter_location_or_gps	स्थान दर्ज करें या GPS इस्तेमाल करें
+vacancies_max_50	रिक्तियाँ (अधिकतम 50)
+enter_number_of_positions	पदों की संख्या दर्ज करें
+max_50_vacancies_hint	स्थानीय नौकरियों के लिए अधिकतम 50 रिक्तियाँ मान्य हैं
+your_name	आपका नाम
+contact	संपर्क करें
+shortlist	शॉर्टलिस्ट करें
+reject	अस्वीकार करें
+confirm	पुष्टि करें
+office_name	ऑफ़िस का नाम
+search_or_enter_address	पता खोजें या दर्ज करें
+search_location_or_enter_address	स्थान खोजें या पता दर्ज करें
+saving	सहेजा जा रहा है...
+add_address	पता जोड़ें
+gallery	गैलरी
+camera	कैमरा
+accept	स्वीकार करें
+processing	प्रक्रिया जारी है...
+report	शिकायत करें
+change_location	स्थान बदलें
+feedback_optional	आपकी प्रतिक्रिया (वैकल्पिक)
+feedback_hint	हमें बताएँ आप क्या सोचते हैं...
+write_review_optional	समीक्षा लिखें (वैकल्पिक)
+review_hint	अपना अनुभव साझा करें...
+no_locations_found	कोई स्थान नहीं मिला
+try_different_search	कोई दूसरा खोज शब्द आज़माएँ
+applications	आवेदन
+near_label	पास: 
+education_example_hint	जैसे: 10वीं पास + 2 साल
+getting_started	शुरुआत करें
+finding_jobs_faster	तेज़ी से नौकरियाँ खोजें
+applying_work_start	आवेदन और काम की शुरुआत
+building_reputation	अपनी साख बनाएँ
+getting_paid_safely	सुरक्षित भुगतान पाएँ
+help_faqs	मदद और सामान्य प्रश्न
+whatsapp_label	व्हाट्सएप
+email_label	ईमेल
+worker_guide	कर्मचारी गाइड
+frequently_asked	अक्सर पूछे जाने वाले प्रश्न
+posting_a_job	नौकरी पोस्ट करना
+managing_applications	आवेदन प्रबंधित करना
+verifying_work_completion	काम पूरा होने की पुष्टि
+building_trust_score	ट्रस्ट स्कोर बनाना
+best_practices	बेहतर तरीके
+send_feedback	प्रतिक्रिया भेजें
+my_ratings_reviews	मेरी रेटिंग और समीक्षाएँ
+enter_phone_number	अपना फ़ोन नंबर दर्ज करें
+enter_gender	अपना लिंग दर्ज करें
+enter_skills_comma	अपने कौशल दर्ज करें (कॉमा से अलग करें)
+describe_experience	अपने काम का अनुभव बताएँ
+tell_us_about_role	हमें इस पद के बारे में बताएँ
+pay_where_work	वेतन और काम की जगह
+who_you_want_extras	आपको कौन चाहिए और अतिरिक्त बातें
+login_to_post_job	नौकरी पोस्ट करने के लिए लॉगिन करें
+type_label	प्रकार
+area_label	क्षेत्र
+essentials	ज़रूरी बातें
+trust_tier	ट्रस्ट स्तर
+visual	तस्वीर
+experience_required	आवश्यक अनुभव
+basic_information	बुनियादी जानकारी
+company_details_section	कंपनी का विवरण
+employer_ratings_reviews	नियोक्ता रेटिंग और समीक्षाएँ
+contact_email	संपर्क ईमेल
+contact_phone	संपर्क फ़ोन
+login_phone_number	लॉगिन फ़ोन नंबर
+business_address	व्यवसाय का पता
+enter_business_address	व्यवसाय का पता दर्ज करें
+industry	उद्योग
+analytics_dashboard	विश्लेषण डैशबोर्ड
+todays_posts	आज की पोस्ट
+total_jobs	कुल नौकरियाँ
+total_label	कुल
+welcome_to_dutype	DutyPe में आपका स्वागत है
+our_mission	हमारा मिशन
+our_vision	हमारा दृष्टिकोण
+key_features_employers	नियोक्ताओं के लिए मुख्य सुविधाएँ
+hire_for_any_role	किसी भी पद के लिए भर्ती करें
+why_choose_dutype	DutyPe क्यों चुनें?
+our_core_values	हमारे मूल मूल्य
+about_dutype	DutyPe के बारे में
+legal_support	कानूनी और सहायता
+view_legal_pages_web	कानूनी पेज वेब पर देखें
+earnings_title	कमाई
+jobs_done	पूरी की गई नौकरियाँ
+on_time_pay	समय पर भुगतान
+hours	घंटे
+no_transactions_yet	अभी कोई लेन-देन नहीं
+key_features	मुख्य सुविधाएँ
+job_categories	नौकरी श्रेणियाँ
+my_activity	मेरी गतिविधि
+rewards	इनाम
+others	अन्य
+business	व्यवसाय
+caution	सावधानी
+high_risk	उच्च जोखिम
+scam_alert	धोखाधड़ी चेतावनी
+employer_profile	नियोक्ता प्रोफ़ाइल
+jobs_listed	सूचीबद्ध नौकरियाँ
+open_jobs	खुली नौकरियाँ
+rating_label	रेटिंग
+manage_addresses	पते प्रबंधित करें
+no_saved_addresses	कोई सहेजा गया पता नहीं
+verified_label	सत्यापित
+clear_search	खोज हटाएँ
+work_location	कार्य स्थान
+search_location_or_gps	स्थान खोजें या GPS इस्तेमाल करें
+search_or_enter_work_location	अपना कार्य स्थान खोजें या दर्ज करें
+positions_label	पद
+shift_label	शिफ़्ट
+about_us	हमारे बारे में
+login_required	लॉगिन आवश्यक
+faq_why_not_seeing_jobs	मुझे पर्याप्त नौकरियाँ क्यों नहीं दिख रहीं?
+faq_track_application	मैं अपने आवेदन की स्थिति कैसे देखूँ?
+faq_contact_support	मैं सहायता से कैसे संपर्क करूँ?
+faq_improve_trust	मैं भरोसा और दृश्यता कैसे बढ़ाऊँ?
+faq_personal_data_safe	क्या मेरा व्यक्तिगत डेटा सुरक्षित है?
+faq_cant_apply	मैं आवेदन क्यों नहीं कर पा रहा / कुछ रुका हुआ क्यों लग रहा है?
+job_title_work_type_desc	पद का नाम, काम का प्रकार, विवरण और एक फ़ोटो
+set_pay_pin_location	वेतन तय करें और कार्य स्थान पिन करें
+vacancies_requirements_schedule	रिक्तियाँ, आवश्यकताएँ, समय और सुविधाएँ
+login_publish_job_subtitle	अपनी जॉब पोस्टिंग प्रकाशित करने और हज़ारों कर्मचारियों तक पहुँचने के लिए कृपया लॉगिन करें
+invite_employers_earn	नियोक्ताओं को आमंत्रित करें और इनाम कमाएँ
+referral_code_label	रेफरल कोड
+employer_label	नियोक्ता
+select_location	स्थान चुनें
+choose_preferred_location	अपना पसंदीदा स्थान चुनें
+search_area_street_city	क्षेत्र, गली, शहर खोजें...
+no_charges	कोई शुल्क नहीं
+safe_jobs	सुरक्षित नौकरियाँ
+no_jobs_posted_yet	अभी कोई नौकरी पोस्ट नहीं की गई
+start_building_team	अपनी पहली नौकरी पोस्ट करके टीम बनाना शुरू करें
+my_business_card	मेरा बिज़नेस कार्ड
+worker_ratings_reviews	कर्मचारी रेटिंग और समीक्षाएँ
+add_office_locations	कार्य स्थान प्रबंधित करने के लिए अपने ऑफ़िस के पते जोड़ें
+complete_jobs_see_earnings	अपनी कमाई यहाँ देखने के लिए नौकरियाँ पूरी करें
+login_to_continue	जारी रखने के लिए लॉगिन करें
+search_or_enter_address_w	अपना पता खोजें या दर्ज करें
+work_history	कार्य इतिहास
+job_posting_history	जॉब पोस्टिंग इतिहास
+worker_profile_label	कर्मचारी प्रोफ़ाइल
+all_categories	सभी श्रेणियाँ
+apply_for_job	नौकरी के लिए आवेदन करें
+apply_work_tips_title	काम पर जाने से पहले
+apply_tip_confirm_details	निकलने से पहले नियोक्ता को कॉल करके काम का समय, जगह और वेतन पक्का कर लें।
+apply_tip_reach_on_time	समय पर पहुँचें और अपना फ़ोन चालू रखें।
+apply_tip_polite_work	विनम्रता से बात करें, केवल तय किया गया काम करें, और अतिरिक्त काम से पहले पूछ लें।
+apply_tip_no_fee	नौकरी पाने के लिए कोई शुल्क न दें। संदिग्ध माँगों की शिकायत करें।
+notification_label	सूचना
+dutype_tagline	बेहतरीन स्थानीय कर्मचारी तुरंत खोजने का आपका संपूर्ण समाधान।
+tab_timeline	टाइमलाइन
+tab_active	सक्रिय
+tab_expired	समाप्त
+tab_all_jobs	सभी नौकरियाँ
+tab_completed	पूर्ण
+tab_all_history	पूरा इतिहास
+step_role	पद
+step_pay_place	वेतन और जगह
+step_people	लोग
+step_review	समीक्षा
+step_job_details	नौकरी का विवरण
+step_pay_location	वेतन और स्थान
+step_contact_info	संपर्क जानकारी
+step_review_post	समीक्षा और पोस्ट
+about_worker_subtitle	भरोसेमंद स्थानीय नौकरियों तक आपका रास्ता — दैनिक, घंटे के हिसाब से, पूर्णकालिक।
+about_worker_mission	कर्मचारियों को स्थानीय नौकरी के अवसरों तक आसान पहुँच देकर सशक्त बनाना। हर किसी को कमाने, आगे बढ़ने और सफल होने का मौका मिलना चाहिए, बिना जटिल आवेदनों और लंबी प्रक्रियाओं के।
+about_worker_vision	स्थानीय रोज़गार के लिए भारत का सबसे भरोसेमंद मंच बनना, जहाँ हर कर्मचारी अपने कौशल, समय और स्थान के अनुकूल सार्थक काम पा सके।
+about_feat_quick_apply	एक टैप में तुरंत नौकरी आवेदन
+about_feat_jobs_near	आपके स्थान के पास की नौकरियाँ
+about_feat_realtime_notif	तुरंत नौकरी सूचनाएँ
+about_feat_save_jobs	नौकरियाँ बाद के लिए सहेजें
+about_feat_track_apps	अपने आवेदनों पर नज़र रखें
+about_feat_build_profile	अपनी कार्य प्रोफ़ाइल बनाएँ
+about_cat_delivery	डिलीवरी और लॉजिस्टिक्स
+about_cat_food	खाद्य सेवा और रसोई
+about_cat_housekeeping	हाउसकीपिंग और सफ़ाई
+about_cat_shop	दुकान और रिटेल सहायता
+about_cat_childcare	बच्चों और बुज़ुर्गों की देखभाल
+about_cat_maintenance	रखरखाव और मरम्मत
+about_why_no_resume	रिज़्यूमे की ज़रूरत नहीं
+about_why_verified_employers	सत्यापित नियोक्ता
+about_why_transparent_pay	पारदर्शी वेतन जानकारी
+about_why_flexible_work	लचीले काम के विकल्प
+about_why_safe_platform	सुरक्षित मंच
+about_employer_mission	व्यवसायों को एक सहज, कुशल और भरोसेमंद मंच देकर सशक्त बनाना, जिससे वे लचीले कार्यबल से जुड़ सकें — ताकि आप अपने व्यवसाय को बढ़ाने पर ध्यान दे सकें।
+about_employer_vision	भारत में ऑन-डिमांड रोज़गार का अग्रणी मंच बनना, जहाँ व्यवसायों को सही प्रतिभा मिले और कर्मचारियों को सार्थक अवसर।
+about_emp_feat_post_jobs	मिनटों में नौकरी पोस्ट करें
+about_emp_feat_talent_pool	बड़े प्रतिभा भंडार तक पहुँच
+about_emp_feat_gps_attendance	GPS आधारित उपस्थिति ट्रैकिंग
+about_emp_feat_verified_workers	सत्यापित कर्मचारी प्रोफ़ाइल
+about_emp_feat_flexible_hiring	लचीले भर्ती विकल्प
+about_emp_feat_realtime_alerts	तुरंत आवेदन अलर्ट
+about_emp_feat_manage_postings	कई पोस्टिंग प्रबंधित करें
+about_emp_feat_track_performance	कर्मचारी प्रदर्शन पर नज़र रखें
+about_emp_cat_delivery	डिलीवरी कर्मचारी
+about_emp_cat_kitchen	रसोई और खाना बनाने वाले कर्मचारी
+about_emp_cat_housekeeping	हाउसकीपिंग और सफ़ाई
+about_emp_cat_shop	दुकान सहायक और रिटेल
+about_emp_cat_childcare	बच्चों और बुज़ुर्गों की देखभाल
+about_emp_cat_maintenance_w	रखरखाव कर्मचारी
